@@ -1,0 +1,4 @@
+/* Utility tokens */
+.edge-border { border: 1px solid var(--edge-border); }
+.edge-hover { transition: transform .3s ease, box-shadow .3s ease; }
+.edge-hover:hover { transform: scale(1.01); box-shadow: 0 10px 30px rgba(34, 211, 238, 0.15); }
