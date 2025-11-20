@@ -1,119 +1,109 @@
-import Link from "next/link";
-import { Play } from "lucide-react";
+"use client";
 
-const thumbs = [
-  "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=1600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=1600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1555255707-c07966088b7b?q=80&w=1600&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1600&auto=format&fit=crop",
-];
+import React from "react";
+import { Search } from "lucide-react";
+import ProfileMenu from "../components/auth/ProfileMenu";
+import { useAuth } from "../components/auth/AuthContext";
 
-const featured = new Array(8).fill(0).map((_, i) => ({
-  id: `w${i}`,
-  title: [
-    "YouTube Title Exploder",
-    "PDF Summarizer Pro",
-    "Sales Email Autopilot",
-    "Code Reviewer",
-    "Resume Tailor",
-    "Image-to-AltText",
-    "Research Co-Pilot",
-    "Podcast Clipper",
-  ][i],
-  image: thumbs[i % thumbs.length],
-  creator: ["nova", "echo", "kit", "mia", "arjun", "val", "sam", "evan"][i % 8],
-  runs: Math.floor(2000 + Math.random() * 9000),
-}));
-const continueUsing = featured.slice(0, 4);
+type PlaceholderWorkflow = {
+  id: number;
+  title: string;
+  description: string;
+};
 
-function Tag({ children }: { children: React.ReactNode }) {
-  return <span className="text-[12px] px-2.5 py-1 rounded-full edge-glass edge-border">{children}</span>;
-}
-function GButton({ children, href }: { children: React.ReactNode; href?: string }) {
-  const btn = (
-    <span className="inline-flex rounded-full p-[1.5px] edge-grad">
-      <button className="rounded-full px-5 py-2 text-sm font-medium edge-glass edge-border hover:shadow-glow transition">
-        {children}
-      </button>
-    </span>
-  );
-  return href ? <Link href={href}>{btn}</Link> : btn;
-}
-function SubtleButton({ children }: { children: React.ReactNode }) {
+const PLACEHOLDER_WORKFLOWS: PlaceholderWorkflow[] = Array.from(
+  { length: 8 },
+  (_, i) => ({
+    id: i + 1,
+    title: `Placeholder workflow #${i + 1}`,
+    description:
+      "This slot will be used for a real creator workflow. For now it just triggers the sign-in gate.",
+  })
+);
+
+export default function MarketplacePage() {
+  const { requireAuth } = useAuth();
+
+  const handleCardClick = () => {
+    // For now: just trigger the sign-in modal via requireAuth
+    requireAuth();
+  };
+
   return (
-    <button className="rounded-xl px-3.5 py-2 text-sm edge-glass edge-border hover:shadow-glow transition">
-      {children}
-    </button>
-  );
-}
-function WorkflowCard({ w }: { w: any }) {
-  return (
-    <div className="overflow-hidden rounded-2xl edge-glass edge-border hover:shadow-glow transition">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={w.image} className="w-full h-48 object-cover" alt="" />
-      <div className="p-3.5">
-        <div className="flex items-center justify-between">
-          <h4 className="font-semibold line-clamp-1">{w.title}</h4>
-          <span className="text-xs text-white/70">{w.runs.toLocaleString()} runs</span>
+    <div className="flex h-full flex-col bg-[#050505] text-white">
+      {/* Top bar */}
+      <header className="flex items-center justify-between px-8 pt-6 pb-4 border-b border-white/10">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-semibold">Edgaze Marketplace</h1>
+          <p className="text-sm text-white/55">
+            Discover workflows shared by AI-native creators.
+          </p>
         </div>
-        <p className="text-xs text-white/70">by @{w.creator}</p>
-        <div className="mt-3 flex gap-2">
-          <GButton>
-            <Play size={14} className="inline mr-1" />
-            Use
-          </GButton>
-          <SubtleButton>Details</SubtleButton>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-export default function Page() {
-  return (
-    <div className="mx-auto max-w-[1280px] px-6 py-6 space-y-10">
-      <div className="relative h-72 w-full overflow-hidden rounded-3xl edge-glass edge-border">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://images.unsplash.com/photo-1547082299-de196ea013d6?q=80&w=1920&auto=format&fit=crop"
-          className="absolute inset-0 h-full w-full object-cover opacity-60"
-          alt=""
-        />
-        <div className="absolute inset-0 p-6 flex flex-col justify-between">
-          <div className="flex items-center gap-2">
-            <Tag>Featured</Tag>
-            <Tag>Trending</Tag>
-          </div>
-          <div>
-            <h2 className="text-3xl font-bold drop-shadow">Discover, run, and remix AI workflows</h2>
-            <p className="mt-2 max-w-2xl text-white/90">Launch instantly, paywall optional, remix encouraged.</p>
-            <div className="mt-4 flex gap-3">
-              <GButton href="/builder">New workflow</GButton>
-              <SubtleButton>Browse marketplace</SubtleButton>
-            </div>
+        {/* Center search */}
+        <div className="flex-1 px-8 max-w-2xl">
+          <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm">
+            <Search className="h-4 w-4 text-white/40" />
+            <input
+              type="text"
+              placeholder="Search workflows, creators, or tags..."
+              className="w-full bg-transparent outline-none text-sm placeholder:text-white/40"
+            />
+            <span className="text-[11px] text-white/35 border border-white/15 rounded-full px-2 py-0.5">
+              ⌘K
+            </span>
           </div>
         </div>
-      </div>
 
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold">Top workflows this week</h3>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featured.map((w) => (
-            <WorkflowCard key={w.id} w={w} />
-          ))}
+        {/* Right: unified profile chip (avatar + name + plan) */}
+        <div className="flex items-center gap-3">
+          <ProfileMenu />
         </div>
-      </section>
+      </header>
 
-      <section className="space-y-4">
-        <h3 className="text-lg font-semibold">Continue using</h3>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {continueUsing.map((w) => (
-            <WorkflowCard key={w.id} w={w} />
-          ))}
-        </div>
-      </section>
+      {/* Body */}
+      <main className="flex-1 overflow-y-auto px-8 pb-10 pt-6">
+        <section className="mb-4">
+          <h2 className="text-lg font-semibold mb-1">Featured workflows</h2>
+          <p className="text-sm text-white/55">
+            This is a placeholder grid. Clicking a card will ask users to sign
+            in for now.
+          </p>
+        </section>
+
+        <section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-5">
+            {PLACEHOLDER_WORKFLOWS.map((wf) => (
+              <button
+                key={wf.id}
+                onClick={handleCardClick}
+                className="group flex flex-col items-stretch text-left rounded-2xl border border-white/12 bg-white/[0.02] hover:bg-white/[0.06] hover:border-cyan-400/60 transition-colors p-4"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-cyan-300">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-cyan-300" />
+                    Coming soon
+                  </span>
+                </div>
+
+                <h3 className="text-base font-semibold mb-1">
+                  {wf.title}
+                </h3>
+                <p className="text-sm text-white/60 mb-4 line-clamp-3">
+                  {wf.description}
+                </p>
+
+                <div className="mt-auto flex items-center justify-between pt-2 text-xs text-white/50">
+                  <span>Click to preview</span>
+                  <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px]">
+                    Sign-in required
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

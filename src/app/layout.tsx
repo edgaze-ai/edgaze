@@ -1,9 +1,8 @@
-import "src/styles/globals.css";
 import type { Metadata } from "next";
-import React from "react";
+import "../styles/globals.css";
 
-import { SidebarProvider } from "../components/layout/SidebarContext";
 import Sidebar from "../components/layout/Sidebar";
+import { AppProviders } from "./providers";
 
 export const metadata: Metadata = {
   title: "Edgaze",
@@ -16,17 +15,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="h-full">
-      <body className="h-full bg-[#050505] text-white antialiased">
-        <SidebarProvider>
-          <div className="flex h-screen w-screen overflow-hidden">
-            {/* Sidebar */}
+    <html lang="en">
+      <body className="h-full bg-[#0b0b0b] text-white antialiased">
+        <AppProviders>
+          <div className="flex h-screen overflow-hidden">
             <Sidebar />
-
-            {/* Main content grows/shrinks automatically when sidebar collapses */}
-            <main className="flex-1 min-w-0 h-full">{children}</main>
+            <main className="flex-1 overflow-hidden">{children}</main>
           </div>
-        </SidebarProvider>
+        </AppProviders>
       </body>
     </html>
   );

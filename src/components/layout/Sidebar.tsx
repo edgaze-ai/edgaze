@@ -14,6 +14,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
+import { useAuth } from "../auth/AuthContext";
 
 /* simple className joiner */
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -43,6 +44,7 @@ const FOOTER_ITEMS: NavItem[] = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { collapsed, setCollapsed } = useSidebar();
+  const { user, openSignIn } = useAuth();
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -52,6 +54,14 @@ export default function Sidebar() {
   const handleToggle = () => setCollapsed(!collapsed);
 
   const widthClass = collapsed ? "w-[76px]" : "w-[260px]";
+
+  const initials =
+    user?.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() ?? "N";
 
   return (
     <aside
@@ -74,7 +84,6 @@ export default function Sidebar() {
           )}
         >
           <div className="flex items-center gap-3 overflow-hidden">
-            {/* big logo – never covered */}
             <div className="relative h-11 w-11 flex-shrink-0">
               <Image
                 src="/brand/edgaze-mark.png"
@@ -91,7 +100,6 @@ export default function Sidebar() {
             )}
           </div>
 
-          {/* toggle sits under logo when collapsed so it never overlaps */}
           <button
             type="button"
             onClick={handleToggle}
@@ -111,21 +119,50 @@ export default function Sidebar() {
           </button>
         </div>
 
-        {/* Account chip only when expanded */}
+        {/* ACCOUNT CHIP */}
         {!collapsed && (
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-xs">
-              N
+          user ? (
+            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-xs overflow-hidden">
+                {user.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.image}
+                    alt={user.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span>{initials}</span>
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-white/90">
+                  {user.name}
+                </span>
+                <span className="text-[11px] text-white/50">
+                  {(user.plan ?? "Free") + " plan"}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-medium text-white/90">
-                Your account
-              </span>
-              <span className="text-[11px] text-white/50">
-                Profile & settings
-              </span>
-            </div>
-          </div>
+          ) : (
+            <button
+              type="button"
+              onClick={openSignIn}
+              className="flex items-center gap-3 rounded-xl border border-white/12 bg-white/[0.03] px-3 py-2.5 hover:bg-white/[0.08] hover:border-cyan-400 transition-colors"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-cyan-400 via-sky-500 to-pink-400 text-[11px] font-semibold text-black">
+                EZ
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-white/90">
+                  Sign in to Edgaze
+                </span>
+                <span className="text-[11px] text-white/50">
+                  Access your profile and workflows
+                </span>
+              </div>
+            </button>
+          )
         )}
 
         {/* NAVIGATION */}
@@ -208,7 +245,7 @@ function NavButton({ item, collapsed, active }: NavButtonProps) {
       <div
         className={cn(
           "flex items-center gap-3 rounded-2xl",
-          "px-3.5 py-3", // slightly larger buttons
+          "px-3.5 py-3",
           "border transition-colors duration-150",
           active
             ? "border-transparent bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.55)]"

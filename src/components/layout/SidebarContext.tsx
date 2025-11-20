@@ -16,6 +16,14 @@ type SidebarCtx = {
 
 const Ctx = createContext<SidebarCtx | undefined>(undefined);
 
+export function useSidebar(): SidebarCtx {
+  const c = useContext(Ctx);
+  if (!c) {
+    throw new Error("useSidebar must be used within <SidebarProvider>");
+  }
+  return c;
+}
+
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   // start collapsed by default
   const [collapsed, setCollapsed] = useState(true);
@@ -31,16 +39,11 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       collapsed,
       setCollapsed,
     }),
-    [collapsed]
+    [collapsed, setCollapsed]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-export function useSidebar(): SidebarCtx {
-  const c = useContext(Ctx);
-  if (!c) {
-    throw new Error("useSidebar must be used within <SidebarProvider>");
-  }
-  return c;
-}
+// default export so existing imports keep working
+export default SidebarProvider;
