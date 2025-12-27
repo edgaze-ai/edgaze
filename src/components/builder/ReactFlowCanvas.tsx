@@ -5,12 +5,14 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import ReactFlow, {
   addEdge,
   Background,
+  BackgroundVariant,
   Connection,
   Edge,
   MiniMap,
@@ -28,28 +30,40 @@ import "reactflow/dist/style.css";
 import { getNodeSpec } from "src/nodes/registry";
 import type { NodeSpec, Port } from "src/nodes/types";
 import MergeNode from "@components/builder/nodes/MergeNode";
+import {
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
+  Lock,
+  Unlock,
+  Grid3X3,
+} from "lucide-react";
 
 /* ---------- Selection ring (for edgCard nodes) ---------- */
 function SelectionRing() {
   return (
     <div
-      className="pointer-events-none absolute -inset-[6px] rounded-[16px]"
-      style={{
-        background:
-          "linear-gradient(90deg, rgba(34,211,238,.95), rgba(232,121,249,.95))",
-        padding: 2.5,
-        WebkitMask:
-          "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
-        WebkitMaskComposite: "xor",
-        maskComposite: "exclude",
-        boxShadow:
-          "0 0 24px rgba(34,211,238,.25), 0 0 24px rgba(232,121,249,.25)",
-      }}
+      className="pointer-events-none absolute -inset-[7px] rounded-[18px]"
+      style={
+        {
+          background:
+            "linear-gradient(120deg, rgba(94,240,255,0.9), rgba(168,85,247,0.95), rgba(255,111,216,0.9))",
+          padding: 2.5,
+          WebkitMask:
+            "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+          // some TS setups don't know this key; keep runtime correct without type errors
+          WebkitMaskComposite: "xor",
+          maskComposite: "exclude",
+          boxShadow:
+            "0 0 24px rgba(94,240,255,0.35), 0 0 36px rgba(168,85,247,0.45)",
+        } as any
+      }
     />
   );
 }
 
-/* ---------- Default node card (white) ---------- */
+/* ---------- Default node card (white, clean) ---------- */
 function NodeCard(props: NodeProps) {
   const { data, isConnectable, selected, id } = props as any;
   const spec: NodeSpec | undefined = getNodeSpec(data?.specId);
@@ -64,18 +78,25 @@ function NodeCard(props: NodeProps) {
     <div className="relative" data-nodeid={id}>
       {selected && <SelectionRing />}
 
-      <div className="edge-card min-w-[360px] rounded-2xl relative">
-        <div className="edge-card-header">
-          <span className="truncate">{title}</span>
-          <span className="text-[10px] opacity-70">{version}</span>
+      <div className="relative min-w-[360px] overflow-hidden rounded-2xl bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900 shadow-[0_20px_60px_rgba(15,23,42,0.55)] ring-1 ring-slate-200/90">
+        <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100 px-4 py-2.5">
+          <span className="truncate text-[13px] font-semibold text-slate-900">
+            {title}
+          </span>
+          <span className="shrink-0 text-[11px] font-mono text-slate-500">
+            v{version}
+          </span>
         </div>
-        <div className="edge-card-body">
-          <div className="text-[12px] opacity-85">{summary}</div>
-          <div className="mt-2 text-[11px] opacity-70">
+
+        <div className="px-4 pb-3 pt-2.5">
+          <p className="text-[12px] leading-relaxed text-slate-700">
+            {summary}
+          </p>
+          <p className="mt-2 text-[11px] text-slate-500">
             {data?.connectedNames?.length
               ? `Connected to: ${data.connectedNames.join(", ")}`
-              : "No outgoing connections yet"}
-          </div>
+              : "No outgoing connections yet."}
+          </p>
         </div>
       </div>
 
@@ -87,7 +108,7 @@ function NodeCard(props: NodeProps) {
           position={Position.Left}
           className="edge-port"
           isConnectable={isConnectable}
-          style={{ top: 30 + i * 18 }}
+          style={{ top: 32 + i * 18 }}
         />
       ))}
       {outputs.map((p: Port, i: number) => (
@@ -98,7 +119,7 @@ function NodeCard(props: NodeProps) {
           position={Position.Right}
           className="edge-port edge-port--edg"
           isConnectable={isConnectable}
-          style={{ top: 30 + i * 18 }}
+          style={{ top: 32 + i * 18 }}
         />
       ))}
     </div>
@@ -116,6 +137,9 @@ export type CanvasRef = {
   addNodeAtCenter: (specId: string) => void;
   updateNodeConfig: (nodeId: string, patch: any) => void;
   getGraph: () => { nodes: Node[]; edges: Edge[] };
+
+  // ✅ single canonical hydrator used by modal open/create
+  loadGraph: (graph: { nodes: Node[]; edges: Edge[] } | any) => void;
 };
 
 type Props = {
@@ -124,34 +148,79 @@ type Props = {
     specId?: string;
     config?: any;
   }) => void;
+  onGraphChange?: (graph: { nodes: Node[]; edges: Edge[] }) => void;
 };
 
+function safeParseGraph(input: any): any {
+  if (input == null) return null;
+  if (typeof input === "string") {
+    try {
+      return JSON.parse(input);
+    } catch {
+      return null;
+    }
+  }
+  return input;
+}
+
+function normalizeGraph(graphLike: any): { nodes: Node[]; edges: Edge[] } {
+  const g0 = safeParseGraph(graphLike);
+  const g =
+    g0?.graph && (Array.isArray(g0.graph.nodes) || Array.isArray(g0.graph.edges))
+      ? g0.graph
+      : g0;
+
+  const nodes = Array.isArray(g?.nodes) ? (g.nodes as Node[]) : [];
+  const edges = Array.isArray(g?.edges) ? (g.edges as Edge[]) : [];
+
+  return { nodes, edges };
+}
+
 const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
-  { onSelectionChange },
+  { onSelectionChange, onGraphChange },
   ref
 ) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [locked, setLocked] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const rfRef = useRef<ReactFlowInstance | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-  // viewport state (no ReactFlowProvider needed)
-  const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
+  const [viewport, setViewport] = useState<Viewport>({
+    x: 0,
+    y: 0,
+    zoom: 1,
+  });
 
   const [bubble, setBubble] = useState<{ x: number; y: number; id: string } | null>(
     null
   );
   const lastCopiedNodeRef = useRef<Node | null>(null);
 
+  const nodesRef = useRef<Node[]>([]);
+  const edgesRef = useRef<Edge[]>([]);
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
+
+  useEffect(() => {
+    onGraphChange?.({ nodes, edges });
+  }, [nodes, edges, onGraphChange]);
+
   const onInit = (inst: ReactFlowInstance) => {
     rfRef.current = inst;
-    // grab initial viewport
     try {
       const vp = (inst as any)?.toObject?.().viewport as Viewport | undefined;
       if (vp) setViewport(vp);
-    } catch {}
+    } catch {
+      /* no-op */
+    }
   };
 
   const onConnect: OnConnect = useCallback(
@@ -172,7 +241,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         return { ...n, data: { ...n.data, connectedNames: names } };
       })
     );
-  }, [edges, setNodes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edges]);
 
   const createNodeFromSpec = useCallback(
     (spec: NodeSpec, position: { x: number; y: number }) => {
@@ -213,27 +283,40 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const onDrop = useCallback(
     (evt: React.DragEvent) => {
       evt.preventDefault();
+      if (locked) return;
+
       const payload = evt.dataTransfer.getData("application/edgaze-node");
       if (!payload || !rfRef.current || !wrapperRef.current) return;
-      const { specId } = JSON.parse(payload);
+
+      let parsed: any = null;
+      try {
+        parsed = JSON.parse(payload);
+      } catch {
+        return;
+      }
+
+      const { specId } = parsed || {};
+      if (!specId) return;
+
       const spec = getNodeSpec(specId);
       if (!spec) return;
+
       const rect = wrapperRef.current.getBoundingClientRect();
       const pos = rfRef.current.project({
         x: evt.clientX - rect.left,
         y: evt.clientY - rect.top,
       });
+
       createNodeFromSpec(spec, pos);
     },
-    [createNodeFromSpec]
+    [createNodeFromSpec, locked]
   );
 
   const onDragOver = (evt: React.DragEvent) => {
     evt.preventDefault();
-    evt.dataTransfer.dropEffect = "move";
+    evt.dataTransfer.dropEffect = locked ? "none" : "move";
   };
 
-  // RF coords -> wrapper coords considering viewport
   const toWrapperXY = (nx: number, ny: number) => {
     return {
       wx: nx * viewport.zoom + viewport.x,
@@ -255,11 +338,13 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const showSelectionFor = useCallback(
     (node?: Node) => {
       if (!onSelectionChange) return;
+
       if (!node) {
         setBubble(null);
         onSelectionChange({ nodeId: null });
         return;
       }
+
       placeBubbleForNode(node);
       onSelectionChange({
         nodeId: node.id,
@@ -270,12 +355,20 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     [onSelectionChange, placeBubbleForNode]
   );
 
-  // Reposition bubble when viewport changes (pan/zoom)
   useEffect(() => {
     if (!bubble) return;
     const n = rfRef.current?.getNode(bubble.id);
     if (n) placeBubbleForNode(n);
-  }, [viewport, bubble?.id, placeBubbleForNode]);
+  }, [viewport, bubble?.id, placeBubbleForNode, bubble]);
+
+  const fitSafely = useCallback(() => {
+    // fit after the DOM/layout settles (two RAFs = reliable)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        rfRef.current?.fitView?.({ padding: 0.22, duration: 260 });
+      });
+    });
+  }, []);
 
   useImperativeHandle(ref, () => ({
     addNodeAtCenter,
@@ -294,34 +387,117 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         )
       );
     },
-    getGraph: () => ({ nodes, edges }),
+    getGraph: () => ({ nodes: nodesRef.current, edges: edgesRef.current }),
+
+    // ✅ CANONICAL: page.tsx should call this always
+    loadGraph: (graph: any) => {
+      const { nodes: nextNodes, edges: nextEdges } = normalizeGraph(graph);
+
+      setBubble(null);
+      onSelectionChange?.({ nodeId: null });
+
+      // replace graph atomically
+      setNodes(nextNodes);
+      setEdges(nextEdges);
+
+      fitSafely();
+    },
   }));
 
-  /* Delete key handling */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Delete") {
-        setNodes((nds) => nds.filter((n) => n.selected !== true));
-        setEdges((eds) => eds.filter((e) => e.selected !== true));
-        setBubble(null);
-        onSelectionChange?.({ nodeId: null });
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [setNodes, setEdges, onSelectionChange]);
-
-  /* Canvas controls */
-  const zoomIn = () => rfRef.current?.zoomIn?.();
-  const zoomOut = () => rfRef.current?.zoomOut?.();
-  const fit = () => rfRef.current?.fitView?.({ padding: 0.2, duration: 300 });
-  const toggleLock = () => setLocked((v) => !v);
-  const fullscreen = () => {
-    const el = (rfRef.current as any)?.domNode as HTMLElement | undefined;
+  /* Controls */
+  const zoomIn = useCallback(() => {
+    rfRef.current?.zoomIn?.();
+  }, []);
+  const zoomOut = useCallback(() => {
+    rfRef.current?.zoomOut?.();
+  }, []);
+  const fit = useCallback(() => {
+    rfRef.current?.fitView?.({ padding: 0.22, duration: 300 });
+  }, []);
+  const toggleLock = useCallback(() => {
+    setLocked((v) => !v);
+  }, []);
+  const toggleGrid = useCallback(() => {
+    setShowGrid((v) => !v);
+  }, []);
+  const fullscreen = useCallback(() => {
+    const el = wrapperRef.current;
     if (!el) return;
+
     if (!document.fullscreenElement) el.requestFullscreen?.();
     else document.exitFullscreen?.();
-  };
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    handler();
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  /* Keybinds */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditable =
+        tag === "input" || tag === "textarea" || target?.isContentEditable;
+      if (isEditable) return;
+
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (locked) return;
+        setNodes((nds) => nds.filter((n) => n.selected !== true));
+        setEdges((eds) => eds.filter((ed) => ed.selected !== true));
+        setBubble(null);
+        onSelectionChange?.({ nodeId: null });
+        return;
+      }
+
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        zoomIn();
+        return;
+      }
+      if (e.key === "-") {
+        e.preventDefault();
+        zoomOut();
+        return;
+      }
+      if (e.key === "0") {
+        e.preventDefault();
+        fit();
+        return;
+      }
+
+      if (e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        toggleLock();
+        return;
+      }
+      if (e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        toggleGrid();
+        return;
+      }
+      if (e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        fullscreen();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    locked,
+    fit,
+    fullscreen,
+    onSelectionChange,
+    toggleGrid,
+    toggleLock,
+    zoomIn,
+    zoomOut,
+  ]);
 
   /* Selection bubble actions */
   const onCopy = () => {
@@ -330,16 +506,19 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     if (!src) return;
     lastCopiedNodeRef.current = src;
     navigator.clipboard.writeText(
-      JSON.stringify({ type: src.type, data: (src.data as any)?.config ?? {} }, null, 2)
+      JSON.stringify(
+        { type: src.type, data: (src.data as any)?.config ?? {} },
+        null,
+        2
+      )
     );
   };
+
   const onPaste = () => {
-    if (!bubble) return;
+    if (!bubble || locked) return;
     const src = lastCopiedNodeRef.current;
     if (!src) return;
-    const id = `${(src.data as any)?.specId}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    const id = `${(src.data as any)?.specId}-${Math.random().toString(36).slice(2, 8)}`;
     setNodes((nds) =>
       nds.concat({
         ...(src as Node),
@@ -352,13 +531,12 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       })
     );
   };
+
   const onDup = () => {
-    if (!bubble) return;
+    if (!bubble || locked) return;
     const src = rfRef.current?.getNode(bubble.id);
     if (!src) return;
-    const id = `${(src.data as any)?.specId}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    const id = `${(src.data as any)?.specId}-${Math.random().toString(36).slice(2, 8)}`;
     setNodes((nds) =>
       nds.concat({
         ...(src as Node),
@@ -371,33 +549,95 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       })
     );
   };
+
   const onDelete = () => {
-    if (!bubble) return;
+    if (!bubble || locked) return;
     setNodes((nds) => nds.filter((n) => n.id !== bubble.id));
     setBubble(null);
     onSelectionChange?.({ nodeId: null });
   };
 
+  const toolbarOuterStyle = useMemo<React.CSSProperties>(
+    () => ({
+      background:
+        "linear-gradient(120deg, rgba(94,240,255,0.55), rgba(168,85,247,0.55), rgba(255,111,216,0.55))",
+      boxShadow:
+        "0 18px 60px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.06) inset",
+    }),
+    []
+  );
+
   return (
     <div
       ref={wrapperRef}
-      className="relative h-full w-full"
+      className="relative h-full w-full rounded-2xl bg-[#070810]"
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      {/* Floating toolbar */}
-      <div className="absolute right-3 top-3 z-40">
-        <div className="rounded-full p-[1.5px] edge-grad">
-          <div className="edge-toolbar">
-            <button onClick={zoomOut} title="Zoom out">–</button>
-            <button onClick={zoomIn} title="Zoom in">+</button>
-            <span className="sep" />
-            <button onClick={fit} title="Fit">Grid</button>
-            <span className="sep" />
-            <button onClick={toggleLock} title="Lock pan/zoom">
-              {locked ? "Unlock" : "Lock"}
+      {/* Centered toolbar (icon-only) */}
+      <div className="absolute left-1/2 top-4 z-40 -translate-x-1/2">
+        <div className="rounded-full p-[1px]" style={toolbarOuterStyle}>
+          <div className="flex items-center gap-1 rounded-full border border-white/12 bg-black/80 px-1.5 py-1 shadow-[0_18px_60px_rgba(0,0,0,0.85)] backdrop-blur-xl">
+            <button
+              onClick={zoomOut}
+              title="Zoom out (−)"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
+            >
+              <ZoomOut size={16} />
+              <span className="sr-only">Zoom out</span>
             </button>
-            <button onClick={fullscreen} title="Fullscreen">⤢</button>
+
+            <button
+              onClick={zoomIn}
+              title="Zoom in (+)"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
+            >
+              <ZoomIn size={16} />
+              <span className="sr-only">Zoom in</span>
+            </button>
+
+            <div className="mx-1 h-5 w-px bg-white/12" />
+
+            <button
+              onClick={toggleGrid}
+              title={`Toggle grid (G) – ${showGrid ? "On" : "Off"}`}
+              className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                showGrid
+                  ? "bg-white/10 text-white"
+                  : "text-white/60 hover:bg-white/10"
+              }`}
+            >
+              <Grid3X3 size={16} />
+              <span className="sr-only">Toggle grid</span>
+            </button>
+
+            <button
+              onClick={toggleLock}
+              title={`Toggle lock (L) – ${locked ? "Locked" : "Free"}`}
+              className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                locked
+                  ? "bg-white/10 text-white"
+                  : "text-white/70 hover:bg-white/10"
+              }`}
+            >
+              {locked ? <Lock size={16} /> : <Unlock size={16} />}
+              <span className="sr-only">Toggle lock</span>
+            </button>
+
+            <div className="mx-1 h-5 w-px bg-white/12" />
+
+            <button
+              onClick={fullscreen}
+              title="Toggle fullscreen (F)"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
+            >
+              {isFullscreen ? (
+                <Minimize2 size={16} />
+              ) : (
+                <Maximize2 size={16} />
+              )}
+              <span className="sr-only">Toggle fullscreen</span>
+            </button>
           </div>
         </div>
       </div>
@@ -408,9 +648,15 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           <div className="rounded-full p-[1.5px] edge-grad">
             <div className="edge-toolbar">
               <button onClick={onCopy}>Copy</button>
-              <button onClick={onPaste}>Paste</button>
-              <button onClick={onDup}>Duplicate</button>
-              <button onClick={onDelete} className="danger">Delete</button>
+              <button onClick={onPaste} disabled={locked}>
+                Paste
+              </button>
+              <button onClick={onDup} disabled={locked}>
+                Duplicate
+              </button>
+              <button onClick={onDelete} className="danger" disabled={locked}>
+                Delete
+              </button>
             </div>
           </div>
         </div>
@@ -421,43 +667,56 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        onConnect={locked ? undefined : onConnect}
         nodeTypes={nodeTypes}
         fitView
         snapToGrid
         snapGrid={[16, 16]}
         onInit={onInit}
-        panOnScroll={!locked}
-        zoomOnScroll={!locked}
-        zoomOnPinch={!locked}
-        zoomOnDoubleClick={!locked}
         onNodeClick={(_, n) => showSelectionFor(n)}
         onPaneClick={() => showSelectionFor(undefined)}
         defaultEdgeOptions={{ type: "bezier", animated: false }}
-        className="!bg-[#0b0b0b]"
+        className="!bg-[#070810]"
         proOptions={{ hideAttribution: true }}
-        // keep viewport state in sync (fixes toolbar drift)
         onMove={(_, vp) => setViewport(vp)}
+        nodesDraggable={!locked}
+        nodesConnectable={!locked}
+        edgesUpdatable={!locked}
+        // ✅ lock should NOT kill navigation; it should only prevent edits
+        panOnDrag
+        panOnScroll
+        zoomOnScroll
+        zoomOnPinch
+        zoomOnDoubleClick
       >
-        <Background gap={24} size={1} color="rgba(255,255,255,0.10)" />
+        {showGrid && (
+          <Background
+            id="workflow-grid"
+            gap={26}
+            size={1.4}
+            color="rgba(148,163,184,0.55)"
+            variant={BackgroundVariant.Dots}
+          />
+        )}
+
         <MiniMap
           position="bottom-right"
           pannable
           zoomable
           style={{
-            background: "#0e0e0e",
-            border: "1px solid rgba(255,255,255,0.25)",
+            background: "#05060b",
+            border: "1px solid rgba(148,163,184,0.6)",
             borderRadius: 12,
             boxShadow:
-              "0 0 0 1px rgba(255,255,255,.08) inset, 0 10px 30px rgba(0,0,0,.45)",
+              "0 0 0 1px rgba(15,23,42,0.85) inset, 0 12px 40px rgba(0,0,0,0.7)",
             bottom: 12,
             right: 12,
             width: 180,
             height: 120,
           }}
-          nodeColor={() => "#ffffff"}
-          nodeStrokeColor={() => "rgba(255,255,255,0.6)"}
-          maskColor="rgba(255,255,255,0.08)"
+          nodeColor={() => "#e5e7eb"}
+          nodeStrokeColor={() => "rgba(249,250,251,0.8)"}
+          maskColor="rgba(15,23,42,0.75)"
         />
       </ReactFlow>
     </div>

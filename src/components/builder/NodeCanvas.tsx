@@ -1,184 +1,318 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { GripHorizontal, Trash, Copy, Maximize2, Minimize2 } from "lucide-react";
+import {
+  GripHorizontal,
+  Trash2,
+  Copy,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
+  RefreshCw,
+} from "lucide-react";
 import { cx } from "@lib/cx";
 
 type NodeData = { id: string; x: number; y: number; label: string };
 
 const GRID_SIZE = 24;
-const initialNodes: NodeData[] = [
-  { id: "n1", x: 60, y: 60, label: "Input" },
-  { id: "n2", x: 320, y: 140, label: "LLM" },
-  { id: "n3", x: 560, y: 240, label: "Output" },
+const INITIAL_NODES: NodeData[] = [
+  { id: "n1", x: 80, y: 80, label: "Input" },
+  { id: "n2", x: 320, y: 180, label: "LLM" },
+  { id: "n3", x: 580, y: 260, label: "Output" },
 ];
 
 export default function NodeCanvas() {
-  const [nodes, setNodes] = useState<NodeData[]>(initialNodes);
-  const [toolbarPos, setToolbarPos] = useState({ x: 90, y: 24 });
-  const [fullscreen, setFullscreen] = useState(false);
+  const [nodes, setNodes] = useState<NodeData[]>(INITIAL_NODES);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  // pan/zoom state
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const isPanning = useRef(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const viewportRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
 
-  // Keep canvas always filling its column
+  // pan / zoom refs so event handlers don’t capture stale values
+  const zoomRef = useRef(zoom);
+  const offsetRef = useRef(offset);
+  const isPanningRef = useRef(false);
+  const panAnchorRef = useRef({ x: 0, y: 0 });
+  const spaceHeldRef = useRef(false);
+
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => {
-      // nothing to compute; but ensures layout stays responsive
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    offsetRef.current = offset;
+  }, [offset]);
+
+  /* -----------------------------
+   * Keyboard: track Space
+   * --------------------------- */
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        spaceHeldRef.current = true;
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        spaceHeldRef.current = false;
+        isPanningRef.current = false;
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
   }, []);
 
-  // Pan with Space+drag (mouse)
-  function onMouseDown(e: React.MouseEvent) {
-    if (!(e.button === 0 && (e.shiftKey || e.altKey || e.metaKey || e.ctrlKey || e.nativeEvent instanceof MouseEvent && (e.nativeEvent as any).buttons === 1 && e.nativeEvent?.getModifierState(" ")))) {
-      // not using modifier; allow node drags to handle
-      return;
-    }
-  }
-
-  // Simpler: hold Space to pan
+  /* -----------------------------
+   * Mouse: pan with Space + drag
+   * --------------------------- */
   useEffect(() => {
     const vp = viewportRef.current;
     if (!vp) return;
 
-    function handleDown(ev: MouseEvent) {
-      if (!ev.getModifierState(" ")) return;
-      isPanning.current = true;
-      start.x = ev.clientX - offset.x;
-      start.y = ev.clientY - offset.y;
-      ev.preventDefault();
-    }
-    function handleMove(ev: MouseEvent) {
-      if (!isPanning.current) return;
-      setOffset({ x: ev.clientX - start.x, y: ev.clientY - start.y });
-    }
-    function handleUp() {
-      isPanning.current = false;
-    }
-    const start = { x: 0, y: 0 };
-    vp.addEventListener("mousedown", handleDown);
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
-    return () => {
-      vp.removeEventListener("mousedown", handleDown);
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
+    const handleMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0 || !spaceHeldRef.current) return;
+      isPanningRef.current = true;
+      panAnchorRef.current = {
+        x: e.clientX - offsetRef.current.x,
+        y: e.clientY - offsetRef.current.y,
+      };
+      e.preventDefault();
     };
-  }, [offset.x, offset.y]);
 
-  // Zoom with wheel (Ctrl/Cmd+scroll OR trackpad pinch)
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isPanningRef.current) return;
+      const nx = e.clientX - panAnchorRef.current.x;
+      const ny = e.clientY - panAnchorRef.current.y;
+      setOffset({ x: nx, y: ny });
+    };
+
+    const handleMouseUp = () => {
+      isPanningRef.current = false;
+    };
+
+    vp.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      vp.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  /* -----------------------------
+   * Zoom: Ctrl/Cmd + wheel
+   * --------------------------- */
   useEffect(() => {
     const vp = viewportRef.current;
     if (!vp) return;
 
-    function onWheel(e: WheelEvent) {
+    const handleWheel = (e: WheelEvent) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      const factor = Math.exp(-e.deltaY * 0.0015); // smooth exp zoom
+
+      const currentZoom = zoomRef.current;
+      const currentOffset = offsetRef.current;
+
       const rect = vp.getBoundingClientRect();
-      const px = (e.clientX - rect.left - offset.x) / zoom;
-      const py = (e.clientY - rect.top - offset.y) / zoom;
+      const px = (e.clientX - rect.left - currentOffset.x) / currentZoom;
+      const py = (e.clientY - rect.top - currentOffset.y) / currentZoom;
 
-      const newZoom = Math.min(2.5, Math.max(0.4, zoom * factor));
-      const nx = e.clientX - rect.left - px * newZoom;
-      const ny = e.clientY - rect.top - py * newZoom;
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      const nextZoom = Math.min(2.5, Math.max(0.4, currentZoom * factor));
 
-      setZoom(newZoom);
+      const nx = e.clientX - rect.left - px * nextZoom;
+      const ny = e.clientY - rect.top - py * nextZoom;
+
+      setZoom(nextZoom);
       setOffset({ x: nx, y: ny });
-    }
+    };
 
-    vp.addEventListener("wheel", onWheel, { passive: false });
-    return () => vp.removeEventListener("wheel", onWheel);
-  }, [zoom, offset]);
+    vp.addEventListener("wheel", handleWheel, { passive: false });
+    return () => vp.removeEventListener("wheel", handleWheel);
+  }, []);
 
-  // Drag nodes (with snapping)
-  function dragNode(e: React.MouseEvent, id: string) {
+  /* -----------------------------
+   * Node drag with snapping
+   * --------------------------- */
+  const beginNodeDrag = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
     e.preventDefault();
-    const start = { x: e.clientX, y: e.clientY };
-    const n = nodes.find((x) => x.id === id)!;
-    const origin = { x: n.x, y: n.y };
 
-    function onMove(ev: MouseEvent) {
-      const dx = (ev.clientX - start.x) / zoom;
-      const dy = (ev.clientY - start.y) / zoom;
+    const start = { x: e.clientX, y: e.clientY };
+    const current = nodes.find((n) => n.id === id);
+    if (!current) return;
+
+    const origin = { x: current.x, y: current.y };
+    setSelectedId(id);
+
+    const handleMove = (ev: MouseEvent) => {
+      const dx = (ev.clientX - start.x) / zoomRef.current;
+      const dy = (ev.clientY - start.y) / zoomRef.current;
+
       const rawX = origin.x + dx;
       const rawY = origin.y + dy;
       const snapX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
       const snapY = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
-      setNodes((list) => list.map((nd) => (nd.id === id ? { ...nd, x: snapX, y: snapY } : nd)));
-    }
-    function onUp() {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }
+
+      setNodes((list) =>
+        list.map((n) => (n.id === id ? { ...n, x: snapX, y: snapY } : n))
+      );
+    };
+
+    const handleUp = () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("mouseup", handleUp);
+    };
+
+    window.addEventListener("mousemove", handleMove);
+    window.addEventListener("mouseup", handleUp);
+  };
+
+  /* -----------------------------
+   * Toolbar actions
+   * --------------------------- */
+  const addNode = () => {
+    const id = Math.random().toString(36).slice(2);
+    const baseX = 120 + nodes.length * 40;
+    const baseY = 80 + nodes.length * 20;
+    setNodes((list) => [
+      ...list,
+      { id, x: baseX, y: baseY, label: "Node" },
+    ]);
+    setSelectedId(id);
+  };
+
+  const duplicateSelected = () => {
+    if (!selectedId) return;
+    const n = nodes.find((nd) => nd.id === selectedId);
+    if (!n) return;
+    const id = Math.random().toString(36).slice(2);
+    setNodes((list) => [
+      ...list,
+      { ...n, id, x: n.x + GRID_SIZE, y: n.y + GRID_SIZE },
+    ]);
+    setSelectedId(id);
+  };
+
+  const deleteSelected = () => {
+    if (!selectedId) return;
+    setNodes((list) => list.filter((n) => n.id !== selectedId));
+    setSelectedId(null);
+  };
+
+  const resetView = () => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  const zoomStep = (dir: "in" | "out") => {
+    const factor = dir === "in" ? 1.15 : 1 / 1.15;
+    setZoom((z) => Math.min(2.5, Math.max(0.4, z * factor)));
+  };
+
+  /* -----------------------------
+   * RENDER
+   * --------------------------- */
 
   return (
-    <div ref={containerRef} className="h-full w-full rounded-2xl edge-glass edge-border overflow-hidden relative">
-      {/* Floating toolbar with handle */}
-      <div
-        style={{ left: toolbarPos.x, top: toolbarPos.y }}
-        className="absolute z-30 flex items-center gap-2 rounded-full text-sm px-2 py-1 edge-glass border border-white/12"
-      >
+    <div
+      ref={canvasRef}
+      className={cx(
+        "relative h-full w-full overflow-hidden rounded-3xl border border-white/10 bg-[#05060A] shadow-[0_24px_80px_rgba(0,0,0,0.85)]",
+        "edge-glass edge-border"
+      )}
+    >
+      {/* HUD – top centre */}
+      <div className="pointer-events-auto absolute left-1/2 top-4 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/14 bg-black/70 px-3 py-1 text-[11px] shadow-lg backdrop-blur-xl">
         <button
-          className="rounded-full px-2 py-1 cursor-grab active:cursor-grabbing hover:bg-white/10"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            const start = { x: e.clientX - toolbarPos.x, y: e.clientY - toolbarPos.y };
-            function onMove(ev: MouseEvent) {
-              setToolbarPos({ x: ev.clientX - start.x, y: ev.clientY - start.y });
-            }
-            function onUp() {
-              window.removeEventListener("mousemove", onMove);
-              window.removeEventListener("mouseup", onUp);
-            }
-            window.addEventListener("mousemove", onMove);
-            window.addEventListener("mouseup", onUp);
-          }}
-          title="Drag toolbar"
-          aria-label="Drag toolbar"
+          className="flex items-center gap-1 rounded-full bg-white/5 px-2 py-1 hover:bg-white/10"
+          onClick={addNode}
         >
-          <GripHorizontal size={16} />
+          <Copy size={13} className="opacity-80" />
+          <span>New node</span>
         </button>
+
+        <span className="mx-1 h-4 w-px bg-white/15" />
+
         <button
-          className="rounded-full px-2 py-1 hover:bg-white/10"
-          onClick={() =>
-            setNodes((n) => [...n, { id: Math.random().toString(36).slice(2), x: 120, y: 40, label: "Node" }])
-          }
-          title="Duplicate"
+          className="rounded-full p-1 hover:bg-white/10"
+          onClick={() => zoomStep("out")}
         >
-          <Copy size={14} />
+          <ZoomOut size={14} />
         </button>
-        <button className="rounded-full px-2 py-1 hover:bg-white/10" onClick={() => setNodes((n) => n.slice(0, -1))}>
-          <Trash size={14} />
+        <span className="px-1 text-xs tabular-nums text-white/70">
+          {(zoom * 100).toFixed(0)}%
+        </span>
+        <button
+          className="rounded-full p-1 hover:bg-white/10"
+          onClick={() => zoomStep("in")}
+        >
+          <ZoomIn size={14} />
         </button>
-        <button className="rounded-full px-2 py-1 hover:bg-white/10" onClick={() => setFullscreen((v) => !v)}>
-          {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+
+        <button
+          className="ml-1 flex items-center rounded-full bg-white/5 px-2 py-1 text-[10px] hover:bg-white/10"
+          onClick={resetView}
+        >
+          <RefreshCw size={12} className="mr-1" />
+          Reset view
         </button>
       </div>
 
-      {/* Fullscreen container */}
-      <div
-        className={cx(
-          "absolute inset-0",
-          fullscreen ? "fixed inset-2 z-50 rounded-2xl edge-glass edge-border" : ""
-        )}
-      />
+      {/* Node toolbar – top left */}
+      <div className="pointer-events-auto absolute left-4 top-4 z-30 flex items-center gap-1 rounded-full border border-white/14 bg-black/70 px-2 py-1 text-[11px] backdrop-blur-xl">
+        <button
+          className="rounded-full p-1 hover:bg-white/10 cursor-grab active:cursor-grabbing"
+          title="Canvas frame (non-draggable)"
+        >
+          <GripHorizontal size={14} />
+        </button>
+        <button
+          className={cx(
+            "rounded-full p-1 hover:bg-white/10",
+            !selectedId && "cursor-not-allowed opacity-40"
+          )}
+          onClick={duplicateSelected}
+        >
+          <Copy size={13} />
+        </button>
+        <button
+          className={cx(
+            "rounded-full p-1 hover:bg-white/10 text-red-300",
+            !selectedId && "cursor-not-allowed opacity-40"
+          )}
+          onClick={deleteSelected}
+        >
+          <Trash2 size={13} />
+        </button>
+        <button
+          className="ml-1 rounded-full p-1 hover:bg-white/10"
+          onClick={() => setFullscreen((f) => !f)}
+        >
+          {fullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+        </button>
+      </div>
 
-      {/* Viewport (captures pan/zoom, fills column) */}
-      <div ref={viewportRef} className="absolute inset-0 cursor-default select-none">
-        {/* Grid (snaps with transform) */}
+      {/* Viewport */}
+      <div
+        ref={viewportRef}
+        className={cx(
+          "absolute inset-0 cursor-default select-none",
+          fullscreen && "fixed inset-6 z-40 rounded-3xl border border-white/15 bg-[#05060A]"
+        )}
+      >
+        {/* Grid */}
         <div
           className="absolute inset-0"
           style={{
@@ -188,11 +322,12 @@ export default function NodeCanvas() {
               linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
               linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)
             `,
-            backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px, ${GRID_SIZE}px ${GRID_SIZE}px`,
+            backgroundSize: `${GRID_SIZE}px ${GRID_SIZE}px`,
+            opacity: 0.35,
           }}
         />
 
-        {/* Nodes layer (same transform) */}
+        {/* Nodes layer */}
         <div
           className="absolute inset-0"
           style={{
@@ -201,22 +336,39 @@ export default function NodeCanvas() {
           }}
         >
           {nodes.map((n) => (
-            <div
+            <button
               key={n.id}
+              type="button"
               style={{ left: n.x, top: n.y }}
-              onMouseDown={(e) => dragNode(e, n.id)}
-              className="absolute select-none rounded-2xl border border-white/12 bg-white/5 h-24 w-44 flex items-center justify-center text-sm cursor-grab active:cursor-grabbing"
+              onMouseDown={(e) => beginNodeDrag(e, n.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedId(n.id);
+              }}
+              className={cx(
+                "absolute flex h-24 w-48 select-none items-center justify-center rounded-2xl border text-sm shadow-sm",
+                "backdrop-blur-xl transition-colors",
+                n.id === selectedId
+                  ? "border-cyan-400/70 bg-white/10"
+                  : "border-white/12 bg-white/5 hover:border-white/30"
+              )}
             >
-              {n.label}
-            </div>
+              <span className="px-4 text-[13px] font-medium text-white/90">
+                {n.label}
+              </span>
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Instructions (subtle, bottom-left) */}
-      <div className="absolute left-3 bottom-3 text-[11px] text-white/60 edge-glass border border-white/10 rounded-full px-2 py-1">
-        Hold <kbd className="px-1 edge-glass border border-white/10 rounded">Space</kbd> and drag to pan ·
-        <span className="ml-1">Pinch / Ctrl+Scroll to zoom</span>
+      {/* Helper hint */}
+      <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/12 bg-black/70 px-3 py-1 text-[11px] text-white/65 backdrop-blur">
+        Hold{" "}
+        <span className="rounded border border-white/25 bg-white/5 px-1">
+          Space
+        </span>{" "}
+        and drag to pan · Pinch / Ctrl+Scroll to zoom · Drag nodes to snap to
+        grid
       </div>
     </div>
   );

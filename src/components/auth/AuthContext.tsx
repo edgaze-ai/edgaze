@@ -6,155 +6,329 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
-  ReactNode,
 } from "react";
-import {
-  signIn as nextAuthSignIn,
-  signOut as nextAuthSignOut,
-  useSession,
-} from "next-auth/react";
-import SignInModal, { OAuthProvider } from "./SignInModal";
+import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
+import SignInModal from "./SignInModal";
 
 export type UserPlan = "Free" | "Pro" | "Team";
 
-export type User = {
+export type Profile = {
   id: string;
-  name: string;
   email: string;
-  image?: string;
+  full_name: string | null;
+  handle: string;
+  avatar_url: string | null;
+  banner_url?: string | null;
+  bio?: string | null;
+  socials?: Record<string, string> | null; // { instagram: "...", x: "...", youtube: "...", ... }
   plan: UserPlan;
+  email_verified?: boolean | null;
+};
+
+export type AuthUser = {
+  id: string;
+  email: string | null;
+  name: string;
+  handle: string;
 };
 
 type AuthContextValue = {
-  user: User | null;
+  // Back-compat for components that used `user`
+  user: AuthUser | null;
+
+  userId: string | null;
+  userEmail: string | null;
+  isVerified: boolean;
+  profile: Profile | null;
+
+  loading: boolean;
+  authReady: boolean;
+
   openSignIn: () => void;
   closeSignIn: () => void;
+
   requireAuth: () => boolean;
-  signOut: () => void;
+  requireVerifiedEmail: () => boolean;
 
-  // real external sign-in
-  debugSignInWithProvider: (provider: OAuthProvider) => void;
-  debugSignInWithEmail: (email: string) => void;
+  refresh: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 
-  // profile picture override
-  updateProfileImage: (dataUrl: string) => void;
+  updateProfile: (patch: Partial<Profile>) => Promise<{ ok: boolean; error?: string }>;
+
+  signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (args: {
+    email: string;
+    password: string;
+    fullName: string;
+    handle: string;
+  }) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used inside <AuthProvider>");
-  }
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const { data: session } = useSession();
+function normalizeHandle(input: string) {
+  return (input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^@/, "")
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_{2,}/g, "_")
+    .slice(0, 24);
+}
+
+function safeReturnTo(path: string) {
+  if (!path || typeof path !== "string") return "/marketplace";
+  if (!path.startsWith("/")) return "/marketplace";
+  if (path.startsWith("//")) return "/marketplace";
+  if (path.includes("http://") || path.includes("https://")) return "/marketplace";
+  return path;
+}
+
+function saveReturnTo(path: string) {
+  try {
+    localStorage.setItem("edgaze:returnTo", safeReturnTo(path));
+  } catch {}
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
+
   const [modalOpen, setModalOpen] = useState(false);
+  const modalOpenRef = useRef(false);
 
-  // local user state so we can override image etc
-  const [user, setUser] = useState<User | null>(null);
+  const inflightRef = useRef<Promise<void> | null>(null);
 
-  useEffect(() => {
-    if (!session?.user) {
-      setUser(null);
-      return;
-    }
-
-    setUser((prev) => {
-      const base: User = {
-        id: (session.user as any).id ?? "unknown",
-        name: session.user.name ?? "Edgaze user",
-        email: session.user.email ?? "",
-        image:
-          prev?.image ??
-          session.user.image ??
-          "/brand/edgaze-mark.png",
-        plan: ((session.user as any).plan as UserPlan) ?? "Free",
-      };
-      return base;
-    });
-  }, [session]);
-
-  // close modal automatically on successful sign-in
-  useEffect(() => {
-    if (session?.user && modalOpen) {
-      setModalOpen(false);
-    }
-  }, [session, modalOpen]);
-
-  const openSignIn = useCallback(() => setModalOpen(true), []);
-  const closeSignIn = useCallback(() => setModalOpen(false), []);
-
-  const signOut = useCallback(() => {
-    setUser(null);
-    nextAuthSignOut({ callbackUrl: "/" });
+  const openSignIn = useCallback(() => {
+    if (modalOpenRef.current) return;
+    modalOpenRef.current = true;
+    setModalOpen(true);
   }, []);
 
-  const requireAuth = useCallback(() => {
-    if (!user) {
-      setModalOpen(true);
-      return false;
-    }
-    return true;
-  }, [user]);
-
-  const debugSignInWithProvider = useCallback((provider: OAuthProvider) => {
-    // now REAL OAuth, not fake
-    nextAuthSignIn(provider);
+  const closeSignIn = useCallback(() => {
+    modalOpenRef.current = false;
+    setModalOpen(false);
   }, []);
 
-  const debugSignInWithEmail = useCallback((email: string) => {
-    // requires Email provider in authOptions if you want this
-    nextAuthSignIn("email", { email });
+  const applyNoUser = useCallback(() => {
+    setUserId(null);
+    setUserEmail(null);
+    setIsVerified(false);
+    setProfile(null);
   }, []);
 
-  const updateProfileImage = useCallback((dataUrl: string) => {
-    setUser((prev) =>
-      prev
-        ? {
-            ...prev,
-            image: dataUrl,
-          }
-        : prev
-    );
-  }, []);
+  const loadProfile = useCallback(
+    async (uid: string) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,plan,email_verified"
+        )
+        .eq("id", uid)
+        .maybeSingle();
 
-  const value: AuthContextValue = useMemo(
-    () => ({
-      user,
-      openSignIn,
-      closeSignIn,
-      requireAuth,
-      signOut,
-      debugSignInWithProvider,
-      debugSignInWithEmail,
-      updateProfileImage,
-    }),
-    [
-      user,
-      openSignIn,
-      closeSignIn,
-      requireAuth,
-      signOut,
-      debugSignInWithProvider,
-      debugSignInWithEmail,
-      updateProfileImage,
-    ]
+      if (error) {
+        setProfile(null);
+        return;
+      }
+      setProfile((data as Profile) ?? null);
+    },
+    [supabase]
   );
+
+  const applyUser = useCallback(
+    async (user: any | null) => {
+      if (!user) {
+        applyNoUser();
+        return;
+      }
+      setUserId(user.id);
+      setUserEmail(user.email ?? null);
+      setIsVerified(Boolean(user.email_confirmed_at));
+      loadProfile(user.id).catch(() => setProfile(null));
+    },
+    [applyNoUser, loadProfile]
+  );
+
+  const refresh = useCallback(async () => {
+    if (inflightRef.current) return inflightRef.current;
+
+    inflightRef.current = (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          applyNoUser();
+        } else {
+          await applyUser(data.session?.user ?? null);
+        }
+      } finally {
+        setLoading(false);
+        setAuthReady(true);
+        inflightRef.current = null;
+      }
+    })();
+
+    return inflightRef.current;
+  }, [applyNoUser, applyUser, supabase]);
+
+  const refreshProfile = useCallback(async () => {
+    if (!userId) return;
+    await loadProfile(userId);
+  }, [loadProfile, userId]);
+
+  const updateProfile = useCallback(
+    async (patch: Partial<Profile>) => {
+      if (!userId) return { ok: false, error: "Not signed in" };
+
+      // Normalize handle if present
+      const payload: any = { ...patch };
+      if (typeof payload.handle === "string") {
+        payload.handle = normalizeHandle(payload.handle);
+      }
+
+      const { error } = await supabase.from("profiles").update(payload).eq("id", userId);
+      if (error) return { ok: false, error: error.message };
+
+      await loadProfile(userId);
+      return { ok: true };
+    },
+    [loadProfile, supabase, userId]
+  );
+
+  useEffect(() => {
+    refresh();
+
+    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      await applyUser(session?.user ?? null);
+      setLoading(false);
+      setAuthReady(true);
+    });
+
+    return () => data.subscription.unsubscribe();
+  }, [applyUser, refresh, supabase]);
+
+  const requireAuth = () => {
+    if (userId) return true;
+    openSignIn();
+    return false;
+  };
+
+  const requireVerifiedEmail = () => {
+    if (!requireAuth()) return false;
+    if (isVerified) return true;
+    return false;
+  };
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    applyNoUser();
+  };
+
+  const signInWithGoogle = async () => {
+    const returnTo =
+      window.location.pathname + window.location.search + window.location.hash || "/marketplace";
+
+    saveReturnTo(returnTo);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: { prompt: "select_account" },
+      },
+    });
+
+    if (error) throw error;
+  };
+
+  const signInWithEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  const signUpWithEmail = async ({
+    email,
+    password,
+    fullName,
+    handle,
+  }: {
+    email: string;
+    password: string;
+    fullName: string;
+    handle: string;
+  }) => {
+    const normalizedHandle = normalizeHandle(handle);
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirmed`,
+        data: { full_name: fullName, handle: normalizedHandle },
+      },
+    });
+
+    if (error) throw error;
+  };
+
+  const user: AuthUser | null =
+    userId && profile
+      ? {
+          id: userId,
+          email: userEmail,
+          name: profile.full_name || profile.handle || "Creator",
+          handle: profile.handle,
+        }
+      : null;
+
+  const value: AuthContextValue = {
+    user,
+
+    userId,
+    userEmail,
+    isVerified,
+    profile,
+
+    loading,
+    authReady,
+
+    openSignIn,
+    closeSignIn,
+
+    requireAuth,
+    requireVerifiedEmail,
+
+    refresh,
+    refreshProfile,
+    updateProfile,
+
+    signOut,
+    signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+  };
 
   return (
     <AuthContext.Provider value={value}>
       {children}
-      <SignInModal
-        open={modalOpen}
-        onClose={closeSignIn}
-        onProvider={debugSignInWithProvider}
-        onEmailLogin={debugSignInWithEmail}
-      />
+      <SignInModal open={modalOpen} onClose={closeSignIn} />
     </AuthContext.Provider>
   );
 }

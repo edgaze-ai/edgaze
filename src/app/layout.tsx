@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "../styles/globals.css";
 
-import Sidebar from "../components/layout/Sidebar";
 import { AppProviders } from "./providers";
+import AppShell from "./AppShell";
+import VerifyEmailBanner from "../components/auth/VerifyEmailBanner";
 
 export const metadata: Metadata = {
   title: "Edgaze",
@@ -18,10 +19,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="h-full bg-[#0b0b0b] text-white antialiased">
         <AppProviders>
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 overflow-hidden">{children}</main>
-          </div>
+          {/* Shows only for logged-in + unverified users */}
+          <VerifyEmailBanner />
+          <AppShell>{children}</AppShell>
         </AppProviders>
       </body>
     </html>

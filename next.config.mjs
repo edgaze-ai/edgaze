@@ -1,17 +1,34 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // keep any existing config here (reactStrictMode, experimental, etc.)
+const nextConfig = (() => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  let supabaseHostname = null;
 
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "lh3.googleusercontent.com",
-      },
-    ],
-    // or, if you prefer the simpler syntax:
-    // domains: ["lh3.googleusercontent.com"],
-  },
-};
+  try {
+    supabaseHostname = supabaseUrl ? new URL(supabaseUrl).hostname : null;
+  } catch {
+    supabaseHostname = null;
+  }
+
+  const remotePatterns = [
+    {
+      protocol: "https",
+      hostname: "lh3.googleusercontent.com",
+      pathname: "/**",
+    },
+  ];
+
+  // allow your actual supabase project host for storage public URLs
+  if (supabaseHostname) {
+    remotePatterns.push({
+      protocol: "https",
+      hostname: supabaseHostname,
+      pathname: "/storage/v1/object/public/**",
+    });
+  }
+
+  return {
+    images: { remotePatterns },
+  };
+})();
 
 export default nextConfig;
