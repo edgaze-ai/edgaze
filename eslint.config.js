@@ -1,13 +1,18 @@
-// Flat config
-import next from "eslint-config-next";
+// eslint.config.js
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+// import nextTs from "eslint-config-next/typescript";
 
-export default [
-  ...next,
+export default defineConfig([
+  ...nextVitals,
+  // ...nextTs,
+
   {
     rules: {
       "@next/next/no-img-element": "off",
-      "no-console": ["warn", { allow: ["warn", "error"] }]
+      "no-console": ["warn", { allow: ["warn", "error"] }],
     },
-    ignores: ["**/dist/**", "**/.next/**"]
-  }
-];
+  },
+
+  globalIgnores([".next/**", "out/**", "build/**", "dist/**"]),
+]);
