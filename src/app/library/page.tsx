@@ -9,412 +9,864 @@ import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../../components/auth/AuthContext";
 import ProfileMenu from "../../components/auth/ProfileMenu";
 
-type Visibility = "public" | "unlisted" | "private";
+import PublishPromptModal from "../../components/prompt-studio/PublishPromptModal";
+import WorkflowPublishModal from "../../components/builder/WorkflowPublishModal";
+
+type Visibility = "public" | "unlisted" | "private" | null;
 type MonetisationMode = "free" | "paywall" | "subscription" | "both" | null;
 
-type PromptRow = {
+type LibraryKind = "prompt" | "workflow";
+type MobileTab = "created" | "purchased";
+
+type PromptRowRaw = {
   id: string;
   owner_id: string | null;
   owner_name: string | null;
   owner_handle: string | null;
-  type: "prompt" | "workflow" | null;
+  type: string | null;
   edgaze_code: string | null;
   title: string | null;
   description: string | null;
   tags: string | null;
   thumbnail_url: string | null;
-  visibility: Visibility | null;
+
+  visibility: Visibility;
   monetisation_mode: MonetisationMode;
   is_paid: boolean | null;
   price_usd: number | null;
-  view_count: number | null;
-  like_count: number | null;
+
+  views_count?: number | null;
+  view_count?: number | null;
+  likes_count?: number | null;
+  like_count?: number | null;
+  runs_count?: number | null;
+
+  is_published?: boolean | null;
+  is_public?: boolean | null;
+  updated_at?: string | null;
+
+  // edit-needed
+  prompt_text?: string | null;
+  placeholders?: any | null;
+  demo_images?: any | null;
+  output_demo_urls?: any | null;
 };
 
-type PurchaseRow = {
+type WorkflowRowRaw = {
   id: string;
+  owner_id: string | null;
+  owner_name: string | null;
+  owner_handle: string | null;
+  type: string | null;
+  edgaze_code: string | null;
+  title: string | null;
+  description: string | null;
+  tags: string | null;
+  thumbnail_url: string | null;
+
+  monetisation_mode: MonetisationMode;
+  is_paid: boolean | null;
+  price_usd: number | null;
+
+  views_count?: number | null;
+  likes_count?: number | null;
+  runs_count?: number | null;
+
+  is_published?: boolean | null;
+  is_public?: boolean | null;
+  updated_at?: string | null;
+
+  // edit-needed
+  graph?: any | null;
+  graph_json?: any | null;
+  demo_images?: any | null;
+  output_demo_urls?: any | null;
+};
+
+type PurchasePromptRow = {
+  id: string;
+  created_at: string;
   prompt_id: string;
   buyer_id: string;
+  status?: string | null;
+};
+
+type PurchaseWorkflowRow = {
+  id: string;
   created_at: string;
+  workflow_id: string;
+  buyer_id: string;
+  status?: string | null;
+};
+
+type LibraryItem = {
+  kind: LibraryKind;
+  id: string;
+
+  owner_id: string | null;
+  owner_name: string | null;
+  owner_handle: string | null;
+  edgaze_code: string | null;
+
+  title: string | null;
+  description: string | null;
+  tags: string | null;
+  thumbnail_url: string | null;
+
+  monetisation_mode: MonetisationMode;
+  is_paid: boolean | null;
+  price_usd: number | null;
+
+  views: number;
+  likes: number;
+  runs: number;
+
+  updated_at: string | null;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-function initialsFromName(name?: string | null) {
-  if (!name) return "AK";
-  const parts = name.trim().split(/\s+/);
-  return parts
-    .map((p) => p[0]?.toUpperCase())
-    .slice(0, 2)
-    .join("");
+function normalizeCounts(row: any) {
+  const views = Number(row?.views_count ?? row?.view_count ?? row?.views ?? 0) || 0;
+  const likes = Number(row?.likes_count ?? row?.like_count ?? row?.likes ?? 0) || 0;
+  const runs = Number(row?.runs_count ?? row?.runs ?? 0) || 0;
+  return { views, likes, runs };
+}
+
+function normalizePrompt(row: PromptRowRaw): LibraryItem {
+  const { views, likes, runs } = normalizeCounts(row);
+  return {
+    kind: "prompt",
+    id: row.id,
+    owner_id: row.owner_id,
+    owner_name: row.owner_name,
+    owner_handle: row.owner_handle,
+    edgaze_code: row.edgaze_code,
+    title: row.title,
+    description: row.description,
+    tags: row.tags,
+    thumbnail_url: row.thumbnail_url,
+    monetisation_mode: row.monetisation_mode,
+    is_paid: row.is_paid,
+    price_usd: row.price_usd,
+    views,
+    likes,
+    runs,
+    updated_at: row.updated_at ?? null,
+  };
+}
+
+function normalizeWorkflow(row: WorkflowRowRaw): LibraryItem {
+  const { views, likes, runs } = normalizeCounts(row);
+  return {
+    kind: "workflow",
+    id: row.id,
+    owner_id: row.owner_id,
+    owner_name: row.owner_name,
+    owner_handle: row.owner_handle,
+    edgaze_code: row.edgaze_code,
+    title: row.title,
+    description: row.description,
+    tags: row.tags,
+    thumbnail_url: row.thumbnail_url,
+    monetisation_mode: row.monetisation_mode,
+    is_paid: row.is_paid,
+    price_usd: row.price_usd,
+    views,
+    likes,
+    runs,
+    updated_at: row.updated_at ?? null,
+  };
 }
 
 type LibraryCardProps = {
-  prompt: PromptRow;
+  item: LibraryItem;
   context: "created" | "purchased";
+  onEdit?: (kind: LibraryKind, id: string) => void;
 };
 
-function LibraryCard({ prompt, context }: LibraryCardProps) {
+function LibraryCard({ item, context, onEdit }: LibraryCardProps) {
   const router = useRouter();
 
-  const isFree =
-    prompt.monetisation_mode === "free" || prompt.is_paid === false;
+  const isFree = item.monetisation_mode === "free" || item.is_paid === false;
   const priceLabel =
-    isFree || prompt.price_usd == null
+    isFree || item.price_usd == null
       ? isFree
         ? "Free"
         : "Paid"
-      : `$${prompt.price_usd.toFixed(2)}`;
+      : `$${Number(item.price_usd).toFixed(2)}`;
 
-  const badgeLabel = prompt.type === "workflow" ? "Workflow" : "Prompt";
+  const badgeLabel = item.kind === "workflow" ? "Workflow" : "Prompt";
 
   const openListing = () => {
-    if (!prompt.owner_handle || !prompt.edgaze_code) return;
-    router.push(`/p/${prompt.owner_handle}/${prompt.edgaze_code}`);
-  };
+    if (!item.owner_handle || !item.edgaze_code) return;
 
-  const openEditor = () => {
-    router.push(`/studio/prompt/${prompt.id}`);
+    // FIX: workflows are /<handle>/<code>
+    if (item.kind === "workflow") {
+      router.push(`/${item.owner_handle}/${item.edgaze_code}`);
+      return;
+    }
+
+    // prompts are /p/<handle>/<code>
+    router.push(`/p/${item.owner_handle}/${item.edgaze_code}`);
   };
 
   return (
-    <div className="flex flex-col rounded-3xl border border-white/12 bg-white/[0.03] p-4 text-sm shadow-[0_0_30px_rgba(15,23,42,0.7)]">
+    <div className="flex flex-col rounded-3xl border border-white/12 bg-white/[0.03] p-3 sm:p-4 text-sm shadow-[0_0_30px_rgba(15,23,42,0.7)]">
       <div className="flex items-start gap-3">
-        <div className="relative h-16 w-28 overflow-hidden rounded-2xl bg-slate-900/80">
-          {prompt.thumbnail_url ? (
+        <div className="relative h-16 w-24 sm:w-28 overflow-hidden rounded-2xl bg-slate-900/80 shrink-0">
+          {item.thumbnail_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={prompt.thumbnail_url}
-              alt={prompt.title || "Thumbnail"}
-              className="h-full w-full object-cover"
-            />
+            <img src={item.thumbnail_url} alt={item.title || "Thumbnail"} className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[11px] text-white/55">
-              No image
-            </div>
+            <div className="flex h-full w-full items-center justify-center text-[11px] text-white/55">No image</div>
           )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="mb-1 flex items-center gap-2">
-            <h3 className="truncate text-sm font-semibold">
-              {prompt.title || "Untitled"}
-            </h3>
-            <span className="rounded-full bg-cyan-400/20 px-2 py-[2px] text-[10px] font-medium text-cyan-200">
-              {badgeLabel}
-            </span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[10px] text-white/70">
+                {badgeLabel}
+              </div>
+              <div
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-[10px]",
+                  isFree
+                    ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-50"
+                    : "border-pink-400/20 bg-pink-400/10 text-pink-50"
+                )}
+              >
+                {priceLabel}
+              </div>
+            </div>
+
+            {context === "created" ? (
+              <button
+                type="button"
+                onClick={() => onEdit?.(item.kind, item.id)}
+                className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 hover:bg-white/10"
+                title="Edit & republish"
+              >
+                <Edit3 className="h-4 w-4" />
+                Edit
+              </button>
+            ) : null}
           </div>
 
-          <p className="line-clamp-2 text-xs text-white/65">
-            {prompt.description || "No description yet."}
-          </p>
+          <div className="mt-2 text-[13px] font-semibold text-white truncate">{item.title || "Untitled"}</div>
+          <div className="mt-1 text-[11px] text-white/55 line-clamp-2">{item.description || ""}</div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-white/55">
-            {prompt.owner_handle && (
-              <span className="inline-flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-[10px] font-semibold">
-                  {initialsFromName(prompt.owner_name || prompt.owner_handle)}
-                </span>
-                <span>@{prompt.owner_handle}</span>
-              </span>
-            )}
-            {prompt.edgaze_code && (
-              <span className="rounded-full bg-white/5 px-2 py-[2px] text-[10px] text-white/70">
-                /{prompt.edgaze_code}
-              </span>
-            )}
+          <div className="mt-2 text-[11px] text-white/45">
+            @{item.owner_handle} • {item.views} views • {item.likes} likes • {item.runs} runs
           </div>
-        </div>
-
-        <div className="flex flex-col items-end gap-1 text-[11px]">
-          <span className="text-xs font-semibold text-white/90">
-            {priceLabel}
-          </span>
-
-          {context === "created" ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-[2px] text-[10px] text-white/65">
-              <Layers className="h-3 w-3" />
-              Created
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-[2px] text-[10px] text-white/65">
-              <ShoppingBag className="h-3 w-3" />
-              Purchased
-            </span>
-          )}
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-        <div className="flex gap-3 text-white/55">
-          <span>👁 {prompt.view_count ?? 0}</span>
-          <span>♥ {prompt.like_count ?? 0}</span>
-        </div>
-
-        <div className="flex gap-2">
-          {context === "created" && (
-            <button
-              type="button"
-              onClick={openEditor}
-              className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-medium text-white hover:border-cyan-400 hover:text-cyan-200"
-            >
-              <Edit3 className="h-3 w-3" />
-              Edit
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={openListing}
-            className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-3 py-1 text-[11px] font-semibold text-black shadow-[0_0_16px_rgba(56,189,248,0.9)]"
-          >
-            <ExternalLink className="h-3 w-3" />
-            Open listing
-          </button>
-        </div>
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={openListing}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2.5 text-[12px] font-semibold text-black hover:bg-white/90"
+        >
+          <ExternalLink className="h-4 w-4" />
+          Open
+        </button>
       </div>
     </div>
   );
 }
 
+function parsePlaceholders(raw: any): Array<{ name: string; question: string }> {
+  if (!raw) return [];
+  try {
+    if (Array.isArray(raw)) {
+      return raw
+        .map((x) => ({
+          name: String((x as any)?.name ?? "").trim(),
+          question: String((x as any)?.question ?? "").trim(),
+        }))
+        .filter((x) => x.name && x.question);
+    }
+    if (typeof raw === "string") {
+      const j = JSON.parse(raw);
+      return parsePlaceholders(j);
+    }
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+function isBadPurchaseStatus(status: string | null | undefined) {
+  const s = (status ?? "").trim().toLowerCase();
+  if (!s) return false; // keep null/empty
+  // Only exclude obvious non-entitled states
+  return (
+    s === "failed" ||
+    s === "canceled" ||
+    s === "cancelled" ||
+    s === "refunded" ||
+    s === "void" ||
+    s === "voided" ||
+    s === "requires_payment_method" ||
+    s === "requires_action"
+  );
+}
+
 export default function LibraryPage() {
-  // NEW AUTH SHAPE:
-  // - userId: string | null
-  // - requireAuth(): boolean
-  const { userId, requireAuth } = useAuth();
-
-  // Browser-only Supabase client (same pattern as your migrated pages)
+  const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const { userId, profile } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"created" | "purchased">("created");
-  const [created, setCreated] = useState<PromptRow[]>([]);
-  const [purchased, setPurchased] = useState<PromptRow[]>([]);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("created");
+
   const [loadingCreated, setLoadingCreated] = useState(true);
   const [loadingPurchased, setLoadingPurchased] = useState(true);
 
-  // Kick auth if not logged in
-  useEffect(() => {
-    if (!userId) requireAuth();
-  }, [userId, requireAuth]);
+  const [created, setCreated] = useState<LibraryItem[]>([]);
+  const [purchased, setPurchased] = useState<LibraryItem[]>([]);
 
-  /* ----- LOAD CREATED ----- */
+  const [promptRawById, setPromptRawById] = useState<Map<string, PromptRowRaw>>(new Map());
+  const [workflowRawById, setWorkflowRawById] = useState<Map<string, WorkflowRowRaw>>(new Map());
+
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
+  const [promptMeta, setPromptMeta] = useState<any>(null);
+  const [promptText, setPromptText] = useState<string>("");
+  const [promptPlaceholders, setPromptPlaceholders] = useState<Array<{ name: string; question: string }>>([]);
+
+  const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+  const [workflowDraft, setWorkflowDraft] = useState<any>(null);
+
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const triggerRefresh = () => setRefreshNonce((n) => n + 1);
+
+  // Load CREATED
   useEffect(() => {
-    if (!userId) return;
     let cancelled = false;
 
     async function loadCreated() {
-      setLoadingCreated(true);
-
-      const { data, error } = await supabase
-        .from("prompts")
-        .select(
-          [
-            "id",
-            "owner_id",
-            "owner_name",
-            "owner_handle",
-            "type",
-            "edgaze_code",
-            "title",
-            "description",
-            "tags",
-            "thumbnail_url",
-            "visibility",
-            "monetisation_mode",
-            "is_paid",
-            "price_usd",
-            "view_count",
-            "like_count",
-          ].join(",")
-        )
-        .eq("owner_id", userId)
-        .order("updated_at", { ascending: false });
-
-      if (cancelled) return;
-
-      if (error) {
-        console.warn?.("Error loading created prompts", error);
+      if (!userId) {
         setCreated([]);
-      } else {
-        setCreated((data ?? []) as PromptRow[]);
+        setPromptRawById(new Map());
+        setWorkflowRawById(new Map());
+        setLoadingCreated(false);
+        return;
       }
 
-      setLoadingCreated(false);
+      setLoadingCreated(true);
+
+      try {
+        const [promptsRes, workflowsRes] = await Promise.all([
+          supabase
+            .from("prompts")
+            .select(
+              [
+                "id",
+                "owner_id",
+                "owner_name",
+                "owner_handle",
+                "type",
+                "edgaze_code",
+                "title",
+                "description",
+                "tags",
+                "thumbnail_url",
+                "visibility",
+                "monetisation_mode",
+                "is_paid",
+                "price_usd",
+                "views_count",
+                "view_count",
+                "likes_count",
+                "like_count",
+                "runs_count",
+                "is_published",
+                "is_public",
+                "updated_at",
+                "prompt_text",
+                "placeholders",
+                "demo_images",
+                "output_demo_urls",
+              ].join(",")
+            )
+            .eq("owner_id", userId)
+            .order("updated_at", { ascending: false }),
+
+          supabase
+            .from("workflows")
+            .select(
+              [
+                "id",
+                "owner_id",
+                "owner_name",
+                "owner_handle",
+                "type",
+                "edgaze_code",
+                "title",
+                "description",
+                "tags",
+                "thumbnail_url",
+                "monetisation_mode",
+                "is_paid",
+                "price_usd",
+                "views_count",
+                "likes_count",
+                "runs_count",
+                "is_published",
+                "is_public",
+                "updated_at",
+                "graph",
+                "graph_json",
+                "demo_images",
+                "output_demo_urls",
+              ].join(",")
+            )
+            .eq("owner_id", userId)
+            .order("updated_at", { ascending: false }),
+        ]);
+
+        if (cancelled) return;
+
+        const promptRows = (promptsRes.data ?? []) as any[];
+        const workflowRows = (workflowsRes.data ?? []) as any[];
+
+        const pMap = new Map<string, PromptRowRaw>();
+        for (const r of promptRows) pMap.set(r.id, r as PromptRowRaw);
+
+        const wMap = new Map<string, WorkflowRowRaw>();
+        for (const r of workflowRows) wMap.set(r.id, r as WorkflowRowRaw);
+
+        setPromptRawById(pMap);
+        setWorkflowRawById(wMap);
+
+        const combined: LibraryItem[] = [
+          ...promptRows.map((r) => normalizePrompt(r as PromptRowRaw)),
+          ...workflowRows.map((r) => normalizeWorkflow(r as WorkflowRowRaw)),
+        ].sort((a, b) => {
+          const ta = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+          const tb = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+          return tb - ta;
+        });
+
+        setCreated(combined);
+      } catch (e) {
+        console.warn?.("Error loading created library", e);
+        if (!cancelled) {
+          setCreated([]);
+          setPromptRawById(new Map());
+          setWorkflowRawById(new Map());
+        }
+      } finally {
+        if (!cancelled) setLoadingCreated(false);
+      }
     }
 
     loadCreated();
-
     return () => {
       cancelled = true;
     };
-  }, [userId, supabase]);
+  }, [userId, supabase, refreshNonce]);
 
-  /* ----- LOAD PURCHASED ----- */
+  // Load PURCHASED (FIXED)
   useEffect(() => {
-    if (!userId) return;
     let cancelled = false;
 
     async function loadPurchased() {
+      if (!userId) {
+        setPurchased([]);
+        setLoadingPurchased(false);
+        return;
+      }
+
       setLoadingPurchased(true);
 
       try {
-        const { data: purchases, error: purchaseErr } = await supabase
-          .from("prompt_purchases")
-          .select("id, prompt_id, buyer_id, created_at")
-          .eq("buyer_id", userId)
-          .order("created_at", { ascending: false });
+        // IMPORTANT FIX:
+        // Do NOT hard-filter status = "paid". Your new tables/provider can write different statuses or null.
+        const [promptPurchasesRes, workflowPurchasesRes] = await Promise.all([
+          supabase
+            .from("prompt_purchases")
+            .select("id, created_at, prompt_id, buyer_id, status")
+            .eq("buyer_id", userId)
+            .order("created_at", { ascending: false }),
+
+          supabase
+            .from("workflow_purchases")
+            .select("id, created_at, workflow_id, buyer_id, status, provider, currency, price_usd, external_ref")
+            .eq("buyer_id", userId)
+            .order("created_at", { ascending: false }),
+        ]);
 
         if (cancelled) return;
 
-        if (purchaseErr || !purchases || purchases.length === 0) {
-          if (purchaseErr) console.warn?.("Error loading purchases", purchaseErr);
-          setPurchased([]);
-          setLoadingPurchased(false);
-          return;
-        }
+        const promptPurchasesAll = (promptPurchasesRes.data ?? []) as PurchasePromptRow[];
+        const workflowPurchasesAll = (workflowPurchasesRes.data ?? []) as PurchaseWorkflowRow[];
 
-        const promptIds = (purchases as PurchaseRow[]).map((p) => p.prompt_id);
+        // Keep “good or unknown” statuses, drop obvious bad ones
+        const promptPurchases = promptPurchasesAll.filter((p) => !isBadPurchaseStatus(p.status));
+        const workflowPurchases = workflowPurchasesAll.filter((w) => !isBadPurchaseStatus(w.status));
 
-        const { data: promptsData, error: promptErr } = await supabase
-          .from("prompts")
-          .select(
-            [
-              "id",
-              "owner_id",
-              "owner_name",
-              "owner_handle",
-              "type",
-              "edgaze_code",
-              "title",
-              "description",
-              "tags",
-              "thumbnail_url",
-              "visibility",
-              "monetisation_mode",
-              "is_paid",
-              "price_usd",
-              "view_count",
-              "like_count",
-            ].join(",")
-          )
-          .in("id", promptIds);
+        const promptIds = Array.from(new Set(promptPurchases.map((p) => p.prompt_id).filter(Boolean)));
+        const workflowIds = Array.from(new Set(workflowPurchases.map((w) => w.workflow_id).filter(Boolean)));
+
+        const [promptsDataRes, workflowsDataRes] = await Promise.all([
+          promptIds.length
+            ? supabase
+                .from("prompts")
+                .select(
+                  [
+                    "id",
+                    "owner_id",
+                    "owner_name",
+                    "owner_handle",
+                    "type",
+                    "edgaze_code",
+                    "title",
+                    "description",
+                    "tags",
+                    "thumbnail_url",
+                    "visibility",
+                    "monetisation_mode",
+                    "is_paid",
+                    "price_usd",
+                    "views_count",
+                    "view_count",
+                    "likes_count",
+                    "like_count",
+                    "runs_count",
+                    "updated_at",
+                  ].join(",")
+                )
+                .in("id", promptIds)
+            : (Promise.resolve({ data: [], error: null }) as any),
+
+          workflowIds.length
+            ? supabase
+                .from("workflows")
+                .select(
+                  [
+                    "id",
+                    "owner_id",
+                    "owner_name",
+                    "owner_handle",
+                    "type",
+                    "edgaze_code",
+                    "title",
+                    "description",
+                    "tags",
+                    "thumbnail_url",
+                    "monetisation_mode",
+                    "is_paid",
+                    "price_usd",
+                    "views_count",
+                    "likes_count",
+                    "runs_count",
+                    "updated_at",
+                  ].join(",")
+                )
+                .in("id", workflowIds)
+            : (Promise.resolve({ data: [], error: null }) as any),
+        ]);
 
         if (cancelled) return;
 
-        if (promptErr) {
-          console.warn?.("Error loading purchased prompts", promptErr);
-          setPurchased([]);
-        } else {
-          const map = new Map(
-            (promptsData ?? []).map((p) => [p.id as string, p as PromptRow])
-          );
-          const ordered: PromptRow[] = [];
-          (purchases as PurchaseRow[]).forEach((p) => {
-            const row = map.get(p.prompt_id);
-            if (row) ordered.push(row);
-          });
-          setPurchased(ordered);
+        if (promptsDataRes.error) console.warn?.("Error loading purchased prompts", promptsDataRes.error);
+        if (workflowsDataRes.error) console.warn?.("Error loading purchased workflows", workflowsDataRes.error);
+
+        const promptMap = new Map<string, LibraryItem>(
+          (promptsDataRes.data ?? []).map((r: any) => {
+            const item = normalizePrompt(r as PromptRowRaw);
+            return [item.id, item];
+          })
+        );
+
+        const workflowMap = new Map<string, LibraryItem>(
+          (workflowsDataRes.data ?? []).map((r: any) => {
+            const item = normalizeWorkflow(r as WorkflowRowRaw);
+            return [item.id, item];
+          })
+        );
+
+        // preserve purchase order (newest first) across both tables
+        const combinedPurchases: Array<{ kind: "prompt" | "workflow"; created_at: string; id: string }> = [
+          ...promptPurchases.map((p) => ({ kind: "prompt", created_at: p.created_at, id: p.prompt_id })),
+          ...workflowPurchases.map((w) => ({ kind: "workflow", created_at: w.created_at, id: w.workflow_id })),
+        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        const ordered: LibraryItem[] = [];
+        for (const p of combinedPurchases) {
+          const item = p.kind === "prompt" ? promptMap.get(p.id) : workflowMap.get(p.id);
+          if (item) ordered.push(item);
         }
+
+        setPurchased(ordered);
       } catch (err) {
         console.warn?.("Unexpected error loading purchases", err);
-        setPurchased([]);
+        if (!cancelled) setPurchased([]);
       } finally {
         if (!cancelled) setLoadingPurchased(false);
       }
     }
 
     loadPurchased();
-
     return () => {
       cancelled = true;
     };
-  }, [userId, supabase]);
+  }, [userId, supabase, refreshNonce]);
 
-  const activeList = useMemo(
-    () => (activeTab === "created" ? created : purchased),
-    [activeTab, created, purchased]
-  );
+  function openEdit(kind: LibraryKind, id: string) {
+    if (kind === "prompt") {
+      const row = promptRawById.get(id);
+      if (!row) return;
 
-  const loading = activeTab === "created" ? loadingCreated : loadingPurchased;
+      const ownerName = row.owner_name || profile?.full_name || "You";
+      const ownerHandle = row.owner_handle || (profile as any)?.handle || "you";
+
+      const meta = {
+        name: row.title || "Untitled prompt",
+        description: row.description || "",
+        thumbnailUrl: row.thumbnail_url || "",
+        tags: row.tags || "",
+        visibility: (row.visibility || "public") as any,
+        paid: row.monetisation_mode === "paywall" || row.is_paid === true,
+        priceUsd: row.price_usd != null ? String(row.price_usd) : "2.99",
+        demoImageUrls: Array.isArray(row.demo_images) ? row.demo_images : [],
+        ownerName,
+        ownerHandle,
+        edgazeCode: row.edgaze_code || "",
+      };
+
+      setPromptMeta(meta);
+      setPromptText(row.prompt_text || "");
+      setPromptPlaceholders(parsePlaceholders(row.placeholders));
+      setPromptModalOpen(true);
+      return;
+    }
+
+    const row = workflowRawById.get(id);
+    if (!row) return;
+
+    setWorkflowDraft({
+      id: row.id,
+      title: row.title || "Untitled workflow",
+      graph_json: row.graph_json ?? null,
+      graph: row.graph ?? null,
+      description: row.description || "",
+      tags: row.tags || "",
+      thumbnail_url: row.thumbnail_url || "",
+      edgaze_code: row.edgaze_code || "",
+      monetisation_mode: row.monetisation_mode,
+      is_paid: row.is_paid,
+      price_usd: row.price_usd,
+      visibility: row.is_public === false ? "private" : "public",
+    });
+
+    setWorkflowModalOpen(true);
+  }
+
+  const ownerForWorkflowModal = useMemo(() => {
+    if (!userId) return null;
+    return {
+      userId,
+      name: profile?.full_name || (profile as any)?.handle || "You",
+      handle: (profile as any)?.handle || "you",
+      avatarUrl: (profile as any)?.avatar_url || null,
+    };
+  }, [userId, profile]);
 
   return (
-    <div className="flex h-full flex-col bg-[#050505] text-white">
-      <header className="flex items-center justify-between border-b border-white/10 px-8 pt-6 pb-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold">Library</h1>
-          <p className="text-sm text-white/55">
-            Everything you&apos;ve created and purchased on Edgaze, in one place.
-          </p>
+    <div className="min-h-screen bg-[#050505] text-white">
+      {/* Mobile header = only text + toggle */}
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050505]/80 backdrop-blur-md">
+        <div className="px-4 sm:px-6 py-3">
+          {/* Mobile */}
+          <div className="sm:hidden">
+            <div className="text-[14px] font-semibold text-white">Library</div>
+
+            {/* BIG wide toggle */}
+            <div className="mt-3 rounded-2xl border border-white/12 bg-white/[0.04] p-1">
+              <button
+                type="button"
+                onClick={() => setMobileTab("created")}
+                className={cn(
+                  "w-1/2 rounded-xl px-3 py-2 text-[12px] font-semibold transition",
+                  mobileTab === "created" ? "bg-white text-black" : "text-white/75 hover:bg-white/5"
+                )}
+              >
+                Created
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTab("purchased")}
+                className={cn(
+                  "w-1/2 rounded-xl px-3 py-2 text-[12px] font-semibold transition",
+                  mobileTab === "purchased" ? "bg-white text-black" : "text-white/75 hover:bg-white/5"
+                )}
+              >
+                Purchased
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop+ */}
+          <div className="hidden sm:flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-[26px] w-[26px]" />
+              <div className="min-w-0">
+                <div className="text-[14px] font-semibold text-white">Library</div>
+                <div className="text-[11px] text-white/45 truncate">Your created + purchased prompts & workflows</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => router.push("/marketplace")}
+                className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-4 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/10"
+              >
+                <ShoppingBag className="h-4 w-4" />
+                Marketplace
+              </button>
+              <ProfileMenu />
+            </div>
+          </div>
         </div>
-        <ProfileMenu />
       </header>
 
-      <main className="flex-1 overflow-y-auto px-8 pb-10 pt-6">
-        <div className="mb-4 inline-flex rounded-full border border-white/15 bg-white/5 p-1 text-xs">
-          <button
-            type="button"
-            onClick={() => setActiveTab("created")}
-            className={cn(
-              "flex items-center gap-1 rounded-full px-3 py-1.5",
-              activeTab === "created"
-                ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black font-semibold shadow-[0_0_18px_rgba(56,189,248,0.8)]"
-                : "text-white/65 hover:text-white"
-            )}
-          >
-            <Layers className="h-3.5 w-3.5" />
-            My creations
-          </button>
+      <main className="px-4 sm:px-6 py-6">
+        {/* Mobile: single column with tab */}
+        <div className="sm:hidden">
+          {mobileTab === "created" ? (
+            <section>
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-white/85">
+                <Layers className="h-4 w-4" />
+                Created
+              </div>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("purchased")}
-            className={cn(
-              "flex items-center gap-1 rounded-full px-3 py-1.5",
-              activeTab === "purchased"
-                ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black font-semibold shadow-[0_0_18px_rgba(56,189,248,0.8)]"
-                : "text-white/65 hover:text-white"
-            )}
-          >
-            <ShoppingBag className="h-3.5 w-3.5" />
-            Purchased
-          </button>
+              <div className="mt-3 space-y-4">
+                {loadingCreated ? (
+                  <div className="flex items-center gap-2 text-white/60 text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </div>
+                ) : created.length === 0 ? (
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/60">
+                    No created items yet.
+                  </div>
+                ) : (
+                  created.map((item) => (
+                    <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="created" onEdit={openEdit} />
+                  ))
+                )}
+              </div>
+            </section>
+          ) : (
+            <section>
+              <div className="flex items-center gap-2 text-[12px] font-semibold text-white/85">
+                <ShoppingBag className="h-4 w-4" />
+                Purchased
+              </div>
+
+              <div className="mt-3 space-y-4">
+                {loadingPurchased ? (
+                  <div className="flex items-center gap-2 text-white/60 text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading…
+                  </div>
+                ) : purchased.length === 0 ? (
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/60">
+                    No purchases yet.
+                  </div>
+                ) : (
+                  purchased.map((item) => <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="purchased" />)
+                )}
+              </div>
+            </section>
+          )}
         </div>
 
-        {loading ? (
-          <div className="mt-10 flex flex-col items-center gap-3 text-sm text-white/60">
-            <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
-            Loading your library…
-          </div>
-        ) : activeList.length === 0 ? (
-          <div className="mt-6 rounded-3xl border border-dashed border-white/15 bg-white/[0.02] px-6 py-6 text-sm text-white/65">
-            {activeTab === "created" ? (
-              <>
-                You haven&apos;t created any listings yet. Build in Prompt Studio
-                or Workflow Studio, publish to Edgaze, and your listings will show
-                up here.
-              </>
-            ) : (
-              <>
-                You haven&apos;t purchased anything yet. When you buy prompts or
-                workflows, they&apos;ll appear here for quick access.
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {activeList.map((p) => (
-              <LibraryCard key={p.id} prompt={p} context={activeTab} />
-            ))}
-          </div>
-        )}
+        {/* Desktop: two columns */}
+        <div className="hidden sm:grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <section className="lg:col-span-7">
+            <div className="flex items-center gap-2 text-[12px] font-semibold text-white/85">
+              <Layers className="h-4 w-4" />
+              Created
+            </div>
 
-        <p className="mt-6 text-[11px] text-white/40">
-          Editing a creation from your library will update the live marketplace
-          listing once you republish from Prompt Studio or Workflow Studio.
-        </p>
+            <div className="mt-3 space-y-4">
+              {loadingCreated ? (
+                <div className="flex items-center gap-2 text-white/60 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading…
+                </div>
+              ) : created.length === 0 ? (
+                <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/60">
+                  No created items yet.
+                </div>
+              ) : (
+                created.map((item) => (
+                  <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="created" onEdit={openEdit} />
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="lg:col-span-5">
+            <div className="flex items-center gap-2 text-[12px] font-semibold text-white/85">
+              <ShoppingBag className="h-4 w-4" />
+              Purchased
+            </div>
+
+            <div className="mt-3 space-y-4">
+              {loadingPurchased ? (
+                <div className="flex items-center gap-2 text-white/60 text-sm">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading…
+                </div>
+              ) : purchased.length === 0 ? (
+                <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/60">
+                  No purchases yet.
+                </div>
+              ) : (
+                purchased.map((item) => <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="purchased" />)
+              )}
+            </div>
+          </section>
+        </div>
       </main>
+
+      {/* PROMPT EDIT -> PublishPromptModal */}
+      {promptMeta ? (
+        <PublishPromptModal
+          open={promptModalOpen}
+          onClose={() => setPromptModalOpen(false)}
+          meta={promptMeta}
+          onMetaChange={(next: any) => setPromptMeta(next)}
+          promptText={promptText}
+          placeholders={promptPlaceholders}
+          onPublished={() => {
+            setPromptModalOpen(false);
+            triggerRefresh();
+          }}
+        />
+      ) : null}
+
+      {/* WORKFLOW EDIT -> WorkflowPublishModal */}
+      <WorkflowPublishModal
+        open={workflowModalOpen}
+        onClose={() => setWorkflowModalOpen(false)}
+        draft={workflowDraft}
+        owner={ownerForWorkflowModal}
+        onEnsureDraftSaved={undefined}
+        onPublished={() => {
+          setWorkflowModalOpen(false);
+          triggerRefresh();
+        }}
+      />
     </div>
   );
 }

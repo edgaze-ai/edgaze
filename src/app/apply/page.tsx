@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, ArrowRight, Sparkles, Search } from "lucide-react";
+import { CheckCircle2, ArrowRight, Sparkles, Search, PauseCircle } from "lucide-react";
 import TurnstileWidget from "../../components/apply/TurnstileWidget";
 import ApplyAuthPanel from "../../components/apply/ApplyAuthPanel";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -153,12 +153,67 @@ const COUNTRY_CODES = [
 
 type Step = "details" | "questions" | "auth" | "checking" | "approved";
 
+function PausedPanel() {
+  return (
+    <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7 overflow-hidden relative">
+      <div className="absolute inset-0 pointer-events-none">
+        <motion.div
+          className="absolute -top-24 -left-24 h-64 w-64 rounded-full blur-3xl opacity-30"
+          style={{ background: "radial-gradient(circle, rgba(34,211,238,0.8), transparent 60%)" }}
+          animate={{ x: [0, 18, -6, 0], y: [0, 10, -8, 0], opacity: [0.24, 0.34, 0.26, 0.24] }}
+          transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute -bottom-28 -right-24 h-72 w-72 rounded-full blur-3xl opacity-25"
+          style={{ background: "radial-gradient(circle, rgba(236,72,153,0.75), transparent 60%)" }}
+          animate={{ x: [0, -14, 8, 0], y: [0, -10, 12, 0], opacity: [0.22, 0.32, 0.24, 0.22] }}
+          transition={{ duration: 5.8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:36px_36px]" />
+      </div>
+
+      <div className="relative">
+        <div className="inline-flex items-center gap-2 rounded-full bg-white/5 ring-1 ring-white/10 px-3 py-1 text-xs text-white/70">
+          <PauseCircle className="h-4 w-4 text-white/75" />
+          Applications paused
+        </div>
+
+        <div className="mt-4 text-2xl sm:text-3xl font-semibold tracking-tight text-white">
+          Not accepting applications right now
+        </div>
+        <p className="mt-3 text-sm text-white/70 leading-relaxed max-w-xl">
+          We’re temporarily pausing applications to process the current batch. Come back after some time.
+        </p>
+
+        <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <a
+            href="/"
+            className="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white/90 bg-white/5 ring-1 ring-white/10 hover:bg-white/8 transition-colors"
+          >
+            Back to home
+          </a>
+          <a
+            href="/marketplace"
+            className="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white/90 bg-white/5 ring-1 ring-white/10 hover:bg-white/8 transition-colors"
+          >
+            Explore marketplace
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ApplyPage() {
   const reduce = useReducedMotion();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { userId, authReady } = useAuth();
 
   const [step, setStep] = useState<Step>("details");
+
+  // applications paused flag (from admin toggle)
+  const [appsPaused, setAppsPaused] = useState(false);
+  const [appsPausedLoading, setAppsPausedLoading] = useState(true);
 
   // personal details
   const [fullName, setFullName] = useState("");
@@ -207,6 +262,50 @@ export default function ApplyPage() {
     q5Valid &&
     q6 &&
     captchaVerified;
+
+  async function fetchAppsPaused() {
+    setAppsPausedLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "applications_paused")
+        .maybeSingle();
+
+      if (error) throw error;
+      const v = Boolean((data as any)?.value);
+      setAppsPaused(v);
+    } catch {
+      // fail-open: if settings table missing or query fails, do NOT block applications
+      setAppsPaused(false);
+    } finally {
+      setAppsPausedLoading(false);
+    }
+  }
+
+  // load + realtime subscribe so it flips instantly
+  useEffect(() => {
+    fetchAppsPaused();
+
+    const ch = supabase
+      .channel("realtime:app_settings:applications_paused")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "app_settings", filter: "key=eq.applications_paused" },
+        (payload: any) => {
+          const next = Boolean(payload?.new?.value);
+          setAppsPaused(next);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try {
+        supabase.removeChannel(ch);
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function persistDraft(patch?: Partial<any>) {
     try {
@@ -409,6 +508,8 @@ export default function ApplyPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, userId, step]);
 
+  const showPaused = !appsPausedLoading && appsPaused;
+
   return (
     <div className="relative min-h-screen text-white">
       <Gradients />
@@ -449,356 +550,379 @@ export default function ApplyPage() {
             </div>
 
             <AnimatePresence mode="wait">
-              {step === "details" ? (
+              {showPaused ? (
                 <motion.div
-                  key="details"
-                  initial={reduce ? false : { opacity: 0, y: 10 }}
-                  animate={reduce ? undefined : { opacity: 1, y: 0 }}
-                  exit={reduce ? undefined : { opacity: 0, y: -10 }}
-                  transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
-                  className="mt-8 space-y-6"
-                >
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <FieldLabel>FULL NAME</FieldLabel>
-                      <Input value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
-                    </div>
-
-                    <div className="space-y-2">
-                      <FieldLabel>EMAIL</FieldLabel>
-                      <Input
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        autoComplete="email"
-                        inputMode="email"
-                      />
-                    </div>
-
-                    <div className="space-y-2 sm:col-span-2">
-                      <FieldLabel>PHONE</FieldLabel>
-                      <div className="grid grid-cols-[160px_1fr] gap-2">
-                        <select
-                          value={countryCode}
-                          onChange={(e) => setCountryCode(e.target.value)}
-                          className="rounded-2xl bg-white/5 ring-1 ring-white/10 px-3 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
-                        >
-                          {COUNTRY_CODES.map((c) => (
-                            <option key={c.code} value={c.code}>
-                              {c.label}
-                            </option>
-                          ))}
-                        </select>
-                        <Input
-                          value={phone}
-                          onChange={(e) => setPhone(e.target.value)}
-                          inputMode="tel"
-                          autoComplete="tel"
-                          placeholder="Phone number"
-                        />
-                      </div>
-                      <div className="text-xs text-white/45 mt-2">
-                        Stored as <span className="text-white/70">{phoneFull}</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <FieldLabel>COMPANY (OPTIONAL)</FieldLabel>
-                      <Input value={company} onChange={(e) => setCompany(e.target.value)} />
-                    </div>
-
-                    <div className="space-y-2">
-                      <FieldLabel>OCCUPATION (OPTIONAL)</FieldLabel>
-                      <Input value={occupation} onChange={(e) => setOccupation(e.target.value)} />
-                    </div>
-                  </div>
-
-                  <PrimaryButton disabled={!step0Valid} onClick={goToQuestions}>
-                    Continue
-                  </PrimaryButton>
-                </motion.div>
-              ) : null}
-
-              {step === "questions" ? (
-                <motion.div
-                  key="questions"
-                  initial={reduce ? false : { opacity: 0, y: 10 }}
-                  animate={reduce ? undefined : { opacity: 1, y: 0 }}
-                  exit={reduce ? undefined : { opacity: 0, y: -10 }}
-                  transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
-                  className="mt-8 space-y-8"
-                >
-                  <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-5">
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={consent}
-                        onChange={(e) => setConsent(e.target.checked)}
-                        className="mt-1 h-4 w-4 accent-white"
-                      />
-                      <div>
-                        <div className="text-sm font-semibold text-white">I will give feedback during beta</div>
-                        <p className="mt-1 text-sm text-white/70 leading-relaxed">
-                          If something breaks or feels off, I’ll report it.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <FieldLabel>HOW OFTEN DO YOU USE AI TOOLS?</FieldLabel>
-                    <div className="grid grid-cols-1 gap-2">
-                      {[
-                        "I’ve tried them a few times",
-                        "I use them occasionally (weekly)",
-                        "I rely on them daily for work or study",
-                        "I use them heavily across multiple workflows every day",
-                      ].map((opt) => (
-                        <Option key={opt} selected={q1 === opt} onClick={() => setQ1(opt)}>
-                          {opt}
-                        </Option>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <FieldLabel>WHICH BEST MATCHES WHAT YOU’VE DONE WITH AI?</FieldLabel>
-                    <div className="grid grid-cols-1 gap-2">
-                      {[
-                        "Casual use (chatting, homework help, basic questions)",
-                        "Structured prompts for real tasks (writing, coding, research, content)",
-                        "Connected prompts into repeatable workflows or systems",
-                        "Built, shared, or sold AI setups, prompt packs, or tools",
-                      ].map((opt) => (
-                        <Option key={opt} selected={q2 === opt} onClick={() => setQ2(opt)}>
-                          {opt}
-                        </Option>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <FieldLabel>WHY DO YOU WANT EDGAZE?</FieldLabel>
-                    <div className="grid grid-cols-1 gap-2">
-                      {[
-                        "Run higher-quality prompts and workflows made by others",
-                        "Turn my own prompts into something reusable and organized",
-                        "Build, publish, and iterate on workflows or prompt packs",
-                        "Explore what advanced AI users are building",
-                        "Eventually monetize my AI setups",
-                      ].map((opt) => (
-                        <Option key={opt} selected={q3 === opt} onClick={() => setQ3(opt)}>
-                          {opt}
-                        </Option>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <FieldLabel>WILL YOU REPORT ISSUES / GIVE FEEDBACK DURING BETA?</FieldLabel>
-                    <div className="grid grid-cols-1 gap-2">
-                      {["Yes, I’m happy to give feedback", "Maybe, if I have time", "Probably not"].map((opt) => (
-                        <Option key={opt} selected={q4 === opt} onClick={() => setQ4(opt)}>
-                          {opt}
-                        </Option>
-                      ))}
-                    </div>
-                    {q4 && q4 !== "Yes, I’m happy to give feedback" ? (
-                      <div className="text-xs text-white/60">
-                        You must select <span className="text-white/85">Yes</span> to continue.
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="space-y-3">
-                    <FieldLabel>WHAT WILL YOU TRY FIRST?</FieldLabel>
-                    <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-4">
-                      <Textarea
-                        value={q5}
-                        onChange={(e) => setQ5(e.target.value)}
-                        rows={3}
-                        maxLength={140}
-                        placeholder="One sentence (10–140 chars)"
-                      />
-                      <div className="mt-2 flex items-center justify-between text-xs text-white/50">
-                        <div className="text-white/40">Example: “Turn my research prompt into a reusable workflow”</div>
-                        <div className={cn(q5Trim.length > 140 ? "text-red-300" : "text-white/55")}>
-                          {q5Trim.length}/140
-                        </div>
-                      </div>
-                      {!q5Valid && q5Trim.length > 0 ? (
-                        <div className="mt-2 text-xs text-white/60">10–140 characters required.</div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <FieldLabel>HAVE YOU SHARED PROMPTS / WORKFLOWS BEFORE?</FieldLabel>
-                    <div className="grid grid-cols-1 gap-2">
-                      {[
-                        "No, never",
-                        "Yes, informally (friends, Discord, WhatsApp, Notion)",
-                        "Yes, publicly (Twitter, GitHub, Gumroad, etc.)",
-                      ].map((opt) => (
-                        <Option key={opt} selected={q6 === opt} onClick={() => setQ6(opt)}>
-                          {opt}
-                        </Option>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-5">
-                    <div className="text-sm font-semibold text-white">One last step</div>
-                    <div className="mt-2 text-sm text-white/70">Prove you’re human.</div>
-                    <div className="mt-4">
-                      <TurnstileWidget onToken={onCaptchaToken} />
-                    </div>
-
-                    {captchaVerifying ? (
-                      <div className="mt-2 text-xs text-white/55">Verifying captcha…</div>
-                    ) : captchaVerified ? (
-                      <div className="mt-2 text-xs text-emerald-200">Captcha verified</div>
-                    ) : (
-                      <div className="mt-2 text-xs text-white/55">Captcha required to continue.</div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <SecondaryButton onClick={() => setStep("details")}>Back</SecondaryButton>
-                    <PrimaryButton disabled={!questionsValid} onClick={goToAuth}>
-                      Continue to sign in
-                    </PrimaryButton>
-                  </div>
-                </motion.div>
-              ) : null}
-
-              {step === "auth" ? (
-                <motion.div
-                  key="auth"
+                  key="paused"
                   initial={reduce ? false : { opacity: 0, y: 10 }}
                   animate={reduce ? undefined : { opacity: 1, y: 0 }}
                   exit={reduce ? undefined : { opacity: 0, y: -10 }}
                   transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
                   className="mt-8"
                 >
-                  <ApplyAuthPanel emailPrefill={email} fullNamePrefill={fullName} onAuthed={afterAuthed} />
+                  <PausedPanel />
                 </motion.div>
-              ) : null}
-
-              {step === "checking" ? (
+              ) : (
                 <motion.div
-                  key="checking"
+                  key="form"
                   initial={reduce ? false : { opacity: 0, y: 10 }}
                   animate={reduce ? undefined : { opacity: 1, y: 0 }}
                   exit={reduce ? undefined : { opacity: 0, y: -10 }}
                   transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
-                  className="mt-10"
                 >
-                  <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7 overflow-hidden">
-                    <div className="text-xs font-semibold tracking-widest text-white/55">PROCESSING</div>
-                    <div className="mt-2 text-2xl font-semibold text-white">Checking your application</div>
-
-                    <div className="mt-6 relative h-[160px] rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
-                      <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:36px_36px]" />
+                  <AnimatePresence mode="wait">
+                    {step === "details" ? (
                       <motion.div
-                        className="absolute left-6 top-6 right-6 bottom-6 rounded-xl border border-white/12 bg-white/[0.03]"
-                        initial={false}
-                      />
-
-                      <motion.div
-                        className="absolute top-[28px] left-[28px] w-[120px] h-[16px] rounded bg-white/10"
-                        animate={{ opacity: [0.35, 0.7, 0.35] }}
-                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                      />
-                      <motion.div
-                        className="absolute top-[56px] left-[28px] w-[200px] h-[16px] rounded bg-white/10"
-                        animate={{ opacity: [0.35, 0.7, 0.35] }}
-                        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
-                      />
-                      <motion.div
-                        className="absolute top-[84px] left-[28px] w-[260px] h-[16px] rounded bg-white/10"
-                        animate={{ opacity: [0.35, 0.7, 0.35] }}
-                        transition={{ duration: 1.7, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
-                      />
-
-                      <motion.div
-                        className="absolute"
-                        animate={{ x: ["10%", "65%", "20%", "75%", "10%"], y: ["20%", "35%", "60%", "45%", "20%"] }}
-                        transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut" }}
-                        style={{ left: 0, top: 0 }}
+                        key="details"
+                        initial={reduce ? false : { opacity: 0, y: 10 }}
+                        animate={reduce ? undefined : { opacity: 1, y: 0 }}
+                        exit={reduce ? undefined : { opacity: 0, y: -10 }}
+                        transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+                        className="mt-8 space-y-6"
                       >
-                        <div className="rounded-full bg-white/10 ring-1 ring-white/15 p-3 shadow-[0_0_40px_rgba(34,211,238,0.10)]">
-                          <Search className="h-5 w-5 text-white/80" />
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <FieldLabel>FULL NAME</FieldLabel>
+                            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
+                          </div>
+
+                          <div className="space-y-2">
+                            <FieldLabel>EMAIL</FieldLabel>
+                            <Input
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              autoComplete="email"
+                              inputMode="email"
+                            />
+                          </div>
+
+                          <div className="space-y-2 sm:col-span-2">
+                            <FieldLabel>PHONE</FieldLabel>
+                            <div className="grid grid-cols-[160px_1fr] gap-2">
+                              <select
+                                value={countryCode}
+                                onChange={(e) => setCountryCode(e.target.value)}
+                                className="rounded-2xl bg-white/5 ring-1 ring-white/10 px-3 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+                              >
+                                {COUNTRY_CODES.map((c) => (
+                                  <option key={c.code} value={c.code}>
+                                    {c.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <Input
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                inputMode="tel"
+                                autoComplete="tel"
+                                placeholder="Phone number"
+                              />
+                            </div>
+                            <div className="text-xs text-white/45 mt-2">
+                              Stored as <span className="text-white/70">{phoneFull}</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <FieldLabel>COMPANY (OPTIONAL)</FieldLabel>
+                            <Input value={company} onChange={(e) => setCompany(e.target.value)} />
+                          </div>
+
+                          <div className="space-y-2">
+                            <FieldLabel>OCCUPATION (OPTIONAL)</FieldLabel>
+                            <Input value={occupation} onChange={(e) => setOccupation(e.target.value)} />
+                          </div>
+                        </div>
+
+                        <PrimaryButton disabled={!step0Valid} onClick={goToQuestions}>
+                          Continue
+                        </PrimaryButton>
+                      </motion.div>
+                    ) : null}
+
+                    {step === "questions" ? (
+                      <motion.div
+                        key="questions"
+                        initial={reduce ? false : { opacity: 0, y: 10 }}
+                        animate={reduce ? undefined : { opacity: 1, y: 0 }}
+                        exit={reduce ? undefined : { opacity: 0, y: -10 }}
+                        transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+                        className="mt-8 space-y-8"
+                      >
+                        <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-5">
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={consent}
+                              onChange={(e) => setConsent(e.target.checked)}
+                              className="mt-1 h-4 w-4 accent-white"
+                            />
+                            <div>
+                              <div className="text-sm font-semibold text-white">I will give feedback during beta</div>
+                              <p className="mt-1 text-sm text-white/70 leading-relaxed">
+                                If something breaks or feels off, I’ll report it.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <FieldLabel>HOW OFTEN DO YOU USE AI TOOLS?</FieldLabel>
+                          <div className="grid grid-cols-1 gap-2">
+                            {[
+                              "I’ve tried them a few times",
+                              "I use them occasionally (weekly)",
+                              "I rely on them daily for work or study",
+                              "I use them heavily across multiple workflows every day",
+                            ].map((opt) => (
+                              <Option key={opt} selected={q1 === opt} onClick={() => setQ1(opt)}>
+                                {opt}
+                              </Option>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <FieldLabel>WHICH BEST MATCHES WHAT YOU’VE DONE WITH AI?</FieldLabel>
+                          <div className="grid grid-cols-1 gap-2">
+                            {[
+                              "Casual use (chatting, homework help, basic questions)",
+                              "Structured prompts for real tasks (writing, coding, research, content)",
+                              "Connected prompts into repeatable workflows or systems",
+                              "Built, shared, or sold AI setups, prompt packs, or tools",
+                            ].map((opt) => (
+                              <Option key={opt} selected={q2 === opt} onClick={() => setQ2(opt)}>
+                                {opt}
+                              </Option>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <FieldLabel>WHY DO YOU WANT EDGAZE?</FieldLabel>
+                          <div className="grid grid-cols-1 gap-2">
+                            {[
+                              "Run higher-quality prompts and workflows made by others",
+                              "Turn my own prompts into something reusable and organized",
+                              "Build, publish, and iterate on workflows or prompt packs",
+                              "Explore what advanced AI users are building",
+                              "Eventually monetize my AI setups",
+                            ].map((opt) => (
+                              <Option key={opt} selected={q3 === opt} onClick={() => setQ3(opt)}>
+                                {opt}
+                              </Option>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <FieldLabel>WILL YOU REPORT ISSUES / GIVE FEEDBACK DURING BETA?</FieldLabel>
+                          <div className="grid grid-cols-1 gap-2">
+                            {["Yes, I’m happy to give feedback", "Maybe, if I have time", "Probably not"].map((opt) => (
+                              <Option key={opt} selected={q4 === opt} onClick={() => setQ4(opt)}>
+                                {opt}
+                              </Option>
+                            ))}
+                          </div>
+                          {q4 && q4 !== "Yes, I’m happy to give feedback" ? (
+                            <div className="text-xs text-white/60">
+                              You must select <span className="text-white/85">Yes</span> to continue.
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <div className="space-y-3">
+                          <FieldLabel>WHAT WILL YOU TRY FIRST?</FieldLabel>
+                          <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-4">
+                            <Textarea
+                              value={q5}
+                              onChange={(e) => setQ5(e.target.value)}
+                              rows={3}
+                              maxLength={140}
+                              placeholder="One sentence (10–140 chars)"
+                            />
+                            <div className="mt-2 flex items-center justify-between text-xs text-white/50">
+                              <div className="text-white/40">Example: “Turn my research prompt into a reusable workflow”</div>
+                              <div className={cn(q5Trim.length > 140 ? "text-red-300" : "text-white/55")}>
+                                {q5Trim.length}/140
+                              </div>
+                            </div>
+                            {!q5Valid && q5Trim.length > 0 ? (
+                              <div className="mt-2 text-xs text-white/60">10–140 characters required.</div>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <FieldLabel>HAVE YOU SHARED PROMPTS / WORKFLOWS BEFORE?</FieldLabel>
+                          <div className="grid grid-cols-1 gap-2">
+                            {[
+                              "No, never",
+                              "Yes, informally (friends, Discord, WhatsApp, Notion)",
+                              "Yes, publicly (Twitter, GitHub, Gumroad, etc.)",
+                            ].map((opt) => (
+                              <Option key={opt} selected={q6 === opt} onClick={() => setQ6(opt)}>
+                                {opt}
+                              </Option>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-5">
+                          <div className="text-sm font-semibold text-white">One last step</div>
+                          <div className="mt-2 text-sm text-white/70">Prove you’re human.</div>
+                          <div className="mt-4">
+                            <TurnstileWidget onToken={onCaptchaToken} />
+                          </div>
+
+                          {captchaVerifying ? (
+                            <div className="mt-2 text-xs text-white/55">Verifying captcha…</div>
+                          ) : captchaVerified ? (
+                            <div className="mt-2 text-xs text-emerald-200">Captcha verified</div>
+                          ) : (
+                            <div className="mt-2 text-xs text-white/55">Captcha required to continue.</div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <SecondaryButton onClick={() => setStep("details")}>Back</SecondaryButton>
+                          <PrimaryButton disabled={!questionsValid} onClick={goToAuth}>
+                            Continue to sign in
+                          </PrimaryButton>
                         </div>
                       </motion.div>
-                    </div>
+                    ) : null}
 
-                    <div className="mt-5 space-y-1 text-sm text-white/70">
-                      <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.6, repeat: Infinity }}>
-                        Viewing your application…
-                      </motion.div>
+                    {step === "auth" ? (
                       <motion.div
-                        animate={{ opacity: [0.4, 1, 0.4] }}
-                        transition={{ duration: 1.8, repeat: Infinity, delay: 0.1 }}
+                        key="auth"
+                        initial={reduce ? false : { opacity: 0, y: 10 }}
+                        animate={reduce ? undefined : { opacity: 1, y: 0 }}
+                        exit={reduce ? undefined : { opacity: 0, y: -10 }}
+                        transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+                        className="mt-8"
                       >
-                        Auto checking…
+                        <ApplyAuthPanel emailPrefill={email} fullNamePrefill={fullName} onAuthed={afterAuthed} />
                       </motion.div>
-                      <motion.div
-                        animate={{ opacity: [0.4, 1, 0.4] }}
-                        transition={{ duration: 2.0, repeat: Infinity, delay: 0.2 }}
-                      >
-                        Almost there…
-                      </motion.div>
-                      {submitting ? <div className="text-xs text-white/55 mt-2">Finalizing…</div> : null}
-                    </div>
-                  </div>
-                </motion.div>
-              ) : null}
+                    ) : null}
 
-              {step === "approved" ? (
-                <motion.div
-                  key="approved"
-                  initial={reduce ? false : { opacity: 0, y: 10 }}
-                  animate={reduce ? undefined : { opacity: 1, y: 0 }}
-                  exit={reduce ? undefined : { opacity: 0, y: -10 }}
-                  transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
-                  className="mt-10"
-                >
-                  <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7">
-                    <div className="flex items-start gap-4">
-                      <CheckCircle2 className="h-6 w-6 text-white/85 mt-0.5" />
-                      <div>
-                        <div className="text-lg font-semibold text-white">Approved</div>
-                        <div className="mt-2 text-sm text-white/70">Welcome. Your application is in.</div>
-                        {applicationId ? (
-                          <div className="mt-4 text-xs text-white/50">
-                            Reference: <span className="text-white/70">{applicationId}</span>
+                    {step === "checking" ? (
+                      <motion.div
+                        key="checking"
+                        initial={reduce ? false : { opacity: 0, y: 10 }}
+                        animate={reduce ? undefined : { opacity: 1, y: 0 }}
+                        exit={reduce ? undefined : { opacity: 0, y: -10 }}
+                        transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+                        className="mt-10"
+                      >
+                        <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7 overflow-hidden">
+                          <div className="text-xs font-semibold tracking-widest text-white/55">PROCESSING</div>
+                          <div className="mt-2 text-2xl font-semibold text-white">Checking your application</div>
+
+                          <div className="mt-6 relative h-[160px] rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
+                            <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:36px_36px]" />
+                            <motion.div
+                              className="absolute left-6 top-6 right-6 bottom-6 rounded-xl border border-white/12 bg-white/[0.03]"
+                              initial={false}
+                            />
+
+                            <motion.div
+                              className="absolute top-[28px] left-[28px] w-[120px] h-[16px] rounded bg-white/10"
+                              animate={{ opacity: [0.35, 0.7, 0.35] }}
+                              transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                            />
+                            <motion.div
+                              className="absolute top-[56px] left-[28px] w-[200px] h-[16px] rounded bg-white/10"
+                              animate={{ opacity: [0.35, 0.7, 0.35] }}
+                              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
+                            />
+                            <motion.div
+                              className="absolute top-[84px] left-[28px] w-[260px] h-[16px] rounded bg-white/10"
+                              animate={{ opacity: [0.35, 0.7, 0.35] }}
+                              transition={{ duration: 1.7, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                            />
+
+                            <motion.div
+                              className="absolute"
+                              animate={{ x: ["10%", "65%", "20%", "75%", "10%"], y: ["20%", "35%", "60%", "45%", "20%"] }}
+                              transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut" }}
+                              style={{ left: 0, top: 0 }}
+                            >
+                              <div className="rounded-full bg-white/10 ring-1 ring-white/15 p-3 shadow-[0_0_40px_rgba(34,211,238,0.10)]">
+                                <Search className="h-5 w-5 text-white/80" />
+                              </div>
+                            </motion.div>
                           </div>
-                        ) : null}
-                      </div>
-                    </div>
 
-                    <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <PrimaryButton onClick={() => (window.location.href = "/marketplace")}>
-                        Enter marketplace
-                      </PrimaryButton>
-                      <SecondaryButton onClick={() => (window.location.href = "/")}>Back to home</SecondaryButton>
-                    </div>
-                  </div>
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
+                          <div className="mt-5 space-y-1 text-sm text-white/70">
+                            <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.6, repeat: Infinity }}>
+                              Viewing your application…
+                            </motion.div>
+                            <motion.div
+                              animate={{ opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 1.8, repeat: Infinity, delay: 0.1 }}
+                            >
+                              Auto checking…
+                            </motion.div>
+                            <motion.div
+                              animate={{ opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 2.0, repeat: Infinity, delay: 0.2 }}
+                            >
+                              Almost there…
+                            </motion.div>
+                            {submitting ? <div className="text-xs text-white/55 mt-2">Finalizing…</div> : null}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : null}
 
-            <AnimatePresence>
-              {error ? (
-                <motion.div
-                  initial={reduce ? false : { opacity: 0, y: 6 }}
-                  animate={reduce ? undefined : { opacity: 1, y: 0 }}
-                  exit={reduce ? undefined : { opacity: 0, y: 6 }}
-                  className="mt-6 text-sm text-red-300"
-                >
-                  {error}
+                    {step === "approved" ? (
+                      <motion.div
+                        key="approved"
+                        initial={reduce ? false : { opacity: 0, y: 10 }}
+                        animate={reduce ? undefined : { opacity: 1, y: 0 }}
+                        exit={reduce ? undefined : { opacity: 0, y: -10 }}
+                        transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+                        className="mt-10"
+                      >
+                        <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7">
+                          <div className="flex items-start gap-4">
+                            <CheckCircle2 className="h-6 w-6 text-white/85 mt-0.5" />
+                            <div>
+                              <div className="text-lg font-semibold text-white">Approved</div>
+                              <div className="mt-2 text-sm text-white/70">Welcome. Your application is in.</div>
+                              {applicationId ? (
+                                <div className="mt-4 text-xs text-white/50">
+                                  Reference: <span className="text-white/70">{applicationId}</span>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <PrimaryButton onClick={() => (window.location.href = "/marketplace")}>
+                              Enter marketplace
+                            </PrimaryButton>
+                            <SecondaryButton onClick={() => (window.location.href = "/")}>Back to home</SecondaryButton>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+
+                  <AnimatePresence>
+                    {error ? (
+                      <motion.div
+                        initial={reduce ? false : { opacity: 0, y: 6 }}
+                        animate={reduce ? undefined : { opacity: 1, y: 0 }}
+                        exit={reduce ? undefined : { opacity: 0, y: 6 }}
+                        className="mt-6 text-sm text-red-300"
+                      >
+                        {error}
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
                 </motion.div>
-              ) : null}
+              )}
             </AnimatePresence>
           </div>
         </Frame>

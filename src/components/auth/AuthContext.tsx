@@ -43,6 +43,12 @@ type AuthContextValue = {
   isVerified: boolean;
   profile: Profile | null;
 
+  // NEW: moderation + admin
+  isAdmin: boolean;
+  isBanned: boolean;
+  banReason: string | null;
+  banExpiresAt: string | null;
+
   loading: boolean;
   authReady: boolean;
 
@@ -100,6 +106,15 @@ function saveReturnTo(path: string) {
   } catch {}
 }
 
+function isStillBannedRow(row: { is_banned?: boolean; ban_expires_at?: string | null } | null) {
+  if (!row?.is_banned) return false;
+  const expires = row.ban_expires_at ?? null;
+  if (!expires) return true;
+  const t = new Date(expires).getTime();
+  if (Number.isNaN(t)) return true; // if invalid date, treat as banned (safer)
+  return t > Date.now();
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -107,6 +122,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+
+  // NEW: moderation + admin state
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isBanned, setIsBanned] = useState(false);
+  const [banReason, setBanReason] = useState<string | null>(null);
+  const [banExpiresAt, setBanExpiresAt] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
@@ -132,6 +153,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUserEmail(null);
     setIsVerified(false);
     setProfile(null);
+
+    // reset admin/moderation
+    setIsAdmin(false);
+    setIsBanned(false);
+    setBanReason(null);
+    setBanExpiresAt(null);
   }, []);
 
   const loadProfile = useCallback(
@@ -153,18 +180,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabase]
   );
 
+  const loadModeration = useCallback(
+    async (uid: string) => {
+      const { data, error } = await supabase
+        .from("user_moderation")
+        .select("is_banned,ban_reason,ban_expires_at")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (error) {
+        setIsBanned(false);
+        setBanReason(null);
+        setBanExpiresAt(null);
+        return false;
+      }
+
+      const row = (data as any as { is_banned?: boolean; ban_reason?: string | null; ban_expires_at?: string | null }) ?? null;
+
+      const stillBanned = isStillBannedRow(row);
+      setIsBanned(stillBanned);
+      setBanReason((row?.ban_reason as string | null) ?? null);
+      setBanExpiresAt((row?.ban_expires_at as string | null) ?? null);
+
+      return stillBanned;
+    },
+    [supabase]
+  );
+
+  const loadAdmin = useCallback(
+    async (uid: string) => {
+      const { data, error } = await supabase
+        .from("admin_roles")
+        .select("user_id")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (error) {
+        setIsAdmin(false);
+        return false;
+      }
+      const ok = Boolean((data as any)?.user_id);
+      setIsAdmin(ok);
+      return ok;
+    },
+    [supabase]
+  );
+
   const applyUser = useCallback(
     async (user: any | null) => {
       if (!user) {
         applyNoUser();
         return;
       }
+
       setUserId(user.id);
       setUserEmail(user.email ?? null);
       setIsVerified(Boolean(user.email_confirmed_at));
+
+      // Kick off in parallel (don’t block UI)
       loadProfile(user.id).catch(() => setProfile(null));
+
+      // Moderation/admin checks (also parallel)
+      loadAdmin(user.id).catch(() => setIsAdmin(false));
+
+      loadModeration(user.id)
+        .then((stillBanned) => {
+          if (stillBanned) {
+            // UX redirect; RLS is the real enforcement
+            if (typeof window !== "undefined" && window.location.pathname !== "/banned") {
+              window.location.href = "/banned";
+            }
+          }
+        })
+        .catch(() => {
+          setIsBanned(false);
+          setBanReason(null);
+          setBanExpiresAt(null);
+        });
     },
-    [applyNoUser, loadProfile]
+    [applyNoUser, loadAdmin, loadModeration, loadProfile]
   );
 
   const refresh = useCallback(async () => {
@@ -305,6 +399,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userEmail,
     isVerified,
     profile,
+
+    // NEW
+    isAdmin,
+    isBanned,
+    banReason,
+    banExpiresAt,
 
     loading,
     authReady,

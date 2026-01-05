@@ -1,8 +1,17 @@
+// src/components/profile/PublicProfileView.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { Pencil, Loader2, Camera } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Pencil,
+  Loader2,
+  Camera,
+  Heart,
+  Sparkles,
+  ExternalLink,
+} from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { fetchCreatorListings } from "./creatorListingsAdapter";
@@ -20,6 +29,35 @@ type PublicProfileRow = {
   bio: string | null;
   socials: Record<string, string> | null;
 };
+
+type Tab = "all" | "prompts" | "workflows";
+type Sort = "newest" | "popular" | "oldest";
+
+type CreatorListing = {
+  id: string;
+  type: "prompt" | "workflow";
+  title?: string | null;
+  description?: string | null;
+  prompt_text?: string | null;
+  thumbnail_url?: string | null;
+  edgaze_code?: string | null;
+  created_at?: string | null;
+
+  // counts (varies by table / adapter)
+  views_count?: number | null;
+  view_count?: number | null;
+  likes_count?: number | null;
+  like_count?: number | null;
+
+  // pricing (optional)
+  is_paid?: boolean | null;
+  price_usd?: number | null;
+  monetisation_mode?: string | null;
+
+  popularityLabel?: string;
+};
+
+const DEFAULT_AVATAR_SRC = "/profile/default-avatar.png"; // /public/profile/default-avatar.png
 
 function normalizeHandle(input: string) {
   return (input || "")
@@ -43,21 +81,213 @@ function sanitizeUrl(url: string) {
   }
 }
 
-function extFromName(name: string) {
-  const p = name.split(".").pop();
-  return (p || "jpg").toLowerCase();
+function clampText(s: string | null | undefined, max = 140) {
+  const t = (s || "").trim();
+  if (!t) return "";
+  return t.length > max ? `${t.slice(0, max).trim()}…` : t;
 }
 
-function isImage(file: File) {
-  return file.type.startsWith("image/");
+function safeDateMs(s?: string | null) {
+  const t = s ? Date.parse(s) : NaN;
+  return Number.isFinite(t) ? t : 0;
 }
 
-type Tab = "all" | "prompts" | "workflows";
-type Sort = "newest" | "popular" | "oldest";
+function formatRelativeTime(iso: string | null | undefined) {
+  const ms = safeDateMs(iso);
+  if (!ms) return "—";
+  const diff = ms - Date.now();
+  const abs = Math.abs(diff);
 
-const DEFAULT_AVATAR_SRC = "/profile/default-avatar.png"; // /public/profile/default-avatar.png
+  const rtf =
+    typeof Intl !== "undefined" && (Intl as any).RelativeTimeFormat
+      ? new Intl.RelativeTimeFormat("en", { numeric: "always" })
+      : null;
 
-export default function PublicProfileView({ handle }: { handle: string }) {
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const month = 30 * day;
+  const year = 365 * day;
+
+  const pick = () => {
+    if (abs < minute) return { v: Math.round(diff / 1000), u: "second" as const };
+    if (abs < hour) return { v: Math.round(diff / minute), u: "minute" as const };
+    if (abs < day) return { v: Math.round(diff / hour), u: "hour" as const };
+    if (abs < month) return { v: Math.round(diff / day), u: "day" as const };
+    if (abs < year) return { v: Math.round(diff / month), u: "month" as const };
+    return { v: Math.round(diff / year), u: "year" as const };
+  };
+
+  const { v, u } = pick();
+  if (!rtf) {
+    const n = Math.abs(v);
+    const suffix = diff < 0 ? "ago" : "from now";
+    return `${n} ${u}${n === 1 ? "" : "s"} ${suffix}`;
+  }
+
+  // @ts-expect-error Intl types vary in older TS libs
+  return rtf.format(v, u);
+}
+
+function priceLabelFor(it: CreatorListing) {
+  const isPaid = !!it.is_paid || it.monetisation_mode === "paywall";
+  if (!isPaid) return "Free";
+  if (typeof it.price_usd === "number") return `$${it.price_usd.toFixed(2)}`;
+  return "Paid";
+}
+
+function badgeClassFor(type: "prompt" | "workflow") {
+  return type === "workflow"
+    ? {
+        badge: "border-pink-400/25 bg-pink-500/10 text-pink-100",
+        glow: "shadow-[0_0_18px_rgba(236,72,153,0.22)]",
+      }
+    : {
+        badge: "border-cyan-300/25 bg-cyan-400/10 text-cyan-50",
+        glow: "shadow-[0_0_18px_rgba(56,189,248,0.22)]",
+      };
+}
+
+function BlurredFallback({ text }: { text: string }) {
+  return (
+    <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black/55">
+      <div className="absolute inset-0 opacity-[0.92] [background-image:radial-gradient(circle_at_18%_22%,rgba(34,211,238,0.20),transparent_46%),radial-gradient(circle_at_82%_30%,rgba(236,72,153,0.18),transparent_56%)]" />
+      <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:44px_44px]" />
+      <div className="absolute inset-0 bg-black/20" />
+      <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
+        <div className="line-clamp-2 text-sm font-semibold tracking-tight text-white/85">
+          {text}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MarketplaceStyleCard({
+  it,
+  creator,
+  onOpen,
+}: {
+  it: CreatorListing;
+  creator: PublicProfileRow;
+  onOpen: () => void;
+}) {
+  const { badge, glow } = badgeClassFor(it.type);
+  const views =
+    (typeof it.views_count === "number" ? it.views_count : null) ??
+    (typeof it.view_count === "number" ? it.view_count : null) ??
+    0;
+
+  const likes =
+    (typeof it.likes_count === "number" ? it.likes_count : null) ??
+    (typeof it.like_count === "number" ? it.like_count : null) ??
+    0;
+
+  const desc = clampText(it.description || it.prompt_text || "", 140);
+  const code = (it.edgaze_code || "").trim();
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group w-full text-left cursor-pointer rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.995]"
+    >
+      <div className="relative overflow-hidden rounded-2xl">
+        {it.thumbnail_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={it.thumbnail_url}
+            alt={it.title || "Listing thumbnail"}
+            className="aspect-video w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <BlurredFallback text={it.prompt_text || it.title || "EDGAZE"} />
+        )}
+
+        <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-2">
+          <span
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur",
+              badge,
+              glow
+            )}
+          >
+            {it.type === "workflow" ? "Workflow" : "Prompt"}
+          </span>
+
+          <span className="rounded-full border border-white/12 bg-black/55 px-2.5 py-1 text-[10px] font-semibold text-white/85 backdrop-blur">
+            {priceLabelFor(it)}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex gap-3">
+        <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/12 bg-black/40">
+          <Image
+            src={creator.avatar_url || DEFAULT_AVATAR_SRC}
+            alt="Avatar"
+            fill
+            className="object-cover"
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-white/95">
+            {it.title || "Untitled listing"}
+          </h3>
+
+          <div className="mt-1 flex items-center gap-2 text-xs text-white/60">
+            <span className="truncate">{creator.full_name || `@${creator.handle}`}</span>
+            <span className="shrink-0 text-white/35">@{creator.handle}</span>
+          </div>
+
+          {desc ? (
+            <div className="mt-2 line-clamp-2 text-[12px] leading-snug text-white/55">
+              {desc}
+            </div>
+          ) : null}
+
+          <div className="mt-3 flex items-center justify-between text-[11px] text-white/55">
+            <div className="flex items-center gap-2">
+              {code ? (
+                <span className="rounded-md bg-white/10 px-2 py-[3px] text-[10px] font-semibold text-white/85">
+                  /{code}
+                </span>
+              ) : (
+                <span className="rounded-md bg-white/5 px-2 py-[3px] text-[10px] text-white/60">
+                  No code
+                </span>
+              )}
+              <span className="text-white/35">•</span>
+              <span>{formatRelativeTime(it.created_at || null)}</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5 text-white/40" />
+                {views}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Heart className="h-3.5 w-3.5 text-white/40" />
+                {likes}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+export default function PublicProfileView({
+  handle,
+  debug,
+}: {
+  handle: string;
+  debug?: boolean;
+}) {
+  const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const auth = useAuth();
 
@@ -89,9 +319,7 @@ export default function PublicProfileView({ handle }: { handle: string }) {
   const [sort, setSort] = useState<Sort>("newest");
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsErr, setListingsErr] = useState<string | null>(null);
-  const [listings, setListings] = useState<
-    Array<{ id: string; title: string; type: "prompt" | "workflow"; popularityLabel?: string }>
-  >([]);
+  const [listings, setListings] = useState<CreatorListing[]>([]);
 
   // Upload state
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -101,13 +329,12 @@ export default function PublicProfileView({ handle }: { handle: string }) {
 
   const lastFollowAtRef = useRef<number>(0);
 
-  // Tighter system
+  // Pills
   const PILL =
     "h-9 inline-flex items-center justify-center rounded-full border px-4 text-xs font-medium transition active:scale-[0.99]";
   const PILL_ACTIVE = "border-white/20 bg-white text-black";
   const PILL_INACTIVE =
     "border-white/12 bg-white/5 text-white/80 hover:bg-white/10 hover:border-white/18";
-
   const CTA_GRADIENT =
     "bg-gradient-to-r from-cyan-300 via-cyan-200 to-pink-300 text-black hover:brightness-110";
 
@@ -127,34 +354,30 @@ export default function PublicProfileView({ handle }: { handle: string }) {
         return;
       }
 
-      const res = await supabase
-        .from("profiles")
-        .select("id,handle,full_name,avatar_url,banner_url,bio,socials")
-        .eq("handle", normalized)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, handle, full_name, avatar_url, banner_url, bio, socials")
+          .eq("handle", normalized)
+          .maybeSingle();
 
-      if (!alive) return;
+        if (!alive) return;
 
-      if (res.error) {
-        setErrTop(res.error.message || "Failed to fetch profile");
+        if (error) throw error;
+        if (!data) {
+          setErrTop("Profile not found.");
+          setLoading(false);
+          return;
+        }
+
+        setCreator(data as any);
+      } catch (e: any) {
+        if (!alive) return;
+        setErrTop(e?.message || "Failed to load profile.");
+      } finally {
+        if (!alive) return;
         setLoading(false);
-        return;
       }
-
-      if (!res.data) {
-        setErrTop("Profile not found.");
-        setLoading(false);
-        return;
-      }
-
-      const row = res.data as PublicProfileRow;
-      setCreator(row);
-
-      setDraftName(row.full_name || "");
-      setDraftBio(row.bio || "");
-      setDraftSocials(row.socials || {});
-
-      setLoading(false);
     };
 
     run();
@@ -258,27 +481,19 @@ export default function PublicProfileView({ handle }: { handle: string }) {
           .delete()
           .eq("follower_id", auth.userId)
           .eq("following_id", creator.id);
-        if (error) throw error;
 
+        if (error) throw error;
         setIsFollowing(false);
-        setFollowers((v) => Math.max(0, v - 1));
+        setFollowers((n) => Math.max(0, n - 1));
       } else {
         const { error } = await supabase.from("follows").insert({
           follower_id: auth.userId,
           following_id: creator.id,
         });
 
-        if (error) {
-          const msg = String(error.message || "").toLowerCase();
-          if (msg.includes("duplicate") || msg.includes("unique")) {
-            setIsFollowing(true);
-          } else {
-            throw error;
-          }
-        } else {
-          setIsFollowing(true);
-          setFollowers((v) => v + 1);
-        }
+        if (error) throw error;
+        setIsFollowing(true);
+        setFollowers((n) => n + 1);
       }
     } catch (e: any) {
       setErrTop(e?.message || "Follow failed");
@@ -287,79 +502,36 @@ export default function PublicProfileView({ handle }: { handle: string }) {
     }
   };
 
-  const saveEdits = async () => {
-    if (!isOwner) return;
-
-    setSaving(true);
-    setSaveErr(null);
-
-    const socials: Record<string, string> = {};
-    for (const [k, v] of Object.entries(draftSocials || {})) {
-      const url = sanitizeUrl(v || "");
-      if (url) socials[k] = url;
-    }
-
-    const res = await auth.updateProfile({
-      full_name: draftName || null,
-      bio: draftBio || null,
-      socials: Object.keys(socials).length ? socials : null,
-    } as any);
-
-    if (!res.ok) {
-      setSaveErr(res.error || "Failed to save");
-      setSaving(false);
-      return;
-    }
-
-    const refetch = await supabase
-      .from("profiles")
-      .select("id,handle,full_name,avatar_url,banner_url,bio,socials")
-      .eq("id", auth.userId!)
-      .maybeSingle();
-
-    if (refetch.data) setCreator(refetch.data as PublicProfileRow);
-
-    setEditOpen(false);
-    setSaving(false);
-  };
-
   const uploadProfileMedia = async (kind: "avatar" | "banner", file: File) => {
-    setUploadErr(null);
+    if (!creator?.id) return;
     if (!isOwner) return;
-    if (!auth.userId) return;
-    if (!isImage(file)) {
-      setUploadErr("Only image files are allowed.");
+
+    if (!file.type.startsWith("image/")) {
+      setUploadErr("Please upload an image file.");
       return;
     }
 
-    const maxBytes = kind === "avatar" ? 4 * 1024 * 1024 : 8 * 1024 * 1024;
-    if (file.size > maxBytes) {
-      setUploadErr(`File too large. Max ${Math.round(maxBytes / 1024 / 1024)}MB.`);
-      return;
-    }
-
+    setUploadErr(null);
     setUploadBusy(kind);
-    try {
-      const bucket = "profile-media";
-      const ext = extFromName(file.name);
-      const path =
-        kind === "avatar"
-          ? `avatars/${auth.userId}/${crypto.randomUUID()}.${ext}`
-          : `banners/${auth.userId}/${crypto.randomUUID()}.${ext}`;
 
-      const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type,
-      });
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `profiles/${creator.id}/${kind}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("profile-media")
+        .upload(path, file, { upsert: true });
+
       if (upErr) throw upErr;
 
-      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      const publicUrl = data.publicUrl;
+      const { data: pub } = supabase.storage.from("profile-media").getPublicUrl(path);
+      const publicUrl = pub?.publicUrl || null;
+      if (!publicUrl) throw new Error("Failed to get public URL");
 
       const patch = kind === "avatar" ? { avatar_url: publicUrl } : { banner_url: publicUrl };
-      const res = await auth.updateProfile(patch as any);
-      if (!res.ok) throw new Error(res.error || "Failed to update profile");
+
+      const { error: dbErr } = await supabase.from("profiles").update(patch).eq("id", creator.id);
+      if (dbErr) throw dbErr;
 
       setCreator((c) => {
         if (!c) return c;
@@ -369,6 +541,38 @@ export default function PublicProfileView({ handle }: { handle: string }) {
       setUploadErr(e?.message || "Upload failed");
     } finally {
       setUploadBusy(null);
+    }
+  };
+
+  const saveProfile = async () => {
+    if (!creator?.id) return;
+    if (!isOwner) return;
+
+    setSaving(true);
+    setSaveErr(null);
+
+    try {
+      const socials: Record<string, string> = {};
+      Object.entries(draftSocials || {}).forEach(([k, v]) => {
+        const u = sanitizeUrl(v || "");
+        if (u) socials[k] = u;
+      });
+
+      const patch = {
+        full_name: (draftName || "").trim() || null,
+        bio: (draftBio || "").trim() || null,
+        socials,
+      };
+
+      const { error } = await supabase.from("profiles").update(patch).eq("id", creator.id);
+      if (error) throw error;
+
+      setCreator((c) => (c ? { ...c, ...patch } : c));
+      setEditOpen(false);
+    } catch (e: any) {
+      setSaveErr(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -399,7 +603,8 @@ export default function PublicProfileView({ handle }: { handle: string }) {
   }
 
   return (
-    <div className="w-full">
+    // IMPORTANT: this forces scroll back on even if parent layout uses overflow-hidden
+    <div className="h-[100dvh] w-full overflow-y-auto overscroll-contain">
       {/* Banner */}
       <div className="relative w-full overflow-hidden border-b border-white/10 bg-black">
         <div className="relative h-[210px] w-full sm:h-[280px] lg:h-[320px]">
@@ -451,7 +656,7 @@ export default function PublicProfileView({ handle }: { handle: string }) {
       </div>
 
       {/* Content */}
-      <div className="w-full px-4 sm:px-6">
+      <div className="w-full px-4 sm:px-6 pb-14">
         <div className="mx-auto w-full max-w-[1320px]">
           {(errTop || uploadErr) && (
             <div className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
@@ -467,7 +672,6 @@ export default function PublicProfileView({ handle }: { handle: string }) {
             )}
           >
             <div className="flex flex-col gap-3">
-              {/* Top row: avatar + name + edit */}
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="relative shrink-0">
@@ -511,94 +715,102 @@ export default function PublicProfileView({ handle }: { handle: string }) {
                   </div>
 
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="truncate text-xl font-semibold text-white sm:text-2xl">
-                        {creator.full_name || creator.handle}
-                      </h1>
-                      <span className="h-8 inline-flex items-center rounded-full border border-white/12 bg-white/5 px-3 text-[11px] text-white/70">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="truncate text-lg font-semibold text-white/95">
+                        {creator.full_name || "Unnamed creator"}
+                      </div>
+                      <div className="shrink-0 rounded-full border border-white/12 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
                         @{creator.handle}
-                      </span>
+                      </div>
                     </div>
 
                     {creator.bio ? (
-                      <p className="mt-1 text-sm text-white/80 leading-relaxed">
+                      <div className="mt-2 text-sm leading-relaxed text-white/70">
                         {creator.bio}
-                      </p>
+                      </div>
                     ) : isOwner ? (
-                      <p className="mt-1 text-sm text-white/45">
+                      <div className="mt-2 text-sm text-white/45">
                         Add a bio so people understand what you build.
-                      </p>
+                      </div>
                     ) : null}
 
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {socials.map(([k, v]) => (
-                        <a
-                          key={k}
-                          href={v}
-                          target="_blank"
-                          rel="noreferrer"
-                          className={cn(PILL, PILL_INACTIVE)}
-                        >
-                          <span className="capitalize">{k}</span>
-                        </a>
-                      ))}
+                    {socials.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {socials.map(([k, v]) => (
+                          <a
+                            key={k}
+                            href={v}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-black/25 px-3 py-1.5 text-[11px] text-white/75 hover:bg-black/35 hover:border-white/20 transition"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5 text-white/45" />
+                            {k}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-                      {isOwner && (
-                        <button
-                          type="button"
-                          onClick={() => setEditOpen(true)}
-                          className={cn(PILL, PILL_INACTIVE)}
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </button>
+                <div className="flex items-center gap-2">
+                  {!isOwner && (
+                    <button
+                      type="button"
+                      onClick={onFollowToggle}
+                      disabled={followBusy}
+                      className={cn(
+                        PILL,
+                        isFollowing
+                          ? "border-white/18 bg-white/10 text-white hover:bg-white/12"
+                          : cn("border-white/10", CTA_GRADIENT),
+                        "min-w-[110px]"
                       )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Desktop metrics (compact) */}
-                <div className="hidden sm:flex items-center gap-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-center">
-                    <div className="text-base font-semibold text-white">{followers}</div>
-                    <div className="text-[10px] text-white/55">Followers</div>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-center">
-                    <div className="text-base font-semibold text-white">{following}</div>
-                    <div className="text-[10px] text-white/55">Following</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Full-width Follow button (UI width) */}
-              {!isOwner && (
-                <button
-                  type="button"
-                  disabled={followBusy}
-                  onClick={onFollowToggle}
-                  className={cn(
-                    "h-11 w-full rounded-full px-6 text-sm font-semibold transition active:scale-[0.99]",
-                    isFollowing
-                      ? "border border-white/14 bg-black text-white hover:bg-black/80"
-                      : cn("border border-white/0", CTA_GRADIENT),
-                    followBusy && "opacity-70 cursor-not-allowed"
+                    >
+                      {followBusy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : isFollowing ? (
+                        "Following"
+                      ) : (
+                        "Follow"
+                      )}
+                    </button>
                   )}
-                >
-                  {followBusy ? "..." : isFollowing ? "Following" : "Follow"}
-                </button>
-              )}
 
-              {/* Mobile metrics */}
-              <div className="sm:hidden grid grid-cols-2 gap-2">
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-center">
-                  <div className="text-base font-semibold text-white">{followers}</div>
-                  <div className="text-[10px] text-white/55">Followers</div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-center">
-                  <div className="text-base font-semibold text-white">{following}</div>
-                  <div className="text-[10px] text-white/55">Following</div>
+                  {isOwner && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDraftName(creator.full_name || "");
+                        setDraftBio(creator.bio || "");
+                        setDraftSocials((creator.socials || {}) as any);
+                        setEditOpen(true);
+                      }}
+                      className={cn(PILL, PILL_INACTIVE)}
+                    >
+                      <Pencil className="h-4 w-4 mr-2 text-white/60" />
+                      Edit
+                    </button>
+                  )}
                 </div>
               </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-xs text-white/65">
+                <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">
+                  {followers} followers
+                </div>
+                <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">
+                  {following} following
+                </div>
+              </div>
+
+              {debug ? (
+                <div className="rounded-2xl border border-white/10 bg-black/40 p-3 text-[11px] text-white/70">
+                  <div>viewerId: {viewerId || "(none)"}</div>
+                  <div>creatorId: {creator.id}</div>
+                  <div>isOwner: {String(isOwner)}</div>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -641,7 +853,7 @@ export default function PublicProfileView({ handle }: { handle: string }) {
           )}
 
           {/* Listings */}
-          <div className="mt-4 pb-10">
+          <div className="mt-4">
             {listingsLoading ? (
               <div className="flex items-center gap-2 text-sm text-white/60">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -653,46 +865,33 @@ export default function PublicProfileView({ handle }: { handle: string }) {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {listings.map((it) => (
-                  <a
-                    key={`${it.type}-${it.id}`}
-                    href={`/${it.type === "prompt" ? "prompts" : "workflows"}/${it.id}`}
-                    className={cn(
-                      "group overflow-hidden rounded-3xl border border-white/10 bg-white/5 transition",
-                      "hover:border-white/20 hover:bg-white/10",
-                      "active:scale-[0.995]"
-                    )}
-                  >
-                    <div className="relative aspect-[16/10] w-full bg-black/40">
-                      <div className="absolute inset-0 opacity-[0.14] [background-image:radial-gradient(circle_at_20%_20%,rgba(34,211,238,0.16),transparent_40%),radial-gradient(circle_at_80%_30%,rgba(236,72,153,0.14),transparent_50%)]" />
-                      <div className="absolute inset-0 opacity-[0.20] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:44px_44px]" />
-                      <div className="absolute inset-0 bg-black/15 group-hover:bg-black/10 transition" />
-                    </div>
+                {listings.map((it) => {
+                  // Prefer edgaze code route when available (matches marketplace UX)
+                  const code = (it.edgaze_code || "").trim();
+                  const open =
+                    code && creator.handle
+                      ? () => router.push(`/p/${creator.handle}/${code}`)
+                      : () =>
+                          router.push(
+                            `/${it.type === "prompt" ? "prompts" : "workflows"}/${it.id}`
+                          );
 
-                    <div className="p-4">
-                      <div className="mb-2 flex items-center justify-between">
-                        <span className="rounded-full border border-white/12 bg-black/30 px-3 py-1 text-[11px] text-white/75">
-                          {it.type === "prompt" ? "Prompt" : "Workflow"}
-                        </span>
-                        {it.popularityLabel && (
-                          <span className="text-[11px] text-white/55">{it.popularityLabel}</span>
-                        )}
-                      </div>
-
-                      <div className="text-sm font-semibold text-white/90 line-clamp-2">
-                        {it.title || "Untitled"}
-                      </div>
-                      <div className="mt-2 text-xs text-white/55">@{creator.handle}</div>
-                    </div>
-                  </a>
-                ))}
+                  return (
+                    <MarketplaceStyleCard
+                      key={`${it.type}-${it.id}`}
+                      it={it}
+                      creator={creator}
+                      onOpen={open}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Edit sheet (mobile-friendly, not giant) */}
+      {/* Edit sheet */}
       {editOpen && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/70" onClick={() => setEditOpen(false)} />
@@ -744,31 +943,23 @@ export default function PublicProfileView({ handle }: { handle: string }) {
                 <textarea
                   value={draftBio}
                   onChange={(e) => setDraftBio(e.target.value)}
-                  className="mt-1 min-h-[96px] w-full rounded-2xl border border-white/12 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400/60"
-                  placeholder="What do you make on Edgaze?"
+                  rows={4}
+                  className="mt-1 w-full rounded-2xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-cyan-400/60"
+                  placeholder="What do you build?"
                 />
               </div>
 
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-white/85">Social links</p>
-                  <p className="text-[10px] text-white/45">Valid links only</p>
-                </div>
-
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-xs font-semibold text-white/80">Social links</div>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {[
-                    ["website", "Website"],
-                    ["instagram", "Instagram"],
-                    ["x", "X"],
-                    ["youtube", "YouTube"],
-                    ["linkedin", "LinkedIn"],
-                    ["github", "GitHub"],
-                  ].map(([k, label]) => (
+                  {["twitter", "linkedin", "youtube", "website", "github", "instagram"].map((k) => (
                     <div key={k}>
-                      <label className="text-[11px] text-white/55">{label}</label>
+                      <label className="text-[11px] text-white/55">{k}</label>
                       <input
-                        value={draftSocials[k] || ""}
-                        onChange={(e) => setDraftSocials((s) => ({ ...s, [k]: e.target.value }))}
+                        value={draftSocials?.[k] || ""}
+                        onChange={(e) =>
+                          setDraftSocials((p) => ({ ...(p || {}), [k]: e.target.value }))
+                        }
                         className="mt-1 h-11 w-full rounded-2xl border border-white/12 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
                         placeholder="https://"
                       />
@@ -776,28 +967,26 @@ export default function PublicProfileView({ handle }: { handle: string }) {
                   ))}
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between border-t border-white/10 px-4 py-3">
-              <button
-                type="button"
-                onClick={() => setEditOpen(false)}
-                className={cn(PILL, PILL_INACTIVE)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={saveEdits}
-                disabled={saving}
-                className={cn(
-                  "h-11 rounded-full px-6 text-sm font-semibold transition active:scale-[0.99]",
-                  CTA_GRADIENT,
-                  saving && "opacity-70 cursor-not-allowed"
-                )}
-              >
-                {saving ? "Saving…" : "Save"}
-              </button>
+              <div className="mt-4 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(false)}
+                  className={cn(PILL, PILL_INACTIVE)}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={saveProfile}
+                  className={cn(PILL, CTA_GRADIENT, "min-w-[120px]")}
+                  disabled={saving}
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+// src/components/prompt-studio/PromptEditor.tsx
 "use client";
 
 import React from "react";
@@ -13,7 +14,7 @@ export default function PromptEditor({ value, onChange }: Props) {
       <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.18em] text-white/35">
         Prompt editor
       </div>
-      <div className="flex-1 rounded-2xl border border-white/15 bg-black/60 overflow-hidden">
+      <div className="flex-1 rounded-2xl border border-white/12 bg-black/60 overflow-hidden shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}

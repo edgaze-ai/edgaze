@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../components/auth/AuthContext";
 import PromptToolbar from "../../components/prompt-studio/PromptToolbar";
 import PlaceholderModal from "../../components/prompt-studio/PlaceholderModal";
+import PlaceholderEditModal from "../../components/prompt-studio/PlaceholderEditModal";
 import UserFormPreview from "../../components/prompt-studio/PlaceholderUserForm";
-import VersionHistoryList from "../../components/prompt-studio/VersionHistoryPanel";
 import PublishPromptSheet from "../../components/prompt-studio/PublishPromptModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
+import { Monitor } from "lucide-react";
 
 export type PlaceholderDef = {
   name: string;
@@ -27,6 +28,96 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.trim().split(/\s+/).length * 0.75);
 }
 
+function cleanPlaceholderName(input: string) {
+  return input
+    .trim()
+    .replace(/^@+/, "")
+    .replace(/[^a-zA-Z0-9_.-]/g, "")
+    .toLowerCase();
+}
+
+function escapeRegExp(str: string) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+type Segment = { text: string; placeholder?: string };
+type TokenRange = { name: string; start: number; end: number }; // end exclusive
+
+function extractTokenRanges(text: string): TokenRange[] {
+  const out: TokenRange[] = [];
+  const regex = /\{\{([a-zA-Z0-9_.-]+)\}\}/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text))) {
+    out.push({ name: match[1], start: match.index, end: regex.lastIndex });
+  }
+  return out;
+}
+
+function splitWithPlaceholders(promptText: string): Segment[] {
+  if (!promptText) return [{ text: "" }];
+  const segments: Segment[] = [];
+  const regex = /\{\{([a-zA-Z0-9_.-]+)\}\}/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(promptText))) {
+    if (match.index > lastIndex) {
+      segments.push({ text: promptText.slice(lastIndex, match.index) });
+    }
+    segments.push({ text: match[0], placeholder: match[1] });
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < promptText.length) {
+    segments.push({ text: promptText.slice(lastIndex) });
+  }
+  return segments;
+}
+
+function clampCaretOutsideTokens(pos: number, ranges: TokenRange[]) {
+  for (const r of ranges) {
+    if (pos > r.start && pos < r.end) return r.end;
+  }
+  return pos;
+}
+
+function tokenAtPos(pos: number, ranges: TokenRange[]) {
+  for (const r of ranges) {
+    if (pos > r.start && pos < r.end) return r;
+  }
+  return null;
+}
+
+function DesktopOnlyGate({ blocked }: { blocked: boolean }) {
+  if (!blocked) return null;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 px-4">
+      <div className="w-full max-w-md rounded-3xl bg-[#111214] shadow-[0_20px_80px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.04)]">
+        <div className="px-5 py-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400/20 via-sky-500/15 to-pink-500/20">
+              <Monitor className="h-5 w-5 text-white/80" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-white/90">
+                Desktop only (for now)
+              </div>
+              <div className="text-[11px] text-white/45">
+                Prompt Studio isn’t supported on small screens yet.
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl bg-black/30 px-4 py-3 text-[12px] text-white/70">
+            Open this page on a larger window (desktop/laptop). Mobile support
+            comes later.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PromptStudioPage() {
   const { userId, requireAuth } = useAuth();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -35,6 +126,8 @@ export default function PromptStudioPage() {
   const [placeholders, setPlaceholders] = useState<PlaceholderDef[]>([]);
   const [versions, setVersions] = useState<VersionSnapshot[]>([]);
   const [showPlaceholderModal, setShowPlaceholderModal] = useState(false);
+  const [editingPlaceholder, setEditingPlaceholder] =
+    useState<PlaceholderDef | null>(null);
 
   const [publishOpen, setPublishOpen] = useState(false);
 
@@ -48,7 +141,19 @@ export default function PromptStudioPage() {
     priceUsd: "",
   });
 
-  // Load latest draft for this user
+  const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const overlayScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingInsertRange = useRef<{ start: number; end: number } | null>(null);
+
+  const [blocked, setBlocked] = useState(false);
+  useEffect(() => {
+    const check = () => setBlocked(window.innerWidth < 1100);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Load latest draft
   useEffect(() => {
     let cancelled = false;
     if (!userId) return;
@@ -75,7 +180,7 @@ export default function PromptStudioPage() {
     };
   }, [userId, supabase]);
 
-  // Autosave draft (best-effort)
+  // Autosave draft (unchanged)
   useEffect(() => {
     if (!userId) return;
 
@@ -87,8 +192,6 @@ export default function PromptStudioPage() {
         meta: publishMeta,
       };
 
-      // If you have a unique draft id system, change this to upsert.
-      // For now keep it simple, but you might create many rows.
       await supabase.from("prompt_drafts").insert(payload);
     }, 800);
 
@@ -98,27 +201,66 @@ export default function PromptStudioPage() {
   const charCount = promptText.length;
   const tokenEstimate = useMemo(() => estimateTokens(promptText), [promptText]);
 
-  const highlightedPreview = useMemo(() => {
-    if (!promptText) return [];
-    const segments: Array<{ text: string; placeholder?: string }> = [];
-    const regex = /\{\{([a-zA-Z0-9_.-]+)\}\}/g;
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
+  const tokenRanges = useMemo(() => extractTokenRanges(promptText), [promptText]);
+  const overlaySegments = useMemo(
+    () => splitWithPlaceholders(promptText),
+    [promptText]
+  );
 
-    while ((match = regex.exec(promptText))) {
-      if (match.index > lastIndex) {
-        segments.push({ text: promptText.slice(lastIndex, match.index) });
-      }
-      segments.push({ text: match[0], placeholder: match[1] });
-      lastIndex = regex.lastIndex;
+  const placeholderMeta = useMemo(() => {
+    const map = new Map<string, PlaceholderDef>();
+    for (const p of placeholders) map.set(p.name, p);
+    return map;
+  }, [placeholders]);
+
+  // Fix: if token removed from promptText, remove it from placeholders state
+  useEffect(() => {
+    const active = new Set(tokenRanges.map((r) => r.name));
+    setPlaceholders((prev) => prev.filter((p) => active.has(p.name)));
+  }, [tokenRanges]);
+
+  const normalizeCaret = () => {
+    const el = editorRef.current;
+    if (!el) return;
+
+    const start = el.selectionStart ?? 0;
+    const end = el.selectionEnd ?? start;
+
+    const nextStart = clampCaretOutsideTokens(start, tokenRanges);
+    const nextEnd = clampCaretOutsideTokens(end, tokenRanges);
+
+    if (nextStart !== start || nextEnd !== end) {
+      el.setSelectionRange(nextStart, nextEnd);
     }
-    if (lastIndex < promptText.length) {
-      segments.push({ text: promptText.slice(lastIndex) });
-    }
-    return segments;
+  };
+
+  const syncOverlayScrollFromTextarea = () => {
+    const ta = editorRef.current;
+    const ov = overlayScrollRef.current;
+    if (!ta || !ov) return;
+    ov.scrollTop = ta.scrollTop;
+    ov.scrollLeft = ta.scrollLeft;
+  };
+
+  useEffect(() => {
+    syncOverlayScrollFromTextarea();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptText]);
 
   const handleInsertPlaceholderClick = () => {
+    const el = editorRef.current;
+    if (el) {
+      normalizeCaret();
+      pendingInsertRange.current = {
+        start: el.selectionStart ?? 0,
+        end: el.selectionEnd ?? (el.selectionStart ?? 0),
+      };
+    } else {
+      pendingInsertRange.current = {
+        start: promptText.length,
+        end: promptText.length,
+      };
+    }
     setShowPlaceholderModal(true);
   };
 
@@ -126,19 +268,43 @@ export default function PromptStudioPage() {
     setShowPlaceholderModal(false);
     if (!name) return;
 
+    const el = editorRef.current;
+    const liveText = el?.value ?? promptText;
+
+    const range = pendingInsertRange.current ?? {
+      start: el?.selectionStart ?? liveText.length,
+      end: el?.selectionEnd ?? liveText.length,
+    };
+
     const token = `{{${name}}}`;
 
-    setPromptText((prev) =>
-      prev.includes(token) ? prev : prev ? `${prev} ${token}` : token
-    );
+    const before = liveText.slice(0, range.start);
+    const after = liveText.slice(range.end);
+    const needsLeftSpace = before.length > 0 && !/\s$/.test(before);
+    const prefix = needsLeftSpace ? " " : "";
+
+    const suffix = "";
+    const nextText = before + prefix + token + suffix + after;
+    setPromptText(nextText);
 
     setPlaceholders((prev) => {
       const existing = prev.find((p) => p.name === name);
-      if (existing) {
+      if (existing)
         return prev.map((p) => (p.name === name ? { ...p, question } : p));
-      }
       return [...prev, { name, question }];
     });
+
+    pendingInsertRange.current = null;
+
+    setTimeout(() => {
+      const ta = editorRef.current;
+      if (!ta) return;
+      const pos = before.length + prefix.length + token.length + suffix.length;
+      ta.focus();
+      ta.setSelectionRange(pos, pos);
+      normalizeCaret();
+      syncOverlayScrollFromTextarea();
+    }, 0);
   };
 
   const handleSaveVersion = () => {
@@ -154,14 +320,7 @@ export default function PromptStudioPage() {
   };
 
   const handleMakeJson = () => {
-    const json = JSON.stringify(
-      {
-        prompt: promptText,
-        placeholders,
-      },
-      null,
-      2
-    );
+    const json = JSON.stringify({ prompt: promptText, placeholders }, null, 2);
     navigator.clipboard.writeText(json).catch(() => {});
   };
 
@@ -175,99 +334,254 @@ export default function PromptStudioPage() {
     setPublishOpen(true);
   };
 
-  const handlePublishFinished = () => {
-    setPublishOpen(false);
+  const handlePublishFinished = () => setPublishOpen(false);
+
+  const handlePickVersion = (id: string) => {
+    const v = versions.find((x) => x.id === id);
+    if (!v) return;
+    setPromptText(v.text);
+    setTimeout(() => editorRef.current?.focus(), 0);
+  };
+
+  const handleUpdatePlaceholder = (
+    nextNameRaw: string,
+    nextQuestionRaw: string
+  ) => {
+    const current = editingPlaceholder;
+    if (!current) return;
+
+    const nextName = cleanPlaceholderName(nextNameRaw);
+    const nextQuestion = nextQuestionRaw.trim();
+    if (!nextName) {
+      setEditingPlaceholder(null);
+      return;
+    }
+
+    setPlaceholders((prev) => {
+      const withoutCurrent = prev.filter((p) => p.name !== current.name);
+      const exists = withoutCurrent.find((p) => p.name === nextName);
+
+      if (exists) {
+        return withoutCurrent.map((p) =>
+          p.name === nextName
+            ? { ...p, question: nextQuestion || p.question }
+            : p
+        );
+      }
+      return [...withoutCurrent, { name: nextName, question: nextQuestion }];
+    });
+
+    if (nextName !== current.name) {
+      const fromToken = `{{${current.name}}}`;
+      const toToken = `{{${nextName}}}`;
+      const re = new RegExp(escapeRegExp(fromToken), "g");
+      setPromptText((prev) => prev.replace(re, toToken));
+    }
+
+    setEditingPlaceholder(null);
+    setTimeout(() => {
+      editorRef.current?.focus();
+      normalizeCaret();
+      syncOverlayScrollFromTextarea();
+    }, 0);
+  };
+
+  const openPlaceholderEditor = (name: string) => {
+    const el = editorRef.current;
+    if (el) {
+      const ranges = tokenRanges;
+      const hit = ranges.find((r) => r.name === name);
+      if (hit) el.setSelectionRange(hit.end, hit.end);
+      normalizeCaret();
+    }
+
+    const ph = placeholderMeta.get(name) ?? { name, question: "" };
+    setEditingPlaceholder(ph);
+  };
+
+  const handleEditorMouseUp = () => {
+    const el = editorRef.current;
+    if (!el) return;
+
+    const pos = el.selectionStart ?? 0;
+    const hit = tokenAtPos(pos, tokenRanges);
+    if (!hit) {
+      normalizeCaret();
+      return;
+    }
+
+    el.setSelectionRange(hit.end, hit.end);
+    openPlaceholderEditor(hit.name);
   };
 
   return (
     <div className="flex h-full flex-col bg-[#050505] text-white">
-      <header className="flex items-center justify-between border-b border-white/10 px-6 pt-4 pb-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold">Prompt Studio</h1>
-          <p className="text-xs text-white/55">
-            Design, version, and publish prompts with answerable placeholders.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 text-[11px] text-white/50">
-          <span>
-            {charCount} chars · ~{tokenEstimate} tokens
-          </span>
-          <button
-            type="button"
-            onClick={handleOpenPublish}
-            className="rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-4 py-1.5 text-xs font-semibold text-black shadow-[0_0_22px_rgba(56,189,248,0.6)] hover:brightness-110"
-          >
-            Publish
-          </button>
-        </div>
-      </header>
+      <DesktopOnlyGate blocked={blocked} />
 
       <PromptToolbar
+        title="Prompt Studio"
+        charCount={charCount}
+        tokenEstimate={tokenEstimate}
         onInsertPlaceholder={handleInsertPlaceholderClick}
         onMakeJson={handleMakeJson}
         onTestPrompt={handleTestPrompt}
         onSaveVersion={handleSaveVersion}
+        onPublish={handleOpenPublish}
       />
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: editor */}
-        <div className="flex-1 border-r border-white/10 px-4 py-3">
-          <div className="mb-1 text-[11px] text-white/40">Prompt editor</div>
-          <textarea
-            value={promptText}
-            onChange={(e) => setPromptText(e.target.value)}
-            className="h-full w-full resize-none rounded-xl border border-white/15 bg-black/60 px-4 py-3 text-base leading-relaxed text-white outline-none focus:border-cyan-400"
-            placeholder="Write your system / user prompt here. Use {{variable}} to insert placeholders."
-          />
-          {placeholders.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2 border-t border-white/10 pt-2 text-[11px]">
-              {placeholders.map((ph) => (
-                <span
-                  key={ph.name}
-                  className="inline-flex items-center gap-1 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-2 py-1 text-emerald-200"
-                >
-                  <span className="font-mono text-[10px]">{`{{${ph.name}}}`}</span>
-                  <span className="text-white/70">– {ph.question}</span>
-                </span>
-              ))}
+      <div className="flex flex-1 overflow-hidden px-5 pb-5">
+        {/* Editor */}
+        <div className="flex-1 pr-4 overflow-hidden">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[11px] tracking-wide text-white/45">Editor</div>
+            <div className="text-[11px] text-white/35">
+              Overlay + textarea use identical typography. Caret stays outside
+              tokens.
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Right: previews & versions */}
-        <div className="w-[360px] flex-shrink-0 space-y-4 px-4 py-3">
-          <section className="rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2">
-            <div className="mb-1 text-[11px] font-semibold text-white/70">
-              Preview with highlighted placeholders
-            </div>
-            <div className="rounded-lg bg-black/60 px-3 py-2 text-[11px] leading-relaxed">
-              {highlightedPreview.length === 0 ? (
-                <span className="text-white/40">Start typing your prompt on the left.</span>
-              ) : (
-                highlightedPreview.map((seg, idx) =>
-                  seg.placeholder ? (
+          <div className="relative h-full w-full overflow-hidden rounded-3xl bg-[#0b0b0c] shadow-[0_18px_70px_rgba(0,0,0,0.70),inset_0_1px_0_rgba(255,255,255,0.04)]">
+            {/* overlay (scroll is synced to textarea) */}
+            <div
+              ref={overlayScrollRef}
+              className="pointer-events-none absolute inset-0 overflow-auto px-6 py-6"
+              aria-hidden="true"
+            >
+              <div className="whitespace-pre-wrap break-words font-sans text-[15px] leading-[1.65] tracking-normal">
+                {overlaySegments.map((seg, idx) => {
+                  if (!seg.placeholder) {
+                    return (
+                      <span key={idx} className="text-white/92">
+                        {seg.text}
+                      </span>
+                    );
+                  }
+
+                  // Premium gradient highlight + glow (still NO padding/border/ring)
+                  // Uses only shadows (paint-only) so caret math stays correct.
+                  return (
                     <span
                       key={idx}
-                      className="rounded-full bg-emerald-500/20 px-1.5 py-0.5 text-emerald-200"
+                      className="pointer-events-auto cursor-pointer text-white/95 rounded-md bg-gradient-to-r from-cyan-400/20 via-sky-400/18 to-pink-400/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12),0_0_14px_rgba(56,189,248,0.18),0_0_18px_rgba(236,72,153,0.12)] transition-shadow"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openPlaceholderEditor(seg.placeholder!);
+                      }}
+                      title="Click to edit placeholder"
                     >
-                      {seg.text}
+                      {`{{${seg.placeholder}}}`}
                     </span>
-                  ) : (
-                    <span key={idx}>{seg.text}</span>
-                  )
-                )
-              )}
+                  );
+                })}
+              </div>
             </div>
-          </section>
 
-          <UserFormPreview placeholders={placeholders} />
+            {/* textarea owns interactions + scrolling */}
+            <textarea
+              ref={editorRef}
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+              onScroll={() => syncOverlayScrollFromTextarea()}
+              onMouseUp={handleEditorMouseUp}
+              onKeyUp={() => {
+                normalizeCaret();
+                syncOverlayScrollFromTextarea();
+              }}
+              onKeyDown={() =>
+                setTimeout(() => {
+                  normalizeCaret();
+                  syncOverlayScrollFromTextarea();
+                }, 0)
+              }
+              onSelect={() => {
+                normalizeCaret();
+                syncOverlayScrollFromTextarea();
+              }}
+              spellCheck={false}
+              className="absolute inset-0 h-full w-full resize-none overflow-auto bg-transparent px-6 py-6 font-sans text-[15px] leading-[1.65] tracking-normal text-transparent caret-white outline-none"
+              placeholder="Write your system / user prompt here..."
+            />
+          </div>
+        </div>
 
-          <VersionHistoryList versions={versions} />
+        {/* Side preview */}
+        <div className="w-[380px] flex-shrink-0 overflow-hidden">
+          <div className="mb-2 text-[11px] tracking-wide text-white/45">
+            Customer experience preview
+          </div>
+
+          <div className="h-full overflow-hidden rounded-3xl bg-[#0b0b0c] shadow-[0_18px_70px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="px-4 py-3">
+              <div className="text-[12px] font-semibold text-white/85">
+                User form
+              </div>
+              <div className="text-[11px] text-white/40">
+                What they fill before running your prompt.
+              </div>
+            </div>
+            <div className="h-full overflow-y-auto px-3 pb-4">
+              <UserFormPreview placeholders={placeholders} />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Placeholder modal */}
+      {/* Bottom versions */}
+      <div className="px-5 pb-5">
+        <div className="rounded-3xl bg-[#0b0b0c] shadow-[0_18px_70px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="text-[11px] font-semibold text-white/65">
+              Version history
+            </div>
+            <div className="text-[11px] text-white/35">
+              Stored locally for now.
+            </div>
+          </div>
+
+          <div className="px-4 pb-4">
+            {versions.length === 0 ? (
+              <div className="rounded-2xl bg-white/[0.03] px-3 py-3 text-[11px] text-white/40 ring-1 ring-white/5">
+                Save a version from the toolbar to see it here.
+              </div>
+            ) : (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {versions.map((v) => {
+                  const d = new Date(v.createdAt);
+                  const summary =
+                    v.text.length > 110 ? v.text.slice(0, 110) + "…" : v.text;
+
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => handlePickVersion(v.id)}
+                      className="min-w-[300px] max-w-[340px] flex-shrink-0 rounded-3xl bg-white/[0.03] px-3 py-2.5 text-left ring-1 ring-white/5 hover:bg-white/[0.06] transition"
+                    >
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-white/45">
+                        <span>
+                          {d.toLocaleDateString()} {d.toLocaleTimeString()}
+                        </span>
+                        <span className="rounded-full bg-black/30 px-2 py-0.5 ring-1 ring-white/5">
+                          {v.charCount}c · ~{v.tokenEstimate}t
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-white/78 line-clamp-3">
+                        {summary}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {showPlaceholderModal && (
         <PlaceholderModal
           alreadyUsedNames={placeholders.map((p) => p.name)}
@@ -276,7 +590,15 @@ export default function PromptStudioPage() {
         />
       )}
 
-      {/* Publish sheet */}
+      {editingPlaceholder && (
+        <PlaceholderEditModal
+          current={editingPlaceholder}
+          alreadyUsedNames={placeholders.map((p) => p.name)}
+          onClose={() => setEditingPlaceholder(null)}
+          onSave={handleUpdatePlaceholder}
+        />
+      )}
+
       <PublishPromptSheet
         open={publishOpen}
         onClose={() => setPublishOpen(false)}

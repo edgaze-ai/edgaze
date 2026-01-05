@@ -1,3 +1,4 @@
+// src/components/auth/ProfileMenu.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -21,13 +22,14 @@ function safeHandle(input: unknown) {
   if (v === "undefined" || v === "null") return null;
 
   const stripped = raw.startsWith("@") ? raw.slice(1).trim() : raw;
-  if (!stripped) return null; // IMPORTANT: blocks "@", " @ ", etc.
+  if (!stripped) return null;
 
   return stripped;
 }
 
 export default function ProfileMenu() {
-  const { user, profile, signOut, openSignIn, authReady, userId } = useAuth();
+  const { user, profile, signOut, openSignIn, userId } = useAuth();
+
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -40,7 +42,15 @@ export default function ProfileMenu() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // If signed out
+  // IMPORTANT: hooks must run on every render (fixes "Rendered more hooks than previous render")
+  const readyHandle = useMemo(
+    () => safeHandle(profile?.handle) || safeHandle((user as any)?.handle),
+    [profile?.handle, (user as any)?.handle]
+  );
+
+  const avatarSrc = profile?.avatar_url || DEFAULT_AVATAR_SRC;
+
+  // Signed out
   if (!userId) {
     return (
       <button
@@ -52,14 +62,6 @@ export default function ProfileMenu() {
       </button>
     );
   }
-
-  // Signed in but profile/user object not ready yet (common right after auth)
-  const readyHandle = useMemo(
-    () => safeHandle(profile?.handle) || safeHandle(user?.handle),
-    [profile?.handle, user?.handle]
-  );
-
-  const avatarSrc = profile?.avatar_url || DEFAULT_AVATAR_SRC;
 
   return (
     <div ref={ref} className="relative">
@@ -77,11 +79,11 @@ export default function ProfileMenu() {
 
         <div className="flex flex-col items-start">
           <span className="max-w-[120px] truncate text-xs font-medium text-white/90">
-            {profile?.full_name || profile?.handle || user?.name || "Creator"}
+            {profile?.full_name || profile?.handle || (user as any)?.name || "Creator"}
           </span>
 
           <span className="text-[10px] text-white/55">
-            {profile?.plan || "Free"} plan
+            {(profile as any)?.plan || "Free"} plan
             {!profile && (
               <span className="ml-2 inline-flex items-center gap-1 text-white/45">
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -96,7 +98,6 @@ export default function ProfileMenu() {
 
       {open && (
         <div className="absolute right-0 mt-2 w-52 rounded-xl border border-white/16 bg-[#050505] shadow-xl z-30 overflow-hidden">
-          {/* If handle exists, go straight to /profile/<handle>, else go to /profile (redirect page). */}
           <Link
             href={readyHandle ? `/profile/${encodeURIComponent(readyHandle)}` : "/profile"}
             className={cn(

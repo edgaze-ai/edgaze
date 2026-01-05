@@ -18,7 +18,6 @@ type Props = {
 };
 
 function buildBlurredPromptImage(promptText: string): string {
-  // Fake "image" by drawing prompt text and blurring it
   const canvas = document.createElement("canvas");
   canvas.width = 1200;
   canvas.height = 420;
@@ -26,9 +25,9 @@ function buildBlurredPromptImage(promptText: string): string {
   if (!ctx) return "";
 
   const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-  gradient.addColorStop(0, "#0f172a");
+  gradient.addColorStop(0, "#0ea5e9"); // cyan-ish
   gradient.addColorStop(0.5, "#020617");
-  gradient.addColorStop(1, "#0f172a");
+  gradient.addColorStop(1, "#ec4899"); // pink-ish
 
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -49,8 +48,7 @@ function buildBlurredPromptImage(promptText: string): string {
   });
 
   ctx.filter = "blur(26px)";
-  const blurred = canvas.toDataURL("image/jpeg", 0.85);
-  return blurred;
+  return canvas.toDataURL("image/jpeg", 0.85);
 }
 
 export default function PromptPreviewCard(props: Props) {
@@ -81,21 +79,13 @@ export default function PromptPreviewCard(props: Props) {
     .filter(Boolean);
 
   return (
-    <div className="w-full max-w-lg rounded-3xl border border-white/15 bg-white/[0.02] p-3 text-[11px] text-white">
+    <div className="w-full max-w-lg rounded-3xl border border-white/12 bg-white/[0.02] p-3 text-[11px] text-white shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
       <div className="relative mb-3 overflow-hidden rounded-2xl">
-        <div className="absolute inset-0 flex w-full items-stretch justify-between">
-          <div className="w-1/3 bg-cyan-500/40" />
-          <div className="w-1/3 bg-transparent" />
-          <div className="w-1/3 bg-pink-500/40" />
-        </div>
-        <div className="relative m-3 rounded-2xl bg-black/40 p-0.5 backdrop-blur-xl">
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/25 via-sky-500/10 to-pink-500/25" />
+        <div className="relative m-3 rounded-2xl bg-black/45 p-0.5 backdrop-blur-xl">
           {finalThumb ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={finalThumb}
-              alt=""
-              className="h-36 w-full rounded-2xl object-cover"
-            />
+            <img src={finalThumb} alt="" className="h-36 w-full rounded-2xl object-cover" />
           ) : (
             <div className="flex h-36 w-full items-center justify-center rounded-2xl bg-slate-900/80 text-[10px] text-white/50">
               Auto thumbnail
@@ -108,7 +98,7 @@ export default function PromptPreviewCard(props: Props) {
         <div className="min-w-0">
           <div className="mb-1 flex items-center gap-2">
             <div className="truncate text-xs font-semibold">{title}</div>
-            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[9px] text-sky-200">
+            <span className="rounded-full border border-cyan-400/20 bg-gradient-to-r from-cyan-400/10 via-sky-500/10 to-pink-500/10 px-2 py-0.5 text-[9px] text-white/80">
               Prompt
             </span>
           </div>
@@ -125,9 +115,7 @@ export default function PromptPreviewCard(props: Props) {
             <span className="truncate">{ownerName}</span>
           </div>
 
-          <p className="mb-2 line-clamp-2 text-[10px] text-white/65">
-            {description}
-          </p>
+          <p className="mb-2 line-clamp-2 text-[10px] text-white/65">{description}</p>
 
           <div className="mb-2 flex flex-wrap gap-1">
             {tagList.slice(0, 3).map((tag) => (
@@ -150,7 +138,7 @@ export default function PromptPreviewCard(props: Props) {
           <div className="rounded-md bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-2 py-1 text-[9px] font-semibold text-black">
             /{edgazeCode || "your-code"}
           </div>
-          <div className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">
+          <div className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] text-white/80">
             {isPaid && priceUsd ? `$${Number(priceUsd).toFixed(2)}` : "Free"}
           </div>
         </div>

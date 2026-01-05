@@ -1,6 +1,7 @@
+// src/components/builder/InspectorPanel.tsx
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Eye, TrendingUp, Users, Settings, Sliders, Code2 } from "lucide-react";
 import { getNodeSpec } from "src/nodes/registry";
 
@@ -160,10 +161,12 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-[#0f1115]/80 border border-white/10 p-4 backdrop-blur-sm">
-      <div className="mb-3 flex items-center gap-2 opacity-90">
+    <div className="rounded-2xl bg-[#0f1115]/75 border border-white/10 px-4 py-3 backdrop-blur-sm">
+      <div className="mb-2.5 flex items-center gap-2 opacity-90">
         {icon}
-        <div className="text-[16px] font-semibold">{title}</div>
+        <div className="text-[13px] font-semibold tracking-[0.01em]">
+          {title}
+        </div>
       </div>
       {children}
     </div>
@@ -173,7 +176,7 @@ function Card({
 const Input = (props: any) => (
   <input
     {...props}
-    className={`w-full rounded-xl px-3 py-2 text-sm bg-[#0d0f12] border border-white/10 
+    className={`w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10 
     focus:outline-none focus:ring-2 focus:ring-white/10 ${props.className ?? ""}`}
   />
 );
@@ -181,7 +184,7 @@ const Input = (props: any) => (
 const TextArea = (props: any) => (
   <textarea
     {...props}
-    className={`w-full rounded-xl px-3 py-2 text-sm bg-[#0d0f12] border border-white/10 
+    className={`w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10 
     focus:outline-none focus:ring-2 focus:ring-white/10 ${props.className ?? ""}`}
   />
 );
@@ -203,11 +206,11 @@ function GeneralPanel({
   const cfg = selection.config ?? {};
 
   return (
-    <div className="space-y-6 pt-3">
+    <div className="space-y-4 pt-3">
       <Card title="Basic Info" icon={<Settings size={16} />}>
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-white/60">Display Name</label>
+            <label className="text-[11px] text-white/60">Display Name</label>
             <Input
               defaultValue={cfg.name ?? spec.label}
               onBlur={(e) => onUpdate({ name: e.target.value })}
@@ -215,7 +218,7 @@ function GeneralPanel({
           </div>
 
           <div>
-            <label className="text-xs text-white/60">Description</label>
+            <label className="text-[11px] text-white/60">Description</label>
             <TextArea
               rows={3}
               defaultValue={cfg.description ?? spec.summary}
@@ -226,9 +229,9 @@ function GeneralPanel({
       </Card>
 
       <Card title="Execution" icon={<Sliders size={16} />}>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-white/60">Timeout (ms)</label>
+            <label className="text-[11px] text-white/60">Timeout (ms)</label>
             <Input
               type="number"
               defaultValue={cfg.timeout ?? 8000}
@@ -237,7 +240,7 @@ function GeneralPanel({
           </div>
 
           <div>
-            <label className="text-xs text-white/60">Retry Attempts</label>
+            <label className="text-[11px] text-white/60">Retry Attempts</label>
             <Input
               type="number"
               defaultValue={cfg.retries ?? 0}
@@ -263,49 +266,38 @@ function InputsPanel({
   const cfg = selection.config ?? {};
 
   return (
-    <div className="space-y-6 pt-3">
+    <div className="space-y-4 pt-3">
       <Card title="Input Parameters">
         {spec.ports
-          .filter((p: any) => p.kind === "input")
-          .map((port: any) => (
-            <div key={port.id} className="border-b border-white/5 pb-4 mb-4">
-              <div className="font-medium text-white/90">{port.id}</div>
-              <div className="text-xs text-white/60 mb-2">{port.label}</div>
-
-              <label className="text-xs text-white/60">Default Value</label>
-              <Input
-                defaultValue={cfg[port.id] ?? ""}
-                onBlur={(e) =>
-                  onUpdate({
-                    [port.id]: e.target.value,
-                  })
-                }
-              />
-            </div>
-          ))}
-      </Card>
-    </div>
-  );
-}
-
-/* -------- Outputs Panel -------- */
-function OutputsPanel({ spec }: { spec: any }) {
-  return (
-    <div className="space-y-6 pt-3">
-      <Card title="Output Variables">
-        {spec.ports
-          .filter((p: any) => p.kind === "output")
-          .map((p: any) => (
+          ?.filter((p: any) => p.kind === "input")
+          ?.map((port: any) => (
             <div
-              key={p.id}
-              className="flex items-center justify-between border-b border-white/5 py-3"
+              key={port.id}
+              className="border-b border-white/5 pb-4 mb-4 last:mb-0 last:pb-0 last:border-b-0"
             >
-              <div>
-                <div className="font-medium">{p.id}</div>
-                <div className="text-xs text-white/60">{p.label}</div>
+              <div className="font-medium text-white/90 text-[13px]">
+                {port.id}
               </div>
-              <div className="text-xs px-2 py-1 rounded bg-white/5 border border-white/10">
-                {p.type ?? "any"}
+              <div className="text-[11px] text-white/60 mt-0.5">
+                {port.label ?? ""}
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] text-white/60">Default</label>
+                  <Input
+                    defaultValue={cfg?.inputs?.[port.id] ?? ""}
+                    onBlur={(e) =>
+                      onUpdate({
+                        inputs: { ...(cfg.inputs ?? {}), [port.id]: e.target.value },
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-white/60">Type</label>
+                  <Input value={port.type ?? "any"} readOnly />
+                </div>
               </div>
             </div>
           ))}
@@ -314,214 +306,262 @@ function OutputsPanel({ spec }: { spec: any }) {
   );
 }
 
-/* -------- Logic Panel -------- */
-function LogicPanel({
-  spec,
-  selection,
-  onUpdate,
-}: {
-  spec: any;
-  selection: Selection;
-  onUpdate: (p: any) => void;
-}) {
+/* -------- Code Panel -------- */
+function CodePanel({ selection, spec }: { selection: Selection; spec: any }) {
   const cfg = selection.config ?? {};
+  const code = cfg.code ?? spec?.code ?? "";
 
   return (
-    <div className="space-y-6 pt-3">
-      <Card title="Node Logic" icon={<Code2 size={16} />}>
-        {spec.logicFields?.map((field: any) => (
-          <div key={field.id} className="mb-4">
-            <label className="text-xs text-white/60">{field.label}</label>
+    <div className="space-y-4 pt-3">
+      <Card title="Node Config" icon={<Code2 size={16} />}>
+        <pre className="text-[12px] text-white/70 bg-[#0b0d10] border border-white/10 rounded-xl p-3 overflow-auto">
+          {JSON.stringify(cfg, null, 2)}
+        </pre>
+      </Card>
 
-            {field.type === "string" && (
-              <Input
-                defaultValue={cfg[field.id] ?? ""}
-                onBlur={(e) => onUpdate({ [field.id]: e.target.value })}
-              />
-            )}
-
-            {field.type === "json" && (
-              <TextArea
-                rows={6}
-                defaultValue={cfg[field.id] ?? ""}
-                onBlur={(e) => onUpdate({ [field.id]: e.target.value })}
-              />
-            )}
-          </div>
-        ))}
-
-        {!spec.logicFields && (
-          <div className="text-sm text-white/60">
-            This node has no additional logic settings.
-          </div>
-        )}
+      <Card title="Implementation (read-only)" icon={<Code2 size={16} />}>
+        <pre className="text-[12px] text-white/70 bg-[#0b0d10] border border-white/10 rounded-xl p-3 overflow-auto">
+          {String(code)}
+        </pre>
       </Card>
     </div>
   );
 }
 
-/* ============================================================
-   MAIN INSPECTOR COMPONENT
-============================================================ */
+/* ======================= MAIN COMPONENT ======================= */
+
+type TabKey = "general" | "inputs" | "code";
+
 export default function InspectorPanel({
   selection,
-  onUpdateNodeConfig,
   workflowId,
+  onUpdate,
 }: {
-  selection: Selection;
-  onUpdateNodeConfig?: (nodeId: string, patch: any) => void;
+  selection?: Selection; // <-- keep optional + foolproof
   workflowId?: string;
+  onUpdate?: (nodeId: string, patch: any) => void;
 }) {
-  const selected = Boolean(selection.nodeId);
+  // FOOLPROOF: never crash if selection is undefined
+  const safeSelection: Selection = useMemo(
+    () => ({
+      nodeId: selection?.nodeId ?? null,
+      specId: selection?.specId,
+      config: selection?.config,
+    }),
+    [selection?.nodeId, selection?.specId, selection?.config]
+  );
 
+  const selected = Boolean(safeSelection.nodeId);
+  const [tab, setTab] = useState<TabKey>("general");
+
+  // When selection changes, keep UX predictable
+  useEffect(() => {
+    setTab("general");
+  }, [safeSelection.nodeId, safeSelection.specId]);
+
+  const spec = useMemo(() => {
+    if (!safeSelection.specId) return null;
+    try {
+      return getNodeSpec(safeSelection.specId);
+    } catch {
+      return null;
+    }
+  }, [safeSelection.specId]);
+
+  // Only fetch when a node is selected (avoids noise + wasted calls)
   const { data: analytics, state: aState } = useAnalytics(
-    selected ? undefined : workflowId
+    selected ? workflowId : undefined
   );
   const { data: community, state: cState } = useCommunity(
-    selected ? undefined : workflowId
+    selected ? workflowId : undefined
   );
 
-  const spec = useMemo(
-    () => (selection.specId ? getNodeSpec(selection.specId) : null),
-    [selection.specId]
-  );
-
-  const [tab, setTab] = useState<"general" | "inputs" | "outputs" | "logic">(
-    "general"
-  );
-
-  const update = (patch: any) => {
-    if (selection.nodeId) onUpdateNodeConfig?.(selection.nodeId, patch);
+  const patchNode = (patch: any) => {
+    if (!onUpdate) return;
+    if (!safeSelection.nodeId) return;
+    onUpdate(safeSelection.nodeId, patch);
   };
 
-  /* -------- Empty state (no node selected) -------- */
-  if (!selection.nodeId) {
-    return (
-      <div className="h-full overflow-auto p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <Eye size={18} />
-          <h4 className="text-xl font-semibold">Inspector</h4>
-        </div>
-
-        <div className="my-10 text-center">
-          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-white/5">
-            <Eye size={24} className="opacity-70" />
-          </div>
-          <div className="text-lg text-white/80">
-            Select a block to edit its properties
-          </div>
-          <div className="text-sm text-white/55">
-            Drag blocks from the left, then click them to edit.
-          </div>
-        </div>
-
-        {/* Analytics */}
-        <div className="space-y-4">
-          <Card title="Workflow Analytics" icon={<TrendingUp size={16} />}>
-            {aState !== "ready" || !analytics ? (
-              <div className="text-sm text-white/60">Analytics not available</div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4 text-[15px]">
-                <div>
-                  <div className="text-white/65">Total Runs</div>
-                  <div className="mt-1 font-semibold">
-                    {analytics.totalRuns.toLocaleString()}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-white/65">Success Rate</div>
-                  <div className="mt-1 font-semibold text-emerald-300">
-                    {(analytics.successRate * 100).toFixed(1)}%
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-white/65">Avg Response</div>
-                  <div className="mt-1 font-semibold">
-                    {Math.round(analytics.avgResponseMs)}ms
-                  </div>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          <Card title="Community" icon={<Users size={16} />}>
-            {cState !== "ready" || !community ? (
-              <div className="text-sm text-white/60">
-                Community stats unavailable
-              </div>
-            ) : (
-              <ul className="list-disc pl-5 text-[15px] text-white/85">
-                <li>
-                  {community.todayUsers.toLocaleString()} people used this today
-                </li>
-                <li>
-                  {community.weeklyRemixes.toLocaleString()} remixes this week
-                </li>
-                {community.featured && <li>Featured in trending workflows</li>}
-              </ul>
-            )}
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  /* -------- Node selected: Render tab system -------- */
+  const TabPill = ({
+    active,
+    children,
+    onClick,
+  }: {
+    active: boolean;
+    children: React.ReactNode;
+    onClick: () => void;
+  }) => (
+    <button
+      onClick={onClick}
+      className={[
+        "px-3 py-1.5 rounded-full border text-[12px]",
+        active
+          ? "bg-white/10 border-white/12 text-white"
+          : "bg-transparent border-white/10 text-white/70 hover:bg-white/5",
+      ].join(" ")}
+      type="button"
+    >
+      {children}
+    </button>
+  );
 
   return (
-    <div className="h-full overflow-auto">
-      {/* Tab Bar */}
-      <div className="sticky top-0 z-20 bg-[#0d0f12]/80 backdrop-blur-md border-b border-white/10 px-5 py-3 flex gap-4">
-        <button
-          className={`text-sm ${
-            tab === "general" ? "text-white font-semibold" : "text-white/50"
-          }`}
-          onClick={() => setTab("general")}
-        >
-          General
-        </button>
-        <button
-          className={`text-sm ${
-            tab === "inputs" ? "text-white font-semibold" : "text-white/50"
-          }`}
-          onClick={() => setTab("inputs")}
-        >
-          Inputs
-        </button>
-        <button
-          className={`text-sm ${
-            tab === "outputs" ? "text-white font-semibold" : "text-white/50"
-          }`}
-          onClick={() => setTab("outputs")}
-        >
-          Outputs
-        </button>
-        <button
-          className={`text-sm ${
-            tab === "logic" ? "text-white font-semibold" : "text-white/50"
-          }`}
-          onClick={() => setTab("logic")}
-        >
-          Logic
-        </button>
+    // IMPORTANT: make the panel actually scroll inside the floating window
+    <div className="h-full w-full text-white flex flex-col min-h-0">
+      {/* Header (fixed) */}
+      <div className="px-5 pt-5 pb-3 shrink-0">
+        <div className="flex items-center gap-2 opacity-90">
+          <Eye size={18} />
+          <div className="text-[16px] font-semibold tracking-[0.01em]">
+            Inspector
+          </div>
+        </div>
+
+        {selected && (
+          <div className="mt-2 text-[11px] text-white/55 truncate">
+            {spec?.label ?? "Block"} · {safeSelection.specId ?? "unknown"}
+          </div>
+        )}
+
+        {selected && (
+          <div className="mt-3 flex gap-2">
+            <TabPill active={tab === "general"} onClick={() => setTab("general")}>
+              General
+            </TabPill>
+            <TabPill active={tab === "inputs"} onClick={() => setTab("inputs")}>
+              Inputs
+            </TabPill>
+            <TabPill active={tab === "code"} onClick={() => setTab("code")}>
+              Code
+            </TabPill>
+          </div>
+        )}
       </div>
 
-      {/* Active Panel */}
-      <div className="p-5">
-        {tab === "general" && spec && (
-          <GeneralPanel selection={selection} spec={spec} onUpdate={update} />
+      {/* Scroll area (this fixes the “scrolling not working inside inspector” bug) */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 overscroll-contain">
+        {!selected && (
+          <div className="pt-8 text-center">
+            <div className="mx-auto h-14 w-14 rounded-full bg-white/5 border border-white/10 grid place-items-center">
+              <Eye className="opacity-70" />
+            </div>
+            <div className="mt-4 text-white/85 text-[13px]">
+              Select a block to edit its properties
+            </div>
+            <div className="mt-2 text-[11px] text-white/50">
+              Drag blocks from the left, then click them to edit.
+            </div>
+
+            <div className="mt-6 space-y-3 text-left">
+              <div className="rounded-2xl bg-[#0f1115]/75 border border-white/10 px-4 py-3 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={16} className="opacity-80" />
+                  <div className="font-semibold text-[13px]">
+                    Workflow Analytics
+                  </div>
+                </div>
+                <div className="mt-2 text-[11px] text-white/55">
+                  Analytics not available
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-[#0f1115]/75 border border-white/10 px-4 py-3 backdrop-blur-sm">
+                <div className="flex items-center gap-2">
+                  <Users size={16} className="opacity-80" />
+                  <div className="font-semibold text-[13px]">Community</div>
+                </div>
+                <div className="mt-2 text-[11px] text-white/55">
+                  Community stats unavailable
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
-        {tab === "inputs" && spec && (
-          <InputsPanel selection={selection} spec={spec} onUpdate={update} />
-        )}
+        {selected && (
+          <>
+            {/* Main tab content */}
+            {spec ? (
+              <>
+                {tab === "general" && (
+                  <GeneralPanel
+                    selection={safeSelection}
+                    spec={spec}
+                    onUpdate={patchNode}
+                  />
+                )}
+                {tab === "inputs" && (
+                  <InputsPanel
+                    selection={safeSelection}
+                    spec={spec}
+                    onUpdate={patchNode}
+                  />
+                )}
+                {tab === "code" && <CodePanel selection={safeSelection} spec={spec} />}
+              </>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-[13px] text-white/70">
+                Spec not found for this node. (The canvas sent an unknown specId.)
+              </div>
+            )}
 
-        {tab === "outputs" && spec && <OutputsPanel spec={spec} />}
+            {/* Optional cards */}
+            <div className="mt-5 grid grid-cols-1 gap-3">
+              <Card title="Workflow Analytics" icon={<TrendingUp size={16} />}>
+                {aState !== "ready" || !analytics ? (
+                  <div className="text-[11px] text-white/55">
+                    Analytics not available
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
+                      <div className="text-[11px] text-white/50">Runs</div>
+                      <div className="mt-1 text-[16px] font-semibold">
+                        {analytics.totalRuns}
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
+                      <div className="text-[11px] text-white/50">Success</div>
+                      <div className="mt-1 text-[16px] font-semibold">
+                        {analytics.successRate}%
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
+                      <div className="text-[11px] text-white/50">Avg</div>
+                      <div className="mt-1 text-[16px] font-semibold">
+                        {analytics.avgResponseMs}ms
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Card>
 
-        {tab === "logic" && spec && (
-          <LogicPanel selection={selection} spec={spec} onUpdate={update} />
+              <Card title="Community" icon={<Users size={16} />}>
+                {cState !== "ready" || !community ? (
+                  <div className="text-[11px] text-white/55">
+                    Community stats unavailable
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
+                      <div className="text-[11px] text-white/50">Today</div>
+                      <div className="mt-1 text-[16px] font-semibold">
+                        {community.todayUsers}
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
+                      <div className="text-[11px] text-white/50">
+                        Weekly remixes
+                      </div>
+                      <div className="mt-1 text-[16px] font-semibold">
+                        {community.weeklyRemixes}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+          </>
         )}
       </div>
     </div>

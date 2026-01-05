@@ -1,22 +1,15 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-  useScroll,
-  useSpring,
-  useTransform,
-} from "framer-motion";
-import {
-  ArrowRight,
-  BadgeCheck,
-  Compass,
-  Link2,
-  Search,
-  Sparkles,
-} from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "src/components/auth/AuthContext";
+import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowRight, BadgeCheck, Compass, Link2, Search, Sparkles } from "lucide-react";
+
+function clamp(n: number, a: number, b: number) {
+  return Math.max(a, Math.min(b, n));
+}
 
 function cn(...args: Array<string | false | null | undefined>) {
   return args.filter(Boolean).join(" ");
@@ -45,19 +38,7 @@ function Gradients() {
   );
 }
 
-function AccentLine() {
-  return (
-    <div className="h-[2px] w-full bg-[linear-gradient(90deg,rgba(34,211,238,0.95),rgba(236,72,153,0.9))]" />
-  );
-}
-
-function Container({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+function Container({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn("mx-auto w-full max-w-7xl", className)}>{children}</div>;
 }
 
@@ -117,7 +98,7 @@ function Nav({ onTop }: { onTop: boolean }) {
     >
       <Container className="flex items-center justify-between px-5 py-4">
         <SmoothLink href="#top" className="flex items-center gap-2">
-          <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-9 w-9" />
+          <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-11 w-11" />
           <span className="text-sm font-semibold tracking-wide">Edgaze</span>
         </SmoothLink>
 
@@ -133,17 +114,18 @@ function Nav({ onTop }: { onTop: boolean }) {
           </SmoothLink>
           <SmoothLink className="hover:text-white" href="#features">
             Features
-          </SmoothLink><SmoothLink className="hover:text-white" href="#anyone">
+          </SmoothLink>
+          <SmoothLink className="hover:text-white" href="#anyone">
             Creators
           </SmoothLink>
-          <SmoothLink className="hover:text-white" href="#apply">
+          <a className="hover:text-white" href="/apply">
             Apply
-          </SmoothLink>
+          </a>
         </div>
 
         <div className="flex items-center gap-2">
           <SmoothLink
-            href="#apply"
+            href="/apply"
             className="hidden rounded-full px-4 py-2 text-sm font-medium text-white/90 ring-1 ring-white/10 bg-white/5 hover:bg-white/8 transition-colors md:inline-flex"
           >
             Apply
@@ -223,7 +205,6 @@ function CardFrame({ className, children }: { className?: string; children: Reac
   return (
     <div
       className={cn(
-        // Keep foreground UI readable: no glassy transparency.
         "rounded-3xl bg-[#0b0c11] ring-1 ring-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.55)]",
         className
       )}
@@ -253,15 +234,7 @@ function useLoopedSceneCount(scenes: number, ms: number) {
   return scene;
 }
 
-function AnimatedNumber({
-  target,
-  durationMs,
-  decimals = 0,
-}: {
-  target: number;
-  durationMs: number;
-  decimals?: number;
-}) {
+function AnimatedNumber({ target, durationMs, decimals = 0 }: { target: number; durationMs: number; decimals?: number }) {
   const reduce = useReducedMotion();
   const [value, setValue] = useState(0);
 
@@ -290,107 +263,654 @@ function AnimatedNumber({
   return <>{value.toFixed(decimals)}</>;
 }
 
-/**
- * Illustration 1: User enters code -> product page opens
- */
-function IlluCodeOpensProduct() {
+function useElementSize<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (!box) return;
+      setSize({ w: box.width, h: box.height });
+    });
+
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return { ref, size };
+}
+
+/*
+  Hero illustration:
+  - Prompts + workflow nodes roam for a moment
+  - Edgaze box appears centered
+  - Everything gets pulled into the box
+  - Glitter, then reset
+*/
+// REPLACE THE ENTIRE IlluHeroCollectToBox FUNCTION WITH THIS CODE
+
+// REPLACE THE ENTIRE IlluHeroCollectToBox FUNCTION WITH THIS CODE
+
+// REPLACE THE ENTIRE IlluHeroCollectToBox FUNCTION WITH THIS CODE
+
+function IlluHeroCollectToBox() {
   const reduce = useReducedMotion();
-  const scene = useLoopedSceneCount(2, 4200);
+  const { ref, size } = useElementSize<HTMLDivElement>();
+
+  const W = size.w || 920;
+  const H = size.h || 420;
+
+  // 0 = show (nodes+cards visible)
+  // 1 = box appears + vacuum (suck-in)
+  // 2 = glaze on box
+  // 3 = box disappears + nodes/cards return
+  const [phase, setPhase] = useState<0 | 1 | 2 | 3>(0);
+
+  useEffect(() => {
+    if (reduce) return;
+
+    const steps: Array<{ p: 0 | 1 | 2 | 3; d: number }> = [
+      { p: 0, d: 2200 }, // show
+      { p: 1, d: 1300 }, // box in + vacuum
+      { p: 2, d: 900 },  // glaze
+      { p: 3, d: 650 },  // box out + return
+    ];
+
+    const total = steps.reduce((a, s) => a + s.d, 0);
+
+    let interval: any;
+    let timeouts: any[] = [];
+
+    const run = () => {
+      setPhase(0);
+      let t = 0;
+      timeouts = steps.map((s) => {
+        const id = setTimeout(() => setPhase(s.p), t);
+        t += s.d;
+        return id;
+      });
+    };
+
+    run();
+    interval = setInterval(run, total);
+
+    return () => {
+      clearInterval(interval);
+      timeouts.forEach(clearTimeout);
+    };
+  }, [reduce]);
+
+  const show = phase === 0;
+  const vacuum = phase === 1;
+  const glaze = phase === 2;
+  const returnBack = phase === 3;
+
+  const cx = W / 2;
+  const cy = H / 2;
+
+  // deterministic pseudo-random (no jumping every render)
+  const layout = useMemo(() => {
+    const seedStr = `${Math.round(W)}x${Math.round(H)}-edgaze`;
+    let seed = 0;
+    for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
+
+    const rnd = () => {
+      // xorshift32
+      seed ^= seed << 13;
+      seed ^= seed >>> 17;
+      seed ^= seed << 5;
+      return ((seed >>> 0) % 10000) / 10000;
+    };
+
+    const nodeW = 160;
+    const nodeH = 72;
+    const cardW = 320;
+    const cardH = 110;
+
+    const n = {
+      input: { x: clamp(cx - 420 + rnd() * 120, 40, cx - 180), y: clamp(48 + rnd() * 70, 28, H - 120) },
+      transform: { x: clamp(cx - 460 + rnd() * 140, 40, cx - 200), y: clamp(150 + rnd() * 80, 90, H - 140) },
+      filter: { x: clamp(cx - 410 + rnd() * 160, 40, cx - 170), y: clamp(260 + rnd() * 70, 150, H - 90) },
+
+      prompt: { x: clamp(cx - 160 + rnd() * 140, 120, cx + 60), y: clamp(70 + rnd() * 90, 40, H - 160) },
+      api: { x: clamp(cx - 80 + rnd() * 180, 160, cx + 220), y: clamp(190 + rnd() * 90, 110, H - 120) },
+      export: { x: clamp(cx - 140 + rnd() * 170, 140, cx + 160), y: clamp(300 + rnd() * 70, 170, H - 80) },
+    };
+
+    const rightMinX = clamp(cx + 180, 420, W - cardW - 24);
+    const rightMaxX = clamp(W - cardW - 24, rightMinX, W - cardW - 24);
+
+    const c1x = clamp(rightMinX + rnd() * 60, rightMinX, rightMaxX);
+    const c2x = clamp(rightMinX + 12 + rnd() * 60, rightMinX, rightMaxX);
+
+    const c1y = clamp(56 + rnd() * 60, 36, H - cardH - 170);
+    const c2y = clamp(210 + rnd() * 70, 140, H - cardH - 26);
+
+    const cards = {
+      one: { x: c1x, y: c1y },
+      two: { x: c2x, y: c2y },
+    };
+
+    const lines = [
+      { x1: n.input.x + nodeW - 24, y1: n.input.y + 28, x2: n.prompt.x + 12, y2: n.prompt.y + 26 },
+      { x1: n.transform.x + nodeW - 24, y1: n.transform.y + 32, x2: n.api.x + 12, y2: n.api.y + 30 },
+      { x1: n.filter.x + nodeW - 24, y1: n.filter.y + 34, x2: n.export.x + 12, y2: n.export.y + 30 },
+    ];
+
+    const dots = [
+      [
+        { x: n.input.x + 110, y: n.input.y + 32 },
+        { x: n.prompt.x + 90, y: n.prompt.y + 32 },
+        { x: n.prompt.x + 160, y: n.prompt.y + 32 },
+      ],
+      [
+        { x: n.transform.x + 110, y: n.transform.y + 36 },
+        { x: n.api.x + 90, y: n.api.y + 34 },
+        { x: n.export.x + 110, y: n.export.y + 34 },
+      ],
+    ];
+
+    return { n, cards, lines, dots };
+  }, [W, H, cx, cy]);
+
+  // Solid premium card base (NO glass, NO blur)
+  const SolidCard = ({ w, children }: { w: number; children: React.ReactNode }) => (
+    <div
+      className="relative rounded-3xl border border-white/10 bg-[#0b0f16] shadow-[0_18px_60px_rgba(0,0,0,0.55)]"
+      style={{ width: w }}
+    >
+      <div
+        className="absolute inset-0 rounded-3xl pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle at 20% 20%, rgba(34,211,238,0.10), transparent 55%), radial-gradient(circle at 80% 30%, rgba(236,72,153,0.08), transparent 55%)",
+        }}
+      />
+      <div className="relative px-4 py-3">{children}</div>
+    </div>
+  );
+
+  const WorkflowNode = ({
+    label,
+    x,
+    y,
+    delay = 0,
+  }: {
+    label: string;
+    x: number;
+    y: number;
+    delay?: number;
+  }) => {
+    const drift = reduce
+      ? undefined
+      : {
+          x: [0, 6, -5, 4, 0],
+          y: [0, -4, 3, -3, 0],
+        };
+
+    const targetXVacuum = cx - x - 80;
+    const targetYVacuum = cy - y - 36;
+
+    return (
+      <motion.div
+        className="absolute z-10"
+        style={{ left: x, top: y }}
+        initial={false}
+        animate={
+          reduce
+            ? undefined
+            : show
+            ? { opacity: 1, scale: 1, ...drift }
+            : vacuum
+            ? {
+                opacity: [1, 0.75, 0],
+                scale: [1, 0.65, 0.16],
+                x: [0, targetXVacuum],
+                y: [0, targetYVacuum],
+              }
+            : glaze
+            ? { opacity: 0, scale: 0.12 }
+            : returnBack
+            ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
+            : { opacity: 1, scale: 1 }
+        }
+        transition={
+          show
+            ? {
+                duration: 4.2,
+                ease: "easeInOut",
+                repeat: Infinity,
+                delay,
+              }
+            : vacuum
+            ? {
+                duration: 1.15,
+                ease: [0.2, 0.85, 0.2, 1],
+              }
+            : returnBack
+            ? {
+                type: "spring",
+                stiffness: 180,
+                damping: 22,
+                mass: 0.9,
+              }
+            : {
+                duration: 0.35,
+                ease: "easeOut",
+              }
+        }
+      >
+        <SolidCard w={160}>
+          <div className="text-[9px] font-bold tracking-[0.28em] text-white/35 mb-1.5">NODE</div>
+          <div className="text-sm font-semibold text-white/92">{label}</div>
+        </SolidCard>
+      </motion.div>
+    );
+  };
+
+  const PromptCard = ({
+    text,
+    x,
+    y,
+    delay = 0,
+  }: {
+    text: string;
+    x: number;
+    y: number;
+    delay?: number;
+  }) => {
+    const parts = text.split(/(\{\{[^}]+\}\})/g);
+
+    const targetXVacuum = cx - x - 160;
+    const targetYVacuum = cy - y - 56;
+
+    return (
+      <motion.div
+        className="absolute z-20"
+        style={{ left: x, top: y }}
+        initial={false}
+        animate={
+          reduce
+            ? undefined
+            : show
+            ? { opacity: 1, scale: 1, x: [0, 5, -4, 4, 0], y: [0, -3, 3, -2, 0] }
+            : vacuum
+            ? {
+                opacity: [1, 0.75, 0],
+                scale: [1, 0.65, 0.16],
+                x: [0, targetXVacuum],
+                y: [0, targetYVacuum],
+              }
+            : glaze
+            ? { opacity: 0, scale: 0.14 }
+            : returnBack
+            ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
+            : { opacity: 1, scale: 1 }
+        }
+        transition={
+          show
+            ? {
+                duration: 4.6,
+                ease: "easeInOut",
+                repeat: Infinity,
+                delay,
+              }
+            : vacuum
+            ? {
+                duration: 1.15,
+                ease: [0.2, 0.85, 0.2, 1],
+              }
+            : returnBack
+            ? {
+                type: "spring",
+                stiffness: 170,
+                damping: 22,
+                mass: 0.95,
+              }
+            : {
+                duration: 0.35,
+                ease: "easeOut",
+              }
+        }
+      >
+        <SolidCard w={320}>
+          <div className="text-[9px] font-bold tracking-[0.28em] text-white/35 mb-1.5">PROMPT</div>
+          <div className="text-[12.5px] leading-relaxed text-white/78">
+            {parts.map((part, i) =>
+              part.startsWith("{{") && part.endsWith("}}") ? (
+                <span key={i} className="text-cyan-300 font-semibold">
+                  {part}
+                </span>
+              ) : (
+                <span key={i}>{part}</span>
+              )
+            )}
+          </div>
+        </SolidCard>
+      </motion.div>
+    );
+  };
+
+  // Connectors ONLY when nodes are visible (show + returnBack)
+  const ConnectionLine = ({
+    x1,
+    y1,
+    x2,
+    y2,
+    delay = 0,
+  }: {
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    delay?: number;
+  }) => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+
+    const connectorsVisible = show || returnBack;
+
+    return (
+      <motion.div
+        className="absolute z-[5] origin-left"
+        style={{
+          left: x1,
+          top: y1,
+          width: length,
+          height: 2,
+          transform: `rotate(${angle}deg)`,
+        }}
+        initial={false}
+        animate={
+          reduce
+            ? undefined
+            : connectorsVisible
+            ? { opacity: show ? [0.14, 0.28, 0.18] : [0, 0.22] }
+            : { opacity: 0 }
+        }
+        transition={{
+          duration: show ? 3.0 : 0.55,
+          ease: "easeInOut",
+          repeat: show ? Infinity : 0,
+          delay: show ? delay + 0.12 : 0,
+        }}
+      >
+        <div className="w-full h-full bg-gradient-to-r from-cyan-400/26 via-pink-400/22 to-purple-400/22" />
+      </motion.div>
+    );
+  };
+
+  const DataDot = ({ path, delay = 0 }: { path: Array<{ x: number; y: number }>; delay?: number }) => (
+    <motion.div
+      className="absolute z-[6] w-2.5 h-2.5 rounded-full"
+      style={{
+        background: "linear-gradient(135deg, rgba(34,211,238,1), rgba(236,72,153,1))",
+        boxShadow: "0 0 14px rgba(34,211,238,0.35)",
+      }}
+      initial={false}
+      animate={
+        reduce
+          ? undefined
+          : show
+          ? {
+              x: path.map((p) => p.x),
+              y: path.map((p) => p.y),
+              opacity: [0, 1, 1, 1],
+              scale: [0.6, 1.1, 0.9, 1.05],
+            }
+          : { opacity: 0 }
+      }
+      transition={{
+        duration: 4.6,
+        repeat: show ? Infinity : 0,
+        ease: "linear",
+        delay: show ? delay + 0.4 : 0,
+      }}
+    />
+  );
+
+  const EdgazeBox = () => (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+      <motion.div
+        initial={false}
+        animate={
+          reduce
+            ? undefined
+            : show
+            ? { opacity: 0, scale: 0.96 }
+            : vacuum
+            ? { opacity: [0, 1, 1], scale: [0.96, 1.02, 1] }
+            : glaze
+            ? { opacity: 1, scale: 1 }
+            : returnBack
+            ? { opacity: [1, 0], scale: [1, 0.98] }
+            : { opacity: 0 }
+        }
+        transition={{ duration: vacuum ? 0.55 : glaze ? 0.25 : 0.55, ease: [0.2, 0.8, 0.2, 1] }}
+        className="relative"
+      >
+        <div className="relative w-[460px] h-52 rounded-[44px] border border-white/10 bg-[#0b0f16] shadow-[0_28px_110px_rgba(0,0,0,0.7)] overflow-hidden">
+          <div
+            className="absolute inset-0 opacity-90"
+            style={{
+              background:
+                "radial-gradient(circle at 18% 22%, rgba(34,211,238,0.14), transparent 58%), radial-gradient(circle at 82% 30%, rgba(236,72,153,0.12), transparent 62%)",
+            }}
+          />
+
+          {/* Glaze: NO white shimmer. Only cyan/pink sweep during glaze phase */}
+          {!reduce && glaze && (
+            <motion.div
+              className="absolute inset-0"
+              initial={{ x: "-140%" }}
+              animate={{ x: "140%" }}
+              transition={{ duration: 0.85, ease: "easeInOut" }}
+              style={{
+                background:
+                  "linear-gradient(120deg, transparent 25%, rgba(34,211,238,0.22) 45%, rgba(236,72,153,0.18) 55%, transparent 75%)",
+                transform: "skewX(-12deg)",
+              }}
+            />
+          )}
+
+          <div className="relative h-full flex flex-col items-center justify-center px-10">
+            <div className="flex items-center gap-3.5 mb-2">
+              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-11 w-11" />
+              <div className="text-3xl font-bold text-white tracking-tight">Edgaze</div>
+            </div>
+            <div className="text-sm text-white/60 text-center font-light">One place for your AI products</div>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
 
   return (
     <IlluShell>
-      <div className="absolute left-6 top-6 right-6">
-        <CardFrame className="p-4 sm:p-5">
+      <div ref={ref} className="absolute inset-0">
+        {/* Background */}
+        <div className="absolute inset-0">
+          <div
+            className="absolute inset-0 opacity-70"
+            style={{
+              background:
+                "radial-gradient(circle at 18% 15%, rgba(34,211,238,0.16), transparent 45%), radial-gradient(circle at 82% 20%, rgba(236,72,153,0.14), transparent 48%), radial-gradient(circle at 50% 85%, rgba(147,51,234,0.10), transparent 52%)",
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-[0.10]"
+            style={{
+              backgroundImage:
+                "linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
+              backgroundSize: "76px 76px",
+            }}
+          />
+        </div>
+
+        {/* Nodes */}
+        <WorkflowNode label="Input" x={layout.n.input.x} y={layout.n.input.y} delay={0.0} />
+        <WorkflowNode label="Transform" x={layout.n.transform.x} y={layout.n.transform.y} delay={0.08} />
+        <WorkflowNode label="Filter" x={layout.n.filter.x} y={layout.n.filter.y} delay={0.14} />
+        <WorkflowNode label="Prompt" x={layout.n.prompt.x} y={layout.n.prompt.y} delay={0.05} />
+        <WorkflowNode label="API" x={layout.n.api.x} y={layout.n.api.y} delay={0.12} />
+        <WorkflowNode label="Export" x={layout.n.export.x} y={layout.n.export.y} delay={0.18} />
+
+        {/* Lines (only visible during show + returnBack by component logic) */}
+        {layout.lines.map((l, i) => (
+          <ConnectionLine key={i} {...l} delay={0.06 * i} />
+        ))}
+
+        {/* Prompt cards */}
+        <PromptCard
+          text="Create a high-quality image of {{subject}} in a {{style}} style, with {{color_palette}} colors."
+          x={layout.cards.one.x}
+          y={layout.cards.one.y}
+          delay={0.1}
+        />
+        <PromptCard
+          text="Generate a detailed illustration of {{object}} in {{environment}}, under {{lighting}} lighting."
+          x={layout.cards.two.x}
+          y={layout.cards.two.y}
+          delay={0.18}
+        />
+
+        {/* Data dots only during show */}
+        {!reduce && show && (
+          <>
+            <DataDot path={layout.dots[0]} delay={0.2} />
+            <DataDot path={layout.dots[1]} delay={1.0} />
+          </>
+        )}
+
+        {/* Box sequence */}
+        <EdgazeBox />
+
+        {/* Vacuum streaks only during vacuum phase */}
+        {!reduce && vacuum && (
+          <div className="absolute inset-0 z-20 pointer-events-none">
+            {Array.from({ length: 16 }).map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute h-[2px]"
+                style={{
+                  left: `${10 + (i * 5.7) % 80}%`,
+                  top: `${12 + (i * 6.2) % 72}%`,
+                  width: `${10 + (i % 4) * 6}%`,
+                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
+                  transform: `rotate(${-18 + (i % 7) * 9}deg)`,
+                }}
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={{ scaleX: [0.15, 1, 0.25], opacity: [0, 1, 0] }}
+                transition={{ duration: 0.85, ease: [0.2, 0.8, 0.2, 1], delay: 0.08 + i * 0.02 }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </IlluShell>
+  );
+}
+
+function IlluCodeOpensProduct() {
+  const reduce = useReducedMotion();
+  const scene = useLoopedSceneCount(2, 3800);
+
+  return (
+    <IlluShell>
+      <div className="absolute inset-0 flex items-start justify-center p-6 sm:p-7">
+        <CardFrame className="w-full max-w-[520px] p-5 sm:p-6">
           <div className="flex items-center justify-between">
             <div className="text-xs font-semibold tracking-widest text-white/55">ENTER CODE</div>
             <div className="h-8 w-8 rounded-2xl bg-white/5 ring-1 ring-white/10 flex items-center justify-center">
               <Sparkles className="h-4 w-4 text-white/85" />
             </div>
           </div>
+
           <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-            <div className="h-11 rounded-2xl bg-white/5 ring-1 ring-white/10" />
-            <div className="h-11 w-24 rounded-2xl bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))]" />
+            <div className="relative h-11 rounded-2xl bg-white/5 ring-1 ring-white/10 overflow-hidden">
+              {!reduce ? (
+                <motion.div
+                  className="absolute left-4 top-1/2 -translate-y-1/2 h-4 rounded-full bg-white/10"
+                  animate={{ width: [30, 160, 160] }}
+                  transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 1.0, ease: "easeInOut" }}
+                />
+              ) : null}
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white/60">@arjun/essay</div>
+            </div>
+
+            <div className="relative h-11 w-24 rounded-2xl overflow-hidden">
+              <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))]" />
+              {!reduce ? (
+                <motion.div
+                  className="absolute inset-0"
+                  animate={{ opacity: [0.18, 0.50, 0.18] }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                  style={{
+                    backgroundImage: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 60%)",
+                  }}
+                />
+              ) : null}
+              <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white">Open</div>
+            </div>
           </div>
+
           <div className="mt-4 flex gap-2">
             <Chip text="Prompt" />
             <Chip text="Workflow" />
             <Chip text="Tool" />
           </div>
+
+          <AnimatePresence initial={false}>
+            {scene === 1 ? (
+              <motion.div
+                key="preview"
+                initial={reduce ? false : { opacity: 0, y: 12 }}
+                animate={reduce ? undefined : { opacity: 1, y: 0 }}
+                exit={reduce ? undefined : { opacity: 0, y: 12 }}
+                transition={{ duration: 0.55, ease: [0.2, 0.8, 0.2, 1] }}
+                className="mt-5"
+              >
+                <div className="relative">
+                  <div className="absolute -inset-6 rounded-[30px] blur-2xl opacity-60 [background-image:radial-gradient(circle_at_30%_25%,rgba(34,211,238,0.20),transparent_60%),radial-gradient(circle_at_70%_35%,rgba(236,72,153,0.16),transparent_62%)]" />
+                  <div className="relative rounded-3xl bg-[#0b0c11] ring-1 ring-white/12 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="text-[11px] font-semibold tracking-widest text-white/55">PROMPT</div>
+                        <div className="mt-2 text-lg font-semibold text-white">Scholarship essay helper</div>
+                        <div className="mt-1 text-sm text-white/65">Clean structure, stronger clarity, faster drafts.</div>
+                      </div>
+                      <div className="rounded-2xl bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))] px-3 py-2 text-sm font-semibold text-white">
+                        $9
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-3 gap-3">
+                      <TinyStat label="VIEWS" value="3.4K" />
+                      <TinyStat label="LIKES" value="412" />
+                      <TinyStat label="RUNS" value="1.9K" />
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-2">
+                      <div className="h-11 rounded-2xl bg-white/5 ring-1 ring-white/10" />
+                      <div className="h-11 rounded-2xl bg-white/5 ring-1 ring-white/10" />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </CardFrame>
       </div>
-
-      
-
-      {!reduce ? (
-        <motion.div
-          className="absolute left-0 top-0 h-3 w-3 rounded-full bg-white/85 shadow-[0_0_0_7px_rgba(255,255,255,0.08)]"
-          animate={{ x: [80, 260, 300, 210], y: [110, 110, 220, 260] }}
-          transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut" }}
-        />
-      ) : null}
     </IlluShell>
   );
 }
 
-/**
- * Illustration 2: Prompt card with counters rising fast
- */
-function IlluPromptCardStats() {
-  const reduce = useReducedMotion();
-  const [v, setV] = useState(240);
-  const [l, setL] = useState(32);
-  const [r, setR] = useState(110);
-
-  useEffect(() => {
-    if (reduce) return;
-    const t = window.setInterval(() => {
-      setV((x) => Math.min(9840, x + 180 + Math.floor(Math.random() * 90)));
-      setL((x) => Math.min(2140, x + 16 + Math.floor(Math.random() * 10)));
-      setR((x) => Math.min(6820, x + 120 + Math.floor(Math.random() * 70)));
-    }, 260);
-    return () => window.clearInterval(t);
-  }, [reduce]);
-
-  const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : `${n}`);
-
-  return (
-    <IlluShell>
-      <div className="absolute left-8 right-8 top-10">
-        <CardFrame className="p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-lg font-semibold text-white">Scholarship essay helper</div>
-              <div className="mt-1 text-sm text-white/65">Clean structure, stronger clarity, faster drafts.</div>
-            </div>
-            <div className="rounded-2xl bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))] px-3 py-2 text-sm font-semibold text-white">
-              $9
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            <TinyStat label="VIEWS" value={fmt(v)} />
-            <TinyStat label="LIKES" value={fmt(l)} />
-            <TinyStat label="RUNS" value={fmt(r)} />
-          </div>
-
-          <div className="mt-5 h-12 rounded-2xl bg-white/5 ring-1 ring-white/10" />
-        </CardFrame>
-      </div>
-
-      {!reduce ? (
-        <motion.div
-          className="absolute left-0 top-0 h-2 w-2 rounded-full bg-white/70"
-          animate={{ x: [110, 240, 290, 170], y: [250, 110, 250, 300], opacity: [0.35, 0.8, 0.35] }}
-          transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
-        />
-      ) : null}
-    </IlluShell>
-  );
-}
-
-/**
- * Illustration 3: Node graph where nodes get added
- */
 function IlluWorkflowGraph() {
   const reduce = useReducedMotion();
   const scene = useLoopedSceneCount(3, 2600);
@@ -406,8 +926,7 @@ function IlluWorkflowGraph() {
     []
   );
 
-  const visible =
-    scene === 0 ? ["a", "b", "c"] : scene === 1 ? ["a", "b", "c", "d"] : ["a", "b", "c", "d", "e"];
+  const visible = scene === 0 ? ["a", "b", "c"] : scene === 1 ? ["a", "b", "c", "d"] : ["a", "b", "c", "d", "e"];
 
   function Node({ id, x, y, w, label }: { id: string; x: number; y: number; w: number; label: string }) {
     const show = visible.includes(id);
@@ -420,7 +939,7 @@ function IlluWorkflowGraph() {
             animate={reduce ? undefined : { opacity: 1, scale: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, scale: 0.98, y: -8 }}
             transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
-            className="absolute rounded-2xl bg-white/6 ring-1 ring-white/10 px-4 py-3"
+            className="absolute rounded-3xl bg-black/35 backdrop-blur-xl ring-1 ring-white/15 shadow-[0_18px_70px_rgba(0,0,0,0.55)] px-5 py-4"
             style={{ left: x, top: y, width: w }}
           >
             <div className="text-xs font-semibold tracking-widest text-white/55">NODE</div>
@@ -495,9 +1014,6 @@ function IlluWorkflowGraph() {
   );
 }
 
-/**
- * Illustration 4: Magnifying glass searching a big scrolling marketplace and zoomed in area
- */
 function IlluMarketplaceSearch() {
   const reduce = useReducedMotion();
 
@@ -540,7 +1056,6 @@ function IlluMarketplaceSearch() {
               ))}
             </motion.div>
 
-            {/* Magnifying glass */}
             <motion.div
               className="absolute"
               animate={reduce ? undefined : { x: [40, 160, 220, 120, 40], y: [40, 60, 140, 170, 40] }}
@@ -548,21 +1063,20 @@ function IlluMarketplaceSearch() {
               style={{ left: 0, top: 0 }}
             >
               <div className="relative">
-                {/* Highly frosted (readable) */}
                 <div className="h-32 w-32 rounded-full ring-2 ring-white/25 bg-[#0b0c11]/70 backdrop-blur-xl overflow-hidden" />
 
-                {/* Handle attached to lens */}
                 <div
-                  className="absolute left-1/2 top-1/2"
+                  className="absolute"
                   style={{
-                    transform: "translate(44px, 44px) rotate(38deg)",
+                    left: "50%",
+                    top: "50%",
+                    transform: "translate(50px, 50px) rotate(38deg)",
                     transformOrigin: "0% 50%",
                   }}
                 >
-                  <div className="h-3 w-12 rounded-full bg-white/25" />
+                  <div className="h-3 w-14 rounded-full bg-white/25" />
                 </div>
 
-                {/* Zoomed content */}
                 <motion.div
                   className="absolute left-2 top-2 h-28 w-28 rounded-full overflow-hidden"
                   animate={reduce ? undefined : { opacity: [0.75, 1, 0.75] }}
@@ -590,9 +1104,6 @@ function IlluMarketplaceSearch() {
   );
 }
 
-/**
- * Illustration 5: Marketplace scroll -> zoom into one prompt -> glitter
- */
 function IlluClarityZoomGlitter() {
   const reduce = useReducedMotion();
   const scene = useLoopedSceneCount(2, 3800);
@@ -650,19 +1161,22 @@ function IlluClarityZoomGlitter() {
                 </div>
               </CardFrame>
 
-              {!reduce ? (
-                <>
-                  {Array.from({ length: 10 }).map((_, i) => (
+              {!reduce
+                ? Array.from({ length: 10 }).map((_, i) => (
                     <motion.div
                       key={i}
                       className="absolute h-1.5 w-1.5 rounded-full bg-white/70"
                       style={{ left: `${10 + ((i * 8) % 80)}%`, top: `${8 + ((i * 11) % 60)}%` }}
                       animate={{ opacity: [0, 1, 0], scale: [0.7, 1.3, 0.7], y: [0, -8, 0] }}
-                      transition={{ duration: 1.8 + (i % 3) * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.12 }}
+                      transition={{
+                        duration: 1.8 + (i % 3) * 0.4,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: i * 0.12,
+                      }}
                     />
-                  ))}
-                </>
-              ) : null}
+                  ))
+                : null}
             </div>
           </motion.div>
         ) : null}
@@ -671,9 +1185,6 @@ function IlluClarityZoomGlitter() {
   );
 }
 
-/**
- * Illustration 6: Crowd -> one becomes creator with Edgaze badge (no overlay card)
- */
 function IlluCrowdToCreators() {
   const reduce = useReducedMotion();
   const scene = useLoopedSceneCount(3, 2200);
@@ -699,10 +1210,7 @@ function IlluCrowdToCreators() {
           return (
             <motion.div
               key={i}
-              className={cn(
-                "absolute rounded-full ring-1 ring-white/10",
-                isFocus ? "bg-white/10" : "bg-white/6"
-              )}
+              className={cn("absolute rounded-full ring-1 ring-white/10", isFocus ? "bg-white/10" : "bg-white/6")}
               style={{ left: p.x, top: p.y, width: 44, height: 44 }}
               animate={
                 reduce
@@ -714,10 +1222,8 @@ function IlluCrowdToCreators() {
               }
               transition={{ duration: 2.0, repeat: Infinity, ease: "easeInOut" }}
             >
-              {/* subtle inner ring */}
               <div className="absolute inset-0 rounded-full shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]" />
 
-              {/* Focus glow + badge */}
               <AnimatePresence>
                 {isFocus ? (
                   <motion.div
@@ -728,18 +1234,16 @@ function IlluCrowdToCreators() {
                     transition={{ duration: 0.45, ease: [0.2, 0.8, 0.2, 1] }}
                     className="absolute inset-0"
                   >
-                    {/* Edgaze gradient glow */}
-                    <div className="absolute -inset-6 rounded-full blur-2xl opacity-80 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.40),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.34),transparent_62%)]" />
+                    <div className="absolute -inset-7 rounded-full blur-2xl opacity-90 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.42),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.36),transparent_62%)]" />
                     <div className="absolute -inset-1 rounded-full ring-2 ring-white/20" />
 
-                    {/* Badge */}
                     <motion.div
                       className="absolute -right-2 -top-2"
                       animate={reduce ? undefined : { y: [0, -2, 0] }}
                       transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
                     >
                       <div className="relative">
-                        <div className="absolute -inset-2 rounded-2xl blur-lg opacity-75 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.45),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.38),transparent_62%)]" />
+                        <div className="absolute -inset-3 rounded-2xl blur-lg opacity-90 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.50),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.42),transparent_62%)]" />
                         <div className="relative flex h-7 w-7 items-center justify-center rounded-2xl bg-[#0b0c11] ring-1 ring-white/15">
                           <BadgeCheck className="h-4 w-4 text-white" />
                         </div>
@@ -764,12 +1268,15 @@ function IlluCrowdToCreators() {
   );
 }
 
-/**
- * Illustration 7: Storefront dashboard with money count up to 1789.36
- */
 function IlluStorefrontRevenue() {
   const reduce = useReducedMotion();
-  const scene = useLoopedSceneCount(2, 4200);
+
+  const [cycle, setCycle] = useState(0);
+  useEffect(() => {
+    if (reduce) return;
+    const t = window.setInterval(() => setCycle((c) => c + 1), 5200);
+    return () => window.clearInterval(t);
+  }, [reduce]);
 
   return (
     <IlluShell>
@@ -787,8 +1294,9 @@ function IlluStorefrontRevenue() {
             <div className="rounded-3xl bg-white/5 ring-1 ring-white/10 p-5">
               <div className="text-[10px] tracking-widest text-white/55">TOTAL EARNED</div>
               <div className="mt-2 text-2xl font-semibold text-white">
-                ${scene === 1 || reduce ? <AnimatedNumber target={1789.36} durationMs={2200} decimals={2} /> : "0.00"}
+                ${reduce ? "1789.36" : <AnimatedNumber key={cycle} target={1789.36} durationMs={2200} decimals={2} />}
               </div>
+
               <div className="mt-4 h-16 rounded-2xl bg-white/4 ring-1 ring-white/10 overflow-hidden">
                 <motion.div
                   className="h-full w-full"
@@ -830,8 +1338,8 @@ function IlluStorefrontRevenue() {
 type IllustrationKind = "hero" | "prompt" | "workflow" | "market" | "clarity" | "crowd" | "storefront";
 
 function Illustration({ kind }: { kind: IllustrationKind }) {
-  if (kind === "hero") return <IlluCodeOpensProduct />;
-  if (kind === "prompt") return <IlluPromptCardStats />;
+  if (kind === "hero") return <IlluHeroCollectToBox />;
+  if (kind === "prompt") return <IlluCodeOpensProduct />;
   if (kind === "workflow") return <IlluWorkflowGraph />;
   if (kind === "market") return <IlluMarketplaceSearch />;
   if (kind === "clarity") return <IlluClarityZoomGlitter />;
@@ -862,80 +1370,387 @@ function TextCard({ title, children }: { title: string; children: React.ReactNod
 }
 
 function CodeEntry() {
-  const [code, setCode] = useState("");
-  const [status, setStatus] = useState<"idle" | "going">("idle");
-  const [error, setError] = useState("");
+  const router = useRouter();
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
-  function onGo() {
+  type Suggestion = {
+    kind: "prompt" | "workflow";
+    owner_handle: string;
+    edgaze_code: string;
+    title: string;
+    is_paid?: boolean | null;
+    price_usd?: number | null;
+    thumbnail_url?: string | null;
+  };
+
+  const [code, setCode] = useState("");
+  const [status, setStatus] = useState<"idle" | "searching" | "going">("idle");
+  const [error, setError] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [openSug, setOpenSug] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const reqIdRef = useRef(0);
+
+  const buildHref = (s: Suggestion) => {
+    const handle = encodeURIComponent(s.owner_handle);
+    const c = encodeURIComponent(s.edgaze_code);
+    return s.kind === "prompt" ? `/p/${handle}/${c}` : `/${handle}/${c}`;
+  };
+
+  const normalizeInput = (raw: string) => raw.trim();
+
+  const fetchSuggestions = async (q: string) => {
+    const query = normalizeInput(q);
+    if (!query) return [] as Suggestion[];
+
+    const limitEach = 6;
+
+    const p1 = supabase
+      .from("prompts")
+      .select("owner_handle, edgaze_code, title, is_paid, price_usd, thumbnail_url")
+      .eq("is_published", true)
+      .eq("is_public", true)
+      .ilike("edgaze_code", `%${query}%`)
+      .limit(limitEach);
+
+    const p2 = supabase
+      .from("workflows")
+      .select("owner_handle, edgaze_code, title, is_paid, price_usd, thumbnail_url")
+      .eq("is_published", true)
+      .eq("is_public", true)
+      .ilike("edgaze_code", `%${query}%`)
+      .limit(limitEach);
+
+    const [rPrompts, rWorkflows] = await Promise.all([p1, p2]);
+
+    const prompts: Suggestion[] = (rPrompts.data || []).map((x: any) => ({
+      kind: "prompt",
+      owner_handle: String(x.owner_handle || "").replace(/^@/, ""),
+      edgaze_code: String(x.edgaze_code || ""),
+      title: String(x.title || "Untitled"),
+      is_paid: x.is_paid ?? null,
+      price_usd: x.price_usd ?? null,
+      thumbnail_url: x.thumbnail_url ?? null,
+    }));
+
+    const workflows: Suggestion[] = (rWorkflows.data || []).map((x: any) => ({
+      kind: "workflow",
+      owner_handle: String(x.owner_handle || "").replace(/^@/, ""),
+      edgaze_code: String(x.edgaze_code || ""),
+      title: String(x.title || "Untitled"),
+      is_paid: x.is_paid ?? null,
+      price_usd: x.price_usd ?? null,
+      thumbnail_url: x.thumbnail_url ?? null,
+    }));
+
+    const merged = [...prompts, ...workflows].filter((s) => s.owner_handle && s.edgaze_code);
+
+    const score = (s: Suggestion) => {
+      const c = s.edgaze_code.toLowerCase();
+      const ql = query.toLowerCase();
+      if (c === ql) return 100;
+      if (c.startsWith(ql)) return 70;
+      if (c.includes(ql)) return 40;
+      return 0;
+    };
+
+    merged.sort((a, b) => score(b) - score(a));
+
+    const seen = new Set<string>();
+    const out: Suggestion[] = [];
+    for (const s of merged) {
+      const key = `${s.kind}:${s.owner_handle}:${s.edgaze_code}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(s);
+      if (out.length >= 10) break;
+    }
+
+    return out;
+  };
+
+  useEffect(() => {
+    const q0 = normalizeInput(code);
     setError("");
 
-    const trimmed = code.trim();
-    if (!trimmed) {
+    if (!q0) {
+      setSuggestions([]);
+      setOpenSug(false);
+      setStatus("idle");
+      setDismissed(false);
+      return;
+    }
+
+    const pieces = q0.split("/").filter(Boolean);
+    const maybeCode = pieces.length ? pieces[pieces.length - 1] : q0;
+    if (maybeCode !== q0) {
+      setCode(maybeCode);
+      return;
+    }
+
+    if (!dismissed) setOpenSug(true);
+
+    const id = ++reqIdRef.current;
+    setStatus("searching");
+
+    const t = window.setTimeout(async () => {
+      try {
+        const res = await fetchSuggestions(maybeCode);
+        if (reqIdRef.current !== id) return;
+        setSuggestions(res);
+        setActiveIdx(0);
+      } catch {
+        // keep panel open; error handled via empty state
+      } finally {
+        if (reqIdRef.current === id) setStatus("idle");
+      }
+    }, 180);
+
+    return () => window.clearTimeout(t);
+  }, [code, dismissed]);
+
+  const closePanel = () => {
+    setOpenSug(false);
+    setDismissed(true);
+  };
+
+  const resolveExactAndGo = async () => {
+    setError("");
+    const q = normalizeInput(code);
+    if (!q) {
       setError("Enter a code");
+      return;
+    }
+
+    const selected = suggestions[activeIdx];
+    if (openSug && selected && selected.edgaze_code.toLowerCase() === q.toLowerCase()) {
+      router.push(buildHref(selected));
       return;
     }
 
     setStatus("going");
 
-    // Expected input formats:
-    // - @handle/code
-    // - handle/code (we will prefix @)
-    const parts = trimmed.split("/").filter(Boolean);
-    if (parts.length < 2) {
+    const p1 = supabase
+      .from("prompts")
+      .select("owner_handle, edgaze_code, title, is_paid, price_usd, thumbnail_url")
+      .eq("is_published", true)
+      .eq("is_public", true)
+      .ilike("edgaze_code", q)
+      .limit(3);
+
+    const p2 = supabase
+      .from("workflows")
+      .select("owner_handle, edgaze_code, title, is_paid, price_usd, thumbnail_url")
+      .eq("is_published", true)
+      .eq("is_public", true)
+      .ilike("edgaze_code", q)
+      .limit(3);
+
+    const [rPrompts, rWorkflows] = await Promise.all([p1, p2]);
+
+    const exact: Suggestion[] = [
+      ...(rPrompts.data || []).map((x: any) => ({
+        kind: "prompt" as const,
+        owner_handle: String(x.owner_handle || "").replace(/^@/, ""),
+        edgaze_code: String(x.edgaze_code || ""),
+        title: String(x.title || "Untitled"),
+        is_paid: x.is_paid ?? null,
+        price_usd: x.price_usd ?? null,
+        thumbnail_url: x.thumbnail_url ?? null,
+      })),
+      ...(rWorkflows.data || []).map((x: any) => ({
+        kind: "workflow" as const,
+        owner_handle: String(x.owner_handle || "").replace(/^@/, ""),
+        edgaze_code: String(x.edgaze_code || ""),
+        title: String(x.title || "Untitled"),
+        is_paid: x.is_paid ?? null,
+        price_usd: x.price_usd ?? null,
+        thumbnail_url: x.thumbnail_url ?? null,
+      })),
+    ].filter((s) => s.owner_handle && s.edgaze_code);
+
+    if (!exact.length) {
       setStatus("idle");
-      setError("Enter @handle/code");
+      setOpenSug(true);
+      setDismissed(false);
+      setError("No match found. Try another code.");
       return;
     }
 
-    const handleRaw = parts[0];
-    const codeRaw = parts.slice(1).join("/");
-    const handle = handleRaw.startsWith("@") ? handleRaw : `@${handleRaw}`;
+    if (exact.length === 1) {
+      router.push(buildHref(exact[0]));
+      return;
+    }
 
-    window.location.href = `/${encodeURIComponent(handle)}/${encodeURIComponent(codeRaw)}`;
-  }
+    setSuggestions(exact);
+    setActiveIdx(0);
+    setOpenSug(true);
+    setDismissed(false);
+    setStatus("idle");
+    setError("Multiple matches. Pick one.");
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      resolveExactAndGo();
+      return;
+    }
+    if (e.key === "Escape") {
+      closePanel();
+      return;
+    }
+
+    if (!openSug) return;
+    const list = suggestions;
+    if (!list.length) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.min(list.length - 1, i + 1));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(0, i - 1));
+      return;
+    }
+  };
+
+  const Badge = ({ kind }: { kind: Suggestion["kind"] }) => (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1",
+        kind === "prompt" ? "bg-cyan-500/10 text-cyan-200 ring-cyan-400/20" : "bg-pink-500/10 text-pink-200 ring-pink-400/20"
+      )}
+    >
+      {kind === "prompt" ? "Prompt" : "Workflow"}
+    </span>
+  );
+
+  const visibleList = suggestions;
 
   return (
     <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7">
       <div className="text-sm font-semibold text-white">Enter an Edgaze code</div>
-      <div className="mt-2 text-sm text-white/70">Open a prompt, workflow, or tool in seconds.</div>
+      <div className="mt-2 text-sm text-white/70">Open a prompt or workflow in seconds.</div>
 
-      <div className="mt-5 flex gap-2">
-        <input
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          inputMode="text"
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck={false}
-          className="w-full rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
-          aria-label="Edgaze code"
-        />
-        <button
-          type="button"
-          onClick={onGo}
-          disabled={status === "going"}
-          className={cn(
-            "shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white",
-            "bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))]",
-            status === "going" ? "opacity-70" : "hover:opacity-95"
-          )}
-        >
-          Open
-        </button>
-      </div>
+      <div className="mt-5">
+        <div className="flex gap-2">
+          <div className="relative w-full">
+            <input
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value);
+                setDismissed(false);
+                setOpenSug(true);
+                setStatus("searching");
+              }}
+              onFocus={() => {
+                if (code.trim()) {
+                  setOpenSug(true);
+                  setDismissed(false);
+                }
+              }}
+              onKeyDown={onKeyDown}
+              inputMode="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="w-full rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+              aria-label="Edgaze code"
+            />
 
-      <AnimatePresence>
-        {error ? (
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            className="mt-2 text-xs text-white/70"
+            <AnimatePresence initial={false}>
+              {openSug ? (
+                <motion.div
+                  key="sug"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  className="absolute left-0 right-0 mt-2 overflow-hidden rounded-2xl bg-[#0b0c11] ring-1 ring-white/12 shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
+                >
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+                    <div className="text-[11px] font-semibold tracking-widest text-white/55">SUGGESTIONS</div>
+                    <button
+                      type="button"
+                      onClick={closePanel}
+                      className="rounded-xl bg-white/6 ring-1 ring-white/10 px-2 py-1 text-[11px] text-white/75 hover:bg-white/8"
+                      aria-label="Close suggestions"
+                    >
+                      Close
+                    </button>
+                  </div>
+
+                  <div className="max-h-[260px] overflow-auto p-2">
+                    {status === "searching" ? <div className="px-3 py-2 text-xs text-white/55">Searching…</div> : null}
+
+                    {visibleList.map((s, i) => {
+                      const active = i === activeIdx;
+                      const price = s.is_paid ? `$${Number(s.price_usd || 0).toFixed(0)}` : "$0";
+                      return (
+                        <button
+                          key={`${s.kind}:${s.owner_handle}:${s.edgaze_code}:${i}`}
+                          type="button"
+                          onMouseEnter={() => setActiveIdx(i)}
+                          onClick={() => router.push(buildHref(s))}
+                          className={cn("w-full text-left rounded-xl px-3 py-2 transition-colors", active ? "bg-white/8" : "hover:bg-white/6")}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <Badge kind={s.kind} />
+                                <div className="text-xs text-white/60">@{s.owner_handle}</div>
+                                <div className="text-xs text-white/40">·</div>
+                                <div className="text-xs font-semibold text-white/70">{s.edgaze_code}</div>
+                              </div>
+                              <div className="mt-1 text-sm font-semibold text-white">{s.title}</div>
+                            </div>
+                            <div className="shrink-0 rounded-xl bg-white/6 ring-1 ring-white/10 px-2.5 py-1 text-xs font-semibold text-white">
+                              {price}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    {!suggestions.length && status !== "searching" ? (
+                      <div className="px-3 pt-2 pb-3 text-xs text-white/55">No results found for this Edgaze code.</div>
+                    ) : null}
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
+
+          <button
+            type="button"
+            onClick={resolveExactAndGo}
+            disabled={status === "going"}
+            className={cn(
+              "shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white",
+              "bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))]",
+              status === "going" ? "opacity-70" : "hover:opacity-95"
+            )}
           >
-            {error}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+            Open
+          </button>
+        </div>
+
+        <div className="mt-2 flex items-center justify-between">
+          <AnimatePresence>
+            {error ? (
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="text-xs text-white/70">
+                {error}
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
+
+          <div className="text-xs text-white/45">{status === "searching" ? "Searching…" : ""}</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -956,18 +1771,12 @@ function Section({
   className?: string;
 }) {
   return (
-    <section
-      id={id}
-      className={cn("px-5 py-20 sm:py-24 md:py-28 snap-start", className)}
-      style={{ scrollMarginTop: 92 }}
-    >
+    <section id={id} className={cn("px-5 py-20 sm:py-24 md:py-28 snap-start", className)} style={{ scrollMarginTop: 92 }}>
       <Container>
         {(eyebrow || title || desc) && (
           <div className="max-w-2xl">
             {eyebrow ? <div className="text-xs font-semibold tracking-widest text-white/55">{eyebrow}</div> : null}
-            {title ? (
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{title}</h2>
-            ) : null}
+            {title ? <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{title}</h2> : null}
             {desc ? <p className="mt-3 text-base leading-relaxed text-white/70">{desc}</p> : null}
           </div>
         )}
@@ -978,29 +1787,39 @@ function Section({
 }
 
 export default function EdgazeLandingPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { userId, authReady, loading } = useAuth();
+
   const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const { scrollYProgress, scrollY } = useScroll({ container: scrollerRef });
-  const barWidth = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
-  const barSpring = useSpring(barWidth, { stiffness: 220, damping: 30, mass: 0.4 });
-
   const [onTop, setOnTop] = useState(true);
+  const [scrollProgress, setScrollProgress] = useState(0);
 
-  const sectionIds = useMemo(
-    () => ["top", "prompt", "workflows", "marketplace", "features", "better", "anyone", "creators", "apply"],
-    []
-  );
+  const sectionIds = useMemo(() => ["top", "prompt", "workflows", "marketplace", "features", "better", "anyone", "creators", "apply"], []);
 
   useEffect(() => {
-    const unsubscribe = scrollY.on("change", (v) => setOnTop(v < 12));
-    return () => unsubscribe();
-  }, [scrollY]);
+    if (!authReady || loading) return;
+    if (!userId) return;
+    if (pathname === "/marketplace") return;
+    router.replace("/marketplace");
+  }, [authReady, loading, pathname, router, userId]);
 
-  // Gentle section settling.
-  // Behavior:
-  // - No forced snapping.
-  // - If the user is between sections and pauses, we softly settle to the nearest section.
-  // - If the user keeps nudging (trying to hold position), we do nothing.
-  // - If the user scrolls fast (wheel fling / large deltas / high velocity), settling is disabled temporarily.
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+
+    const onScroll = () => {
+      const max = el.scrollHeight - el.clientHeight;
+      const p = max > 0 ? el.scrollTop / max : 0;
+      setScrollProgress(p);
+      setOnTop(el.scrollTop < 12);
+    };
+
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll as any);
+  }, []);
+
   useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
@@ -1009,7 +1828,7 @@ export default function EdgazeLandingPage() {
     let scrollEndTimer: number | null = null;
     let lastTop = scroller.scrollTop;
     let lastT = performance.now();
-    let maxVel = 0; // px/ms since last pause
+    let maxVel = 0;
 
     const getTops = () => {
       const currentScrollTop = scroller.scrollTop;
@@ -1050,8 +1869,6 @@ export default function EdgazeLandingPage() {
       if (scrollEndTimer) window.clearTimeout(scrollEndTimer);
       scrollEndTimer = window.setTimeout(() => {
         if (performance.now() < disableUntil) return;
-
-        // If the last scroll burst was fast, do not settle (user likely intends free scroll).
         if (maxVel > 0.9) {
           maxVel = 0;
           return;
@@ -1060,9 +1877,11 @@ export default function EdgazeLandingPage() {
         const nearest = nearestSectionTop();
         if (!nearest) return;
 
-        // Always settle when paused (even mid-way), but keep it gentle.
-        // If you're basically aligned already, do nothing.
         if (nearest.dist < 10) {
+          maxVel = 0;
+          return;
+        }
+        if (nearest.dist > 160) {
           maxVel = 0;
           return;
         }
@@ -1075,12 +1894,8 @@ export default function EdgazeLandingPage() {
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey) return;
       if (window.innerWidth < 900) return;
-
-      // Aggressive wheel/trackpad flings: disable settling for a moment.
-      // This prevents the "forced" feeling when someone scrolls quickly.
       const fastWheel = Math.abs(e.deltaY) > 160;
       if (fastWheel) disableUntil = performance.now() + 1400;
-
       scheduleSettle();
     };
 
@@ -1089,13 +1904,9 @@ export default function EdgazeLandingPage() {
       const top = scroller.scrollTop;
       const dt = Math.max(1, now - lastT);
       const vel = Math.abs(top - lastTop) / dt;
-
-      // Track the peak velocity inside the current scroll burst.
       maxVel = Math.max(maxVel, vel);
-
       lastTop = top;
       lastT = now;
-
       scheduleSettle();
     };
 
@@ -1109,26 +1920,27 @@ export default function EdgazeLandingPage() {
     };
   }, [sectionIds]);
 
-  // Runtime checks as test cases
   useEffect(() => {
-    // Test 1: required sections exist
     sectionIds.forEach((id) => {
       if (!document.getElementById(id)) console.warn("Missing section:", id);
     });
 
-    // Test 2: no placeholders
     const inputs = Array.from(document.querySelectorAll("input,textarea"));
     const withPlaceholder = inputs.filter((el) => el.getAttribute("placeholder"));
     if (withPlaceholder.length) console.warn("Found placeholder attributes.");
 
-    // Test 3: code entry exists
     const codeInput = document.querySelector('input[aria-label="Edgaze code"]');
-    const openButton = Array.from(document.querySelectorAll("button")).find(
-      (b) => (b.textContent || "").trim() === "Open"
-    );
+    const openButton = Array.from(document.querySelectorAll("button")).find((b) => (b.textContent || "").trim() === "Open");
     if (!codeInput) console.warn("Missing code input");
     if (!openButton) console.warn("Missing Open button");
   }, [sectionIds]);
+
+  const showLoading = !authReady || loading;
+  const redirecting = authReady && !loading && !!userId && pathname !== "/marketplace";
+
+  if (showLoading || redirecting) {
+    return <div className="min-h-screen bg-[#07080b]" aria-hidden="true" />;
+  }
 
   return (
     <ScrollContext.Provider value={{ scrollerRef }}>
@@ -1138,18 +1950,18 @@ export default function EdgazeLandingPage() {
 
         <motion.div
           className="fixed top-0 left-0 z-[60] h-[2px] bg-[linear-gradient(90deg,rgba(34,211,238,0.95),rgba(236,72,153,0.9))]"
-          style={{ width: barSpring }}
+          animate={{ width: `${Math.round(scrollProgress * 1000) / 10}%` }}
+          transition={{ type: "spring", stiffness: 220, damping: 30, mass: 0.4 }}
           aria-hidden
         />
 
         <div
           ref={scrollerRef}
-          className="h-screen overflow-y-auto scroll-smooth snap-y snap-proximity"
-          style={{ WebkitOverflowScrolling: "touch" }}
+          className="h-screen overflow-y-auto snap-y snap-proximity"
+          style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorY: "contain" }}
         >
           <div id="top" className="pt-24" />
 
-          {/* HERO */}
           <section className="px-5 pt-12 pb-16 sm:pt-16 sm:pb-20 snap-start" style={{ scrollMarginTop: 92 }}>
             <Container>
               <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:items-start">
@@ -1173,7 +1985,7 @@ export default function EdgazeLandingPage() {
                   <Reveal delay={0.16}>
                     <div className="mt-8 flex flex-wrap items-center gap-3">
                       <PrimaryButton href="/marketplace">Open marketplace</PrimaryButton>
-                      <SecondaryButton href="#apply">Apply now</SecondaryButton>
+                      <SecondaryButton href="/apply">Apply now</SecondaryButton>
                     </div>
                   </Reveal>
                 </div>
@@ -1184,13 +1996,8 @@ export default function EdgazeLandingPage() {
               </div>
             </Container>
           </section>
-          {/* PROMPT STUDIO */}
-          <Section
-            id="prompt"
-            eyebrow="Prompt Studio"
-            title="Stop losing prompts."
-            desc="A prompt should not live inside a screenshot or a private document. Treat it like a product."
-          >
+
+          <Section id="prompt" eyebrow="Prompt Studio" title="Stop losing prompts." desc="A prompt should not live inside a screenshot or a private document. Treat it like a product.">
             <FeatureSplit kind="prompt">
               <div className="space-y-5">
                 <Reveal>
@@ -1207,13 +2014,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          {/* WORKFLOWS */}
-          <Section
-            id="workflows"
-            eyebrow="Workflows"
-            title="Turn a prompt into a tool."
-            desc="When a prompt is not enough, add steps. Workflows are repeatable and easy to run."
-          >
+          <Section id="workflows" eyebrow="Workflows" title="Turn a prompt into a tool." desc="When a prompt is not enough, add steps. Workflows are repeatable and easy to run.">
             <FeatureSplit kind="workflow">
               <div className="space-y-5">
                 <Reveal>
@@ -1230,13 +2031,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          {/* MARKETPLACE */}
-          <Section
-            id="marketplace"
-            eyebrow="Marketplace"
-            title="Discovery built in."
-            desc="A huge marketplace, fast search, and pages that convert."
-          >
+          <Section id="marketplace" eyebrow="Marketplace" title="Discovery built in." desc="A huge marketplace, fast search, and pages that convert.">
             <FeatureSplit kind="market">
               <div className="space-y-5">
                 <Reveal>
@@ -1253,13 +2048,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          {/* FEATURES */}
-          <Section
-            id="features"
-            eyebrow="Everything"
-            title="Everything in one product."
-            desc="Prompt Studio is the base. Workflows add power. Marketplace adds reach."
-          >
+          <Section id="features" eyebrow="Everything" title="Everything in one product." desc="Prompt Studio is the base. Workflows add power. Marketplace adds reach.">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <Reveal>
                 <TextCard title="Prompt Studio">
@@ -1279,13 +2068,7 @@ export default function EdgazeLandingPage() {
             </div>
           </Section>
 
-          {/* BETTER */}
-          <Section
-            id="better"
-            eyebrow="Why it’s better"
-            title="Built for clarity."
-            desc="A marketplace that feels clean. A product page that feels trustworthy."
-          >
+          <Section id="better" eyebrow="Why it’s better" title="Built for clarity." desc="A marketplace that feels clean. A product page that feels trustworthy.">
             <FeatureSplit kind="clarity">
               <div className="space-y-5">
                 <Reveal>
@@ -1307,41 +2090,29 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          {/* ANYONE */}
-          <Section
-            id="anyone"
-            eyebrow="Creators"
-            title="Anyone can become an Edgaze creator."
-            desc="If you can write something useful, you can publish."
-          >
+          <Section id="anyone" eyebrow="Creators" title="Anyone can become an Edgaze creator." desc="If you can write something useful, you can publish.">
             <FeatureSplit kind="crowd">
-  <div className="space-y-5">
-    <Reveal>
-      <TextCard title="Start simple">
-        <p>Publish one prompt. See it grow. Add more when you are ready. You grow at your pace.</p>
-      </TextCard>
-    </Reveal>
-    <Reveal delay={0.05}>
-      <TextCard title="Boost your distribution">
-        <p>Use Edgaze codes and links to boost your existing distribution and unlock reach for assets that were not productive before.</p>
-      </TextCard>
-    </Reveal>
-    <Reveal delay={0.1}>
-      <TextCard title="Join in simple steps">
-        <p>Apply for closed beta. Get approved and you are in. Get distribution on your assets that were not productive before.</p>
-      </TextCard>
-    </Reveal>
-  </div>
-</FeatureSplit>
+              <div className="space-y-5">
+                <Reveal>
+                  <TextCard title="Start simple">
+                    <p>Publish one prompt. See it grow. Add more and you grow at your pace.</p>
+                  </TextCard>
+                </Reveal>
+                <Reveal delay={0.05}>
+                  <TextCard title="Boost your distribution">
+                    <p>Boost your existing distribution with Edgaze codes and links.</p>
+                  </TextCard>
+                </Reveal>
+                <Reveal delay={0.1}>
+                  <TextCard title="Join in simple steps">
+                    <p>Apply for closed beta, get approved, and you are in. Get distribution on your assets that were not productive.</p>
+                  </TextCard>
+                </Reveal>
+              </div>
+            </FeatureSplit>
           </Section>
 
-          {/* STOREFRONT */}
-          <Section
-            id="creators"
-            eyebrow="Storefront"
-            title="Your work becomes a storefront."
-            desc="Publish products. Track performance. Get paid later."
-          >
+          <Section id="creators" eyebrow="Storefront" title="Your work becomes a storefront." desc="Publish products. Track performance. Get paid later.">
             <FeatureSplit kind="storefront">
               <div className="space-y-5">
                 <Reveal>
@@ -1358,13 +2129,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          {/* APPLY */}
-          <Section
-            id="apply"
-            eyebrow="Closed beta"
-            title="Apply for closed beta."
-            desc="Creators can set prices now. Users run for free in beta. Payments activate later."
-          >
+          <Section id="apply" eyebrow="Closed beta" title="Apply for closed beta." desc="Creators can set prices now. Users run for free in beta. Payments activate later.">
             <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
               <Reveal>
                 <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
@@ -1421,13 +2186,12 @@ export default function EdgazeLandingPage() {
             </div>
           </Section>
 
-          {/* FOOTER */}
           <footer className="px-5 pb-12 snap-start">
             <Container>
               <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-center gap-3">
-                    <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-10 w-10" />
+                    <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-11 w-11" />
                     <div>
                       <div className="text-sm font-semibold text-white">Edgaze</div>
                       <div className="mt-1 text-sm text-white/60">Create, sell, and distribute AI products.</div>
