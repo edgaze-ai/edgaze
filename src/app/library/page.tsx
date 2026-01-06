@@ -1,6 +1,9 @@
 // src/app/library/page.tsx
 "use client";
-
+export const metadata = {
+  title: "Library",
+  description: "Get everything u built and purchased in one palce.",
+};
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Edit3, ExternalLink, Layers, ShoppingBag } from "lucide-react";

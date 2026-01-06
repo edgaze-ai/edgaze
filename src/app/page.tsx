@@ -1,5 +1,10 @@
 "use client";
 
+export const metadata = {
+  title: "Edgaze",
+  description: "Create, sell, and distribute AI products.",
+};
+
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "src/components/auth/AuthContext";
@@ -234,7 +239,15 @@ function useLoopedSceneCount(scenes: number, ms: number) {
   return scene;
 }
 
-function AnimatedNumber({ target, durationMs, decimals = 0 }: { target: number; durationMs: number; decimals?: number }) {
+function AnimatedNumber({
+  target,
+  durationMs,
+  decimals = 0,
+}: {
+  target: number;
+  durationMs: number;
+  decimals?: number;
+}) {
   const reduce = useReducedMotion();
   const [value, setValue] = useState(0);
 
@@ -291,11 +304,6 @@ function useElementSize<T extends HTMLElement>() {
   - Everything gets pulled into the box
   - Glitter, then reset
 */
-// REPLACE THE ENTIRE IlluHeroCollectToBox FUNCTION WITH THIS CODE
-
-// REPLACE THE ENTIRE IlluHeroCollectToBox FUNCTION WITH THIS CODE
-
-// REPLACE THE ENTIRE IlluHeroCollectToBox FUNCTION WITH THIS CODE
 
 function IlluHeroCollectToBox() {
   const reduce = useReducedMotion();
@@ -304,20 +312,18 @@ function IlluHeroCollectToBox() {
   const W = size.w || 920;
   const H = size.h || 420;
 
-  // 0 = show (nodes+cards visible)
-  // 1 = box appears + vacuum (suck-in)
-  // 2 = glaze on box
-  // 3 = box disappears + nodes/cards return
+  const isMobileCanvas = W < 560 || H < 360;
+
   const [phase, setPhase] = useState<0 | 1 | 2 | 3>(0);
 
   useEffect(() => {
     if (reduce) return;
 
     const steps: Array<{ p: 0 | 1 | 2 | 3; d: number }> = [
-      { p: 0, d: 2200 }, // show
-      { p: 1, d: 1300 }, // box in + vacuum
-      { p: 2, d: 900 },  // glaze
-      { p: 3, d: 650 },  // box out + return
+      { p: 0, d: isMobileCanvas ? 1700 : 2200 },
+      { p: 1, d: 1300 },
+      { p: 2, d: 900 },
+      { p: 3, d: 650 },
     ];
 
     const total = steps.reduce((a, s) => a + s.d, 0);
@@ -342,7 +348,7 @@ function IlluHeroCollectToBox() {
       clearInterval(interval);
       timeouts.forEach(clearTimeout);
     };
-  }, [reduce]);
+  }, [reduce, isMobileCanvas]);
 
   const show = phase === 0;
   const vacuum = phase === 1;
@@ -352,72 +358,6 @@ function IlluHeroCollectToBox() {
   const cx = W / 2;
   const cy = H / 2;
 
-  // deterministic pseudo-random (no jumping every render)
-  const layout = useMemo(() => {
-    const seedStr = `${Math.round(W)}x${Math.round(H)}-edgaze`;
-    let seed = 0;
-    for (let i = 0; i < seedStr.length; i++) seed = (seed * 31 + seedStr.charCodeAt(i)) >>> 0;
-
-    const rnd = () => {
-      // xorshift32
-      seed ^= seed << 13;
-      seed ^= seed >>> 17;
-      seed ^= seed << 5;
-      return ((seed >>> 0) % 10000) / 10000;
-    };
-
-    const nodeW = 160;
-    const nodeH = 72;
-    const cardW = 320;
-    const cardH = 110;
-
-    const n = {
-      input: { x: clamp(cx - 420 + rnd() * 120, 40, cx - 180), y: clamp(48 + rnd() * 70, 28, H - 120) },
-      transform: { x: clamp(cx - 460 + rnd() * 140, 40, cx - 200), y: clamp(150 + rnd() * 80, 90, H - 140) },
-      filter: { x: clamp(cx - 410 + rnd() * 160, 40, cx - 170), y: clamp(260 + rnd() * 70, 150, H - 90) },
-
-      prompt: { x: clamp(cx - 160 + rnd() * 140, 120, cx + 60), y: clamp(70 + rnd() * 90, 40, H - 160) },
-      api: { x: clamp(cx - 80 + rnd() * 180, 160, cx + 220), y: clamp(190 + rnd() * 90, 110, H - 120) },
-      export: { x: clamp(cx - 140 + rnd() * 170, 140, cx + 160), y: clamp(300 + rnd() * 70, 170, H - 80) },
-    };
-
-    const rightMinX = clamp(cx + 180, 420, W - cardW - 24);
-    const rightMaxX = clamp(W - cardW - 24, rightMinX, W - cardW - 24);
-
-    const c1x = clamp(rightMinX + rnd() * 60, rightMinX, rightMaxX);
-    const c2x = clamp(rightMinX + 12 + rnd() * 60, rightMinX, rightMaxX);
-
-    const c1y = clamp(56 + rnd() * 60, 36, H - cardH - 170);
-    const c2y = clamp(210 + rnd() * 70, 140, H - cardH - 26);
-
-    const cards = {
-      one: { x: c1x, y: c1y },
-      two: { x: c2x, y: c2y },
-    };
-
-    const lines = [
-      { x1: n.input.x + nodeW - 24, y1: n.input.y + 28, x2: n.prompt.x + 12, y2: n.prompt.y + 26 },
-      { x1: n.transform.x + nodeW - 24, y1: n.transform.y + 32, x2: n.api.x + 12, y2: n.api.y + 30 },
-      { x1: n.filter.x + nodeW - 24, y1: n.filter.y + 34, x2: n.export.x + 12, y2: n.export.y + 30 },
-    ];
-
-    const dots = [
-      [
-        { x: n.input.x + 110, y: n.input.y + 32 },
-        { x: n.prompt.x + 90, y: n.prompt.y + 32 },
-        { x: n.prompt.x + 160, y: n.prompt.y + 32 },
-      ],
-      [
-        { x: n.transform.x + 110, y: n.transform.y + 36 },
-        { x: n.api.x + 90, y: n.api.y + 34 },
-        { x: n.export.x + 110, y: n.export.y + 34 },
-      ],
-    ];
-
-    return { n, cards, lines, dots };
-  }, [W, H, cx, cy]);
-
-  // Solid premium card base (NO glass, NO blur)
   const SolidCard = ({ w, children }: { w: number; children: React.ReactNode }) => (
     <div
       className="relative rounded-3xl border border-white/10 bg-[#0b0f16] shadow-[0_18px_60px_rgba(0,0,0,0.55)]"
@@ -434,26 +374,19 @@ function IlluHeroCollectToBox() {
     </div>
   );
 
-  const WorkflowNode = ({
-    label,
-    x,
-    y,
-    delay = 0,
-  }: {
-    label: string;
-    x: number;
-    y: number;
-    delay?: number;
-  }) => {
-    const drift = reduce
-      ? undefined
-      : {
-          x: [0, 6, -5, 4, 0],
-          y: [0, -4, 3, -3, 0],
-        };
+  const WorkflowNode = ({ label, x, y, delay = 0 }: { label: string; x: number; y: number; delay?: number }) => {
+    const drift =
+      reduce || isMobileCanvas
+        ? undefined
+        : {
+            x: [0, 6, -5, 4, 0],
+            y: [0, -4, 3, -3, 0],
+          };
 
     const targetXVacuum = cx - x - 80;
     const targetYVacuum = cy - y - 36;
+
+    const showAnimate = isMobileCanvas ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, ...drift };
 
     return (
       <motion.div
@@ -464,14 +397,9 @@ function IlluHeroCollectToBox() {
           reduce
             ? undefined
             : show
-            ? { opacity: 1, scale: 1, ...drift }
+            ? showAnimate
             : vacuum
-            ? {
-                opacity: [1, 0.75, 0],
-                scale: [1, 0.65, 0.16],
-                x: [0, targetXVacuum],
-                y: [0, targetYVacuum],
-              }
+            ? { opacity: [1, 0.75, 0], scale: [1, 0.65, 0.16], x: [0, targetXVacuum], y: [0, targetYVacuum] }
             : glaze
             ? { opacity: 0, scale: 0.12 }
             : returnBack
@@ -480,28 +408,14 @@ function IlluHeroCollectToBox() {
         }
         transition={
           show
-            ? {
-                duration: 4.2,
-                ease: "easeInOut",
-                repeat: Infinity,
-                delay,
-              }
+            ? isMobileCanvas
+              ? { duration: 0.25, ease: "easeOut" }
+              : { duration: 4.2, ease: "easeInOut", repeat: Infinity, delay }
             : vacuum
-            ? {
-                duration: 1.15,
-                ease: [0.2, 0.85, 0.2, 1],
-              }
+            ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
             : returnBack
-            ? {
-                type: "spring",
-                stiffness: 180,
-                damping: 22,
-                mass: 0.9,
-              }
-            : {
-                duration: 0.35,
-                ease: "easeOut",
-              }
+            ? { type: "spring", stiffness: 180, damping: 22, mass: 0.9 }
+            : { duration: 0.35, ease: "easeOut" }
         }
       >
         <SolidCard w={160}>
@@ -512,21 +426,15 @@ function IlluHeroCollectToBox() {
     );
   };
 
-  const PromptCard = ({
-    text,
-    x,
-    y,
-    delay = 0,
-  }: {
-    text: string;
-    x: number;
-    y: number;
-    delay?: number;
-  }) => {
+  const PromptCard = ({ text, x, y, delay = 0 }: { text: string; x: number; y: number; delay?: number }) => {
     const parts = text.split(/(\{\{[^}]+\}\})/g);
 
     const targetXVacuum = cx - x - 160;
     const targetYVacuum = cy - y - 56;
+
+    const showAnimate = isMobileCanvas
+      ? { opacity: 1, scale: 1 }
+      : { opacity: 1, scale: 1, x: [0, 5, -4, 4, 0], y: [0, -3, 3, -2, 0] };
 
     return (
       <motion.div
@@ -537,14 +445,9 @@ function IlluHeroCollectToBox() {
           reduce
             ? undefined
             : show
-            ? { opacity: 1, scale: 1, x: [0, 5, -4, 4, 0], y: [0, -3, 3, -2, 0] }
+            ? showAnimate
             : vacuum
-            ? {
-                opacity: [1, 0.75, 0],
-                scale: [1, 0.65, 0.16],
-                x: [0, targetXVacuum],
-                y: [0, targetYVacuum],
-              }
+            ? { opacity: [1, 0.75, 0], scale: [1, 0.65, 0.16], x: [0, targetXVacuum], y: [0, targetYVacuum] }
             : glaze
             ? { opacity: 0, scale: 0.14 }
             : returnBack
@@ -553,28 +456,14 @@ function IlluHeroCollectToBox() {
         }
         transition={
           show
-            ? {
-                duration: 4.6,
-                ease: "easeInOut",
-                repeat: Infinity,
-                delay,
-              }
+            ? isMobileCanvas
+              ? { duration: 0.25, ease: "easeOut" }
+              : { duration: 4.6, ease: "easeInOut", repeat: Infinity, delay }
             : vacuum
-            ? {
-                duration: 1.15,
-                ease: [0.2, 0.85, 0.2, 1],
-              }
+            ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
             : returnBack
-            ? {
-                type: "spring",
-                stiffness: 170,
-                damping: 22,
-                mass: 0.95,
-              }
-            : {
-                duration: 0.35,
-                ease: "easeOut",
-              }
+            ? { type: "spring", stiffness: 170, damping: 22, mass: 0.95 }
+            : { duration: 0.35, ease: "easeOut" }
         }
       >
         <SolidCard w={320}>
@@ -595,224 +484,123 @@ function IlluHeroCollectToBox() {
     );
   };
 
-  // Connectors ONLY when nodes are visible (show + returnBack)
-  const ConnectionLine = ({
-    x1,
-    y1,
-    x2,
-    y2,
-    delay = 0,
-  }: {
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-    delay?: number;
-  }) => {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const length = Math.sqrt(dx * dx + dy * dy);
-    const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+  // Layout positions (kept minimal + stable)
+  const layout = useMemo(() => {
+    const pad = isMobileCanvas ? 16 : 24;
+    const boxW = clamp(W * 0.42, 260, 360);
+    const boxH = clamp(H * 0.36, 160, 220);
+    const boxX = cx - boxW / 2;
+    const boxY = cy - boxH / 2;
 
-    const connectorsVisible = show || returnBack;
+    const nodes = [
+      { label: "Input", x: pad + 30, y: pad + 30 },
+      { label: "Prompt", x: W - pad - 210, y: pad + 44 },
+      { label: "Tool", x: W - pad - 220, y: H - pad - 150 },
+    ];
 
-    return (
-      <motion.div
-        className="absolute z-[5] origin-left"
-        style={{
-          left: x1,
-          top: y1,
-          width: length,
-          height: 2,
-          transform: `rotate(${angle}deg)`,
-        }}
-        initial={false}
-        animate={
-          reduce
-            ? undefined
-            : connectorsVisible
-            ? { opacity: show ? [0.14, 0.28, 0.18] : [0, 0.22] }
-            : { opacity: 0 }
-        }
-        transition={{
-          duration: show ? 3.0 : 0.55,
-          ease: "easeInOut",
-          repeat: show ? Infinity : 0,
-          delay: show ? delay + 0.12 : 0,
-        }}
-      >
-        <div className="w-full h-full bg-gradient-to-r from-cyan-400/26 via-pink-400/22 to-purple-400/22" />
-      </motion.div>
-    );
-  };
+    const prompt = {
+      text: "Write a scholarship essay about {{topic}} with a clear structure and strong voice.",
+      x: pad + 26,
+      y: H - pad - 160,
+    };
 
-  const DataDot = ({ path, delay = 0 }: { path: Array<{ x: number; y: number }>; delay?: number }) => (
-    <motion.div
-      className="absolute z-[6] w-2.5 h-2.5 rounded-full"
-      style={{
-        background: "linear-gradient(135deg, rgba(34,211,238,1), rgba(236,72,153,1))",
-        boxShadow: "0 0 14px rgba(34,211,238,0.35)",
-      }}
-      initial={false}
-      animate={
-        reduce
-          ? undefined
-          : show
-          ? {
-              x: path.map((p) => p.x),
-              y: path.map((p) => p.y),
-              opacity: [0, 1, 1, 1],
-              scale: [0.6, 1.1, 0.9, 1.05],
-            }
-          : { opacity: 0 }
-      }
-      transition={{
-        duration: 4.6,
-        repeat: show ? Infinity : 0,
-        ease: "linear",
-        delay: show ? delay + 0.4 : 0,
-      }}
-    />
-  );
+    return { boxW, boxH, boxX, boxY, nodes, prompt };
+  }, [W, H, cx, cy, isMobileCanvas]);
 
-  const EdgazeBox = () => (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
-      <motion.div
-        initial={false}
-        animate={
-          reduce
-            ? undefined
-            : show
-            ? { opacity: 0, scale: 0.96 }
-            : vacuum
-            ? { opacity: [0, 1, 1], scale: [0.96, 1.02, 1] }
-            : glaze
-            ? { opacity: 1, scale: 1 }
-            : returnBack
-            ? { opacity: [1, 0], scale: [1, 0.98] }
-            : { opacity: 0 }
-        }
-        transition={{ duration: vacuum ? 0.55 : glaze ? 0.25 : 0.55, ease: [0.2, 0.8, 0.2, 1] }}
-        className="relative"
-      >
-        <div className="relative w-[460px] h-52 rounded-[44px] border border-white/10 bg-[#0b0f16] shadow-[0_28px_110px_rgba(0,0,0,0.7)] overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-90"
-            style={{
-              background:
-                "radial-gradient(circle at 18% 22%, rgba(34,211,238,0.14), transparent 58%), radial-gradient(circle at 82% 30%, rgba(236,72,153,0.12), transparent 62%)",
-            }}
-          />
-
-          {/* Glaze: NO white shimmer. Only cyan/pink sweep during glaze phase */}
-          {!reduce && glaze && (
-            <motion.div
-              className="absolute inset-0"
-              initial={{ x: "-140%" }}
-              animate={{ x: "140%" }}
-              transition={{ duration: 0.85, ease: "easeInOut" }}
-              style={{
-                background:
-                  "linear-gradient(120deg, transparent 25%, rgba(34,211,238,0.22) 45%, rgba(236,72,153,0.18) 55%, transparent 75%)",
-                transform: "skewX(-12deg)",
-              }}
-            />
-          )}
-
-          <div className="relative h-full flex flex-col items-center justify-center px-10">
-            <div className="flex items-center gap-3.5 mb-2">
-              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-11 w-11" />
-              <div className="text-3xl font-bold text-white tracking-tight">Edgaze</div>
-            </div>
-            <div className="text-sm text-white/60 text-center font-light">One place for your AI products</div>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
+  const connectorsVisible = show || returnBack;
 
   return (
     <IlluShell>
       <div ref={ref} className="absolute inset-0">
-        {/* Background */}
-        <div className="absolute inset-0">
-          <div
-            className="absolute inset-0 opacity-70"
-            style={{
-              background:
-                "radial-gradient(circle at 18% 15%, rgba(34,211,238,0.16), transparent 45%), radial-gradient(circle at 82% 20%, rgba(236,72,153,0.14), transparent 48%), radial-gradient(circle at 50% 85%, rgba(147,51,234,0.10), transparent 52%)",
-            }}
-          />
-          <div
-            className="absolute inset-0 opacity-[0.10]"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
-              backgroundSize: "76px 76px",
-            }}
-          />
-        </div>
+        {/* Edgaze box */}
+        <motion.div
+          className="absolute rounded-3xl bg-[#0b0c11] ring-1 ring-white/12 shadow-[0_26px_90px_rgba(0,0,0,0.6)]"
+          style={{ left: layout.boxX, top: layout.boxY, width: layout.boxW, height: layout.boxH }}
+          animate={
+            reduce
+              ? undefined
+              : vacuum
+              ? { scale: [1, 1.03, 1], opacity: [1, 1, 1] }
+              : glaze
+              ? { scale: 1.02 }
+              : { scale: 1 }
+          }
+          transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
+        >
+          <div className="absolute inset-0 rounded-3xl opacity-70 [background-image:radial-gradient(circle_at_30%_25%,rgba(34,211,238,0.18),transparent_60%),radial-gradient(circle_at_70%_35%,rgba(236,72,153,0.14),transparent_62%)]" />
+          <div className="absolute inset-0 rounded-3xl opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:22px_22px]" />
 
-        {/* Nodes */}
-        <WorkflowNode label="Input" x={layout.n.input.x} y={layout.n.input.y} delay={0.0} />
-        <WorkflowNode label="Transform" x={layout.n.transform.x} y={layout.n.transform.y} delay={0.08} />
-        <WorkflowNode label="Filter" x={layout.n.filter.x} y={layout.n.filter.y} delay={0.14} />
-        <WorkflowNode label="Prompt" x={layout.n.prompt.x} y={layout.n.prompt.y} delay={0.05} />
-        <WorkflowNode label="API" x={layout.n.api.x} y={layout.n.api.y} delay={0.12} />
-        <WorkflowNode label="Export" x={layout.n.export.x} y={layout.n.export.y} delay={0.18} />
+          <div className="relative h-full w-full p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-semibold tracking-widest text-white/55">EDGAZE</div>
+                <div className="mt-1 text-sm font-semibold text-white/90">Collect</div>
+              </div>
+              <div className="h-9 w-9 rounded-2xl bg-white/6 ring-1 ring-white/10" />
+            </div>
 
-        {/* Lines (only visible during show + returnBack by component logic) */}
-        {layout.lines.map((l, i) => (
-          <ConnectionLine key={i} {...l} delay={0.06 * i} />
-        ))}
-
-        {/* Prompt cards */}
-        <PromptCard
-          text="Create a high-quality image of {{subject}} in a {{style}} style, with {{color_palette}} colors."
-          x={layout.cards.one.x}
-          y={layout.cards.one.y}
-          delay={0.1}
-        />
-        <PromptCard
-          text="Generate a detailed illustration of {{object}} in {{environment}}, under {{lighting}} lighting."
-          x={layout.cards.two.x}
-          y={layout.cards.two.y}
-          delay={0.18}
-        />
-
-        {/* Data dots only during show */}
-        {!reduce && show && (
-          <>
-            <DataDot path={layout.dots[0] ?? []} delay={0.2} />
-<DataDot path={layout.dots[1] ?? []} delay={1.0} />
-
-          </>
-        )}
-
-        {/* Box sequence */}
-        <EdgazeBox />
-
-        {/* Vacuum streaks only during vacuum phase */}
-        {!reduce && vacuum && (
-          <div className="absolute inset-0 z-20 pointer-events-none">
-            {Array.from({ length: 16 }).map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute h-[2px]"
-                style={{
-                  left: `${10 + (i * 5.7) % 80}%`,
-                  top: `${12 + (i * 6.2) % 72}%`,
-                  width: `${10 + (i % 4) * 6}%`,
-                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)",
-                  transform: `rotate(${-18 + (i % 7) * 9}deg)`,
-                }}
-                initial={{ scaleX: 0, opacity: 0 }}
-                animate={{ scaleX: [0.15, 1, 0.25], opacity: [0, 1, 0] }}
-                transition={{ duration: 0.85, ease: [0.2, 0.8, 0.2, 1], delay: 0.08 + i * 0.02 }}
-              />
-            ))}
+            <AnimatePresence>
+              {glaze && !reduce ? (
+                <motion.div
+                  key="glitter"
+                  className="absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                >
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute h-1.5 w-1.5 rounded-full bg-white/70"
+                      style={{ left: `${12 + ((i * 7) % 76)}%`, top: `${18 + ((i * 11) % 64)}%` }}
+                      animate={{ opacity: [0, 1, 0], scale: [0.7, 1.25, 0.7], y: [0, -8, 0] }}
+                      transition={{
+                        duration: 1.5 + (i % 3) * 0.35,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: i * 0.08,
+                      }}
+                    />
+                  ))}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
-        )}
+        </motion.div>
+
+        {/* Connectors (ONLY on desktop + only when visible) */}
+        {connectorsVisible && !isMobileCanvas ? (
+          <svg className="absolute inset-0" width={W} height={H} style={{ overflow: "visible" }} aria-hidden>
+            {layout.nodes.map((n, i) => {
+              const x1 = n.x + 80;
+              const y1 = n.y + 40;
+              const x2 = layout.boxX + layout.boxW / 2;
+              const y2 = layout.boxY + layout.boxH / 2;
+              const dx = x2 - x1;
+              const dy = y2 - y1;
+              const c1x = x1 + dx * 0.35;
+              const c1y = y1;
+              const c2x = x1 + dx * 0.65;
+              const c2y = y2;
+              return (
+                <path
+                  key={`p-${i}`}
+                  d={`M ${x1} ${y1} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${x2} ${y2}`}
+                  stroke="rgba(255,255,255,0.18)"
+                  strokeWidth={2}
+                  fill="none"
+                />
+              );
+            })}
+          </svg>
+        ) : null}
+
+        {/* Nodes + prompt */}
+        {layout.nodes.map((n, i) => (
+          <WorkflowNode key={n.label} label={n.label} x={n.x} y={n.y} delay={i * 0.15} />
+        ))}
+        <PromptCard text={layout.prompt.text} x={layout.prompt.x} y={layout.prompt.y} delay={0.2} />
       </div>
     </IlluShell>
   );
@@ -850,7 +638,7 @@ function IlluCodeOpensProduct() {
               {!reduce ? (
                 <motion.div
                   className="absolute inset-0"
-                  animate={{ opacity: [0.18, 0.50, 0.18] }}
+                  animate={{ opacity: [0.18, 0.5, 0.18] }}
                   transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
                   style={{
                     backgroundImage: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 60%)",
@@ -972,12 +760,12 @@ function IlluWorkflowGraph() {
       />
     );
   }
+
   const a = nodes[0]!;
   const b = nodes[1]!;
   const c = nodes[2]!;
   const d = nodes[3]!;
   const e = nodes[4]!;
-  
 
   const centerRight = (n: { x: number; y: number; w: number }) => ({ x: n.x + n.w, y: n.y + 40 });
   const centerLeft = (n: { x: number; y: number }) => ({ x: n.x, y: n.y + 40 });
@@ -1295,7 +1083,7 @@ function IlluStorefrontRevenue() {
             <div className="rounded-3xl bg-white/5 ring-1 ring-white/10 p-5">
               <div className="text-[10px] tracking-widest text-white/55">TOTAL EARNED</div>
               <div className="mt-2 text-2xl font-semibold text-white">
-                ${reduce ? "1789.36" : <AnimatedNumber key={cycle} target={1789.36} durationMs={2200} decimals={2} />}
+                ${reduce ? "1787.89" : <AnimatedNumber key={cycle} target={1787.89} durationMs={2200} decimals={2} />}
               </div>
 
               <div className="mt-4 h-16 rounded-2xl bg-white/4 ring-1 ring-white/10 overflow-hidden">
@@ -1484,12 +1272,11 @@ function CodeEntry() {
     }
 
     const pieces = q0.split("/").filter(Boolean);
-const maybeCode = pieces.length ? (pieces[pieces.length - 1] ?? q0) : q0;
-if (maybeCode !== q0) {
-  setCode(maybeCode);
-  return;
-}
-
+    const maybeCode = pieces.length ? (pieces[pieces.length - 1] ?? q0) : q0;
+    if (maybeCode !== q0) {
+      setCode(maybeCode);
+      return;
+    }
 
     if (!dismissed) setOpenSug(true);
 
@@ -1585,7 +1372,6 @@ if (maybeCode !== q0) {
       router.push(buildHref(only));
       return;
     }
-    
 
     setSuggestions(exact);
     setActiveIdx(0);
@@ -1626,7 +1412,9 @@ if (maybeCode !== q0) {
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1",
-        kind === "prompt" ? "bg-cyan-500/10 text-cyan-200 ring-cyan-400/20" : "bg-pink-500/10 text-pink-200 ring-pink-400/20"
+        kind === "prompt"
+          ? "bg-cyan-500/10 text-cyan-200 ring-cyan-400/20"
+          : "bg-pink-500/10 text-pink-200 ring-pink-400/20"
       )}
     >
       {kind === "prompt" ? "Prompt" : "Workflow"}
@@ -1700,7 +1488,10 @@ if (maybeCode !== q0) {
                           type="button"
                           onMouseEnter={() => setActiveIdx(i)}
                           onClick={() => router.push(buildHref(s))}
-                          className={cn("w-full text-left rounded-xl px-3 py-2 transition-colors", active ? "bg-white/8" : "hover:bg-white/6")}
+                          className={cn(
+                            "w-full text-left rounded-xl px-3 py-2 transition-colors",
+                            active ? "bg-white/8" : "hover:bg-white/6"
+                          )}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
@@ -1746,7 +1537,12 @@ if (maybeCode !== q0) {
         <div className="mt-2 flex items-center justify-between">
           <AnimatePresence>
             {error ? (
-              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="text-xs text-white/70">
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 6 }}
+                className="text-xs text-white/70"
+              >
                 {error}
               </motion.div>
             ) : null}
@@ -1775,7 +1571,11 @@ function Section({
   className?: string;
 }) {
   return (
-    <section id={id} className={cn("px-5 py-20 sm:py-24 md:py-28 snap-start", className)} style={{ scrollMarginTop: 92 }}>
+    <section
+      id={id}
+      className={cn("px-5 py-20 sm:py-24 md:py-28 md:snap-start", className)}
+      style={{ scrollMarginTop: 92 }}
+    >
       <Container>
         {(eyebrow || title || desc) && (
           <div className="max-w-2xl">
@@ -1799,7 +1599,10 @@ export default function EdgazeLandingPage() {
   const [onTop, setOnTop] = useState(true);
   const [scrollProgress, setScrollProgress] = useState(0);
 
-  const sectionIds = useMemo(() => ["top", "prompt", "workflows", "marketplace", "features", "better", "anyone", "creators", "apply"], []);
+  const sectionIds = useMemo(
+    () => ["top", "prompt", "workflows", "marketplace", "features", "better", "anyone", "creators", "apply"],
+    []
+  );
 
   useEffect(() => {
     if (!authReady || loading) return;
@@ -1855,29 +1658,27 @@ export default function EdgazeLandingPage() {
     const nearestSectionTop = () => {
       const tops = getTops();
       if (!tops.length) return null;
-    
+
       const y = scroller.scrollTop;
-    
-      // safe because we already checked length
+
       let best = tops[0]!;
       let bestDist = Math.abs(y - best.top);
-    
+
       for (let i = 1; i < tops.length; i++) {
         const t = tops[i]!;
         const d = Math.abs(y - t.top);
-    
+
         if (d < bestDist) {
           best = t;
           bestDist = d;
         }
       }
-    
+
       return {
         ...best,
         dist: bestDist,
       };
     };
-    
 
     const scheduleSettle = () => {
       if (scrollEndTimer) window.clearTimeout(scrollEndTimer);
@@ -1969,14 +1770,18 @@ export default function EdgazeLandingPage() {
           aria-hidden
         />
 
+        {/* ✅ FIX: No snap on mobile. Snap only from md+.
+            ✅ FIX: Use 100dvh so iOS address bar doesn’t break bottom reach.
+            ✅ FIX: Extra bottom spacer at the end for mobile reach. */}
         <div
           ref={scrollerRef}
-          className="h-screen overflow-y-auto snap-y snap-proximity"
+          className="h-[100dvh] overflow-y-auto md:snap-y md:snap-proximity"
           style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorY: "contain" }}
         >
-          <div id="top" className="pt-24" />
+          <div id="top" className="pt-24 md:snap-start" />
 
-          <section className="px-5 pt-12 pb-16 sm:pt-16 sm:pb-20 snap-start" style={{ scrollMarginTop: 92 }}>
+          {/* ✅ FIX: snap-start only on md+ */}
+          <section className="px-5 pt-12 pb-16 sm:pt-16 sm:pb-20 md:snap-start" style={{ scrollMarginTop: 92 }}>
             <Container>
               <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:items-start">
                 <div className="max-w-xl">
@@ -2011,7 +1816,12 @@ export default function EdgazeLandingPage() {
             </Container>
           </section>
 
-          <Section id="prompt" eyebrow="Prompt Studio" title="Stop losing prompts." desc="A prompt should not live inside a screenshot or a private document. Treat it like a product.">
+          <Section
+            id="prompt"
+            eyebrow="Prompt Studio"
+            title="Stop losing prompts."
+            desc="A prompt should not live inside a screenshot or a private document. Treat it like a product."
+          >
             <FeatureSplit kind="prompt">
               <div className="space-y-5">
                 <Reveal>
@@ -2028,7 +1838,12 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="workflows" eyebrow="Workflows" title="Turn a prompt into a tool." desc="When a prompt is not enough, add steps. Workflows are repeatable and easy to run.">
+          <Section
+            id="workflows"
+            eyebrow="Workflows"
+            title="Turn a prompt into a tool."
+            desc="When a prompt is not enough, add steps. Workflows are repeatable and easy to run."
+          >
             <FeatureSplit kind="workflow">
               <div className="space-y-5">
                 <Reveal>
@@ -2200,7 +2015,8 @@ export default function EdgazeLandingPage() {
             </div>
           </Section>
 
-          <footer className="px-5 pb-12 snap-start">
+          {/* ✅ FIX: snap-start only on md+; extra bottom padding so footer is reachable on iOS */}
+          <footer className="px-5 pb-16 md:snap-start">
             <Container>
               <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -2213,10 +2029,10 @@ export default function EdgazeLandingPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-6 text-sm text-white/70">
-                    <a className="hover:text-white" href="/privacy">
+                    <a className="hover:text-white" href="/docs/privacy-policy">
                       Privacy
                     </a>
-                    <a className="hover:text-white" href="/terms">
+                    <a className="hover:text-white" href="/docs/terms-of-service">
                       Terms
                     </a>
                     <a className="hover:text-white" href="/contact">
@@ -2229,6 +2045,9 @@ export default function EdgazeLandingPage() {
               </div>
             </Container>
           </footer>
+
+          {/* ✅ extra bottom spacer to guarantee last footer is scrollable on mobile */}
+          <div className="h-10 md:hidden" />
         </div>
       </div>
     </ScrollContext.Provider>

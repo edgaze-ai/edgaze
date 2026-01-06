@@ -1,5 +1,8 @@
 "use client";
-
+export const metadata = {
+  title: "Closed Beta Application",
+  description: "Apply for access to the Edgaze closed beta program.",
+};
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";

@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-
+export const metadata = {
+  title: "Help",
+  description: "Get help in a variety of ways.",
+};
 /**
  * Updates:
  * - Added separate "Report bugs" card linking to /bugs

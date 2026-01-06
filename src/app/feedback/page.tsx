@@ -1,5 +1,8 @@
 "use client";
-
+export const metadata = {
+    title: "Feedback",
+    description: "The page to provide feedback about Edgaze.",
+  };
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, CheckCircle2, XCircle } from "lucide-react";
