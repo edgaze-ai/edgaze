@@ -720,11 +720,11 @@ export default function ApplyPage() {
               <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">Apply</h1>
               <p className="mt-3 text-sm text-white/70 leading-relaxed">
                 By continuing, you agree to our{" "}
-                <Link href="/terms" className="text-white/80 hover:text-white underline underline-offset-4">
+                <Link href="/docs/terms-of-service" className="text-white/80 hover:text-white underline underline-offset-4">
                   Terms
                 </Link>{" "}
                 and{" "}
-                <Link href="/privacy" className="text-white/80 hover:text-white underline underline-offset-4">
+                <Link href="/docs/privacy-policy" className="text-white/80 hover:text-white underline underline-offset-4">
                   Privacy Policy
                 </Link>
                 . By joining closed beta, you agree to give feedback to improve Edgaze.

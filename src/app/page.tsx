@@ -297,7 +297,7 @@ function useElementSize<T extends HTMLElement>() {
   - Prompts + workflow nodes roam for a moment
   - Edgaze box appears centered
   - Everything gets pulled into the box
-  - Glitter, then reset
+  - Glaze shimmer, then reset
 */
 
 function IlluHeroCollectToBox() {
@@ -479,7 +479,6 @@ function IlluHeroCollectToBox() {
     );
   };
 
-  // Layout positions (kept minimal + stable)
   const layout = useMemo(() => {
     const pad = isMobileCanvas ? 16 : 24;
     const boxW = clamp(W * 0.42, 260, 360);
@@ -509,7 +508,7 @@ function IlluHeroCollectToBox() {
       <div ref={ref} className="absolute inset-0">
         {/* Edgaze box */}
         <motion.div
-          className="absolute rounded-3xl bg-[#0b0c11] ring-1 ring-white/12 shadow-[0_26px_90px_rgba(0,0,0,0.6)]"
+          className="absolute rounded-3xl bg-[#0b0c11] ring-1 ring-white/12 shadow-[0_26px_90px_rgba(0,0,0,0.6)] overflow-hidden"
           style={{ left: layout.boxX, top: layout.boxY, width: layout.boxW, height: layout.boxH }}
           animate={
             reduce
@@ -522,46 +521,66 @@ function IlluHeroCollectToBox() {
           }
           transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
         >
-          <div className="absolute inset-0 rounded-3xl opacity-70 [background-image:radial-gradient(circle_at_30%_25%,rgba(34,211,238,0.18),transparent_60%),radial-gradient(circle_at_70%_35%,rgba(236,72,153,0.14),transparent_62%)]" />
-          <div className="absolute inset-0 rounded-3xl opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:22px_22px]" />
+          {/* Base glaze background */}
+          <div className="absolute inset-0 opacity-85 [background-image:radial-gradient(circle_at_25%_25%,rgba(34,211,238,0.16),transparent_62%),radial-gradient(circle_at_75%_35%,rgba(236,72,153,0.12),transparent_64%)]" />
+          <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:22px_22px]" />
+          <div className="absolute inset-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)] rounded-3xl" />
 
-          <div className="relative h-full w-full p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[10px] font-semibold tracking-widest text-white/55">EDGAZE</div>
-                <div className="mt-1 text-sm font-semibold text-white/90">Collect</div>
+          {/* Centered logo + text (mobile-safe) */}
+          <div className="relative h-full w-full flex items-center justify-center p-5">
+            <div className="flex flex-col items-center justify-center text-center">
+              <div className="relative">
+                <div className="absolute -inset-5 rounded-full blur-2xl opacity-70 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.26),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.22),transparent_62%)]" />
+                <div className="relative">
+  <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-12 w-12" />
+</div>
+
               </div>
-              <div className="h-9 w-9 rounded-2xl bg-white/6 ring-1 ring-white/10" />
+
+              <div className="mt-3 text-lg font-semibold tracking-tight text-white/95">Edgaze</div>
+              <div className="mt-1 text-xs text-white/60">Collect → publish → share</div>
             </div>
 
-            <AnimatePresence>
-              {glaze && !reduce ? (
-                <motion.div
-                  key="glitter"
-                  className="absolute inset-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.35, ease: "easeOut" }}
-                >
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute h-1.5 w-1.5 rounded-full bg-white/70"
-                      style={{ left: `${12 + ((i * 7) % 76)}%`, top: `${18 + ((i * 11) % 64)}%` }}
-                      animate={{ opacity: [0, 1, 0], scale: [0.7, 1.25, 0.7], y: [0, -8, 0] }}
-                      transition={{
-                        duration: 1.5 + (i % 3) * 0.35,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: i * 0.08,
-                      }}
-                    />
-                  ))}
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
+           {/* removed corner chip */}
+
           </div>
+
+          {/* ✅ Replace glitter with a premium glaze sheen */}
+          <AnimatePresence>
+            {glaze && !reduce ? (
+              <motion.div
+                key="glaze"
+                className="absolute inset-0"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+                aria-hidden
+              >
+                {/* moving sheen */}
+                <motion.div
+                  className="absolute -inset-24 rotate-12"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 18%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.08) 82%, transparent 100%)",
+                  }}
+                  initial={{ x: "-45%" }}
+                  animate={{ x: "45%" }}
+                  transition={{ duration: 0.85, ease: [0.2, 0.8, 0.2, 1] }}
+                />
+                {/* soft bloom */}
+                <motion.div
+                  className="absolute inset-0"
+                  animate={{ opacity: [0.35, 0.6, 0.35] }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(circle at 35% 30%, rgba(34,211,238,0.12), transparent 60%), radial-gradient(circle at 70% 40%, rgba(236,72,153,0.10), transparent 62%)",
+                  }}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </motion.div>
 
         {/* Connectors (ONLY on desktop + only when visible) */}
@@ -1986,7 +2005,7 @@ export default function EdgazeLandingPage() {
                     </a>
                     <a
                       className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white/80 hover:bg-white/8 transition-colors"
-                      href="/creators"
+                      href="/marketplace"
                     >
                       <span className="inline-flex items-center gap-2">
                         <BadgeCheck className="h-4 w-4 text-white/75" />
@@ -1996,11 +2015,11 @@ export default function EdgazeLandingPage() {
                     </a>
                     <a
                       className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white/80 hover:bg-white/8 transition-colors"
-                      href="/about"
+                      href="/feedback"
                     >
                       <span className="inline-flex items-center gap-2">
                         <Link2 className="h-4 w-4 text-white/75" />
-                        Learn more
+                        Give feedback
                       </span>
                       <ArrowRight className="h-4 w-4 text-white/55" />
                     </a>

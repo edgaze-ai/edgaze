@@ -42,11 +42,25 @@ export const metadata: Metadata = {
 
   icons: {
     icon: [
+      {
+        url: "/brand/edgaze-mark.png",
+        type: "image/png",
+        sizes: "32x32",
+      },
+      {
+        url: "/brand/edgaze-mark.png",
+        type: "image/png",
+        sizes: "16x16",
+      },
+      // fallback for older browsers
       { url: "/favicon.ico" },
-      { url: "/favicon.svg", type: "image/svg+xml" },
-      { url: "/favicon-96x96.png", type: "image/png", sizes: "96x96" },
     ],
-    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
+    apple: [
+      {
+        url: "/apple-touch-icon.png",
+        sizes: "180x180",
+      },
+    ],
   },
 
   manifest: "/site.webmanifest",
