@@ -830,22 +830,40 @@ export default function ApplyPage() {
                         transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
                         className="mt-8 space-y-8"
                       >
-                        <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-5">
-                          <div className="flex items-start gap-3">
-                            <input
-                              type="checkbox"
-                              checked={consent}
-                              onChange={(e) => setConsent(e.target.checked)}
-                              className="mt-1 h-4 w-4 accent-white"
-                            />
-                            <div>
-                              <div className="text-sm font-semibold text-white">I will give feedback during beta</div>
-                              <p className="mt-1 text-sm text-white/70 leading-relaxed">
-                                If something breaks or feels off, I’ll report it.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                        <label
+  htmlFor="beta-consent"
+  className="block rounded-3xl bg-white/4 ring-1 ring-white/10 p-5 cursor-pointer select-none active:scale-[0.99] transition-transform touch-manipulation"
+>
+  <div className="flex items-start gap-3">
+    {/* Real checkbox (accessible) but hidden */}
+    <input
+      id="beta-consent"
+      type="checkbox"
+      checked={consent}
+      onChange={(e) => setConsent(e.target.checked)}
+      className="sr-only"
+    />
+
+    {/* Visible checkbox */}
+    <span
+      aria-hidden="true"
+      className={cn(
+        "mt-1 h-5 w-5 rounded-md ring-1 ring-white/20 bg-white/5 flex items-center justify-center shrink-0",
+        consent ? "bg-white/10 ring-white/35" : ""
+      )}
+    >
+      {consent ? <CheckCircle2 className="h-4 w-4 text-white/90" /> : null}
+    </span>
+
+    <div>
+      <div className="text-sm font-semibold text-white">I will give feedback during beta</div>
+      <p className="mt-1 text-sm text-white/70 leading-relaxed">
+        If something breaks or feels off, I’ll report it.
+      </p>
+    </div>
+  </div>
+</label>
+
 
                         <div className="space-y-3">
                           <FieldLabel>HOW OFTEN DO YOU USE AI TOOLS?</FieldLabel>
