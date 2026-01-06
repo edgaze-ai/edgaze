@@ -62,11 +62,14 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.sub!;
-        session.user.plan = token.plan as string;
-      }
-      return session;
+      // Avoid mutating session.user with non-standard fields (TS-safe)
+      return {
+        ...session,
+        user: session.user,
+        userId: token.sub ?? null,
+        plan: typeof token.plan === "string" ? token.plan : "Free",
+      } as any;
     },
+    
   },
 };

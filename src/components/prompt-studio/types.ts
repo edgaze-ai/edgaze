@@ -1,4 +1,3 @@
-// src/components/prompt-studio/types.ts
 export type Visibility = "public" | "unlisted" | "private";
 
 export type MonetisationMode =
@@ -13,4 +12,5 @@ export type PublishMeta = {
   thumbnailUrl?: string;
   tags: string;
   visibility: Visibility;
-  priceUsd
+  priceUsd?: number;
+};

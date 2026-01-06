@@ -1,7 +1,11 @@
 "use client";
 
 import React from "react";
-import type { PlaceholderDef } from "./PlaceholderUserForm";
+type PlaceholderDef = {
+  name: string;
+  question: string;
+};
+
 
 type Props = {
   placeholders: PlaceholderDef[];

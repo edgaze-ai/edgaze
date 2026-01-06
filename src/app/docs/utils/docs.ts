@@ -1,3 +1,4 @@
+// src/app/docs/utils/docs.ts
 import fs from "fs";
 import path from "path";
 
@@ -60,6 +61,8 @@ export function getAllDocs(): DocMeta[] {
 
   for (const slug of ORDER) {
     const filename = CANONICAL_TO_FILE[slug];
+    if (!filename) continue; // TS + runtime safety
+
     const filePath = path.join(DOCS_DIR, filename);
     const raw = safeRead(filePath);
     if (!raw) continue;

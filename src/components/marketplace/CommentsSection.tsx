@@ -36,6 +36,22 @@ type CommentRow = {
   is_pinned: boolean | null;
   creator_liked: boolean | null;
 };
+function isCommentRow(v: any): v is CommentRow {
+  return (
+    v &&
+    typeof v === "object" &&
+    typeof v.id === "string" &&
+    typeof v.created_at !== "undefined" &&
+    typeof v.prompt_id !== "undefined" &&
+    typeof v.user_id !== "undefined" &&
+    typeof v.content === "string"
+  );
+}
+
+function normalizeCommentRows(data: unknown): CommentRow[] {
+  if (!Array.isArray(data)) return [];
+  return (data as any[]).filter(isCommentRow);
+}
 
 type CommentNode = CommentRow & { children: CommentNode[] };
 
@@ -483,7 +499,7 @@ export default function CommentsSection({
       return;
     }
 
-    setRows((data ?? []) as CommentRow[]);
+    setRows(normalizeCommentRows(data));
     setLoading(false);
   }, [promptIdForComments, supabase]);
 
@@ -540,7 +556,13 @@ export default function CommentsSection({
         return;
       }
 
-      if (data) setRows((prev) => [...prev, data as CommentRow]);
+      if (data && isCommentRow(data)) {
+        setRows((prev) => [...prev, data]);
+      } else if (data) {
+        // Supabase returned a weird shape; reload to be safe
+        loadComments();
+      }
+      
       if (!parentId) setNewContent("");
     } finally {
       setSubmitting(false);

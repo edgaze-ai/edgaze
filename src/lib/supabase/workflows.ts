@@ -49,7 +49,7 @@ async function selectWithFallback(selects: string[]) {
   for (const sel of selects) {
     const q = supabase.from("workflows").select(sel);
     const res = await q;
-    if (!res.error) return { data: res.data as WorkflowRow[] };
+    if (!res.error) return { data: ((res.data ?? []) as unknown) as WorkflowRow[] };
     lastErr = res.error;
     if (!isMissingColumn(res.error)) break;
   }
@@ -60,7 +60,7 @@ async function singleWithFallback(selects: string[], id: string) {
   let lastErr: any = null;
   for (const sel of selects) {
     const res = await supabase.from("workflows").select(sel).eq("id", id).single();
-    if (!res.error) return { data: res.data as WorkflowRow };
+    if (!res.error) return { data: (res.data as unknown) as WorkflowRow };
     lastErr = res.error;
     if (!isMissingColumn(res.error)) break;
   }
@@ -73,14 +73,12 @@ async function updateWithFallback(id: string, patches: Record<string, any>[]) {
     const res = await supabase.from("workflows").update(patch).eq("id", id);
     if (!res.error) return;
     lastErr = res.error;
-    // If it's a missing column, try next patch variant. Otherwise stop.
     if (!isMissingColumn(res.error)) break;
   }
   throw lastErr || new Error("Update failed");
 }
 
 export async function listMyRecentDraftWorkflows() {
-  // Avoid status entirely. Just list recent rows; "continue" is simply your most recently opened/edited.
   const { data } = await selectWithFallback([
     "id,title,updated_at,last_opened_at,published_at",
     "id,name,updated_at,last_opened_at,published_at",
@@ -90,7 +88,6 @@ export async function listMyRecentDraftWorkflows() {
     "id,name,updated_at",
   ]);
 
-  // Drafts: if published_at exists, filter null. If it doesn't exist, treat everything as draft here.
   const drafts = data.filter((r) => (typeof r.published_at === "string" ? !r.published_at : true));
 
   drafts.sort((a, b) => {
@@ -116,7 +113,6 @@ export async function listMyPublishedWorkflows() {
     "id,name,updated_at",
   ]);
 
-  // Published: if published_at exists, require it. If not, return empty (so we don't lie).
   const published = data.filter((r) => typeof r.published_at === "string" && !!r.published_at);
 
   published.sort((a, b) => {
@@ -158,7 +154,6 @@ export async function getWorkflowById(id: string) {
 }
 
 export async function createWorkflow(input: { title: string; graph: any }) {
-  // Insert attempts: try common schema variants without assuming columns exist.
   const inserts: Record<string, any>[] = [
     { title: input.title, graph: input.graph },
     { title: input.title, graph_json: input.graph },
@@ -167,7 +162,7 @@ export async function createWorkflow(input: { title: string; graph: any }) {
     { name: input.title, graph: input.graph },
     { name: input.title, canvas: input.graph },
     { name: input.title, data: input.graph },
-    { title: input.title }, // last resort (graph saved later by autosave)
+    { title: input.title },
     { name: input.title },
   ];
 
@@ -196,7 +191,6 @@ export async function renameWorkflow(id: string, title: string) {
 
 export async function touchWorkflowOpened(id: string) {
   const now = new Date().toISOString();
-  // If last_opened_at doesn't exist, do nothing silently.
   try {
     await updateWithFallback(id, [{ last_opened_at: now }]);
   } catch (e: any) {

@@ -1,3 +1,4 @@
+// src/nodes/registry.ts
 // Simple in-memory node registry used by BlockLibrary + Canvas
 import type { NodeSpec, Port } from "./types";
 
@@ -8,6 +9,7 @@ const SPECS: NodeSpec[] = [
     id: "input",
     label: "Input",
     version: "1.0.0",
+    category: "core",
     summary: "Accepts user input or frontend data into the flow.",
     nodeType: "edgCard",
     ports: [makePort("out", "output")],
@@ -17,6 +19,7 @@ const SPECS: NodeSpec[] = [
     id: "output",
     label: "Output",
     version: "1.0.0",
+    category: "core",
     summary: "Displays or returns data to the frontend.",
     nodeType: "edgCard",
     ports: [makePort("in", "input")],
@@ -26,6 +29,7 @@ const SPECS: NodeSpec[] = [
     id: "merge",
     label: "Merge",
     version: "1.0.0",
+    category: "core",
     summary: "Combines multiple data streams into one unified output.",
     // Use the dedicated Merge node with four fixed handles (one per side)
     nodeType: "edgMerge",

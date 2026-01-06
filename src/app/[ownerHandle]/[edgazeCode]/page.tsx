@@ -95,7 +95,11 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
 
 async function qrDataUrlLocal(text: string): Promise<string> {
   try {
-    const mod: any = await withTimeout(import("qrcode") as any, 2500, "QR module import");
+    const mod: any = await withTimeout(
+      import("qrcode") as any,
+      2500,
+      "QR module import"
+    );
     const QRCode = mod?.default ?? mod;
     const dataUrl = await withTimeout(
       QRCode.toDataURL(text, {
@@ -112,7 +116,9 @@ async function qrDataUrlLocal(text: string): Promise<string> {
     const controller = new AbortController();
     const kill = setTimeout(() => controller.abort(), 6000);
     try {
-      const url = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&data=${encodeURIComponent(text)}`;
+      const url = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&data=${encodeURIComponent(
+        text
+      )}`;
       const res = await fetch(url, { signal: controller.signal });
       if (!res.ok) throw new Error("QR fetch failed");
       const blob = await res.blob();
@@ -151,8 +157,20 @@ async function qrWithCenteredLogoDataUrl(text: string) {
   const r = 36;
   ctx.beginPath();
   ctx.moveTo(badgeX + r, badgeY);
-  ctx.arcTo(badgeX + badgeSize, badgeY, badgeX + badgeSize, badgeY + badgeSize, r);
-  ctx.arcTo(badgeX + badgeSize, badgeY + badgeSize, badgeX, badgeY + badgeSize, r);
+  ctx.arcTo(
+    badgeX + badgeSize,
+    badgeY,
+    badgeX + badgeSize,
+    badgeY + badgeSize,
+    r
+  );
+  ctx.arcTo(
+    badgeX + badgeSize,
+    badgeY + badgeSize,
+    badgeX,
+    badgeY + badgeSize,
+    r
+  );
   ctx.arcTo(badgeX, badgeY + badgeSize, badgeX, badgeY, r);
   ctx.arcTo(badgeX, badgeY, badgeX + badgeSize, badgeY, r);
   ctx.closePath();
@@ -162,7 +180,13 @@ async function qrWithCenteredLogoDataUrl(text: string) {
   try {
     const logo = await withTimeout(loadImage("/brand/edgaze-mark.png"), 2500, "Logo load");
     const logoSize = 120;
-    ctx.drawImage(logo, (900 - logoSize) / 2, (900 - logoSize) / 2, logoSize, logoSize);
+    ctx.drawImage(
+      logo,
+      (900 - logoSize) / 2,
+      (900 - logoSize) / 2,
+      logoSize,
+      logoSize
+    );
   } catch {
     // ignore
   }
@@ -210,7 +234,15 @@ function fireMiniConfetti() {
   document.body.appendChild(root);
 
   const pieces = 90;
-  const colors = ["#22d3ee", "#60a5fa", "#ec4899", "#a78bfa", "#34d399", "#fbbf24", "#ffffff"];
+  const colors = [
+    "#22d3ee",
+    "#60a5fa",
+    "#ec4899",
+    "#a78bfa",
+    "#34d399",
+    "#fbbf24",
+    "#ffffff",
+  ];
 
   for (let i = 0; i < pieces; i++) {
     const p = document.createElement("div");
@@ -236,9 +268,17 @@ function fireMiniConfetti() {
     p.animate(
       [
         { transform: `translate(0px, 0px) rotate(0deg)`, opacity: 1 },
-        { transform: `translate(${drift}px, 110vh) rotate(${spin}deg)`, opacity: 0.95 },
+        {
+          transform: `translate(${drift}px, 110vh) rotate(${spin}deg)`,
+          opacity: 0.95,
+        },
       ],
-      { duration: dur, delay, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" }
+      {
+        duration: dur,
+        delay,
+        easing: "cubic-bezier(.2,.8,.2,1)",
+        fill: "forwards",
+      }
     );
 
     root.appendChild(p);
@@ -275,7 +315,11 @@ function ShareModal({
     (async () => {
       setQrBusy(true);
       try {
-        const qr = await withTimeout(qrWithCenteredLogoDataUrl(shareUrl), 9000, "QR render");
+        const qr = await withTimeout(
+          qrWithCenteredLogoDataUrl(shareUrl),
+          9000,
+          "QR render"
+        );
         if (!alive) return;
         setQrDataUrl(qr);
       } catch {
@@ -299,10 +343,20 @@ function ShareModal({
         <div className="relative w-[min(1120px,98vw)] overflow-hidden rounded-3xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.8)]">
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4">
             <div className="flex items-center gap-3">
-              <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={28} height={28} className="h-6 w-6 sm:h-7 sm:w-7" />
+              <Image
+                src="/brand/edgaze-mark.png"
+                alt="Edgaze"
+                width={28}
+                height={28}
+                className="h-6 w-6 sm:h-7 sm:w-7"
+              />
               <div>
-                <div className="text-[13px] sm:text-[14px] font-semibold text-white">Share</div>
-                <div className="hidden sm:block text-[11px] text-white/50">Share link, QR, and Edgaze code</div>
+                <div className="text-[13px] sm:text-[14px] font-semibold text-white">
+                  Share
+                </div>
+                <div className="hidden sm:block text-[11px] text-white/50">
+                  Share link, QR, and Edgaze code
+                </div>
               </div>
             </div>
             <button
@@ -319,16 +373,24 @@ function ShareModal({
             <div className="grid grid-cols-12 gap-4 sm:gap-5">
               <div className="col-span-12 sm:col-span-7">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-                  <div className="text-[11px] font-semibold text-white/70">Edgaze code</div>
+                  <div className="text-[11px] font-semibold text-white/70">
+                    Edgaze code
+                  </div>
                   <div className="mt-2 flex items-end justify-between gap-3">
-                    <div className="text-[34px] sm:text-[40px] font-semibold tracking-tight text-white leading-none">{code || "—"}</div>
+                    <div className="text-[34px] sm:text-[40px] font-semibold tracking-tight text-white leading-none">
+                      {code || "—"}
+                    </div>
                     <div className="text-right text-[11px] text-white/45">
-                      <span className="text-white/70 font-semibold">@{ownerHandle || "creator"}</span>
+                      <span className="text-white/70 font-semibold">
+                        @{ownerHandle || "creator"}
+                      </span>
                     </div>
                   </div>
 
                   <div className="mt-4">
-                    <div className="text-[11px] font-semibold text-white/70">Share link</div>
+                    <div className="text-[11px] font-semibold text-white/70">
+                      Share link
+                    </div>
                     <div className="mt-2 flex items-center gap-2">
                       <div className="flex-1 rounded-2xl border border-white/10 bg-black/35 px-3 py-2.5 text-[12px] text-white/85 overflow-hidden">
                         <span className="inline-flex items-center gap-2">
@@ -363,13 +425,19 @@ function ShareModal({
               <div className="col-span-12 sm:col-span-5">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] font-semibold text-white/70">QR code</div>
+                    <div className="text-[11px] font-semibold text-white/70">
+                      QR code
+                    </div>
                     <button
                       type="button"
                       onClick={async () => {
                         setQrBusy(true);
                         try {
-                          const qr = await withTimeout(qrWithCenteredLogoDataUrl(shareUrl), 9000, "QR render");
+                          const qr = await withTimeout(
+                            qrWithCenteredLogoDataUrl(shareUrl),
+                            9000,
+                            "QR render"
+                          );
                           setQrDataUrl(qr);
                         } finally {
                           setQrBusy(false);
@@ -391,9 +459,15 @@ function ShareModal({
                         </div>
                       ) : qrDataUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={qrDataUrl} alt="Edgaze QR" className="h-full w-full object-cover" />
+                        <img
+                          src={qrDataUrl}
+                          alt="Edgaze QR"
+                          className="h-full w-full object-cover"
+                        />
                       ) : (
-                        <div className="text-[12px] text-white/55">QR unavailable</div>
+                        <div className="text-[12px] text-white/55">
+                          QR unavailable
+                        </div>
                       )}
                     </div>
                   </div>
@@ -402,7 +476,14 @@ function ShareModal({
                     <button
                       type="button"
                       disabled={!qrDataUrl}
-                      onClick={() => (qrDataUrl ? downloadDataUrl(qrDataUrl, `edgaze-qr-${code || "workflow"}.png`) : null)}
+                      onClick={() =>
+                        qrDataUrl
+                          ? downloadDataUrl(
+                              qrDataUrl,
+                              `edgaze-qr-${code || "workflow"}.png`
+                            )
+                          : null
+                      }
                       className={cn(
                         "h-10 sm:h-11 flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 sm:px-4 text-[12px] font-semibold text-white/90 hover:bg-white/10",
                         !qrDataUrl && "opacity-60 cursor-not-allowed"
@@ -432,19 +513,26 @@ function ShareModal({
                     <div className="flex items-start gap-2">
                       <ExternalLink className="h-4 w-4 mt-[1px] text-white/45" />
                       <div className="min-w-0">
-                        <div className="text-white/80 font-semibold">Share friction killer</div>
+                        <div className="text-white/80 font-semibold">
+                          Share friction killer
+                        </div>
                         <div className="mt-0.5 leading-snug">
-                          Copy link → paste anywhere. Edgaze code is short for shoutouts on video.
+                          Copy link → paste anywhere. Edgaze code is short for
+                          shoutouts on video.
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-2 text-[11px] text-white/40">QR auto-generates; regenerate if needed.</div>
+                  <div className="mt-2 text-[11px] text-white/40">
+                    QR auto-generates; regenerate if needed.
+                  </div>
                 </div>
               </div>
 
-              <div className="col-span-12 sm:hidden text-[11px] text-white/45">QR + link are ready to share.</div>
+              <div className="col-span-12 sm:hidden text-[11px] text-white/45">
+                QR + link are ready to share.
+              </div>
             </div>
           </div>
         </div>
@@ -483,8 +571,12 @@ function PurchaseSuccessModal({
                 <CheckCircle2 className="h-5 w-5 text-emerald-200" />
               </div>
               <div>
-                <div className="text-[14px] font-semibold text-white">Purchased</div>
-                <div className="text-[11px] text-white/55">Access is now attached to your account</div>
+                <div className="text-[14px] font-semibold text-white">
+                  Purchased
+                </div>
+                <div className="text-[11px] text-white/55">
+                  Access is now attached to your account
+                </div>
               </div>
             </div>
             <button
@@ -500,7 +592,9 @@ function PurchaseSuccessModal({
           <div className="p-5">
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[12px] text-white/70">You unlocked</div>
-              <div className="mt-1 text-[16px] font-semibold text-white leading-snug">{title}</div>
+              <div className="mt-1 text-[16px] font-semibold text-white leading-snug">
+                {title}
+              </div>
               <div className="mt-3 space-y-2 text-[12px] text-white/75">
                 <div>• Open in Workflow Studio (read-only)</div>
                 <div>• Run the workflow</div>
@@ -527,7 +621,9 @@ function PurchaseSuccessModal({
             </div>
 
             <div className="mt-3 text-[11px] text-white/45">
-              This opens in <span className="text-white/70 font-semibold">preview mode</span> (no editing). Owners still get full edit mode.
+              This opens in{" "}
+              <span className="text-white/70 font-semibold">preview mode</span>{" "}
+              (no editing). Owners still get full edit mode.
             </div>
           </div>
         </div>
@@ -623,7 +719,8 @@ export default function WorkflowProductPage() {
         return;
       }
 
-      const record = data as WorkflowListing;
+      // TS build fix: cast through unknown to avoid GenericStringError overlap type.
+      const record = data as unknown as WorkflowListing;
 
       // Basic guard: don’t show private.
       if (record.is_public === false) {
@@ -640,8 +737,10 @@ export default function WorkflowProductPage() {
         .from("workflows")
         .update({ views_count: (record.views_count ?? 0) + 1 })
         .eq("id", record.id)
-        .then()
-        .catch(() => {});
+        .then(
+          () => {},
+          () => {}
+        );
     }
 
     load();
@@ -652,8 +751,13 @@ export default function WorkflowProductPage() {
 
   const demoImages: string[] = useMemo(() => {
     if (!listing) return [];
-    if (Array.isArray(listing.demo_images) && listing.demo_images.length > 0) return listing.demo_images;
-    if (Array.isArray(listing.output_demo_urls) && listing.output_demo_urls.length > 0) return listing.output_demo_urls;
+    if (Array.isArray(listing.demo_images) && listing.demo_images.length > 0)
+      return listing.demo_images;
+    if (
+      Array.isArray(listing.output_demo_urls) &&
+      listing.output_demo_urls.length > 0
+    )
+      return listing.output_demo_urls;
     if (listing.banner_url) return [listing.banner_url];
     if (listing.thumbnail_url) return [listing.thumbnail_url];
     return [];
@@ -672,7 +776,8 @@ export default function WorkflowProductPage() {
     return `https://edgaze.ai/${h}/${c}`;
   }, [listing?.owner_handle, listing?.edgaze_code, ownerHandle, edgazeCode]);
 
-  const goBack = () => router.push("/marketplace");
+  // Typed routes in Next can be strict; cast to any for runtime-safe string routes.
+  const goBack = () => router.push("/marketplace" as any);
 
   const isNaturallyFree = useMemo(() => {
     if (!listing) return true;
@@ -687,7 +792,9 @@ export default function WorkflowProductPage() {
   const paidLabel = useMemo(() => {
     if (!listing) return "Free";
     if (isNaturallyFree) return "Free";
-    return listing.price_usd != null ? `$${Number(listing.price_usd).toFixed(2)}` : "Paid";
+    return listing.price_usd != null
+      ? `$${Number(listing.price_usd).toFixed(2)}`
+      : "Paid";
   }, [listing, isNaturallyFree]);
 
   const primaryCtaLabel = useMemo(() => {
@@ -705,7 +812,9 @@ export default function WorkflowProductPage() {
     if (!listing) return false;
     if (isOwner) return true;
     if (isNaturallyFree) return true;
-    return Boolean(purchase && (purchase.status === "paid" || purchase.status === "beta"));
+    return Boolean(
+      purchase && (purchase.status === "paid" || purchase.status === "beta")
+    );
   }, [listing, isOwner, isNaturallyFree, purchase]);
 
   function openWorkflowStudio() {
@@ -715,7 +824,11 @@ export default function WorkflowProductPage() {
     const wid = listing.id;
     const mode = isOwner ? "edit" : "preview";
 
-    router.push(`/builder?workflowId=${encodeURIComponent(wid)}&mode=${encodeURIComponent(mode)}`);
+    router.push(
+      (`/builder?workflowId=${encodeURIComponent(
+        wid
+      )}&mode=${encodeURIComponent(mode)}` as any) as any
+    );
   }
 
   async function loadPurchaseRow(workflowId: string, uid: string) {
@@ -758,7 +871,6 @@ export default function WorkflowProductPage() {
 
     // Free listings are still "open", but we want preview mode for non-owners too.
     if (isNaturallyFree && !isOwner) {
-      // Optional auth gate for free: keep consistent with your existing behavior (no forced auth for free).
       openWorkflowStudio();
       return;
     }
@@ -787,7 +899,9 @@ export default function WorkflowProductPage() {
 
         if (error) {
           console.error("workflow beta access insert error", error);
-          setPurchaseError("Could not grant access. Fix RLS on workflow_purchases (INSERT + SELECT for buyer_id).");
+          setPurchaseError(
+            "Could not grant access. Fix RLS on workflow_purchases (INSERT + SELECT for buyer_id)."
+          );
           return;
         }
 
@@ -801,11 +915,12 @@ export default function WorkflowProductPage() {
 
     // Real paid checkout (Stripe) not wired yet.
     if (!isNaturallyFree) {
-      setPurchaseError("Paid checkout not wired yet. Stripe should create workflow_purchases(status='paid') server-side.");
+      setPurchaseError(
+        "Paid checkout not wired yet. Stripe should create workflow_purchases(status='paid') server-side."
+      );
       return;
     }
 
-    // Free workflow: open studio
     openWorkflowStudio();
   }
 
@@ -855,7 +970,8 @@ export default function WorkflowProductPage() {
       return;
     }
 
-    const rows = (data ?? []) as WorkflowListing[];
+    // TS build fix: cast through unknown to avoid GenericStringError[] overlap type.
+    const rows = (data ?? []) as unknown as WorkflowListing[];
     setUpNext((prev) => (reset ? rows : [...prev, ...rows]));
     setUpNextCursor(from + rows.length);
     setUpNextHasMore(rows.length === pageSize);
@@ -972,8 +1088,14 @@ export default function WorkflowProductPage() {
                 {initialsFromName(listing.owner_name || listing.owner_handle)}
               </div>
               <div className="hidden flex-col sm:flex leading-tight">
-                <span className="text-xs font-medium text-white/90">{listing.owner_name || "Creator"}</span>
-                {listing.owner_handle && <span className="text-[11px] text-white/50">@{listing.owner_handle}</span>}
+                <span className="text-xs font-medium text-white/90">
+                  {listing.owner_name || "Creator"}
+                </span>
+                {listing.owner_handle && (
+                  <span className="text-[11px] text-white/50">
+                    @{listing.owner_handle}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1003,7 +1125,13 @@ export default function WorkflowProductPage() {
                 : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
             )}
           >
-            {purchaseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : isOwned ? <Sparkles className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+            {purchaseLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isOwned ? (
+              <Sparkles className="h-4 w-4" />
+            ) : (
+              <Lock className="h-4 w-4" />
+            )}
             {isOwned ? "Open" : primaryCtaLabel}
           </button>
 
@@ -1025,7 +1153,9 @@ export default function WorkflowProductPage() {
               <div className="font-semibold">Access error</div>
               <div className="mt-1 text-rose-100/80">{purchaseError}</div>
               <div className="mt-2 text-rose-100/70">
-                Fix: <span className="font-semibold">workflow_purchases</span> RLS must allow <span className="font-semibold">INSERT</span> and{" "}
+                Fix:{" "}
+                <span className="font-semibold">workflow_purchases</span> RLS
+                must allow <span className="font-semibold">INSERT</span> and{" "}
                 <span className="font-semibold">SELECT</span> for the buyer_id.
               </div>
             </div>
@@ -1042,7 +1172,9 @@ export default function WorkflowProductPage() {
                       src={activeDemo}
                       alt={listing.title || "Workflow demo image"}
                       className="h-full w-full cursor-pointer object-cover"
-                      onClick={() => window.open(activeDemo, "_blank", "noopener,noreferrer")}
+                      onClick={() =>
+                        window.open(activeDemo, "_blank", "noopener,noreferrer")
+                      }
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-xs text-white/50">
@@ -1055,7 +1187,11 @@ export default function WorkflowProductPage() {
                   <>
                     <button
                       type="button"
-                      onClick={() => setMainDemoIndex((prev) => (prev === 0 ? demoImages.length - 1 : prev - 1))}
+                      onClick={() =>
+                        setMainDemoIndex((prev) =>
+                          prev === 0 ? demoImages.length - 1 : prev - 1
+                        )
+                      }
                       className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
                       aria-label="Previous"
                     >
@@ -1063,7 +1199,11 @@ export default function WorkflowProductPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setMainDemoIndex((prev) => (prev === demoImages.length - 1 ? 0 : prev + 1))}
+                      onClick={() =>
+                        setMainDemoIndex((prev) =>
+                          prev === demoImages.length - 1 ? 0 : prev + 1
+                        )
+                      }
                       className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
                       aria-label="Next"
                     >
@@ -1082,12 +1222,17 @@ export default function WorkflowProductPage() {
                       onClick={() => setMainDemoIndex(idx)}
                       className={cn(
                         "relative h-14 w-24 flex-none overflow-hidden rounded-xl border border-white/10 bg-black/60",
-                        idx === mainDemoIndex && "border-cyan-400 shadow-[0_0_14px_rgba(56,189,248,0.55)]"
+                        idx === mainDemoIndex &&
+                          "border-cyan-400 shadow-[0_0_14px_rgba(56,189,248,0.55)]"
                       )}
                       aria-label={`Select demo ${idx + 1}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img} alt={`Demo ${idx + 1}`} className="h-full w-full object-cover" />
+                      <img
+                        src={img}
+                        alt={`Demo ${idx + 1}`}
+                        className="h-full w-full object-cover"
+                      />
                     </button>
                   ))}
                 </div>
@@ -1141,8 +1286,12 @@ export default function WorkflowProductPage() {
                     {initialsFromName(listing.owner_name || listing.owner_handle)}
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-white/90">{listing.owner_name || "Creator"}</div>
-                    <div className="truncate text-[12px] text-white/55">@{listing.owner_handle || "creator"}</div>
+                    <div className="truncate text-sm font-medium text-white/90">
+                      {listing.owner_name || "Creator"}
+                    </div>
+                    <div className="truncate text-[12px] text-white/55">
+                      @{listing.owner_handle || "creator"}
+                    </div>
                   </div>
                 </div>
 
@@ -1151,13 +1300,19 @@ export default function WorkflowProductPage() {
                   onClick={grantAccessOrOpen}
                   className="hidden sm:inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white hover:border-cyan-400/70"
                 >
-                  {isOwned ? <Sparkles className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                  {isOwned ? (
+                    <Sparkles className="h-4 w-4" />
+                  ) : (
+                    <Lock className="h-4 w-4" />
+                  )}
                   {isOwned ? "Open" : primaryCtaLabel}
                 </button>
               </div>
 
               <div className="mt-4 border-t border-white/10 pt-4">
-                <p className="text-sm leading-relaxed text-white/75">{listing.description || "No description provided yet."}</p>
+                <p className="text-sm leading-relaxed text-white/75">
+                  {listing.description || "No description provided yet."}
+                </p>
 
                 {listing.tags && (
                   <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/55">
@@ -1166,7 +1321,10 @@ export default function WorkflowProductPage() {
                       .map((t) => t.trim())
                       .filter(Boolean)
                       .map((t) => (
-                        <span key={t} className="rounded-full bg-white/5 px-2 py-1">
+                        <span
+                          key={t}
+                          className="rounded-full bg-white/5 px-2 py-1"
+                        >
                           #{t}
                         </span>
                       ))}
@@ -1174,16 +1332,11 @@ export default function WorkflowProductPage() {
                 )}
               </div>
 
+              {/* ✅ FIXED: pass only props that exist on CommentsSectionProps */}
               <div className="hidden sm:block mt-6 border-t border-white/10 pt-6">
                 <CommentsSection
                   listingId={listing.id}
                   listingOwnerId={listing.owner_id}
-                  listingOwnerName={listing.owner_name}
-                  listingOwnerHandle={listing.owner_handle}
-                  currentUserId={currentUserId}
-                  currentUserName={currentUserName}
-                  currentUserHandle={currentUserHandle}
-                  requireAuth={requireAuth}
                 />
               </div>
 
@@ -1200,7 +1353,9 @@ export default function WorkflowProductPage() {
                   aria-label="Open comments"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="text-[13px] font-semibold text-white/85">Comments</div>
+                    <div className="text-[13px] font-semibold text-white/85">
+                      Comments
+                    </div>
                     <div className="text-[11px] text-white/55">Tap to view</div>
                   </div>
 
@@ -1210,12 +1365,6 @@ export default function WorkflowProductPage() {
                       <CommentsSection
                         listingId={listing.id}
                         listingOwnerId={listing.owner_id}
-                        listingOwnerName={listing.owner_name}
-                        listingOwnerHandle={listing.owner_handle}
-                        currentUserId={currentUserId}
-                        currentUserName={currentUserName}
-                        currentUserHandle={currentUserHandle}
-                        requireAuth={requireAuth}
                       />
                     </div>
                   </div>
@@ -1223,10 +1372,15 @@ export default function WorkflowProductPage() {
 
                 {commentsOpen && (
                   <div className="fixed inset-0 z-[110]">
-                    <div className="absolute inset-0 bg-black/80" onClick={() => setCommentsOpen(false)} />
+                    <div
+                      className="absolute inset-0 bg-black/80"
+                      onClick={() => setCommentsOpen(false)}
+                    />
                     <div className="absolute inset-x-0 bottom-0 top-[10%] rounded-t-3xl border border-white/10 bg-[#050505] overflow-hidden">
                       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-                        <div className="text-[14px] font-semibold text-white">Comments</div>
+                        <div className="text-[14px] font-semibold text-white">
+                          Comments
+                        </div>
                         <button
                           type="button"
                           onClick={() => setCommentsOpen(false)}
@@ -1241,12 +1395,6 @@ export default function WorkflowProductPage() {
                         <CommentsSection
                           listingId={listing.id}
                           listingOwnerId={listing.owner_id}
-                          listingOwnerName={listing.owner_name}
-                          listingOwnerHandle={listing.owner_handle}
-                          currentUserId={currentUserId}
-                          currentUserName={currentUserName}
-                          currentUserHandle={currentUserHandle}
-                          requireAuth={requireAuth}
                         />
                       </div>
                     </div>
@@ -1263,9 +1411,17 @@ export default function WorkflowProductPage() {
 
                 <div className="flex flex-col gap-3">
                   {upNext.map((s) => {
-                    const suggestionFree = s.monetisation_mode === "free" || s.is_paid === false;
-                    const href = s.owner_handle && s.edgaze_code ? `/${s.owner_handle}/${s.edgaze_code}` : null;
-                    const suggestionPaidLabel = suggestionFree ? "Free" : s.price_usd != null ? `$${Number(s.price_usd).toFixed(2)}` : "Paid";
+                    const suggestionFree =
+                      s.monetisation_mode === "free" || s.is_paid === false;
+                    const href =
+                      s.owner_handle && s.edgaze_code
+                        ? `/${s.owner_handle}/${s.edgaze_code}`
+                        : null;
+                    const suggestionPaidLabel = suggestionFree
+                      ? "Free"
+                      : s.price_usd != null
+                      ? `$${Number(s.price_usd).toFixed(2)}`
+                      : "Paid";
 
                     const thumb = s.thumbnail_url || s.banner_url || null;
 
@@ -1274,8 +1430,11 @@ export default function WorkflowProductPage() {
                         key={s.id}
                         type="button"
                         disabled={!href}
-                        onClick={() => href && router.push(href)}
-                        className={cn("group flex w-full items-start gap-3 text-left", !href && "cursor-not-allowed opacity-60")}
+                        onClick={() => href && router.push(href as any)}
+                        className={cn(
+                          "group flex w-full items-start gap-3 text-left",
+                          !href && "cursor-not-allowed opacity-60"
+                        )}
                       >
                         <div className="relative h-20 w-36 flex-none overflow-hidden rounded-xl bg-black/60 border border-white/10">
                           {thumb ? (
@@ -1286,13 +1445,19 @@ export default function WorkflowProductPage() {
                               className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[11px] text-white/40">Workflow</div>
+                            <div className="flex h-full w-full items-center justify-center text-[11px] text-white/40">
+                              Workflow
+                            </div>
                           )}
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 text-[13px] font-semibold text-white/90">{s.title || "Untitled workflow"}</p>
-                          <p className="mt-1 truncate text-[12px] text-white/55">@{s.owner_handle || s.owner_name || "creator"}</p>
+                          <p className="line-clamp-2 text-[13px] font-semibold text-white/90">
+                            {s.title || "Untitled workflow"}
+                          </p>
+                          <p className="mt-1 truncate text-[12px] text-white/55">
+                            @{s.owner_handle || s.owner_name || "creator"}
+                          </p>
                           <div className="mt-1 flex items-center justify-between">
                             <p className="truncate text-[11px] text-white/40">
                               {s.tags
@@ -1309,7 +1474,11 @@ export default function WorkflowProductPage() {
                             <span className="text-[12px] font-semibold text-white/75">
                               {CLOSED_BETA && !suggestionFree ? (
                                 <span className="inline-flex items-center gap-2">
-                                  <span className="line-through decoration-white/40">{suggestionPaidLabel === "Paid" ? "$—" : suggestionPaidLabel}</span>
+                                  <span className="line-through decoration-white/40">
+                                    {suggestionPaidLabel === "Paid"
+                                      ? "$—"
+                                      : suggestionPaidLabel}
+                                  </span>
                                   <span className="text-white/85">Free</span>
                                 </span>
                               ) : (
@@ -1331,7 +1500,11 @@ export default function WorkflowProductPage() {
                     </div>
                   )}
 
-                  {!upNextHasMore && upNext.length > 0 && <p className="text-[12px] text-white/45">You reached the end.</p>}
+                  {!upNextHasMore && upNext.length > 0 && (
+                    <p className="text-[12px] text-white/45">
+                      You reached the end.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1342,13 +1515,23 @@ export default function WorkflowProductPage() {
                 <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_0_30px_rgba(15,23,42,0.65)]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-sm font-semibold">{isOwned ? "You have access" : "Unlock this workflow"}</h2>
+                      <h2 className="text-sm font-semibold">
+                        {isOwned ? "You have access" : "Unlock this workflow"}
+                      </h2>
                       <p className="mt-1 text-[12px] text-white/55">
-                        {isOwned ? (isOwner ? "Open it in Workflow Studio." : "Open it in Workflow Studio (read-only).") : "Access attaches to your Edgaze account."}
+                        {isOwned
+                          ? isOwner
+                            ? "Open it in Workflow Studio."
+                            : "Open it in Workflow Studio (read-only)."
+                          : "Access attaches to your Edgaze account."}
                       </p>
                     </div>
 
-                    {showClosedBetaFree && !isOwned && <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-white/60">Closed beta</span>}
+                    {showClosedBetaFree && !isOwned && (
+                      <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-white/60">
+                        Closed beta
+                      </span>
+                    )}
 
                     {isOwned && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-200">
@@ -1365,20 +1548,32 @@ export default function WorkflowProductPage() {
                           <div className="text-[11px] text-white/45">Price</div>
                           <div className="mt-1 flex items-baseline gap-2">
                             <div className="text-2xl font-semibold">$0.00</div>
-                            <div className="text-[12px] text-white/55">during closed beta</div>
+                            <div className="text-[12px] text-white/55">
+                              during closed beta
+                            </div>
                           </div>
                           <div className="mt-1 text-[12px] text-white/50">
-                            <span className="line-through decoration-white/40">{paidLabel === "Paid" ? "$—" : paidLabel}</span>
+                            <span className="line-through decoration-white/40">
+                              {paidLabel === "Paid" ? "$—" : paidLabel}
+                            </span>
                           </div>
                         </div>
-                        <div className="text-right text-[11px] text-white/45">Limited access drop</div>
+                        <div className="text-right text-[11px] text-white/45">
+                          Limited access drop
+                        </div>
                       </div>
                     ) : (
                       <div>
                         <div className="text-[11px] text-white/45">Price</div>
                         <div className="mt-1 flex items-baseline gap-2">
-                          <div className="text-2xl font-semibold">{paidLabel === "Free" ? "$0.00" : paidLabel}</div>
-                          {!isNaturallyFree && <span className="text-[12px] text-white/55">one-time</span>}
+                          <div className="text-2xl font-semibold">
+                            {paidLabel === "Free" ? "$0.00" : paidLabel}
+                          </div>
+                          {!isNaturallyFree && (
+                            <span className="text-[12px] text-white/55">
+                              one-time
+                            </span>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1396,8 +1591,18 @@ export default function WorkflowProductPage() {
                           : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
                       )}
                     >
-                      {purchaseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : isOwned ? <Sparkles className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                      {isOwned ? (isOwner ? "Open in Workflow Studio" : "Open in Workflow Studio (Preview)") : primaryCtaLabel}
+                      {purchaseLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : isOwned ? (
+                        <Sparkles className="h-4 w-4" />
+                      ) : (
+                        <Lock className="h-4 w-4" />
+                      )}
+                      {isOwned
+                        ? isOwner
+                          ? "Open in Workflow Studio"
+                          : "Open in Workflow Studio (Preview)"
+                        : primaryCtaLabel}
                     </button>
 
                     <button
@@ -1412,7 +1617,9 @@ export default function WorkflowProductPage() {
 
                   {!isOwned && (
                     <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
-                      <div className="font-semibold text-white/80">What you get</div>
+                      <div className="font-semibold text-white/80">
+                        What you get
+                      </div>
                       <div className="mt-2 space-y-1">
                         <div>• Open in Workflow Studio (read-only)</div>
                         <div>• Run the workflow</div>
@@ -1423,7 +1630,9 @@ export default function WorkflowProductPage() {
 
                   {isOwned && !isOwner && (
                     <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
-                      <div className="font-semibold text-white/80">Preview mode</div>
+                      <div className="font-semibold text-white/80">
+                        Preview mode
+                      </div>
                       <div className="mt-2 space-y-1">
                         <div>• No editing, no publish</div>
                         <div>• No block library / inspector</div>
@@ -1441,9 +1650,17 @@ export default function WorkflowProductPage() {
 
                   <div className="flex flex-col gap-3">
                     {upNext.map((s) => {
-                      const suggestionFree = s.monetisation_mode === "free" || s.is_paid === false;
-                      const href = s.owner_handle && s.edgaze_code ? `/${s.owner_handle}/${s.edgaze_code}` : null;
-                      const suggestionPaidLabel = suggestionFree ? "Free" : s.price_usd != null ? `$${Number(s.price_usd).toFixed(2)}` : "Paid";
+                      const suggestionFree =
+                        s.monetisation_mode === "free" || s.is_paid === false;
+                      const href =
+                        s.owner_handle && s.edgaze_code
+                          ? `/${s.owner_handle}/${s.edgaze_code}`
+                          : null;
+                      const suggestionPaidLabel = suggestionFree
+                        ? "Free"
+                        : s.price_usd != null
+                        ? `$${Number(s.price_usd).toFixed(2)}`
+                        : "Paid";
                       const thumb = s.thumbnail_url || s.banner_url || null;
 
                       return (
@@ -1451,21 +1668,34 @@ export default function WorkflowProductPage() {
                           key={s.id}
                           type="button"
                           disabled={!href}
-                          onClick={() => href && router.push(href)}
-                          className={cn("group flex w-full items-start gap-3 text-left", !href && "cursor-not-allowed opacity-60")}
+                          onClick={() => href && router.push(href as any)}
+                          className={cn(
+                            "group flex w-full items-start gap-3 text-left",
+                            !href && "cursor-not-allowed opacity-60"
+                          )}
                         >
                           <div className="relative h-20 w-36 flex-none overflow-hidden rounded-xl bg-black/60 border border-white/10">
                             {thumb ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={thumb} alt={s.title || "Workflow thumbnail"} className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" />
+                              <img
+                                src={thumb}
+                                alt={s.title || "Workflow thumbnail"}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                              />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center text-[11px] text-white/40">Workflow</div>
+                              <div className="flex h-full w-full items-center justify-center text-[11px] text-white/40">
+                                Workflow
+                              </div>
                             )}
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <p className="line-clamp-2 text-[13px] font-semibold text-white/90">{s.title || "Untitled workflow"}</p>
-                            <p className="mt-1 truncate text-[12px] text-white/55">@{s.owner_handle || s.owner_name || "creator"}</p>
+                            <p className="line-clamp-2 text-[13px] font-semibold text-white/90">
+                              {s.title || "Untitled workflow"}
+                            </p>
+                            <p className="mt-1 truncate text-[12px] text-white/55">
+                              @{s.owner_handle || s.owner_name || "creator"}
+                            </p>
                             <div className="mt-1 flex items-center justify-between">
                               <p className="truncate text-[11px] text-white/40">
                                 {s.tags
@@ -1482,7 +1712,11 @@ export default function WorkflowProductPage() {
                               <span className="text-[12px] font-semibold text-white/75">
                                 {CLOSED_BETA && !suggestionFree ? (
                                   <span className="inline-flex items-center gap-2">
-                                    <span className="line-through decoration-white/40">{suggestionPaidLabel === "Paid" ? "$—" : suggestionPaidLabel}</span>
+                                    <span className="line-through decoration-white/40">
+                                      {suggestionPaidLabel === "Paid"
+                                        ? "$—"
+                                        : suggestionPaidLabel}
+                                    </span>
                                     <span className="text-white/85">Free</span>
                                   </span>
                                 ) : (

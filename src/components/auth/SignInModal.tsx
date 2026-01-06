@@ -249,7 +249,8 @@ export default function SignInModal({
       email,
       password,
       fullName,
-      handle: email.split("@")[0],
+      handle: (email.split("@")[0] ?? "user").trim(),
+
     });
 
     setMode("verify");

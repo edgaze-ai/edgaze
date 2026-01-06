@@ -22,7 +22,9 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../../../lib/supabase/browser";
 import { useAuth } from "../../../../components/auth/AuthContext";
-import CommentsSection from "../../../../components/marketplace/CommentsSection";
+import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
+const CommentsSection = CommentsSectionRaw as unknown as React.ComponentType<any>;
+
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription" | "both" | null;
@@ -816,16 +818,19 @@ export default function PromptProductPage() {
         return;
       }
 
-      const record = data as PromptListing;
+      const record = data as unknown as PromptListing;
       setListing(record);
       setLoading(false);
 
-      supabase
-        .from("prompts")
-        .update({ view_count: (record.view_count ?? 0) + 1 })
-        .eq("id", record.id)
-        .then()
-        .catch(() => {});
+      (async () => {
+        try {
+          await supabase
+            .from("prompts")
+            .update({ view_count: (record.view_count ?? 0) + 1 })
+            .eq("id", record.id);
+        } catch {}
+      })();
+      
     }
 
     load();
@@ -1031,7 +1036,17 @@ export default function PromptProductPage() {
       return;
     }
 
-    const rows = (data ?? []) as PromptListing[];
+    const rows: PromptListing[] = Array.isArray(data)
+  ? (data as any[]).filter(
+      (r) =>
+        r &&
+        typeof r === "object" &&
+        typeof (r as any).id === "string" &&
+        typeof (r as any).owner_handle !== "undefined" &&
+        typeof (r as any).edgaze_code !== "undefined"
+    )
+  : [];
+
     setUpNext((prev) => (reset ? rows : [...prev, ...rows]));
     setUpNextCursor(from + rows.length);
     setUpNextHasMore(rows.length === pageSize);
@@ -1331,16 +1346,16 @@ export default function PromptProductPage() {
               </div>
 
               <div className="hidden sm:block mt-6 border-t border-white/10 pt-6">
-                <CommentsSection
-                  listingId={listing.id}
-                  listingOwnerId={listing.owner_id}
-                  listingOwnerName={listing.owner_name}
-                  listingOwnerHandle={listing.owner_handle}
-                  currentUserId={currentUserId}
-                  currentUserName={currentUserName}
-                  currentUserHandle={currentUserHandle}
-                  requireAuth={requireAuth}
-                />
+              <CommentsSection
+  listingId={listing.id}
+  listingOwnerId={listing.owner_id}
+  currentUserId={currentUserId}
+  currentUserName={currentUserName}
+  currentUserHandle={currentUserHandle}
+  requireAuth={requireAuth}
+/>
+
+
               </div>
 
               {/* Mobile: preview a few comments, open full sheet on tap */}
@@ -1363,16 +1378,16 @@ export default function PromptProductPage() {
                   <div className="mt-3 max-h-[140px] overflow-hidden relative">
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#050505] to-transparent" />
                     <div className="pointer-events-none opacity-90">
-                      <CommentsSection
-                        listingId={listing.id}
-                        listingOwnerId={listing.owner_id}
-                        listingOwnerName={listing.owner_name}
-                        listingOwnerHandle={listing.owner_handle}
-                        currentUserId={currentUserId}
-                        currentUserName={currentUserName}
-                        currentUserHandle={currentUserHandle}
-                        requireAuth={requireAuth}
-                      />
+                    <CommentsSection
+  listingId={listing.id}
+  listingOwnerId={listing.owner_id}
+  currentUserId={currentUserId}
+  currentUserName={currentUserName}
+  currentUserHandle={currentUserHandle}
+  requireAuth={requireAuth}
+/>
+
+
                     </div>
                   </div>
                 </div>
@@ -1394,16 +1409,16 @@ export default function PromptProductPage() {
                       </div>
 
                       <div className="h-[calc(100%-52px)] overflow-y-auto px-4 py-4">
-                        <CommentsSection
-                          listingId={listing.id}
-                          listingOwnerId={listing.owner_id}
-                          listingOwnerName={listing.owner_name}
-                          listingOwnerHandle={listing.owner_handle}
-                          currentUserId={currentUserId}
-                          currentUserName={currentUserName}
-                          currentUserHandle={currentUserHandle}
-                          requireAuth={requireAuth}
-                        />
+                      <CommentsSection
+  listingId={listing.id}
+  listingOwnerId={listing.owner_id}
+  currentUserId={currentUserId}
+  currentUserName={currentUserName}
+  currentUserHandle={currentUserHandle}
+  requireAuth={requireAuth}
+/>
+
+
                       </div>
                     </div>
                   </div>

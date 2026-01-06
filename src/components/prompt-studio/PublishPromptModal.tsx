@@ -16,13 +16,17 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import AssetPickerModal from "../assets/AssetPickerModal";
+import AssetPickerModalRaw from "../assets/AssetPickerModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 
 type PlaceholderDef = {
   name: string;
   question: string;
 };
+const AssetPickerModal = AssetPickerModalRaw as unknown as React.ComponentType<{
+  onClose: () => void;
+  onPick: (asset: any) => void;
+}>;
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription";
@@ -1372,18 +1376,18 @@ export default function PublishPromptModal({
           </div>
 
           {assetPickerOpen ? (
-            <AssetPickerModal
-              open={assetPickerOpen}
-              onClose={() => setAssetPickerOpen(false)}
-              onPick={(asset: any) => {
-                const url = asset?.url || "";
-                if (url) {
-                  onMetaChange?.({ ...meta, thumbnailUrl: url });
-                }
-                setAssetPickerOpen(false);
-              }}
-            />
-          ) : null}
+  <AssetPickerModal
+    onClose={() => setAssetPickerOpen(false)}
+    onPick={(asset: any) => {
+      const url = asset?.url || "";
+      if (url) {
+        onMetaChange?.({ ...meta, thumbnailUrl: url });
+      }
+      setAssetPickerOpen(false);
+    }}
+  />
+) : null}
+
         </div>
       </div>
     </div>

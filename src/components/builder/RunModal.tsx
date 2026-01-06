@@ -26,9 +26,17 @@ export default function RunModal() {
       setOpen(true);
       setTab("output"); // reset tab every run
     });
-    return off;
+  
+    return () => {
+      try {
+        // ensure cleanup returns void even if off() returns boolean
+        (off as unknown as (() => void))?.();
+      } catch {
+        // no-op
+      }
+    };
   }, []);
-
+  
   /* -----------------------------------------------
    * Data Extraction (safe) – hooks must ALWAYS run
    * --------------------------------------------- */

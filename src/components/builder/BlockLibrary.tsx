@@ -12,10 +12,13 @@ function useElementSize<T extends HTMLElement>() {
 
   useEffect(() => {
     if (!ref.current) return;
-    const ro = new ResizeObserver(([entry]) => {
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
       const cr = entry.contentRect;
       setSize({ width: cr.width, height: cr.height });
     });
+    
     ro.observe(ref.current);
     return () => ro.disconnect();
   }, []);

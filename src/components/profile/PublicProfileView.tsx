@@ -125,8 +125,9 @@ function formatRelativeTime(iso: string | null | undefined) {
     return `${n} ${u}${n === 1 ? "" : "s"} ${suffix}`;
   }
 
-  // @ts-expect-error Intl types vary in older TS libs
-  return rtf.format(v, u);
+ 
+  return rtf.format(v, u as Intl.RelativeTimeFormatUnit);
+
 }
 
 function priceLabelFor(it: CreatorListing) {

@@ -369,13 +369,23 @@ function applyEventToProfile(
     out.prefers_free += isFree ? weight * 0.12 : -weight * 0.12;
 
   const DECAY = 0.995;
-  if (out.events_seen % 40 === 0) {
-    for (const k of Object.keys(out.tag_w)) out.tag_w[k] *= DECAY;
-    for (const k of Object.keys(out.creator_w)) out.creator_w[k] *= DECAY;
-    out.type_w.prompt *= DECAY;
-    out.type_w.workflow *= DECAY;
-    out.prefers_free *= DECAY;
+if (out.events_seen % 40 === 0) {
+  for (const k of Object.keys(out.tag_w)) {
+    out.tag_w[k] = (out.tag_w[k] ?? 0) * DECAY;
+    if (out.tag_w[k] < 1e-6) delete out.tag_w[k];
   }
+
+  for (const k of Object.keys(out.creator_w)) {
+    out.creator_w[k] = (out.creator_w[k] ?? 0) * DECAY;
+    if (out.creator_w[k] < 1e-6) delete out.creator_w[k];
+  }
+
+  out.type_w.prompt = out.type_w.prompt * DECAY;
+  out.type_w.workflow = out.type_w.workflow * DECAY;
+  out.prefers_free = out.prefers_free * DECAY;
+}
+
+
 
   return out;
 }
@@ -455,23 +465,28 @@ function pickDiversifiedPage(
   const hardPreferMix = true;
 
   for (let i = 0; i < scored.length && out.length < pageSize; i++) {
-    const cand = scored[i].it;
+    const row = scored[i];
+    if (!row) continue; // noUncheckedIndexedAccess safe-guard
+  
+    const cand = row.it;
     const key = `${cand.type ?? "x"}:${cand.id}`;
     if (used.has(key)) continue;
-
+  
     const type = cand.type === "workflow" ? "workflow" : "prompt";
     const owner = (cand.owner_handle || "").toLowerCase();
-
+  
     if (owner && ownerRecent.includes(owner)) continue;
     if (hardPreferMix && lastType && lastType === type && streak >= 2) continue;
-
+  
     if (hardPreferMix && out.length >= 2) {
       const hasBothInPool =
         pool.some((p) => p.type === "workflow") &&
         pool.some((p) => p.type !== "workflow");
+  
       if (hasBothInPool && wantWorkflow !== 0.5) {
         const fracW =
           out.filter((x) => x.type === "workflow").length / Math.max(1, out.length);
+  
         if (wantWorkflow === 1 && type !== "workflow" && fracW < 0.35) {
           if ((out.length + 1) % 3 !== 0) continue;
         }
@@ -480,21 +495,22 @@ function pickDiversifiedPage(
         }
       }
     }
-
+  
     out.push(cand);
     used.add(key);
-
+  
     if (type === lastType) streak += 1;
     else {
       streak = 1;
       lastType = type;
     }
-
+  
     if (owner) {
       ownerRecent.push(owner);
       while (ownerRecent.length > ownerWindow) ownerRecent.shift();
     }
   }
+  
 
   if (out.length < pageSize) {
     for (const row of scored) {
@@ -641,7 +657,7 @@ function PromptCard({
       tags: parseTags(prompt.tags),
       meta: { is_free: isFree },
     });
-    router.push(detailPath);
+    router.push(detailPath as any);
   };
 
   const handleLikeClick: React.MouseEventHandler<HTMLButtonElement> = async (e) => {
@@ -945,6 +961,7 @@ function MarketplaceSearchBar({
         }}
       >
         <Search className="relative z-10 h-4 w-4 text-white/45" />
+
         <input
           ref={inputRef}
           type="text"
@@ -954,7 +971,7 @@ function MarketplaceSearchBar({
             const v = e.target.value;
             setQuery(v);
             setActivePredictIndexValue(-1);
-            // YouTube-like: keep dropdown open while typing, never interrupt caret.
+            // keep dropdown open while typing
             setPredictOpen(true);
           }}
           onFocus={() => {
@@ -1001,7 +1018,8 @@ function MarketplaceSearchBar({
                 activePredictIndex < predictResults.length
               ) {
                 e.preventDefault();
-                handlePredictSelect(predictResults[activePredictIndex]);
+                const picked = predictResults[activePredictIndex];
+                if (picked) handlePredictSelect(picked);
                 setPredictOpen(false);
                 setActivePredictIndexValue(-1);
                 return;
@@ -1027,9 +1045,7 @@ function MarketplaceSearchBar({
         >
           <div className="predict-top flex items-center justify-between gap-2 px-4 py-3">
             <div className="text-xs font-semibold text-white/80">Top matches</div>
-            <div className="text-[10px] text-white/35">
-              prompts • workflows • creators
-            </div>
+            <div className="text-[10px] text-white/35">prompts • workflows • creators</div>
           </div>
 
           {predictLoading ? (
@@ -1042,6 +1058,7 @@ function MarketplaceSearchBar({
               {predictResults.map((r, idx) => {
                 if (r.kind === "profile") {
                   const p = r.item as ProfileSuggestion;
+
                   return (
                     <React.Fragment key={`predict-${r.kind}-${p?.handle ?? "x"}-${idx}`}>
                       {idx === firstProfileIdx && (
@@ -1052,6 +1069,7 @@ function MarketplaceSearchBar({
                           Profiles
                         </li>
                       )}
+
                       <li key={`prof-${p.handle}-${idx}`}>
                         <button
                           type="button"
@@ -1082,7 +1100,9 @@ function MarketplaceSearchBar({
                 }
 
                 if (r.kind === "workflow") {
-                  const w = r.item as WorkflowSuggestion;
+                  // ✅ workflow items are CodeSuggestion (not WorkflowSuggestion)
+                  const w = r.item as CodeSuggestion;
+
                   return (
                     <React.Fragment key={`predict-${r.kind}-${w?.id ?? "x"}-${idx}`}>
                       {idx === firstWorkflowIdx && (
@@ -1093,6 +1113,7 @@ function MarketplaceSearchBar({
                           Workflows
                         </li>
                       )}
+
                       <li key={`wf-${w.id}-${idx}`}>
                         <button
                           type="button"
@@ -1119,7 +1140,9 @@ function MarketplaceSearchBar({
                             <div className="truncate text-sm font-semibold text-white/85">
                               {w.title || "Untitled workflow"}
                             </div>
-                            <div className="truncate text-xs text-white/45">@{w.owner_handle}</div>
+                            <div className="truncate text-xs text-white/45">
+                              @{w.owner_handle || "unknown"}
+                            </div>
                           </div>
 
                           <span className="rounded-full border border-pink-400/25 bg-pink-500/10 px-2 py-1 text-[10px] font-semibold text-pink-100">
@@ -1131,8 +1154,9 @@ function MarketplaceSearchBar({
                   );
                 }
 
-                // prompt
-                const p = r.item as PromptSuggestion;
+                // ✅ prompt items are CodeSuggestion (not PromptSuggestion)
+                const p = r.item as CodeSuggestion;
+
                 return (
                   <React.Fragment key={`predict-prompt-${p?.id ?? "x"}-${idx}`}>
                     {idx === firstPromptIdx && (
@@ -1143,6 +1167,7 @@ function MarketplaceSearchBar({
                         Prompts
                       </li>
                     )}
+
                     <li key={`pr-${p.id}-${idx}`}>
                       <button
                         type="button"
@@ -1169,7 +1194,9 @@ function MarketplaceSearchBar({
                           <div className="truncate text-sm font-semibold text-white/85">
                             {p.title || "Untitled prompt"}
                           </div>
-                          <div className="truncate text-xs text-white/45">@{p.owner_handle}</div>
+                          <div className="truncate text-xs text-white/45">
+                            @{p.owner_handle || "unknown"}
+                          </div>
                         </div>
 
                         <span className="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-2 py-1 text-[10px] font-semibold text-cyan-50">
@@ -1839,7 +1866,7 @@ const [codeQuery, setCodeQuery] = useState("");
     burstSparkle();
     emitEvent({ name: "open_code", meta: meta ?? null });
     await new Promise((r) => setTimeout(r, 420));
-    router.push(path);
+    router.push(path as any);
   };
 
   const fetchCodeSuggestions = async (q: string) => {
@@ -2022,7 +2049,7 @@ const [codeQuery, setCodeQuery] = useState("");
 
     if (qRaw.includes("/")) {
       const [h, c] = qRaw.split("/");
-      handlePart = h.replace(/^@/, "").trim() || null;
+      handlePart = h ? h.replace(/^@/, "").trim() || null : null;
       codePart = c?.trim() || null;
     } else if (qRaw.startsWith("/")) {
       codePart = qRaw.slice(1).trim();
@@ -2114,29 +2141,32 @@ const [codeQuery, setCodeQuery] = useState("");
 // MOBILE: no profile icon, no sign in button (use hamburger menu instead)
 const topRightMobile = null;
 
-  const handlePredictSelect = async (r: UnifiedSearchResult) => {
-    setPredictOpen(false);
-  
-    if (r.kind === "profile") {
-      const h = (r.item as ProfileSuggestion).handle;
-      if (!h) return;
-      router.push(`/profile/${h}`);
-      return;
-    }
-  
-    const it = r.item as CodeSuggestion;
-    if (!it.owner_handle || !it.edgaze_code) return;
-  
-    const path = r.kind === "workflow" 
+const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item: any }) => {
+  setPredictOpen(false);
+
+  if (r.kind === "profile") {
+    const h = (r.item as ProfileSuggestion).handle;
+    if (!h) return;
+    router.push((`/profile/${h}`) as any);
+    return;
+  }
+
+  const it = r.item as CodeSuggestion;
+  if (!it.owner_handle || !it.edgaze_code) return;
+
+  const path =
+    r.kind === "workflow"
       ? `/${it.owner_handle}/${it.edgaze_code}`
       : `/p/${it.owner_handle}/${it.edgaze_code}`;
-  
-    await openWithMagic(path, {
-      owner_handle: it.owner_handle,
-      edgaze_code: it.edgaze_code,
-      type: it.type,
-    });
-  };
+
+  // IMPORTANT: do not await; keep this handler synchronous to satisfy the prop type
+  void openWithMagic(path, {
+    owner_handle: it.owner_handle,
+    edgaze_code: it.edgaze_code,
+    type: it.type,
+  });
+};
+
   
 
   return (

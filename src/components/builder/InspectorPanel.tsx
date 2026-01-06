@@ -213,7 +213,9 @@ function GeneralPanel({
             <label className="text-[11px] text-white/60">Display Name</label>
             <Input
               defaultValue={cfg.name ?? spec.label}
-              onBlur={(e) => onUpdate({ name: e.target.value })}
+              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                onUpdate({ name: e.currentTarget.value })
+              }
             />
           </div>
 
@@ -222,7 +224,10 @@ function GeneralPanel({
             <TextArea
               rows={3}
               defaultValue={cfg.description ?? spec.summary}
-              onBlur={(e) => onUpdate({ description: e.target.value })}
+              onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
+                onUpdate({ description: e.currentTarget.value })
+              }
+              
             />
           </div>
         </div>
@@ -235,7 +240,10 @@ function GeneralPanel({
             <Input
               type="number"
               defaultValue={cfg.timeout ?? 8000}
-              onBlur={(e) => onUpdate({ timeout: Number(e.target.value) })}
+              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                onUpdate({ timeout: Number(e.currentTarget.value) })
+              }
+              
             />
           </div>
 
@@ -244,7 +252,10 @@ function GeneralPanel({
             <Input
               type="number"
               defaultValue={cfg.retries ?? 0}
-              onBlur={(e) => onUpdate({ retries: Number(e.target.value) })}
+              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                onUpdate({ retries: Number(e.currentTarget.value) })
+              }
+              
             />
           </div>
         </div>
@@ -287,11 +298,12 @@ function InputsPanel({
                   <label className="text-[11px] text-white/60">Default</label>
                   <Input
                     defaultValue={cfg?.inputs?.[port.id] ?? ""}
-                    onBlur={(e) =>
+                    onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
                       onUpdate({
-                        inputs: { ...(cfg.inputs ?? {}), [port.id]: e.target.value },
+                        inputs: { ...(cfg.inputs ?? {}), [port.id]: e.currentTarget.value },
                       })
                     }
+                    
                   />
                 </div>
                 <div>

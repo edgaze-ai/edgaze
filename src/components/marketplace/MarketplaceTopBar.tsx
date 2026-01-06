@@ -13,7 +13,7 @@ export default function MarketplaceTopBar() {
       <div className="flex items-center gap-3">
         {/* Current plan chip */}
         <div className="inline-flex h-10 items-center rounded-full bg-white/5 px-4 text-xs uppercase tracking-wide text-white/70">
-          {(user?.plan ?? "Free") + " plan"}
+        {"Free plan"}
         </div>
 
         {/* Example placeholder for filters / view mode etc, all h-10 for equal height */}

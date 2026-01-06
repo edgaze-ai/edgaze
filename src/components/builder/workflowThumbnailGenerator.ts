@@ -229,8 +229,10 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number
 
   // if overflow, ellipsis last line
   if (lines.length === maxLines && words.length > 0) {
-    const last = lines[lines.length - 1];
-    lines[lines.length - 1] = fitText(ctx, last, maxWidth);
+    const last = lines.at(-1);
+    if (typeof last === "string") {
+      lines[lines.length - 1] = fitText(ctx, last, maxWidth);
+    }
   }
 
   return lines;
@@ -485,7 +487,8 @@ export async function generatePromptThumbnailFile(opts: {
   ctx.font = "500 16px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto";
   const descLines = wrapLines(ctx, description || "Premium prompt listing", contentW, 2);
   for (let i = 0; i < descLines.length; i++) {
-    ctx.fillText(descLines[i], contentX, cardY + 106 + i * 22);
+    ctx.fillText(descLines[i] ?? "", contentX, cardY + 106 + i * 22);
+
   }
 
   // Tags pill row
@@ -550,7 +553,7 @@ export async function generatePromptThumbnailFile(opts: {
   const textMaxW = previewW - 36;
   const lines = wrapLines(ctx, preview || "Preview", textMaxW, 8);
   for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], previewX + 18, previewY + 56 + i * 20);
+    ctx.fillText(lines[i] ?? "", previewX + 18, previewY + 56 + i * 20);
   }
   ctx.restore();
 

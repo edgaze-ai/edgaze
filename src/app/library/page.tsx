@@ -192,11 +192,7 @@ function LibraryCard({ item, context, onEdit }: LibraryCardProps) {
 
   const isFree = item.monetisation_mode === "free" || item.is_paid === false;
   const priceLabel =
-    isFree || item.price_usd == null
-      ? isFree
-        ? "Free"
-        : "Paid"
-      : `$${Number(item.price_usd).toFixed(2)}`;
+    isFree || item.price_usd == null ? (isFree ? "Free" : "Paid") : `$${Number(item.price_usd).toFixed(2)}`;
 
   const badgeLabel = item.kind === "workflow" ? "Workflow" : "Prompt";
 
@@ -234,9 +230,7 @@ function LibraryCard({ item, context, onEdit }: LibraryCardProps) {
               <div
                 className={cn(
                   "rounded-full border px-2.5 py-1 text-[10px]",
-                  isFree
-                    ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-50"
-                    : "border-pink-400/20 bg-pink-400/10 text-pink-50"
+                  isFree ? "border-cyan-400/20 bg-cyan-400/10 text-cyan-50" : "border-pink-400/20 bg-pink-400/10 text-pink-50"
                 )}
               >
                 {priceLabel}
@@ -589,13 +583,21 @@ export default function LibraryPage() {
             return [item.id, item];
           })
         );
+        type PurchaseKey = { kind: LibraryKind; created_at: string; id: string };
 
-        // preserve purchase order (newest first) across both tables
-        const combinedPurchases: Array<{ kind: "prompt" | "workflow"; created_at: string; id: string }> = [
-          ...promptPurchases.map((p) => ({ kind: "prompt", created_at: p.created_at, id: p.prompt_id })),
-          ...workflowPurchases.map((w) => ({ kind: "workflow", created_at: w.created_at, id: w.workflow_id })),
+        const combinedPurchases: PurchaseKey[] = [
+          ...promptPurchases.map<PurchaseKey>((p) => ({
+            kind: "prompt",
+            created_at: p.created_at,
+            id: p.prompt_id,
+          })),
+          ...workflowPurchases.map<PurchaseKey>((w) => ({
+            kind: "workflow",
+            created_at: w.created_at,
+            id: w.workflow_id,
+          })),
         ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
+        
         const ordered: LibraryItem[] = [];
         for (const p of combinedPurchases) {
           const item = p.kind === "prompt" ? promptMap.get(p.id) : workflowMap.get(p.id);
@@ -667,10 +669,12 @@ export default function LibraryPage() {
     setWorkflowModalOpen(true);
   }
 
-  const ownerForWorkflowModal = useMemo(() => {
-    if (!userId) return null;
+  // FIX: must be `undefined` when absent (not null) and must match the modal's expected prop shape
+  const ownerForWorkflowModal = useMemo<
+    { name?: string; handle?: string; avatarUrl?: string | null } | undefined
+  >(() => {
+    if (!userId) return undefined;
     return {
-      userId,
       name: profile?.full_name || (profile as any)?.handle || "You",
       handle: (profile as any)?.handle || "you",
       avatarUrl: (profile as any)?.avatar_url || null,
@@ -782,7 +786,9 @@ export default function LibraryPage() {
                     No purchases yet.
                   </div>
                 ) : (
-                  purchased.map((item) => <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="purchased" />)
+                  purchased.map((item) => (
+                    <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="purchased" />
+                  ))
                 )}
               </div>
             </section>
@@ -832,7 +838,9 @@ export default function LibraryPage() {
                   No purchases yet.
                 </div>
               ) : (
-                purchased.map((item) => <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="purchased" />)
+                purchased.map((item) => (
+                  <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="purchased" />
+                ))
               )}
             </div>
           </section>

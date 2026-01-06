@@ -783,8 +783,9 @@ function IlluHeroCollectToBox() {
         {/* Data dots only during show */}
         {!reduce && show && (
           <>
-            <DataDot path={layout.dots[0]} delay={0.2} />
-            <DataDot path={layout.dots[1]} delay={1.0} />
+            <DataDot path={layout.dots[0] ?? []} delay={0.2} />
+<DataDot path={layout.dots[1] ?? []} delay={1.0} />
+
           </>
         )}
 
@@ -971,12 +972,12 @@ function IlluWorkflowGraph() {
       />
     );
   }
-
-  const a = nodes[0];
-  const b = nodes[1];
-  const c = nodes[2];
-  const d = nodes[3];
-  const e = nodes[4];
+  const a = nodes[0]!;
+  const b = nodes[1]!;
+  const c = nodes[2]!;
+  const d = nodes[3]!;
+  const e = nodes[4]!;
+  
 
   const centerRight = (n: { x: number; y: number; w: number }) => ({ x: n.x + n.w, y: n.y + 40 });
   const centerLeft = (n: { x: number; y: number }) => ({ x: n.x, y: n.y + 40 });
@@ -1483,11 +1484,12 @@ function CodeEntry() {
     }
 
     const pieces = q0.split("/").filter(Boolean);
-    const maybeCode = pieces.length ? pieces[pieces.length - 1] : q0;
-    if (maybeCode !== q0) {
-      setCode(maybeCode);
-      return;
-    }
+const maybeCode = pieces.length ? (pieces[pieces.length - 1] ?? q0) : q0;
+if (maybeCode !== q0) {
+  setCode(maybeCode);
+  return;
+}
+
 
     if (!dismissed) setOpenSug(true);
 
@@ -1579,9 +1581,11 @@ function CodeEntry() {
     }
 
     if (exact.length === 1) {
-      router.push(buildHref(exact[0]));
+      const only = exact[0]!;
+      router.push(buildHref(only));
       return;
     }
+    
 
     setSuggestions(exact);
     setActiveIdx(0);
@@ -1851,19 +1855,29 @@ export default function EdgazeLandingPage() {
     const nearestSectionTop = () => {
       const tops = getTops();
       if (!tops.length) return null;
+    
       const y = scroller.scrollTop;
-
-      let best = tops[0];
+    
+      // safe because we already checked length
+      let best = tops[0]!;
       let bestDist = Math.abs(y - best.top);
+    
       for (let i = 1; i < tops.length; i++) {
-        const d = Math.abs(y - tops[i].top);
+        const t = tops[i]!;
+        const d = Math.abs(y - t.top);
+    
         if (d < bestDist) {
-          best = tops[i];
+          best = t;
           bestDist = d;
         }
       }
-      return { ...best, dist: bestDist };
+    
+      return {
+        ...best,
+        dist: bestDist,
+      };
     };
+    
 
     const scheduleSettle = () => {
       if (scrollEndTimer) window.clearTimeout(scrollEndTimer);

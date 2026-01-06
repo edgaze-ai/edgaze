@@ -57,9 +57,13 @@ function interleaveEqual(a: CreatorListing[], b: CreatorListing[]) {
   const n = Math.max(a.length, b.length);
 
   for (let i = 0; i < n; i++) {
-    if (i < a.length) out.push(a[i]);
-    if (i < b.length) out.push(b[i]);
+    const ai = a[i];
+    if (ai) out.push(ai);
+
+    const bi = b[i];
+    if (bi) out.push(bi);
   }
+
   return out;
 }
 
@@ -178,7 +182,7 @@ function normalizeRow(row: any, type: ListingType): CreatorListing {
         : null;
 
   return {
-    id: String(row?.id),
+    id: typeof row?.id === "string" && row.id ? row.id : String(row?.id ?? ""),
     title,
     type,
     createdAt: typeof row?.created_at === "string" ? row.created_at : null,

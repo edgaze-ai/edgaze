@@ -16,23 +16,23 @@ import ReactFlow, {
   BackgroundVariant,
   Connection,
   Edge,
+  Handle,
   MiniMap,
   Node,
+  NodeChange,
+  NodeProps,
   OnConnect,
+  Position,
   ReactFlowInstance,
+  Viewport,
   useEdgesState,
   useNodesState,
-  Handle,
-  Position,
-  NodeProps,
-  Viewport,
-  NodeChange,
   EdgeChange,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { getNodeSpec } from "src/nodes/registry";
 import type { NodeSpec, Port } from "src/nodes/types";
-import MergeNode from "@components/builder/nodes/MergeNode";
+import MergeNode from "./nodes/MergeNode";
 import {
   Maximize2,
   Minimize2,
@@ -47,23 +47,14 @@ import {
   Trash2,
 } from "lucide-react";
 
-/**
- * FIXES (no UI/behavior regressions):
- * 1) ReactFlow error #011: "Edge type 'bezier' not found" -> use "simplebezier" everywhere.
- * 2) Maximum update depth exceeded:
- *    - Guard selection handler from firing repeatedly on identical selection keys.
- *    - Guard connectedNames recompute so it doesn't setNodes unless names actually changed.
- *    - Bubble reposition effect already has a threshold guard.
- * 3) Selection toolbar ALWAYS above selected node (never right/below).
- * 4) Selecting an edge shows delete-only toolbar above edge midpoint.
- * 5) Toolbar is premium black/white with icons + text + separators + hover micro-animations.
- *
- * NEW (Closed Beta / Marketplace Preview):
- * - mode="preview" makes the canvas read-only:
- *   - No add/drop/connect/paste/duplicate/delete/copy actions
- *   - No keyboard destructive actions
- *   - Node movement is STILL allowed (you asked: "just move around nothing else")
- */
+type EdgazeNodeData = {
+  specId: string;
+  title: string;
+  version: string;
+  summary: string;
+  config: any;
+  connectedNames: string[];
+};
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -91,9 +82,9 @@ function SelectionRing() {
   );
 }
 
-/* ---------- Default node card (white, clean) ---------- */
-function NodeCard(props: NodeProps) {
-  const { data, isConnectable, selected, id } = props as any;
+/* ---------- Default node card ---------- */
+function NodeCard(props: NodeProps<EdgazeNodeData>) {
+  const { data, isConnectable, selected, id } = props;
   const spec: NodeSpec | undefined = getNodeSpec(data?.specId);
   const title = spec?.label ?? "Node";
   const summary = spec?.summary ?? "";
@@ -164,20 +155,20 @@ const nodeTypes = {
 export type CanvasRef = {
   addNodeAtCenter: (specId: string) => void;
   updateNodeConfig: (nodeId: string, patch: any) => void;
-  getGraph: () => { nodes: Node[]; edges: Edge[] };
-  loadGraph: (graph: { nodes: Node[]; edges: Edge[] } | any) => void;
+  getGraph: () => { nodes: Node<EdgazeNodeData>[]; edges: Edge[] };
+  loadGraph: (graph: { nodes: Node<EdgazeNodeData>[]; edges: Edge[] } | any) => void;
 };
 
 type BuilderMode = "edit" | "preview";
 
 type Props = {
-  mode?: BuilderMode; // NEW: "preview" enables read-only mode
+  mode?: BuilderMode; // "preview" enables read-only mode
   onSelectionChange?: (s: {
     nodeId: string | null;
     specId?: string;
     config?: any;
   }) => void;
-  onGraphChange?: (graph: { nodes: Node[]; edges: Edge[] }) => void;
+  onGraphChange?: (graph: { nodes: Node<EdgazeNodeData>[]; edges: Edge[] }) => void;
 };
 
 function safeParseGraph(input: any): any {
@@ -192,14 +183,16 @@ function safeParseGraph(input: any): any {
   return input;
 }
 
-function normalizeGraph(graphLike: any): { nodes: Node[]; edges: Edge[] } {
+function normalizeGraph(
+  graphLike: any
+): { nodes: Node<EdgazeNodeData>[]; edges: Edge[] } {
   const g0 = safeParseGraph(graphLike);
   const g =
     g0?.graph && (Array.isArray(g0.graph.nodes) || Array.isArray(g0.graph.edges))
       ? g0.graph
       : g0;
 
-  const nodes = Array.isArray(g?.nodes) ? (g.nodes as Node[]) : [];
+  const nodes = Array.isArray(g?.nodes) ? (g.nodes as Node<EdgazeNodeData>[]) : [];
   const edges = Array.isArray(g?.edges) ? (g.edges as Edge[]) : [];
 
   return { nodes, edges };
@@ -217,8 +210,10 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 ) {
   const isPreview = mode === "preview";
 
-  const [nodes, setNodes, baseOnNodesChange] = useNodesState<Node>([]);
+  const [nodes, setNodes, baseOnNodesChange] = useNodesState<EdgazeNodeData>([]);
+
   const [edges, setEdges, baseOnEdgesChange] = useEdgesState<Edge>([]);
+
   const [locked, setLocked] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -229,12 +224,12 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
 
   const [bubble, setBubble] = useState<BubbleState | null>(null);
-  const lastCopiedNodeRef = useRef<Node | null>(null);
+  const lastCopiedNodeRef = useRef<Node<EdgazeNodeData> | null>(null);
 
   // Prevent selection-change -> state -> selection-change loops
   const lastSelectionKeyRef = useRef<string>("none");
 
-  const nodesRef = useRef<Node[]>([]);
+  const nodesRef = useRef<Node<EdgazeNodeData, string | undefined>[]>([]);
   const edgesRef = useRef<Edge[]>([]);
   useEffect(() => {
     nodesRef.current = nodes;
@@ -266,9 +261,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
   /* Maintain "Connected to" names (GUARDED: only updates if names actually change) */
   useEffect(() => {
-    // In preview, we still want "Connected to" to show correctly, but avoid mutating
-    // nodes data if you want absolute immutability. However, this is cosmetic only.
-    // Keep it enabled because it doesn't enable editing, and the graph still matches.
     setNodes((nds) => {
       let changed = false;
 
@@ -277,9 +269,9 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         const names = outs
           .map((e) => nds.find((x) => x.id === e.target))
           .filter(Boolean)
-          .map((x) => ((x!.data as any)?.title as string) || x!.id);
+          .map((x) => x!.data?.title || x!.id);
 
-        const prevNames = (n.data as any)?.connectedNames as string[] | undefined;
+        const prevNames = n.data?.connectedNames;
         const prevKey = Array.isArray(prevNames) ? prevNames.join("|") : "";
         const nextKey = names.join("|");
 
@@ -297,17 +289,18 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const createNodeFromSpec = useCallback(
     (spec: NodeSpec, position: { x: number; y: number }) => {
       const id = `${spec.id}-${Math.random().toString(36).slice(2, 8)}`;
+
       setNodes((nds) =>
         nds.concat({
           id,
-          type: spec.nodeType ?? "edgCard",
+          type: (spec as any).nodeType ?? "edgCard",
           position,
           data: {
             specId: spec.id,
             title: spec.label,
             version: spec.version ?? "1.0.0",
             summary: spec.summary ?? "",
-            config: spec.defaultConfig ?? {},
+            config: (spec as any).defaultConfig ?? {},
             connectedNames: [],
           },
         })
@@ -376,7 +369,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   }, []);
 
   const placeBubbleForNode = useCallback(
-    (node: Node) => {
+    (node: Node<EdgazeNodeData>) => {
       const inst = rfRef.current;
       if (!inst) return;
 
@@ -389,7 +382,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       const toolbarW = 288;
       const nodeW = measuredW * viewport.zoom;
       const nextX = wx + nodeW / 2 - toolbarW / 2;
-      const nextY = wy - 52; // always above node
+      const nextY = wy - 52;
 
       const next: BubbleState = { kind: "node", id: node.id, x: nextX, y: nextY };
 
@@ -455,7 +448,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   );
 
   const showSelectionFor = useCallback(
-    (node?: Node) => {
+    (node?: Node<EdgazeNodeData>) => {
       if (!onSelectionChange) return;
 
       if (!node) {
@@ -467,7 +460,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       lastSelectionKeyRef.current = `n:${node.id}`;
 
-      // In preview, we still allow selection (for highlight), but we don't need the toolbar bubble.
       if (!isPreview) {
         placeBubbleForNode(node);
       } else {
@@ -476,8 +468,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       onSelectionChange({
         nodeId: node.id,
-        specId: (node.data as any)?.specId,
-        config: (node.data as any)?.config,
+        specId: node.data?.specId,
+        config: node.data?.config,
       });
     },
     [onSelectionChange, placeBubbleForNode, isPreview]
@@ -489,7 +481,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     if (!bubbleKey) return;
 
     if (bubble?.kind === "node") {
-      const n = rfRef.current?.getNode(bubble.id);
+      const n = rfRef.current?.getNode(bubble.id) as Node<EdgazeNodeData> | undefined;
       if (n) placeBubbleForNode(n);
       return;
     }
@@ -518,7 +510,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                 ...n,
                 data: {
                   ...n.data,
-                  config: { ...(n.data as any)?.config, ...patch },
+                  config: { ...(n.data?.config ?? {}), ...patch },
                 },
               }
             : n
@@ -676,12 +668,12 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const onCopy = () => {
     if (isPreview) return;
     if (!bubble || bubble.kind !== "node") return;
-    const src = rfRef.current?.getNode(bubble.id);
+    const src = rfRef.current?.getNode(bubble.id) as Node<EdgazeNodeData> | undefined;
     if (!src) return;
     lastCopiedNodeRef.current = src;
     navigator.clipboard.writeText(
       JSON.stringify(
-        { type: src.type, data: (src.data as any)?.config ?? {} },
+        { type: src.type, data: src.data?.config ?? {} },
         null,
         2
       )
@@ -694,13 +686,11 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     const src = lastCopiedNodeRef.current;
     if (!src) return;
 
-    const id = `${(src.data as any)?.specId}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    const id = `${src.data?.specId}-${Math.random().toString(36).slice(2, 8)}`;
 
     setNodes((nds) =>
       nds.concat({
-        ...(src as Node),
+        ...(src as Node<EdgazeNodeData>),
         id,
         position: {
           x: (src.position?.x ?? 0) + 40,
@@ -714,16 +704,14 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const onDup = () => {
     if (isPreview) return;
     if (!bubble || bubble.kind !== "node" || locked) return;
-    const src = rfRef.current?.getNode(bubble.id);
+    const src = rfRef.current?.getNode(bubble.id) as Node<EdgazeNodeData> | undefined;
     if (!src) return;
 
-    const id = `${(src.data as any)?.specId}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}`;
+    const id = `${src.data?.specId}-${Math.random().toString(36).slice(2, 8)}`;
 
     setNodes((nds) =>
       nds.concat({
-        ...(src as Node),
+        ...(src as Node<EdgazeNodeData>),
         id,
         position: {
           x: (src.position?.x ?? 0) + 32,
@@ -770,8 +758,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const selectionDangerClass =
     "inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium text-white/85 hover:text-white hover:bg-white/10 active:scale-[0.98] transition";
 
-  // Preview allows only position/selection/dimensions changes (to enable moving nodes),
-  // and blocks structural changes like add/remove/replace.
+  // Preview allows only position/selection/dimensions changes
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       if (!isPreview) {
@@ -794,7 +781,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     [baseOnNodesChange, isPreview]
   );
 
-  // Preview blocks edge changes entirely (no delete). Keep selection changes if ReactFlow emits them.
+  // Preview blocks edge changes entirely (keep selection only)
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       if (!isPreview) {
@@ -815,7 +802,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      {/* Centered toolbar (icon-only) */}
+      {/* Centered toolbar */}
       <div className="absolute left-1/2 top-4 z-40 -translate-x-1/2">
         <div className="rounded-full p-[1px]" style={toolbarOuterStyle}>
           <div className="flex items-center gap-1 rounded-full border border-white/12 bg-black/80 px-1.5 py-1 shadow-[0_18px_60px_rgba(0,0,0,0.85)] backdrop-blur-xl">
@@ -872,23 +859,16 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
               title="Toggle fullscreen (F)"
               className="flex h-8 w-8 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
             >
-              {isFullscreen ? (
-                <Minimize2 size={16} />
-              ) : (
-                <Maximize2 size={16} />
-              )}
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
               <span className="sr-only">Toggle fullscreen</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Selection toolbar (ALWAYS above node/edge) — hidden in preview */}
+      {/* Selection toolbar — hidden in preview */}
       {!isPreview && bubble && (
-        <div
-          className="absolute z-40"
-          style={{ left: bubble.x, top: bubble.y }}
-        >
+        <div className="absolute z-40" style={{ left: bubble.x, top: bubble.y }}>
           <div className={selectionShellClass}>
             {bubble.kind === "node" ? (
               <div className="flex items-center gap-1 px-1.5 py-1">
@@ -970,13 +950,13 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         snapToGrid
         snapGrid={[16, 16]}
         onInit={onInit}
-        onNodeClick={(_, n) => showSelectionFor(n)}
+        onNodeClick={(_, n) => showSelectionFor(n as Node<EdgazeNodeData>)}
         onPaneClick={() => showSelectionFor(undefined)}
         defaultEdgeOptions={{ type: EDGE_TYPE, animated: false }}
         className="!bg-[#070810]"
         proOptions={{ hideAttribution: true }}
         onMove={(_, vp) => setViewport(vp)}
-        nodesDraggable={!locked} // preview still allows moving
+        nodesDraggable={!locked}
         nodesConnectable={!locked && !isPreview}
         edgesUpdatable={!locked && !isPreview}
         panOnDrag
@@ -985,7 +965,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         zoomOnPinch
         zoomOnDoubleClick
         onSelectionChange={(sel) => {
-          const selectedNode = sel?.nodes?.[0];
+          const selectedNode = sel?.nodes?.[0] as Node<EdgazeNodeData> | undefined;
           const selectedEdge = sel?.edges?.[0];
 
           const nextKey = selectedNode
@@ -994,7 +974,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             ? `e:${selectedEdge.id}`
             : "none";
 
-          // HARD GUARD: do nothing if selection hasn't changed
           if (nextKey === lastSelectionKeyRef.current) return;
           lastSelectionKeyRef.current = nextKey;
 
@@ -1004,7 +983,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           }
 
           if (selectedEdge) {
-            // preview: do not show bubble; edit mode shows delete bubble
             if (!isPreview) {
               placeBubbleForEdge(selectedEdge.id);
             } else {

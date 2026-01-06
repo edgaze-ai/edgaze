@@ -46,10 +46,14 @@ type TokenRange = { name: string; start: number; end: number }; // end exclusive
 function extractTokenRanges(text: string): TokenRange[] {
   const out: TokenRange[] = [];
   const regex = /\{\{([a-zA-Z0-9_.-]+)\}\}/g;
+
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text))) {
-    out.push({ name: match[1], start: match.index, end: regex.lastIndex });
+    const name = match[1];
+    if (!name) continue; // satisfies TS (and is logically safe)
+    out.push({ name, start: match.index, end: regex.lastIndex });
   }
+
   return out;
 }
 

@@ -21,7 +21,7 @@ function highlightPlaceholders(text: string) {
     const match = part.match(/^\{\{([^}]+)\}\}$/);
     if (!match) return <span key={idx}>{part}</span>;
 
-    const name = match[1].trim();
+    const name = (match[1] ?? "").trim();
     return (
       <span
         key={idx}

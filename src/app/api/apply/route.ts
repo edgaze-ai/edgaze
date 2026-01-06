@@ -1,3 +1,4 @@
+// src/app/api/apply/route.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
@@ -37,7 +38,13 @@ function sha256(input: string) {
 
 function getIp(req: Request) {
   const xf = req.headers.get("x-forwarded-for");
-  if (xf) return xf.split(",")[0].trim();
+  if (xf) {
+    const first = xf
+      .split(",")
+      .map((s) => s.trim())
+      .find(Boolean);
+    return first ?? "unknown";
+  }
   const real = req.headers.get("x-real-ip");
   if (real) return real.trim();
   return "unknown";
@@ -90,7 +97,9 @@ function scoreAndTier(args: { q1: Q1; q2: Q2; q3: Q3; q4: Q4; q5: string }) {
   const q5 = args.q5.trim();
   const lower = q5.toLowerCase();
 
+  // keep numeric quality for scoring
   let q5Quality: -2 | 0 | 1 | 2 = 0;
+
   const touristSignals = [
     "explore ai",
     "learn more",
@@ -121,13 +130,19 @@ function scoreAndTier(args: { q1: Q1; q2: Q2; q3: Q3; q4: Q4; q5: string }) {
   else if (isTourist && !hasAction) q5Quality = -2;
   else if (
     hasAction &&
-    (lower.includes(" to ") || lower.includes(" into ") || lower.includes(" so i can") || lower.includes(" so that"))
+    (lower.includes(" to ") ||
+      lower.includes(" into ") ||
+      lower.includes(" so i can") ||
+      lower.includes(" so that"))
   )
     q5Quality = 2;
   else if (hasAction) q5Quality = 1;
   else q5Quality = 0;
 
   score += q5Quality;
+
+  // boolean for safe comparisons (avoids TS union overlap errors)
+  const q5Bad = q5Quality === -2;
 
   const q2AtMostStructured =
     args.q2 === "Casual use (chatting, homework help, basic questions)" ||
@@ -151,7 +166,7 @@ function scoreAndTier(args: { q1: Q1; q2: Q2; q3: Q3; q4: Q4; q5: string }) {
     score <= 4 ||
     args.q1 === "I’ve tried them a few times" ||
     args.q2 === "Casual use (chatting, homework help, basic questions)" ||
-    q5Quality === -2 ||
+    q5Bad ||
     args.q4 === "Probably not"
   ) {
     return { score, tier: "C" as Tier, q5_quality: q5Quality, notes };
@@ -162,7 +177,7 @@ function scoreAndTier(args: { q1: Q1; q2: Q2; q3: Q3; q4: Q4; q5: string }) {
     q1AtLeastDaily &&
     args.q4 === "Yes, I’m happy to give feedback" &&
     q2AtLeastWorkflows &&
-    q5Quality !== -2
+    !q5Bad
   ) {
     return { score, tier: "A" as Tier, q5_quality: q5Quality, notes };
   }

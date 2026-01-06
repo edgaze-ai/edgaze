@@ -1,3 +1,4 @@
+// src/app/docs/components/DocRenderer.tsx
 import React from "react";
 
 type Block =
@@ -16,12 +17,12 @@ function slugify(text: string) {
 }
 
 function parse(md: string): Block[] {
-  const lines = md.replaceAll("\r\n", "\n").split("\n");
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
   const blocks: Block[] = [];
   let i = 0;
 
   while (i < lines.length) {
-    const line = lines[i];
+    const line = lines[i] ?? "";
 
     if (!line.trim()) {
       i++;
@@ -39,11 +40,17 @@ function parse(md: string): Block[] {
       const lang = fence[1];
       i++;
       const code: string[] = [];
-      while (i < lines.length && !lines[i].match(/^```$/)) {
-        code.push(lines[i]);
+
+      while (i < lines.length) {
+        const cur = lines[i] ?? "";
+        if (/^```$/.test(cur)) break;
+        code.push(cur);
         i++;
       }
-      i++;
+
+      // consume closing fence if present
+      if (i < lines.length) i++;
+
       blocks.push({ type: "code", lang, code: code.join("\n") });
       continue;
     }
@@ -54,6 +61,7 @@ function parse(md: string): Block[] {
       i++;
       continue;
     }
+
     if (line.startsWith("### ")) {
       const text = line.slice(4).trim();
       blocks.push({ type: "h", level: 3, text, id: slugify(text) });
@@ -63,8 +71,10 @@ function parse(md: string): Block[] {
 
     if (line.startsWith("- ")) {
       const items: string[] = [];
-      while (i < lines.length && lines[i].startsWith("- ")) {
-        items.push(lines[i].slice(2).trim());
+      while (i < lines.length) {
+        const cur = lines[i] ?? "";
+        if (!cur.startsWith("- ")) break;
+        items.push(cur.slice(2).trim());
         i++;
       }
       blocks.push({ type: "ul", items });
@@ -73,18 +83,21 @@ function parse(md: string): Block[] {
 
     const p: string[] = [line.trim()];
     i++;
-    while (
-      i < lines.length &&
-      lines[i].trim() &&
-      !lines[i].startsWith("## ") &&
-      !lines[i].startsWith("### ") &&
-      !lines[i].startsWith("- ") &&
-      !lines[i].startsWith("```") &&
-      lines[i].trim() !== "---"
-    ) {
-      p.push(lines[i].trim());
+
+    while (i < lines.length) {
+      const cur = lines[i] ?? "";
+
+      if (!cur.trim()) break;
+      if (cur.startsWith("## ")) break;
+      if (cur.startsWith("### ")) break;
+      if (cur.startsWith("- ")) break;
+      if (cur.startsWith("```")) break;
+      if (cur.trim() === "---") break;
+
+      p.push(cur.trim());
       i++;
     }
+
     blocks.push({ type: "p", text: p.join(" ") });
   }
 
@@ -135,9 +148,7 @@ export default function DocRenderer({ content }: { content: string }) {
         if (b.type === "code") {
           return (
             <div key={idx} className="mt-6 overflow-auto rounded-2xl bg-black/35 ring-1 ring-white/10">
-              <div className="px-4 py-2 text-xs text-white/45 border-b border-white/10">
-                {b.lang || "code"}
-              </div>
+              <div className="px-4 py-2 text-xs text-white/45 border-b border-white/10">{b.lang || "code"}</div>
               <pre className="px-4 py-4 text-[13px] leading-6 text-white/85">
                 <code>{b.code}</code>
               </pre>

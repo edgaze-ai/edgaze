@@ -2,7 +2,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { AssetPickerModal } from "./AssetPickerModal";
+import AssetPickerModal from "./AssetPickerModal";
+
 
 type ImageFieldWithAssetPickerProps = {
   label?: string;
