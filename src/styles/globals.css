@@ -1,118 +1,288 @@
+/* src/styles/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* =========================
+   Mobile “wiggle/zoom” fixes
+   ========================= */
+
+/* Stop sideways reflow + elastic overscroll weirdness */
+html,
+body {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+}
+
+/* iOS Safari: prevent text size auto-adjust causing layout “wiggle” */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Reduce accidental zoom interactions (still allows scroll) */
+body {
+  touch-action: pan-y;
+}
+
+/* iOS auto-zoom trigger: any input < 16px font-size.
+   Force minimum readable size; make it “look” smaller via padding/scale if needed, not font-size. */
+input,
+textarea,
+select,
+button {
+  font-size: 16px;
+}
+
+/* If you have full-screen sections, DO NOT use 100vh on mobile.
+   Use dynamic viewport units to avoid address-bar/keyboard jumps. */
+.min-h-screen,
+.h-screen {
+  min-height: 100svh;
+}
+@supports (height: 100dvh) {
+  .min-h-screen,
+  .h-screen {
+    min-height: 100dvh;
+  }
+}
+
+/* Prevent images/media from overflowing and causing horizontal jiggle */
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+}
 
 /* ---------- Theme & base ---------- */
 :root {
-  --edge-bg:#0a0a0a;
-  --edge-fg:#ffffff;
-  --edge-border:rgba(255,255,255,0.12);
+  --edge-bg: #0a0a0a;
+  --edge-fg: #ffffff;
+  --edge-border: rgba(255, 255, 255, 0.12);
+  --edgaze-sidebar-width: 300px;
 }
-html, body { height:100%; }
-body { background:var(--edge-bg); color:var(--edge-fg); }
+body {
+  background: var(--edge-bg);
+  color: var(--edge-fg);
+}
 
 /* ---------- Edgaze accents ---------- */
-.edge-grad { background-image:linear-gradient(90deg,#22d3ee 0%,#e879f9 50%,#ec4899 100%); }
-.edge-glass { backdrop-filter:blur(16px); background:rgba(255,255,255,0.06); }
-.edge-border { border:1px solid var(--edge-border); }
+.edge-grad {
+  background-image: linear-gradient(
+    90deg,
+    #22d3ee 0%,
+    #e879f9 60%,
+    #ec4899 100%
+  );
+}
+.edge-glass {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.06);
+}
+.edge-border {
+  border: 1px solid var(--edge-border);
+}
 
-/* Animated gradient (for CTA like “Search nodes with AI”) */
-@keyframes edgeGradientFlow { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-.edge-grad-animated { background-image:linear-gradient(90deg,#22d3ee,#e879f9,#ec4899,#22d3ee); background-size:200% 200%; animation:edgeGradientFlow 6s linear infinite; }
+/* Animated gradient */
+@keyframes edgeGradientFlow {
+  0% { background-position: 0% 50% }
+  50% { background-position: 100% 50% }
+  100% { background-position: 0% 50% }
+}
+.edge-grad-animated {
+  background-image: linear-gradient(90deg, #22d3ee, #e879f9, #ec4899, #22d3ee);
+  background-size: 200% 200%;
+  animation: edgeGradientFlow 6s linear infinite;
+}
 
 /* ---------- React Flow cosmetics ---------- */
-.react-flow__attribution { display:none !important; } /* hide watermark */
-.react-flow__node { overflow:visible; }                /* don’t clip selection ring */
-
-/* Fix handle positions (stop any global centering) */
-.react-flow__handle-top    { top:-6px    !important; bottom:auto !important; }
-.react-flow__handle-bottom { bottom:-6px !important; top:auto    !important; }
-.react-flow__handle-left   { left:-6px   !important; right:auto  !important; }
-.react-flow__handle-right  { right:-6px  !important; left:auto   !important; }
-
-/* Ports (Edgaze accent) */
-.edge-port{
-  background:#ffffff !important;
-  border:1px solid rgba(255,255,255,0.85) !important;
-  width:10px !important; height:10px !important; border-radius:9999px !important;
+.react-flow__attribution {
+  display: none !important;
 }
-.edge-port--edg{
-  background:radial-gradient(circle at 30% 30%, #22d3ee, #ec4899) !important;
-  border:1px solid rgba(255,255,255,0.95) !important;
+.react-flow__node {
+  overflow: visible;
 }
 
-/* ---------- Node cards (light, premium) ---------- */
-.edge-card{
-  position:relative; border-radius:14px;
-  background:#ffffff; color:#0b1220;
-  border:1px solid rgba(0,0,0,0.08);
-  box-shadow:0 8px 24px rgba(0,0,0,0.08);
+/* Fix handle positions */
+.react-flow__handle-top {
+  top: -6px !important;
+  bottom: auto !important;
 }
-.edge-card-header{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:8px 12px; font-weight:600; font-size:12px;
-  border-bottom:1px solid rgba(0,0,0,0.06);
-  border-top-left-radius:14px; border-top-right-radius:14px;
-  background:linear-gradient(90deg, rgba(34,211,238,0.08), rgba(236,72,153,0.08));
+.react-flow__handle-bottom {
+  bottom: -6px !important;
+  top: auto !important;
 }
-.edge-card-body{
-  padding:10px 12px; font-size:12px; line-height:1.35; color:#111827;
+.react-flow__handle-left {
+  left: -6px !important;
+  right: auto !important;
 }
-.edge-badge{
-  display:inline-flex; align-items:center; gap:6px;
-  font-size:10px; padding:4px 8px; border-radius:999px;
-  background:rgba(15,23,42,0.06); border:1px solid rgba(15,23,42,0.12);
+.react-flow__handle-right {
+  right: -6px !important;
+  left: auto !important;
 }
-/* Node footer (keep light) */
-.edge-node-footer{ background:transparent !important; }
+
+/* Ports */
+.edge-port {
+  background: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 9999px !important;
+}
+.edge-port--edg {
+  background: radial-gradient(circle at 30% 30%, #22d3ee, #ec4899) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+}
+
+/* ---------- Node cards ---------- */
+.edge-card {
+  position: relative;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0b1220;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+.edge-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+  background: linear-gradient(
+    90deg,
+    rgba(34, 211, 238, 0.08),
+    rgba(236, 72, 153, 0.08)
+  );
+}
+.edge-card-body {
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #111827;
+}
+.edge-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+.edge-node-footer {
+  background: transparent !important;
+}
 
 /* ---------- Floating toolbar pill ---------- */
-.edge-toolbar{
-  display:inline-flex; align-items:center; gap:10px;
-  padding:6px 10px; border-radius:999px;
-  background:rgba(30,30,32,0.9); color:#e5e7eb;
-  border:1px solid rgba(255,255,255,0.12); font-size:12px;
+.edge-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(30, 30, 32, 0.9);
+  color: #e5e7eb;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 12px;
 }
-.edge-toolbar .sep{ width:1px; height:14px; background:rgba(255,255,255,0.15); }
-.edge-toolbar button{ padding:3px 8px; border-radius:999px; border:1px solid transparent; }
-.edge-toolbar button:hover{ background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.12); }
-.edge-toolbar button.danger:hover{ background:rgba(236,72,153,0.12); border-color:rgba(236,72,153,0.35); }
+.edge-toolbar .sep {
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.edge-toolbar button {
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.edge-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.edge-toolbar button.danger:hover {
+  background: rgba(236, 72, 153, 0.12);
+  border-color: rgba(236, 72, 153, 0.35);
+}
 
 /* ---------- Library scroll cosmetics ---------- */
-.library-scroll{ scrollbar-gutter:stable both-edges; padding-right:6px; }
-.library-scroll::-webkit-scrollbar{ width:8px; }
-.library-scroll::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.18); border-radius:9999px; }
-.library-scroll::-webkit-scrollbar-track{ background:transparent !important; }
+.library-scroll {
+  scrollbar-gutter: stable both-edges;
+  padding-right: 6px;
+}
+.library-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.library-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 9999px;
+}
+.library-scroll::-webkit-scrollbar-track {
+  background: transparent !important;
+}
 
 /* ---------- Optional: nicer minimap frame ---------- */
-.edgaze-minimap{ border-radius:14px; padding:2px; background:linear-gradient(90deg,#55e9d3,#ff85c1); }
-.edgaze-minimap > *{ border-radius:12px; background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.1); }
-/* --- Mode toggle: grey fill, gradient ring, active highlight --- */
-.edge-toggle-wrap{ border-radius:9999px; background:linear-gradient(90deg,#22d3ee,#e879f9,#ec4899); padding:1.5px; }
-.edge-toggle-inner{ display:flex; gap:2px; border-radius:9999px; background:rgba(255,255,255,.06); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.12); }
-.edge-toggle-btn{ display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:9999px; font-size:12px; }
-.edge-toggle-btn.is-active{ background:rgba(255,255,255,.10); }
-.edge-grad {
-  background-image: linear-gradient(90deg,#22d3ee 0%, #e879f9 60%, #ec4899 100%);
+.edgaze-minimap {
+  border-radius: 14px;
+  padding: 2px;
+  background: linear-gradient(90deg, #55e9d3, #ff85c1);
 }
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+.edgaze-minimap > * {
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
 
-/* Base theme */
-:root { --edgaze-sidebar-width: 300px; }
-html, body { height: 100%; }
-body { background:#0b0b0b; color:#fff; }
+/* --- Mode toggle --- */
+.edge-toggle-wrap {
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #22d3ee, #e879f9, #ec4899);
+  padding: 1.5px;
+}
+.edge-toggle-inner {
+  display: flex;
+  gap: 2px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.edge-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+}
+.edge-toggle-btn.is-active {
+  background: rgba(255, 255, 255, 0.10);
+}
 
 /* Buttons hover motion */
 .button-fade {
-  transition: background-color .2s ease, border-color .2s ease, transform .2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease,
+    transform 0.2s ease;
 }
-.button-fade:hover { transform: translateY(-1px); }
+.button-fade:hover {
+  transform: translateY(-1px);
+}
 
-/* Utility: gradient text */
+/* Gradient text */
 .edgaze-gradient-text {
-  background: linear-gradient(90deg,#22d3ee,#e879f9);
+  background: linear-gradient(90deg, #22d3ee, #e879f9);
   -webkit-background-clip: text;
-  background-clip: text; color: transparent;
+  background-clip: text;
+  color: transparent;
 }

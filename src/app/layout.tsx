@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+// src/app/layout.tsx
+import type { Metadata, Viewport } from "next";
 import "../styles/globals.css";
 
 import { AppProviders } from "./providers";
@@ -6,17 +7,13 @@ import LayoutGate from "./LayoutGate";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://edgaze.ai"),
-
   title: {
     default: "Edgaze",
     template: "%s | Edgaze",
   },
-
   description: "Creators build with AI",
-
   applicationName: "Edgaze",
   referrer: "origin-when-cross-origin",
-
   openGraph: {
     type: "website",
     url: "https://edgaze.ai",
@@ -32,38 +29,29 @@ export const metadata: Metadata = {
       },
     ],
   },
-
   twitter: {
     card: "summary_large_image",
     title: "Edgaze",
     description: "Creators build with AI",
     images: ["/og.png"],
   },
-
   icons: {
     icon: [
-      {
-        url: "/brand/edgaze-mark.png",
-        type: "image/png",
-        sizes: "32x32",
-      },
-      {
-        url: "/brand/edgaze-mark.png",
-        type: "image/png",
-        sizes: "16x16",
-      },
-      // fallback for older browsers
+      { url: "/brand/edgaze-mark.png", type: "image/png", sizes: "32x32" },
+      { url: "/brand/edgaze-mark.png", type: "image/png", sizes: "16x16" },
       { url: "/favicon.ico" },
     ],
-    apple: [
-      {
-        url: "/apple-touch-icon.png",
-        sizes: "180x180",
-      },
-    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
-
   manifest: "/site.webmanifest",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
