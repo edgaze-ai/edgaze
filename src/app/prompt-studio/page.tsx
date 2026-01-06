@@ -27,10 +27,7 @@ function estimateTokens(text: string): number {
   if (!text.trim()) return 0;
   return Math.ceil(text.trim().split(/\s+/).length * 0.75);
 }
-export const metadata = {
-  title: "Prompt Studio",
-  description: "Create, test, and publish AI prompts with dynamic placeholders.",
-};
+
 function cleanPlaceholderName(input: string) {
   return input
     .trim()

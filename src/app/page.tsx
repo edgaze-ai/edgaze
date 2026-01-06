@@ -1,10 +1,5 @@
 "use client";
 
-export const metadata = {
-  title: "Edgaze",
-  description: "Create, sell, and distribute AI products.",
-};
-
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "src/components/auth/AuthContext";
