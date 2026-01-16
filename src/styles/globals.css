@@ -64,20 +64,29 @@ svg {
   --edge-fg: #ffffff;
   --edge-border: rgba(255, 255, 255, 0.12);
   --edgaze-sidebar-width: 300px;
+
+  /* Emoji-capable font fallback (helps Windows/Linux emoji rendering) */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
+
 body {
   background: var(--edge-bg);
   color: var(--edge-fg);
 }
 
+/* Ensure form controls use emoji-capable fonts (affects select/options too) */
+select,
+option,
+input,
+textarea,
+button {
+  font-family: var(--font-sans);
+}
+
 /* ---------- Edgaze accents ---------- */
 .edge-grad {
-  background-image: linear-gradient(
-    90deg,
-    #22d3ee 0%,
-    #e879f9 60%,
-    #ec4899 100%
-  );
+  background-image: linear-gradient(90deg, #22d3ee 0%, #e879f9 60%, #ec4899 100%);
 }
 .edge-glass {
   backdrop-filter: blur(16px);
@@ -90,9 +99,15 @@ body {
 
 /* Animated gradient */
 @keyframes edgeGradientFlow {
-  0% { background-position: 0% 50% }
-  50% { background-position: 100% 50% }
-  100% { background-position: 0% 50% }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 .edge-grad-animated {
   background-image: linear-gradient(90deg, #22d3ee, #e879f9, #ec4899, #22d3ee);
@@ -158,11 +173,7 @@ body {
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   border-top-left-radius: 14px;
   border-top-right-radius: 14px;
-  background: linear-gradient(
-    90deg,
-    rgba(34, 211, 238, 0.08),
-    rgba(236, 72, 153, 0.08)
-  );
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.08), rgba(236, 72, 153, 0.08));
 }
 .edge-card-body {
   padding: 10px 12px;
@@ -272,8 +283,7 @@ body {
 
 /* Buttons hover motion */
 .button-fade {
-  transition: background-color 0.2s ease, border-color 0.2s ease,
-    transform 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 .button-fade:hover {
   transform: translateY(-1px);

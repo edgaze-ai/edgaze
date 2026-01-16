@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthContext";
 
 type Mode = "signin" | "signup" | "verify";
@@ -205,6 +206,7 @@ export default function SignInModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
 
   const [mode, setMode] = useState<Mode>("signin");
@@ -250,7 +252,6 @@ export default function SignInModal({
       password,
       fullName,
       handle: (email.split("@")[0] ?? "user").trim(),
-
     });
 
     setMode("verify");
@@ -432,7 +433,8 @@ export default function SignInModal({
                     type="button"
                     onClick={() => {
                       setError(null);
-                      setMode("signup");
+                      close(); // closes modal + clears error
+                      router.push("/apply");
                     }}
                     className="font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4"
                   >
@@ -465,8 +467,8 @@ export default function SignInModal({
                 </div>
                 <div className="mt-2 text-sm text-white/60">
                   We sent a verification link to{" "}
-                  <span className="text-white">{email}</span>. Open it to activate
-                  your account, then return and sign in.
+                  <span className="text-white">{email}</span>. Open it to
+                  activate your account, then return and sign in.
                 </div>
 
                 <button

@@ -320,15 +320,16 @@ function openExternal(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
-/* ---------- Auto-fit circle icon (aggressive: fills circle despite PNG padding) ---------- */
+/* ---------- Auto-fit circle icon (removes PNG padding) ---------- */
+/** cache so the same icon isn’t re-scanned every render */
 const __ICON_SCALE_CACHE = new Map<string, number>();
 
 function AutoFitCircleIcon({
   src,
   alt,
   size = 28,
-  pad = 1,
-  maxScale = 3.6,
+  pad = 2,
+  maxScale = 2.8,
   className = "",
 }: {
   src: string;
@@ -339,12 +340,13 @@ function AutoFitCircleIcon({
   className?: string;
 }) {
   const cacheKey = `${src}|${size}|${pad}|${maxScale}`;
-  const [scale, setScale] = useState<number>(() => __ICON_SCALE_CACHE.get(cacheKey) ?? 1.6);
+  const [scale, setScale] = useState<number>(() => __ICON_SCALE_CACHE.get(cacheKey) ?? 1.35);
 
   useEffect(() => {
     let alive = true;
 
     async function compute() {
+      // cached -> done
       const cached = __ICON_SCALE_CACHE.get(cacheKey);
       if (cached != null) {
         if (alive) setScale(cached);
@@ -361,21 +363,21 @@ function AutoFitCircleIcon({
           img.src = src;
         });
 
-        const CAN = 320;
+        const CAN = 256;
         const canvas = document.createElement("canvas");
         canvas.width = CAN;
         canvas.height = CAN;
 
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        if (!ctx) throw new Error("no ctx");
+        if (!ctx) return;
 
         ctx.clearRect(0, 0, CAN, CAN);
 
         const iw = img.naturalWidth || img.width;
         const ih = img.naturalHeight || img.height;
-        if (!iw || !ih) throw new Error("no size");
+        if (!iw || !ih) return;
 
-        // contain draw (centered)
+        // contain draw into canvas
         const r = Math.min(CAN / iw, CAN / ih);
         const dw = iw * r;
         const dh = ih * r;
@@ -385,19 +387,18 @@ function AutoFitCircleIcon({
 
         const { data } = ctx.getImageData(0, 0, CAN, CAN);
 
+        // alpha bounds scan
         let minX = CAN,
           minY = CAN,
           maxX = -1,
           maxY = -1;
 
-        const ALPHA_THRESHOLD = 10;
+        const ALPHA_THRESHOLD = 12;
 
         for (let y = 0; y < CAN; y++) {
           for (let x = 0; x < CAN; x++) {
-            const idx = (y * CAN + x) * 4 + 3;
-const a = data[idx] ?? 0;
-if (a > ALPHA_THRESHOLD) {
-
+            const a = data[(y * CAN + x) * 4 + 3];
+            if (a > ALPHA_THRESHOLD) {
               if (x < minX) minX = x;
               if (y < minY) minY = y;
               if (x > maxX) maxX = x;
@@ -406,8 +407,9 @@ if (a > ALPHA_THRESHOLD) {
           }
         }
 
+        // nothing found -> mild boost
         if (maxX < 0 || maxY < 0) {
-          const fallback = 1.6;
+          const fallback = 1.35;
           __ICON_SCALE_CACHE.set(cacheKey, fallback);
           if (alive) setScale(fallback);
           return;
@@ -419,17 +421,15 @@ if (a > ALPHA_THRESHOLD) {
         const inner = Math.max(1, size - pad * 2);
         const contentMax = Math.max(bw, bh);
 
-        // scale factor to make contentMax fill inner, relative to drawn size==size
+        // scale to fill inner
         const boundsFill = CAN / contentMax;
         const target = (inner / size) * boundsFill;
 
-        // slightly overfill so it visually hits the circle edge
-        const next = Math.min(maxScale, Math.max(1.0, target * 1.05));
-
+        const next = Math.min(maxScale, Math.max(1.0, target));
         __ICON_SCALE_CACHE.set(cacheKey, next);
         if (alive) setScale(next);
       } catch {
-        const fallback = 1.6;
+        const fallback = 1.35;
         __ICON_SCALE_CACHE.set(cacheKey, fallback);
         if (alive) setScale(fallback);
       }
@@ -461,62 +461,8 @@ if (a > ALPHA_THRESHOLD) {
   );
 }
 
-function ShareModal({
-  open,
-  onClose,
-  shareUrl,
-  code,
-  ownerHandle,
-  title,
-}: {
-  open: boolean;
-  onClose: () => void;
-  shareUrl: string;
-  code: string;
-  ownerHandle: string;
-  title?: string | null;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [shareBusy, setShareBusy] = useState<ShareApp | null>(null);
-  const [qrBusy, setQrBusy] = useState(false);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
 
-    setCopied(false);
-    setShareBusy(null);
-
-    let alive = true;
-    (async () => {
-      setQrBusy(true);
-      try {
-        const qr = await withTimeout(qrWithCenteredLogoDataUrl(shareUrl), 9000, "QR render");
-        if (alive) setQrDataUrl(qr);
-      } catch {
-        if (alive) setQrDataUrl(null);
-      } finally {
-        if (alive) setQrBusy(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [open, shareUrl]);
-
-  async function onShareApp(app: ShareApp) {
-    try {
-      setShareBusy(app);
-      await copyToClipboard(shareUrl);
-      const url = buildShareUrl(app, shareUrl, title);
-      openExternal(url);
-    } finally {
-      setTimeout(() => setShareBusy(null), 500);
-    }
-  }
-
-  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[120]">
@@ -527,13 +473,7 @@ function ShareModal({
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4">
             <div className="flex items-center gap-3">
-              <Image
-                src="/brand/edgaze-mark.png"
-                alt="Edgaze"
-                width={28}
-                height={28}
-                className="h-6 w-6 sm:h-7 sm:w-7"
-              />
+              <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={28} height={28} className="h-6 w-6 sm:h-7 sm:w-7" />
               <div>
                 <div className="text-[13px] sm:text-[14px] font-semibold text-white">Share</div>
                 <div className="hidden sm:block text-[11px] text-white/50">Link, QR, and quick-share</div>
@@ -613,12 +553,14 @@ function ShareModal({
                             title={info.name}
                           >
                             {busy ? (
-                              <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30">
-                                <Loader2 className="h-4 w-4 animate-spin text-white/70" />
-                              </span>
-                            ) : (
-                              <AutoFitCircleIcon src={info.icon} alt={info.name} size={28} pad={1} maxScale={3.6} />
-                            )}
+  <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30">
+    <Loader2 className="h-4 w-4 animate-spin text-white/70" />
+  </span>
+) : (
+  <AutoFitCircleIcon src={info.icon} alt={info.name} size={28} pad={1} maxScale={3.2} />
+)}
+
+
 
                             <span className="hidden sm:inline">{info.name}</span>
                           </button>
@@ -718,7 +660,6 @@ function ShareModal({
     </div>
   );
 }
-
 
 function BlurredPreview({ text, kind }: { text: string; kind: "prompt" | "workflow" }) {
   const snippet =

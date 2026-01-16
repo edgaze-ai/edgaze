@@ -7,20 +7,11 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: [
-          "/",          // homepage
-          "/p/",        // prompt pages
-          // workflows are under /[ownerHandle]/... -> allow all, but block admin/private below
-        ],
+        allow: "/",
         disallow: [
-          "/admin/",
+          // Only block stuff that should never be indexed
           "/api/",
-          "/auth/",
-          "/banned/",
-          "/forbidden/",
-          "/settings/",
-          "/library/",
-          "/builder/",
+          "/admin/",
         ],
       },
     ],

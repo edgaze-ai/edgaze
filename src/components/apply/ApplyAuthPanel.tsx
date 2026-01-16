@@ -128,7 +128,6 @@ export default function ApplyAuthPanel({
     setError(null);
     setBusy(true);
     try {
-      // OAuth redirect resets React state. Persist resume + draft BEFORE redirect.
       try {
         sessionStorage.setItem("edgaze:apply:resume", "1");
         sessionStorage.setItem("edgaze:apply:resumeStep", "auth");
@@ -139,8 +138,8 @@ export default function ApplyAuthPanel({
         fullName: (fullName || fullNamePrefill || "").trim(),
       });
 
-      await signInWithGoogle();
-      // no onAuthed() here because redirect breaks execution
+      // FIX: return directly to /apply, bypass /auth/callback
+      await signInWithGoogle("/apply?resume=1");
     } catch (e: any) {
       setError(e?.message || "Google sign in failed.");
       setBusy(false);
@@ -259,7 +258,10 @@ export default function ApplyAuthPanel({
 
                     <div className="mt-2 grid grid-cols-5 gap-1">
                       {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className={cn("h-1 rounded-full", pw.score > i ? "bg-emerald-400/80" : "bg-white/10")} />
+                        <div
+                          key={i}
+                          className={cn("h-1 rounded-full", pw.score > i ? "bg-emerald-400/80" : "bg-white/10")}
+                        />
                       ))}
                     </div>
 

@@ -554,6 +554,7 @@ export async function generatePromptThumbnailFile(opts: {
   const lines = wrapLines(ctx, preview || "Preview", textMaxW, 8);
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i] ?? "", previewX + 18, previewY + 56 + i * 20);
+
   }
   ctx.restore();
 

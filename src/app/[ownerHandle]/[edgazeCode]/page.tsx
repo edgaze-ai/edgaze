@@ -20,9 +20,10 @@ import {
   Lock,
   CheckCircle2,
 } from "lucide-react";
-import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
-import { useAuth } from "src/components/auth/AuthContext";
-import CommentsSection from "src/components/marketplace/CommentsSection";
+import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
+import { useAuth } from "../../../components/auth/AuthContext";
+import WorkflowCommentsSection from "../../../components/marketplace/WorkflowCommentsSection";
+
 
 type WorkflowListing = {
   id: string;
@@ -1332,13 +1333,13 @@ export default function WorkflowProductPage() {
                 )}
               </div>
 
-              {/* ✅ FIXED: pass only props that exist on CommentsSectionProps */}
               <div className="hidden sm:block mt-6 border-t border-white/10 pt-6">
-                <CommentsSection
-                  listingId={listing.id}
-                  listingOwnerId={listing.owner_id}
-                />
-              </div>
+  <WorkflowCommentsSection
+    listingId={listing.id}
+    listingOwnerId={listing.owner_id}
+  />
+</div>
+
 
               {/* Mobile: preview a few comments, open full sheet on tap */}
               <div className="sm:hidden mt-6 border-t border-white/10 pt-5">
@@ -1361,12 +1362,13 @@ export default function WorkflowProductPage() {
 
                   <div className="mt-3 max-h-[140px] overflow-hidden relative">
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#050505] to-transparent" />
-                    <div className="pointer-events-none opacity-90">
-                      <CommentsSection
-                        listingId={listing.id}
-                        listingOwnerId={listing.owner_id}
-                      />
-                    </div>
+                    <div className="h-[calc(100%-52px)] overflow-y-auto px-4 py-4">
+  <WorkflowCommentsSection
+    listingId={listing.id}
+    listingOwnerId={listing.owner_id}
+  />
+</div>
+
                   </div>
                 </div>
 
@@ -1392,10 +1394,11 @@ export default function WorkflowProductPage() {
                       </div>
 
                       <div className="h-[calc(100%-52px)] overflow-y-auto px-4 py-4">
-                        <CommentsSection
-                          listingId={listing.id}
-                          listingOwnerId={listing.owner_id}
-                        />
+                      <WorkflowCommentsSection
+  listingId={listing.id}
+  listingOwnerId={listing.owner_id}
+/>
+
                       </div>
                     </div>
                   </div>

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export const revalidate = 1800; // 30 min cache at the edge (stable + fast)
+export const runtime = "nodejs";
+export const revalidate = 1800; // 30 min
 
-function baseUrl() {
+function getBaseUrl() {
   const explicit =
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.SITE_URL ||
@@ -10,85 +12,53 @@ function baseUrl() {
 
   if (explicit) return explicit.replace(/\/+$/, "");
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
+  return "https://edgaze.ai";
 }
 
-type SupabaseResponse<T> = { data?: T; error?: any };
-
-async function sbGet<T>(path: string): Promise<SupabaseResponse<T>> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    return { data: undefined, error: { message: "Missing Supabase env vars" } };
-  }
-
-  const res = await fetch(`${url}/rest/v1/${path}`, {
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      Accept: "application/json",
-    },
-    // avoid any weird caching issues
-    cache: "no-store",
-  });
-
-  const text = await res.text();
-  let json: any = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = null;
-  }
-
-  if (!res.ok) return { data: undefined, error: json ?? { status: res.status } };
-  return { data: json as T, error: null };
-}
+type WorkflowRow = { owner_handle: string | null; edgaze_code: string | null };
+type PromptRow = { owner_handle: string | null; edgaze_code: string | null };
 
 export async function GET() {
-  const site = baseUrl();
+  const base = getBaseUrl();
 
-  // Prompts: /p/[ownerHandle]/[edgazeCode]
-  const promptsRes = await sbGet<
-    Array<{ owner_handle: string; edgaze_code: string; updated_at?: string }>
-  >(
-    // Adjust filters if your schema differs; these are typical for "public + published"
-    "prompts?select=owner_handle,edgaze_code,updated_at&is_public=eq.true&is_published=eq.true&edgaze_code=not.is.null&owner_handle=not.is.null&limit=50000"
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  // Workflows: /[ownerHandle]/[slug]  (fallback to edgaze_code if slug missing)
-  const workflowsRes = await sbGet<
-    Array<{
-      owner_handle: string;
-      slug: string | null;
-      edgaze_code: string | null;
-      updated_at?: string;
-    }>
-  >(
-    "workflows?select=owner_handle,slug,edgaze_code,updated_at&is_public=eq.true&is_published=eq.true&owner_handle=not.is.null&limit=50000"
-  );
+  // If env not set, fail gracefully (sitemap.ts will fall back to static routes)
+  if (!supabaseUrl || !serviceKey) {
+    return NextResponse.json({ urls: [] }, { status: 200 });
+  }
 
-  // If Supabase errors, return empty list (sitemap still works)
-  const promptUrls =
-    promptsRes.data?.map(
-      (p) => `${site}/p/${encodeURIComponent(p.owner_handle)}/${encodeURIComponent(p.edgaze_code)}`
-    ) ?? [];
+  const sb = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
 
-  const workflowUrls =
-    workflowsRes.data?.flatMap((w) => {
-      const handle = w.owner_handle;
-      const slug = w.slug?.trim();
-      const code = w.edgaze_code?.trim();
+  // NOTE: change filters/column names to match your schema.
+  // The two critical columns you need are: owner_handle and edgaze_code.
+  const { data: workflows } = await sb
+    .from("workflows")
+    .select("owner_handle, edgaze_code")
+    .eq("is_published", true);
 
-      // IMPORTANT: choose the URL your app actually uses
-      // If your route is /[ownerHandle]/[slug], this is correct.
-      // If your route is /[ownerHandle]/[edgazeCode], change to use `code`.
-      const id = code;
-      if (!handle || !id) return [];
-      return [`${site}/${encodeURIComponent(handle)}/${encodeURIComponent(id)}`];
-    }) ?? [];
+  const { data: prompts } = await sb
+    .from("prompts")
+    .select("owner_handle, edgaze_code")
+    .eq("is_published", true);
 
-  const urls = [...promptUrls, ...workflowUrls];
+  const urls: string[] = [];
 
-  return NextResponse.json({ urls });
+  for (const w of (workflows ?? []) as WorkflowRow[]) {
+    if (!w.owner_handle || !w.edgaze_code) continue;
+    urls.push(`${base}/${w.owner_handle}/${w.edgaze_code}`);
+  }
+
+  for (const p of (prompts ?? []) as PromptRow[]) {
+    if (!p.owner_handle || !p.edgaze_code) continue;
+    urls.push(`${base}/p/${p.owner_handle}/${p.edgaze_code}`);
+  }
+
+  // de-dupe
+  const uniq = Array.from(new Set(urls));
+
+  return NextResponse.json({ urls: uniq }, { status: 200 });
 }

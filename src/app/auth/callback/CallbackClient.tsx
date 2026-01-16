@@ -34,10 +34,21 @@ export default function CallbackClient() {
 
   useEffect(() => {
     const run = async () => {
+      // If an apply flow is in progress, ALWAYS return to /apply (ignore returnTo).
+      // This prevents Google OAuth from dumping users into /marketplace and skipping submission.
+      try {
+        const resume = sessionStorage.getItem("edgaze:apply:resume") === "1";
+        const resumeStep = sessionStorage.getItem("edgaze:apply:resumeStep");
+        if (resume && resumeStep === "auth") {
+          router.replace("/apply?resume=1");
+          return;
+        }
+      } catch {}
+
       const returnTo = readReturnTo();
       const code = params.get("code");
 
-      // 1) If already signed in, leave immediately (common when Supabase auto-detects URL)
+      // 1) If already signed in, leave immediately
       const existing = await supabase.auth.getSession();
       if (existing.data.session) {
         router.replace(returnTo);
@@ -50,7 +61,7 @@ export default function CallbackClient() {
         return;
       }
 
-      // 3) Try exchange. If it fails due to missing code_verifier, fallback to session read.
+      // 3) Exchange code for session
       const { error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (!error) {
@@ -58,8 +69,7 @@ export default function CallbackClient() {
         return;
       }
 
-      // Fallback: sometimes auth listener processes URL but exchangeCodeForSession errors
-      // Give it a brief moment then check session again.
+      // Fallback: give the auth listener a brief moment then check session again.
       await sleep(250);
       const again = await supabase.auth.getSession();
 
@@ -76,6 +86,5 @@ export default function CallbackClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // render nothing, ever
   return null;
 }

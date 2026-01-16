@@ -22,7 +22,7 @@ export type Profile = {
   avatar_url: string | null;
   banner_url?: string | null;
   bio?: string | null;
-  socials?: Record<string, string> | null; // { instagram: "...", x: "...", youtube: "...", ... }
+  socials?: Record<string, string> | null;
   plan: UserPlan;
   email_verified?: boolean | null;
 };
@@ -35,7 +35,6 @@ export type AuthUser = {
 };
 
 type AuthContextValue = {
-  // Back-compat for components that used `user`
   user: AuthUser | null;
 
   userId: string | null;
@@ -43,7 +42,6 @@ type AuthContextValue = {
   isVerified: boolean;
   profile: Profile | null;
 
-  // NEW: moderation + admin
   isAdmin: boolean;
   isBanned: boolean;
   banReason: string | null;
@@ -64,7 +62,10 @@ type AuthContextValue = {
   updateProfile: (patch: Partial<Profile>) => Promise<{ ok: boolean; error?: string }>;
 
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
+
+  // FIX: allow passing an override redirect path (e.g. "/apply?resume=1")
+  signInWithGoogle: (redirectPath?: string) => Promise<void>;
+
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (args: {
     email: string;
@@ -111,7 +112,7 @@ function isStillBannedRow(row: { is_banned?: boolean; ban_expires_at?: string | 
   const expires = row.ban_expires_at ?? null;
   if (!expires) return true;
   const t = new Date(expires).getTime();
-  if (Number.isNaN(t)) return true; // if invalid date, treat as banned (safer)
+  if (Number.isNaN(t)) return true;
   return t > Date.now();
 }
 
@@ -123,7 +124,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isVerified, setIsVerified] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-  // NEW: moderation + admin state
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
   const [banReason, setBanReason] = useState<string | null>(null);
@@ -154,7 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsVerified(false);
     setProfile(null);
 
-    // reset admin/moderation
     setIsAdmin(false);
     setIsBanned(false);
     setBanReason(null);
@@ -165,9 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (uid: string) => {
       const { data, error } = await supabase
         .from("profiles")
-        .select(
-          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,plan,email_verified"
-        )
+        .select("id,email,full_name,handle,avatar_url,banner_url,bio,socials,plan,email_verified")
         .eq("id", uid)
         .maybeSingle();
 
@@ -195,7 +192,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      const row = (data as any as { is_banned?: boolean; ban_reason?: string | null; ban_expires_at?: string | null }) ?? null;
+      const row =
+        (data as any as {
+          is_banned?: boolean;
+          ban_reason?: string | null;
+          ban_expires_at?: string | null;
+        }) ?? null;
 
       const stillBanned = isStillBannedRow(row);
       setIsBanned(stillBanned);
@@ -237,16 +239,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserEmail(user.email ?? null);
       setIsVerified(Boolean(user.email_confirmed_at));
 
-      // Kick off in parallel (don’t block UI)
       loadProfile(user.id).catch(() => setProfile(null));
-
-      // Moderation/admin checks (also parallel)
       loadAdmin(user.id).catch(() => setIsAdmin(false));
 
       loadModeration(user.id)
         .then((stillBanned) => {
           if (stillBanned) {
-            // UX redirect; RLS is the real enforcement
             if (typeof window !== "undefined" && window.location.pathname !== "/banned") {
               window.location.href = "/banned";
             }
@@ -291,11 +289,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (patch: Partial<Profile>) => {
       if (!userId) return { ok: false, error: "Not signed in" };
 
-      // Normalize handle if present
       const payload: any = { ...patch };
-      if (typeof payload.handle === "string") {
-        payload.handle = normalizeHandle(payload.handle);
-      }
+      if (typeof payload.handle === "string") payload.handle = normalizeHandle(payload.handle);
 
       const { error } = await supabase.from("profiles").update(payload).eq("id", userId);
       if (error) return { ok: false, error: error.message };
@@ -335,16 +330,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     applyNoUser();
   };
 
-  const signInWithGoogle = async () => {
+  // FIX: allow redirect override. If provided, bypass /auth/callback.
+  const signInWithGoogle = async (redirectPath?: string) => {
     const returnTo =
-      window.location.pathname + window.location.search + window.location.hash || "/marketplace";
+      (window.location.pathname + window.location.search + window.location.hash) || "/marketplace";
 
     saveReturnTo(returnTo);
+
+    const redirectTo = redirectPath
+      ? `${window.location.origin}${safeReturnTo(redirectPath)}`
+      : `${window.location.origin}/auth/callback`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo,
         queryParams: { prompt: "select_account" },
       },
     });
@@ -400,7 +400,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isVerified,
     profile,
 
-    // NEW
     isAdmin,
     isBanned,
     banReason,

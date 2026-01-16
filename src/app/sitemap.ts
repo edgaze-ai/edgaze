@@ -20,10 +20,10 @@ function getBaseUrl() {
 
   if (explicit) return explicit.replace(/\/+$/, "");
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
+  return "https://edgaze.ai";
 }
 
-async function safeFetchJson<T>(url: string, timeoutMs = 3000): Promise<T | null> {
+async function safeFetchJson<T>(url: string, timeoutMs = 6000): Promise<T | null> {
   try {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -31,6 +31,7 @@ async function safeFetchJson<T>(url: string, timeoutMs = 3000): Promise<T | null
     const res = await fetch(url, {
       signal: controller.signal,
       next: { revalidate: 1800 }, // 30 min
+      headers: { Accept: "application/json" },
     });
 
     clearTimeout(t);
@@ -54,11 +55,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const dynamic = await safeFetchJson<{ urls: string[] }>(`${base}/api/sitemap`);
-
   if (!dynamic?.urls?.length) return staticEntries;
 
   const dynamicEntries: MetadataRoute.Sitemap = dynamic.urls
+    .map((u) => (typeof u === "string" ? u.trim() : ""))
     .filter(Boolean)
+    .map((u) =>
+      u.startsWith("http://") || u.startsWith("https://")
+        ? u
+        : `${base}${u.startsWith("/") ? "" : "/"}${u}`,
+    )
     .map((url) => ({
       url,
       lastModified: now,
@@ -66,7 +72,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.85,
     }));
 
-  // de-dupe
   const seen = new Set<string>();
   return [...staticEntries, ...dynamicEntries].filter((e) => {
     if (seen.has(e.url)) return false;
