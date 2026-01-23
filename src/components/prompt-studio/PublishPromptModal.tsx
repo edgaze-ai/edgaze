@@ -53,6 +53,7 @@ type Props = {
   onMetaChange: (next: PublishMeta) => void;
   promptText: string;
   placeholders: PlaceholderDef[];
+  editId?: string | null; // If provided, we're editing an existing prompt
   onPublished: () => void;
 };
 
@@ -509,6 +510,7 @@ export default function PublishPromptModal({
   onMetaChange,
   promptText,
   placeholders,
+  editId,
   onPublished,
 }: Props) {
   const { userId, profile, requireAuth } = useAuth();
@@ -617,9 +619,13 @@ export default function PublishPromptModal({
     setMonetisationMode("free");
     setPriceUsd(meta?.priceUsd || "2.99");
 
-    // default code from title
-    const base = baseCodeFromTitle(meta?.name || "");
-    setEdgazeCode(base);
+    // Use existing code when editing, otherwise generate from title
+    if (editId && (meta as any)?.edgazeCode) {
+      setEdgazeCode((meta as any).edgazeCode);
+    } else {
+      const base = baseCodeFromTitle(meta?.name || "");
+      setEdgazeCode(base);
+    }
 
     // reset files
     setThumbnailFile(null);
@@ -680,7 +686,9 @@ export default function PublishPromptModal({
       return;
     }
 
-    const taken = Array.isArray(data) && data.length > 0;
+    // If editing, exclude the current prompt from the check
+    const taken = Array.isArray(data) && data.length > 0 && 
+      (!editId || !data.some((row: any) => row.id === editId));
     setCodeStatus(taken ? "taken" : "available");
     setCodeMsg(taken ? "Taken" : "Available");
   }
@@ -712,7 +720,9 @@ export default function PublishPromptModal({
     if (!base) return null;
 
     const { data } = await supabase.from("prompts").select("id").eq("edgaze_code", base).limit(1);
-    if (!data || data.length === 0) {
+    // If editing, exclude the current prompt from the check
+    const taken = data && data.length > 0 && (!editId || !data.some((row: any) => row.id === editId));
+    if (!taken) {
       setCodeStatus("available");
       setCodeMsg("Available");
       setEdgazeCode(base);
@@ -722,7 +732,8 @@ export default function PublishPromptModal({
     for (let i = 0; i < 6; i++) {
       const next = `${base}-${randomSuffix(4)}`.slice(0, 32);
       const { data: d2 } = await supabase.from("prompts").select("id").eq("edgaze_code", next).limit(1);
-      if (!d2 || d2.length === 0) {
+      const taken2 = d2 && d2.length > 0 && (!editId || !d2.some((row: any) => row.id === editId));
+      if (!taken2) {
         setCodeStatus("available");
         setCodeMsg("Available");
         setEdgazeCode(next);
@@ -932,48 +943,79 @@ export default function PublishPromptModal({
 
       const cleanTags = safeArr(tagsInput);
 
-      // IMPORTANT: Save the FULL prompt to the DB (no more preview substitution).
-      const insertRow: any = {
-        owner_id: userId,
-        owner_name: ownerName,
-        owner_handle: ownerHandle,
+      let promptId: string;
+      
+      if (editId) {
+        // Update existing prompt
+        promptId = editId;
+        
+        const updateRow: any = {
+          title: safeTitle,
+          description: safeDescription,
+          prompt_text: promptText, // FULL prompt
+          placeholders,
 
-        type: "prompt",
-        title: safeTitle,
-        description: safeDescription,
-        prompt_text: promptText, // FULL prompt
-        placeholders,
+          tags: cleanTags.join(","),
+          visibility,
+          monetisation_mode: forcedMonetisationMode,
+          is_paid: false,
+          price_usd: 0,
 
-        tags: cleanTags.join(","),
-        visibility,
-        monetisation_mode: forcedMonetisationMode,
-        is_paid: false,
-        price_usd: 0,
+          edgaze_code: finalCode,
 
-        edgaze_code: finalCode,
+          is_published: true,
+          is_public: true,
+          updated_at: new Date().toISOString(),
+        };
 
-        is_published: true,
-        is_public: true,
+        const { error: updateErr } = await supabase.from("prompts").update(updateRow).eq("id", editId);
+        if (updateErr) throw updateErr;
+      } else {
+        // Create new prompt
+        const insertRow: any = {
+          owner_id: userId,
+          owner_name: ownerName,
+          owner_handle: ownerHandle,
 
-        views_count: 0,
-        likes_count: 0,
-        runs_count: 0,
+          type: "prompt",
+          title: safeTitle,
+          description: safeDescription,
+          prompt_text: promptText, // FULL prompt
+          placeholders,
 
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+          tags: cleanTags.join(","),
+          visibility,
+          monetisation_mode: forcedMonetisationMode,
+          is_paid: false,
+          price_usd: 0,
 
-      const { data: created, error: createErr } = await supabase.from("prompts").insert(insertRow).select("id").single();
-      if (createErr) throw createErr;
+          edgaze_code: finalCode,
 
-      const promptId = created?.id as string;
-      if (!promptId) throw new Error("Prompt created but ID missing.");
+          is_published: true,
+          is_public: true,
+
+          views_count: 0,
+          likes_count: 0,
+          runs_count: 0,
+
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        const { data: created, error: createErr } = await supabase.from("prompts").insert(insertRow).select("id").single();
+        if (createErr) throw createErr;
+
+        promptId = created?.id as string;
+        if (!promptId) throw new Error("Prompt created but ID missing.");
+      }
 
       let thumbnailUrl: string | null = null;
 
       if (meta.thumbnailUrl) {
+        // Use thumbnail from meta (could be existing URL or asset picker)
         thumbnailUrl = meta.thumbnailUrl;
-      } else {
+      } else if (thumbnailFile || autoThumbFile) {
+        // Upload new thumbnail file
         if (!thumbnailFile && !autoThumbFile) {
           await generateAutoThumbnail();
         }
@@ -988,11 +1030,34 @@ export default function PublishPromptModal({
           });
           thumbnailUrl = up.url || null;
         }
+      } else if (editId) {
+        // When editing, preserve existing thumbnail if no new one provided
+        // The meta should already have it, but check anyway
+        thumbnailUrl = meta.thumbnailUrl || null;
       }
 
       const demoUrls: string[] = [];
-      for (const u of demoUrlsPicked) if (u) demoUrls.push(u);
+      const seenUrls = new Set<string>();
+      
+      // Add picked URLs (these come from asset picker or existing demos when editing)
+      for (const u of demoUrlsPicked) {
+        if (u && !seenUrls.has(u)) {
+          demoUrls.push(u);
+          seenUrls.add(u);
+        }
+      }
+      
+      // Preserve existing demo URLs when editing (if not already added)
+      if (editId && meta?.demoImageUrls) {
+        for (const u of meta.demoImageUrls) {
+          if (u && !seenUrls.has(u)) {
+            demoUrls.push(u);
+            seenUrls.add(u);
+          }
+        }
+      }
 
+      // Upload new demo files
       for (let i = 0; i < demoFiles.length; i++) {
         const f = demoFiles[i];
         if (!f) continue;
@@ -1013,15 +1078,27 @@ export default function PublishPromptModal({
         throw new Error("Add at least 3 demo images.");
       }
 
-      const patch: any = {
-        thumbnail_url: thumbnailUrl,
-        demo_images: demoFinal.length ? demoFinal : null,
-        output_demo_urls: demoFinal.length ? demoFinal : null,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error: patchErr } = await supabase.from("prompts").update(patch).eq("id", promptId);
-      if (patchErr) throw patchErr;
+      // When editing, merge media updates into the main update
+      if (editId) {
+        const mediaPatch: any = {
+          thumbnail_url: thumbnailUrl,
+          demo_images: demoFinal.length ? demoFinal : null,
+          output_demo_urls: demoFinal.length ? demoFinal : null,
+          updated_at: new Date().toISOString(),
+        };
+        const { error: patchErr } = await supabase.from("prompts").update(mediaPatch).eq("id", promptId);
+        if (patchErr) throw patchErr;
+      } else {
+        // For new prompts, update media separately
+        const patch: any = {
+          thumbnail_url: thumbnailUrl,
+          demo_images: demoFinal.length ? demoFinal : null,
+          output_demo_urls: demoFinal.length ? demoFinal : null,
+          updated_at: new Date().toISOString(),
+        };
+        const { error: patchErr } = await supabase.from("prompts").update(patch).eq("id", promptId);
+        if (patchErr) throw patchErr;
+      }
 
       const url = `https://edgaze.ai/p/${ownerHandle}/${finalCode}`;
 
@@ -1072,12 +1149,12 @@ export default function PublishPromptModal({
       {busy ? (
         <>
           <Loader2 className="h-4 w-4 animate-spin" />
-          Publishing…
+          {editId ? "Updating…" : "Publishing…"}
         </>
       ) : stepKey === "review" ? (
         <>
           <Sparkles className="h-4 w-4" />
-          Publish
+          {editId ? "Update" : "Publish"}
         </>
       ) : (
         <>
@@ -1109,7 +1186,7 @@ export default function PublishPromptModal({
               <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={32} height={32} className="h-8 w-8" priority />
               <div className="min-w-0">
                 <div className="text-[15px] sm:text-[16px] font-semibold text-white leading-tight truncate">
-                  {published ? "Published" : "Publish prompt"}
+                  {published ? "Published" : editId ? "Edit prompt" : "Publish prompt"}
                 </div>
                 <div className="text-[11px] text-white/45 truncate">
                   Posting as {ownerName} @{ownerHandle}
@@ -1216,7 +1293,7 @@ export default function PublishPromptModal({
                     {stepKey === "review" ? (
                       <>
                         <Sparkles className="h-4 w-4" />
-                        Publish
+                        {editId ? "Update" : "Publish"}
                       </>
                     ) : (
                       <>

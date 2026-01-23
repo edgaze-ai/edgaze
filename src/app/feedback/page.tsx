@@ -203,9 +203,9 @@ function toggleMulti<T extends string>(arr: T[], v: T) {
 function safeStringArray<T extends string>(v: unknown): T[] {
   if (!Array.isArray(v)) return [];
   return v
-    .map((x) => (typeof x === "string" ? x : ""))
+    .map((x) => (typeof x === "string" ? String(x) : ""))
     .map((x) => x.trim())
-    .filter(Boolean) as T[];
+    .filter((x) => x.length > 0) as T[];
 }
 
 type SubmitState =
@@ -373,12 +373,16 @@ export default function FeedbackPage() {
       const triedArr = safeStringArray<TriedOption>(tried);
       const frictionArr = safeStringArray<FrictionOption>(friction);
 
+      // Ensure arrays are valid JavaScript arrays (Supabase requirement)
+      const triedFinal = Array.isArray(triedArr) ? triedArr : [];
+      const frictionFinal = Array.isArray(frictionArr) ? frictionArr : [];
+
       const payload = {
         user_id: user?.id ?? null,
         context_role: role, // text
-        tried: triedArr, // text[]
+        tried: triedFinal, // text[]
         problem_to_solve: sanitizeText(problem),
-        friction: frictionArr, // text[]
+        friction: frictionFinal, // text[]
         biggest_blocker: sanitizeText(blocker) || null,
         genuinely_useful: useful,
         unfinished_or_weak: sanitizeText(weak) || null,

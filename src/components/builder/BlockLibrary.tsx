@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, memo } from "react";
 import { listNodeSpecs } from "src/nodes/registry";
 import type { NodeSpec } from "src/nodes/types";
 import { Search, Sparkles, Plus, ExternalLink } from "lucide-react";
@@ -96,7 +96,7 @@ function QuickStartItem({
 }
 
 /* ---------- Block library ---------- */
-export default function BlockLibrary({
+function BlockLibrary({
   onAdd,
 }: {
   onAdd?: (specId: string) => void;
@@ -311,3 +311,5 @@ export default function BlockLibrary({
     </div>
   );
 }
+
+export default memo(BlockLibrary);

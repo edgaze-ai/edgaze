@@ -316,6 +316,19 @@ function ResourceCard({ card, reducedMotion }: { card: Card; reducedMotion: bool
 export default function HelpPage() {
   const reducedMotion = useReducedMotion();
 
+  useEffect(() => {
+    const main = document.querySelector('main');
+    if (main) {
+      main.style.overflowY = 'auto';
+      main.style.overflowX = 'hidden';
+      return () => {
+        main.style.overflowY = '';
+        main.style.overflowX = '';
+      };
+    }
+    return;
+  }, []);
+
   const cards = useMemo<Card[]>(
     () => [
       {

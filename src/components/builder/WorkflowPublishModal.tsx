@@ -35,6 +35,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   draft: DraftRow | null;
+  editId?: string | null; // If provided, we're editing an existing workflow
 
   owner?: {
     name?: string;
@@ -139,19 +140,25 @@ async function uploadFileToBucket(opts: {
   return { path, url: toPublicUrl(opts.supabase, path) };
 }
 
-async function codeExistsInTables(supabase: any, code: string) {
+async function codeExistsInTables(supabase: any, code: string, excludeWorkflowId?: string | null) {
   const normalized = normalizeEdgazeCode(code);
   if (!normalized) return true;
 
   const [w, p] = await Promise.all([
-    supabase.from("workflows").select("id").eq("edgaze_code", normalized).limit(1),
+    supabase
+      .from("workflows")
+      .select("id")
+      .eq("edgaze_code", normalized)
+      .limit(1),
     supabase.from("prompts").select("id").eq("edgaze_code", normalized).limit(1),
   ]);
 
   if (w?.error) throw w.error;
   if (p?.error) throw p.error;
 
-  const wHas = Array.isArray(w?.data) && w.data.length > 0;
+  // If editing, exclude the current workflow from the check
+  const wHas = Array.isArray(w?.data) && w.data.length > 0 && 
+    (!excludeWorkflowId || !w.data.some((row: any) => row.id === excludeWorkflowId));
   const pHas = Array.isArray(p?.data) && p.data.length > 0;
   return wHas || pHas;
 }
@@ -327,6 +334,7 @@ export default function WorkflowPublishModal({
   open,
   onClose,
   draft,
+  editId,
   owner,
   onEnsureDraftSaved,
   onPublished,
@@ -477,25 +485,44 @@ export default function WorkflowPublishModal({
     setQrBusy(false);
     setConfetti(false);
 
-    setTitle(draft?.title || "");
-    setDescription("");
-    setTagsInput("");
-    setVisibility("public");
-    setMonetisationMode("free");
-    setPriceUsd("2.99");
+    // Load existing data when editing
+    if (editId && draft) {
+      setTitle(draft.title || "");
+      setDescription((draft as any).description || "");
+      setTagsInput((draft as any).tags || "");
+      setVisibility(((draft as any).visibility || "public") as Visibility);
+      setMonetisationMode(((draft as any).monetisation_mode || "free") as MonetisationMode);
+      setPriceUsd((draft as any).price_usd != null ? String((draft as any).price_usd) : "2.99");
+      setEdgazeCode((draft as any).edgaze_code || baseCodeFromTitle(draft.title || ""));
+      
+      // Load existing demo images if available
+      const existingDemos = (draft as any).demo_images || (draft as any).output_demo_urls;
+      if (Array.isArray(existingDemos) && existingDemos.length > 0) {
+        // We'll keep these as URLs, not files - they're already uploaded
+        setDemoFiles(new Array(6).fill(null));
+      } else {
+        setDemoFiles(new Array(6).fill(null));
+      }
+    } else {
+      setTitle(draft?.title || "");
+      setDescription("");
+      setTagsInput("");
+      setVisibility("public");
+      setMonetisationMode("free");
+      setPriceUsd("2.99");
+      setDemoFiles(new Array(6).fill(null));
+      const seeded = baseCodeFromTitle(draft?.title || "");
+      setEdgazeCode(seeded);
+    }
 
     setThumbnailFile(null);
     setAutoThumbFile(null);
     setAutoThumbDataUrl(null);
     setAutoThumbBusy(false);
 
-    setDemoFiles(new Array(6).fill(null));
-
-    const seeded = baseCodeFromTitle(draft?.title || "");
-    setEdgazeCode(seeded);
     setCodeStatus("checking");
     setCodeMsg("Checking availability…");
-  }, [open, draft?.id]);
+  }, [open, draft?.id, editId]);
 
   // Code availability check (debounced)
   useEffect(() => {
@@ -521,7 +548,7 @@ export default function WorkflowPublishModal({
         setCodeStatus("checking");
         setCodeMsg("Checking availability…");
 
-        const exists = await codeExistsInTables(supabase, code);
+        const exists = await codeExistsInTables(supabase, code, editId || null);
         if (exists) {
           setCodeStatus("taken");
           setCodeMsg("Code is taken. Try a different one.");
@@ -538,7 +565,7 @@ export default function WorkflowPublishModal({
     return () => {
       if (codeDebounceRef.current) clearTimeout(codeDebounceRef.current);
     };
-  }, [open, edgazeCode, supabase, postingAs]);
+  }, [open, edgazeCode, supabase, postingAs, editId]);
 
   // Auto thumbnail generation ON OPEN (no manual trigger)
   useEffect(() => {
@@ -626,7 +653,7 @@ export default function WorkflowPublishModal({
   async function ensureAvailableCodeOrAutofix() {
     const base = normalizeEdgazeCode(edgazeCode) || baseCodeFromTitle(safeTitle);
     try {
-      const exists = await codeExistsInTables(supabase, base);
+      const exists = await codeExistsInTables(supabase, base, editId || null);
       if (!exists) {
         setEdgazeCode(base);
         setCodeStatus("available");
@@ -635,7 +662,7 @@ export default function WorkflowPublishModal({
       }
       for (let i = 0; i < 8; i++) {
         const candidate = `${base.slice(0, 24)}-${randomSuffix(4)}`.slice(0, 32);
-        const taken = await codeExistsInTables(supabase, candidate);
+        const taken = await codeExistsInTables(supabase, candidate, editId || null);
         if (!taken) {
           setEdgazeCode(candidate);
           setCodeStatus("available");
@@ -715,7 +742,7 @@ export default function WorkflowPublishModal({
 
       const slug = slugify(safeTitle);
 
-      // Upload thumbnail
+      // Upload thumbnail (only if new file provided, otherwise preserve existing)
       let thumbnailUrl: string | null = null;
       const thumbToUpload = thumbnailFile ?? autoThumbFile;
       if (thumbToUpload) {
@@ -727,10 +754,23 @@ export default function WorkflowPublishModal({
           file: thumbToUpload,
         });
         thumbnailUrl = up.url || null;
+      } else if (editId && (draft as any)?.thumbnail_url) {
+        // Preserve existing thumbnail when editing
+        thumbnailUrl = (draft as any).thumbnail_url;
       }
 
       // Upload demo images (optional)
       const demoUrls: string[] = [];
+      
+      // Preserve existing demo URLs when editing
+      if (editId) {
+        const existingDemos = (draft as any)?.demo_images || (draft as any)?.output_demo_urls;
+        if (Array.isArray(existingDemos)) {
+          demoUrls.push(...existingDemos.filter(Boolean));
+        }
+      }
+      
+      // Add new demo files
       for (let i = 0; i < demoFiles.length; i++) {
         const f = demoFiles[i];
         if (!f) continue;
@@ -774,7 +814,8 @@ export default function WorkflowPublishModal({
         edgaze_code: finalCode,
 
         is_published: true,
-        published_at: new Date().toISOString(),
+        // Only set published_at if this is a new publish, not an edit
+        ...(editId ? {} : { published_at: new Date().toISOString() }),
         updated_at: new Date().toISOString(),
       };
 
@@ -826,7 +867,7 @@ export default function WorkflowPublishModal({
               />
               <div>
                 <div className="text-[16px] font-semibold text-white leading-tight">
-                  {published ? "Published" : "Publish workflow"}
+                  {published ? "Published" : editId ? "Edit workflow" : "Publish workflow"}
                 </div>
                 <div className="text-[11px] text-white/45">
                   Posting as {postingAs?.name || owner?.name || "…"} @{handle}
@@ -849,18 +890,18 @@ export default function WorkflowPublishModal({
                       ? "Open a draft first"
                       : codeStatus !== "available"
                         ? "Pick a unique Edgaze code"
-                        : "Publish"
+                        : editId ? "Update workflow" : "Publish workflow"
                   }
                 >
                   {busy ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Publishing…
+                      {editId ? "Updating…" : "Publishing…"}
                     </>
                   ) : (
                     <>
                       <Sparkles className="h-4 w-4" />
-                      Publish
+                      {editId ? "Update" : "Publish"}
                     </>
                   )}
                 </button>

@@ -16,6 +16,40 @@ body {
   overscroll-behavior: none;
 }
 
+/* Library page mobile scrolling - MUST override global height: 100% */
+html.library-mobile-scroll,
+body.library-mobile-scroll {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Override AppShell overflow-hidden on mobile for library page */
+@media (max-width: 639px) {
+  /* Override AppShell container */
+  body.library-mobile-scroll .library-page-container {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+    min-height: 100vh !important;
+  }
+  
+  /* Override AppShell content wrapper */
+  body.library-mobile-scroll .library-page-content {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+  }
+  
+  /* Override AppShell main element */
+  body.library-mobile-scroll .library-page-main {
+    overflow-y: visible !important;
+    overflow-x: hidden !important;
+    height: auto !important;
+  }
+}
+
 /* iOS Safari: prevent text size auto-adjust causing layout “wiggle” */
 html {
   -webkit-text-size-adjust: 100%;
@@ -97,6 +131,44 @@ button {
   border: 1px solid var(--edge-border);
 }
 
+/* ---------- Premium animations & transitions ---------- */
+.edge-card,
+.edge-card-dark,
+.edge-card-header {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.edge-port {
+  transition: all 0.15s ease-out;
+}
+
+.edge-port:hover {
+  transform: scale(1.15);
+}
+
+/* Smooth connection creation */
+.react-flow__edge {
+  transition: opacity 0.2s ease-out;
+}
+
+.react-flow__edge.selected {
+  opacity: 1;
+}
+
+/* Smooth node selection */
+.react-flow__node {
+  transition: transform 0.15s ease-out, filter 0.15s ease-out;
+}
+
+.react-flow__node.selected {
+  filter: brightness(1.05);
+}
+
+/* Smooth window movements */
+[data-floating-window] {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Animated gradient */
 @keyframes edgeGradientFlow {
   0% {
@@ -154,42 +226,66 @@ button {
   border: 1px solid rgba(255, 255, 255, 0.95) !important;
 }
 
-/* ---------- Node cards ---------- */
+/* ---------- Node cards (dark theme) ---------- */
 .edge-card {
   position: relative;
   border-radius: 14px;
-  background: #ffffff;
-  color: #0b1220;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  background: rgba(20, 20, 24, 0.95);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.edge-card-dark {
+  position: relative;
+  border-radius: 14px;
+  background: rgba(20, 20, 24, 0.95);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .edge-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 10px 14px;
   font-weight: 600;
-  font-size: 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-top-left-radius: 14px;
   border-top-right-radius: 14px;
-  background: linear-gradient(90deg, rgba(34, 211, 238, 0.08), rgba(236, 72, 153, 0.08));
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.12), rgba(236, 72, 153, 0.12));
 }
 .edge-card-body {
-  padding: 10px 12px;
+  padding: 12px 14px;
   font-size: 12px;
-  line-height: 1.35;
-  color: #111827;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
 }
 .edge-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 10px;
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.06);
-  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+}
+.edge-badge-dark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
 }
 .edge-node-footer {
   background: transparent !important;
@@ -240,6 +336,12 @@ button {
 }
 .library-scroll::-webkit-scrollbar-track {
   background: transparent !important;
+}
+
+/* Library page specific - ensure scrolling works */
+[data-library-page] {
+  min-height: 100vh;
+  position: relative;
 }
 
 /* ---------- Optional: nicer minimap frame ---------- */

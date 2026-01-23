@@ -1,9 +1,11 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import "../styles/globals.css";
 
 import { AppProviders } from "./providers";
 import LayoutGate from "./LayoutGate";
+import MixpanelInit from "./MixpanelInit";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://edgaze.ai"),
@@ -43,7 +45,6 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
-  
   manifest: "/site.webmanifest",
 };
 
@@ -64,6 +65,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="h-full bg-[#0b0b0b] text-white antialiased">
         <AppProviders>
+          <Suspense fallback={null}>
+            <MixpanelInit />
+          </Suspense>
           <LayoutGate>{children}</LayoutGate>
         </AppProviders>
       </body>

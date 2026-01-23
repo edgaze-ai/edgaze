@@ -225,6 +225,181 @@ async function downloadDataUrl(dataUrl: string, filename: string) {
   a.remove();
 }
 
+/* ---------- Share helpers (match prompt publish modal) ---------- */
+type ShareApp = "whatsapp" | "x" | "snapchat" | "reddit" | "facebook";
+
+function shareAppInfo(app: ShareApp) {
+  if (app === "whatsapp") return { name: "WhatsApp", icon: "/misc/whatsapp.png" };
+  if (app === "x") return { name: "X", icon: "/misc/x.png" };
+  if (app === "snapchat") return { name: "Snapchat", icon: "/misc/snapchat.png" };
+  if (app === "reddit") return { name: "Reddit", icon: "/misc/reddit.png" };
+  return { name: "Facebook", icon: "/misc/facebook.png" };
+}
+
+function buildShareUrl(app: ShareApp, shareUrl: string, title?: string | null) {
+  const u = encodeURIComponent(shareUrl);
+  const t = encodeURIComponent((title || "Edgaze").trim());
+
+  if (app === "whatsapp") {
+    return `https://wa.me/?text=${encodeURIComponent(`${title ? `${title}\n` : ""}${shareUrl}`)}`;
+  }
+  if (app === "x") {
+    return `https://twitter.com/intent/tweet?url=${u}&text=${t}`;
+  }
+  if (app === "reddit") {
+    return `https://www.reddit.com/submit?url=${u}&title=${t}`;
+  }
+  if (app === "facebook") {
+    return `https://www.facebook.com/sharer/sharer.php?u=${u}`;
+  }
+
+  // Snapchat web share is inconsistent. This opens Snapchat's Scan page with an attachment URL (works in some contexts),
+  // otherwise user still has the link copied + QR.
+  return `https://www.snapchat.com/scan?attachmentUrl=${u}`;
+}
+
+function openExternal(url: string) {
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+/* ---------- Auto-fit circle icon (aggressive) ---------- */
+const __ICON_SCALE_CACHE = new Map<string, number>();
+
+function AutoFitCircleIcon({
+  src,
+  alt,
+  size = 28,
+  pad = 1,
+  maxScale = 3.6,
+  className = "",
+}: {
+  src: string;
+  alt: string;
+  size?: number;
+  pad?: number;
+  maxScale?: number;
+  className?: string;
+}) {
+  const cacheKey = `${src}|${size}|${pad}|${maxScale}`;
+  const [scale, setScale] = useState<number>(() => __ICON_SCALE_CACHE.get(cacheKey) ?? 1.6);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function compute() {
+      const cached = __ICON_SCALE_CACHE.get(cacheKey);
+      if (cached != null) {
+        if (alive) setScale(cached);
+        return;
+      }
+
+      try {
+        const img = new window.Image();
+        img.crossOrigin = "anonymous";
+
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("icon load failed"));
+          img.src = src;
+        });
+
+        const CAN = 320;
+        const canvas = document.createElement("canvas");
+        canvas.width = CAN;
+        canvas.height = CAN;
+
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) throw new Error("no ctx");
+
+        ctx.clearRect(0, 0, CAN, CAN);
+
+        const iw = img.naturalWidth || img.width;
+        const ih = img.naturalHeight || img.height;
+        if (!iw || !ih) throw new Error("no size");
+
+        // contain draw (centered)
+        const r = Math.min(CAN / iw, CAN / ih);
+        const dw = iw * r;
+        const dh = ih * r;
+        const dx = (CAN - dw) / 2;
+        const dy = (CAN - dh) / 2;
+        ctx.drawImage(img, dx, dy, dw, dh);
+
+        const { data } = ctx.getImageData(0, 0, CAN, CAN);
+
+        let minX = CAN,
+          minY = CAN,
+          maxX = -1,
+          maxY = -1;
+
+        const ALPHA_THRESHOLD = 10;
+
+        for (let y = 0; y < CAN; y++) {
+          for (let x = 0; x < CAN; x++) {
+            const idx = (y * CAN + x) * 4 + 3;
+            const a = data[idx] ?? 0;
+            if (a > ALPHA_THRESHOLD) {
+              if (x < minX) minX = x;
+              if (y < minY) minY = y;
+              if (x > maxX) maxX = x;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+
+        if (maxX < 0 || maxY < 0) {
+          const fallback = 1.6;
+          __ICON_SCALE_CACHE.set(cacheKey, fallback);
+          if (alive) setScale(fallback);
+          return;
+        }
+
+        const bw = Math.max(1, maxX - minX + 1);
+        const bh = Math.max(1, maxY - minY + 1);
+
+        const inner = Math.max(1, size - pad * 2);
+        const contentMax = Math.max(bw, bh);
+
+        const boundsFill = CAN / contentMax;
+        const target = (inner / size) * boundsFill;
+
+        const next = Math.min(maxScale, Math.max(1.0, target * 1.05));
+
+        __ICON_SCALE_CACHE.set(cacheKey, next);
+        if (alive) setScale(next);
+      } catch {
+        const fallback = 1.6;
+        __ICON_SCALE_CACHE.set(cacheKey, fallback);
+        if (alive) setScale(fallback);
+      }
+    }
+
+    compute();
+    return () => {
+      alive = false;
+    };
+  }, [src, size, pad, maxScale, cacheKey]);
+
+  return (
+    <div
+      className={cn(
+        "relative grid place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30",
+        className
+      )}
+      style={{ width: size, height: size }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        draggable={false}
+        className="absolute left-1/2 top-1/2 h-full w-full object-contain"
+        style={{ transform: `translate(-50%, -50%) scale(${scale})` }}
+      />
+    </div>
+  );
+}
+
 /* ---------- Confetti (no deps) ---------- */
 function fireMiniConfetti() {
   const root = document.createElement("div");
@@ -297,13 +472,16 @@ function ShareModal({
   shareUrl,
   code,
   ownerHandle,
+  title,
 }: {
   open: boolean;
   onClose: () => void;
   shareUrl: string;
   code: string;
   ownerHandle: string;
+  title?: string | null;
 }) {
+  const [shareBusy, setShareBusy] = useState<ShareApp | null>(null);
   const [qrBusy, setQrBusy] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -312,6 +490,7 @@ function ShareModal({
     if (!open) return;
     let alive = true;
     setCopied(false);
+    setShareBusy(null);
     setQrDataUrl(null);
     (async () => {
       setQrBusy(true);
@@ -335,6 +514,17 @@ function ShareModal({
     };
   }, [open, shareUrl]);
 
+  async function onShareApp(app: ShareApp) {
+    try {
+      setShareBusy(app);
+      await copyToClipboard(shareUrl);
+      const url = buildShareUrl(app, shareUrl, title);
+      openExternal(url);
+    } finally {
+      setTimeout(() => setShareBusy(null), 500);
+    }
+  }
+
   if (!open) return null;
 
   return (
@@ -352,12 +542,8 @@ function ShareModal({
                 className="h-6 w-6 sm:h-7 sm:w-7"
               />
               <div>
-                <div className="text-[13px] sm:text-[14px] font-semibold text-white">
-                  Share
-                </div>
-                <div className="hidden sm:block text-[11px] text-white/50">
-                  Share link, QR, and Edgaze code
-                </div>
+                <div className="text-[13px] sm:text-[14px] font-semibold text-white">Share</div>
+                <div className="hidden sm:block text-[11px] text-white/50">Link, QR, and quick-share</div>
               </div>
             </div>
             <button
@@ -417,8 +603,42 @@ function ShareModal({
                     </div>
                   </div>
 
-                  <div className="mt-3 text-[11px] text-white/45">
-                    URL uses <span className="text-white/70">edgaze.ai</span>.
+                  {/* Quick share row */}
+                  <div className="mt-4">
+                    <div className="text-[11px] font-semibold text-white/70">Quick share</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {(["whatsapp", "x", "snapchat", "reddit", "facebook"] as ShareApp[]).map((app) => {
+                        const info = shareAppInfo(app);
+                        const busy = shareBusy === app;
+                        return (
+                          <button
+                            key={app}
+                            type="button"
+                            onClick={() => onShareApp(app)}
+                            className={cn(
+                              "group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/10",
+                              busy && "opacity-70"
+                            )}
+                            aria-label={`Share to ${info.name}`}
+                            title={info.name}
+                          >
+                            {busy ? (
+                              <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30">
+                                <Loader2 className="h-4 w-4 animate-spin text-white/70" />
+                              </span>
+                            ) : (
+                              <AutoFitCircleIcon src={info.icon} alt={info.name} size={28} pad={1} maxScale={3.6} />
+                            )}
+
+                            <span className="hidden sm:inline">{info.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-2 text-[11px] text-white/45">
+                      Tapping an app also copies the link for reliable pasting.
+                    </div>
                   </div>
                 </div>
               </div>
@@ -659,6 +879,7 @@ export default function WorkflowProductPage() {
   const [upNextHasMore, setUpNextHasMore] = useState(true);
   const [upNextCursor, setUpNextCursor] = useState(0);
   const upNextSentinelRef = useRef<HTMLDivElement | null>(null);
+  const autoActionTriggeredRef = useRef(false);
 
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
@@ -866,6 +1087,33 @@ export default function WorkflowProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing?.id, userId]);
 
+  // Auto-trigger purchase/run flow after auth redirect
+  useEffect(() => {
+    if (!userId || !listing) return;
+    if (autoActionTriggeredRef.current) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get("action");
+    
+    if (action === "purchase") {
+      autoActionTriggeredRef.current = true;
+      
+      // Remove action param from URL immediately to prevent duplicate triggers
+      urlParams.delete("action");
+      const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "");
+      window.history.replaceState({}, "", newUrl);
+      
+      // Wait a bit for purchase state to load, then trigger
+      const timer = setTimeout(() => {
+        grantAccessOrOpen();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return;
+  }, [userId, listing]);
+
   async function grantAccessOrOpen() {
     if (!listing) return;
     setPurchaseError(null);
@@ -876,7 +1124,14 @@ export default function WorkflowProductPage() {
       return;
     }
 
-    if (!requireAuth()) return;
+    // Save intent in URL before requiring auth so redirect includes it
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set("action", "purchase");
+    window.history.replaceState({}, "", currentUrl.toString());
+
+    if (!requireAuth()) {
+      return;
+    }
 
     if (isOwned) {
       openWorkflowStudio();
@@ -888,6 +1143,16 @@ export default function WorkflowProductPage() {
       setPurchaseLoading(true);
       try {
         const uid = userId!;
+        
+        // Check if purchase already exists (might have been created during redirect)
+        const existing = await loadPurchaseRow(listing.id, uid);
+        if (existing) {
+          setPurchase(existing);
+          setPurchaseSuccessOpen(true);
+          setPurchaseLoading(false);
+          return;
+        }
+        
         const { data, error } = await supabase
           .from("workflow_purchases")
           .insert({
@@ -900,8 +1165,20 @@ export default function WorkflowProductPage() {
 
         if (error) {
           console.error("workflow beta access insert error", error);
+          
+          // If it's a duplicate key error, try to load the existing purchase
+          if (error.code === "23505" || error.message?.includes("duplicate") || error.message?.includes("unique")) {
+            const existingAfterError = await loadPurchaseRow(listing.id, uid);
+            if (existingAfterError) {
+              setPurchase(existingAfterError);
+              setPurchaseSuccessOpen(true);
+              setPurchaseLoading(false);
+              return;
+            }
+          }
+          
           setPurchaseError(
-            "Could not grant access. Fix RLS on workflow_purchases (INSERT + SELECT for buyer_id)."
+            "Could not grant access. Please try again."
           );
           return;
         }
@@ -1053,6 +1330,7 @@ export default function WorkflowProductPage() {
         shareUrl={canonicalShareUrl}
         code={listing.edgaze_code || ""}
         ownerHandle={listing.owner_handle || ""}
+        title={listing.title}
       />
 
       {/* Desktop top bar */}
@@ -1334,14 +1612,10 @@ export default function WorkflowProductPage() {
               </div>
 
               <div className="hidden sm:block mt-6 border-t border-white/10 pt-6">
-  <WorkflowCommentsSection
-    listingId={listing.id}
-    listingOwnerId={listing.owner_id}
-  />
-</div>
+                <WorkflowCommentsSection listingId={listing.id} listingOwnerId={listing.owner_id} />
+              </div>
 
-
-              {/* Mobile: preview a few comments, open full sheet on tap */}
+              {/* Mobile: preview a few comments, open full sheet on tap (match prompt styling) */}
               <div className="sm:hidden mt-6 border-t border-white/10 pt-5">
                 <div
                   role="button"
@@ -1354,35 +1628,24 @@ export default function WorkflowProductPage() {
                   aria-label="Open comments"
                 >
                   <div className="flex items-center justify-between">
-                    <div className="text-[13px] font-semibold text-white/85">
-                      Comments
-                    </div>
+                    <div className="text-[13px] font-semibold text-white/85">Comments</div>
                     <div className="text-[11px] text-white/55">Tap to view</div>
                   </div>
 
                   <div className="mt-3 max-h-[140px] overflow-hidden relative">
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#050505] to-transparent" />
-                    <div className="h-[calc(100%-52px)] overflow-y-auto px-4 py-4">
-  <WorkflowCommentsSection
-    listingId={listing.id}
-    listingOwnerId={listing.owner_id}
-  />
-</div>
-
+                    <div className="pointer-events-none opacity-90">
+                      <WorkflowCommentsSection listingId={listing.id} listingOwnerId={listing.owner_id} />
+                    </div>
                   </div>
                 </div>
 
                 {commentsOpen && (
                   <div className="fixed inset-0 z-[110]">
-                    <div
-                      className="absolute inset-0 bg-black/80"
-                      onClick={() => setCommentsOpen(false)}
-                    />
+                    <div className="absolute inset-0 bg-black/80" onClick={() => setCommentsOpen(false)} />
                     <div className="absolute inset-x-0 bottom-0 top-[10%] rounded-t-3xl border border-white/10 bg-[#050505] overflow-hidden">
                       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-                        <div className="text-[14px] font-semibold text-white">
-                          Comments
-                        </div>
+                        <div className="text-[14px] font-semibold text-white">Comments</div>
                         <button
                           type="button"
                           onClick={() => setCommentsOpen(false)}
@@ -1394,11 +1657,7 @@ export default function WorkflowProductPage() {
                       </div>
 
                       <div className="h-[calc(100%-52px)] overflow-y-auto px-4 py-4">
-                      <WorkflowCommentsSection
-  listingId={listing.id}
-  listingOwnerId={listing.owner_id}
-/>
-
+                        <WorkflowCommentsSection listingId={listing.id} listingOwnerId={listing.owner_id} />
                       </div>
                     </div>
                   </div>

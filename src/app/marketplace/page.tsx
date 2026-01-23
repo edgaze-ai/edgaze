@@ -14,6 +14,8 @@ import {
 
 import { useAuth } from "../../components/auth/AuthContext";
 import { createSupabasePublicBrowserClient } from "../../lib/supabase/public";
+import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
+import ErrorModal from "../../components/marketplace/ErrorModal";
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription" | "both" | null;
@@ -566,6 +568,7 @@ function PromptCard({
   currentUserId,
   requireAuth,
   supabase,
+  supabaseAuth,
   ownerProfiles,
   onEvent,
 }: {
@@ -573,6 +576,7 @@ function PromptCard({
   currentUserId: string | null;
   requireAuth: () => boolean;
   supabase: ReturnType<typeof createSupabasePublicBrowserClient>;
+  supabaseAuth: ReturnType<typeof createSupabaseBrowserClient>;
   ownerProfiles: Record<string, ProfileMini | undefined>;
   onEvent: (evt: Omit<MarketplaceEvent, "ts" | "session_id" | "user_id">) => void;
 }) {
@@ -580,7 +584,19 @@ function PromptCard({
   const cardRef = useRef<HTMLDivElement | null>(null);
   const didImpress = useRef(false);
   const [likeCount, setLikeCount] = useState(prompt.like_count ?? 0);
+  const [isLiked, setIsLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    details?: string;
+    hint?: string;
+  }>({
+    open: false,
+    title: "",
+    message: "",
+  });
 
   const isFree = prompt.monetisation_mode === "free" || prompt.is_paid === false;
   const publishedLabel = formatRelativeTime((prompt.published_at ?? prompt.created_at) ?? null);
@@ -610,6 +626,54 @@ function PromptCard({
     return () => obs.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompt.id]);
+
+  // Check if user has liked this item and refresh count
+  useEffect(() => {
+    const checkLikeStatus = async () => {
+      try {
+        const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
+        
+        // Refresh count from database first
+        const { data: itemData } = await supabase
+          .from(itemsTable)
+          .select("likes_count, like_count")
+          .eq("id", prompt.id)
+          .single();
+        
+        if (itemData) {
+          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          setLikeCount(actualCount);
+        }
+        
+        // Check if user has liked
+        if (!currentUserId) {
+          setIsLiked(false);
+          return;
+        }
+
+        const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
+        const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
+        
+        const { data, error } = await supabaseAuth
+          .from(likesTable)
+          .select("id")
+          .eq("user_id", currentUserId)
+          .eq(itemIdColumn, prompt.id)
+          .maybeSingle();
+        
+        if (error && !error.message.includes("permission") && !error.message.includes("JWT")) {
+          console.error("Error checking like status:", error);
+        }
+        
+        setIsLiked(!!data);
+      } catch (error) {
+        console.error("Error checking like status:", error);
+        setIsLiked(false);
+      }
+    };
+
+    checkLikeStatus();
+  }, [prompt.id, prompt.type, currentUserId, supabaseAuth, supabase]);
 
   const detailPath =
   prompt.edgaze_code && prompt.owner_handle
@@ -665,6 +729,12 @@ function PromptCard({
     if (!requireAuth()) return;
     if (!currentUserId) return;
 
+    const wasLiked = isLiked;
+    
+    // Optimistic update
+    setIsLiked(!wasLiked);
+    setLikeCount((prev) => wasLiked ? Math.max(0, prev - 1) : prev + 1);
+
     onEvent({
       name: "like",
       item_id: prompt.id,
@@ -676,26 +746,126 @@ function PromptCard({
 
     try {
       setLikeLoading(true);
-      const next = (likeCount ?? 0) + 1;
-
-      if (prompt.type === "workflow") {
-        const { data } = await supabase
-          .from("workflows")
-          .update({ likes_count: next })
+      
+      // Use Supabase client directly (like comments do) - RLS handles security
+      const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
+      const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
+      const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
+      
+      if (wasLiked) {
+        // Remove like
+        const { error: deleteError } = await supabaseAuth
+          .from(likesTable)
+          .delete()
+          .eq("user_id", currentUserId)
+          .eq(itemIdColumn, prompt.id);
+        
+        if (deleteError) {
+          throw deleteError;
+        }
+        
+        setIsLiked(false);
+        
+        // Small delay to ensure triggers have updated the count
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Refresh count from database (triggers update it)
+        const { data: itemData } = await supabase
+          .from(itemsTable)
+          .select("likes_count, like_count")
           .eq("id", prompt.id)
-          .select("likes_count")
           .single();
-
-        setLikeCount((data as any)?.likes_count ?? next);
+        
+        if (itemData) {
+          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          setLikeCount(actualCount);
+        } else {
+          // Fallback: decrement optimistically
+          setLikeCount((prev) => Math.max(0, prev - 1));
+        }
       } else {
-        const { data } = await supabase
-          .from("prompts")
-          .update({ likes_count: next })
+        // Add like
+        const insertData = prompt.type === "workflow"
+          ? { user_id: currentUserId, workflow_id: prompt.id }
+          : { user_id: currentUserId, prompt_id: prompt.id };
+        
+        const { error: insertError } = await supabaseAuth
+          .from(likesTable)
+          .insert(insertData);
+        
+        if (insertError) {
+          // If duplicate, user already liked - refresh from DB
+          if (insertError.message.includes("unique") || insertError.message.includes("duplicate")) {
+            setIsLiked(true);
+            
+            // Small delay to ensure triggers have updated the count
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Refresh count from database
+            const { data: itemData } = await supabase
+              .from(itemsTable)
+              .select("likes_count, like_count")
+              .eq("id", prompt.id)
+              .single();
+            
+            if (itemData) {
+              const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+              setLikeCount(actualCount);
+            } else {
+              // Fallback: increment optimistically
+              setLikeCount((prev) => prev + 1);
+            }
+            return;
+          }
+          throw insertError;
+        }
+        
+        setIsLiked(true);
+        
+        // Small delay to ensure triggers have updated the count
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Refresh count from database (triggers update it)
+        const { data: itemData } = await supabase
+          .from(itemsTable)
+          .select("likes_count, like_count")
           .eq("id", prompt.id)
-          .select("likes_count")
           .single();
-
-        setLikeCount((data as any)?.likes_count ?? next);
+        
+        if (itemData) {
+          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          setLikeCount(actualCount);
+        } else {
+          // Fallback: increment optimistically
+          setLikeCount((prev) => prev + 1);
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error toggling like:", error);
+      // Revert optimistic update on error
+      setIsLiked(wasLiked);
+      setLikeCount((prev) => wasLiked ? prev + 1 : Math.max(0, prev - 1));
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check if it's an auth error
+      if (errorMessage.includes("JWT") || errorMessage.includes("session") || errorMessage.includes("auth") || errorMessage.includes("permission") || errorMessage.includes("row-level security")) {
+        setErrorModal({
+          open: true,
+          title: "Authentication Required",
+          message: "Please sign in to like items.",
+          details: errorMessage,
+          hint: "Try signing in again.",
+        });
+      } else {
+        setErrorModal({
+          open: true,
+          title: "Failed to toggle like",
+          message: "An error occurred while trying to like this item.",
+          details: errorMessage,
+          hint: "Please try again.",
+        });
       }
     } finally {
       setLikeLoading(false);
@@ -793,7 +963,12 @@ function PromptCard({
               onClick={handleLikeClick}
               disabled={likeLoading}
               className={cn(
-                "flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2.5 py-[4px] text-[11px] text-white/70 hover:border-white/25 hover:text-white/90",
+                "flex items-center gap-1 rounded-full border px-2.5 py-[4px] text-[11px] transition-colors",
+                isLiked
+                  ? prompt.type === "workflow"
+                    ? "border-pink-400/40 bg-pink-500/20 text-pink-200"
+                    : "border-cyan-300/40 bg-cyan-400/20 text-cyan-100"
+                  : "border-white/15 bg-white/5 text-white/70 hover:border-white/25 hover:text-white/90",
                 prompt.type === "workflow"
                   ? "hover:border-pink-400 hover:text-pink-200"
                   : "hover:border-cyan-300 hover:text-cyan-100"
@@ -802,13 +977,22 @@ function PromptCard({
               {likeLoading ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Heart className="h-3.5 w-3.5" />
+                <Heart className="h-3.5 w-3.5" fill={isLiked ? "currentColor" : "none"} />
               )}
               <span>{likeCount ?? 0}</span>
             </button>
           </div>
         </div>
       </div>
+      
+      <ErrorModal
+        open={errorModal.open}
+        onClose={() => setErrorModal({ ...errorModal, open: false })}
+        title={errorModal.title}
+        message={errorModal.message}
+        details={errorModal.details}
+        hint={errorModal.hint}
+      />
     </div>
   );
 }
@@ -1217,6 +1401,7 @@ function MarketplaceSearchBar({
 
 export default function MarketplacePage() {
   const supabase = useMemo(() => createSupabasePublicBrowserClient(), []);
+  const supabaseAuth = useMemo(() => createSupabaseBrowserClient(), []);
   const { requireAuth, userId, profile, openSignIn, signOut } = useAuth();
   const router = useRouter();
 
@@ -2402,6 +2587,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                     currentUserId={userId}
                     requireAuth={requireAuth}
                     supabase={supabase}
+                    supabaseAuth={supabaseAuth}
                     ownerProfiles={ownerProfiles}
                     onEvent={emitEvent}
                   />

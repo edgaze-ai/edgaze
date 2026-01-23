@@ -204,6 +204,182 @@ function GeneralPanel({
   onUpdate: (p: any) => void;
 }) {
   const cfg = selection.config ?? {};
+  const inspectorFields = spec?.inspector ?? [];
+  const advancedKeys = new Set(["timeout", "retries", "allowOnly", "denyHosts", "maxTokens", "maxIterations"]);
+
+  const renderField = (field: any) => {
+    const value = cfg[field.key] ?? (spec.defaultConfig?.[field.key] ?? "");
+
+    switch (field.type) {
+      case "text":
+        return (
+          <div key={field.key}>
+            <label className="text-[11px] text-white/60 flex items-center gap-1">
+              {field.label}
+              {field.helpText && (
+                <span className="text-white/40" title={field.helpText}>
+                  (?)
+                </span>
+              )}
+            </label>
+            <Input
+              placeholder={field.placeholder}
+              defaultValue={value}
+              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                onUpdate({ [field.key]: e.currentTarget.value })
+              }
+            />
+            {field.helpText && (
+              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
+            )}
+          </div>
+        );
+
+      case "textarea":
+        return (
+          <div key={field.key}>
+            <label className="text-[11px] text-white/60 flex items-center gap-1">
+              {field.label}
+              {field.helpText && (
+                <span className="text-white/40" title={field.helpText}>
+                  (?)
+                </span>
+              )}
+            </label>
+            <TextArea
+              rows={field.rows ?? 3}
+              placeholder={field.placeholder}
+              defaultValue={value}
+              onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
+                onUpdate({ [field.key]: e.currentTarget.value })
+              }
+            />
+            {field.helpText && (
+              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
+            )}
+          </div>
+        );
+
+      case "number":
+        return (
+          <div key={field.key}>
+            <label className="text-[11px] text-white/60 flex items-center gap-1">
+              {field.label}
+              {field.helpText && (
+                <span className="text-white/40" title={field.helpText}>
+                  (?)
+                </span>
+              )}
+            </label>
+            <Input
+              type="number"
+              min={field.min}
+              max={field.max}
+              step={field.step ?? 1}
+              defaultValue={value}
+              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                onUpdate({ [field.key]: Number(e.currentTarget.value) })
+              }
+            />
+            {field.helpText && (
+              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
+            )}
+          </div>
+        );
+
+      case "slider":
+        return (
+          <div key={field.key}>
+            <label className="text-[11px] text-white/60 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                {field.label}
+                {field.helpText && (
+                  <span className="text-white/40" title={field.helpText}>
+                    (?)
+                  </span>
+                )}
+              </span>
+              <span className="text-white/70 font-mono text-[11px]">{value}</span>
+            </label>
+            <input
+              type="range"
+              min={field.min}
+              max={field.max}
+              step={field.step ?? (field.max - field.min) / 100}
+              defaultValue={value}
+              onChange={(e) => onUpdate({ [field.key]: Number(e.target.value) })}
+              className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white/30"
+            />
+            {field.helpText && (
+              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
+            )}
+          </div>
+        );
+
+      case "switch":
+        return (
+          <div key={field.key} className="flex items-center justify-between">
+            <label className="text-[11px] text-white/60 flex items-center gap-1">
+              {field.label}
+              {field.helpText && (
+                <span className="text-white/40" title={field.helpText}>
+                  (?)
+                </span>
+              )}
+            </label>
+            <button
+              type="button"
+              onClick={() => onUpdate({ [field.key]: !value })}
+              className={`relative w-11 h-6 rounded-full transition-colors ${
+                value ? "bg-white/20" : "bg-white/10"
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                  value ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        );
+
+      case "select":
+        return (
+          <div key={field.key}>
+            <label className="text-[11px] text-white/60 flex items-center gap-1">
+              {field.label}
+              {field.helpText && (
+                <span className="text-white/40" title={field.helpText}>
+                  (?)
+                </span>
+              )}
+            </label>
+            <select
+              defaultValue={value}
+              onChange={(e) => onUpdate({ [field.key]: e.target.value })}
+              className="w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10 focus:outline-none focus:ring-2 focus:ring-white/10"
+            >
+              {field.options?.map((opt: any) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            {field.helpText && (
+              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  // Special condition builder for condition nodes
+  const isCondition = spec?.id === "condition";
+  const conditionOperator = cfg.operator || "truthy";
+  const conditionCompareValue = cfg.compareValue || "";
 
   return (
     <div className="space-y-4 pt-3">
@@ -227,39 +403,98 @@ function GeneralPanel({
               onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
                 onUpdate({ description: e.currentTarget.value })
               }
-              
             />
           </div>
         </div>
       </Card>
 
-      <Card title="Execution" icon={<Sliders size={16} />}>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-[11px] text-white/60">Timeout (ms)</label>
-            <Input
-              type="number"
-              defaultValue={cfg.timeout ?? 8000}
-              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-                onUpdate({ timeout: Number(e.currentTarget.value) })
-              }
-              
-            />
+      {/* Condition Builder - Human-friendly */}
+      {isCondition && (
+        <Card title="Condition" icon={<Code2 size={16} />}>
+          <div className="space-y-4">
+            <div className="rounded-xl bg-white/5 border border-white/10 p-3">
+              <div className="text-[12px] font-semibold text-white/90 mb-3">
+                If value{" "}
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/10 border border-white/20">
+                  <select
+                    value={conditionOperator}
+                    onChange={(e) => onUpdate({ operator: e.target.value, compareValue: conditionOperator === "equals" || conditionOperator === "notEquals" ? conditionCompareValue : "" })}
+                    className="bg-transparent border-none text-white/90 text-[12px] font-medium focus:outline-none cursor-pointer"
+                  >
+                    <option value="truthy">is truthy</option>
+                    <option value="falsy">is falsy</option>
+                    <option value="equals">equals</option>
+                    <option value="notEquals">does not equal</option>
+                    <option value="gt">is greater than</option>
+                    <option value="lt">is less than</option>
+                  </select>
+                </span>
+                {(conditionOperator === "equals" || conditionOperator === "notEquals" || conditionOperator === "gt" || conditionOperator === "lt") && (
+                  <span className="ml-2">
+                    <Input
+                      placeholder="value"
+                      defaultValue={conditionCompareValue}
+                      onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                        onUpdate({ compareValue: e.currentTarget.value })
+                      }
+                      className="inline-block w-32"
+                    />
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 text-[10px] text-white/50">
+                Examples: "If age &gt; 18", "If status equals 'active'", "If count is truthy"
+              </div>
+            </div>
           </div>
+        </Card>
+      )}
 
-          <div>
-            <label className="text-[11px] text-white/60">Retry Attempts</label>
-            <Input
-              type="number"
-              defaultValue={cfg.retries ?? 0}
-              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-                onUpdate({ retries: Number(e.currentTarget.value) })
-              }
-              
-            />
+      {inspectorFields.length > 0 && (
+        <Card title="Configuration" icon={<Sliders size={16} />}>
+          <div className="space-y-3">
+            {inspectorFields.filter((f: any) => !advancedKeys.has(f.key)).map(renderField)}
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
+
+      {(cfg.timeout !== undefined ||
+        cfg.retries !== undefined ||
+        inspectorFields.some((f: any) => advancedKeys.has(f.key)) ||
+        !inspectorFields.find((f: any) => f.key === "timeout")) && (
+        <Card title="Advanced" icon={<Sliders size={16} />}>
+          <details className="group">
+            <summary className="cursor-pointer select-none rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-[12px] font-semibold text-white/85 transition-colors">
+              Show advanced settings
+            </summary>
+            <div className="mt-3 space-y-3">
+              {inspectorFields.filter((f: any) => advancedKeys.has(f.key)).map(renderField)}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] text-white/60">Timeout (ms)</label>
+                  <Input
+                    type="number"
+                    defaultValue={cfg.timeout ?? 8000}
+                    onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                      onUpdate({ timeout: Number(e.currentTarget.value) })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-white/60">Retry Attempts</label>
+                  <Input
+                    type="number"
+                    defaultValue={cfg.retries ?? 0}
+                    onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                      onUpdate({ retries: Number(e.currentTarget.value) })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          </details>
+        </Card>
+      )}
     </div>
   );
 }
@@ -393,6 +628,9 @@ export default function InspectorPanel({
     if (!safeSelection.nodeId) return;
     onUpdate(safeSelection.nodeId, patch);
   };
+
+  // Creator-friendly: hide advanced execution knobs by default
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const TabPill = ({
     active,

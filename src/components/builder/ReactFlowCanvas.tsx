@@ -33,6 +33,10 @@ import "reactflow/dist/style.css";
 import { getNodeSpec } from "src/nodes/registry";
 import type { NodeSpec, Port } from "src/nodes/types";
 import MergeNode from "./nodes/MergeNode";
+import ConditionNode from "./nodes/ConditionNode";
+import NodeFrame from "./nodes/NodeFrame";
+import { emit, on } from "../../lib/bus";
+import { track } from "../../lib/mixpanel";
 import {
   Maximize2,
   Minimize2,
@@ -53,11 +57,20 @@ type EdgazeNodeData = {
   version: string;
   summary: string;
   config: any;
+  icon?: string;
   connectedNames: string[];
 };
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function safeTrack(event: string, props?: Record<string, any>) {
+  try {
+    track(event, props);
+  } catch {
+    // never block builder UX on analytics
+  }
 }
 
 /* ---------- Selection ring (for edgCard nodes) ---------- */
@@ -84,71 +97,14 @@ function SelectionRing() {
 
 /* ---------- Default node card ---------- */
 function NodeCard(props: NodeProps<EdgazeNodeData>) {
-  const { data, isConnectable, selected, id } = props;
-  const spec: NodeSpec | undefined = getNodeSpec(data?.specId);
-  const title = spec?.label ?? "Node";
-  const summary = spec?.summary ?? "";
-  const version = spec?.version ?? "1.0.0";
-
-  const inputs = (spec?.ports ?? []).filter((p) => p.kind === "input");
-  const outputs = (spec?.ports ?? []).filter((p) => p.kind === "output");
-
-  return (
-    <div className="relative" data-nodeid={id}>
-      {selected && <SelectionRing />}
-
-      <div className="relative min-w-[360px] overflow-hidden rounded-2xl bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900 shadow-[0_20px_60px_rgba(15,23,42,0.55)] ring-1 ring-slate-200/90">
-        <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-slate-100 via-slate-50 to-slate-100 px-4 py-2.5">
-          <span className="truncate text-[13px] font-semibold text-slate-900">
-            {title}
-          </span>
-          <span className="shrink-0 text-[11px] font-mono text-slate-500">
-            v{version}
-          </span>
-        </div>
-
-        <div className="px-4 pb-3 pt-2.5">
-          <p className="text-[12px] leading-relaxed text-slate-700">
-            {summary}
-          </p>
-          <p className="mt-2 text-[11px] text-slate-500">
-            {data?.connectedNames?.length
-              ? `Connected to: ${data.connectedNames.join(", ")}`
-              : "No outgoing connections yet."}
-          </p>
-        </div>
-      </div>
-
-      {inputs.map((p: Port, i: number) => (
-        <Handle
-          key={p.id}
-          id={p.id}
-          type="target"
-          position={Position.Left}
-          className="edge-port"
-          isConnectable={isConnectable}
-          style={{ top: 32 + i * 18 }}
-        />
-      ))}
-      {outputs.map((p: Port, i: number) => (
-        <Handle
-          key={p.id}
-          id={p.id}
-          type="source"
-          position={Position.Right}
-          className="edge-port edge-port--edg"
-          isConnectable={isConnectable}
-          style={{ top: 32 + i * 18 }}
-        />
-      ))}
-    </div>
-  );
+  return <NodeFrame {...(props as any)} />;
 }
 
 /* ---------- Node types ---------- */
 const nodeTypes = {
-  edgCard: NodeCard,
+  edgCard: NodeFrame,
   edgMerge: MergeNode,
+  edgCondition: ConditionNode,
 };
 
 /* ---------- Public ref API ---------- */
@@ -157,6 +113,14 @@ export type CanvasRef = {
   updateNodeConfig: (nodeId: string, patch: any) => void;
   getGraph: () => { nodes: Node<EdgazeNodeData>[]; edges: Edge[] };
   loadGraph: (graph: { nodes: Node<EdgazeNodeData>[]; edges: Edge[] } | any) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  toggleGrid: () => void;
+  toggleLock: () => void;
+  fullscreen: () => void;
+  getShowGrid: () => boolean;
+  getLocked: () => boolean;
+  getIsFullscreen: () => boolean;
 };
 
 type BuilderMode = "edit" | "preview";
@@ -228,6 +192,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
   // Prevent selection-change -> state -> selection-change loops
   const lastSelectionKeyRef = useRef<string>("none");
+  const paneClickJustHappenedRef = useRef(false);
 
   const nodesRef = useRef<Node<EdgazeNodeData, string | undefined>[]>([]);
   const edgesRef = useRef<Edge[]>([]);
@@ -237,6 +202,38 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   useEffect(() => {
     edgesRef.current = edges;
   }, [edges]);
+
+  // Dynamic zoom limits: allow more zoom out for bigger workflows
+  const minZoom = useMemo(() => {
+    const nodeCount = nodes.length;
+    const edgeCount = edges.length;
+    const workflowSize = nodeCount + edgeCount;
+    // For small workflows (< 10 nodes), cap at 0.1
+    // For larger workflows, allow more zoom out (0.05 for very large, 0.08 for medium)
+    if (workflowSize < 10) return 0.1;
+    if (workflowSize < 30) return 0.08;
+    return 0.05; // Very large workflows can zoom out more
+  }, [nodes.length, edges.length]);
+
+  // Allow node cards to toggle settings without storing functions in graph
+  useEffect(() => {
+    const off = on<{ nodeId: string; patch: any }>("builder:updateNodeConfig", (payload) => {
+      if (!payload?.nodeId || !payload?.patch) return;
+      if (isPreview) return;
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === payload.nodeId
+            ? { ...n, data: { ...n.data, config: { ...(n.data?.config ?? {}), ...payload.patch } } }
+            : n
+        )
+      );
+    });
+    return () => {
+      try {
+        off();
+      } catch {}
+    };
+  }, [setNodes, isPreview]);
 
   // Emit graph changes (parent should debounce persistence)
   useEffect(() => {
@@ -253,10 +250,169 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     }
   };
 
+  // Connection validation
+  const isValidConnection = useCallback(
+    (connection: Connection | Edge): boolean => {
+      if (!connection.source || !connection.target) return false;
+
+      const sourceNode = nodesRef.current.find((n) => n.id === connection.source);
+      const targetNode = nodesRef.current.find((n) => n.id === connection.target);
+
+      if (!sourceNode || !targetNode) return false;
+
+      const sourceSpec = getNodeSpec(sourceNode.data?.specId);
+      const targetSpec = getNodeSpec(targetNode.data?.specId);
+
+      if (!sourceSpec || !targetSpec) return true; // Allow if specs not found (fallback)
+
+      // Rule 1: Input nodes cannot have inputs
+      if (targetSpec.id === "input") {
+        return false;
+      }
+
+      // Rule 2: Output nodes cannot have outputs
+      if (sourceSpec.id === "output") {
+        return false;
+      }
+
+      // Rule 3: Condition nodes can only have 1 input connection
+      if (targetSpec.id === "condition") {
+        const existingInputs = edgesRef.current.filter((e) => e.target === connection.target);
+        if (existingInputs.length >= 1) {
+          return false;
+        }
+      }
+
+      // Rule 6: Output nodes can only have 1 input connection
+      if (targetSpec.id === "output") {
+        const existingInputs = edgesRef.current.filter((e) => e.target === connection.target);
+        if (existingInputs.length >= 1) {
+          return false;
+        }
+      }
+
+      // Rule 4: Prevent cycles (basic check - output cannot connect back to input)
+      if (sourceNode.id === targetNode.id) {
+        return false;
+      }
+
+      // Rule 5: Type compatibility (basic check)
+      const sourcePort = sourceSpec.ports?.find((p) => p.id === connection.sourceHandle);
+      const targetPort = targetSpec.ports?.find((p) => p.id === connection.targetHandle);
+
+      if (sourcePort && targetPort) {
+        const sourceType = sourcePort.type || "any";
+        const targetType = targetPort.type || "any";
+
+        // "any" accepts anything, otherwise types must match
+        if (targetType !== "any" && sourceType !== "any" && sourceType !== targetType) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    []
+  );
+
+  const getConnectionError = useCallback(
+    (connection: Connection | Edge): string | null => {
+      if (!connection.source || !connection.target) return "Invalid connection";
+
+      const sourceNode = nodesRef.current.find((n) => n.id === connection.source);
+      const targetNode = nodesRef.current.find((n) => n.id === connection.target);
+
+      if (!sourceNode || !targetNode) return "Nodes not found";
+
+      const sourceSpec = getNodeSpec(sourceNode.data?.specId);
+      const targetSpec = getNodeSpec(targetNode.data?.specId);
+
+      if (!sourceSpec || !targetSpec) return null;
+
+      // Rule 1: Input nodes cannot have inputs
+      if (targetSpec.id === "input") {
+        return "Input nodes cannot receive connections. They only output data.";
+      }
+
+      // Rule 2: Output nodes cannot have outputs
+      if (sourceSpec.id === "output") {
+        return "Output nodes cannot send connections. They only receive data.";
+      }
+
+      // Rule 3: Condition nodes can only have 1 input connection
+      if (targetSpec.id === "condition") {
+        const existingInputs = edgesRef.current.filter((e) => e.target === connection.target);
+        if (existingInputs.length >= 1) {
+          return "Condition nodes can only have one input connection.";
+        }
+      }
+
+      // Rule 6: Output nodes can only have 1 input connection
+      if (targetSpec.id === "output") {
+        const existingInputs = edgesRef.current.filter((e) => e.target === connection.target);
+        if (existingInputs.length >= 1) {
+          return "Output nodes can only have one input connection.";
+        }
+      }
+
+      // Rule 4: Prevent cycles
+      if (sourceNode.id === targetNode.id) {
+        return "Cannot connect a node to itself.";
+      }
+
+      // Rule 5: Type compatibility
+      const sourcePort = sourceSpec.ports?.find((p) => p.id === connection.sourceHandle);
+      const targetPort = targetSpec.ports?.find((p) => p.id === connection.targetHandle);
+
+      if (sourcePort && targetPort) {
+        const sourceType = sourcePort.type || "any";
+        const targetType = targetPort.type || "any";
+
+        if (targetType !== "any" && sourceType !== "any" && sourceType !== targetType) {
+          return `Type mismatch: Cannot connect ${sourceType} to ${targetType}.`;
+        }
+      }
+
+      return null;
+    },
+    []
+  );
+
   const onConnect: OnConnect = useCallback(
-    (params: Edge | Connection) =>
-      setEdges((eds) => addEdge({ ...params, type: EDGE_TYPE }, eds)),
-    [setEdges]
+    (params: Edge | Connection) => {
+      if (locked || isPreview) return;
+
+      const sourceId = (params as any)?.source as string | undefined;
+      const targetId = (params as any)?.target as string | undefined;
+
+      // Validate connection
+      if (!isValidConnection(params)) {
+        const error = getConnectionError(params);
+        if (error) {
+          // Show error message (using alert for now, can be replaced with toast)
+          alert(error);
+        }
+        return;
+      }
+
+      const sourceSpecId = sourceId
+        ? nodesRef.current.find((n) => n.id === sourceId)?.data?.specId
+        : undefined;
+      const targetSpecId = targetId
+        ? nodesRef.current.find((n) => n.id === targetId)?.data?.specId
+        : undefined;
+
+      safeTrack("Builder Edge Created", {
+        surface: "canvas",
+        source_node_id: sourceId,
+        target_node_id: targetId,
+        source_spec_id: sourceSpecId,
+        target_spec_id: targetSpecId,
+      });
+
+      setEdges((eds) => addEdge({ ...params, type: EDGE_TYPE }, eds));
+    },
+    [setEdges, locked, isPreview, isValidConnection, getConnectionError]
   );
 
   /* Maintain "Connected to" names (GUARDED: only updates if names actually change) */
@@ -290,6 +446,15 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     (spec: NodeSpec, position: { x: number; y: number }) => {
       const id = `${spec.id}-${Math.random().toString(36).slice(2, 8)}`;
 
+      safeTrack("Builder Node Added", {
+        surface: "canvas",
+        spec_id: spec.id,
+        spec_label: spec.label,
+        node_id: id,
+        x: Math.round(position.x),
+        y: Math.round(position.y),
+      });
+
       setNodes((nds) =>
         nds.concat({
           id,
@@ -301,6 +466,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             version: spec.version ?? "1.0.0",
             summary: spec.summary ?? "",
             config: (spec as any).defaultConfig ?? {},
+            icon: (spec as any).icon ?? spec.label?.charAt(0) ?? "N",
             connectedNames: [],
           },
         })
@@ -323,6 +489,29 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     },
     [createNodeFromSpec, isPreview]
   );
+
+  // Listen for add node events from block library
+  useEffect(() => {
+    const handler = (payload: any) => {
+      const specId = payload?.specId;
+      if (!specId || isPreview) return;
+      addNodeAtCenter(specId);
+    };
+    
+    const busOff = on("builder:addNode", handler);
+    const domHandler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      handler(detail);
+    };
+    window.addEventListener("edgaze:add-node", domHandler);
+    
+    return () => {
+      try {
+        busOff?.();
+      } catch {}
+      window.removeEventListener("edgaze:add-node", domHandler);
+    };
+  }, [addNodeAtCenter, isPreview]);
 
   const onDrop = useCallback(
     (evt: React.DragEvent) => {
@@ -530,6 +719,14 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       fitSafely();
     },
+    zoomIn,
+    zoomOut,
+    toggleGrid,
+    toggleLock,
+    fullscreen,
+    getShowGrid: () => showGrid,
+    getLocked: () => locked,
+    getIsFullscreen: () => isFullscreen,
   }));
 
   /* Controls */
@@ -602,10 +799,31 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           .map((ed) => ed.id);
 
         if (selectedEdgeIds.length > 0) {
+          safeTrack("Builder Edge Deleted", {
+            surface: "canvas",
+            count: selectedEdgeIds.length,
+            via: "keyboard",
+          });
           setEdges((eds) => eds.filter((ed) => !selectedEdgeIds.includes(ed.id)));
           lastSelectionKeyRef.current = "none";
           setBubble(null);
           return;
+        }
+
+        const selectedNodeIds = nodesRef.current
+          .filter((n) => n.selected === true)
+          .map((n) => n.id);
+
+        if (selectedNodeIds.length > 0) {
+          const specIds = selectedNodeIds
+            .map((id) => nodesRef.current.find((n) => n.id === id)?.data?.specId)
+            .filter(Boolean);
+          safeTrack("Builder Node Deleted", {
+            surface: "canvas",
+            count: selectedNodeIds.length,
+            spec_ids: specIds.length > 0 ? specIds : undefined,
+            via: "keyboard",
+          });
         }
 
         setNodes((nds) => nds.filter((n) => n.selected !== true));
@@ -688,6 +906,12 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
     const id = `${src.data?.specId}-${Math.random().toString(36).slice(2, 8)}`;
 
+    safeTrack("Builder Node Pasted", {
+      surface: "canvas",
+      spec_id: src.data?.specId,
+      node_id: id,
+    });
+
     setNodes((nds) =>
       nds.concat({
         ...(src as Node<EdgazeNodeData>),
@@ -709,6 +933,13 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
     const id = `${src.data?.specId}-${Math.random().toString(36).slice(2, 8)}`;
 
+    safeTrack("Builder Node Duplicated", {
+      surface: "canvas",
+      spec_id: src.data?.specId,
+      source_node_id: src.id,
+      node_id: id,
+    });
+
     setNodes((nds) =>
       nds.concat({
         ...(src as Node<EdgazeNodeData>),
@@ -725,6 +956,13 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const onDeleteNode = () => {
     if (isPreview) return;
     if (!bubble || bubble.kind !== "node" || locked) return;
+    const specId = rfRef.current?.getNode(bubble.id)?.data?.specId;
+    safeTrack("Builder Node Deleted", {
+      surface: "canvas",
+      count: 1,
+      spec_ids: specId ? [specId] : undefined,
+      via: "ui",
+    });
     setNodes((nds) => nds.filter((n) => n.id !== bubble.id));
     lastSelectionKeyRef.current = "none";
     setBubble(null);
@@ -734,20 +972,16 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const onDeleteEdge = () => {
     if (isPreview) return;
     if (!bubble || bubble.kind !== "edge" || locked) return;
+    safeTrack("Builder Edge Deleted", {
+      surface: "canvas",
+      count: 1,
+      via: "ui",
+    });
     setEdges((eds) => eds.filter((e) => e.id !== bubble.id));
     lastSelectionKeyRef.current = "none";
     setBubble(null);
   };
 
-  const toolbarOuterStyle = useMemo<React.CSSProperties>(
-    () => ({
-      background:
-        "linear-gradient(120deg, rgba(94,240,255,0.55), rgba(168,85,247,0.55), rgba(255,111,216,0.55))",
-      boxShadow:
-        "0 18px 60px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.06) inset",
-    }),
-    []
-  );
 
   const selectionShellClass =
     "rounded-full border border-white/10 bg-black/85 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.75)]";
@@ -802,69 +1036,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      {/* Centered toolbar */}
-      <div className="absolute left-1/2 top-4 z-40 -translate-x-1/2">
-        <div className="rounded-full p-[1px]" style={toolbarOuterStyle}>
-          <div className="flex items-center gap-1 rounded-full border border-white/12 bg-black/80 px-1.5 py-1 shadow-[0_18px_60px_rgba(0,0,0,0.85)] backdrop-blur-xl">
-            <button
-              onClick={zoomOut}
-              title="Zoom out (−)"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
-            >
-              <ZoomOut size={16} />
-              <span className="sr-only">Zoom out</span>
-            </button>
-
-            <button
-              onClick={zoomIn}
-              title="Zoom in (+)"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
-            >
-              <ZoomIn size={16} />
-              <span className="sr-only">Zoom in</span>
-            </button>
-
-            <div className="mx-1 h-5 w-px bg-white/12" />
-
-            <button
-              onClick={toggleGrid}
-              title={`Toggle grid (G) – ${showGrid ? "On" : "Off"}`}
-              className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                showGrid
-                  ? "bg-white/10 text-white"
-                  : "text-white/60 hover:bg-white/10"
-              }`}
-            >
-              <Grid3X3 size={16} />
-              <span className="sr-only">Toggle grid</span>
-            </button>
-
-            <button
-              onClick={toggleLock}
-              title={`Toggle lock (L) – ${locked ? "Locked" : "Free"}`}
-              className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                locked
-                  ? "bg-white/10 text-white"
-                  : "text-white/70 hover:bg-white/10"
-              }`}
-            >
-              {locked ? <Lock size={16} /> : <Unlock size={16} />}
-              <span className="sr-only">Toggle lock</span>
-            </button>
-
-            <div className="mx-1 h-5 w-px bg-white/12" />
-
-            <button
-              onClick={fullscreen}
-              title="Toggle fullscreen (F)"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-white/80 hover:bg-white/10"
-            >
-              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-              <span className="sr-only">Toggle fullscreen</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Control panel removed - now integrated into top bar */}
 
       {/* Selection toolbar — hidden in preview */}
       {!isPreview && bubble && (
@@ -945,18 +1117,29 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={locked || isPreview ? undefined : onConnect}
+        isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         fitView
         snapToGrid
         snapGrid={[16, 16]}
         onInit={onInit}
-        onNodeClick={(_, n) => showSelectionFor(n as Node<EdgazeNodeData>)}
-        onPaneClick={() => showSelectionFor(undefined)}
+        onNodeClick={isPreview ? undefined : ((_, n) => showSelectionFor(n as Node<EdgazeNodeData>))}
+        onPaneClick={(e) => {
+          // Clear selection immediately on canvas click
+          paneClickJustHappenedRef.current = true;
+          lastSelectionKeyRef.current = "none";
+          setBubble(null);
+          onSelectionChange?.({ nodeId: null });
+          // Reset flag after a brief moment to allow normal selection to work
+          setTimeout(() => {
+            paneClickJustHappenedRef.current = false;
+          }, 0);
+        }}
         defaultEdgeOptions={{ type: EDGE_TYPE, animated: false }}
         className="!bg-[#070810]"
         proOptions={{ hideAttribution: true }}
         onMove={(_, vp) => setViewport(vp)}
-        nodesDraggable={!locked}
+        nodesDraggable={!locked && !isPreview}
         nodesConnectable={!locked && !isPreview}
         edgesUpdatable={!locked && !isPreview}
         panOnDrag
@@ -964,7 +1147,26 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         zoomOnScroll
         zoomOnPinch
         zoomOnDoubleClick
+        minZoom={minZoom}
+        maxZoom={2}
         onSelectionChange={(sel) => {
+          // In preview mode, disable all selection - only allow pan/zoom
+          if (isPreview) {
+            setBubble(null);
+            onSelectionChange?.({ nodeId: null });
+            return;
+          }
+
+          // If pane was just clicked, ignore this selection change to prevent bubble from reappearing
+          if (paneClickJustHappenedRef.current) {
+            // Ensure bubble stays cleared
+            if (!sel?.nodes?.length && !sel?.edges?.length) {
+              setBubble(null);
+              lastSelectionKeyRef.current = "none";
+            }
+            return;
+          }
+          
           const selectedNode = sel?.nodes?.[0] as Node<EdgazeNodeData> | undefined;
           const selectedEdge = sel?.edges?.[0];
 
@@ -983,11 +1185,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           }
 
           if (selectedEdge) {
-            if (!isPreview) {
-              placeBubbleForEdge(selectedEdge.id);
-            } else {
-              setBubble(null);
-            }
+            placeBubbleForEdge(selectedEdge.id);
             return;
           }
 

@@ -240,6 +240,21 @@ export default function SignInModal({
     setError(null);
     await signInWithEmail(email, password);
     close();
+    
+    // Redirect to saved return path after successful sign-in
+    try {
+      const returnTo = localStorage.getItem("edgaze:returnTo");
+      if (returnTo && returnTo !== "/marketplace" && returnTo.startsWith("/")) {
+        localStorage.removeItem("edgaze:returnTo");
+        // Small delay to ensure auth state is updated
+        setTimeout(() => {
+          router.push(returnTo);
+        }, 100);
+        return;
+      }
+    } catch {}
+    
+    // Default: stay on current page (auth state change will handle any needed redirect)
   }
 
   async function doSignup() {

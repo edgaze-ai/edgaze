@@ -22,8 +22,15 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../../../lib/supabase/browser";
 import { useAuth } from "../../../../components/auth/AuthContext";
+import { track } from "../../../../lib/mixpanel";
 import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
 const CommentsSection = CommentsSectionRaw as unknown as React.ComponentType<any>;
+
+function safeTrack(event: string, props?: Record<string, any>) {
+  try {
+    track(event, props);
+  } catch {}
+}
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription" | "both" | null;
@@ -484,6 +491,13 @@ function ShareModal({
   useEffect(() => {
     if (!open) return;
 
+    safeTrack("Share Modal Opened", {
+      surface: "product_page",
+      edgaze_code: code,
+      owner_handle: ownerHandle,
+      title: title || undefined,
+    });
+
     setCopied(false);
     setShareBusy(null);
 
@@ -510,6 +524,15 @@ function ShareModal({
       setShareBusy(app);
       await copyToClipboard(shareUrl);
       const url = buildShareUrl(app, shareUrl, title);
+      
+      safeTrack("Product Shared", {
+        surface: "share_modal",
+        method: app,
+        edgaze_code: code,
+        owner_handle: ownerHandle,
+        title: title || undefined,
+      });
+      
       openExternal(url);
     } finally {
       setTimeout(() => setShareBusy(null), 500);
@@ -581,6 +604,12 @@ function ShareModal({
                         onClick={async () => {
                           await copyToClipboard(shareUrl);
                           setCopied(true);
+                          safeTrack("Share Link Copied", {
+                            surface: "share_modal",
+                            edgaze_code: code,
+                            owner_handle: ownerHandle,
+                            location: "share_modal_link",
+                          });
                           setTimeout(() => setCopied(false), 900);
                         }}
                         className="h-10 sm:h-11 rounded-2xl border border-white/10 bg-white/5 px-3 sm:px-4 text-[12px] font-semibold text-white/90 hover:bg-white/10"
@@ -676,7 +705,16 @@ function ShareModal({
                     <button
                       type="button"
                       disabled={!qrDataUrl}
-                      onClick={() => (qrDataUrl ? downloadDataUrl(qrDataUrl, `edgaze-qr-${code || "prompt"}.png`) : null)}
+                      onClick={() => {
+                        if (qrDataUrl) {
+                          downloadDataUrl(qrDataUrl, `edgaze-qr-${code || "prompt"}.png`);
+                          safeTrack("QR Code Downloaded", {
+                            surface: "share_modal",
+                            edgaze_code: code,
+                            owner_handle: ownerHandle,
+                          });
+                        }
+                      }}
                       className={cn(
                         "h-10 sm:h-11 flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 sm:px-4 text-[12px] font-semibold text-white/90 hover:bg-white/10",
                         !qrDataUrl && "opacity-60 cursor-not-allowed"
@@ -693,6 +731,12 @@ function ShareModal({
                       onClick={async () => {
                         await copyToClipboard(shareUrl);
                         setCopied(true);
+                        safeTrack("Share Link Copied", {
+                          surface: "share_modal",
+                          edgaze_code: code,
+                          owner_handle: ownerHandle,
+                          location: "share_modal_qr_section",
+                        });
                         setTimeout(() => setCopied(false), 900);
                       }}
                       className="h-10 sm:h-11 flex-1 rounded-2xl bg-white px-3 sm:px-4 text-[12px] font-semibold text-black hover:bg-white/90"
@@ -772,9 +816,25 @@ function RunModal({
   const [copied, setCopied] = useState(false);
   const [providerHint, setProviderHint] = useState<Provider>("chatgpt");
   const [mobileTab, setMobileTab] = useState<"fields" | "prompt">("fields");
+  const openedAtRef = useRef<number | null>(null);
+  const fieldFillsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      openedAtRef.current = null;
+      fieldFillsRef.current.clear();
+      return;
+    }
+    
+    openedAtRef.current = Date.now();
+    safeTrack("Prompt Run Modal Opened", {
+      surface: "product_page",
+      title,
+      placeholder_count: placeholders.length,
+      template_length: template.length,
+      has_required_fields: placeholders.some((p) => Boolean(p.required)),
+    });
+    
     const init: Record<string, string> = {};
     placeholders.forEach((p) => {
       init[p.key] = (p.default ?? "").toString();
@@ -800,9 +860,32 @@ function RunModal({
   async function openProvider(p: Provider) {
     setProviderHint(p);
 
+    const filledLength = filled.trim().length;
+    const filledFields = Object.values(values).filter((v) => v.trim()).length;
+    const allRequiredFilled = !anyMissingRequired;
+
+    safeTrack("Prompt Provider Selected", {
+      surface: "run_modal",
+      provider: p,
+      title,
+      placeholder_count: placeholders.length,
+      filled_fields: filledFields,
+      all_required_filled: allRequiredFilled,
+      prompt_length: filledLength,
+      time_in_modal_ms: openedAtRef.current ? Date.now() - openedAtRef.current : undefined,
+    });
+
     if (filled.trim()) {
       const ok = await copyToClipboard(filled);
       setCopied(ok);
+      if (ok) {
+        safeTrack("Prompt Copied", {
+          surface: "run_modal",
+          provider: p,
+          prompt_length: filledLength,
+          filled_fields: filledFields,
+        });
+      }
       setTimeout(() => setCopied(false), 900);
     }
 
@@ -885,7 +968,22 @@ function RunModal({
 
                 <input
                   value={v}
-                  onChange={(e) => setValues((prev) => ({ ...prev, [p.key]: e.target.value }))}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    setValues((prev) => ({ ...prev, [p.key]: newValue }));
+                    
+                    // Track first-time field fills
+                    if (!fieldFillsRef.current.has(p.key) && newValue.trim()) {
+                      fieldFillsRef.current.add(p.key);
+                      safeTrack("Prompt Field Filled", {
+                        surface: "run_modal",
+                        field_key: p.key,
+                        field_label: label,
+                        is_required: required,
+                        has_value: Boolean(newValue.trim()),
+                      });
+                    }
+                  }}
                   placeholder={p.hint || ""}
                   className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-2 text-[12px] text-white/85 outline-none focus:border-cyan-400/60"
                 />
@@ -916,6 +1014,14 @@ function RunModal({
           onClick={async () => {
             const ok = await copyToClipboard(filled);
             setCopied(ok);
+            if (ok) {
+              safeTrack("Prompt Copied", {
+                surface: "run_modal",
+                location: "prompt_panel_button",
+                prompt_length: filled.trim().length,
+                filled_fields: Object.values(values).filter((v) => v.trim()).length,
+              });
+            }
             setTimeout(() => setCopied(false), 900);
           }}
           className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-[12px] font-semibold text-black hover:bg-white/90"
@@ -1020,6 +1126,14 @@ function RunModal({
                       onClick={async () => {
                         const ok = await copyToClipboard(filled);
                         setCopied(ok);
+                        if (ok) {
+                          safeTrack("Prompt Copied", {
+                            surface: "run_modal",
+                            location: "mobile_sticky_button",
+                            prompt_length: filled.trim().length,
+                            filled_fields: Object.values(values).filter((v) => v.trim()).length,
+                          });
+                        }
                         setTimeout(() => setCopied(false), 900);
                       }}
                       disabled={!filled.trim()}
@@ -1076,6 +1190,7 @@ export default function PromptProductPage() {
   const [upNextHasMore, setUpNextHasMore] = useState(true);
   const [upNextCursor, setUpNextCursor] = useState(0);
   const upNextSentinelRef = useRef<HTMLDivElement | null>(null);
+  const autoActionTriggeredRef = useRef(false);
 
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
@@ -1138,6 +1253,24 @@ export default function PromptProductPage() {
       const record = data as unknown as PromptListing;
       setListing(record);
       setLoading(false);
+
+      // Track product page view
+      safeTrack("Product Page Viewed", {
+        surface: "product_page",
+        listing_id: record.id,
+        listing_type: record.type || "prompt",
+        owner_handle: record.owner_handle,
+        edgaze_code: record.edgaze_code,
+        title: record.title,
+        is_paid: record.is_paid || false,
+        monetisation_mode: record.monetisation_mode,
+        price_usd: record.price_usd,
+        view_count: record.view_count || 0,
+        like_count: record.like_count || 0,
+        has_demo_images: Array.isArray(record.demo_images) && record.demo_images.length > 0,
+        placeholder_count: Array.isArray(coercePlaceholders(record.placeholders)) ? coercePlaceholders(record.placeholders).length : 0,
+        is_owner: currentUserId ? String(record.owner_id) === String(currentUserId) : false,
+      });
 
       // best-effort view count bump
       (async () => {
@@ -1290,13 +1423,54 @@ export default function PromptProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing?.id, userId]);
 
+  // Auto-trigger purchase/run flow after auth redirect
+  useEffect(() => {
+    if (!userId || !listing) return;
+    if (autoActionTriggeredRef.current) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get("action");
+    
+    if (action === "run") {
+      autoActionTriggeredRef.current = true;
+      
+      // Remove action param from URL immediately to prevent duplicate triggers
+      urlParams.delete("action");
+      const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "");
+      window.history.replaceState({}, "", newUrl);
+      
+      // Wait a bit for purchase state to load, then trigger
+      const timer = setTimeout(() => {
+        grantAccessOrRun();
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return;
+  }, [userId, listing]);
+
   async function grantAccessOrRun() {
     if (!listing) return;
     setPurchaseError(null);
 
-    if (!requireAuth()) return;
+    // Save intent in URL before requiring auth so redirect includes it
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set("action", "run");
+    window.history.replaceState({}, "", currentUrl.toString());
+
+    if (!requireAuth()) {
+      return;
+    }
 
     if (isOwned) {
+      safeTrack("Run Button Clicked", {
+        surface: "product_page",
+        listing_id: listing.id,
+        listing_type: listing.type,
+        edgaze_code: listing.edgaze_code,
+        already_owned: true,
+      });
       setRunOpen(true);
       return;
     }
@@ -1305,6 +1479,16 @@ export default function PromptProductPage() {
       setPurchaseLoading(true);
       try {
         const uid = userId!;
+        
+        // Check if purchase already exists (might have been created during redirect)
+        const existing = await loadPurchaseRow(listing.id, uid);
+        if (existing) {
+          setPurchase(existing);
+          setRunOpen(true);
+          setPurchaseLoading(false);
+          return;
+        }
+        
         const { data, error } = await supabase
           .from("prompt_purchases")
           .insert({ buyer_id: uid, prompt_id: listing.id, status: "beta" })
@@ -1313,9 +1497,36 @@ export default function PromptProductPage() {
 
         if (error) {
           console.error("beta access insert error", error);
+          
+          // If it's a duplicate key error, try to load the existing purchase
+          if (error.code === "23505" || error.message?.includes("duplicate") || error.message?.includes("unique")) {
+            const existingAfterError = await loadPurchaseRow(listing.id, uid);
+            if (existingAfterError) {
+              setPurchase(existingAfterError);
+              setRunOpen(true);
+              setPurchaseLoading(false);
+              return;
+            }
+          }
+          
           setPurchaseError("Could not grant access right now. Please try again.");
+          safeTrack("Access Grant Failed", {
+            surface: "product_page",
+            listing_id: listing.id,
+            error: error.message,
+            error_code: error.code,
+            method: "beta",
+          });
           return;
         }
+
+        safeTrack("Access Granted", {
+          surface: "product_page",
+          listing_id: listing.id,
+          listing_type: listing.type,
+          method: "beta",
+          price_usd: listing.price_usd,
+        });
 
         setPurchase((data as PurchaseRow) ?? null);
         setRunOpen(true);
@@ -1331,6 +1542,7 @@ export default function PromptProductPage() {
     }
 
     setRunOpen(true);
+    return;
   }
 
   async function loadMoreUpNext(reset = false) {
@@ -1483,7 +1695,15 @@ export default function PromptProductPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setShareOpen(true)}
+              onClick={() => {
+                safeTrack("Share Button Clicked", {
+                  surface: "product_page",
+                  location: "desktop_header",
+                  listing_id: listing?.id,
+                  edgaze_code: listing?.edgaze_code,
+                });
+                setShareOpen(true);
+              }}
               className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-white/70 hover:bg-white/5 hover:text-white"
               title="Share"
             >
@@ -1588,23 +1808,43 @@ export default function PromptProductPage() {
 
                 {demoImages.length > 1 && (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => setMainDemoIndex((prev) => (prev === 0 ? demoImages.length - 1 : prev - 1))}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
-                      aria-label="Previous"
-                    >
-                      {"<"}
-                    </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newIndex = mainDemoIndex === 0 ? demoImages.length - 1 : mainDemoIndex - 1;
+                      setMainDemoIndex(newIndex);
+                      safeTrack("Demo Image Navigated", {
+                        surface: "product_page",
+                        direction: "previous",
+                        index: newIndex,
+                        total_images: demoImages.length,
+                        listing_id: listing?.id,
+                      });
+                    }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
+                    aria-label="Previous"
+                  >
+                    {"<"}
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setMainDemoIndex((prev) => (prev === demoImages.length - 1 ? 0 : prev + 1))}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
-                      aria-label="Next"
-                    >
-                      {">"}
-                    </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newIndex = mainDemoIndex === demoImages.length - 1 ? 0 : mainDemoIndex + 1;
+                      setMainDemoIndex(newIndex);
+                      safeTrack("Demo Image Navigated", {
+                        surface: "product_page",
+                        direction: "next",
+                        index: newIndex,
+                        total_images: demoImages.length,
+                        listing_id: listing?.id,
+                      });
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
+                    aria-label="Next"
+                  >
+                    {">"}
+                  </button>
                   </>
                 )}
               </section>
@@ -1727,9 +1967,23 @@ export default function PromptProductPage() {
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => setCommentsOpen(true)}
+                  onClick={() => {
+                    safeTrack("Comments Opened", {
+                      surface: "product_page",
+                      location: "mobile",
+                      listing_id: listing?.id,
+                    });
+                    setCommentsOpen(true);
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") setCommentsOpen(true);
+                    if (e.key === "Enter" || e.key === " ") {
+                      safeTrack("Comments Opened", {
+                        surface: "product_page",
+                        location: "mobile",
+                        listing_id: listing?.id,
+                      });
+                      setCommentsOpen(true);
+                    }
                   }}
                   className="w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left cursor-pointer select-none"
                   aria-label="Open comments"

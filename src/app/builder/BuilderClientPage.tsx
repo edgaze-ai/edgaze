@@ -1,10 +1,10 @@
 // src/app/builder/page.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight } from "lucide-react";
+import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2 } from "lucide-react";
 
 import { useAuth } from "../../components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -16,6 +16,13 @@ import WorkflowPublishModal from "../../components/builder/WorkflowPublishModal"
 
 import { cx } from "../../lib/cx";
 import { emit, on } from "../../lib/bus";
+import { track } from "../../lib/mixpanel";
+
+function safeTrack(event: string, props?: Record<string, any>) {
+  try {
+    track(event, props);
+  } catch {}
+}
 
 type Selection = { nodeId: string | null; specId?: string; config?: any };
 
@@ -99,13 +106,18 @@ export default function BuilderPage() {
   const [name, setName] = useState("Untitled Workflow");
   const [editingName, setEditingName] = useState(false);
 
-  // builder mode
-  const [mode, setMode] = useState<BuilderMode>("edit");
+  // builder mode - initialize from URL param
+  const [mode, setMode] = useState<BuilderMode>(previewParam ? "preview" : "edit");
   const isPreview = mode === "preview";
 
   // selection/stats
   const [selection, setSelection] = useState<Selection>({ nodeId: null });
   const [stats, setStats] = useState({ nodes: 0, edges: 0 });
+  
+  // Canvas control states
+  const [showGrid, setShowGrid] = useState(true);
+  const [locked, setLocked] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // launcher overlay (confined: does NOT block sidebar)
   const [showLauncher, setShowLauncher] = useState(true);
@@ -131,12 +143,33 @@ export default function BuilderPage() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishWorkflowId, setPublishWorkflowId] = useState<string | null>(null);
 
-  // floating windows (default positions like your screenshot)
+  // floating windows - positions will be set precisely on mount
+  // In preview mode, windows start hidden
   const [windows, setWindows] = useState<Record<WindowKind, WindowState>>({
-    blocks: { id: "blocks", x: 96, y: 110, width: 420, height: 640, visible: true, minimized: false },
-    inspector: { id: "inspector", x: 0, y: 110, width: 420, height: 640, visible: true, minimized: false },
+    blocks: { id: "blocks", x: 0, y: 0, width: 280, height: 600, visible: !previewParam, minimized: false },
+    inspector: { id: "inspector", x: 0, y: 0, width: 300, height: 600, visible: !previewParam, minimized: false },
   });
+  const [windowsInitialized, setWindowsInitialized] = useState(false);
   const [drag, setDrag] = useState<DragState | null>(null);
+
+  // Measure header height and position windows
+  const rootRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const topbarInnerRef = useRef<HTMLDivElement>(null);
+  const minimapElRef = useRef<HTMLElement | null>(null);
+  
+  // Track if user has moved panels (so we don't override their layout)
+  const userMovedRef = useRef<Record<WindowKind, boolean>>({
+    blocks: false,
+    inspector: false,
+  });
+  
+  function findMinimapEl(): HTMLElement | null {
+    return (
+      (document.querySelector(".react-flow__minimap") as HTMLElement | null) ??
+      (document.querySelector("[data-testid='rf__minimap']") as HTMLElement | null)
+    );
+  }
 
   // run (COMING SOON UI)
   const [running, setRunning] = useState(false);
@@ -146,6 +179,15 @@ export default function BuilderPage() {
   const openedWorkflowIdRef = useRef<string | null>(null);
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!mounted) return;
+    safeTrack("Builder Viewed", {
+      surface: "builder",
+      isDesktop,
+      previewParam,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
   useEffect(() => {
     const measure = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
     measure();
@@ -159,15 +201,135 @@ export default function BuilderPage() {
     };
   }, []);
 
-  // snap inspector to right on first mount (and keep it consistent)
-  useEffect(() => {
+  // Reliable layout: useLayoutEffect + ResizeObserver with explicit refs
+  useLayoutEffect(() => {
     if (!mounted) return;
-    setWindows((prev) => {
-      const w = prev.inspector;
-      const margin = 96;
-      const x = Math.max(margin, window.innerWidth - w.width - margin);
-      return { ...prev, inspector: { ...w, x } };
+
+    let raf1 = 0;
+    let raf2 = 0;
+
+    const applyDefaultLayout = () => {
+      const rootEl = rootRef.current;
+      const headerEl = headerRef.current;
+      const topbarInnerEl = topbarInnerRef.current;
+      if (!rootEl || !headerEl || !topbarInnerEl) return;
+
+      // Resolve minimap element (lazy)
+      if (!minimapElRef.current) {
+        minimapElRef.current = findMinimapEl();
+      }
+
+      const rootRect = rootEl.getBoundingClientRect();
+      const headerRect = headerEl.getBoundingClientRect();
+      const innerRect = topbarInnerEl.getBoundingClientRect();
+
+      // Convert viewport -> root-local coordinates
+      const innerLeft = innerRect.left - rootRect.left;
+      const innerRight = innerRect.right - rootRect.left;
+      const headerBottom = headerRect.bottom - rootRect.top;
+
+      const gapBelowTopbar = 5;
+      const panelTopY = Math.round(headerBottom + gapBelowTopbar);
+
+      const blocksW = 280;
+      const inspectorW = 300;
+
+      const edgeInset = 0;
+      const blocksX = Math.round(innerLeft + edgeInset);
+      const inspectorX = Math.round(innerRight - inspectorW - edgeInset);
+
+      const safeLeft = 12;
+      const safeRight = 12;
+
+      const rootW = rootRect.width;
+      const rootH = rootRect.height;
+
+      const blocksXClamped = clamp(blocksX, safeLeft, rootW - blocksW - safeRight);
+      const inspectorXClamped = clamp(inspectorX, safeLeft, rootW - inspectorW - safeRight);
+
+      const minimapEl = minimapElRef.current;
+      const minimapRect = minimapEl ? minimapEl.getBoundingClientRect() : null;
+
+      const bottomPad = 20;
+      const minimapTopY = minimapRect ? minimapRect.top - rootRect.top : rootH;
+
+      const inspectorMaxH = Math.max(240, Math.floor(minimapTopY - panelTopY - bottomPad));
+      const blocksH = Math.max(240, Math.floor(rootH - panelTopY - bottomPad));
+
+      setWindows((prev) => {
+        const next = { ...prev };
+
+        if (!userMovedRef.current.blocks) {
+          next.blocks = {
+            ...next.blocks,
+            x: blocksXClamped,
+            y: panelTopY,
+            width: blocksW,
+            height: blocksH,
+            visible: true,
+            minimized: false,
+          };
+        }
+
+        if (!userMovedRef.current.inspector) {
+          next.inspector = {
+            ...next.inspector,
+            x: inspectorXClamped,
+            y: panelTopY,
+            width: inspectorW,
+            height: inspectorMaxH,
+            visible: true,
+            minimized: false,
+          };
+        }
+
+        return next;
+      });
+
+      setWindowsInitialized(true);
+    };
+
+    // Double rAF to let layout settle (fonts, images, etc.)
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        applyDefaultLayout();
+      });
     });
+
+    // Observe root + topbar + minimap resizing (the key to "always correct")
+    const ro = new ResizeObserver(() => {
+      // don't spam; schedule on next frame
+      requestAnimationFrame(applyDefaultLayout);
+    });
+
+    if (rootRef.current) ro.observe(rootRef.current);
+    if (headerRef.current) ro.observe(headerRef.current);
+    if (topbarInnerRef.current) ro.observe(topbarInnerRef.current);
+
+    const tryAttachMinimap = () => {
+      const mm = findMinimapEl();
+      if (mm && mm !== minimapElRef.current) {
+        minimapElRef.current = mm;
+        ro.observe(mm);
+        applyDefaultLayout();
+      }
+    };
+
+    // Try attach minimap now + shortly after (ReactFlow mounts later)
+    tryAttachMinimap();
+    const t = window.setTimeout(tryAttachMinimap, 300);
+
+    // Also handle viewport resize
+    const onWinResize = () => requestAnimationFrame(applyDefaultLayout);
+    window.addEventListener("resize", onWinResize);
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      window.clearTimeout(t);
+      window.removeEventListener("resize", onWinResize);
+      ro.disconnect();
+    };
   }, [mounted]);
 
   // stats polling (safe + cheap)
@@ -177,6 +339,13 @@ export default function BuilderPage() {
       const g = beRef.current?.getGraph?.();
       if (!g) return;
       setStats({ nodes: g.nodes?.length ?? 0, edges: g.edges?.length ?? 0 });
+      
+      // Sync canvas control states
+      if (beRef.current) {
+        setShowGrid(beRef.current.getShowGrid?.() ?? true);
+        setLocked(beRef.current.getLocked?.() ?? false);
+        setIsFullscreen(beRef.current.getIsFullscreen?.() ?? false);
+      }
     }, 700);
     return () => clearInterval(id);
   }, [mounted]);
@@ -213,12 +382,22 @@ export default function BuilderPage() {
     if (!isPreview) return;
 
     setEditingName(false);
+    setShowLauncher(false);
     setWindows((p) => ({
       ...p,
       blocks: { ...p.blocks, visible: false, minimized: false },
       inspector: { ...p.inspector, visible: false, minimized: false },
     }));
   }, [mounted, isPreview]);
+
+  // Sync mode with URL param changes
+  useEffect(() => {
+    if (!mounted) return;
+    const urlMode = previewParam ? "preview" : "edit";
+    if (mode !== urlMode) {
+      setMode(urlMode);
+    }
+  }, [mounted, previewParam, mode]);
 
   // listen to publish intent (bus) — ignore in preview
   useEffect(() => {
@@ -282,10 +461,21 @@ export default function BuilderPage() {
 
       const pubRows = Array.isArray(wfData) ? ((wfData as any) as DraftRow[]) : [];
       setPublished(pubRows);
+
+      safeTrack("Workflows Listed", {
+        surface: "builder",
+        draft_count: rows.length,
+        published_count: pubRows.length,
+      });
     } catch (e: any) {
       setDrafts([]);
       setPublished([]);
       setWfError(e?.message || "Failed to load workflows.");
+
+      safeTrack("Workflows List Failed", {
+        surface: "builder",
+        message: e?.message || "unknown",
+      });
     } finally {
       setWfLoading(false);
     }
@@ -401,6 +591,15 @@ export default function BuilderPage() {
         const g = normalizeGraph(row.graph);
         beRef.current?.loadGraph?.(g);
 
+        safeTrack("Workflow Opened", {
+          surface: "builder",
+          source: "draft",
+          workflow_id: String(row.id),
+          title: row.title || "Untitled Workflow",
+          node_count: g.nodes?.length ?? 0,
+          edge_count: g.edges?.length ?? 0,
+        });
+
         latestGraphRef.current = g;
         lastSavedHashRef.current = hashGraph(g);
 
@@ -417,6 +616,12 @@ export default function BuilderPage() {
       } catch (e: any) {
         setWfError(e?.message || "Failed to open workflow.");
         setShowLauncher(true);
+
+        safeTrack("Workflow Open Failed", {
+          surface: "builder",
+          source: "draft",
+          message: e?.message || "unknown",
+        });
       } finally {
         setWfLoading(false);
       }
@@ -467,10 +672,27 @@ export default function BuilderPage() {
         latestGraphRef.current = ng;
         lastSavedHashRef.current = hashGraph(ng);
 
+        safeTrack("Workflow Opened", {
+          surface: "builder",
+          source: "published_as_draft",
+          workflow_id: String(row.id),
+          from_workflow_id: String(workflowId),
+          title: row.title || "Untitled Workflow",
+          node_count: ng.nodes?.length ?? 0,
+          edge_count: ng.edges?.length ?? 0,
+        });
+
         await refreshWorkflows();
       } catch (e: any) {
         setWfError(e?.message || "Failed to open published workflow.");
         setShowLauncher(true);
+
+        safeTrack("Workflow Open Failed", {
+          surface: "builder",
+          source: "published_as_draft",
+          from_workflow_id: String(workflowId),
+          message: e?.message || "unknown",
+        });
       } finally {
         setWfLoading(false);
       }
@@ -627,14 +849,16 @@ export default function BuilderPage() {
     [requireAuth, userId, supabase]
   );
 
-  // Auto-open from URL param once auth is ready (desktop only)
+  // Auto-open from URL param once auth is ready (preview works on mobile, edit is desktop-only)
   useEffect(() => {
     if (!mounted) return;
-    if (!isDesktop) return;
     if (!authReady) return;
 
     const wid = searchParams?.get("workflowId");
     if (!wid) return;
+
+    // For edit mode, require desktop. Preview mode works on mobile.
+    if (!previewParam && !isDesktop) return;
 
     if (openedWorkflowIdRef.current === wid + (previewParam ? "|p" : "|e")) return;
     openedWorkflowIdRef.current = wid + (previewParam ? "|p" : "|e");
@@ -689,9 +913,22 @@ export default function BuilderPage() {
       setShowLauncher(false);
       setNewOpen(false);
       setNewTitle("");
+
+      safeTrack("Workflow Created", {
+        surface: "builder",
+        workflow_id: String(row.id),
+        title: row.title || title,
+      });
+
       await refreshWorkflows();
     } catch (e: any) {
       setWfError(e?.message || "Failed to create workflow.");
+
+      safeTrack("Workflow Create Failed", {
+        surface: "builder",
+        title,
+        message: e?.message || "unknown",
+      });
     } finally {
       setCreating(false);
     }
@@ -725,11 +962,15 @@ export default function BuilderPage() {
         const minW = 340;
         const minH = 240;
 
+        const rr = rootRef.current?.getBoundingClientRect();
+        const maxW = rr?.width ?? window.innerWidth;
+        const maxH = rr?.height ?? window.innerHeight;
+
         let next: WindowState = { ...w };
 
         if (drag.type === "move") {
-          next.x = clamp(drag.startRect.x + dx, 12, window.innerWidth - 80);
-          next.y = clamp(drag.startRect.y + dy, 12, window.innerHeight - 80);
+          next.x = clamp(drag.startRect.x + dx, 12, maxW - 80);
+          next.y = clamp(drag.startRect.y + dy, 12, maxH - 80);
         } else {
           const sr = drag.startRect;
 
@@ -772,6 +1013,7 @@ export default function BuilderPage() {
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      userMovedRef.current[id] = true; // Mark as user-moved so auto-layout doesn't override
       setDrag({ id, type, startX: e.clientX, startY: e.clientY, startRect: windows[id] });
     };
 
@@ -802,6 +1044,16 @@ export default function BuilderPage() {
   const runWorkflow = () => {
     if (!activeDraftId) return;
 
+    const graph = beRef.current?.getGraph?.();
+    safeTrack("Workflow Run Initiated", {
+      surface: "builder",
+      workflow_id: activeDraftId,
+      workflow_name: name,
+      node_count: graph?.nodes?.length || 0,
+      edge_count: graph?.edges?.length || 0,
+      status: "coming_soon",
+    });
+
     setRunning(true);
     setRunSoonOpen(true);
 
@@ -817,14 +1069,14 @@ export default function BuilderPage() {
     emit("builder:publish", { workflowId: activeDraftId });
   };
 
-  // If user is on small viewport, keep builder unavailable.
+  // If user is on small viewport, keep builder unavailable (except in preview mode).
   useEffect(() => {
     if (!mounted) return;
-    if (!isDesktop) {
+    if (!isDesktop && !isPreview) {
       setRunning(false);
       setShowLauncher(false);
     }
-  }, [mounted, isDesktop]);
+  }, [mounted, isDesktop, isPreview]);
 
   const publishDraftForModal =
     !isPreview && publishWorkflowId && publishWorkflowId === activeDraftId && activeDraftId && userId
@@ -841,99 +1093,167 @@ export default function BuilderPage() {
       : null;
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden">
+    <div ref={rootRef} className="relative h-[100dvh] w-full overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_50%_-10%,rgba(255,255,255,0.08),transparent_60%),linear-gradient(180deg,rgba(0,0,0,0.9),rgba(0,0,0,0.75)_35%,rgba(0,0,0,0.92))]" />
 
-      {/* Top bar (premium glass) */}
-      <div className="relative z-20 px-5 pt-4">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_20px_90px_rgba(0,0,0,0.5)] px-4 py-3 flex items-center justify-between transition-all duration-200">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden">
-              <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={24} height={24} />
-            </div>
+      {/* Canvas - Full height, extends to top */}
+      <div className="absolute inset-0 z-0">
+        <ReactFlowCanvas ref={beRef} mode={mode} onGraphChange={onGraphChange} onSelectionChange={onSelectionChange} />
+      </div>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <div className="text-[10px] uppercase tracking-widest text-white/50">Workflow</div>
-
-                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70">
-                  v1 Alpha preview
-                </span>
-
-                {isPreview && (
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70">
-                    Preview only
-                  </span>
-                )}
+      {/* Top bar (floating on top of canvas) */}
+      <div ref={headerRef} className={cx(
+        "absolute top-0 left-0 right-0 z-20 transition-all duration-200",
+        isPreview ? "px-3 pt-3 md:px-5 md:pt-4" : "px-5 pt-4"
+      )}>
+        {isPreview ? (
+          /* Premium Preview Mode Topbar - Mobile Optimized */
+          <div
+            ref={topbarInnerRef}
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between transition-all duration-200"
+          >
+            {/* Left: Logo + Title (minimal on mobile) */}
+            <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+              <div className="h-8 w-8 md:h-9 md:w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden shrink-0">
+                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={20} height={20} className="md:w-6 md:h-6" />
               </div>
-
-              <div className="flex items-center gap-2 min-w-0">
-                {!isPreview && !editingName ? (
-                  <button
-                    className="text-[18px] font-semibold text-white truncate hover:text-white/90 transition-colors"
-                    onClick={() => setEditingName(true)}
-                    title="Rename"
-                  >
-                    {name || "Untitled Workflow"}
-                  </button>
-                ) : isPreview ? (
-                  <div className="text-[18px] font-semibold text-white truncate">{name || "Untitled Workflow"}</div>
-                ) : (
-                  <input
-                    className="w-[min(420px,50vw)] rounded-xl bg-black/40 border border-white/10 px-3 py-1.5 text-[14px] text-white outline-none"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    onBlur={() => setEditingName(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") setEditingName(false);
-                      if (e.key === "Escape") setEditingName(false);
-                    }}
-                    autoFocus
-                  />
-                )}
-
-                {activeDraftId ? (
-                  <span className="text-[11px] text-white/45">
+              <div className="min-w-0">
+                <div className="text-[14px] md:text-[18px] font-semibold text-white truncate">{name || "Untitled Workflow"}</div>
+                <div className="hidden md:flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] text-white/45">
                     {stats.nodes} nodes · {stats.edges} edges
                   </span>
-                ) : (
-                  <span className="text-[11px] text-white/45">No workflow open</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Big Run Button (mobile optimized) */}
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={runWorkflow}
+                disabled={!activeDraftId}
+                className={cx(
+                  "relative inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 backdrop-blur-sm px-4 py-2.5 md:px-6 md:py-3 text-[13px] md:text-[14px] font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] hover:from-cyan-500/30 hover:to-purple-500/30 transition-all duration-200",
+                  "min-w-[100px] md:min-w-[140px]",
+                  !activeDraftId && "opacity-50 cursor-not-allowed"
                 )}
+                title="Run (Coming soon)"
+              >
+                <Play className="h-4 w-4 md:h-5 md:w-5" />
+                <span className="hidden sm:inline">Run</span>
+                <span className="ml-1 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[9px] md:text-[10px] font-semibold text-white/90">
+                  Soon
+                </span>
+                {running && (
+                  <span className="ml-1 inline-flex items-center">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  </span>
+                )}
+              </button>
+
+              {/* Zoom controls (mobile: smaller, desktop: normal) */}
+              <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+                <button
+                  onClick={() => beRef.current?.zoomOut?.()}
+                  title="Zoom out"
+                  className="h-8 w-8 md:h-9 md:w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                >
+                  <ZoomOut className="h-3.5 w-3.5 md:h-4 md:w-4 text-white/80" />
+                </button>
+                <button
+                  onClick={() => beRef.current?.zoomIn?.()}
+                  title="Zoom in"
+                  className="h-8 w-8 md:h-9 md:w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                >
+                  <ZoomIn className="h-3.5 w-3.5 md:h-4 md:w-4 text-white/80" />
+                </button>
               </div>
             </div>
           </div>
+        ) : (
+          /* Edit Mode Topbar (existing) */
+          <div
+            ref={topbarInnerRef}
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-4 py-3 flex items-center justify-between transition-all duration-200"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden">
+                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={24} height={24} />
+              </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={openLauncher}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors"
-              title="Home"
-            >
-              Home
-            </button>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] uppercase tracking-widest text-white/50">Workflow</div>
 
-            <button
-              onClick={runWorkflow}
-              disabled={!activeDraftId}
-              className={cx(
-                "relative inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors",
-                !activeDraftId && "opacity-60 cursor-not-allowed"
-              )}
-              title="Run (Coming soon)"
-            >
-              <Play className="h-4 w-4" />
-              <span>Run</span>
-              <span className="ml-1 rounded-full border border-white/12 bg-white/5 px-2 py-[2px] text-[10px] font-semibold text-white/70">
-                Coming soon
-              </span>
-              {running && (
-                <span className="ml-1 inline-flex items-center">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70">
+                    v1 Alpha preview
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 min-w-0">
+                  {!editingName ? (
+                    <button
+                      className="text-[18px] font-semibold text-white truncate hover:text-white/90 transition-colors"
+                      onClick={() => setEditingName(true)}
+                      title="Rename"
+                    >
+                      {name || "Untitled Workflow"}
+                    </button>
+                  ) : (
+                    <input
+                      className="w-[min(420px,50vw)] rounded-xl bg-black/40 border border-white/10 px-3 py-1.5 text-[14px] text-white outline-none"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      onBlur={() => setEditingName(false)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") setEditingName(false);
+                        if (e.key === "Escape") setEditingName(false);
+                      }}
+                      autoFocus
+                    />
+                  )}
+
+                  {activeDraftId ? (
+                    <span className="text-[11px] text-white/45">
+                      {stats.nodes} nodes · {stats.edges} edges
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-white/45">No workflow open</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={openLauncher}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors"
+                title="Home"
+              >
+                Home
+              </button>
+
+              <button
+                onClick={runWorkflow}
+                disabled={!activeDraftId}
+                className={cx(
+                  "relative inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors",
+                  !activeDraftId && "opacity-60 cursor-not-allowed"
+                )}
+                title="Run (Coming soon)"
+              >
+                <Play className="h-4 w-4" />
+                <span>Run</span>
+                <span className="ml-1 rounded-full border border-white/12 bg-white/5 px-2 py-[2px] text-[10px] font-semibold text-white/70">
+                  Coming soon
                 </span>
-              )}
-            </button>
+                {running && (
+                  <span className="ml-1 inline-flex items-center">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  </span>
+                )}
+              </button>
 
-            {!isPreview && (
               <button
                 onClick={publishWorkflow}
                 disabled={!activeDraftId}
@@ -946,19 +1266,81 @@ export default function BuilderPage() {
                 <Rocket className="h-4 w-4" />
                 Publish
               </button>
-            )}
 
-            <button
-              onClick={refreshWorkflows}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors"
-              title="Refresh"
-            >
-              <RefreshCw className={cx("h-4 w-4", wfLoading && "animate-spin")} />
-              Refresh
-            </button>
+              <button
+                onClick={refreshWorkflows}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className={cx("h-4 w-4", wfLoading && "animate-spin")} />
+                Refresh
+              </button>
 
-            {!isPreview && (
-              <div className="flex items-center gap-1 pl-2">
+              {/* Canvas controls */}
+              <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+                <button
+                  onClick={() => beRef.current?.zoomOut?.()}
+                  title="Zoom out (−)"
+                  className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                >
+                  <ZoomOut className="h-4 w-4 text-white/80" />
+                </button>
+                <button
+                  onClick={() => beRef.current?.zoomIn?.()}
+                  title="Zoom in (+)"
+                  className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                >
+                  <ZoomIn className="h-4 w-4 text-white/80" />
+                </button>
+                <button
+                  onClick={() => {
+                    beRef.current?.toggleGrid?.();
+                    setTimeout(() => {
+                      setShowGrid(beRef.current?.getShowGrid?.() ?? true);
+                    }, 0);
+                  }}
+                  title={`Toggle grid (G) – ${showGrid ? "On" : "Off"}`}
+                  className={cx(
+                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
+                    showGrid
+                      ? "bg-white/10 text-white"
+                      : "bg-white/5 text-white/60 hover:bg-white/10"
+                  )}
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    beRef.current?.toggleLock?.();
+                    setTimeout(() => {
+                      setLocked(beRef.current?.getLocked?.() ?? false);
+                    }, 0);
+                  }}
+                  title={`Toggle lock (L) – ${locked ? "Locked" : "Free"}`}
+                  className={cx(
+                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
+                    locked
+                      ? "bg-white/10 text-white"
+                      : "bg-white/5 text-white/70 hover:bg-white/10"
+                  )}
+                >
+                  {locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                </button>
+                <button
+                  onClick={() => {
+                    beRef.current?.fullscreen?.();
+                    setTimeout(() => {
+                      setIsFullscreen(beRef.current?.getIsFullscreen?.() ?? false);
+                    }, 0);
+                  }}
+                  title="Toggle fullscreen (F)"
+                  className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                >
+                  {isFullscreen ? <Minimize2 className="h-4 w-4 text-white/80" /> : <Maximize2 className="h-4 w-4 text-white/80" />}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1 pl-2 border-l border-white/10">
                 <button
                   className={cx(
                     "h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors",
@@ -980,15 +1362,13 @@ export default function BuilderPage() {
                   <LayoutPanelLeft className="h-4 w-4 text-white/80" />
                 </button>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Canvas */}
-      <div className="relative z-10 h-[calc(100dvh-92px)] w-full">
-        <ReactFlowCanvas ref={beRef} onGraphChange={onGraphChange} onSelectionChange={onSelectionChange} />
-
+      {/* Floating windows container - positioned relative to viewport */}
+      <div className="absolute inset-0 z-30 pointer-events-none">
         {/* Floating window: Blocks (hidden in preview) */}
         {!isPreview && windows.blocks.visible && (
           <FloatingWindow
@@ -1047,32 +1427,34 @@ export default function BuilderPage() {
           </FloatingWindow>
         )}
 
-        {/* Run (Coming soon) modal */}
-        <ComingSoonRunToast open={runSoonOpen} />
+      </div>
 
-        {/* Publish modal (disabled in preview) */}
-        {!isPreview && (
-          <WorkflowPublishModal
-            open={publishOpen}
-            onClose={() => {
-              setPublishOpen(false);
-              setPublishWorkflowId(null);
-            }}
-            draft={publishDraftForModal}
-            owner={{ name: "You", handle: undefined, avatarUrl: null }}
-            onEnsureDraftSaved={ensureDraftSavedNow}
-            onPublished={async () => {
-              setPublishOpen(false);
-              setPublishWorkflowId(null);
-              setActiveDraftId(null);
-              setShowLauncher(true);
-              await refreshWorkflows();
-            }}
-          />
-        )}
+      {/* Run (Coming soon) modal */}
+      <ComingSoonRunToast open={runSoonOpen} />
 
-        {/* Desktop-only gating */}
-        {!isDesktop && mounted && (
+      {/* Publish modal (disabled in preview) */}
+      {!isPreview && (
+        <WorkflowPublishModal
+          open={publishOpen}
+          onClose={() => {
+            setPublishOpen(false);
+            setPublishWorkflowId(null);
+          }}
+          draft={publishDraftForModal}
+          owner={{ name: "You", handle: undefined, avatarUrl: null }}
+          onEnsureDraftSaved={ensureDraftSavedNow}
+          onPublished={async () => {
+            setPublishOpen(false);
+            setPublishWorkflowId(null);
+            setActiveDraftId(null);
+            setShowLauncher(true);
+            await refreshWorkflows();
+          }}
+        />
+      )}
+
+      {/* Desktop-only gating (only for edit mode, preview works on mobile) */}
+      {!isDesktop && !isPreview && !previewParam && mounted && (
           <div className="absolute inset-0 z-[80]">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
             <div className="absolute inset-0 flex items-center justify-center p-6">
@@ -1099,32 +1481,31 @@ export default function BuilderPage() {
               </div>
             </div>
           </div>
-        )}
+      )}
 
-        {/* Confined Workflows launcher overlay (disabled in preview) */}
-        {!isPreview && showLauncher && isDesktop && (
-          <LauncherOverlay
-            leftSafe={LEFT_RAIL_SAFE_PX}
-            busy={wfLoading || creating}
-            errorText={wfError}
-            drafts={drafts}
-            published={published}
-            newOpen={newOpen}
-            newTitle={newTitle}
-            creating={creating}
-            onToggleNew={() => setNewOpen((v) => !v)}
-            onNewTitle={(v) => setNewTitle(v)}
-            onCreate={() => void createDraft()}
-            onCancelNew={() => {
-              setNewOpen(false);
-              setNewTitle("");
-            }}
-            onRefresh={() => void refreshWorkflows()}
-            onOpenDraft={(id) => void openDraft(id)}
-            onOpenPublished={(id) => void openPublishedAsDraft(id)}
-          />
-        )}
-      </div>
+      {/* Confined Workflows launcher overlay (disabled in preview) */}
+      {!isPreview && showLauncher && isDesktop && (
+        <LauncherOverlay
+          leftSafe={LEFT_RAIL_SAFE_PX}
+          busy={wfLoading || creating}
+          errorText={wfError}
+          drafts={drafts}
+          published={published}
+          newOpen={newOpen}
+          newTitle={newTitle}
+          creating={creating}
+          onToggleNew={() => setNewOpen((v) => !v)}
+          onNewTitle={(v) => setNewTitle(v)}
+          onCreate={() => void createDraft()}
+          onCancelNew={() => {
+            setNewOpen(false);
+            setNewTitle("");
+          }}
+          onRefresh={() => void refreshWorkflows()}
+          onOpenDraft={(id) => void openDraft(id)}
+          onOpenPublished={(id) => void openPublishedAsDraft(id)}
+        />
+      )}
     </div>
   );
 }
@@ -1496,7 +1877,7 @@ function FloatingWindow({
 }) {
   return (
     <div
-      className="absolute z-30"
+      className="absolute z-30 pointer-events-auto"
       style={{ left: state.x, top: state.y, width: state.width, height: state.minimized ? 56 : state.height }}
     >
       <div className="h-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] overflow-hidden">

@@ -527,7 +527,7 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
       const d = JSON.parse(raw);
       setFullName(d.fullName || "");
       setEmail(d.email || "");
-      setCountryCode(d.countryCode || "+91");
+      setCountryCode(d.countryCode || "US");
       setPhone(d.phone || "");
       setCompany(d.company || "");
       setOccupation(d.occupation || "");

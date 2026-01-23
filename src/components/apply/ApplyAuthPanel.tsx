@@ -1,3 +1,4 @@
+// src/components/apply/ApplyAuthPanel.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -6,6 +7,7 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { track } from "../../lib/mixpanel";
 
 type Mode = "signin" | "signup" | "verify";
 
@@ -48,6 +50,14 @@ function persistApplyDraft(patch: Record<string, any>) {
   } catch {}
 }
 
+function safeTrack(event: string, props?: Record<string, any>) {
+  try {
+    track(event, props);
+  } catch {
+    // never block auth UX on analytics
+  }
+}
+
 export default function ApplyAuthPanel({
   emailPrefill,
   fullNamePrefill,
@@ -77,15 +87,39 @@ export default function ApplyAuthPanel({
     setError(null);
   }, [emailPrefill, fullNamePrefill]);
 
+  useEffect(() => {
+    safeTrack("Apply Auth Panel Viewed", { mode });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // only once on mount
+
   const pw = useMemo(() => passwordStrength(password), [password]);
 
   async function doSignin() {
     setError(null);
     setBusy(true);
+
+    safeTrack("Sign In Started", {
+      surface: "apply",
+      method: "email",
+      hasEmailPrefill: Boolean(emailPrefill),
+    });
+
     try {
       await signInWithEmail(email, password);
+
+      safeTrack("Login Completed", {
+        surface: "apply",
+        method: "email",
+      });
+
       onAuthed();
     } catch (e: any) {
+      safeTrack("Login Failed", {
+        surface: "apply",
+        method: "email",
+        message: e?.message || "unknown",
+      });
+
       setError(e?.message || "Sign in failed.");
     } finally {
       setBusy(false);
@@ -95,11 +129,18 @@ export default function ApplyAuthPanel({
   async function doSignup() {
     setError(null);
 
+    safeTrack("Sign Up Started", {
+      surface: "apply",
+      method: "email",
+    });
+
     if (!pw.valid) {
+      safeTrack("Sign Up Blocked", { surface: "apply", reason: "weak_password" });
       setError("Password too weak. Hit all requirements.");
       return;
     }
     if (password !== confirm) {
+      safeTrack("Sign Up Blocked", { surface: "apply", reason: "password_mismatch" });
       setError("Passwords do not match.");
       return;
     }
@@ -116,8 +157,23 @@ export default function ApplyAuthPanel({
         handle,
       });
 
+      // With Supabase email verification, the "account created" step happens here,
+      // but user may not be logged in yet. Track as submitted + awaiting verify.
+      safeTrack("Sign Up Submitted", {
+        surface: "apply",
+        method: "email",
+        requiresVerification: true,
+      });
+
       setMode("verify");
+      safeTrack("Email Verification Prompt Shown", { surface: "apply" });
     } catch (e: any) {
+      safeTrack("Sign Up Failed", {
+        surface: "apply",
+        method: "email",
+        message: e?.message || "unknown",
+      });
+
       setError(e?.message || "Sign up failed.");
     } finally {
       setBusy(false);
@@ -127,6 +183,13 @@ export default function ApplyAuthPanel({
   async function doGoogle() {
     setError(null);
     setBusy(true);
+
+    safeTrack("Sign In Started", {
+      surface: "apply",
+      method: "google",
+      hasEmailPrefill: Boolean(emailPrefill),
+    });
+
     try {
       try {
         sessionStorage.setItem("edgaze:apply:resume", "1");
@@ -140,7 +203,16 @@ export default function ApplyAuthPanel({
 
       // FIX: return directly to /apply, bypass /auth/callback
       await signInWithGoogle("/apply?resume=1");
+
+      // Google sign-in likely redirects; this event may or may not flush depending on navigation timing.
+      safeTrack("OAuth Redirect Initiated", { surface: "apply", provider: "google" });
     } catch (e: any) {
+      safeTrack("Login Failed", {
+        surface: "apply",
+        method: "google",
+        message: e?.message || "unknown",
+      });
+
       setError(e?.message || "Google sign in failed.");
       setBusy(false);
     }
@@ -308,6 +380,7 @@ export default function ApplyAuthPanel({
                     onClick={() => {
                       setError(null);
                       setMode("signup");
+                      safeTrack("Auth Mode Changed", { surface: "apply", to: "signup" });
                     }}
                     className="font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4"
                   >
@@ -322,6 +395,7 @@ export default function ApplyAuthPanel({
                     onClick={() => {
                       setError(null);
                       setMode("signin");
+                      safeTrack("Auth Mode Changed", { surface: "apply", to: "signin" });
                     }}
                     className="font-semibold text-white hover:underline underline-offset-4"
                   >
@@ -355,7 +429,10 @@ export default function ApplyAuthPanel({
 
             <button
               type="button"
-              onClick={() => setMode("signin")}
+              onClick={() => {
+                setMode("signin");
+                safeTrack("Email Verification CTA Clicked", { surface: "apply" });
+              }}
               className="mt-6 w-full rounded-2xl py-3 text-sm font-semibold bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))] text-black hover:opacity-95 active:opacity-90"
             >
               I verified — go to sign in

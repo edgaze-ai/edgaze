@@ -11,6 +11,7 @@ import React, {
 } from "react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import SignInModal from "./SignInModal";
+import { identifyUser, resetIdentity, track } from "../../lib/mixpanel";
 
 export type UserPlan = "Free" | "Pro" | "Team";
 
@@ -59,11 +60,12 @@ type AuthContextValue = {
   refresh: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 
-  updateProfile: (patch: Partial<Profile>) => Promise<{ ok: boolean; error?: string }>;
+  updateProfile: (
+    patch: Partial<Profile>
+  ) => Promise<{ ok: boolean; error?: string }>;
 
   signOut: () => Promise<void>;
 
-  // FIX: allow passing an override redirect path (e.g. "/apply?resume=1")
   signInWithGoogle: (redirectPath?: string) => Promise<void>;
 
   signInWithEmail: (email: string, password: string) => Promise<void>;
@@ -73,6 +75,9 @@ type AuthContextValue = {
     fullName: string;
     handle: string;
   }) => Promise<void>;
+
+  // Get access token for API calls
+  getAccessToken: () => Promise<string | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -107,13 +112,33 @@ function saveReturnTo(path: string) {
   } catch {}
 }
 
-function isStillBannedRow(row: { is_banned?: boolean; ban_expires_at?: string | null } | null) {
+function isStillBannedRow(
+  row: { is_banned?: boolean; ban_expires_at?: string | null } | null
+) {
   if (!row?.is_banned) return false;
   const expires = row.ban_expires_at ?? null;
   if (!expires) return true;
   const t = new Date(expires).getTime();
   if (Number.isNaN(t)) return true;
   return t > Date.now();
+}
+
+function safeTrack(event: string, props?: Record<string, any>) {
+  try {
+    track(event, props);
+  } catch {}
+}
+
+function safeIdentify(userId: string, props?: Record<string, any>) {
+  try {
+    identifyUser(userId, props);
+  } catch {}
+}
+
+function safeResetIdentity() {
+  try {
+    resetIdentity();
+  } catch {}
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -137,15 +162,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const inflightRef = useRef<Promise<void> | null>(null);
 
+  // Prevent duplicate identify/alias loops
+  const lastIdentifiedRef = useRef<string | null>(null);
+
   const openSignIn = useCallback(() => {
     if (modalOpenRef.current) return;
     modalOpenRef.current = true;
     setModalOpen(true);
+    safeTrack("Sign In Modal Opened", { surface: "auth_context" });
   }, []);
 
   const closeSignIn = useCallback(() => {
     modalOpenRef.current = false;
     setModalOpen(false);
+    safeTrack("Sign In Modal Closed", { surface: "auth_context" });
   }, []);
 
   const applyNoUser = useCallback(() => {
@@ -158,13 +188,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsBanned(false);
     setBanReason(null);
     setBanExpiresAt(null);
+
+    lastIdentifiedRef.current = null;
+
+    // Critical: clears Mixpanel distinct_id to avoid cross-account contamination
+    safeResetIdentity();
+
+    safeTrack("Logout", { surface: "auth_context" });
   }, []);
 
   const loadProfile = useCallback(
     async (uid: string) => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id,email,full_name,handle,avatar_url,banner_url,bio,socials,plan,email_verified")
+        .select(
+          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,plan,email_verified"
+        )
         .eq("id", uid)
         .maybeSingle();
 
@@ -239,13 +278,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserEmail(user.email ?? null);
       setIsVerified(Boolean(user.email_confirmed_at));
 
+      // Identify once per user id per session.
+      // IMPORTANT: identifyUser() should alias anonymous -> user internally (in mixpanel.ts)
+      if (lastIdentifiedRef.current !== user.id) {
+        lastIdentifiedRef.current = user.id;
+
+        safeIdentify(user.id, {
+          email: user.email ?? undefined,
+          email_verified: Boolean(user.email_confirmed_at),
+          provider: user.app_metadata?.provider ?? undefined,
+        });
+
+        safeTrack("Login Completed", {
+          surface: "auth_context",
+          method: user.app_metadata?.provider ?? "email",
+          email_verified: Boolean(user.email_confirmed_at),
+        });
+      }
+
       loadProfile(user.id).catch(() => setProfile(null));
       loadAdmin(user.id).catch(() => setIsAdmin(false));
 
       loadModeration(user.id)
         .then((stillBanned) => {
           if (stillBanned) {
-            if (typeof window !== "undefined" && window.location.pathname !== "/banned") {
+            safeTrack("User Banned Redirect", { surface: "auth_context" });
+            if (
+              typeof window !== "undefined" &&
+              window.location.pathname !== "/banned"
+            ) {
               window.location.href = "/banned";
             }
           }
@@ -285,17 +346,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadProfile(userId);
   }, [loadProfile, userId]);
 
+  // Update People properties once profile is available (no aliasing here)
+  useEffect(() => {
+    if (!userId) return;
+    if (!profile) return;
+
+    safeIdentify(userId, {
+      email: profile.email ?? userEmail ?? undefined,
+      name: profile.full_name ?? undefined,
+      handle: profile.handle ?? undefined,
+      plan: profile.plan ?? undefined,
+      email_verified: profile.email_verified ?? isVerified,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, profile]);
+
   const updateProfile = useCallback(
     async (patch: Partial<Profile>) => {
       if (!userId) return { ok: false, error: "Not signed in" };
 
       const payload: any = { ...patch };
-      if (typeof payload.handle === "string") payload.handle = normalizeHandle(payload.handle);
+      if (typeof payload.handle === "string")
+        payload.handle = normalizeHandle(payload.handle);
 
       const { error } = await supabase.from("profiles").update(payload).eq("id", userId);
       if (error) return { ok: false, error: error.message };
 
       await loadProfile(userId);
+
+      safeTrack("Profile Updated", {
+        surface: "auth_context",
+        keys: Object.keys(patch),
+      });
+
       return { ok: true };
     },
     [loadProfile, supabase, userId]
@@ -304,7 +387,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refresh();
 
-    const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+      safeTrack("Auth State Changed", { event, hasSession: Boolean(session) });
+
       await applyUser(session?.user ?? null);
       setLoading(false);
       setAuthReady(true);
@@ -315,6 +400,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const requireAuth = () => {
     if (userId) return true;
+    // Save current path before opening sign-in modal so we can redirect back after auth
+    if (typeof window !== "undefined") {
+      const returnTo =
+        (window.location.pathname + window.location.search + window.location.hash) ||
+        "/marketplace";
+      saveReturnTo(returnTo);
+    }
     openSignIn();
     return false;
   };
@@ -326,20 +418,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    safeTrack("Logout Started", { surface: "auth_context" });
     await supabase.auth.signOut();
     applyNoUser();
   };
 
-  // FIX: allow redirect override. If provided, bypass /auth/callback.
   const signInWithGoogle = async (redirectPath?: string) => {
     const returnTo =
-      (window.location.pathname + window.location.search + window.location.hash) || "/marketplace";
+      (window.location.pathname + window.location.search + window.location.hash) ||
+      "/marketplace";
 
     saveReturnTo(returnTo);
 
     const redirectTo = redirectPath
       ? `${window.location.origin}${safeReturnTo(redirectPath)}`
       : `${window.location.origin}/auth/callback`;
+
+    safeTrack("OAuth Started", {
+      provider: "google",
+      surface: "auth_context",
+      redirectTo: safeReturnTo(redirectPath || "/auth/callback"),
+    });
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -349,12 +448,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      safeTrack("OAuth Failed", {
+        provider: "google",
+        surface: "auth_context",
+        message: error.message,
+      });
+      throw error;
+    }
   };
 
   const signInWithEmail = async (email: string, password: string) => {
+    safeTrack("Sign In Started", { surface: "auth_context", method: "email" });
+
+    // Save current path before sign-in so we can redirect back after auth
+    if (typeof window !== "undefined") {
+      const returnTo =
+        (window.location.pathname + window.location.search + window.location.hash) ||
+        "/marketplace";
+      saveReturnTo(returnTo);
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    if (error) {
+      safeTrack("Login Failed", {
+        surface: "auth_context",
+        method: "email",
+        message: error.message,
+      });
+      throw error;
+    }
+
+    // After successful sign-in, redirect to saved path
+    // The auth state change listener will handle the redirect via useEffect
   };
 
   const signUpWithEmail = async ({
@@ -370,6 +496,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     const normalizedHandle = normalizeHandle(handle);
 
+    safeTrack("Sign Up Started", { surface: "auth_context", method: "email" });
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -379,8 +507,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      safeTrack("Sign Up Failed", {
+        surface: "auth_context",
+        method: "email",
+        message: error.message,
+      });
+      throw error;
+    }
+
+    safeTrack("Sign Up Submitted", {
+      surface: "auth_context",
+      method: "email",
+      requiresVerification: true,
+    });
   };
+
+  const getAccessToken = useCallback(async (): Promise<string | null> => {
+    try {
+      // First try to get the current session
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.warn("Error getting session in getAccessToken:", error);
+        return null;
+      }
+
+      if (!session?.access_token) {
+        return null;
+      }
+
+      // Check if token is expired or about to expire (within 60 seconds)
+      // expires_at is in seconds since epoch
+      const expiresAt = session.expires_at;
+      if (expiresAt) {
+        const now = Math.floor(Date.now() / 1000);
+        const expiresIn = expiresAt - now;
+        
+        // If token expires within 60 seconds, refresh it
+        if (expiresIn < 60) {
+          // Token is expired or about to expire, try to refresh
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError) {
+            console.warn("Error refreshing session:", refreshError);
+            // If refresh fails but we have a token, return it anyway (might still work)
+            return session.access_token;
+          }
+          return refreshData?.session?.access_token ?? session.access_token;
+        }
+      }
+      
+      // Token is still valid
+      return session.access_token;
+    } catch (error) {
+      console.error("Unexpected error in getAccessToken:", error);
+      return null;
+    }
+  }, [supabase]);
 
   const user: AuthUser | null =
     userId && profile
@@ -422,6 +605,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
+
+    getAccessToken,
   };
 
   return (
