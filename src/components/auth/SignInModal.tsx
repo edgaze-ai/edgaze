@@ -238,13 +238,21 @@ export default function SignInModal({
 
   async function doSignin() {
     setError(null);
+    
+    // Save returnTo before sign-in to preserve it
+    let savedReturnTo: string | null = null;
+    try {
+      savedReturnTo = localStorage.getItem("edgaze:returnTo");
+    } catch {}
+    
     await signInWithEmail(email, password);
     close();
     
     // Redirect to saved return path after successful sign-in
+    // This ensures we preserve query params like action=purchase
     try {
-      const returnTo = localStorage.getItem("edgaze:returnTo");
-      if (returnTo && returnTo !== "/marketplace" && returnTo.startsWith("/")) {
+      const returnTo = savedReturnTo || localStorage.getItem("edgaze:returnTo");
+      if (returnTo && returnTo.startsWith("/")) {
         localStorage.removeItem("edgaze:returnTo");
         // Small delay to ensure auth state is updated
         setTimeout(() => {

@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2 } from "lucide-react";
+import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ArrowLeft, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2 } from "lucide-react";
 
 import { useAuth } from "../../components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -105,6 +105,10 @@ export default function BuilderPage() {
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [name, setName] = useState("Untitled Workflow");
   const [editingName, setEditingName] = useState(false);
+  
+  // Preview mode: store product page info for back button
+  const [previewOwnerHandle, setPreviewOwnerHandle] = useState<string | null>(null);
+  const [previewEdgazeCode, setPreviewEdgazeCode] = useState<string | null>(null);
 
   // builder mode - initialize from URL param
   const [mode, setMode] = useState<BuilderMode>(previewParam ? "preview" : "edit");
@@ -379,7 +383,12 @@ export default function BuilderPage() {
   // When entering preview: force-hide blocks/inspector and stop rename edit state
   useEffect(() => {
     if (!mounted) return;
-    if (!isPreview) return;
+    if (!isPreview) {
+      // Clear preview state when leaving preview mode
+      setPreviewOwnerHandle(null);
+      setPreviewEdgazeCode(null);
+      return;
+    }
 
     setEditingName(false);
     setShowLauncher(false);
@@ -571,6 +580,9 @@ export default function BuilderPage() {
 
       setMode("edit");
       setShowLauncher(false);
+      // Clear preview state when switching to edit mode
+      setPreviewOwnerHandle(null);
+      setPreviewEdgazeCode(null);
 
       setWfLoading(true);
       try {
@@ -791,7 +803,7 @@ export default function BuilderPage() {
       try {
         const { data: wf, error: wfErr } = await supabase
           .from("workflows")
-          .select("id,owner_id,title,graph,is_paid,monetisation_mode,is_public,is_published")
+          .select("id,owner_id,owner_handle,edgaze_code,title,graph,is_paid,monetisation_mode,is_public,is_published")
           .eq("id", workflowId)
           .eq("is_published", true)
           .maybeSingle();
@@ -827,6 +839,10 @@ export default function BuilderPage() {
         setActiveDraftId(String(workflowId)); // run uses this id
         setName(wfRow?.title || "Untitled Workflow");
         setEditingName(false);
+        
+        // Store product page info for back button
+        setPreviewOwnerHandle(wfRow?.owner_handle ?? null);
+        setPreviewEdgazeCode(wfRow?.edgaze_code ?? null);
 
         beRef.current?.loadGraph?.(g);
 
@@ -842,6 +858,9 @@ export default function BuilderPage() {
         setWfError(e?.message || "Failed to open workflow.");
         setShowLauncher(true);
         setMode("edit");
+        // Clear preview state on error
+        setPreviewOwnerHandle(null);
+        setPreviewEdgazeCode(null);
       } finally {
         setWfLoading(false);
       }
@@ -1112,8 +1131,20 @@ export default function BuilderPage() {
             ref={topbarInnerRef}
             className="w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between transition-all duration-200"
           >
-            {/* Left: Logo + Title (minimal on mobile) */}
+            {/* Left: Back Button (mobile) + Logo + Title */}
             <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+              {/* Back button - visible on mobile when we have product page info */}
+              {previewOwnerHandle && previewEdgazeCode && (
+                <button
+                  onClick={() => {
+                    router.push(`/${previewOwnerHandle}/${previewEdgazeCode}`);
+                  }}
+                  className="h-8 w-8 md:h-9 md:w-9 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors shrink-0"
+                  title="Back to product page"
+                >
+                  <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-white/80" />
+                </button>
+              )}
               <div className="h-8 w-8 md:h-9 md:w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden shrink-0">
                 <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={20} height={20} className="md:w-6 md:h-6" />
               </div>

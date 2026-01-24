@@ -424,11 +424,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async (redirectPath?: string) => {
-    const returnTo =
-      (window.location.pathname + window.location.search + window.location.hash) ||
-      "/marketplace";
-
-    saveReturnTo(returnTo);
+    // Don't overwrite returnTo if it's already set (e.g., from requireAuth with action=purchase)
+    // Only save if there's no existing returnTo
+    try {
+      const existing = localStorage.getItem("edgaze:returnTo");
+      if (!existing || existing === "/marketplace") {
+        const returnTo =
+          (window.location.pathname + window.location.search + window.location.hash) ||
+          "/marketplace";
+        saveReturnTo(returnTo);
+      }
+    } catch {
+      // Fallback: save current path if localStorage access fails
+      const returnTo =
+        (window.location.pathname + window.location.search + window.location.hash) ||
+        "/marketplace";
+      saveReturnTo(returnTo);
+    }
 
     const redirectTo = redirectPath
       ? `${window.location.origin}${safeReturnTo(redirectPath)}`
@@ -461,12 +473,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithEmail = async (email: string, password: string) => {
     safeTrack("Sign In Started", { surface: "auth_context", method: "email" });
 
-    // Save current path before sign-in so we can redirect back after auth
+    // Don't overwrite returnTo if it's already set (e.g., from requireAuth with action=purchase)
+    // Only save if there's no existing returnTo
     if (typeof window !== "undefined") {
-      const returnTo =
-        (window.location.pathname + window.location.search + window.location.hash) ||
-        "/marketplace";
-      saveReturnTo(returnTo);
+      try {
+        const existing = localStorage.getItem("edgaze:returnTo");
+        if (!existing || existing === "/marketplace") {
+          const returnTo =
+            (window.location.pathname + window.location.search + window.location.hash) ||
+            "/marketplace";
+          saveReturnTo(returnTo);
+        }
+      } catch {
+        // Fallback: save current path if localStorage access fails
+        const returnTo =
+          (window.location.pathname + window.location.search + window.location.hash) ||
+          "/marketplace";
+        saveReturnTo(returnTo);
+      }
     }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
