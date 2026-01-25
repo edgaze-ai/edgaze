@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import "../styles/globals.css";
 
 import { AppProviders } from "./providers";
@@ -69,6 +70,7 @@ export default function RootLayout({
             <MixpanelInit />
           </Suspense>
           <LayoutGate>{children}</LayoutGate>
+          <Analytics />
         </AppProviders>
       </body>
     </html>
