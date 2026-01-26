@@ -129,7 +129,9 @@ function cleanPath(path: string): string | null {
   if (cleaned.startsWith("//")) return null;
   
   // Don't allow redirect to auth pages or root (to avoid loops)
-  if (cleaned === "/" || cleaned.startsWith("/auth/")) return null;
+  // But allow query params and hash
+  const pathOnly = cleaned.split("?")[0]?.split("#")[0];
+  if (!pathOnly || pathOnly === "/" || pathOnly.startsWith("/auth/")) return null;
   
   return cleaned;
 }
