@@ -239,30 +239,22 @@ export default function SignInModal({
   async function doSignin() {
     setError(null);
     
-    // Save returnTo before sign-in to preserve it
-    let savedReturnTo: string | null = null;
-    try {
-      savedReturnTo = localStorage.getItem("edgaze:returnTo");
-    } catch {}
+    // Save current path before sign-in (in case it wasn't saved already)
+    if (typeof window !== "undefined") {
+      try {
+        const currentPath = window.location.pathname + window.location.search + window.location.hash;
+        if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
+          localStorage.setItem("edgaze:returnTo", currentPath);
+          sessionStorage.setItem("edgaze:returnTo", currentPath);
+        }
+      } catch {}
+    }
     
     await signInWithEmail(email, password);
     close();
     
-    // Redirect to saved return path after successful sign-in
-    // This ensures we preserve query params like action=purchase
-    try {
-      const returnTo = savedReturnTo || localStorage.getItem("edgaze:returnTo");
-      if (returnTo && returnTo.startsWith("/")) {
-        localStorage.removeItem("edgaze:returnTo");
-        // Small delay to ensure auth state is updated
-        setTimeout(() => {
-          router.push(returnTo);
-        }, 100);
-        return;
-      }
-    } catch {}
-    
-    // Default: stay on current page (auth state change will handle any needed redirect)
+    // The redirect will be handled by AuthContext's auth state change listener
+    // No need to manually redirect here to avoid race conditions
   }
 
   async function doSignup() {

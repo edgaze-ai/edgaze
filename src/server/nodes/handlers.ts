@@ -1,4 +1,11 @@
 import type { GraphNode, NodeRuntimeHandler, RuntimeContext } from "../flow/types";
+import {
+  countChatTokens,
+  countEmbeddingTokens,
+  countImageTokens,
+  validateNodeTokenLimit,
+} from "../../lib/workflow/token-counting";
+import { getTokenLimits } from "../../lib/workflow/token-limits";
 
 const inputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   // Input node: accepts workflow-level input data
@@ -98,8 +105,14 @@ const outputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCo
 // Premium Node Handlers
 
 const getApiKey = (node: GraphNode, ctx: RuntimeContext): string | null => {
+  // First check if API key is provided via inputs (from run modal)
   const key = ctx.inputs?.[`__api_key_${node.id}`];
   if (typeof key === "string" && key.trim()) return key.trim();
+  
+  // Fallback: check node config (stored in inspector)
+  const configKey = node.data?.config?.apiKey;
+  if (typeof configKey === "string" && configKey.trim()) return configKey.trim();
+  
   return null;
 };
 
@@ -127,10 +140,32 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   const maxTokens = config.maxTokens ?? 2000;
   const stream = config.stream ?? false;
 
+  // Get token limits (workflow-specific or global)
+  const workflowId = (ctx.inputs as any)?.["__workflow_id"];
+  const tokenLimits = await getTokenLimits(workflowId);
+
+  // Count and validate tokens before making the request
+  const tokenCount = countChatTokens({
+    prompt,
+    system,
+    messages,
+    maxTokens,
+  });
+  
+  const tokenValidation = validateNodeTokenLimit(
+    node.id,
+    tokenCount.total,
+    "chat",
+    tokenLimits.maxTokensPerNode
+  );
+  if (!tokenValidation.valid) {
+    throw new Error(tokenValidation.error || "Token limit exceeded");
+  }
+
   const requestBody: any = {
     model,
     temperature,
-    max_tokens: maxTokens,
+    max_tokens: Math.min(maxTokens, tokenLimits.maxTokensPerNode - tokenCount.input), // Ensure we don't exceed limit
     stream,
   };
 
@@ -202,6 +237,22 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (node: GraphNode, ctx:
     throw new Error("Text input required for embeddings");
   }
 
+  // Get token limits
+  const workflowId = (ctx.inputs as any)?.["__workflow_id"];
+  const tokenLimits = await getTokenLimits(workflowId);
+
+  // Count and validate tokens
+  const tokenCount = countEmbeddingTokens(text);
+  const tokenValidation = validateNodeTokenLimit(
+    node.id,
+    tokenCount,
+    "embeddings",
+    tokenLimits.maxTokensPerNode
+  );
+  if (!tokenValidation.valid) {
+    throw new Error(tokenValidation.error || "Token limit exceeded");
+  }
+
   const model = config.model || "text-embedding-3-small";
   const timeout = config.timeout ?? 15000;
 
@@ -257,6 +308,22 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
 
   if (!prompt) {
     throw new Error("Prompt required for image generation");
+  }
+
+  // Get token limits
+  const workflowId = (ctx.inputs as any)?.["__workflow_id"];
+  const tokenLimits = await getTokenLimits(workflowId);
+
+  // Count and validate tokens (for prompt)
+  const tokenCount = countImageTokens(prompt);
+  const tokenValidation = validateNodeTokenLimit(
+    node.id,
+    tokenCount,
+    "image",
+    tokenLimits.maxTokensPerNode
+  );
+  if (!tokenValidation.valid) {
+    throw new Error(tokenValidation.error || "Token limit exceeded");
   }
 
   const model = config.model || "dall-e-3";

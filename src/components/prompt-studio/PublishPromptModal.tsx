@@ -1100,7 +1100,9 @@ export default function PublishPromptModal({
         if (patchErr) throw patchErr;
       }
 
-      const url = `https://edgaze.ai/p/${ownerHandle}/${finalCode}`;
+      // Use current origin (works for localhost and production)
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://edgaze.ai";
+      const url = `${origin}/p/${ownerHandle}/${finalCode}`;
 
       setPublishedCode(finalCode);
       setPublishedUrl(url);

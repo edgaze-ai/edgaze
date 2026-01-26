@@ -19,10 +19,22 @@ import {
   ExternalLink,
   Lock,
   CheckCircle2,
+  Play,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
 import WorkflowCommentsSection from "../../../components/marketplace/WorkflowCommentsSection";
+import PremiumWorkflowRunModal, { type WorkflowRunState } from "../../../components/builder/PremiumWorkflowRunModal";
+import { canRunDemo, trackDemoRun } from "../../../lib/workflow/device-tracking";
+import { extractWorkflowInputs, extractWorkflowOutputs } from "../../../lib/workflow/input-extraction";
+import { validateWorkflowGraph } from "../../../lib/workflow/validation";
+import { track } from "../../../lib/mixpanel";
+
+function safeTrack(event: string, props?: Record<string, any>) {
+  try {
+    track(event, props);
+  } catch {}
+}
 
 
 type WorkflowListing = {
@@ -873,6 +885,11 @@ export default function WorkflowProductPage() {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const [purchaseSuccessOpen, setPurchaseSuccessOpen] = useState(false);
+  
+  // Demo run state
+  const [demoRunModalOpen, setDemoRunModalOpen] = useState(false);
+  const [demoRunState, setDemoRunState] = useState<WorkflowRunState | null>(null);
+  const [demoRunning, setDemoRunning] = useState(false);
 
   const [upNext, setUpNext] = useState<WorkflowListing[]>([]);
   const [upNextLoading, setUpNextLoading] = useState(false);
@@ -994,8 +1011,10 @@ export default function WorkflowProductPage() {
   const canonicalShareUrl = useMemo(() => {
     const h = listing?.owner_handle || ownerHandle || "";
     const c = listing?.edgaze_code || edgazeCode || "";
+    // Use current origin (works for localhost and production)
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://edgaze.ai";
     // NO /p
-    return `https://edgaze.ai/${h}/${c}`;
+    return `${origin}/${h}/${c}`;
   }, [listing?.owner_handle, listing?.edgaze_code, ownerHandle, edgazeCode]);
 
   // Typed routes in Next can be strict; cast to any for runtime-safe string routes.
@@ -1125,9 +1144,11 @@ export default function WorkflowProductPage() {
     }
 
     // Save intent in URL before requiring auth so redirect includes it
-    const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.set("action", "purchase");
-    window.history.replaceState({}, "", currentUrl.toString());
+    // Use relative path only (not absolute URL)
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set("action", "purchase");
+    const relativePath = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "") + window.location.hash;
+    window.history.replaceState({}, "", relativePath);
 
     if (!requireAuth()) {
       return;
@@ -1200,6 +1221,203 @@ export default function WorkflowProductPage() {
     }
 
     openWorkflowStudio();
+  }
+
+  // Handle one-time demo run (strict IP + device based)
+  async function handleDemoRun() {
+    if (!listing) return;
+
+    // Strict one-time check
+    const canRun = canRunDemo(listing.id, true); // strict one-time
+    if (!canRun) {
+      setPurchaseError("You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.");
+      return;
+    }
+
+    try {
+      safeTrack("Workflow Demo Run Initiated", {
+        surface: "product_page",
+        listing_id: listing.id,
+        edgaze_code: listing.edgaze_code,
+      });
+
+      // Load workflow graph
+      const { data: workflowData, error: workflowError } = await supabase
+        .from("workflows")
+        .select("id,title,graph_json,graph")
+        .eq("id", listing.id)
+        .maybeSingle();
+
+      if (workflowError || !workflowData) {
+        throw new Error("Failed to load workflow");
+      }
+
+      const graph = workflowData.graph_json || workflowData.graph || { nodes: [], edges: [] };
+
+      // Validate workflow
+      const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
+      if (!validation.valid) {
+        throw new Error(validation.errors.join("\n"));
+      }
+
+      // Extract inputs
+      const inputs = extractWorkflowInputs(graph.nodes || []);
+
+      // Track demo run (strict one-time)
+      trackDemoRun(listing.id);
+
+      // Initialize run state
+      const initialState: WorkflowRunState = {
+        workflowId: listing.id,
+        workflowName: listing.title || "Untitled Workflow",
+        phase: inputs.length > 0 ? "input" : "executing",
+        status: "idle",
+        steps: [],
+        logs: [],
+        inputs: inputs.length > 0 ? inputs : undefined,
+      };
+
+      setDemoRunState(initialState);
+      setDemoRunModalOpen(true);
+    } catch (error: any) {
+      setPurchaseError(error.message || "Failed to start demo");
+    }
+  }
+
+  // Handle demo input submission
+  async function handleDemoSubmitInputs(inputValues: Record<string, any>) {
+    if (!listing || !demoRunState) return;
+
+    const graph = listing.graph_json || listing.graph || { nodes: [], edges: [] };
+
+    // Convert File objects to base64
+    const processedInputs: Record<string, any> = {};
+    for (const [key, value] of Object.entries(inputValues)) {
+      if (value instanceof File) {
+        try {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(value);
+          });
+          processedInputs[key] = {
+            filename: value.name,
+            type: value.type,
+            size: value.size,
+            data: base64,
+          };
+        } catch (error) {
+          setPurchaseError("Failed to process file upload");
+          return;
+        }
+      } else {
+        processedInputs[key] = value;
+      }
+    }
+
+    // Update state to executing
+    setDemoRunState({
+      ...demoRunState,
+      phase: "executing",
+      status: "running",
+      inputValues: processedInputs,
+      startedAt: Date.now(),
+    });
+    setDemoRunning(true);
+
+    try {
+      const response = await fetch("/api/flow/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          workflowId: listing.id,
+          nodes: graph.nodes || [],
+          edges: graph.edges || [],
+          inputs: processedInputs,
+          userApiKeys: {},
+          isDemo: true, // Strict one-time demo
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(error.error || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || "Execution failed");
+      }
+
+      const executionResult = result.result;
+      const logs = (executionResult.logs || []).map((log: any) => ({
+        t: log.timestamp || Date.now(),
+        level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
+        text: log.message || "",
+        nodeId: log.nodeId,
+        specId: log.specId,
+      }));
+
+      // Helper function to map node status
+      const mapNodeStatus = (status: string): "queued" | "running" | "done" | "error" | "skipped" => {
+        const map: Record<string, "queued" | "running" | "done" | "error" | "skipped"> = {
+          idle: "queued",
+          ready: "queued",
+          running: "running",
+          success: "done",
+          failed: "error",
+          timeout: "error",
+          skipped: "skipped",
+        };
+        return map[status] || "queued";
+      };
+
+      const steps = Object.entries(executionResult.nodeStatus || {}).map(([nodeId, status]: [string, any]) => {
+        const node = (graph.nodes || []).find((n: any) => n.id === nodeId);
+        const specId = node?.data?.specId || "default";
+        const nodeTitle = node?.data?.title || node?.data?.config?.name || specId;
+        const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
+        return {
+          id: nodeId,
+          title: nodeTitle,
+          detail: errorLog ? errorLog.text : undefined,
+          status: mapNodeStatus(status) as "queued" | "running" | "done" | "error" | "skipped",
+          icon: <Play className="h-4 w-4" />,
+          timestamp: Date.now(),
+        };
+      });
+
+      const outputs = extractWorkflowOutputs(graph.nodes || []).map((output) => {
+        const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+        return {
+          ...output,
+          value: finalOutput?.value || null,
+          type: typeof finalOutput?.value === "string" ? "string" : "json",
+        };
+      });
+
+      setDemoRunState({
+        ...demoRunState,
+        phase: "output",
+        status: executionResult.workflowStatus === "completed" ? "success" : "error",
+        steps,
+        logs,
+        outputs,
+        finishedAt: Date.now(),
+      });
+    } catch (error: any) {
+      setDemoRunState({
+        ...demoRunState,
+        phase: "output",
+        status: "error",
+        error: error.message || "Execution failed",
+        finishedAt: Date.now(),
+      });
+    } finally {
+      setDemoRunning(false);
+    }
   }
 
   async function loadMoreUpNext(reset = false) {
@@ -1333,6 +1551,34 @@ export default function WorkflowProductPage() {
         title={listing.title}
       />
 
+      {/* Demo Run Modal */}
+      <PremiumWorkflowRunModal
+        open={demoRunModalOpen}
+        onClose={() => {
+          if (demoRunState?.status !== "running" && demoRunState?.phase !== "executing") {
+            setDemoRunModalOpen(false);
+            setDemoRunState(null);
+          }
+        }}
+        state={demoRunState}
+        onCancel={() => {
+          setDemoRunState((prev) => (prev ? { ...prev, status: "error", error: "Cancelled by user" } : null));
+          setDemoRunning(false);
+        }}
+        onRerun={() => {
+          setDemoRunState(null);
+          setDemoRunModalOpen(false);
+          setTimeout(() => handleDemoRun(), 100);
+        }}
+        onSubmitInputs={handleDemoSubmitInputs}
+        onBuyWorkflow={() => {
+          setDemoRunModalOpen(false);
+          grantAccessOrOpen();
+        }}
+        remainingDemoRuns={listing ? (canRunDemo(listing.id, true) ? 1 : 0) : undefined}
+        workflowId={listing?.id || undefined}
+      />
+
       {/* Desktop top bar */}
       <header className="hidden sm:block sticky top-0 z-30 border-b border-white/10 bg-[#050505]/80 backdrop-blur-md">
         <div className="flex items-center justify-between px-6 py-3">
@@ -1413,6 +1659,27 @@ export default function WorkflowProductPage() {
             )}
             {isOwned ? "Open" : primaryCtaLabel}
           </button>
+
+          {/* Mobile Demo Button */}
+          {!isOwned && listing && canRunDemo(listing.id, true) && (
+            <button
+              type="button"
+              onClick={handleDemoRun}
+              disabled={demoRunning}
+              className={cn(
+                "inline-flex items-center justify-center gap-1.5 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 px-3 py-2 text-xs font-semibold text-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.3)] transition-all",
+                demoRunning && "opacity-50 cursor-not-allowed"
+              )}
+              title="Try Demo (One-time)"
+            >
+              {demoRunning ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Play className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden xs:inline">Demo</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -1866,6 +2133,26 @@ export default function WorkflowProductPage() {
                           : "Open in Workflow Studio (Preview)"
                         : primaryCtaLabel}
                     </button>
+
+                    {/* Premium Demo Button - One-time strict */}
+                    {!isOwned && listing && canRunDemo(listing.id, true) && (
+                      <button
+                        type="button"
+                        onClick={handleDemoRun}
+                        disabled={demoRunning}
+                        className={cn(
+                          "flex w-full items-center justify-center gap-2 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 px-4 py-2.5 text-sm font-semibold text-amber-200 shadow-[0_4px_20px_rgba(251,191,36,0.3)] transition-all hover:shadow-[0_6px_24px_rgba(251,191,36,0.4)]",
+                          demoRunning && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        {demoRunning ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                        Try Demo
+                      </button>
+                    )}
 
                     <button
                       type="button"

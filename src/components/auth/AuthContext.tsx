@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import SignInModal from "./SignInModal";
 import { identifyUser, resetIdentity, track } from "../../lib/mixpanel";
@@ -98,17 +99,78 @@ function normalizeHandle(input: string) {
     .slice(0, 24);
 }
 
-function safeReturnTo(path: string) {
-  if (!path || typeof path !== "string") return "/marketplace";
-  if (!path.startsWith("/")) return "/marketplace";
-  if (path.startsWith("//")) return "/marketplace";
-  if (path.includes("http://") || path.includes("https://")) return "/marketplace";
-  return path;
+/**
+ * Simple function to clean a path - extracts relative path from full URL if needed
+ */
+function cleanPath(path: string): string | null {
+  if (!path || typeof path !== "string") return null;
+  
+  let cleaned = path.trim();
+  if (!cleaned) return null;
+  
+  // If it's a full URL, extract just the path part
+  if (cleaned.includes("http://") || cleaned.includes("https://")) {
+    try {
+      const url = new URL(cleaned);
+      cleaned = url.pathname + url.search + url.hash;
+    } catch {
+      // If URL parsing fails, try to extract path manually
+      const match = cleaned.match(/^https?:\/\/[^\/]+(\/.*)$/);
+      if (match?.[1]) {
+        cleaned = match[1];
+      } else {
+        return null;
+      }
+    }
+  }
+  
+  // Must be a relative path starting with /
+  if (!cleaned.startsWith("/")) return null;
+  if (cleaned.startsWith("//")) return null;
+  
+  // Don't allow redirect to auth pages or root (to avoid loops)
+  if (cleaned === "/" || cleaned.startsWith("/auth/")) return null;
+  
+  return cleaned;
 }
 
-function saveReturnTo(path: string) {
+/**
+ * Save return path to storage - simple and reliable
+ */
+function saveReturnPath(path: string) {
+  if (typeof window === "undefined") return;
+  
   try {
-    localStorage.setItem("edgaze:returnTo", safeReturnTo(path));
+    const cleaned = cleanPath(path);
+    if (cleaned) {
+      localStorage.setItem("edgaze:returnTo", cleaned);
+      sessionStorage.setItem("edgaze:returnTo", cleaned);
+    }
+  } catch {}
+}
+
+/**
+ * Get return path from storage
+ */
+function getReturnPath(): string | null {
+  if (typeof window === "undefined") return null;
+  
+  try {
+    return localStorage.getItem("edgaze:returnTo") || sessionStorage.getItem("edgaze:returnTo");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clear return path from storage
+ */
+function clearReturnPath() {
+  if (typeof window === "undefined") return;
+  
+  try {
+    localStorage.removeItem("edgaze:returnTo");
+    sessionStorage.removeItem("edgaze:returnTo");
   } catch {}
 }
 
@@ -143,6 +205,8 @@ function safeResetIdentity() {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const router = useRouter();
+  const pathname = usePathname() || "";
 
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -164,9 +228,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Prevent duplicate identify/alias loops
   const lastIdentifiedRef = useRef<string | null>(null);
+  
+  // Track if we've just signed in to handle redirect
+  const justSignedInRef = useRef(false);
 
   const openSignIn = useCallback(() => {
     if (modalOpenRef.current) return;
+    
+    // Save current path BEFORE opening modal
+    if (typeof window !== "undefined") {
+      const currentPath = window.location.pathname + window.location.search + window.location.hash;
+      // Only save if it's a valid path (not root, not auth pages)
+      if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
+        saveReturnPath(currentPath);
+      }
+    }
+    
     modalOpenRef.current = true;
     setModalOpen(true);
     safeTrack("Sign In Modal Opened", { surface: "auth_context" });
@@ -390,23 +467,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
       safeTrack("Auth State Changed", { event, hasSession: Boolean(session) });
 
+      const previousUserId = userId;
       await applyUser(session?.user ?? null);
       setLoading(false);
       setAuthReady(true);
+      
+      // Handle redirect after successful sign-in
+      // Check if we transitioned from no user to having a user
+      if (!previousUserId && session?.user && typeof window !== "undefined") {
+        justSignedInRef.current = true;
+        
+        // Small delay to ensure state is updated and modal is closed
+        setTimeout(() => {
+          try {
+            const returnPath = getReturnPath();
+            
+            if (returnPath) {
+              const cleaned = cleanPath(returnPath);
+              
+              if (cleaned && pathname !== cleaned) {
+                // Clear storage and redirect
+                clearReturnPath();
+                router.push(cleaned);
+              } else {
+                // Invalid path or already on that path - just clear storage
+                clearReturnPath();
+              }
+            }
+            
+            justSignedInRef.current = false;
+          } catch (err) {
+            console.error("Redirect error:", err);
+            clearReturnPath();
+            justSignedInRef.current = false;
+          }
+        }, 300);
+      }
     });
 
     return () => data.subscription.unsubscribe();
-  }, [applyUser, refresh, supabase]);
+  }, [applyUser, refresh, supabase, router, pathname, userId]);
 
   const requireAuth = () => {
     if (userId) return true;
-    // Save current path before opening sign-in modal so we can redirect back after auth
-    if (typeof window !== "undefined") {
-      const returnTo =
-        (window.location.pathname + window.location.search + window.location.hash) ||
-        "/marketplace";
-      saveReturnTo(returnTo);
-    }
+    // openSignIn already saves the current path, so just call it
     openSignIn();
     return false;
   };
@@ -424,41 +528,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async (redirectPath?: string) => {
-    // Don't overwrite returnTo if it's already set (e.g., from requireAuth with action=purchase)
-    // Only save if there's no existing returnTo
-    try {
-      const existing = localStorage.getItem("edgaze:returnTo");
-      if (!existing || existing === "/marketplace") {
-        const returnTo =
-          (window.location.pathname + window.location.search + window.location.hash) ||
-          "/marketplace";
-        saveReturnTo(returnTo);
-      }
-    } catch {
-      // Fallback: save current path if localStorage access fails
-      const returnTo =
-        (window.location.pathname + window.location.search + window.location.hash) ||
-        "/marketplace";
-      saveReturnTo(returnTo);
+    // Get the path we want to redirect to after OAuth
+    let returnPath: string | null = null;
+    
+    if (redirectPath) {
+      // Explicit path provided
+      returnPath = cleanPath(redirectPath);
+    } else {
+      // Use saved path from when modal was opened
+      returnPath = getReturnPath();
     }
+    
+    // CRITICAL: Always use current origin (window.location.origin)
+    // This ensures localhost uses localhost, production uses production
+    const currentOrigin = window.location.origin;
+    const callbackUrl = `${currentOrigin}/auth/callback`;
+    
+    // Build redirectTo URL for Supabase (must be full URL)
+    // Pass returnPath as query param so callback handler can use it
+    const redirectTo = returnPath
+      ? `${callbackUrl}?next=${encodeURIComponent(returnPath)}`
+      : callbackUrl;
 
-    const redirectTo = redirectPath
-      ? `${window.location.origin}${safeReturnTo(redirectPath)}`
-      : `${window.location.origin}/auth/callback`;
+    // CRITICAL DEBUG: Log what we're sending to Supabase
+    console.log("[OAuth] Starting Google sign-in with:", {
+      currentOrigin,
+      callbackUrl,
+      redirectTo,
+      returnPath,
+      windowLocation: window.location.href,
+    });
+
+    // Validate that we're using the correct origin
+    if (currentOrigin.includes("localhost") && redirectTo.includes("edgaze.ai")) {
+      console.error("[OAuth] ERROR: redirectTo contains edgaze.ai but we're on localhost!", {
+        currentOrigin,
+        redirectTo,
+      });
+      throw new Error("Redirect URL mismatch: localhost detected but redirectTo contains production domain");
+    }
 
     safeTrack("OAuth Started", {
       provider: "google",
       surface: "auth_context",
-      redirectTo: safeReturnTo(redirectPath || "/auth/callback"),
+      returnPath: returnPath || "none",
+      redirectTo,
+      currentOrigin,
     });
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error, data } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo,
-        queryParams: { prompt: "select_account" },
+        queryParams: { 
+          prompt: "select_account",
+        },
+        // Skip browser redirect - we'll handle it manually if needed
+        skipBrowserRedirect: false,
       },
     });
+
+    // Log the response
+    if (data?.url) {
+      console.log("[OAuth] Supabase returned URL:", data.url);
+      // Check if Supabase is trying to redirect to wrong domain
+      if (currentOrigin.includes("localhost") && data.url.includes("edgaze.ai")) {
+        console.error("[OAuth] ERROR: Supabase is redirecting to production!", {
+          currentOrigin,
+          supabaseUrl: data.url,
+        });
+      }
+    }
 
     if (error) {
       safeTrack("OAuth Failed", {
@@ -473,23 +613,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithEmail = async (email: string, password: string) => {
     safeTrack("Sign In Started", { surface: "auth_context", method: "email" });
 
-    // Don't overwrite returnTo if it's already set (e.g., from requireAuth with action=purchase)
-    // Only save if there's no existing returnTo
+    // Path should already be saved when modal was opened
+    // But ensure we have it saved (in case modal was opened differently)
     if (typeof window !== "undefined") {
-      try {
-        const existing = localStorage.getItem("edgaze:returnTo");
-        if (!existing || existing === "/marketplace") {
-          const returnTo =
-            (window.location.pathname + window.location.search + window.location.hash) ||
-            "/marketplace";
-          saveReturnTo(returnTo);
-        }
-      } catch {
-        // Fallback: save current path if localStorage access fails
-        const returnTo =
-          (window.location.pathname + window.location.search + window.location.hash) ||
-          "/marketplace";
-        saveReturnTo(returnTo);
+      const currentPath = window.location.pathname + window.location.search + window.location.hash;
+      if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
+        saveReturnPath(currentPath);
       }
     }
 
@@ -503,8 +632,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw error;
     }
 
-    // After successful sign-in, redirect to saved path
-    // The auth state change listener will handle the redirect via useEffect
+    // Redirect will be handled by auth state change listener
   };
 
   const signUpWithEmail = async ({

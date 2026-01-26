@@ -24,8 +24,11 @@ const CORE_SPECS: NodeSpec[] = [
     ],
     defaultConfig: {
       name: "Input",
+      question: "",
+      inputType: "text",
       description: "Workflow entry point",
       required: true,
+      maxFileSize: 5, // MB
     },
     inspector: [
       {
@@ -36,11 +39,38 @@ const CORE_SPECS: NodeSpec[] = [
         helpText: "What data does this workflow accept?",
       },
       {
+        key: "question",
+        label: "Question",
+        type: "textarea",
+        rows: 2,
+        helpText: "The question or prompt shown to users when collecting this input (e.g., What message would you like to send?)",
+      },
+      {
+        key: "inputType",
+        label: "Input Type",
+        type: "select",
+        options: [
+          { label: "Text", value: "text" },
+          { label: "Long Paragraph", value: "textarea" },
+          { label: "Number", value: "number" },
+          { label: "URL", value: "url" },
+          { label: "File Upload (up to 5MB)", value: "file" },
+          { label: "JSON", value: "json" },
+        ],
+        helpText: "Type of input field shown to users",
+      },
+      {
         key: "description",
         label: "Description",
         type: "textarea",
         rows: 2,
-        helpText: "Describe what this input is for",
+        helpText: "Additional description or help text for this input",
+      },
+      {
+        key: "required",
+        label: "Required",
+        type: "switch",
+        helpText: "Whether this input must be provided",
       },
     ],
   },

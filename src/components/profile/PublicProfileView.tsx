@@ -15,6 +15,8 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { fetchCreatorListings } from "./creatorListingsAdapter";
+import ErrorModal from "../marketplace/ErrorModal";
+import { DEFAULT_AVATAR_SRC } from "../../config/branding";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -57,7 +59,52 @@ type CreatorListing = {
   popularityLabel?: string;
 };
 
-const DEFAULT_AVATAR_SRC = "/profile/default-avatar.png"; // /public/profile/default-avatar.png
+function initialsFromName(name: string | null | undefined): string {
+  const n = (name || "").trim();
+  if (!n) return "EG";
+  const parts = n.split(/\s+/);
+  const a = parts[0]?.[0]?.toUpperCase() || "E";
+  const b =
+    parts[1]?.[0]?.toUpperCase() || (parts[0]?.[1]?.toUpperCase() || "G");
+  return `${a}${b}`.slice(0, 2);
+}
+
+function Avatar({
+  name,
+  url,
+  size = 36,
+  className,
+}: {
+  name: string;
+  url?: string | null;
+  size?: number;
+  className?: string;
+}) {
+  const px = `${size}px`;
+  return (
+    <div
+      className={cn(
+        "shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/[0.06]",
+        className
+      )}
+      style={{ width: px, height: px }}
+    >
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/10 to-white/0 text-[11px] font-semibold text-white/80">
+          {initialsFromName(name)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function normalizeHandle(input: string) {
   return (input || "")
@@ -149,135 +196,401 @@ function badgeClassFor(type: "prompt" | "workflow") {
       };
 }
 
-function BlurredFallback({ text }: { text: string }) {
+function BlurredPromptThumbnail({ text }: { text: string }) {
+  const snippet =
+    (text || "EDGAZE")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 28)
+      .toUpperCase() || "EDGAZE";
+
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black/55">
-      <div className="absolute inset-0 opacity-[0.92] [background-image:radial-gradient(circle_at_18%_22%,rgba(34,211,238,0.20),transparent_46%),radial-gradient(circle_at_82%_30%,rgba(236,72,153,0.18),transparent_56%)]" />
-      <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:44px_44px]" />
-      <div className="absolute inset-0 bg-black/20" />
-      <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
-        <div className="line-clamp-2 text-sm font-semibold tracking-tight text-white/85">
-          {text}
+    <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-slate-950/80">
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="scale-[1.35] blur-2xl opacity-80">
+          <div className="whitespace-nowrap text-6xl font-extrabold tracking-[0.35em] text-white/25">
+            {snippet}
+          </div>
         </div>
       </div>
+
+      <div className="absolute inset-3 rounded-2xl border border-white/10 bg-slate-900/30 backdrop-blur-md" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-28 bg-gradient-to-r from-cyan-400/55 via-cyan-400/8 to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-28 bg-gradient-to-l from-pink-500/55 via-pink-500/8 to-transparent" />
     </div>
   );
 }
 
-function MarketplaceStyleCard({
-  it,
+function PromptCard({
+  prompt,
   creator,
+  currentUserId,
+  requireAuth,
+  supabase,
   onOpen,
 }: {
-  it: CreatorListing;
+  prompt: CreatorListing;
   creator: PublicProfileRow;
+  currentUserId: string | null;
+  requireAuth: () => boolean;
+  supabase: ReturnType<typeof createSupabaseBrowserClient>;
   onOpen: () => void;
 }) {
-  const { badge, glow } = badgeClassFor(it.type);
+  const router = useRouter();
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [likeCount, setLikeCount] = useState(
+    (typeof prompt.likes_count === "number" ? prompt.likes_count : null) ??
+    (typeof prompt.like_count === "number" ? prompt.like_count : null) ??
+    0
+  );
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    details?: string;
+    hint?: string;
+  }>({
+    open: false,
+    title: "",
+    message: "",
+  });
+
+  const isFree = prompt.monetisation_mode === "free" || prompt.is_paid === false;
+  const publishedLabel = formatRelativeTime(prompt.created_at || null);
+
   const views =
-    (typeof it.views_count === "number" ? it.views_count : null) ??
-    (typeof it.view_count === "number" ? it.view_count : null) ??
+    (typeof prompt.views_count === "number" ? prompt.views_count : null) ??
+    (typeof prompt.view_count === "number" ? prompt.view_count : null) ??
     0;
 
-  const likes =
-    (typeof it.likes_count === "number" ? it.likes_count : null) ??
-    (typeof it.like_count === "number" ? it.like_count : null) ??
-    0;
+  // Check if user has liked this item and refresh count
+  useEffect(() => {
+    const checkLikeStatus = async () => {
+      try {
+        const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
+        
+        // Refresh count from database first
+        const { data: itemData } = await supabase
+          .from(itemsTable)
+          .select("likes_count, like_count")
+          .eq("id", prompt.id)
+          .single();
+        
+        if (itemData) {
+          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          setLikeCount(actualCount);
+        }
+        
+        // Check if user has liked
+        if (!currentUserId) {
+          setIsLiked(false);
+          return;
+        }
 
-  const desc = clampText(it.description || it.prompt_text || "", 140);
-  const code = (it.edgaze_code || "").trim();
+        const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
+        const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
+        
+        const { data, error } = await supabase
+          .from(likesTable)
+          .select("id")
+          .eq("user_id", currentUserId)
+          .eq(itemIdColumn, prompt.id)
+          .maybeSingle();
+        
+        if (error && !error.message.includes("permission") && !error.message.includes("JWT")) {
+          console.error("Error checking like status:", error);
+        }
+        
+        setIsLiked(!!data);
+      } catch (error) {
+        console.error("Error checking like status:", error);
+        setIsLiked(false);
+      }
+    };
+
+    checkLikeStatus();
+  }, [prompt.id, prompt.type, currentUserId, supabase]);
+
+  const creatorName = creator.full_name || (creator.handle ? `@${creator.handle}` : "Unknown");
+  const creatorHandle = creator.handle ? `@${creator.handle}` : "";
+
+  const priceLabel = isFree
+    ? "Free"
+    : prompt.price_usd != null
+    ? `$${prompt.price_usd.toFixed(2)}`
+    : "Paid";
+
+  const badgeLabel = prompt.type === "workflow" ? "Workflow" : "Prompt";
+  const desc = clampText(prompt.description || prompt.prompt_text || "", 140);
+
+  const badgeClass =
+    prompt.type === "workflow"
+      ? "border-pink-400/25 bg-pink-500/10 text-pink-100"
+      : "border-cyan-300/25 bg-cyan-400/10 text-cyan-50";
+
+  const badgeGlow =
+    prompt.type === "workflow"
+      ? "shadow-[0_0_18px_rgba(236,72,153,0.22)]"
+      : "shadow-[0_0_18px_rgba(56,189,248,0.22)]";
+
+  const handleCardClick = () => {
+    onOpen();
+  };
+
+  const handleLikeClick: React.MouseEventHandler<HTMLButtonElement> = async (e) => {
+    e.stopPropagation();
+    if (!requireAuth()) return;
+    if (!currentUserId) return;
+
+    const wasLiked = isLiked;
+    
+    // Optimistic update
+    setIsLiked(!wasLiked);
+    setLikeCount((prev) => wasLiked ? Math.max(0, prev - 1) : prev + 1);
+
+    try {
+      setLikeLoading(true);
+      
+      const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
+      const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
+      const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
+      
+      if (wasLiked) {
+        // Remove like
+        const { error: deleteError } = await supabase
+          .from(likesTable)
+          .delete()
+          .eq("user_id", currentUserId)
+          .eq(itemIdColumn, prompt.id);
+        
+        if (deleteError) {
+          throw deleteError;
+        }
+        
+        setIsLiked(false);
+        
+        // Small delay to ensure triggers have updated the count
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Refresh count from database (triggers update it)
+        const { data: itemData } = await supabase
+          .from(itemsTable)
+          .select("likes_count, like_count")
+          .eq("id", prompt.id)
+          .single();
+        
+        if (itemData) {
+          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          setLikeCount(actualCount);
+        } else {
+          setLikeCount((prev) => Math.max(0, prev - 1));
+        }
+      } else {
+        // Add like
+        const insertData = prompt.type === "workflow"
+          ? { user_id: currentUserId, workflow_id: prompt.id }
+          : { user_id: currentUserId, prompt_id: prompt.id };
+        
+        const { error: insertError } = await supabase
+          .from(likesTable)
+          .insert(insertData);
+        
+        if (insertError) {
+          if (insertError.message.includes("unique") || insertError.message.includes("duplicate")) {
+            setIsLiked(true);
+            
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const { data: itemData } = await supabase
+              .from(itemsTable)
+              .select("likes_count, like_count")
+              .eq("id", prompt.id)
+              .single();
+            
+            if (itemData) {
+              const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+              setLikeCount(actualCount);
+            } else {
+              setLikeCount((prev) => prev + 1);
+            }
+            return;
+          }
+          throw insertError;
+        }
+        
+        setIsLiked(true);
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const { data: itemData } = await supabase
+          .from(itemsTable)
+          .select("likes_count, like_count")
+          .eq("id", prompt.id)
+          .single();
+        
+        if (itemData) {
+          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          setLikeCount(actualCount);
+        } else {
+          setLikeCount((prev) => prev + 1);
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error toggling like:", error);
+      setIsLiked(wasLiked);
+      setLikeCount((prev) => wasLiked ? prev + 1 : Math.max(0, prev - 1));
+      
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes("JWT") || errorMessage.includes("session") || errorMessage.includes("auth") || errorMessage.includes("permission") || errorMessage.includes("row-level security")) {
+        setErrorModal({
+          open: true,
+          title: "Authentication Required",
+          message: "Please sign in to like items.",
+          details: errorMessage,
+          hint: "Try signing in again.",
+        });
+      } else {
+        setErrorModal({
+          open: true,
+          title: "Failed to toggle like",
+          message: "An error occurred while trying to like this item.",
+          details: errorMessage,
+          hint: "Please try again.",
+        });
+      }
+    } finally {
+      setLikeLoading(false);
+    }
+  };
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group w-full text-left cursor-pointer rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20 hover:bg-white/[0.04] active:scale-[0.995]"
-    >
-      <div className="relative overflow-hidden rounded-2xl">
-        {it.thumbnail_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={it.thumbnail_url}
-            alt={it.title || "Listing thumbnail"}
-            className="aspect-video w-full object-cover"
-            loading="lazy"
-          />
-        ) : (
-          <BlurredFallback text={it.prompt_text || it.title || "EDGAZE"} />
-        )}
+    <>
+      <div
+        ref={cardRef}
+        onClick={handleCardClick}
+        className="group w-full cursor-pointer rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20 hover:bg-white/[0.04]"
+      >
+        <div className="relative overflow-hidden rounded-2xl">
+          {prompt.thumbnail_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={prompt.thumbnail_url}
+              alt={prompt.title || "Listing thumbnail"}
+              className="aspect-video w-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <BlurredPromptThumbnail text={prompt.prompt_text || prompt.title || "EDGAZE"} />
+          )}
 
-        <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-2">
-          <span
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur",
-              badge,
-              glow
-            )}
-          >
-            {it.type === "workflow" ? "Workflow" : "Prompt"}
-          </span>
-
-          <span className="rounded-full border border-white/12 bg-black/55 px-2.5 py-1 text-[10px] font-semibold text-white/85 backdrop-blur">
-            {priceLabelFor(it)}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-3 flex gap-3">
-        <div className="relative h-9 w-9 overflow-hidden rounded-full border border-white/12 bg-black/40">
-          <Image
-            src={creator.avatar_url || DEFAULT_AVATAR_SRC}
-            alt="Avatar"
-            fill
-            className="object-cover"
-          />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-white/95">
-            {it.title || "Untitled listing"}
-          </h3>
-
-          <div className="mt-1 flex items-center gap-2 text-xs text-white/60">
-            <span className="truncate">{creator.full_name || `@${creator.handle}`}</span>
-            <span className="shrink-0 text-white/35">@{creator.handle}</span>
-          </div>
-
-          {desc ? (
-            <div className="mt-2 line-clamp-2 text-[12px] leading-snug text-white/55">
-              {desc}
-            </div>
-          ) : null}
-
-          <div className="mt-3 flex items-center justify-between text-[11px] text-white/55">
-            <div className="flex items-center gap-2">
-              {code ? (
-                <span className="rounded-md bg-white/10 px-2 py-[3px] text-[10px] font-semibold text-white/85">
-                  /{code}
-                </span>
-              ) : (
-                <span className="rounded-md bg-white/5 px-2 py-[3px] text-[10px] text-white/60">
-                  No code
-                </span>
+          <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-2">
+            <span
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur",
+                badgeClass,
+                badgeGlow
               )}
-              <span className="text-white/35">•</span>
-              <span>{formatRelativeTime(it.created_at || null)}</span>
+            >
+              {badgeLabel}
+            </span>
+
+            <span className="rounded-full border border-white/12 bg-black/55 px-2.5 py-1 text-[10px] font-semibold text-white/85 backdrop-blur">
+              {priceLabel}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-3 flex gap-3">
+          <Avatar
+            name={creatorName}
+            url={creator.avatar_url || null}
+            size={36}
+            className="mt-0.5"
+          />
+
+          <div className="min-w-0 flex-1">
+            <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-white/95">
+              {prompt.title || "Untitled listing"}
+            </h3>
+
+            <div className="mt-1 flex items-center gap-2 text-xs text-white/60">
+              <span className="truncate">{creatorName}</span>
+              {creatorHandle && (
+                <span className="shrink-0 text-white/35">{creatorHandle}</span>
+              )}
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1">
-                <Sparkles className="h-3.5 w-3.5 text-white/40" />
-                {views}
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Heart className="h-3.5 w-3.5 text-white/40" />
-                {likes}
-              </span>
+            {desc && (
+              <div className="mt-2 line-clamp-2 text-[12px] leading-snug text-white/55">
+                {desc}
+              </div>
+            )}
+
+            <div className="mt-3 flex items-center justify-between text-[11px] text-white/55">
+              <div className="flex items-center gap-2">
+                {prompt.edgaze_code ? (
+                  <span className="rounded-md bg-white/10 px-2 py-[3px] text-[10px] font-semibold text-white/85">
+                    /{prompt.edgaze_code}
+                  </span>
+                ) : (
+                  <span className="rounded-md bg-white/5 px-2 py-[3px] text-[10px] text-white/60">
+                    No code
+                  </span>
+                )}
+
+                <span className="text-white/25">•</span>
+
+                <span className="flex items-center gap-1">
+                  <span className="text-white/35">views</span>
+                  <span>{views}</span>
+                </span>
+
+                <span className="text-white/25">•</span>
+
+                <span className="truncate">{publishedLabel}</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleLikeClick}
+                disabled={likeLoading}
+                className={cn(
+                  "flex items-center gap-1 rounded-full border px-2.5 py-[4px] text-[11px] transition-colors",
+                  isLiked
+                    ? prompt.type === "workflow"
+                      ? "border-pink-400/40 bg-pink-500/20 text-pink-200"
+                      : "border-cyan-300/40 bg-cyan-400/20 text-cyan-100"
+                    : "border-white/15 bg-white/5 text-white/70 hover:border-white/25 hover:text-white/90",
+                  prompt.type === "workflow"
+                    ? "hover:border-pink-400 hover:text-pink-200"
+                    : "hover:border-cyan-300 hover:text-cyan-100"
+                )}
+              >
+                {likeLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Heart className="h-3.5 w-3.5" fill={isLiked ? "currentColor" : "none"} />
+                )}
+                <span>{likeCount ?? 0}</span>
+              </button>
             </div>
           </div>
         </div>
       </div>
-    </button>
+      
+      <ErrorModal
+        open={errorModal.open}
+        onClose={() => setErrorModal({ ...errorModal, open: false })}
+        title={errorModal.title}
+        message={errorModal.message}
+        details={errorModal.details}
+        hint={errorModal.hint}
+      />
+    </>
   );
 }
 
@@ -329,6 +642,53 @@ export default function PublicProfileView({
   const [uploadErr, setUploadErr] = useState<string | null>(null);
 
   const lastFollowAtRef = useRef<number>(0);
+
+  // Force enable scrolling - override all global CSS
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    
+    // Save original values
+    const originalHtmlHeight = html.style.height;
+    const originalHtmlOverflowY = html.style.overflowY;
+    const originalHtmlOverflowX = html.style.overflowX;
+    const originalBodyHeight = body.style.height;
+    const originalBodyOverflowY = body.style.overflowY;
+    const originalBodyOverflowX = body.style.overflowX;
+    
+    // Force enable scrolling - override everything
+    html.style.setProperty("height", "auto", "important");
+    html.style.setProperty("overflow-y", "auto", "important");
+    html.style.setProperty("overflow-x", "hidden", "important");
+    html.style.setProperty("min-height", "100%", "important");
+    
+    body.style.setProperty("height", "auto", "important");
+    body.style.setProperty("overflow-y", "auto", "important");
+    body.style.setProperty("overflow-x", "hidden", "important");
+    body.style.setProperty("min-height", "100%", "important");
+    
+    // Also override any parent containers
+    const rootElement = document.getElementById("__next");
+    if (rootElement) {
+      rootElement.style.setProperty("height", "auto", "important");
+      rootElement.style.setProperty("overflow-y", "auto", "important");
+      rootElement.style.setProperty("min-height", "100%", "important");
+    }
+    
+    return () => {
+      html.style.height = originalHtmlHeight;
+      html.style.overflowY = originalHtmlOverflowY;
+      html.style.overflowX = originalHtmlOverflowX;
+      body.style.height = originalBodyHeight;
+      body.style.overflowY = originalBodyOverflowY;
+      body.style.overflowX = originalBodyOverflowX;
+      if (rootElement) {
+        rootElement.style.removeProperty("height");
+        rootElement.style.removeProperty("overflow-y");
+        rootElement.style.removeProperty("min-height");
+      }
+    };
+  }, []);
 
   // Pills
   const PILL =
@@ -604,63 +964,64 @@ export default function PublicProfileView({
   }
 
   return (
-    // IMPORTANT: this forces scroll back on even if parent layout uses overflow-hidden
-    <div className="h-[100dvh] w-full overflow-y-auto overscroll-contain">
-      {/* Banner */}
-      <div className="relative w-full overflow-hidden border-b border-white/10 bg-black">
-        <div className="relative h-[210px] w-full sm:h-[280px] lg:h-[320px]">
-          {bannerSrc ? (
-            <Image src={bannerSrc} alt="Banner" fill className="object-cover" priority />
-          ) : (
-            <div className="absolute inset-0 bg-[#0b0b0b]">
-              <div className="absolute inset-0 opacity-[0.92] [background-image:radial-gradient(circle_at_18%_22%,rgba(34,211,238,0.20),transparent_46%),radial-gradient(circle_at_82%_30%,rgba(236,72,153,0.18),transparent_56%)]" />
-              <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:44px_44px]" />
-            </div>
-          )}
+    <div className="flex h-screen flex-col bg-[#050505] text-white" style={{ height: "100vh", overflow: "hidden" }}>
+      {/* Scrollable content */}
+      <main className="flex-1 overflow-y-auto" style={{ overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+        {/* Banner */}
+        <div className="relative w-full overflow-hidden border-b border-white/10 bg-black">
+          <div className="relative h-[240px] w-full sm:h-[300px] lg:h-[360px]">
+            {bannerSrc ? (
+              <Image src={bannerSrc} alt="Banner" fill className="object-cover" priority />
+            ) : (
+              <div className="absolute inset-0 bg-[#0b0b0b]">
+                <div className="absolute inset-0 opacity-[0.92] [background-image:radial-gradient(circle_at_18%_22%,rgba(34,211,238,0.20),transparent_46%),radial-gradient(circle_at_82%_30%,rgba(236,72,153,0.18),transparent_56%)]" />
+                <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:44px_44px]" />
+              </div>
+            )}
 
-          <div className="absolute inset-0 bg-black/30" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
 
-          {isOwner && (
-            <>
-              <input
-                ref={bannerInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) uploadProfileMedia("banner", f);
-                  e.currentTarget.value = "";
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => bannerInputRef.current?.click()}
-                className={cn(
-                  "absolute right-3 top-3 z-10",
-                  "h-9 inline-flex items-center gap-2 rounded-full border border-white/12 bg-black/45 px-4",
-                  "text-xs font-semibold text-white/85 backdrop-blur",
-                  "hover:bg-black/60 hover:border-white/20 transition active:scale-[0.98]"
-                )}
-                disabled={uploadBusy === "banner"}
-              >
-                {uploadBusy === "banner" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Pencil className="h-4 w-4" />
-                )}
-                Banner
-              </button>
-            </>
-          )}
+            {isOwner && (
+              <>
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadProfileMedia("banner", f);
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => bannerInputRef.current?.click()}
+                  className={cn(
+                    "absolute right-4 top-4 z-10",
+                    "h-10 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/60 px-4",
+                    "text-xs font-semibold text-white/90 backdrop-blur-md",
+                    "hover:bg-black/75 hover:border-white/25 transition-all active:scale-[0.98] shadow-lg"
+                  )}
+                  disabled={uploadBusy === "banner"}
+                >
+                  {uploadBusy === "banner" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Pencil className="h-4 w-4" />
+                  )}
+                  Edit Banner
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="w-full px-4 sm:px-6 pb-14">
+        {/* Content */}
+        <div className="px-4 pb-10 pt-6 sm:px-6 sm:pt-8">
         <div className="mx-auto w-full max-w-[1320px]">
           {(errTop || uploadErr) && (
-            <div className="mt-3 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
+            <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
               {uploadErr ? `Upload: ${uploadErr}` : errTop}
             </div>
           )}
@@ -668,15 +1029,19 @@ export default function PublicProfileView({
           {/* Header */}
           <div
             className={cn(
-              "mt-4 rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur",
-              "px-4 py-4 sm:px-5 sm:py-5"
+              "relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur-md",
+              "px-6 py-8 sm:px-10 sm:py-10 shadow-[0_8px_48px_rgba(0,0,0,0.6)]"
             )}
           >
-            <div className="flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 min-w-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/8 via-transparent to-pink-500/8 pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(56,189,248,0.12),transparent_50%)] pointer-events-none" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.08),transparent_50%)] pointer-events-none" />
+            
+            <div className="relative flex flex-col gap-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4 min-w-0 flex-1">
                   <div className="relative shrink-0">
-                    <div className="relative h-20 w-20 overflow-hidden rounded-full border border-white/18 bg-black/40 sm:h-24 sm:w-24">
+                    <div className="relative h-28 w-28 overflow-hidden rounded-full border-2 border-white/25 bg-black/50 shadow-[0_8px_32px_rgba(0,0,0,0.6)] sm:h-32 sm:w-32 ring-4 ring-white/5">
                       <Image src={avatarSrc} alt="Avatar" fill className="object-cover" />
                     </div>
 
@@ -697,10 +1062,10 @@ export default function PublicProfileView({
                           type="button"
                           onClick={() => avatarInputRef.current?.click()}
                           className={cn(
-                            "absolute -bottom-2 -right-2",
-                            "h-9 w-9 rounded-full border border-white/14 bg-black/60 backdrop-blur",
-                            "flex items-center justify-center text-white/90",
-                            "hover:bg-black/80 hover:border-white/25 transition active:scale-[0.98]"
+                            "absolute -bottom-1 -right-1",
+                            "h-10 w-10 rounded-full border-2 border-white/20 bg-black/70 backdrop-blur-md",
+                            "flex items-center justify-center text-white/90 shadow-lg",
+                            "hover:bg-black/85 hover:border-white/30 transition-all active:scale-[0.95]"
                           )}
                           disabled={uploadBusy === "avatar"}
                           title="Change avatar"
@@ -715,61 +1080,64 @@ export default function PublicProfileView({
                     )}
                   </div>
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="truncate text-lg font-semibold text-white/95">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3 min-w-0 mb-3">
+                      <h1 className="truncate text-2xl font-bold text-white sm:text-3xl tracking-tight">
                         {creator.full_name || "Unnamed creator"}
-                      </div>
-                      <div className="shrink-0 rounded-full border border-white/12 bg-black/35 px-2.5 py-1 text-[11px] text-white/70">
+                      </h1>
+                      <div className="shrink-0 rounded-full border border-white/20 bg-white/[0.06] px-3.5 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-sm">
                         @{creator.handle}
                       </div>
                     </div>
 
                     {creator.bio ? (
-                      <div className="mt-2 text-sm leading-relaxed text-white/70">
+                      <p className="mt-2 text-sm leading-relaxed text-white/70 sm:text-base">
                         {creator.bio}
-                      </div>
+                      </p>
                     ) : isOwner ? (
-                      <div className="mt-2 text-sm text-white/45">
+                      <p className="mt-2 text-sm text-white/45 italic">
                         Add a bio so people understand what you build.
-                      </div>
+                      </p>
                     ) : null}
 
                     {socials.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {socials.map(([k, v]) => (
-                          <a
-                            key={k}
-                            href={v}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-black/25 px-3 py-1.5 text-[11px] text-white/75 hover:bg-black/35 hover:border-white/20 transition"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5 text-white/45" />
-                            {k}
-                          </a>
-                        ))}
+                      <div className="mt-5 flex flex-wrap gap-3">
+                        {socials.map(([k, v]) => {
+                          const displayName = k.toLowerCase() === "twitter" ? "X" : k;
+                          return (
+                            <a
+                              key={k}
+                              href={v}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="group inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 py-2 text-xs font-semibold text-white/85 hover:bg-white/10 hover:border-white/25 hover:text-white transition-all duration-200 backdrop-blur-sm shadow-sm hover:shadow-md"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 text-white/60 group-hover:text-white/80 transition-colors" />
+                              <span>{displayName}</span>
+                            </a>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   {!isOwner && (
                     <button
                       type="button"
                       onClick={onFollowToggle}
                       disabled={followBusy}
                       className={cn(
-                        PILL,
+                        "h-10 px-5 rounded-full border text-sm font-semibold transition-all active:scale-[0.98]",
                         isFollowing
-                          ? "border-white/18 bg-white/10 text-white hover:bg-white/12"
-                          : cn("border-white/10", CTA_GRADIENT),
-                        "min-w-[110px]"
+                          ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                          : "border-white/10 bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black hover:brightness-110 shadow-[0_0_20px_rgba(56,189,248,0.4)]",
+                        "min-w-[120px]"
                       )}
                     >
                       {followBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin mx-auto" />
                       ) : isFollowing ? (
                         "Following"
                       ) : (
@@ -787,21 +1155,26 @@ export default function PublicProfileView({
                         setDraftSocials((creator.socials || {}) as any);
                         setEditOpen(true);
                       }}
-                      className={cn(PILL, PILL_INACTIVE)}
+                      className={cn(
+                        PILL,
+                        "border-white/15 bg-white/5 text-white/85 hover:bg-white/10 hover:border-white/20"
+                      )}
                     >
-                      <Pencil className="h-4 w-4 mr-2 text-white/60" />
+                      <Pencil className="h-4 w-4 mr-2" />
                       Edit
                     </button>
                   )}
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 text-xs text-white/65">
-                <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">
-                  {followers} followers
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <div className="rounded-full border border-white/15 bg-white/[0.05] px-6 py-2.5 font-medium text-white/90 backdrop-blur-sm shadow-sm">
+                  <span className="font-bold text-white">{followers}</span>{" "}
+                  <span className="text-white/70">followers</span>
                 </div>
-                <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5">
-                  {following} following
+                <div className="rounded-full border border-white/15 bg-white/[0.05] px-6 py-2.5 font-medium text-white/90 backdrop-blur-sm shadow-sm">
+                  <span className="font-bold text-white">{following}</span>{" "}
+                  <span className="text-white/70">following</span>
                 </div>
               </div>
 
@@ -816,29 +1189,36 @@ export default function PublicProfileView({
           </div>
 
           {/* Tabs + sort */}
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap gap-2">
+          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap gap-3">
               {(["all", "prompts", "workflows"] as Tab[]).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTab(t)}
-                  className={cn(PILL, tab === t ? PILL_ACTIVE : PILL_INACTIVE)}
+                  className={cn(
+                    "h-11 px-6 rounded-full border text-sm font-semibold transition-all duration-200 active:scale-[0.97]",
+                    tab === t
+                      ? "border-white/30 bg-white text-black shadow-[0_4px_20px_rgba(255,255,255,0.15)]"
+                      : "border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.06] hover:border-white/15 hover:text-white/85"
+                  )}
                 >
                   {t === "all" ? "All" : t === "prompts" ? "Prompts" : "Workflows"}
                 </button>
               ))}
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3">
               {(["newest", "popular", "oldest"] as Sort[]).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setSort(s)}
                   className={cn(
-                    PILL,
-                    sort === s ? "border-cyan-400/45 bg-cyan-400/10 text-white" : PILL_INACTIVE
+                    "h-11 px-6 rounded-full border text-sm font-semibold transition-all duration-200 active:scale-[0.97]",
+                    sort === s
+                      ? "border-white/30 bg-white/[0.08] text-white shadow-[0_4px_20px_rgba(255,255,255,0.08)]"
+                      : "border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.06] hover:border-white/15 hover:text-white/85"
                   )}
                 >
                   {s === "newest" ? "Newest" : s === "popular" ? "Popular" : "Oldest"}
@@ -854,18 +1234,18 @@ export default function PublicProfileView({
           )}
 
           {/* Listings */}
-          <div className="mt-4">
+          <div className="mt-8">
             {listingsLoading ? (
-              <div className="flex items-center gap-2 text-sm text-white/60">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading…
+              <div className="flex items-center justify-center gap-3 py-16 text-sm text-white/60">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Loading listings…</span>
               </div>
             ) : listings.length === 0 ? (
-              <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
-                No uploads found for this creator yet.
+              <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-12 text-center backdrop-blur-sm">
+                <p className="text-sm text-white/70">No uploads found for this creator yet.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {listings.map((it) => {
                   // Prefer edgaze code route when available (matches marketplace UX)
                   const code = (it.edgaze_code || "").trim();
@@ -878,10 +1258,13 @@ export default function PublicProfileView({
                           );
 
                   return (
-                    <MarketplaceStyleCard
+                    <PromptCard
                       key={`${it.type}-${it.id}`}
-                      it={it}
+                      prompt={it}
                       creator={creator}
+                      currentUserId={viewerId}
+                      requireAuth={auth.requireAuth}
+                      supabase={supabase}
                       onOpen={open}
                     />
                   );
@@ -890,7 +1273,8 @@ export default function PublicProfileView({
             )}
           </div>
         </div>
-      </div>
+        </div>
+      </main>
 
       {/* Edit sheet */}
       {editOpen && (
@@ -953,19 +1337,22 @@ export default function PublicProfileView({
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div className="text-xs font-semibold text-white/80">Social links</div>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {["twitter", "linkedin", "youtube", "website", "github", "instagram"].map((k) => (
-                    <div key={k}>
-                      <label className="text-[11px] text-white/55">{k}</label>
-                      <input
-                        value={draftSocials?.[k] || ""}
-                        onChange={(e) =>
-                          setDraftSocials((p) => ({ ...(p || {}), [k]: e.target.value }))
-                        }
-                        className="mt-1 h-11 w-full rounded-2xl border border-white/12 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
-                        placeholder="https://"
-                      />
-                    </div>
-                  ))}
+                  {["twitter", "linkedin", "youtube", "website", "github", "instagram"].map((k) => {
+                    const displayLabel = k.toLowerCase() === "twitter" ? "X" : k.charAt(0).toUpperCase() + k.slice(1);
+                    return (
+                      <div key={k}>
+                        <label className="text-[11px] text-white/55">{displayLabel}</label>
+                        <input
+                          value={draftSocials?.[k] || ""}
+                          onChange={(e) =>
+                            setDraftSocials((p) => ({ ...(p || {}), [k]: e.target.value }))
+                          }
+                          className="mt-1 h-11 w-full rounded-2xl border border-white/12 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
+                          placeholder="https://"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

@@ -24,6 +24,10 @@ import { createSupabaseBrowserClient } from "../../../../lib/supabase/browser";
 import { useAuth } from "../../../../components/auth/AuthContext";
 import { track } from "../../../../lib/mixpanel";
 import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
+import PremiumWorkflowRunModal, { type WorkflowRunState } from "../../../../components/builder/PremiumWorkflowRunModal";
+import { canRunDemo, trackDemoRun } from "../../../../lib/workflow/device-tracking";
+import { extractWorkflowInputs, extractWorkflowOutputs } from "../../../../lib/workflow/input-extraction";
+import { validateWorkflowGraph } from "../../../../lib/workflow/validation";
 const CommentsSection = CommentsSectionRaw as unknown as React.ComponentType<any>;
 
 function safeTrack(event: string, props?: Record<string, any>) {
@@ -1184,6 +1188,9 @@ export default function PromptProductPage() {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const [runOpen, setRunOpen] = useState(false);
+  const [workflowRunModalOpen, setWorkflowRunModalOpen] = useState(false);
+  const [workflowRunState, setWorkflowRunState] = useState<WorkflowRunState | null>(null);
+  const [workflowGraph, setWorkflowGraph] = useState<any>(null);
 
   const [upNext, setUpNext] = useState<PromptListing[]>([]);
   const [upNextLoading, setUpNextLoading] = useState(false);
@@ -1334,7 +1341,9 @@ export default function PromptProductPage() {
   const canonicalShareUrl = useMemo(() => {
     const h = listing?.owner_handle || ownerHandle || "";
     const c = listing?.edgaze_code || edgazeCode || "";
-    return `https://edgaze.ai/p/${h}/${c}`;
+    // Use current origin (works for localhost and production)
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://edgaze.ai";
+    return `${origin}/p/${h}/${c}`;
   }, [listing?.owner_handle, listing?.edgaze_code, ownerHandle, edgazeCode]);
 
   const goBack = () => router.push("/marketplace");
@@ -1358,7 +1367,13 @@ export default function PromptProductPage() {
     return listing.price_usd != null ? `$${listing.price_usd.toFixed(2)}` : "Paid";
   }, [listing, isNaturallyFree]);
 
-  const primaryCtaLabel = showClosedBetaFree ? "Get access (Free)" : isNaturallyFree ? "Run now" : "Buy access";
+  const primaryCtaLabel = listing?.type === "workflow" 
+    ? "Try a one time demo"
+    : showClosedBetaFree 
+    ? "Get access (Free)" 
+    : isNaturallyFree 
+    ? "Run now" 
+    : "Buy access";
 
   const templatePrompt = useMemo(() => {
     if (!listing) return "";
@@ -1455,9 +1470,11 @@ export default function PromptProductPage() {
     setPurchaseError(null);
 
     // Save intent in URL before requiring auth so redirect includes it
-    const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.set("action", "run");
-    window.history.replaceState({}, "", currentUrl.toString());
+    // Use relative path only (not absolute URL)
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set("action", "run");
+    const relativePath = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "") + window.location.hash;
+    window.history.replaceState({}, "", relativePath);
 
     if (!requireAuth()) {
       return;
@@ -1471,6 +1488,13 @@ export default function PromptProductPage() {
         edgaze_code: listing.edgaze_code,
         already_owned: true,
       });
+      
+      // Handle workflows differently
+      if (listing.type === "workflow") {
+        handleWorkflowRun();
+        return;
+      }
+      
       setRunOpen(true);
       return;
     }
@@ -1541,8 +1565,237 @@ export default function PromptProductPage() {
       return;
     }
 
+    // Handle workflows differently
+    if (listing.type === "workflow") {
+      handleWorkflowRun();
+      return;
+    }
+    
     setRunOpen(true);
     return;
+  }
+
+  async function handleWorkflowRun() {
+    if (!listing || listing.type !== "workflow") return;
+
+    // Check device-based demo limit
+    const canRun = canRunDemo(listing.id);
+    if (!canRun) {
+      safeTrack("Workflow Demo Run Blocked", {
+        surface: "product_page",
+        listing_id: listing.id,
+        reason: "device_limit_reached",
+      });
+      setPurchaseError("You've already run this workflow demo on this device. Each device gets one demo run.");
+      return;
+    }
+
+    safeTrack("Workflow Run Initiated", {
+      surface: "product_page",
+      listing_id: listing.id,
+      edgaze_code: listing.edgaze_code,
+    });
+
+    try {
+      // Load workflow graph
+      const { data: workflowData, error: workflowError } = await supabase
+        .from("workflows")
+        .select("id,title,graph")
+        .eq("id", listing.id)
+        .maybeSingle();
+
+      if (workflowError || !workflowData) {
+        throw new Error("Failed to load workflow");
+      }
+
+      const graph = workflowData.graph || { nodes: [], edges: [] };
+      
+      // Validate workflow graph before execution
+      const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
+      
+      if (!validation.valid) {
+        const errorMessage = validation.errors.join("\n\n");
+        setPurchaseError(errorMessage);
+        safeTrack("Workflow Run Blocked", {
+          surface: "product_page",
+          listing_id: listing.id,
+          reason: "validation_failed",
+          errors: validation.errors,
+        });
+        return;
+      }
+
+      setWorkflowGraph(graph);
+
+      // Extract inputs
+      const inputs = extractWorkflowInputs(graph.nodes || []);
+
+      // Initialize run state
+      const initialState: WorkflowRunState = {
+        workflowId: listing.id,
+        workflowName: listing.title || "Untitled Workflow",
+        phase: inputs.length > 0 ? "input" : "executing",
+        status: "idle",
+        steps: [],
+        logs: [],
+        inputs: inputs.length > 0 ? inputs : undefined,
+        summary: validation.warnings.length > 0 
+          ? `${validation.warnings.length} warning(s): ${validation.warnings[0]}`
+          : undefined,
+      };
+
+      setWorkflowRunState(initialState);
+      setWorkflowRunModalOpen(true);
+    } catch (error: any) {
+      setPurchaseError(error.message || "Failed to load workflow");
+    }
+  }
+
+  async function handleSubmitWorkflowInputs(inputValues: Record<string, any>) {
+    if (!listing || !workflowGraph || !workflowRunState) return;
+
+    // Track demo run
+    trackDemoRun(listing.id);
+
+    // Convert File objects to base64 for transmission
+    const processedInputs: Record<string, any> = {};
+    for (const [key, value] of Object.entries(inputValues)) {
+      if (value instanceof File) {
+        // Convert file to base64
+        try {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              resolve(result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(value);
+          });
+          processedInputs[key] = {
+            filename: value.name,
+            type: value.type,
+            size: value.size,
+            data: base64,
+          };
+        } catch (error) {
+          console.error("Failed to convert file to base64:", error);
+          setPurchaseError("Failed to process file upload. Please try again.");
+          return;
+        }
+      } else {
+        processedInputs[key] = value;
+      }
+    }
+
+    // Collect API keys from node configs
+    const userApiKeys: Record<string, Record<string, string>> = {};
+    for (const node of workflowGraph.nodes || []) {
+      const specId = node.data?.specId;
+      const apiKey = node.data?.config?.apiKey;
+      
+      // Check if this node requires API keys and has one configured
+      if (specId && ["openai-chat", "openai-embeddings", "openai-image"].includes(specId)) {
+        if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
+          userApiKeys[node.id] = { apiKey: apiKey.trim() };
+        }
+      }
+    }
+
+    // Update state to executing
+    setWorkflowRunState({
+      ...workflowRunState,
+      phase: "executing",
+      status: "running",
+      inputValues: processedInputs,
+      startedAt: Date.now(),
+    });
+
+    try {
+      const response = await fetch("/api/flow/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workflowId: listing.id,
+          nodes: workflowGraph.nodes || [],
+          edges: workflowGraph.edges || [],
+          inputs: processedInputs,
+          userApiKeys,
+          isDemo: true, // One-time demo on product page uses Edgaze API key
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(error.error || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.ok) {
+        throw new Error(result.error || "Execution failed");
+      }
+
+      // Process results (similar to builder page)
+      const executionResult = result.result;
+      const logs = (executionResult.logs || []).map((log: any) => ({
+        t: log.timestamp || Date.now(),
+        level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
+        text: log.message || "",
+        nodeId: log.nodeId,
+        specId: log.specId,
+      }));
+
+      const steps = Object.entries(executionResult.nodeStatus || {}).map(([nodeId, status]: [string, any]) => {
+        const node = workflowGraph.nodes?.find((n: any) => n.id === nodeId);
+        const specId = node?.data?.specId || "default";
+        return {
+          id: nodeId,
+          title: node?.data?.title || node?.data?.config?.name || specId,
+          status: mapNodeStatus(status),
+          timestamp: Date.now(),
+        };
+      });
+
+      const outputs = extractWorkflowOutputs(workflowGraph.nodes || []).map((output) => {
+        const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+        return {
+          ...output,
+          value: finalOutput?.value || null,
+          type: typeof finalOutput?.value === "string" ? "string" : "json",
+        };
+      });
+
+      setWorkflowRunState({
+        ...workflowRunState,
+        phase: "output",
+        status: executionResult.workflowStatus === "completed" ? "success" : "error",
+        steps,
+        logs,
+        outputs,
+        finishedAt: Date.now(),
+      });
+    } catch (error: any) {
+      setWorkflowRunState({
+        ...workflowRunState,
+        phase: "output",
+        status: "error",
+        error: error.message || "Execution failed",
+        finishedAt: Date.now(),
+      });
+    }
+  }
+
+  function mapNodeStatus(status: string): "queued" | "running" | "done" | "error" | "skipped" {
+    const map: Record<string, "queued" | "running" | "done" | "error" | "skipped"> = {
+      idle: "queued",
+      ready: "queued",
+      running: "running",
+      success: "done",
+      failed: "error",
+      timeout: "error",
+      skipped: "skipped",
+    };
+    return map[status] || "queued";
   }
 
   async function loadMoreUpNext(reset = false) {
@@ -1668,13 +1921,40 @@ export default function PromptProductPage() {
 
   return (
     <div className="flex h-full flex-col bg-[#050505] text-white">
-      <RunModal
-        open={runOpen}
-        onClose={() => setRunOpen(false)}
-        title={listing.title || "Untitled listing"}
-        template={templatePrompt}
-        placeholders={placeholders}
-      />
+      {/* Premium Workflow Run Modal */}
+      {listing?.type === "workflow" && (
+        <PremiumWorkflowRunModal
+          open={workflowRunModalOpen}
+          onClose={() => {
+            if (workflowRunState?.status !== "running" && workflowRunState?.phase !== "executing") {
+              setWorkflowRunModalOpen(false);
+              setWorkflowRunState(null);
+              setWorkflowGraph(null);
+            }
+          }}
+          state={workflowRunState}
+          onCancel={() => {
+            setWorkflowRunState((prev) => (prev ? { ...prev, status: "error", error: "Cancelled by user" } : null));
+          }}
+          onRerun={() => {
+            setWorkflowRunState(null);
+            setWorkflowRunModalOpen(false);
+            setTimeout(() => handleWorkflowRun(), 100);
+          }}
+          onSubmitInputs={handleSubmitWorkflowInputs}
+        />
+      )}
+
+      {/* Prompt Run Modal */}
+      {listing?.type !== "workflow" && (
+        <RunModal
+          open={runOpen}
+          onClose={() => setRunOpen(false)}
+          title={listing.title || "Untitled listing"}
+          template={templatePrompt}
+          placeholders={placeholders}
+        />
+      )}
 
       {/* Desktop top bar */}
       <header className="hidden sm:block sticky top-0 z-30 border-b border-white/10 bg-[#050505]/80 backdrop-blur-md">
@@ -1929,7 +2209,7 @@ export default function PromptProductPage() {
                   className="hidden sm:inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white hover:border-cyan-400/70"
                 >
                   {isOwned ? <Sparkles className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                  {isOwned ? "Run" : primaryCtaLabel}
+                  {isOwned ? (listing?.type === "workflow" ? "Try a one time demo" : "Run") : primaryCtaLabel}
                 </button>
               </div>
 

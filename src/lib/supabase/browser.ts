@@ -14,6 +14,8 @@ export function createSupabaseBrowserClient() {
         autoRefreshToken: true,
         detectSessionInUrl: true,
         flowType: "pkce",
+        // Don't set redirectTo here - we'll pass it explicitly in signInWithOAuth
+        // This ensures we always use window.location.origin (localhost or production)
       },
     }
   );

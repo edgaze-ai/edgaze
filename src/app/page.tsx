@@ -1621,7 +1621,10 @@ export default function EdgazeLandingPage() {
   useEffect(() => {
     if (!authReady || loading) return;
     if (!userId) return;
-    if (pathname === "/marketplace") return;
+    // Only redirect from root "/" to marketplace - don't redirect from other pages
+    if (pathname !== "/") return;
+    
+    // Default: redirect logged-in users from root to marketplace
     router.replace("/marketplace");
   }, [authReady, loading, pathname, router, userId]);
 
