@@ -381,6 +381,9 @@ function GeneralPanel({
   const conditionOperator = cfg.operator || "truthy";
   const conditionCompareValue = cfg.compareValue || "";
 
+  // Check if node requires API keys
+  const requiresApiKey = spec?.requiresUserKeys === true;
+
   return (
     <div className="space-y-4 pt-3">
       <Card title="Basic Info" icon={<Settings size={16} />}>
@@ -405,6 +408,29 @@ function GeneralPanel({
               }
             />
           </div>
+
+          {/* API Key field for nodes that require it */}
+          {requiresApiKey && (
+            <div>
+              <label className="text-[11px] text-white/60 flex items-center gap-1">
+                API Key
+                <span className="text-white/40" title="Your OpenAI API key. This is stored locally and only used for your runs.">
+                  (?)
+                </span>
+              </label>
+              <Input
+                type="password"
+                placeholder="sk-..."
+                defaultValue={cfg.apiKey || ""}
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                  onUpdate({ apiKey: e.currentTarget.value })
+                }
+              />
+              <div className="mt-1 text-[10px] text-white/45">
+                Your API key is stored locally and only used when running this workflow. After 10 free runs, you'll need to provide your own API key.
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 
@@ -583,20 +609,36 @@ export default function InspectorPanel({
   selection,
   workflowId,
   onUpdate,
+  getLatestGraph,
 }: {
   selection?: Selection; // <-- keep optional + foolproof
   workflowId?: string;
   onUpdate?: (nodeId: string, patch: any) => void;
+  getLatestGraph?: () => { nodes: any[]; edges: any[] } | null;
 }) {
   // FOOLPROOF: never crash if selection is undefined
-  const safeSelection: Selection = useMemo(
-    () => ({
+  // Also try to get latest config from graph if available
+  const safeSelection: Selection = useMemo(() => {
+    const base = {
       nodeId: selection?.nodeId ?? null,
       specId: selection?.specId,
       config: selection?.config,
-    }),
-    [selection?.nodeId, selection?.specId, selection?.config]
-  );
+    };
+    
+    // If we have a nodeId and a way to get the latest graph, use the latest config
+    if (base.nodeId && getLatestGraph) {
+      const graph = getLatestGraph();
+      const node = graph?.nodes?.find((n: any) => n.id === base.nodeId);
+      if (node?.data?.config) {
+        return {
+          ...base,
+          config: node.data.config,
+        };
+      }
+    }
+    
+    return base;
+  }, [selection?.nodeId, selection?.specId, selection?.config, getLatestGraph]);
 
   const selected = Boolean(safeSelection.nodeId);
   const [tab, setTab] = useState<TabKey>("general");

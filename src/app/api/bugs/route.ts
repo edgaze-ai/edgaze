@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getUserFromRequest } from "../flow/_auth";
 
 export const runtime = "nodejs";
 
@@ -147,9 +148,16 @@ export async function POST(req: Request) {
 
     const supabase = getSupabaseAdmin();
 
-    // reporter_id: if you want auth-linked user_id later, wire it here.
-    // For now keep null-safe (your column should allow null).
-    const reporter_id: string | null = null;
+    // Try to get authenticated user (optional - bugs can be anonymous)
+    let reporter_id: string | null = null;
+    try {
+      const { user } = await getUserFromRequest(req);
+      if (user) {
+        reporter_id = user.id;
+      }
+    } catch {
+      // Auth failed or no token - that's okay, keep reporter_id as null (anonymous bug report)
+    }
 
     // tags
     const tags = computeTags({

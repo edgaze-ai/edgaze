@@ -50,12 +50,14 @@ export default function WorkflowLauncherModal({
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-md">
-      <div className="h-[min(720px,90vh)] w-[min(1180px,94vw)] overflow-hidden rounded-[26px] border border-white/12 bg-black/55 shadow-[0_30px_140px_rgba(0,0,0,0.8)]">
-        <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+      <div className="h-[min(720px,90vh)] w-[min(1180px,94vw)] overflow-hidden rounded-[28px] border border-gray-700/40 bg-black/90 backdrop-blur-2xl shadow-[0_40px_160px_rgba(0,0,0,0.9)]">
+        <div className="flex items-center justify-between border-b border-gray-700/30 bg-black/40 px-6 py-5">
           <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoSrc} alt="Edgaze" className="h-8 w-8" />
-            <div className="text-[18px] font-semibold text-white">Workflows</div>
+            <div className="h-9 w-9 rounded-xl bg-black/40 border border-gray-700/40 grid place-items-center overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoSrc} alt="Edgaze" className="h-5 w-5" />
+            </div>
+            <div className="text-[18px] font-semibold text-white tracking-tight">Workflows</div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -63,14 +65,14 @@ export default function WorkflowLauncherModal({
               <button
                 onClick={onRefresh}
                 className={cx(
-                  "inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10",
-                  busy && "cursor-not-allowed opacity-70"
+                  "inline-flex items-center gap-2 rounded-xl border border-gray-700/40 bg-black/40 px-4 py-2 text-[12px] text-gray-300 hover:bg-black/60 hover:text-white hover:border-gray-600/50 transition-all duration-200",
+                  busy && "cursor-not-allowed opacity-50"
                 )}
                 disabled={busy}
                 title="Refresh"
                 type="button"
               >
-                <RefreshCw className={cx("h-4 w-4", busy && "animate-spin")} />
+                <RefreshCw className={cx("h-3.5 w-3.5", busy && "animate-spin")} />
                 Refresh
               </button>
             )}
@@ -78,7 +80,7 @@ export default function WorkflowLauncherModal({
             {onClose && (
               <button
                 onClick={onClose}
-                className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 text-white/80 hover:bg-white/10"
+                className="grid h-10 w-10 place-items-center rounded-xl border border-gray-700/40 bg-black/40 text-gray-300 hover:bg-black/60 hover:text-white hover:border-gray-600/50 transition-all duration-200"
                 aria-label="Close"
                 title="Close"
                 type="button"
@@ -89,15 +91,15 @@ export default function WorkflowLauncherModal({
           </div>
         </div>
 
-        <div className="grid h-[calc(100%-72px)] grid-cols-12 gap-6 overflow-hidden p-6">
+        <div className="grid h-[calc(100%-80px)] grid-cols-12 gap-6 overflow-hidden p-6">
           <div className="col-span-12 overflow-auto pr-1 md:col-span-4">
             <button
               onClick={onCreateNew}
-              className="w-full rounded-2xl border border-white/12 bg-white/5 px-5 py-4 text-left hover:bg-white/10"
+              className="w-full rounded-xl border border-gray-700/40 bg-black/40 hover:bg-black/60 hover:border-gray-600/50 px-5 py-4 text-left transition-all duration-200 group"
               type="button"
             >
-              <div className="text-sm font-semibold text-white">New</div>
-              <div className="mt-0.5 text-xs text-white/55">
+              <div className="text-sm font-semibold text-white group-hover:text-white">New</div>
+              <div className="mt-0.5 text-xs text-gray-400 group-hover:text-gray-300">
                 Start a new workflow
               </div>
             </button>
@@ -105,12 +107,12 @@ export default function WorkflowLauncherModal({
             {newForm}
 
             {errorText && (
-              <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-[12px] leading-relaxed text-red-300">
+              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-[12px] leading-relaxed text-red-300/90 backdrop-blur-sm">
                 {errorText}
               </div>
             )}
 
-            <div className="mt-4 text-[12px] leading-relaxed text-white/45">
+            <div className="mt-4 text-[12px] leading-relaxed text-gray-400 font-medium">
               Drafts autosave while you edit. Publishing pushes to the marketplace
               later.
             </div>
@@ -118,12 +120,12 @@ export default function WorkflowLauncherModal({
 
           <div className="col-span-12 overflow-auto pr-1 md:col-span-8">
             <div>
-              <div className="mb-3 text-sm font-semibold text-white/90">
+              <div className="mb-4 text-sm font-semibold text-white tracking-tight">
                 Continue
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {continueItems.length === 0 ? (
-                  <div className="text-sm text-white/50">No drafts yet.</div>
+                  <div className="text-sm text-gray-500">No drafts yet.</div>
                 ) : (
                   continueItems.map((w: WorkflowRow) => (
                     <Card
@@ -138,13 +140,13 @@ export default function WorkflowLauncherModal({
               </div>
             </div>
 
-            <div className="mt-7">
-              <div className="mb-3 text-sm font-semibold text-white/90">
+            <div className="mt-8">
+              <div className="mb-4 text-sm font-semibold text-white tracking-tight">
                 Your workflows
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {publishedItems.length === 0 ? (
-                  <div className="text-sm text-white/50">
+                  <div className="text-sm text-gray-500">
                     No published workflows yet.
                   </div>
                 ) : (
@@ -188,17 +190,17 @@ function Card({
     <button
       onClick={onClick}
       className={cx(
-        "rounded-2xl border border-white/12 bg-black/35 hover:bg-black/25",
-        "px-4 py-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+        "rounded-xl border border-gray-700/40 bg-black/40 hover:bg-black/60 hover:border-gray-600/50 transition-all duration-200",
+        "px-4 py-3 text-left shadow-[0_8px_32px_rgba(0,0,0,0.4)] group"
       )}
       type="button"
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-white">
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold text-white group-hover:text-white transition-colors">
             {title}
           </div>
-          <div className="mt-1 text-xs text-white/55">
+          <div className="mt-1 text-xs text-gray-400 group-hover:text-gray-300 transition-colors">
             {meta} · {summary}
           </div>
         </div>
@@ -233,7 +235,7 @@ function MiniGraphPreview({ graph }: { graph?: any }) {
     });
 
   return (
-    <div className="h-[44px] w-[64px] overflow-hidden rounded-xl border border-white/12 bg-black/35">
+    <div className="h-[44px] w-[64px] overflow-hidden rounded-xl border border-gray-700/40 bg-black/40 backdrop-blur-sm">
       <svg viewBox="0 0 64 44" className="h-full w-full">
         <defs>
           <linearGradient id="edg" x1="0" y1="0" x2="1" y2="0">
@@ -249,7 +251,7 @@ function MiniGraphPreview({ graph }: { graph?: any }) {
             y1={l.y1}
             x2={l.x2}
             y2={l.y2}
-            stroke="rgba(255,255,255,0.22)"
+            stroke="rgba(255,255,255,0.20)"
             strokeWidth="1.2"
           />
         ))}

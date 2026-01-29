@@ -5,29 +5,24 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@lib/supabase/server";
+import { getUserFromRequest } from "../../flow/_auth";
+import { isAdmin } from "@lib/supabase/executions";
 import { updateTokenLimits, getTokenLimits } from "@lib/workflow/token-limits";
 
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-
-    if (authErr || !auth?.user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>)
+    const { user, error: authError } = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json(
+        { error: authError ?? "Not authenticated" },
+        { status: 401 }
+      );
     }
 
-    // Check if user is admin (you'll need to implement this check based on your auth system)
-    // For now, we'll check a profile field or role
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin, plan")
-      .eq("id", auth.user.id)
-      .maybeSingle();
-
-    const isAdmin = profile?.is_admin === true || profile?.plan === "Team";
-
-    if (!isAdmin) {
+    // Check if user is admin
+    const userIsAdmin = await isAdmin(user.id);
+    if (!userIsAdmin) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
@@ -47,23 +42,18 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-
-    if (authErr || !auth?.user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>)
+    const { user, error: authError } = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json(
+        { error: authError ?? "Not authenticated" },
+        { status: 401 }
+      );
     }
 
     // Check if user is admin
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin, plan")
-      .eq("id", auth.user.id)
-      .maybeSingle();
-
-    const isAdmin = profile?.is_admin === true || profile?.plan === "Team";
-
-    if (!isAdmin) {
+    const userIsAdmin = await isAdmin(user.id);
+    if (!userIsAdmin) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 

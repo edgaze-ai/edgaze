@@ -13,8 +13,8 @@ const WORKFLOW_TRANSITIONS: Record<WorkflowStatus, WorkflowStatus[]> = {
 };
 
 const NODE_TRANSITIONS: Record<NodeStatus, NodeStatus[]> = {
-  idle: ["ready", "running", "skipped"],
-  ready: ["running", "skipped"],
+  idle: ["ready", "running", "skipped", "failed"],
+  ready: ["running", "skipped", "failed"], // Allow ready -> failed for setup/pre-execution errors
   running: ["success", "failed", "timeout", "retrying"],
   retrying: ["running", "failed", "timeout"],
   success: [],

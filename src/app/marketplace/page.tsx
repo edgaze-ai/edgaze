@@ -13,9 +13,14 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../../components/auth/AuthContext";
+import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../lib/constants";
 import { createSupabasePublicBrowserClient } from "../../lib/supabase/public";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import ErrorModal from "../../components/marketplace/ErrorModal";
+import FeaturedBuildCTA from "../../components/marketplace/FeaturedBuildCTA";
+import FoundingCreatorBadge from "../../components/ui/FoundingCreatorBadge";
+import ProfileAvatar from "../../components/ui/ProfileAvatar";
+import ProfileLink from "../../components/ui/ProfileLink";
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription" | "both" | null;
@@ -146,7 +151,7 @@ function Avatar({
   return (
     <div
       className={cn(
-        "shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/[0.06]",
+        "shrink-0 overflow-hidden rounded-full border-0 bg-white/[0.06]",
         className
       )}
       style={{ width: px, height: px }}
@@ -909,10 +914,11 @@ function PromptCard({
       </div>
 
       <div className="mt-3 flex gap-3">
-        <Avatar
+        <ProfileAvatar
           name={creatorName}
-          url={ownerProfile?.avatar_url || null}
+          avatarUrl={ownerProfile?.avatar_url || null}
           size={36}
+          handle={prompt.owner_handle}
           className="mt-0.5"
         />
 
@@ -921,10 +927,20 @@ function PromptCard({
             {prompt.title || "Untitled listing"}
           </h3>
 
-          <div className="mt-1 flex items-center gap-2 text-xs text-white/60">
-            <span className="truncate">{creatorName}</span>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/60 min-w-0">
+            <ProfileLink
+              name={creatorName}
+              handle={prompt.owner_handle}
+              showBadge={true}
+              badgeSize="sm"
+              className="min-w-0 truncate"
+            />
             {creatorHandle && (
-              <span className="shrink-0 text-white/35">{creatorHandle}</span>
+              <ProfileLink
+                name={creatorHandle}
+                handle={prompt.owner_handle}
+                className="truncate text-white/35"
+              />
             )}
           </div>
 
@@ -946,14 +962,16 @@ function PromptCard({
                 </span>
               )}
 
-              <span className="text-white/25">•</span>
-
-              <span className="flex items-center gap-1">
-                <span className="text-white/35">views</span>
-                <span>{prompt.view_count ?? 0}</span>
-              </span>
-
-              <span className="text-white/25">•</span>
+              {SHOW_VIEWS_AND_LIKES_PUBLICLY && (
+                <>
+                  <span className="text-white/25">•</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-white/35">views</span>
+                    <span>{prompt.view_count ?? 0}</span>
+                  </span>
+                  <span className="text-white/25">•</span>
+                </>
+              )}
 
               <span className="truncate">{publishedLabel}</span>
             </div>
@@ -979,7 +997,7 @@ function PromptCard({
               ) : (
                 <Heart className="h-3.5 w-3.5" fill={isLiked ? "currentColor" : "none"} />
               )}
-              <span>{likeCount ?? 0}</span>
+              {SHOW_VIEWS_AND_LIKES_PUBLICLY && <span>{likeCount ?? 0}</span>}
             </button>
           </div>
         </div>
@@ -1263,16 +1281,27 @@ function MarketplaceSearchBar({
                             idx === activePredictIndex && "bg-white/10"
                           )}
                         >
-                          <Avatar
+                          <ProfileAvatar
                             name={p.full_name || `@${p.handle}` || "Creator"}
-                            url={p.avatar_url || null}
+                            avatarUrl={p.avatar_url || null}
                             size={26}
+                            handle={p.handle}
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-white/85">
-                              {p.full_name || `@${p.handle}`}
+                            <div className="flex flex-wrap items-center gap-2 min-w-0">
+                              <ProfileLink
+                                name={p.full_name || `@${p.handle}`}
+                                handle={p.handle}
+                                showBadge={true}
+                                badgeSize="sm"
+                                className="min-w-0 truncate text-sm font-semibold text-white/85"
+                              />
                             </div>
-                            <div className="truncate text-xs text-white/45">@{p.handle}</div>
+                            <ProfileLink
+                              name={`@${p.handle}`}
+                              handle={p.handle}
+                              className="truncate text-xs text-white/45"
+                            />
                           </div>
                           <span className="rounded-full border border-white/12 bg-white/5 px-2 py-1 text-[10px] font-semibold text-white/70">
                             Creator
@@ -1320,14 +1349,17 @@ function MarketplaceSearchBar({
                             )}
                           </div>
 
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-white/85">
-                              {w.title || "Untitled workflow"}
-                            </div>
-                            <div className="truncate text-xs text-white/45">
-                              @{w.owner_handle || "unknown"}
-                            </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold text-white/85">
+                            {w.title || "Untitled workflow"}
                           </div>
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <span className="truncate text-xs text-white/45">
+                              @{w.owner_handle || "unknown"}
+                            </span>
+                            <FoundingCreatorBadge size="sm" className="shrink-0" />
+                          </div>
+                        </div>
 
                           <span className="rounded-full border border-pink-400/25 bg-pink-500/10 px-2 py-1 text-[10px] font-semibold text-pink-100">
                             Workflow
@@ -1378,8 +1410,11 @@ function MarketplaceSearchBar({
                           <div className="truncate text-sm font-semibold text-white/85">
                             {p.title || "Untitled prompt"}
                           </div>
-                          <div className="truncate text-xs text-white/45">
-                            @{p.owner_handle || "unknown"}
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <span className="truncate text-xs text-white/45">
+                              @{p.owner_handle || "unknown"}
+                            </span>
+                            <FoundingCreatorBadge size="sm" className="shrink-0" />
                           </div>
                         </div>
 
@@ -1512,6 +1547,10 @@ const [codeQuery, setCodeQuery] = useState("");
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const mainRef = useRef<HTMLElement | null>(null);
+
+  const [showFeaturedCTA, setShowFeaturedCTA] = useState<boolean | null>(null);
+  const [featuredCTAPosition, setFeaturedCTAPosition] = useState(2);
 
   const [sparkleOn, setSparkleOn] = useState(false);
   const sparkleTimer = useRef<number | null>(null);
@@ -1835,6 +1874,45 @@ const [codeQuery, setCodeQuery] = useState("");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [committedDebouncedQuery]);
+
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+
+    const STORAGE_KEY = "eg_marketplace_featured_cta_roll";
+    const SCROLL_THRESHOLD = 380;
+    const SHOW_CHANCE = 0.38;
+
+    const onScroll = () => {
+      if (main.scrollTop < SCROLL_THRESHOLD) return;
+      if (showFeaturedCTA !== null) return;
+
+      try {
+        const stored = window.sessionStorage.getItem(STORAGE_KEY);
+        if (stored !== null) {
+          if (stored === "0") {
+            setShowFeaturedCTA(false);
+          } else {
+            const pos = parseInt(stored.slice(2), 10);
+            setShowFeaturedCTA(true);
+            setFeaturedCTAPosition(Number.isFinite(pos) && pos >= 2 && pos <= 4 ? pos : 2);
+          }
+          return;
+        }
+        const show = Math.random() < SHOW_CHANCE;
+        const pos = 2 + Math.floor(Math.random() * 2);
+        window.sessionStorage.setItem(STORAGE_KEY, show ? `1:${pos}` : "0");
+        setShowFeaturedCTA(show);
+        if (show) setFeaturedCTAPosition(pos);
+      } catch {
+        setShowFeaturedCTA(false);
+      }
+    };
+
+    onScroll();
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => main.removeEventListener("scroll", onScroll);
+  }, [showFeaturedCTA]);
 
   useEffect(() => {
     if (!sentinelRef.current) return;
@@ -2266,16 +2344,19 @@ const [codeQuery, setCodeQuery] = useState("");
           ref={pillRef}
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-3 py-2 text-sm text-white/85 hover:bg-white/10"
+          className="inline-flex items-center gap-2 rounded-full border border-neutral-600 bg-white/5 px-3 py-2 text-sm text-white/85 hover:bg-white/10"
         >
           <Avatar
             name={profile.full_name || `@${profile.handle}` || "Profile"}
             url={profile.avatar_url || null}
             size={28}
           />
-          <span className="max-w-[160px] truncate">
-            {profile.full_name || `@${profile.handle}`}
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <span className="text-sm text-white/85 break-words">
+              {profile.full_name || `@${profile.handle}`}
+            </span>
+            <FoundingCreatorBadge size="xs" compact className="shrink-0" />
+          </div>
           <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/70">
             {profile.plan || "Free"}
           </span>
@@ -2285,7 +2366,7 @@ const [codeQuery, setCodeQuery] = useState("");
         {menuOpen && (
           <div
             ref={menuRef}
-            className="absolute right-0 mt-2 z-[80] w-52 overflow-hidden rounded-2xl border border-white/12 bg-[#0b0b10] shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
+            className="absolute right-0 mt-2 z-[80] w-52 overflow-hidden rounded-2xl border border-neutral-600 bg-[#0b0b10] shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
           >
             <button
               type="button"
@@ -2427,7 +2508,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
 </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
+        <main ref={mainRef} className="flex-1 overflow-y-auto px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
 {/* Code box (unchanged from your current file) */}
           <section className="mb-6">
             <form
@@ -2496,8 +2577,11 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                                   }}
                                   className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-white/85 hover:bg-white/5"
                                 >
-                                  <div className="min-w-0">
-                                    <div className="text-xs text-white/55">@{p.owner_handle}</div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs text-white/55 min-w-0">
+                                      <span className="truncate">@{p.owner_handle}</span>
+                                      <FoundingCreatorBadge size="sm" className="shrink-0" />
+                                    </div>
                                     <div className="truncate text-sm font-medium">
                                       /{p.edgaze_code}
                                     </div>
@@ -2580,18 +2664,52 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
           ) : (
             <>
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {dedupedItems.map((p) => (
-                  <PromptCard
-                    key={`${p.type ?? "x"}-${p.id}`}
-                    prompt={p}
-                    currentUserId={userId}
-                    requireAuth={requireAuth}
-                    supabase={supabase}
-                    supabaseAuth={supabaseAuth}
-                    ownerProfiles={ownerProfiles}
-                    onEvent={emitEvent}
-                  />
-                ))}
+                {showFeaturedCTA && dedupedItems.length <= PAGE_SIZE
+                  ? (() => {
+                      const before = dedupedItems.slice(0, featuredCTAPosition);
+                      const after = dedupedItems.slice(featuredCTAPosition);
+                      return (
+                        <>
+                          {before.map((p) => (
+                            <PromptCard
+                              key={`${p.type ?? "x"}-${p.id}`}
+                              prompt={p}
+                              currentUserId={userId}
+                              requireAuth={requireAuth}
+                              supabase={supabase}
+                              supabaseAuth={supabaseAuth}
+                              ownerProfiles={ownerProfiles}
+                              onEvent={emitEvent}
+                            />
+                          ))}
+                          <FeaturedBuildCTA />
+                          {after.map((p) => (
+                            <PromptCard
+                              key={`${p.type ?? "x"}-${p.id}`}
+                              prompt={p}
+                              currentUserId={userId}
+                              requireAuth={requireAuth}
+                              supabase={supabase}
+                              supabaseAuth={supabaseAuth}
+                              ownerProfiles={ownerProfiles}
+                              onEvent={emitEvent}
+                            />
+                          ))}
+                        </>
+                      );
+                    })()
+                  : dedupedItems.map((p) => (
+                      <PromptCard
+                        key={`${p.type ?? "x"}-${p.id}`}
+                        prompt={p}
+                        currentUserId={userId}
+                        requireAuth={requireAuth}
+                        supabase={supabase}
+                        supabaseAuth={supabaseAuth}
+                        ownerProfiles={ownerProfiles}
+                        onEvent={emitEvent}
+                      />
+                    ))}
               </div>
 
               <div ref={sentinelRef} className="h-10" />

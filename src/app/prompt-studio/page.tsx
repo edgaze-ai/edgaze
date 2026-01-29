@@ -7,6 +7,8 @@ import PlaceholderModal from "../../components/prompt-studio/PlaceholderModal";
 import PlaceholderEditModal from "../../components/prompt-studio/PlaceholderEditModal";
 import UserFormPreview from "../../components/prompt-studio/PlaceholderUserForm";
 import PublishPromptSheet from "../../components/prompt-studio/PublishPromptModal";
+import PromptRunModal from "../../components/prompt-studio/PromptRunModal";
+import JsonPreviewModal from "../../components/prompt-studio/JsonPreviewModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { Monitor } from "lucide-react";
 
@@ -134,6 +136,8 @@ export default function PromptStudioPage() {
     useState<PlaceholderDef | null>(null);
 
   const [publishOpen, setPublishOpen] = useState(false);
+  const [runModalOpen, setRunModalOpen] = useState(false);
+  const [jsonModalOpen, setJsonModalOpen] = useState(false);
 
   const [publishMeta, setPublishMeta] = useState({
     name: "",
@@ -324,13 +328,28 @@ export default function PromptStudioPage() {
   };
 
   const handleMakeJson = () => {
-    const json = JSON.stringify({ prompt: promptText, placeholders }, null, 2);
-    navigator.clipboard.writeText(json).catch(() => {});
+    setJsonModalOpen(true);
+  };
+
+  const getJsonString = () => {
+    return JSON.stringify(
+      {
+        prompt_text: promptText,
+        placeholders: placeholders.map((p) => ({
+          key: p.name,
+          name: p.name,
+          question: p.question,
+          label: p.question,
+        })),
+      },
+      null,
+      2
+    );
   };
 
   const handleTestPrompt = () => {
     if (!requireAuth()) return;
-    alert("Test prompt runner not wired yet – coming soon.");
+    setRunModalOpen(true);
   };
 
   const handleOpenPublish = () => {
@@ -611,6 +630,25 @@ export default function PromptStudioPage() {
         promptText={promptText}
         placeholders={placeholders}
         onPublished={handlePublishFinished}
+      />
+
+      <PromptRunModal
+        open={runModalOpen}
+        onClose={() => setRunModalOpen(false)}
+        title={publishMeta.name || "Untitled Prompt"}
+        template={promptText}
+        placeholders={placeholders.map((p) => ({
+          key: p.name,
+          question: p.question,
+          label: p.question,
+        }))}
+      />
+
+      <JsonPreviewModal
+        open={jsonModalOpen}
+        onClose={() => setJsonModalOpen(false)}
+        json={getJsonString()}
+        title="Prompt JSON"
       />
     </div>
   );

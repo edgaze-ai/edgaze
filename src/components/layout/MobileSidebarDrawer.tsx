@@ -72,7 +72,7 @@ export default function MobileSidebarDrawer() {
           <div className="flex items-center justify-between px-4 h-14 border-b border-white/10">
             <div className="flex items-center gap-2">
               <div className="relative h-7 w-7">
-                <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority />
+                <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="28px" />
               </div>
               <span className="text-[16px] font-semibold tracking-tight text-white">
                 edgaze

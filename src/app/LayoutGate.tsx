@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import AppShell from "./AppShell";
 import VerifyEmailBanner from "../components/auth/VerifyEmailBanner";
+import MaintenanceGate from "../components/maintenance/MaintenanceGate";
 
 export default function LayoutGate({
   children,
@@ -18,10 +19,10 @@ export default function LayoutGate({
   }
 
   return (
-    <>
+    <MaintenanceGate>
       {/* Shows only for logged-in + unverified users */}
       <VerifyEmailBanner />
       <AppShell>{children}</AppShell>
-    </>
+    </MaintenanceGate>
   );
 }

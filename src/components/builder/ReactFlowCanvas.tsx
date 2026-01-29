@@ -101,11 +101,13 @@ function NodeCard(props: NodeProps<EdgazeNodeData>) {
 }
 
 /* ---------- Node types ---------- */
-const nodeTypes = {
+// Define nodeTypes outside component to ensure stable reference
+// This prevents React Flow warnings about recreating nodeTypes objects
+const nodeTypes = Object.freeze({
   edgCard: NodeFrame,
   edgMerge: MergeNode,
   edgCondition: ConditionNode,
-};
+});
 
 /* ---------- Public ref API ---------- */
 export type CanvasRef = {
@@ -173,6 +175,11 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   ref
 ) {
   const isPreview = mode === "preview";
+
+  // nodeTypes is defined outside component and frozen, so it's stable
+  // Using it directly should work, but React Flow may still warn in dev mode
+  // Using useMemo ensures the reference is stable across renders
+  const stableNodeTypes = useMemo(() => nodeTypes, []);
 
   const [nodes, setNodes, baseOnNodesChange] = useNodesState<EdgazeNodeData>([]);
 
@@ -250,66 +257,93 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     }
   };
 
-  // Connection validation
+  // Connection validation - simplified to trust ReactFlow's handle system
   const isValidConnection = useCallback(
     (connection: Connection | Edge): boolean => {
-      if (!connection.source || !connection.target) return false;
+      if (!connection.source || !connection.target) {
+        console.log("[Connection] Rejected: Missing source or target", connection);
+        return false;
+      }
 
       const sourceNode = nodesRef.current.find((n) => n.id === connection.source);
       const targetNode = nodesRef.current.find((n) => n.id === connection.target);
 
-      if (!sourceNode || !targetNode) return false;
+      if (!sourceNode || !targetNode) {
+        console.log("[Connection] Rejected: Nodes not found", { sourceNode, targetNode });
+        return false;
+      }
 
       const sourceSpec = getNodeSpec(sourceNode.data?.specId);
       const targetSpec = getNodeSpec(targetNode.data?.specId);
 
-      if (!sourceSpec || !targetSpec) return true; // Allow if specs not found (fallback)
+      // If specs not found, allow connection (fallback)
+      if (!sourceSpec || !targetSpec) {
+        console.log("[Connection] Allowed: Specs not found (fallback)", { sourceSpec, targetSpec });
+        return true;
+      }
 
-      // Rule 1: Input nodes cannot have inputs
+      console.log("[Connection] Validating", {
+        source: sourceSpec.id,
+        target: targetSpec.id,
+        sourceNodeId: sourceNode.id,
+        targetNodeId: targetNode.id,
+      });
+
+      // Rule 1: Input nodes cannot receive connections (they only output)
       if (targetSpec.id === "input") {
+        console.log("[Connection] Rejected: Rule 1 - Input nodes cannot receive connections");
         return false;
       }
 
-      // Rule 2: Output nodes cannot have outputs
+      // Rule 2: Output nodes cannot send connections (they only receive)
       if (sourceSpec.id === "output") {
+        console.log("[Connection] Rejected: Rule 2 - Output nodes cannot send connections");
         return false;
       }
 
-      // Rule 3: Condition nodes can only have 1 input connection
+      // Rule 3: Prevent self-connections
+      if (sourceNode.id === targetNode.id) {
+        console.log("[Connection] Rejected: Rule 3 - Self-connection");
+        return false;
+      }
+
+      // Rule 4: Condition nodes can only have 1 input connection
       if (targetSpec.id === "condition") {
         const existingInputs = edgesRef.current.filter((e) => e.target === connection.target);
         if (existingInputs.length >= 1) {
+          console.log("[Connection] Rejected: Rule 4 - Condition node already has input");
           return false;
         }
       }
 
-      // Rule 6: Output nodes can only have 1 input connection
+      // Rule 5: Output nodes can only have 1 input connection
+      // Allow replacing existing connection (remove old one when connecting new one)
       if (targetSpec.id === "output") {
         const existingInputs = edgesRef.current.filter((e) => e.target === connection.target);
+        console.log("[Connection] Checking Rule 5 - Output node", {
+          targetNodeId: connection.target,
+          sourceNodeId: connection.source,
+          existingInputs: existingInputs.length,
+          existingEdges: existingInputs.map((e) => ({ source: e.source, target: e.target })),
+        });
+        // Always allow - we'll replace the old connection in onConnect
         if (existingInputs.length >= 1) {
+          console.log("[Connection] Allowed: Rule 5 - Will replace existing connection");
+        }
+      }
+
+      // Rule 6: Input nodes can only have 1 output connection
+      if (sourceSpec.id === "input") {
+        const existingOutputs = edgesRef.current.filter((e) => e.source === connection.source);
+        if (existingOutputs.length >= 1) {
+          console.log("[Connection] Rejected: Rule 6 - Input node already has output");
           return false;
         }
       }
 
-      // Rule 4: Prevent cycles (basic check - output cannot connect back to input)
-      if (sourceNode.id === targetNode.id) {
-        return false;
-      }
-
-      // Rule 5: Type compatibility (basic check)
-      const sourcePort = sourceSpec.ports?.find((p) => p.id === connection.sourceHandle);
-      const targetPort = targetSpec.ports?.find((p) => p.id === connection.targetHandle);
-
-      if (sourcePort && targetPort) {
-        const sourceType = sourcePort.type || "any";
-        const targetType = targetPort.type || "any";
-
-        // "any" accepts anything, otherwise types must match
-        if (targetType !== "any" && sourceType !== "any" && sourceType !== targetType) {
-          return false;
-        }
-      }
-
+      // Trust ReactFlow's handle system - if it allows the connection, we allow it
+      // ReactFlow will only allow connections between compatible handle types (source->target)
+      console.log("[Connection] Allowed: All checks passed");
       return true;
     },
     []
@@ -355,24 +389,21 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         }
       }
 
+      // Rule 7: Input nodes can only have 1 output connection
+      if (sourceSpec.id === "input") {
+        const existingOutputs = edgesRef.current.filter((e) => e.source === connection.source);
+        if (existingOutputs.length >= 1) {
+          return "Input nodes can only have one output connection.";
+        }
+      }
+
       // Rule 4: Prevent cycles
       if (sourceNode.id === targetNode.id) {
         return "Cannot connect a node to itself.";
       }
 
-      // Rule 5: Type compatibility
-      const sourcePort = sourceSpec.ports?.find((p) => p.id === connection.sourceHandle);
-      const targetPort = targetSpec.ports?.find((p) => p.id === connection.targetHandle);
-
-      if (sourcePort && targetPort) {
-        const sourceType = sourcePort.type || "any";
-        const targetType = targetPort.type || "any";
-
-        if (targetType !== "any" && sourceType !== "any" && sourceType !== targetType) {
-          return `Type mismatch: Cannot connect ${sourceType} to ${targetType}.`;
-        }
-      }
-
+      // Trust ReactFlow's handle system for port validation
+      // ReactFlow ensures source handles connect to target handles
       return null;
     },
     []
@@ -386,7 +417,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       const targetId = (params as any)?.target as string | undefined;
 
       // Validate connection
-      if (!isValidConnection(params)) {
+      const isValid = isValidConnection(params);
+      if (!isValid) {
         const error = getConnectionError(params);
         if (error) {
           // Show error message (using alert for now, can be replaced with toast)
@@ -402,6 +434,20 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         ? nodesRef.current.find((n) => n.id === targetId)?.data?.specId
         : undefined;
 
+      // For output nodes, remove any existing input connection before adding new one
+      const targetNode = nodesRef.current.find((n) => n.id === targetId);
+      const targetSpec = targetNode ? getNodeSpec(targetNode.data?.specId) : null;
+      if (targetSpec?.id === "output") {
+        setEdges((eds) => {
+          // Remove existing edges to this output node
+          const filtered = eds.filter((e) => e.target !== targetId);
+          // Add the new edge
+          return addEdge({ ...params, type: EDGE_TYPE }, filtered);
+        });
+      } else {
+        setEdges((eds) => addEdge({ ...params, type: EDGE_TYPE }, eds));
+      }
+
       safeTrack("Builder Edge Created", {
         surface: "canvas",
         source_node_id: sourceId,
@@ -409,8 +455,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         source_spec_id: sourceSpecId,
         target_spec_id: targetSpecId,
       });
-
-      setEdges((eds) => addEdge({ ...params, type: EDGE_TYPE }, eds));
     },
     [setEdges, locked, isPreview, isValidConnection, getConnectionError]
   );
@@ -692,8 +736,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     addNodeAtCenter,
     updateNodeConfig: (nodeId: string, patch: any) => {
       if (isPreview) return;
-      setNodes((nds) =>
-        nds.map((n) =>
+      setNodes((nds) => {
+        const updated = nds.map((n) =>
           n.id === nodeId
             ? {
                 ...n,
@@ -703,8 +747,23 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                 },
               }
             : n
-        )
-      );
+        );
+        
+        // Sync selection state if this node is currently selected - defer to avoid setState in render
+        const updatedNode = updated.find((n) => n.id === nodeId);
+        if (updatedNode && lastSelectionKeyRef.current === `n:${nodeId}`) {
+          // Use setTimeout to defer the state update until after render
+          setTimeout(() => {
+            onSelectionChange?.({
+              nodeId: updatedNode.id,
+              specId: updatedNode.data?.specId,
+              config: updatedNode.data?.config,
+            });
+          }, 0);
+        }
+        
+        return updated;
+      });
     },
     getGraph: () => ({ nodes: nodesRef.current, edges: edgesRef.current }),
     loadGraph: (graph: any) => {
@@ -1118,7 +1177,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         onEdgesChange={onEdgesChange}
         onConnect={locked || isPreview ? undefined : onConnect}
         isValidConnection={isValidConnection}
-        nodeTypes={nodeTypes}
+        nodeTypes={stableNodeTypes}
         fitView
         snapToGrid
         snapGrid={[16, 16]}

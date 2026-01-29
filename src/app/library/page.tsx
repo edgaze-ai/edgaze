@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Edit3, ExternalLink, Layers, ShoppingBag } from "lucide-react";
+import { Loader2, Edit3, ExternalLink, Layers, ShoppingBag, BookOpen, Zap, Sparkles } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../../components/auth/AuthContext";
@@ -235,7 +235,13 @@ function LibraryCard({ item, context, onEdit }: LibraryCardProps) {
             ) : (
               <div className="flex h-full w-full items-center justify-center">
                 <div className="text-center">
-                  <div className="text-white/30 text-2xl mb-1">{item.kind === "workflow" ? "⚡" : "✨"}</div>
+                  <div className="flex justify-center mb-1">
+                  {item.kind === "workflow" ? (
+                    <Zap className="h-8 w-8 text-white/30" />
+                  ) : (
+                    <Sparkles className="h-8 w-8 text-white/30" />
+                  )}
+                </div>
                   <div className="text-[10px] text-white/40">No image</div>
                 </div>
               </div>
@@ -279,14 +285,18 @@ function LibraryCard({ item, context, onEdit }: LibraryCardProps) {
             {/* Stats and actions */}
             <div className="mt-auto pt-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 text-[11px] text-white/50">
-                <span className="flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-white/30" />
-                  {item.views} views
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-white/30" />
-                  {item.likes} likes
-                </span>
+                {context === "created" && (
+                  <>
+                    <span className="flex items-center gap-1">
+                      <span className="w-1 h-1 rounded-full bg-white/30" />
+                      {item.views} views
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-1 h-1 rounded-full bg-white/30" />
+                      {item.likes} likes
+                    </span>
+                  </>
+                )}
                 <span className="flex items-center gap-1">
                   <span className="w-1 h-1 rounded-full bg-white/30" />
                   {item.runs} runs
@@ -926,7 +936,9 @@ export default function LibraryPage() {
                   </div>
                 ) : created.length === 0 ? (
                   <div className="rounded-3xl bg-white/[0.02] p-12 text-center">
-                    <div className="text-4xl mb-3 opacity-50">📚</div>
+                    <div className="flex justify-center mb-3">
+                      <BookOpen className="h-12 w-12 text-white/50" />
+                    </div>
                     <div className="text-sm text-white/60">No created items yet.</div>
                   </div>
                 ) : (
@@ -956,7 +968,9 @@ export default function LibraryPage() {
                   </div>
                 ) : purchased.length === 0 ? (
                   <div className="rounded-3xl bg-white/[0.02] p-12 text-center">
-                    <div className="text-4xl mb-3 opacity-50">🛍️</div>
+                    <div className="flex justify-center mb-3">
+                      <ShoppingBag className="h-12 w-12 text-white/50" />
+                    </div>
                     <div className="text-sm text-white/60">No purchases yet.</div>
                   </div>
                 ) : (
@@ -994,7 +1008,9 @@ export default function LibraryPage() {
                   </div>
                 ) : created.length === 0 ? (
                   <div className="rounded-3xl bg-white/[0.02] p-16 text-center">
-                    <div className="text-5xl mb-4 opacity-50">📚</div>
+                    <div className="flex justify-center mb-4">
+                      <BookOpen className="h-14 w-14 text-white/50" />
+                    </div>
                     <div className="text-sm text-white/60">No created items yet.</div>
                   </div>
                 ) : (
@@ -1029,7 +1045,9 @@ export default function LibraryPage() {
                   </div>
                 ) : purchased.length === 0 ? (
                   <div className="rounded-3xl bg-white/[0.02] p-12 text-center">
-                    <div className="text-4xl mb-3 opacity-50">🛍️</div>
+                    <div className="flex justify-center mb-3">
+                      <ShoppingBag className="h-12 w-12 text-white/50" />
+                    </div>
                     <div className="text-sm text-white/60">No purchases yet.</div>
                   </div>
                 ) : (

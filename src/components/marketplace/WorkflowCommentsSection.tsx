@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../auth/AuthContext";
+import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
+import ProfileAvatar from "../ui/ProfileAvatar";
+import ProfileLink from "../ui/ProfileLink";
 
 type CommentRow = {
   id: string;
@@ -186,14 +189,27 @@ function CommentItem({
   return (
     <div className="py-4">
       <div className="flex gap-3" style={{ paddingLeft: padLeft }}>
-        <Avatar name={comment.user_name} avatarUrl={comment.user_avatar_url} />
+        <ProfileAvatar
+          name={comment.user_name}
+          avatarUrl={comment.user_avatar_url}
+          size={28}
+          handle={comment.user_handle}
+          userId={comment.user_id}
+        />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <div className="truncate text-[12px] font-semibold text-white/85">
-                  {authorLabel}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <ProfileLink
+                    name={authorLabel}
+                    handle={comment.user_handle}
+                    userId={comment.user_id}
+                    showBadge={true}
+                    badgeSize="sm"
+                    className="min-w-0 truncate text-[12px] font-semibold text-white/85"
+                  />
                 </div>
                 <div className="text-[11px] text-white/40">
                   {timeAgo(comment.created_at)}

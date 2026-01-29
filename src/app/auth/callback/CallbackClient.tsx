@@ -51,8 +51,13 @@ function getReturnPath(): string | null {
   if (typeof window === "undefined") return null;
   
   try {
-    return localStorage.getItem("edgaze:returnTo") || sessionStorage.getItem("edgaze:returnTo");
-  } catch {
+    const fromLocal = localStorage.getItem("edgaze:returnTo");
+    const fromSession = sessionStorage.getItem("edgaze:returnTo");
+    const result = fromLocal || fromSession;
+    console.log("[Callback getReturnPath] Retrieved:", result, "from localStorage:", !!fromLocal, "from sessionStorage:", !!fromSession);
+    return result;
+  } catch (err) {
+    console.error("[Callback getReturnPath] Error reading path:", err);
     return null;
   }
 }
@@ -126,39 +131,42 @@ export default function CallbackClient() {
       // Priority: storage > query param > referrer > default to marketplace
       let returnTo: string | null = null;
       let redirectReason = "";
-      
-      // Priority 1: Check storage (saved when modal was opened)
-      // This should include query params like action=run, action=purchase, resume=1
-      const fromStorage = getReturnPath();
-      if (fromStorage) {
-        const cleaned = cleanPath(fromStorage);
-        if (cleaned) {
-          returnTo = cleaned;
-          redirectReason = `storage (${fromStorage})`;
-          console.log("[Auth Callback] Using path from storage:", cleaned);
+      let fromStorage: string | null = null;
+
+      // Priority 1: Check query parameter (passed in redirectTo URL)
+      // This is the MOST reliable because it's passed in the OAuth redirect URL
+      // It works even if localStorage is cleared or if we're redirected to a different domain
+      const nextParam = params.get("next");
+      if (nextParam) {
+        try {
+          const decoded = decodeURIComponent(nextParam);
+          const cleaned = cleanPath(decoded);
+          if (cleaned) {
+            returnTo = cleaned;
+            redirectReason = `query param (${decoded})`;
+            console.log("[Auth Callback] Using path from query param:", cleaned);
+          }
+        } catch {
+          const cleaned = cleanPath(nextParam);
+          if (cleaned) {
+            returnTo = cleaned;
+            redirectReason = `query param (raw: ${nextParam})`;
+            console.log("[Auth Callback] Using path from query param (raw):", cleaned);
+          }
         }
       }
       
-      // Priority 2: Check query parameter (passed in redirectTo URL)
-      // This is the most reliable as it's explicitly passed in the OAuth redirect
+      // Priority 2: Check storage (saved when modal was opened)
+      // This should include query params like action=run, action=purchase, resume=1
+      // Use this as fallback if query param wasn't found
       if (!returnTo) {
-        const nextParam = params.get("next");
-        if (nextParam) {
-          try {
-            const decoded = decodeURIComponent(nextParam);
-            const cleaned = cleanPath(decoded);
-            if (cleaned) {
-              returnTo = cleaned;
-              redirectReason = `query param (${decoded})`;
-              console.log("[Auth Callback] Using path from query param:", cleaned);
-            }
-          } catch {
-            const cleaned = cleanPath(nextParam);
-            if (cleaned) {
-              returnTo = cleaned;
-              redirectReason = `query param (raw: ${nextParam})`;
-              console.log("[Auth Callback] Using path from query param (raw):", cleaned);
-            }
+        fromStorage = getReturnPath();
+        if (fromStorage) {
+          const cleaned = cleanPath(fromStorage);
+          if (cleaned) {
+            returnTo = cleaned;
+            redirectReason = `storage (${fromStorage})`;
+            console.log("[Auth Callback] Using path from storage:", cleaned);
           }
         }
       }
@@ -217,14 +225,14 @@ export default function CallbackClient() {
 
       const code = params.get("code");
 
-      // Clear storage before redirecting
-      clearReturnPath();
+      // DON'T clear storage yet - we need it if auth fails and we need to retry
+      // Only clear AFTER successful redirect
 
       // 1) If already signed in, redirect immediately
       const existing = await supabase.auth.getSession();
       if (existing.data.session) {
         console.log("[Auth Callback] Already signed in, redirecting to:", returnTo);
-        clearReturnPath();
+        clearReturnPath(); // Clear only after we're about to redirect
         router.replace(returnTo);
         return;
       }
@@ -232,7 +240,7 @@ export default function CallbackClient() {
       // 2) If no code, nothing to exchange. Redirect.
       if (!code) {
         console.warn("[Auth Callback] No code parameter, redirecting to:", returnTo);
-        clearReturnPath();
+        clearReturnPath(); // Clear only after we're about to redirect
         router.replace(returnTo);
         return;
       }
@@ -243,7 +251,7 @@ export default function CallbackClient() {
 
       if (!error && data.session) {
         console.log("[Auth Callback] Session created successfully, redirecting to:", returnTo);
-        clearReturnPath();
+        clearReturnPath(); // Clear only after we're about to redirect
         router.replace(returnTo);
         return;
       }
@@ -259,14 +267,14 @@ export default function CallbackClient() {
 
       if (again.data.session) {
         console.log("[Auth Callback] Session found after wait, redirecting to:", returnTo);
-        clearReturnPath();
+        clearReturnPath(); // Clear only after we're about to redirect
         router.replace(returnTo);
         return;
       }
 
       // Last resort: go to marketplace
       console.error("[Auth Callback] Failed to authenticate after all attempts");
-      clearReturnPath();
+      clearReturnPath(); // Clear on failure too
       
       // Show error with details about what went wrong
       const errorDetails = [

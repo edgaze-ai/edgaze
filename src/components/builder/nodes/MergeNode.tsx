@@ -26,7 +26,7 @@ function SelectionRing() {
 export default function MergeNode(props: NodeProps) {
   const { selected, data, id } = props as any;
 
-  // Build “connected to” list from store
+  // Build "connected to" list from store
   const { nodeInternals, edges } = useStore((s) => ({
     nodeInternals: s.nodeInternals,
     edges: s.edges,
@@ -64,34 +64,34 @@ export default function MergeNode(props: NodeProps) {
         </div>
       </div>
 
-      {/* Four fixed handles with Edgaze accents */}
+      {/* Four fixed handles with Edgaze accents - positioned using React Flow's built-in positioning */}
       <Handle
         id="in-left"
         type="target"
         position={Position.Left}
         className="edge-port"
-        style={{ top: "50%", transform: "translateY(-50%)" }}
+        isConnectable={true}
       />
       <Handle
         id="in-top"
         type="target"
         position={Position.Top}
         className="edge-port"
-        style={{ left: "50%", transform: "translateX(-50%)" }}
+        isConnectable={true}
       />
       <Handle
         id="in-bottom"
         type="target"
         position={Position.Bottom}
         className="edge-port"
-        style={{ left: "50%", transform: "translateX(-50%)" }}
+        isConnectable={true}
       />
       <Handle
         id="out-right"
         type="source"
         position={Position.Right}
         className="edge-port edge-port--edg"
-        style={{ top: "50%", transform: "translateY(-50%)" }}
+        isConnectable={true}
       />
     </div>
   );

@@ -17,6 +17,9 @@ import {
 import { cx } from "../../lib/cx";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { generateWorkflowThumbnailFile } from "./workflowThumbnailGenerator";
+import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
+import ProfileAvatar from "../ui/ProfileAvatar";
+import ProfileLink from "../ui/ProfileLink";
 
 type MonetisationMode = "free" | "paywall" | "subscription";
 type Visibility = "public" | "unlisted" | "private";
@@ -822,8 +825,9 @@ export default function WorkflowPublishModal({
       const { error: upsertErr } = await supabase.from("workflows").upsert(row, { onConflict: "id" });
       if (upsertErr) throw upsertErr;
 
-      // Build published URL
-      const url = `https://edgaze.ai/${postingAs.handle}/${finalCode}`;
+      // Build published URL - use current origin (works for localhost and production)
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://edgaze.ai";
+      const url = `${origin}/${postingAs.handle}/${finalCode}`;
       setPublishedUrl(url);
 
       // Generate QR now (inside modal)
@@ -1077,18 +1081,27 @@ export default function WorkflowPublishModal({
                 </div>
 
                 <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full overflow-hidden border border-white/10 bg-white/[0.06] grid place-items-center text-white/80 text-sm font-semibold">
-                    {postingAs?.avatarUrl ? (
-                      <Image src={postingAs.avatarUrl} alt="Avatar" width={40} height={40} />
-                    ) : (
-                      initials(postingAs?.name)
-                    )}
-                  </div>
+                  <ProfileAvatar
+                    name={postingAs?.name || owner?.name || "You"}
+                    avatarUrl={postingAs?.avatarUrl || null}
+                    size={40}
+                    handle={handle}
+                  />
                   <div className="min-w-0">
-                    <div className="text-[12px] text-white/90 font-semibold truncate">
-                      {postingAs?.name || owner?.name || "You"}
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <ProfileLink
+                        name={postingAs?.name || owner?.name || "You"}
+                        handle={handle}
+                        showBadge={true}
+                        badgeSize="md"
+                        className="min-w-0 truncate text-[12px] text-white/90 font-semibold"
+                      />
                     </div>
-                    <div className="text-[11px] text-white/45 truncate">@{handle}</div>
+                    <ProfileLink
+                      name={`@${handle}`}
+                      handle={handle}
+                      className="truncate text-[11px] text-white/45"
+                    />
                   </div>
                 </div>
               </div>
@@ -1120,12 +1133,27 @@ export default function WorkflowPublishModal({
                       </div>
 
                       <div className="mt-4 flex items-center gap-4 text-[11px] text-white/55">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="h-8 w-8 rounded-full bg-white/10 border border-white/10 grid place-items-center text-white/80 font-semibold">
-                            {initials(postingAs?.name)}
+                        <span className="inline-flex flex-wrap items-center gap-2">
+                          <ProfileAvatar
+                            name={postingAs?.name || "You"}
+                            avatarUrl={postingAs?.avatarUrl || null}
+                            size={32}
+                            handle={handle}
+                          />
+                          <span className="flex flex-wrap items-center gap-2">
+                            <ProfileLink
+                              name={postingAs?.name || "You"}
+                              handle={handle}
+                              showBadge={true}
+                              badgeSize="md"
+                              className="min-w-0 truncate text-white/75"
+                            />
                           </span>
-                          <span className="text-white/75">{postingAs?.name || "You"}</span>
-                          <span className="text-white/35">@{handle}</span>
+                          <ProfileLink
+                            name={`@${handle}`}
+                            handle={handle}
+                            className="truncate text-white/35"
+                          />
                         </span>
                         <span className="inline-flex items-center gap-3">
                           <span className="inline-flex items-center gap-1">

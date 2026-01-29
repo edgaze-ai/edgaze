@@ -18,7 +18,10 @@ import {
 } from "lucide-react";
 
 import { useSidebar } from "./SidebarContext";
+import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import { useAuth } from "../auth/AuthContext";
+import ProfileAvatar from "../ui/ProfileAvatar";
+import ProfileLink from "../ui/ProfileLink";
 
 /* joiner */
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -99,7 +102,7 @@ export default function Sidebar() {
         >
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="relative h-11 w-11 flex-shrink-0">
-              <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority />
+              <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="44px" />
             </div>
             {!collapsed && (
               <span className="truncate text-[20px] font-semibold tracking-tight text-white">
@@ -129,27 +132,30 @@ export default function Sidebar() {
 
         {/* ACCOUNT CHIP (expanded only) */}
         {!collapsed && (
-          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+          <div className="rounded-xl border border-gray-600/50 bg-white/5 px-3 py-2.5">
             {loading ? (
               <div className="text-xs text-white/60">Loading account…</div>
             ) : userId && profile ? (
               <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-xs overflow-hidden">
-                  {avatarSrc ? (
-                    <img
-                      src={avatarSrc}
-                      alt={displayName}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span>{initials}</span>
-                  )}
-                </div>
+                <ProfileAvatar
+                  name={displayName}
+                  avatarUrl={profile?.avatar_url || null}
+                  size={32}
+                  handle={profile?.handle}
+                  userId={userId}
+                />
 
                 <div className="flex flex-1 flex-col min-w-0">
-                  <span className="text-xs font-medium text-white/90 truncate">
-                    {displayName}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <ProfileLink
+                      name={displayName}
+                      handle={profile?.handle}
+                      userId={userId}
+                      showBadge={true}
+                      badgeSize="md"
+                      className="min-w-0 truncate text-xs font-medium text-white/90"
+                    />
+                  </div>
                   <span className="text-[11px] text-white/50">{planLabel}</span>
                 </div>
 
@@ -275,7 +281,7 @@ function NavButton({ item, collapsed, active }: NavButtonProps) {
           "transition-colors duration-150",
           active
             ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.55)]"
-            : "border border-white/12 bg-white/[0.03] text-white/75 hover:bg-white/[0.08] hover:border-white/40"
+            : "border border-white/15 bg-white/[0.03] text-white/75 hover:bg-white/[0.06] hover:border-white/25"
         )}
       >
         <Icon className="h-5 w-5 shrink-0" />

@@ -27,7 +27,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
     defaultConfig: {
       prompt: "",
       system: "",
-      model: "gpt-4",
+      model: "gpt-4o-mini",
       temperature: 0.7,
       maxTokens: 2000,
       stream: false,
@@ -56,15 +56,20 @@ export const PREMIUM_NODES: NodeSpec[] = [
       },
       {
         key: "model",
-        label: "Model",
+        label: "Model (Premium)",
         type: "select",
         options: [
+          { label: "GPT-4o mini — fast, cheap", value: "gpt-4o-mini" },
+          { label: "GPT-4o — flagship", value: "gpt-4o" },
+          { label: "GPT-4o (2024-08-06)", value: "gpt-4o-2024-08-06" },
+          { label: "GPT-4 Turbo", value: "gpt-4-turbo" },
+          { label: "GPT-4 Turbo (preview)", value: "gpt-4-turbo-preview" },
           { label: "GPT-4", value: "gpt-4" },
-          { label: "GPT-4 Turbo", value: "gpt-4-turbo-preview" },
+          { label: "o1 — reasoning", value: "o1" },
+          { label: "o1-mini — reasoning lite", value: "o1-mini" },
           { label: "GPT-3.5 Turbo", value: "gpt-3.5-turbo" },
-          { label: "GPT-4o", value: "gpt-4o" },
         ],
-        helpText: "Select the OpenAI model to use",
+        helpText: "With your API key in the run modal, this model is used. Free runs use gpt-4o-mini.",
       },
       {
         key: "temperature",
@@ -142,7 +147,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
     ],
     defaultConfig: {
       prompt: "",
-      model: "dall-e-3",
+      model: "dall-e-2", // Cheapest DALL-E model by default
       size: "1024x1024",
       quality: "standard",
       n: 1,
@@ -286,11 +291,20 @@ export const PREMIUM_NODES: NodeSpec[] = [
     defaultConfig: {
       operator: "truthy",
       compareValue: "",
+      humanCondition: "", // Human-readable condition for AI evaluation
     },
     inspector: [
       {
+        key: "humanCondition",
+        label: "Condition (Human Language)",
+        type: "textarea",
+        rows: 2,
+        helpText: "Describe the condition in plain English (e.g., 'The user's age is greater than 18'). AI will evaluate this. Leave empty to use operator-based evaluation.",
+        placeholder: "e.g., The input contains the word 'approved'",
+      },
+      {
         key: "operator",
-        label: "Operator",
+        label: "Condition Type (Fallback)",
         type: "select",
         options: [
           { label: "Truthy", value: "truthy" },
@@ -300,11 +314,11 @@ export const PREMIUM_NODES: NodeSpec[] = [
           { label: "Greater Than", value: "gt" },
           { label: "Less Than", value: "lt" },
         ],
-        helpText: "How should the condition be evaluated?",
+        helpText: "Used if human-readable condition is not provided. How should the condition be evaluated?",
       },
       {
         key: "compareValue",
-        label: "Compare Value (if needed)",
+        label: "Compare Value",
         type: "text",
         placeholder: "Enter value to compare against",
         helpText: "Required for equals, not equals, greater than, and less than operators",

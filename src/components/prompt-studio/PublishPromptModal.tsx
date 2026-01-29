@@ -21,6 +21,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import AssetPickerModalRaw from "../assets/AssetPickerModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
+import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 
 type PlaceholderDef = {
   name: string;
@@ -1185,13 +1186,16 @@ export default function PublishPromptModal({
           {/* Header */}
           <div className="h-[72px] sm:h-[76px] px-4 sm:px-6 flex items-center justify-between border-b border-white/10">
             <div className="flex items-center gap-3 min-w-0">
-              <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={32} height={32} className="h-8 w-8" priority />
+              <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={32} height={32} className="h-8 w-8" priority style={{ width: "auto", height: "auto" }} />
               <div className="min-w-0">
                 <div className="text-[15px] sm:text-[16px] font-semibold text-white leading-tight truncate">
                   {published ? "Published" : editId ? "Edit prompt" : "Publish prompt"}
                 </div>
-                <div className="text-[11px] text-white/45 truncate">
-                  Posting as {ownerName} @{ownerHandle}
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/45 min-w-0">
+                  <span className="shrink-0">Posting as</span>
+                  <span className="min-w-0 truncate">{ownerName}</span>
+                  <FoundingCreatorBadge size="sm" className="shrink-0" />
+                  <span className="truncate">@{ownerHandle}</span>
                 </div>
               </div>
             </div>

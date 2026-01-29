@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../auth/AuthContext";
+import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
+import ProfileAvatar from "../ui/ProfileAvatar";
+import ProfileLink from "../ui/ProfileLink";
 
 type CommentRow = {
   id: string;
@@ -184,29 +187,31 @@ function CommentItem({
         className="flex gap-3 py-3"
         style={{ paddingLeft: depth === 0 ? 0 : leftGutter }}
       >
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/8 text-[11px] font-semibold text-white/85 ring-1 ring-white/10">
-          {comment.user_avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={comment.user_avatar_url}
-              alt={comment.user_name || "User avatar"}
-              className="h-full w-full rounded-full object-cover"
-            />
-          ) : (
-            <span>{initials}</span>
-          )}
-        </div>
+        <ProfileAvatar
+          name={comment.user_name || comment.user_handle}
+          avatarUrl={comment.user_avatar_url}
+          size={36}
+          handle={comment.user_handle}
+          userId={comment.user_id}
+          className="mt-0.5 ring-1 ring-white/10"
+        />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[13px] font-semibold text-white">
-              {comment.user_name || comment.user_handle || "Anonymous"}
-            </span>
-
+            <ProfileLink
+              name={comment.user_name || comment.user_handle || "Anonymous"}
+              handle={comment.user_handle}
+              userId={comment.user_id}
+              showBadge={true}
+              badgeSize="md"
+              className="min-w-0 truncate text-[13px] font-semibold text-white"
+            />
             {comment.user_handle && (
-              <span className="text-[12px] text-white/45">
-                @{comment.user_handle}
-              </span>
+              <ProfileLink
+                name={`@${comment.user_handle}`}
+                handle={comment.user_handle}
+                className="truncate text-[12px] text-white/45"
+              />
             )}
 
             <span className="text-[12px] text-white/40">

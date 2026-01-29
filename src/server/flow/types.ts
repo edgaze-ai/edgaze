@@ -19,6 +19,12 @@ export type GraphPayload = {
   nodes: GraphNode[];
   edges: GraphEdge[];
   inputs?: Record<string, unknown>;
+  requestMetadata?: {
+    userId?: string | null;
+    identifier?: string;
+    identifierType?: "ip" | "device" | "user";
+    workflowId?: string;
+  };
 };
 
 export type NodeStatus =
@@ -57,12 +63,19 @@ export type RuntimeContext = {
   setNodeStatus?: (nodeId: string, status: NodeStatus) => void;
   setWorkflowStatus?: (status: WorkflowStatus) => void;
   checkpoint?: (snapshot: Partial<ExecutionSnapshot>) => void;
+  // Request metadata for rate limiting and tracking
+  requestMetadata?: {
+    userId?: string | null;
+    identifier?: string;
+    identifierType?: "ip" | "device" | "user";
+    workflowId?: string;
+  };
 };
 
 export type NodeRuntimeHandler = (node: GraphNode, ctx: RuntimeContext) => Promise<unknown> | unknown;
 
 export type RunLogEntry = {
-  type: "start" | "success" | "error";
+  type: "start" | "success" | "error" | "retry";
   nodeId: string;
   specId: string;
   message: string;

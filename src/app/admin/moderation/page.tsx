@@ -17,6 +17,11 @@ type ReportRow = {
   admin_notes: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  // Product details (for prompts/workflows)
+  target_title?: string | null;
+  target_owner_handle?: string | null;
+  target_owner_name?: string | null;
+  target_edgaze_code?: string | null;
 };
 
 function fmt(ts: string) {
@@ -27,10 +32,16 @@ function fmt(ts: string) {
   }
 }
 
-function targetHref(r: ReportRow) {
+function targetHref(r: ReportRow, ownerHandle?: string | null, edgazeCode?: string | null) {
   // Adjust these routes if your app differs.
-  if (r.target_type === "prompt") return `/p/${r.target_id}`;
-  if (r.target_type === "workflow") return `/w/${r.target_id}`;
+  if (r.target_type === "prompt") {
+    if (ownerHandle && edgazeCode) return `/p/${ownerHandle}/${edgazeCode}`;
+    return `/p/${r.target_id}`;
+  }
+  if (r.target_type === "workflow") {
+    if (ownerHandle && edgazeCode) return `/${ownerHandle}/${edgazeCode}`;
+    return `/${r.target_id}`;
+  }
   if (r.target_type === "comment") return `/admin/moderation?focus=${r.id}`; // comments need context; keep in admin
   return `/u/${r.target_id}`; // user profile
 }
@@ -50,10 +61,20 @@ export default function AdminModerationPage() {
   const [banExpiresAt, setBanExpiresAt] = useState<string>(""); // ISO-ish from input
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
+  // Demo replenish state
+  const [replenishUsername, setReplenishUsername] = useState("");
+  const [replenishWorkflowId, setReplenishWorkflowId] = useState("");
+  const [replenishLoading, setReplenishLoading] = useState(false);
+
   // Applications pause toggle
   const [appsPausedLoading, setAppsPausedLoading] = useState(true);
   const [appsPausedSaving, setAppsPausedSaving] = useState(false);
   const [appsPaused, setAppsPaused] = useState(false);
+
+  // Maintenance mode toggle (platform-wide, except landing + admin)
+  const [maintenanceLoading, setMaintenanceLoading] = useState(true);
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
 
   async function loadAppsPaused() {
     setAppsPausedLoading(true);
@@ -77,9 +98,10 @@ export default function AdminModerationPage() {
     setAppsPausedSaving(true);
     setActionMsg(null);
     try {
-      const { error } = await supabase
-        .from("app_settings")
-        .upsert({ key: "applications_paused", value: next }, { onConflict: "key" });
+      const { error } = await supabase.rpc("upsert_app_setting", {
+        p_key: "applications_paused",
+        p_value: next,
+      });
 
       if (error) throw error;
       setAppsPaused(next);
@@ -88,6 +110,42 @@ export default function AdminModerationPage() {
       setActionMsg(e?.message || "Failed to update applications setting.");
     } finally {
       setAppsPausedSaving(false);
+    }
+  }
+
+  async function loadMaintenanceMode() {
+    setMaintenanceLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "maintenance_mode")
+        .maybeSingle();
+      if (error) throw error;
+      setMaintenanceMode(Boolean((data as any)?.value));
+    } catch {
+      setMaintenanceMode(false);
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  }
+
+  async function saveMaintenanceMode(next: boolean) {
+    setMaintenanceSaving(true);
+    setActionMsg(null);
+    try {
+      const { error } = await supabase.rpc("upsert_app_setting", {
+        p_key: "maintenance_mode",
+        p_value: next,
+      });
+
+      if (error) throw error;
+      setMaintenanceMode(next);
+      setActionMsg(next ? "Maintenance mode enabled." : "Maintenance mode disabled.");
+    } catch (e: any) {
+      setActionMsg(e?.message || "Failed to update maintenance mode.");
+    } finally {
+      setMaintenanceSaving(false);
     }
   }
 
@@ -111,8 +169,34 @@ export default function AdminModerationPage() {
     }
 
     const list = (data as any as ReportRow[]) || [];
-    setRows(list);
-    setSelected((prev) => (prev ? list.find((x) => x.id === prev.id) ?? null : null));
+    
+    // Enrich reports with product details for prompts/workflows
+    const enrichedList = await Promise.all(
+      list.map(async (report) => {
+        if (report.target_type === "prompt" || report.target_type === "workflow") {
+          const tableName = report.target_type === "prompt" ? "prompts" : "workflows";
+          const { data: product } = await supabase
+            .from(tableName)
+            .select("title, owner_handle, owner_name, edgaze_code")
+            .eq("id", report.target_id)
+            .maybeSingle();
+          
+          if (product) {
+            return {
+              ...report,
+              target_title: product.title,
+              target_owner_handle: product.owner_handle,
+              target_owner_name: product.owner_name,
+              target_edgaze_code: product.edgaze_code,
+            };
+          }
+        }
+        return report;
+      })
+    );
+    
+    setRows(enrichedList);
+    setSelected((prev) => (prev ? enrichedList.find((x) => x.id === prev.id) ?? null : null));
     setLoading(false);
   }
 
@@ -120,12 +204,13 @@ export default function AdminModerationPage() {
     if (!authReady || !userId) return;
     load();
     loadAppsPaused();
+    loadMaintenanceMode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, userId, tab]);
 
   // realtime subscribe so admin UI also flips instantly if changed elsewhere
   useEffect(() => {
-    const ch = supabase
+    const chApps = supabase
       .channel("realtime:app_settings:applications_paused_admin")
       .on(
         "postgres_changes",
@@ -137,12 +222,37 @@ export default function AdminModerationPage() {
       )
       .subscribe();
 
+    const chMaint = supabase
+      .channel("realtime:app_settings:maintenance_mode_admin")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "app_settings", filter: "key=eq.maintenance_mode" },
+        (payload: any) => {
+          const next = Boolean(payload?.new?.value);
+          setMaintenanceMode(next);
+        }
+      )
+      .subscribe();
+
     return () => {
       try {
-        supabase.removeChannel(ch);
+        supabase.removeChannel(chApps);
+        supabase.removeChannel(chMaint);
       } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Enable scrolling on admin/moderation (same as help page)
+  useEffect(() => {
+    const main = document.querySelector("main");
+    if (!main) return;
+    main.style.overflowY = "auto";
+    main.style.overflowX = "hidden";
+    return () => {
+      main.style.overflowY = "";
+      main.style.overflowX = "";
+    };
   }, []);
 
   async function setStatus(id: string, status: ReportRow["status"]) {
@@ -186,6 +296,44 @@ export default function AdminModerationPage() {
     }
 
     setActionMsg(isBanned ? "User banned." : "User unbanned.");
+  }
+
+  async function replenishDemo() {
+    setActionMsg(null);
+    setReplenishLoading(true);
+
+    const username = replenishUsername.trim();
+    if (!username) {
+      setActionMsg("Username is required");
+      setReplenishLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/replenish-demo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: username.replace(/^@/, ""),
+          workflowId: replenishWorkflowId.trim() || null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setActionMsg(result.error || "Failed to replenish demo runs");
+        return;
+      }
+
+      setActionMsg(result.message || "Demo runs replenished successfully");
+      setReplenishUsername("");
+      setReplenishWorkflowId("");
+    } catch (error: any) {
+      setActionMsg(error.message || "Failed to replenish demo runs");
+    } finally {
+      setReplenishLoading(false);
+    }
   }
 
   function pick(r: ReportRow) {
@@ -289,6 +437,60 @@ export default function AdminModerationPage() {
         {appsPausedSaving ? <div className="mt-1 text-xs text-white/50">Saving…</div> : null}
       </div>
 
+      {/* Maintenance mode panel */}
+      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-base font-semibold">Maintenance mode</div>
+            <div className="text-sm text-white/60 mt-0.5">
+              Show &quot;Platform under maintenance&quot; on all pages except landing and admin. Use with caution.
+            </div>
+            <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-200">
+              <span className="font-medium">Warning:</span> Enabling this blocks marketplace, builder, prompt studio, profiles, and all other app routes. Only the homepage and admin stay accessible.
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div
+              className={`text-xs px-2 py-1 rounded-full border ${
+                maintenanceMode
+                  ? "border-amber-400/30 text-amber-200 bg-amber-500/10"
+                  : "border-emerald-400/30 text-emerald-200 bg-emerald-500/10"
+              }`}
+            >
+              {maintenanceMode ? "On" : "Off"}
+            </div>
+
+            <button
+              disabled={maintenanceLoading || maintenanceSaving}
+              onClick={() => saveMaintenanceMode(!maintenanceMode)}
+              className={`relative inline-flex h-10 w-[120px] items-center rounded-2xl border transition-colors ${
+                maintenanceMode
+                  ? "bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15"
+                  : "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/15"
+              } ${maintenanceLoading || maintenanceSaving ? "opacity-60 cursor-not-allowed" : ""}`}
+            >
+              <span className="absolute left-3 text-xs font-semibold text-white/80">
+                {maintenanceMode ? "Disable" : "Enable"}
+              </span>
+              <span
+                className={`absolute right-2 h-7 w-7 rounded-xl border bg-black/30 transition-transform ${
+                  maintenanceMode ? "translate-x-0 border-amber-500/30" : "translate-x-0 border-emerald-500/30"
+                }`}
+              />
+              <span
+                className={`absolute right-2 h-7 w-7 rounded-xl bg-white/10 transition-transform ${
+                  maintenanceMode ? "-translate-x-[74px]" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        {maintenanceLoading ? <div className="mt-3 text-xs text-white/50">Loading maintenance state…</div> : null}
+        {maintenanceSaving ? <div className="mt-1 text-xs text-white/50">Saving…</div> : null}
+      </div>
+
       {actionMsg ? (
         <div className="text-sm text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
           {actionMsg}
@@ -362,7 +564,7 @@ export default function AdminModerationPage() {
                   </div>
 
                   <a
-                    href={targetHref(selected)}
+                    href={targetHref(selected, selected.target_owner_handle, selected.target_edgaze_code)}
                     target="_blank"
                     rel="noreferrer"
                     className="text-sm px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10"
@@ -376,7 +578,23 @@ export default function AdminModerationPage() {
                     <div className="text-xs text-white/50">Target</div>
                     <div className="text-sm mt-1">
                       <span className="text-white/70">{selected.target_type}</span>
-                      <div className="text-xs text-white/60 mt-1 break-all">{selected.target_id}</div>
+                      {(selected.target_type === "prompt" || selected.target_type === "workflow") && selected.target_title && (
+                        <div className="text-sm font-semibold text-white/90 mt-1">
+                          {selected.target_title}
+                        </div>
+                      )}
+                      {selected.target_owner_handle && (
+                        <div className="text-xs text-white/60 mt-1">
+                          by @{selected.target_owner_handle}
+                          {selected.target_owner_name && ` (${selected.target_owner_name})`}
+                        </div>
+                      )}
+                      {selected.target_edgaze_code && (
+                        <div className="text-xs text-white/50 mt-1">
+                          Code: {selected.target_edgaze_code}
+                        </div>
+                      )}
+                      <div className="text-xs text-white/40 mt-1 break-all">{selected.target_id}</div>
                     </div>
                   </div>
 
@@ -439,6 +657,56 @@ export default function AdminModerationPage() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Demo Replenish panel */}
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <div className="text-base font-semibold">Replenish Demo Runs</div>
+                <div className="text-sm text-white/60">
+                  Reset demo run limits for a user by username/handle.
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-white/50 mb-1">Username / Handle</div>
+                <input
+                  value={replenishUsername}
+                  onChange={(e) => setReplenishUsername(e.target.value)}
+                  className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm outline-none focus:border-white/20"
+                  placeholder="e.g. username or @username"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !replenishLoading) {
+                      replenishDemo();
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <div className="text-xs text-white/50 mb-1">Workflow ID (optional)</div>
+                <input
+                  value={replenishWorkflowId}
+                  onChange={(e) => setReplenishWorkflowId(e.target.value)}
+                  className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm outline-none focus:border-white/20"
+                  placeholder="Leave blank for all workflows"
+                />
+                <div className="text-xs text-white/40 mt-1">Leave blank to reset all demo runs for user.</div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mt-3">
+              <button
+                onClick={replenishDemo}
+                disabled={replenishLoading || !replenishUsername.trim()}
+                className="text-sm px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/20 border border-amber-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {replenishLoading ? "Replenishing..." : "Replenish Demo Runs"}
+              </button>
+            </div>
           </div>
 
           {/* Ban panel */}

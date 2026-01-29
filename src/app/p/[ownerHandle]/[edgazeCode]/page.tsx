@@ -19,15 +19,21 @@ import {
   ExternalLink,
   Lock,
   CheckCircle2,
+  Flag,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../../../lib/supabase/browser";
 import { useAuth } from "../../../../components/auth/AuthContext";
 import { track } from "../../../../lib/mixpanel";
+import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../../lib/constants";
 import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
 import PremiumWorkflowRunModal, { type WorkflowRunState } from "../../../../components/builder/PremiumWorkflowRunModal";
 import { canRunDemo, trackDemoRun } from "../../../../lib/workflow/device-tracking";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../../lib/workflow/validation";
+import FoundingCreatorBadge from "../../../../components/ui/FoundingCreatorBadge";
+import ProfileAvatar from "../../../../components/ui/ProfileAvatar";
+import ProfileLink from "../../../../components/ui/ProfileLink";
+import ReportModal from "../../../../components/marketplace/ReportModal";
 const CommentsSection = CommentsSectionRaw as unknown as React.ComponentType<any>;
 
 function safeTrack(event: string, props?: Record<string, any>) {
@@ -1182,6 +1188,7 @@ export default function PromptProductPage() {
 
   const [shareOpen, setShareOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [purchase, setPurchase] = useState<PurchaseRow | null>(null);
@@ -1351,8 +1358,9 @@ export default function PromptProductPage() {
   const kind = listing?.type === "workflow" ? "workflow" : "prompt";
   const badgeLabel = listing?.type === "workflow" ? "Workflow" : "Prompt";
 
+  // Only treat as free when listing is loaded and explicitly free (source of truth: DB).
   const isNaturallyFree = useMemo(() => {
-    if (!listing) return true;
+    if (!listing) return false;
     return listing.monetisation_mode === "free" || listing.is_paid === false;
   }, [listing]);
 
@@ -1367,13 +1375,10 @@ export default function PromptProductPage() {
     return listing.price_usd != null ? `$${listing.price_usd.toFixed(2)}` : "Paid";
   }, [listing, isNaturallyFree]);
 
-  const primaryCtaLabel = listing?.type === "workflow" 
-    ? "Try a one time demo"
-    : showClosedBetaFree 
-    ? "Get access (Free)" 
-    : isNaturallyFree 
-    ? "Run now" 
-    : "Buy access";
+  const primaryCtaLabel = useMemo(() => {
+    if (isNaturallyFree) return listing?.type === "workflow" ? "Try a one time demo" : "Run now";
+    return "Buy access";
+  }, [isNaturallyFree, listing?.type]);
 
   const templatePrompt = useMemo(() => {
     if (!listing) return "";
@@ -1395,12 +1400,13 @@ export default function PromptProductPage() {
     return listing.owner_id === String(currentUserId);
   }, [listing, currentUserId]);
 
+  // Access ONLY: owner OR has a row in prompt_purchases (paid/beta). No free access without purchase.
   const isOwned = useMemo(() => {
     if (!listing) return false;
     if (isOwner) return true;
-    if (isNaturallyFree) return true;
+    // Require purchase row for everyone else (even free items need to be "purchased" to show in library)
     return Boolean(purchase && (purchase.status === "paid" || purchase.status === "beta"));
-  }, [listing, isOwner, isNaturallyFree, purchase]);
+  }, [listing, isOwner, purchase]);
 
   async function loadPurchaseRow(promptId: string, uid: string) {
     const { data, error } = await supabase
@@ -1499,7 +1505,8 @@ export default function PromptProductPage() {
       return;
     }
 
-    if (showClosedBetaFree) {
+    // For closed beta OR free items: insert purchase row (free items still need purchase to show in library)
+    if (showClosedBetaFree || isNaturallyFree) {
       setPurchaseLoading(true);
       try {
         const uid = userId!;
@@ -1520,7 +1527,7 @@ export default function PromptProductPage() {
           .maybeSingle();
 
         if (error) {
-          console.error("beta access insert error", error);
+          console.error("purchase insert error", error);
           
           // If it's a duplicate key error, try to load the existing purchase
           if (error.code === "23505" || error.message?.includes("duplicate") || error.message?.includes("unique")) {
@@ -1539,7 +1546,7 @@ export default function PromptProductPage() {
             listing_id: listing.id,
             error: error.message,
             error_code: error.code,
-            method: "beta",
+            method: isNaturallyFree ? "free" : "beta",
           });
           return;
         }
@@ -1548,7 +1555,7 @@ export default function PromptProductPage() {
           surface: "product_page",
           listing_id: listing.id,
           listing_type: listing.type,
-          method: "beta",
+          method: isNaturallyFree ? "free" : "beta",
           price_usd: listing.price_usd,
         });
 
@@ -1560,19 +1567,14 @@ export default function PromptProductPage() {
       }
     }
 
-    if (!isNaturallyFree) {
+    // Real paid checkout (Stripe) not wired yet - for paid items outside closed beta.
+    if (!isNaturallyFree && !showClosedBetaFree) {
       setPurchaseError("Payments are not available during closed beta.");
       return;
     }
 
-    // Handle workflows differently
-    if (listing.type === "workflow") {
-      handleWorkflowRun();
-      return;
-    }
-    
-    setRunOpen(true);
-    return;
+    // Should not reach here - all paths above return
+    setPurchaseError("Unable to grant access. Please try again.");
   }
 
   async function handleWorkflowRun() {
@@ -1990,20 +1992,47 @@ export default function PromptProductPage() {
               <Share2 className="h-4 w-4" /> Share
             </button>
 
-            <div className="flex items-center gap-2">
-              {creatorAvatar ? (
-                <div className="relative h-8 w-8 overflow-hidden rounded-full border border-white/10 bg-white/5">
-                  <Image src={creatorAvatar} alt={creatorName} fill className="object-cover" />
-                </div>
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold text-white/85">
-                  {initialsFromName(creatorName || creatorHandle)}
-                </div>
-              )}
+            <button
+              type="button"
+              onClick={() => {
+                safeTrack("Report Button Clicked", {
+                  surface: "product_page",
+                  location: "desktop_header",
+                  listing_id: listing?.id,
+                  edgaze_code: listing?.edgaze_code,
+                });
+                setReportOpen(true);
+              }}
+              className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80"
+              title="Report"
+              aria-label="Report"
+            >
+              <Flag className="h-3.5 w-3.5" />
+            </button>
 
-              <div className="hidden flex-col sm:flex leading-tight">
-                <span className="text-xs font-medium text-white/90">{creatorName}</span>
-                <span className="text-[11px] text-white/50">@{creatorHandle}</span>
+            <div className="flex items-center gap-2">
+              <ProfileAvatar
+                name={creatorName}
+                avatarUrl={creatorAvatar}
+                size={32}
+                handle={creatorHandle}
+              />
+
+              <div className="hidden sm:flex flex-col leading-tight min-w-0">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <ProfileLink
+                    name={creatorName}
+                    handle={creatorHandle}
+                    showBadge={true}
+                    badgeSize="md"
+                    className="min-w-0 truncate text-xs font-medium text-white/90"
+                  />
+                </div>
+                <ProfileLink
+                  name={`@${creatorHandle}`}
+                  handle={creatorHandle}
+                  className="truncate text-[11px] text-white/50"
+                />
               </div>
             </div>
           </div>
@@ -2019,37 +2048,51 @@ export default function PromptProductPage() {
         title={listing.title}
       />
 
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType={listing.type === "workflow" ? "workflow" : "prompt"}
+        targetId={listing.id}
+        targetTitle={listing.title}
+        targetOwnerHandle={listing.owner_handle}
+        targetOwnerName={listing.owner_name}
+      />
+
       {/* Mobile top bar */}
       <div className="sm:hidden sticky top-0 z-30 bg-[#050505]/85 backdrop-blur-md border-b border-white/10">
         <div className="flex items-center gap-2 px-4 py-3">
           <button
             type="button"
             onClick={goBack}
-            className="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85"
             aria-label="Back"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-
           <button
             type="button"
             onClick={grantAccessOrRun}
             disabled={purchaseLoading}
             className={cn(
-              "flex-1 inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold",
+              "flex-1 inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold",
               purchaseLoading
                 ? "bg-white/10 text-white/70 border border-white/10"
-                : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
+                : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_16px_rgba(56,189,248,0.6)]"
             )}
           >
-            {purchaseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            {isOwned ? "Run" : primaryCtaLabel}
+            {purchaseLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : isOwned ? (
+              <Sparkles className="h-3.5 w-3.5" />
+            ) : (
+              <Lock className="h-3.5 w-3.5" />
+            )}
+            <span>{isOwned ? (listing?.type === "workflow" ? "Try a one time demo" : "Run") : primaryCtaLabel}</span>
           </button>
-
           <button
             type="button"
             onClick={() => setShareOpen(true)}
-            className="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85"
             aria-label="Share"
           >
             <Share2 className="h-4 w-4" />
@@ -2175,31 +2218,42 @@ export default function PromptProductPage() {
 
                 <h1 className="text-[18px] sm:text-[22px] font-semibold leading-snug">{listing.title || "Untitled listing"}</h1>
 
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-white/60">
-                  <span className="inline-flex items-center gap-1">
-                    <Eye className="h-4 w-4" /> {listing.view_count ?? 0} views
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Heart className="h-4 w-4" /> {listing.like_count ?? 0} likes
-                  </span>
-                </div>
+                {SHOW_VIEWS_AND_LIKES_PUBLICLY && (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-white/60">
+                    <span className="inline-flex items-center gap-1">
+                      <Eye className="h-4 w-4" /> {listing.view_count ?? 0} views
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Heart className="h-4 w-4" /> {listing.like_count ?? 0} likes
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  {creatorAvatar ? (
-                    <div className="relative h-10 w-10 overflow-hidden rounded-full border border-white/10 bg-white/5">
-                      <Image src={creatorAvatar} alt={creatorName} fill className="object-cover" />
-                    </div>
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white/85">
-                      {initialsFromName(creatorName || creatorHandle)}
-                    </div>
-                  )}
+                  <ProfileAvatar
+                    name={creatorName}
+                    avatarUrl={creatorAvatar}
+                    size={40}
+                    handle={creatorHandle}
+                  />
 
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-white/90">{creatorName}</div>
-                    <div className="truncate text-[12px] text-white/55">@{creatorHandle}</div>
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <ProfileLink
+                        name={creatorName}
+                        handle={creatorHandle}
+                        showBadge={true}
+                        badgeSize="md"
+                        className="min-w-0 truncate text-sm font-medium text-white/90"
+                      />
+                    </div>
+                    <ProfileLink
+                      name={`@${creatorHandle}`}
+                      handle={creatorHandle}
+                      className="truncate text-[12px] text-white/55"
+                    />
                   </div>
                 </div>
 
@@ -2230,6 +2284,26 @@ export default function PromptProductPage() {
                   </div>
                 )}
               </div>
+
+              {/* Mobile: Report button after description */}
+              <div className="sm:hidden mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    safeTrack("Report Button Clicked", {
+                      surface: "product_page",
+                      location: "mobile_near_description",
+                      listing_id: listing?.id,
+                      edgaze_code: listing?.edgaze_code,
+                    });
+                    setReportOpen(true);
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white/80"
+                >
+                  <Flag className="h-3 w-3" /> Report
+                </button>
+              </div>
+
 
               <div className="hidden sm:block mt-6 border-t border-white/10 pt-6">
                 <CommentsSection
@@ -2357,7 +2431,10 @@ export default function PromptProductPage() {
 
                         <div className="min-w-0 flex-1">
                           <p className="line-clamp-2 text-[13px] font-semibold text-white/90">{s.title || "Untitled listing"}</p>
-                          <p className="mt-1 truncate text-[12px] text-white/55">@{s.owner_handle || s.owner_name || "creator"}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 min-w-0">
+                            <span className="truncate text-[12px] text-white/55">@{s.owner_handle || s.owner_name || "creator"}</span>
+                            <FoundingCreatorBadge size="sm" className="shrink-0" />
+                          </div>
 
                           <div className="mt-1 flex items-center justify-between">
                             <p className="truncate text-[11px] text-white/40">
@@ -2493,6 +2570,22 @@ export default function PromptProductPage() {
                     >
                       <Share2 className="h-4 w-4" /> Share
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        safeTrack("Report Button Clicked", {
+                          surface: "product_page",
+                          location: "sidebar",
+                          listing_id: listing?.id,
+                          edgaze_code: listing?.edgaze_code,
+                        });
+                        setReportOpen(true);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white/80"
+                    >
+                      <Flag className="h-3 w-3" /> Report
+                    </button>
                   </div>
 
                   {!isOwned && <div className="mt-3 text-[11px] text-white/45">Full prompt unlocks after access is granted.</div>}
@@ -2535,7 +2628,10 @@ export default function PromptProductPage() {
 
                           <div className="min-w-0 flex-1">
                             <p className="line-clamp-2 text-[13px] font-semibold text-white/90">{s.title || "Untitled listing"}</p>
-                            <p className="mt-1 truncate text-[12px] text-white/55">@{s.owner_handle || s.owner_name || "creator"}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 min-w-0">
+                              <span className="truncate text-[12px] text-white/55">@{s.owner_handle || s.owner_name || "creator"}</span>
+                              <FoundingCreatorBadge size="sm" className="shrink-0" />
+                            </div>
 
                             <div className="mt-1 flex items-center justify-between">
                               <p className="truncate text-[11px] text-white/40">

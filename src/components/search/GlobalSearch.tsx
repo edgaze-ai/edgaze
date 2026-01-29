@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { SearchResult } from "../../app/api/search/route";
 import Link from "next/link";
 import { Search, Loader2 } from "lucide-react";
+import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
+import ProfileAvatar from "../ui/ProfileAvatar";
+import ProfileLink from "../ui/ProfileLink";
 
 type Props = {
   placeholder?: string;
@@ -117,31 +120,28 @@ export default function GlobalSearch({ placeholder }: Props) {
                   className="flex items-center gap-3 px-3 py-2 text-sm text-white/85 hover:bg-white/5"
                   onClick={() => setOpen(false)}
                 >
-                  <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center text-xs overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {p.avatarUrl ? (
-                      <img
-                        src={p.avatarUrl}
-                        alt={p.displayName}
-                        className="h-full w-full object-cover"
+                  <ProfileAvatar
+                    name={p.displayName}
+                    avatarUrl={p.avatarUrl}
+                    size={32}
+                    handle={p.handle}
+                  />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <ProfileLink
+                        name={p.displayName}
+                        handle={p.handle}
+                        showBadge={true}
+                        badgeSize="sm"
+                        className="min-w-0 truncate font-medium"
                       />
-                    ) : (
-                      <span>
-                        {p.displayName
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .slice(0, 2)
-                          .toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{p.displayName}</span>
+                    </div>
                     {p.handle && (
-                      <span className="text-xs text-white/55">
-                        @{p.handle}
-                      </span>
+                      <ProfileLink
+                        name={`@${p.handle}`}
+                        handle={p.handle}
+                        className="truncate text-xs text-white/55"
+                      />
                     )}
                   </div>
                 </Link>

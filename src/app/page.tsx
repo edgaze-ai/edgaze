@@ -6,6 +6,7 @@ import { useAuth } from "src/components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, BadgeCheck, Compass, Link2, Search, Sparkles } from "lucide-react";
+import FoundingCreatorBadge from "src/components/ui/FoundingCreatorBadge";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
@@ -1509,11 +1510,14 @@ function CodeEntry() {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Badge kind={s.kind} />
-                                <div className="text-xs text-white/60">@{s.owner_handle}</div>
+                                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                  <span className="truncate text-xs text-white/60">@{s.owner_handle}</span>
+                                  <FoundingCreatorBadge size="sm" className="shrink-0" />
+                                </div>
                                 <div className="text-xs text-white/40">·</div>
-                                <div className="text-xs font-semibold text-white/70">{s.edgaze_code}</div>
+                                <div className="text-xs font-semibold text-white/70 truncate">{s.edgaze_code}</div>
                               </div>
                               <div className="mt-1 text-sm font-semibold text-white">{s.title}</div>
                             </div>

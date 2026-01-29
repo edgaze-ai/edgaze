@@ -7,6 +7,9 @@ import Image from "next/image";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { DEFAULT_AVATAR_SRC } from "../../config/branding";
+import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
+import ProfileAvatar from "../ui/ProfileAvatar";
+import ProfileLink from "../ui/ProfileLink";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -70,17 +73,32 @@ export default function ProfileMenu() {
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex items-center gap-3 rounded-full border px-3 py-1.5",
-          "border-white/18 bg-white/5 hover:border-cyan-400 transition-colors"
+          "border-neutral-600 bg-white/5 hover:border-neutral-500 transition-colors"
         )}
       >
-        <div className="relative h-7 w-7 overflow-hidden rounded-full bg-white/10">
-          <Image src={avatarSrc} alt="Profile" fill className="object-cover" />
-        </div>
+        <ProfileAvatar
+          name={profile?.full_name || readyHandle || "User"}
+          avatarUrl={profile?.avatar_url || null}
+          size={28}
+          handle={readyHandle}
+          userId={userId}
+          href={null}
+          className="border-0"
+        />
 
-        <div className="flex flex-col items-start">
-          <span className="max-w-[120px] truncate text-xs font-medium text-white/90">
-            {profile?.full_name || profile?.handle || (user as any)?.name || "Creator"}
-          </span>
+        <div className="flex flex-col items-start min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <ProfileLink
+              name={profile?.full_name || profile?.handle || (user as any)?.name || "Creator"}
+              handle={readyHandle}
+              userId={userId}
+              href={null}
+              showBadge={true}
+              badgeSize="xs"
+              badgeCompact={true}
+              className="text-xs font-medium text-white/90 break-words"
+            />
+          </div>
 
           <span className="text-[10px] text-white/55">
             {(profile as any)?.plan || "Free"} plan
@@ -97,7 +115,7 @@ export default function ProfileMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-52 rounded-xl border border-white/16 bg-[#050505] shadow-xl z-30 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-52 rounded-xl border border-neutral-600 bg-[#050505] shadow-xl z-30 overflow-hidden">
           <Link
             href={readyHandle ? `/profile/${encodeURIComponent(readyHandle)}` : "/profile"}
             className={cn(

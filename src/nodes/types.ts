@@ -7,7 +7,7 @@ export type Port = {
   
   export type InspectorField =
     | { key: string; label: string; type: "text"; placeholder?: string; helpText?: string }
-    | { key: string; label: string; type: "textarea"; rows?: number; helpText?: string }
+    | { key: string; label: string; type: "textarea"; rows?: number; placeholder?: string; helpText?: string }
     | { key: string; label: string; type: "switch"; helpText?: string }
     | { key: string; label: string; type: "select"; options: { label: string; value: string }[]; helpText?: string }
     | { key: string; label: string; type: "number"; min?: number; max?: number; step?: number; helpText?: string }

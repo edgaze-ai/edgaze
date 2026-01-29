@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/auth/AuthContext";
+import { Shield } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { userId, userEmail, profile, isVerified, loading, authReady, signOut } = useAuth();
+  const { userId, userEmail, profile, isVerified, isAdmin, loading, authReady, signOut } = useAuth();
 
   const displayName = useMemo(() => {
     if (profile?.full_name) return profile.full_name;
@@ -89,6 +91,23 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+
+        {/* Admin (moderation) — only for admins */}
+        {isAdmin ? (
+          <div className="edge-glass edge-border rounded-2xl p-5 mb-6">
+            <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
+              <Shield className="h-5 w-5 text-cyan-400" />
+              Admin
+            </h2>
+            <Link
+              href="/admin/moderation"
+              className="inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium
+                         bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 border border-cyan-500/20 transition"
+            >
+              Go to Moderation
+            </Link>
+          </div>
+        ) : null}
 
         {/* Account actions */}
         <div className="edge-glass edge-border rounded-2xl p-5">

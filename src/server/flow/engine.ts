@@ -38,13 +38,81 @@ function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
     return order.length === nodes.length ? order : nodes.map((n) => n.id);
   }
   
-export async function runFlow(payload: GraphPayload): Promise<RuntimeResult> {
-  const { nodes, edges, inputs = {} } = payload;
+import { validateWorkflowTokenLimit, countChatTokens, countEmbeddingTokens, countImageTokens } from "@lib/workflow/token-counting";
+import { getTokenLimits } from "@lib/workflow/token-limits";
+
+export async function runFlow(payload: GraphPayload & { workflowId?: string }): Promise<RuntimeResult> {
+  const { nodes, edges, inputs = {}, workflowId, requestMetadata } = payload;
+  
+  // Validate graph integrity: filter out edges that reference non-existent nodes
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const validEdges = edges.filter((e) => {
+    const sourceExists = nodeIds.has(e.source);
+    const targetExists = nodeIds.has(e.target);
+    if (!sourceExists || !targetExists) {
+      console.warn(
+        `Invalid edge detected: ${e.source} -> ${e.target}. ` +
+        `Source exists: ${sourceExists}, Target exists: ${targetExists}. ` +
+        `This edge will be ignored.`
+      );
+      return false;
+    }
+    return true;
+  });
+
+  // If we filtered out edges, log a warning
+  if (validEdges.length < edges.length) {
+    console.warn(
+      `Graph integrity issue: ${edges.length - validEdges.length} invalid edge(s) removed. ` +
+      `Original edges: ${edges.length}, Valid edges: ${validEdges.length}`
+    );
+  }
+  
+  // Get configurable token limits
+  const tokenLimits = await getTokenLimits(workflowId);
+  
+  // Pre-validate workflow token limits (best effort - actual counts may vary)
+  // This is a conservative estimate before execution
+  let totalEstimatedTokens = 0;
+  for (const node of nodes) {
+    const specId = node.data?.specId;
+    const config = node.data?.config ?? {};
+    
+    if (specId === "openai-chat") {
+      // Estimate based on config defaults
+      const estimatedPrompt = config.prompt || "";
+      const tokenCount = countChatTokens({
+        prompt: estimatedPrompt,
+        system: config.system,
+        maxTokens: config.maxTokens || 2000,
+      });
+      totalEstimatedTokens += tokenCount.total;
+    } else if (specId === "openai-embeddings") {
+      const estimatedText = config.text || "";
+      const tokenCount = countEmbeddingTokens(estimatedText);
+      totalEstimatedTokens += tokenCount;
+    } else if (specId === "openai-image") {
+      const estimatedPrompt = config.prompt || "";
+      const tokenCount = countImageTokens(estimatedPrompt);
+      totalEstimatedTokens += tokenCount;
+    }
+  }
+  
+  // Only validate if we have OpenAI nodes (to avoid false positives)
+  if (totalEstimatedTokens > 0) {
+    const workflowTokenValidation = validateWorkflowTokenLimit(
+      totalEstimatedTokens,
+      tokenLimits.maxTokensPerWorkflow
+    );
+    if (!workflowTokenValidation.valid) {
+      throw new Error(workflowTokenValidation.error || "Workflow token limit exceeded");
+    }
+  }
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
   const inboundByNode = new Map<string, string[]>();
   const outboundByNode = new Map<string, string[]>();
   nodes.forEach((n) => inboundByNode.set(n.id, []));
-  edges.forEach((e) => {
+  validEdges.forEach((e) => {
     const arr = inboundByNode.get(e.target);
     if (arr) arr.push(e.source);
     const outArr = outboundByNode.get(e.source) ?? [];
@@ -62,10 +130,20 @@ export async function runFlow(payload: GraphPayload): Promise<RuntimeResult> {
 
   const ctx: RuntimeContext = {
     inputs,
+    requestMetadata,
     getInboundValues: (nodeId: string) => {
       const srcs = inboundByNode.get(nodeId) ?? [];
       const snapshot = state.getSnapshot();
-      return srcs.map((sid) => snapshot.outputsByNode[sid]);
+      // Map source node IDs to their outputs
+      // Note: outputsByNode may not have the key if node hasn't executed, but topological sort ensures order
+      return srcs.map((sid) => {
+        const output = snapshot.outputsByNode[sid];
+        // If output is explicitly undefined (key doesn't exist), that's an error - node should have executed
+        if (!(sid in snapshot.outputsByNode)) {
+          console.warn(`Node ${sid} output not found when ${nodeId} requested it - possible execution order issue`);
+        }
+        return output;
+      });
     },
     setNodeOutput: (nodeId: string, value: unknown) => {
       state.setNodeOutput(nodeId, value);
@@ -75,12 +153,12 @@ export async function runFlow(payload: GraphPayload): Promise<RuntimeResult> {
     checkpoint: (partial) => state.checkpoint(partial),
   };
 
-  const order = topo(nodes, edges);
+  const order = topo(nodes, validEdges);
 
   // Pre-mark ready nodes (indegree 0)
   const indeg = new Map<string, number>();
   nodes.forEach((n) => indeg.set(n.id, 0));
-  edges.forEach((e) => indeg.set(e.target, (indeg.get(e.target) ?? 0) + 1));
+  validEdges.forEach((e) => indeg.set(e.target, (indeg.get(e.target) ?? 0) + 1));
   const ready: string[] = [];
   indeg.forEach((d, id) => {
     if (d === 0) {
@@ -92,8 +170,11 @@ export async function runFlow(payload: GraphPayload): Promise<RuntimeResult> {
   const CONCURRENCY = 4;
 
   const runNode = async (nodeId: string) => {
-    const node = nodeById.get(nodeId)!;
-    const specId = node.data?.specId;
+    const node = nodeById.get(nodeId);
+    if (!node) {
+      throw new Error(`Node ${nodeId} not found in graph`);
+    }
+    const specId = node.data?.specId ?? "unknown";
     const ts = Date.now();
 
     state.setNodeStatus(nodeId, "running");
@@ -135,7 +216,16 @@ export async function runFlow(payload: GraphPayload): Promise<RuntimeResult> {
         if (attempt > retries) {
           throw err;
         }
-        state.setNodeStatus(nodeId, "retrying");
+        logs.push({
+          type: "retry",
+          nodeId,
+          specId,
+          timestamp: Date.now(),
+          message: `Retrying "${specId}" (attempt ${attempt}/${retries})`,
+        });
+        // Exponential backoff: 250ms, 500ms, 1000ms, 2000ms max
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((r) => setTimeout(r, Math.min(2000, 250 * 2 ** (attempt - 1))));
       }
     }
 
@@ -157,13 +247,20 @@ export async function runFlow(payload: GraphPayload): Promise<RuntimeResult> {
         try {
           await runNode(nodeId);
         } catch (err: any) {
+          // Set node to failed state (now allowed from ready state)
           state.setNodeStatus(nodeId, "failed");
+          
+          // Safely get node info for logging
+          const failedNode = nodeById.get(nodeId);
+          const failedSpecId = failedNode?.data?.specId ?? "unknown";
+          const errorMessage = err?.message ?? "Unknown error";
+          
           logs.push({
             type: "error",
             nodeId,
-            specId: nodeById.get(nodeId)?.data?.specId ?? "unknown",
+            specId: failedSpecId,
             timestamp: Date.now(),
-            message: `Failed "${nodeById.get(nodeId)?.data?.specId}": ${err?.message ?? "Unknown error"}`,
+            message: `Failed "${failedSpecId}": ${errorMessage}`,
           });
         } finally {
           const downstream = outboundByNode.get(nodeId) ?? [];
@@ -179,7 +276,7 @@ export async function runFlow(payload: GraphPayload): Promise<RuntimeResult> {
     );
   }
 
-  const nodesWithOutgoing = new Set(edges.map((e) => e.source));
+  const nodesWithOutgoing = new Set(validEdges.map((e) => e.source));
   const finals = nodes.filter((n) => !nodesWithOutgoing.has(n.id) || n.data?.specId === "output");
   const snapshot = state.getSnapshot();
 

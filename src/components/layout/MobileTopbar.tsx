@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { useSidebar } from "./SidebarContext";
 import { useAuth } from "../auth/AuthContext";
+import ProfileAvatar from "../ui/ProfileAvatar";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -83,6 +84,7 @@ export default function MobileTopbar() {
               alt="Edgaze"
               fill
               priority
+              sizes="28px"
             />
           </div>
           <span className="text-[16px] font-semibold tracking-tight text-white">
@@ -100,18 +102,22 @@ export default function MobileTopbar() {
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
               aria-label="Open profile menu"
-              className="inline-flex items-center justify-center rounded-full border border-white/12 bg-white/5 p-1 hover:bg-white/10 transition"
+              className="inline-flex items-center justify-center rounded-full border border-gray-600/50 bg-white/5 p-1 hover:bg-white/10 transition"
             >
-              <Avatar
+              <ProfileAvatar
                 name={profile.full_name || profile.handle || "Profile"}
-                url={profile.avatar_url || null}
+                avatarUrl={profile.avatar_url || null}
+                size={26}
+                handle={profile.handle}
+                userId={userId}
+                className="border-0"
               />
             </button>
 
             {menuOpen && (
               <div
                 ref={menuRef}
-                className="absolute right-0 mt-2 z-[90] w-52 overflow-hidden rounded-2xl border border-white/12 bg-black/95 shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
+                className="absolute right-0 mt-2 z-[90] w-52 overflow-hidden rounded-2xl border border-gray-600/50 bg-black/95 shadow-[0_20px_60px_rgba(0,0,0,0.6)]"
               >
                 <button
                   type="button"

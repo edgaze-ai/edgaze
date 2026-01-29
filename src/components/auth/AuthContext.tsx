@@ -27,6 +27,7 @@ export type Profile = {
   socials?: Record<string, string> | null;
   plan: UserPlan;
   email_verified?: boolean | null;
+  is_founding_creator?: boolean | null;
 };
 
 export type AuthUser = {
@@ -138,6 +139,7 @@ function cleanPath(path: string): string | null {
 
 /**
  * Save return path to storage - simple and reliable
+ * IMPORTANT: Preserves query params and hash
  */
 function saveReturnPath(path: string) {
   if (typeof window === "undefined") return;
@@ -145,10 +147,15 @@ function saveReturnPath(path: string) {
   try {
     const cleaned = cleanPath(path);
     if (cleaned) {
+      console.log("[saveReturnPath] Saving path:", cleaned, "from original:", path);
       localStorage.setItem("edgaze:returnTo", cleaned);
       sessionStorage.setItem("edgaze:returnTo", cleaned);
+    } else {
+      console.warn("[saveReturnPath] Failed to clean path:", path);
     }
-  } catch {}
+  } catch (err) {
+    console.error("[saveReturnPath] Error saving path:", err);
+  }
 }
 
 /**
@@ -158,8 +165,13 @@ function getReturnPath(): string | null {
   if (typeof window === "undefined") return null;
   
   try {
-    return localStorage.getItem("edgaze:returnTo") || sessionStorage.getItem("edgaze:returnTo");
-  } catch {
+    const fromLocal = localStorage.getItem("edgaze:returnTo");
+    const fromSession = sessionStorage.getItem("edgaze:returnTo");
+    const result = fromLocal || fromSession;
+    console.log("[getReturnPath] Retrieved:", result, "from localStorage:", !!fromLocal, "from sessionStorage:", !!fromSession);
+    return result;
+  } catch (err) {
+    console.error("[getReturnPath] Error reading path:", err);
     return null;
   }
 }
@@ -238,11 +250,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (modalOpenRef.current) return;
     
     // Save current path BEFORE opening modal
+    // CRITICAL: This includes query params and hash (action=run, action=purchase, etc.)
     if (typeof window !== "undefined") {
       const currentPath = window.location.pathname + window.location.search + window.location.hash;
+      console.log("[openSignIn] Saving current path:", currentPath);
       // Only save if it's a valid path (not root, not auth pages)
       if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
         saveReturnPath(currentPath);
+      } else {
+        console.log("[openSignIn] Not saving path (invalid):", currentPath);
       }
     }
     
@@ -281,7 +297,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,plan,email_verified"
+          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,plan,email_verified,is_founding_creator"
         )
         .eq("id", uid)
         .maybeSingle();
@@ -474,36 +490,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       setAuthReady(true);
       
-      // Handle redirect after successful sign-in
+      // Handle redirect after successful sign-in (for email sign-in, not OAuth)
+      // OAuth redirects are handled by the callback handler
       // Check if we transitioned from no user to having a user
       if (!previousUserId && session?.user && typeof window !== "undefined") {
-        justSignedInRef.current = true;
+        // Only handle redirect if we're NOT on the callback page (OAuth handles its own redirect)
+        const isOnCallback = window.location.pathname.startsWith("/auth/callback");
         
-        // Small delay to ensure state is updated and modal is closed
-        setTimeout(() => {
-          try {
-            const returnPath = getReturnPath();
-            
-            if (returnPath) {
-              const cleaned = cleanPath(returnPath);
+        if (!isOnCallback) {
+          justSignedInRef.current = true;
+          
+          // Small delay to ensure state is updated and modal is closed
+          setTimeout(() => {
+            try {
+              const returnPath = getReturnPath();
               
-              if (cleaned && pathname !== cleaned) {
-                // Clear storage and redirect
-                clearReturnPath();
-                router.push(cleaned);
+              console.log("[Auth State Change] Email sign-in detected, checking return path:", returnPath);
+              
+              if (returnPath) {
+                const cleaned = cleanPath(returnPath);
+                
+                if (cleaned && pathname !== cleaned) {
+                  console.log("[Auth State Change] Redirecting to:", cleaned);
+                  // Clear storage and redirect
+                  clearReturnPath();
+                  router.push(cleaned);
+                } else {
+                  console.log("[Auth State Change] Invalid path or already on target, clearing storage");
+                  // Invalid path or already on that path - just clear storage
+                  clearReturnPath();
+                }
               } else {
-                // Invalid path or already on that path - just clear storage
-                clearReturnPath();
+                console.log("[Auth State Change] No return path found, staying on current page");
               }
+              
+              justSignedInRef.current = false;
+            } catch (err) {
+              console.error("[Auth State Change] Redirect error:", err);
+              clearReturnPath();
+              justSignedInRef.current = false;
             }
-            
-            justSignedInRef.current = false;
-          } catch (err) {
-            console.error("Redirect error:", err);
-            clearReturnPath();
-            justSignedInRef.current = false;
-          }
-        }, 300);
+          }, 300);
+        } else {
+          console.log("[Auth State Change] On callback page, letting callback handler manage redirect");
+        }
       }
     });
 
@@ -547,10 +577,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const callbackUrl = `${currentOrigin}/auth/callback`;
     
     // Build redirectTo URL for Supabase (must be full URL)
-    // Pass returnPath as query param so callback handler can use it
+    // CRITICAL: Always pass returnPath as query param, even if it's null
+    // This ensures the callback handler can always find it, even if localStorage is cleared
     const redirectTo = returnPath
       ? `${callbackUrl}?next=${encodeURIComponent(returnPath)}`
       : callbackUrl;
+    
+    console.log("[signInWithGoogle] Prepared redirect:", {
+      returnPath,
+      callbackUrl,
+      redirectTo,
+      currentOrigin,
+    });
 
     // CRITICAL DEBUG: Log what we're sending to Supabase
     console.log("[OAuth] Starting Google sign-in with:", {

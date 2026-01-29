@@ -28,14 +28,15 @@ function SelectionRing() {
 
 /* ---------------- Port side helper ---------------- */
 
-function sideFor(id: string | undefined): Position {
-  if (!id) return Position.Right;
+function sideFor(id: string | undefined, portKind: "input" | "output" = "output"): Position {
+  if (!id) return portKind === "input" ? Position.Left : Position.Right;
   const k = id.toLowerCase();
   if (k.includes("left")) return Position.Left;
   if (k.includes("right")) return Position.Right;
   if (k.includes("top")) return Position.Top;
   if (k.includes("bottom")) return Position.Bottom;
-  return Position.Right;
+  // Default: inputs on left, outputs on right
+  return portKind === "input" ? Position.Left : Position.Right;
 }
 
 /* ---------------- Utility: build preview text ---------------- */
@@ -72,7 +73,7 @@ function buildPreview(data: any, summary: string): string {
 /* ---------------- Node frame ---------------- */
 
 function NodeFrameImpl(props: NodeProps) {
-  const { id, selected, data, isConnectable } = props as any;
+  const { id, selected, data, isConnectable = true } = props as any;
 
   const spec = getNodeSpec(data?.specId);
 
@@ -315,11 +316,13 @@ function NodeFrameImpl(props: NodeProps) {
 
       {/* Ports */}
       {inputs.map((p, i) => {
-        const pos = sideFor(p.id);
+        const pos = sideFor(p.id, "input");
+        // For output nodes, position handle more towards center due to larger size
+        const topOffset = isOutput ? 80 : 42;
         const style =
           pos === Position.Top || pos === Position.Bottom
             ? { left: "50%", transform: "translateX(-50%)" }
-            : { top: 42 + i * 18 };
+            : { top: topOffset + i * 18 };
 
         return (
           <Handle
@@ -327,15 +330,15 @@ function NodeFrameImpl(props: NodeProps) {
             id={p.id}
             type="target"
             position={pos}
-            className="edge-port edge-port--edg !h-3 !w-3"
+            className="edge-port edge-port--edg !h-3 !w-3 !z-50 !pointer-events-auto"
             style={style as any}
-            isConnectable={isConnectable}
+            isConnectable={isConnectable !== false}
           />
         );
       })}
 
       {outputs.map((p, i) => {
-        const pos = sideFor(p.id);
+        const pos = sideFor(p.id, "output");
         const style =
           pos === Position.Top || pos === Position.Bottom
             ? { left: "50%", transform: "translateX(-50%)" }
@@ -347,9 +350,9 @@ function NodeFrameImpl(props: NodeProps) {
             id={p.id}
             type="source"
             position={pos}
-            className="edge-port edge-port--edg !h-3 !w-3"
+            className="edge-port edge-port--edg !h-3 !w-3 !z-50 !pointer-events-auto"
             style={style as any}
-            isConnectable={isConnectable}
+            isConnectable={isConnectable !== false}
           />
         );
       })}

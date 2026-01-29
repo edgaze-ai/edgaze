@@ -20,6 +20,7 @@ import {
   Lock,
   CheckCircle2,
   Play,
+  Flag,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
@@ -29,6 +30,12 @@ import { canRunDemo, trackDemoRun } from "../../../lib/workflow/device-tracking"
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
 import { track } from "../../../lib/mixpanel";
+import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../lib/constants";
+import FoundingCreatorBadge from "../../../components/ui/FoundingCreatorBadge";
+import TurnstileWidget from "../../../components/apply/TurnstileWidget";
+import ProfileAvatar from "../../../components/ui/ProfileAvatar";
+import ProfileLink from "../../../components/ui/ProfileLink";
+import ReportModal from "../../../components/marketplace/ReportModal";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -72,6 +79,12 @@ type WorkflowListing = {
 type PurchaseRow = {
   id: string;
   status: string; // workflow_purchases.status (text)
+};
+
+type PublicProfileLite = {
+  full_name: string | null;
+  handle: string | null;
+  avatar_url: string | null;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -879,6 +892,7 @@ export default function WorkflowProductPage() {
   const [mainDemoIndex, setMainDemoIndex] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [purchase, setPurchase] = useState<PurchaseRow | null>(null);
@@ -890,6 +904,11 @@ export default function WorkflowProductPage() {
   const [demoRunModalOpen, setDemoRunModalOpen] = useState(false);
   const [demoRunState, setDemoRunState] = useState<WorkflowRunState | null>(null);
   const [demoRunning, setDemoRunning] = useState(false);
+  
+  // Turnstile verification for demo
+  const [turnstileModalOpen, setTurnstileModalOpen] = useState(false);
+  const [turnstileVerifying, setTurnstileVerifying] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const [upNext, setUpNext] = useState<WorkflowListing[]>([]);
   const [upNextLoading, setUpNextLoading] = useState(false);
@@ -897,6 +916,9 @@ export default function WorkflowProductPage() {
   const [upNextCursor, setUpNextCursor] = useState(0);
   const upNextSentinelRef = useRef<HTMLDivElement | null>(null);
   const autoActionTriggeredRef = useRef(false);
+
+  // Load creator profile for avatar
+  const [creatorProfile, setCreatorProfile] = useState<PublicProfileLite | null>(null);
 
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
@@ -1008,6 +1030,34 @@ export default function WorkflowProductPage() {
   const currentUserName = (profile as any)?.full_name ?? null;
   const currentUserHandle = (profile as any)?.handle ?? null;
 
+  // Load creator avatar/name from profiles (handle-based, avoids uuid/text mismatch)
+  useEffect(() => {
+    if (!listing?.owner_handle) {
+      setCreatorProfile(null);
+      return;
+    }
+
+    let alive = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name,handle,avatar_url")
+        .eq("handle", listing.owner_handle)
+        .maybeSingle();
+
+      if (!alive) return;
+      if (error || !data) {
+        setCreatorProfile(null);
+        return;
+      }
+      setCreatorProfile(data as PublicProfileLite);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [listing?.owner_handle, supabase]);
+
   const canonicalShareUrl = useMemo(() => {
     const h = listing?.owner_handle || ownerHandle || "";
     const c = listing?.edgaze_code || edgazeCode || "";
@@ -1020,8 +1070,9 @@ export default function WorkflowProductPage() {
   // Typed routes in Next can be strict; cast to any for runtime-safe string routes.
   const goBack = () => router.push("/marketplace" as any);
 
+  // Only treat as free when listing is loaded and explicitly free (source of truth: DB).
   const isNaturallyFree = useMemo(() => {
-    if (!listing) return true;
+    if (!listing) return false;
     return listing.monetisation_mode === "free" || listing.is_paid === false;
   }, [listing]);
 
@@ -1039,24 +1090,24 @@ export default function WorkflowProductPage() {
   }, [listing, isNaturallyFree]);
 
   const primaryCtaLabel = useMemo(() => {
-    if (showClosedBetaFree) return "Get access (Free)";
     if (isNaturallyFree) return "Open in Workflow Studio";
     return "Buy access";
-  }, [showClosedBetaFree, isNaturallyFree]);
+  }, [isNaturallyFree]);
 
   const isOwner = useMemo(() => {
     if (!listing || !currentUserId) return false;
     return String(listing.owner_id ?? "") === String(currentUserId);
   }, [listing, currentUserId]);
 
+  // Access ONLY: owner OR has a row in workflow_purchases (paid/beta). No free access without purchase.
   const isOwned = useMemo(() => {
     if (!listing) return false;
     if (isOwner) return true;
-    if (isNaturallyFree) return true;
+    // Require purchase row for everyone else (even free items need to be "purchased" to show in library)
     return Boolean(
       purchase && (purchase.status === "paid" || purchase.status === "beta")
     );
-  }, [listing, isOwner, isNaturallyFree, purchase]);
+  }, [listing, isOwner, purchase]);
 
   function openWorkflowStudio() {
     if (!listing) return;
@@ -1137,12 +1188,6 @@ export default function WorkflowProductPage() {
     if (!listing) return;
     setPurchaseError(null);
 
-    // Free listings are still "open", but we want preview mode for non-owners too.
-    if (isNaturallyFree && !isOwner) {
-      openWorkflowStudio();
-      return;
-    }
-
     // Save intent in URL before requiring auth so redirect includes it
     // Use relative path only (not absolute URL)
     const urlParams = new URLSearchParams(window.location.search);
@@ -1159,8 +1204,8 @@ export default function WorkflowProductPage() {
       return;
     }
 
-    // Closed beta: paywalled becomes free access row.
-    if (showClosedBetaFree) {
+    // For closed beta OR free items: insert purchase row (free items still need purchase to show in library)
+    if (showClosedBetaFree || isNaturallyFree) {
       setPurchaseLoading(true);
       try {
         const uid = userId!;
@@ -1212,19 +1257,61 @@ export default function WorkflowProductPage() {
       }
     }
 
-    // Real paid checkout (Stripe) not wired yet.
-    if (!isNaturallyFree) {
+    // Real paid checkout (Stripe) not wired yet - for paid items outside closed beta.
+    if (!isNaturallyFree && !showClosedBetaFree) {
       setPurchaseError(
         "Paid checkout not wired yet. Stripe should create workflow_purchases(status='paid') server-side."
       );
       return;
     }
 
-    openWorkflowStudio();
+    // Should not reach here - all paths above return
+    setPurchaseError("Unable to grant access. Please try again.");
   }
 
-  // Handle one-time demo run (strict IP + device based)
-  async function handleDemoRun() {
+  // Handle Turnstile token from widget
+  async function handleTurnstileToken(token: string) {
+    if (!token) {
+      setTurnstileToken(null);
+      return;
+    }
+    
+    setTurnstileToken(token);
+    setTurnstileVerifying(true);
+    
+    try {
+      // Verify token with server
+      const response = await fetch("/api/turnstile/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ token }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.ok) {
+        // Verification successful, proceed with demo
+        setTurnstileModalOpen(false);
+        setTurnstileVerifying(false);
+        setTurnstileToken(null);
+        await startDemoRun();
+      } else {
+        setPurchaseError("Captcha verification failed. Please try again.");
+        setTurnstileModalOpen(false);
+        setTurnstileVerifying(false);
+        setTurnstileToken(null);
+      }
+    } catch (error: any) {
+      setPurchaseError("Failed to verify captcha. Please try again.");
+      setTurnstileModalOpen(false);
+      setTurnstileVerifying(false);
+      setTurnstileToken(null);
+    }
+  }
+
+  // Start demo run after Turnstile verification
+  async function startDemoRun() {
     if (!listing) return;
 
     // Strict one-time check
@@ -1282,6 +1369,23 @@ export default function WorkflowProductPage() {
     } catch (error: any) {
       setPurchaseError(error.message || "Failed to start demo");
     }
+  }
+
+  // Handle demo button click - opens Turnstile modal first
+  function handleDemoButtonClick() {
+    if (!listing) return;
+    
+    // Check if demo is available
+    const canRun = canRunDemo(listing.id, true);
+    if (!canRun) {
+      setPurchaseError("You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.");
+      return;
+    }
+    
+    // Open Turnstile verification modal
+    setTurnstileModalOpen(true);
+    setTurnstileToken(null);
+    setPurchaseError(null);
   }
 
   // Handle demo input submission
@@ -1551,6 +1655,94 @@ export default function WorkflowProductPage() {
         title={listing.title}
       />
 
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType="workflow"
+        targetId={listing.id}
+        targetTitle={listing.title}
+        targetOwnerHandle={listing.owner_handle}
+        targetOwnerName={listing.owner_name}
+      />
+
+      {/* Turnstile Verification Modal */}
+      {turnstileModalOpen && (
+        <div className="fixed inset-0 z-[130]">
+          <div className="absolute inset-0 bg-black/80" onClick={() => {
+            if (!turnstileVerifying) {
+              setTurnstileModalOpen(false);
+              setTurnstileToken(null);
+            }
+          }} />
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="relative w-[min(480px,94vw)] overflow-hidden rounded-3xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.85)]">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/15 border border-amber-400/20">
+                    <Lock className="h-5 w-5 text-amber-200" />
+                  </div>
+                  <div>
+                    <div className="text-[14px] font-semibold text-white">
+                      Verify to Try Demo
+                    </div>
+                    <div className="text-[11px] text-white/55">
+                      Complete verification to run this workflow
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!turnstileVerifying) {
+                      setTurnstileModalOpen(false);
+                      setTurnstileToken(null);
+                    }
+                  }}
+                  disabled={turnstileVerifying}
+                  className="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="p-5">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="text-[12px] text-white/70 mb-4">
+                    Complete the security verification below to access a one-time demo run of this workflow.
+                  </div>
+                  
+                  <div className="flex justify-center">
+                    <TurnstileWidget onToken={handleTurnstileToken} />
+                  </div>
+                  
+                  {turnstileVerifying && (
+                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Verifying...
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
+                  <div className="flex items-start gap-2">
+                    <Lock className="h-4 w-4 mt-[1px] text-white/45" />
+                    <div className="min-w-0">
+                      <div className="text-white/80 font-semibold">
+                        Secure Demo Access
+                      </div>
+                      <div className="mt-0.5 leading-snug">
+                        This verification protects our API keys and ensures fair usage. Each device gets one demo run.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Demo Run Modal */}
       <PremiumWorkflowRunModal
         open={demoRunModalOpen}
@@ -1568,7 +1760,7 @@ export default function WorkflowProductPage() {
         onRerun={() => {
           setDemoRunState(null);
           setDemoRunModalOpen(false);
-          setTimeout(() => handleDemoRun(), 100);
+          setTimeout(() => handleDemoButtonClick(), 100);
         }}
         onSubmitInputs={handleDemoSubmitInputs}
         onBuyWorkflow={() => {
@@ -1608,18 +1800,47 @@ export default function WorkflowProductPage() {
               Share
             </button>
 
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[11px] font-semibold">
-                {initialsFromName(listing.owner_name || listing.owner_handle)}
-              </div>
-              <div className="hidden flex-col sm:flex leading-tight">
-                <span className="text-xs font-medium text-white/90">
-                  {listing.owner_name || "Creator"}
-                </span>
+            <button
+              type="button"
+              onClick={() => {
+                safeTrack("Report Button Clicked", {
+                  surface: "product_page",
+                  location: "desktop_header",
+                  listing_id: listing?.id,
+                  edgaze_code: listing?.edgaze_code,
+                });
+                setReportOpen(true);
+              }}
+              className="grid h-8 w-8 place-items-center rounded-full border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80"
+              title="Report"
+              aria-label="Report"
+            >
+              <Flag className="h-3.5 w-3.5" />
+            </button>
+
+            <div className="flex items-center gap-2 min-w-0">
+              <ProfileAvatar
+                name={creatorProfile?.full_name || listing.owner_name || listing.owner_handle}
+                avatarUrl={creatorProfile?.avatar_url || null}
+                size={32}
+                handle={listing.owner_handle}
+              />
+              <div className="hidden sm:flex flex-col leading-tight min-w-0">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <ProfileLink
+                    name={creatorProfile?.full_name || listing.owner_name || "Creator"}
+                    handle={listing.owner_handle}
+                    showBadge={true}
+                    badgeSize="md"
+                    className="min-w-0 truncate text-xs font-medium text-white/90"
+                  />
+                </div>
                 {listing.owner_handle && (
-                  <span className="text-[11px] text-white/50">
-                    @{listing.owner_handle}
-                  </span>
+                  <ProfileLink
+                    name={`@${listing.owner_handle}`}
+                    handle={listing.owner_handle}
+                    className="truncate text-[11px] text-white/50"
+                  />
                 )}
               </div>
             </div>
@@ -1633,58 +1854,35 @@ export default function WorkflowProductPage() {
           <button
             type="button"
             onClick={goBack}
-            className="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85"
             aria-label="Back"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-
           <button
             type="button"
             onClick={grantAccessOrOpen}
             disabled={purchaseLoading}
             className={cn(
-              "flex-1 inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold",
+              "flex-1 inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold",
               purchaseLoading
                 ? "bg-white/10 text-white/70 border border-white/10"
-                : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
+                : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_16px_rgba(56,189,248,0.6)]"
             )}
           >
             {purchaseLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : isOwned ? (
-              <Sparkles className="h-4 w-4" />
+              <Sparkles className="h-3.5 w-3.5" />
             ) : (
-              <Lock className="h-4 w-4" />
+              <Lock className="h-3.5 w-3.5" />
             )}
-            {isOwned ? "Open" : primaryCtaLabel}
+            <span>{isOwned ? "Open" : primaryCtaLabel}</span>
           </button>
-
-          {/* Mobile Demo Button */}
-          {!isOwned && listing && canRunDemo(listing.id, true) && (
-            <button
-              type="button"
-              onClick={handleDemoRun}
-              disabled={demoRunning}
-              className={cn(
-                "inline-flex items-center justify-center gap-1.5 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 px-3 py-2 text-xs font-semibold text-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.3)] transition-all",
-                demoRunning && "opacity-50 cursor-not-allowed"
-              )}
-              title="Try Demo (One-time)"
-            >
-              {demoRunning ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Play className="h-3.5 w-3.5" />
-              )}
-              <span className="hidden xs:inline">Demo</span>
-            </button>
-          )}
-
           <button
             type="button"
             onClick={() => setShareOpen(true)}
-            className="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/85"
             aria-label="Share"
           >
             <Share2 className="h-4 w-4" />
@@ -1814,30 +2012,43 @@ export default function WorkflowProductPage() {
                   {listing.title || "Untitled workflow"}
                 </h1>
 
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-white/60">
-                  <span className="inline-flex items-center gap-1">
-                    <Eye className="h-4 w-4" />
-                    {listing.views_count ?? 0} views
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Heart className="h-4 w-4" />
-                    {listing.likes_count ?? 0} likes
-                  </span>
-                </div>
+                {SHOW_VIEWS_AND_LIKES_PUBLICLY && (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-white/60">
+                    <span className="inline-flex items-center gap-1">
+                      <Eye className="h-4 w-4" />
+                      {listing.views_count ?? 0} views
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Heart className="h-4 w-4" />
+                      {listing.likes_count ?? 0} likes
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xs font-semibold">
-                    {initialsFromName(listing.owner_name || listing.owner_handle)}
-                  </div>
+                  <ProfileAvatar
+                    name={creatorProfile?.full_name || listing.owner_name || listing.owner_handle}
+                    avatarUrl={creatorProfile?.avatar_url || null}
+                    size={40}
+                    handle={listing.owner_handle}
+                  />
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-white/90">
-                      {listing.owner_name || "Creator"}
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <ProfileLink
+                        name={creatorProfile?.full_name || listing.owner_name || "Creator"}
+                        handle={listing.owner_handle}
+                        showBadge={true}
+                        badgeSize="md"
+                        className="min-w-0 truncate text-sm font-medium text-white/90"
+                      />
                     </div>
-                    <div className="truncate text-[12px] text-white/55">
-                      @{listing.owner_handle || "creator"}
-                    </div>
+                    <ProfileLink
+                      name={`@${listing.owner_handle || "creator"}`}
+                      handle={listing.owner_handle}
+                      className="truncate text-[12px] text-white/55"
+                    />
                   </div>
                 </div>
 
@@ -1876,6 +2087,44 @@ export default function WorkflowProductPage() {
                       ))}
                   </div>
                 )}
+              </div>
+
+              {/* Mobile: Try demo only after purchase; Report */}
+              <div className="sm:hidden mt-4 flex flex-col gap-2">
+                {listing && isOwned && (
+                  <button
+                    type="button"
+                    onClick={handleDemoButtonClick}
+                    disabled={demoRunning || turnstileVerifying || !canRunDemo(listing.id, true)}
+                    className={cn(
+                      "w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 text-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.3)] transition-all",
+                      (demoRunning || turnstileVerifying || !canRunDemo(listing.id, true)) && "opacity-50 cursor-not-allowed"
+                    )}
+                    title={!canRunDemo(listing.id, true) ? "You've already used your one-time demo. Purchase for unlimited runs." : "Try a one-time demo"}
+                  >
+                    {(demoRunning || turnstileVerifying) ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                    Try a one-time demo
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    safeTrack("Report Button Clicked", {
+                      surface: "product_page",
+                      location: "mobile_near_description",
+                      listing_id: listing?.id,
+                      edgaze_code: listing?.edgaze_code,
+                    });
+                    setReportOpen(true);
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white/80"
+                >
+                  <Flag className="h-3 w-3" /> Report
+                </button>
               </div>
 
               <div className="hidden sm:block mt-6 border-t border-white/10 pt-6">
@@ -1984,9 +2233,12 @@ export default function WorkflowProductPage() {
                           <p className="line-clamp-2 text-[13px] font-semibold text-white/90">
                             {s.title || "Untitled workflow"}
                           </p>
-                          <p className="mt-1 truncate text-[12px] text-white/55">
-                            @{s.owner_handle || s.owner_name || "creator"}
-                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 min-w-0">
+                            <span className="truncate text-[12px] text-white/55">
+                              @{s.owner_handle || s.owner_name || "creator"}
+                            </span>
+                            <FoundingCreatorBadge size="sm" className="shrink-0" />
+                          </div>
                           <div className="mt-1 flex items-center justify-between">
                             <p className="truncate text-[11px] text-white/40">
                               {s.tags
@@ -2134,23 +2386,24 @@ export default function WorkflowProductPage() {
                         : primaryCtaLabel}
                     </button>
 
-                    {/* Premium Demo Button - One-time strict */}
-                    {!isOwned && listing && canRunDemo(listing.id, true) && (
+                    {/* Try a one-time demo - only after purchase */}
+                    {listing && isOwned && (
                       <button
                         type="button"
-                        onClick={handleDemoRun}
-                        disabled={demoRunning}
+                        onClick={handleDemoButtonClick}
+                        disabled={demoRunning || turnstileVerifying || !canRunDemo(listing.id, true)}
                         className={cn(
                           "flex w-full items-center justify-center gap-2 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 px-4 py-2.5 text-sm font-semibold text-amber-200 shadow-[0_4px_20px_rgba(251,191,36,0.3)] transition-all hover:shadow-[0_6px_24px_rgba(251,191,36,0.4)]",
-                          demoRunning && "opacity-50 cursor-not-allowed"
+                          (demoRunning || turnstileVerifying || !canRunDemo(listing.id, true)) && "opacity-50 cursor-not-allowed"
                         )}
+                        title={!canRunDemo(listing.id, true) ? "You've already used your one-time demo. Purchase for unlimited runs." : "Try a one-time demo"}
                       >
-                        {demoRunning ? (
+                        {(demoRunning || turnstileVerifying) ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Play className="h-4 w-4" />
                         )}
-                        Try Demo
+                        Try a one-time demo
                       </button>
                     )}
 
@@ -2161,6 +2414,22 @@ export default function WorkflowProductPage() {
                     >
                       <Share2 className="h-4 w-4" />
                       Share
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        safeTrack("Report Button Clicked", {
+                          surface: "product_page",
+                          location: "sidebar",
+                          listing_id: listing?.id,
+                          edgaze_code: listing?.edgaze_code,
+                        });
+                        setReportOpen(true);
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white/80"
+                    >
+                      <Flag className="h-3 w-3" /> Report
                     </button>
                   </div>
 
@@ -2242,9 +2511,12 @@ export default function WorkflowProductPage() {
                             <p className="line-clamp-2 text-[13px] font-semibold text-white/90">
                               {s.title || "Untitled workflow"}
                             </p>
-                            <p className="mt-1 truncate text-[12px] text-white/55">
-                              @{s.owner_handle || s.owner_name || "creator"}
-                            </p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 min-w-0">
+                              <span className="truncate text-[12px] text-white/55">
+                                @{s.owner_handle || s.owner_name || "creator"}
+                              </span>
+                              <FoundingCreatorBadge size="sm" className="shrink-0" />
+                            </div>
                             <div className="mt-1 flex items-center justify-between">
                               <p className="truncate text-[11px] text-white/40">
                                 {s.tags

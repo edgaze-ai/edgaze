@@ -28,15 +28,6 @@ export default function PromptToolbar({
     <div className="bg-[#070708]">
       <div className="flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-3 min-w-0">
-          {/* Edgaze logo: NO backdrop/padding */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/edgaze-mark.png"
-            alt="Edgaze"
-            className="h-9 w-9 select-none"
-            draggable={false}
-          />
-
           <div className="min-w-0">
             <div className="text-sm font-semibold text-white/90 truncate">
               {title}

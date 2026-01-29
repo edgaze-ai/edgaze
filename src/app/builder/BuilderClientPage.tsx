@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ArrowLeft, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2 } from "lucide-react";
+import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ArrowLeft, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2, Sparkles, Loader2 } from "lucide-react";
 
 import { useAuth } from "../../components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -13,6 +13,10 @@ import ReactFlowCanvas, { CanvasRef as BECanvasRef } from "../../components/buil
 import BlockLibrary from "../../components/builder/BlockLibrary";
 import InspectorPanel from "../../components/builder/InspectorPanel";
 import WorkflowPublishModal from "../../components/builder/WorkflowPublishModal";
+import PremiumWorkflowRunModal, { type WorkflowRunState, type BuilderRunLimit } from "../../components/builder/PremiumWorkflowRunModal";
+import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
+import { canRunDemo, trackDemoRun, getRemainingDemoRuns } from "../../lib/workflow/device-tracking";
+import { validateWorkflowGraph } from "../../lib/workflow/validation";
 
 import { cx } from "../../lib/cx";
 import { emit, on } from "../../lib/bus";
@@ -91,7 +95,7 @@ export default function BuilderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { userId, authReady, requireAuth } = useAuth();
+  const { userId, authReady, requireAuth, openSignIn, getAccessToken } = useAuth();
 
   const beRef = useRef<BECanvasRef>(null);
 
@@ -175,9 +179,12 @@ export default function BuilderPage() {
     );
   }
 
-  // run (COMING SOON UI)
+  // Premium run modal
+  const [runModalOpen, setRunModalOpen] = useState(false);
+  const [runState, setRunState] = useState<WorkflowRunState | null>(null);
+  const [builderRunLimit, setBuilderRunLimit] = useState<BuilderRunLimit | null>(null);
   const [running, setRunning] = useState(false);
-  const [runSoonOpen, setRunSoonOpen] = useState(false);
+  const [showPreparingToast, setShowPreparingToast] = useState(false);
 
   // deep-link guard (prevents repeated opening)
   const openedWorkflowIdRef = useRef<string | null>(null);
@@ -425,12 +432,6 @@ export default function BuilderPage() {
     };
   }, [isPreview]);
 
-  // auto-close run coming-soon modal
-  useEffect(() => {
-    if (!runSoonOpen) return;
-    const t = setTimeout(() => setRunSoonOpen(false), 1600);
-    return () => clearTimeout(t);
-  }, [runSoonOpen]);
 
   const refreshWorkflows = useCallback(async () => {
     setWfError(null);
@@ -496,9 +497,12 @@ export default function BuilderPage() {
   }, [mounted, refreshWorkflows]);
 
   const hashGraph = (g: { nodes: any[]; edges: any[] }) => {
-    // low-cost stable hash: counts + ids + positions
+    // low-cost stable hash: counts + ids + positions + config (to detect config changes)
     const ns = (g.nodes || [])
-      .map((n: any) => `${n.id}:${Math.round(n.position?.x ?? 0)}:${Math.round(n.position?.y ?? 0)}`)
+      .map((n: any) => {
+        const configHash = JSON.stringify(n.data?.config ?? {});
+        return `${n.id}:${Math.round(n.position?.x ?? 0)}:${Math.round(n.position?.y ?? 0)}:${configHash}`;
+      })
       .join("|");
     const es = (g.edges || [])
       .map(
@@ -563,11 +567,23 @@ export default function BuilderPage() {
   const onSelectionChange = useCallback(
     (sel: any) => {
       if (isPreview) return;
-      setSelection({
-        nodeId: typeof sel?.nodeId === "string" ? sel.nodeId : null,
-        specId: typeof sel?.specId === "string" ? sel.specId : undefined,
-        config: sel?.config ?? undefined,
-      });
+      // Always get the latest config from the graph to ensure we have the most up-to-date values
+      const nodeId = typeof sel?.nodeId === "string" ? sel.nodeId : null;
+      if (nodeId) {
+        const graph = beRef.current?.getGraph?.();
+        const node = graph?.nodes?.find((n: any) => n.id === nodeId);
+        setSelection({
+          nodeId,
+          specId: typeof sel?.specId === "string" ? sel.specId : undefined,
+          config: node?.data?.config ?? sel?.config ?? undefined,
+        });
+      } else {
+        setSelection({
+          nodeId: null,
+          specId: undefined,
+          config: undefined,
+        });
+      }
     },
     [isPreview]
   );
@@ -956,6 +972,7 @@ export default function BuilderPage() {
   const ensureDraftSavedNow = useCallback(async () => {
     if (isPreview) return;
     if (!userId || !activeDraftId) return;
+    // Always get the latest graph from the canvas to ensure we have the most recent config
     const g = beRef.current?.getGraph?.();
     if (!g) return;
 
@@ -963,9 +980,13 @@ export default function BuilderPage() {
 
     const update = { title: name || "Untitled Workflow", graph: g, updated_at: nowIso() };
 
-    await supabase.from("workflow_drafts").update(update).eq("id", activeDraftId).eq("owner_id", userId);
-
-    lastSavedHashRef.current = hashGraph(g);
+    const { error } = await supabase.from("workflow_drafts").update(update).eq("id", activeDraftId).eq("owner_id", userId);
+    
+    if (!error) {
+      lastSavedHashRef.current = hashGraph(g);
+    } else {
+      console.error("Failed to save draft before publish:", error);
+    }
   }, [supabase, userId, activeDraftId, name, isPreview]);
 
   // ----- Floating window drag/resize (foolproof, no crashes) -----
@@ -1059,25 +1080,131 @@ export default function BuilderPage() {
     setShowLauncher(true);
   };
 
-  // Run is COMING SOON: no RunModal usage (avoids TS prop mismatch)
-  const runWorkflow = () => {
+  // Premium workflow execution
+  const runWorkflow = async () => {
     if (!activeDraftId) return;
 
     const graph = beRef.current?.getGraph?.();
+    if (!graph) return;
+
+    // Show instant toast notification
+    setShowPreparingToast(true);
+
+    // Check device-based demo limit (for preview mode) - allow 5 runs
+    if (isPreview) {
+      const canRun = canRunDemo(activeDraftId);
+      const remaining = getRemainingDemoRuns(activeDraftId);
+      if (!canRun) {
+        safeTrack("Workflow Demo Run Blocked", {
+          surface: "builder",
+          workflow_id: activeDraftId,
+          reason: "device_limit_reached",
+        });
+        setWfError(`You've used all 5 free demo runs for this workflow. Please add your own API keys or purchase this workflow to continue.`);
+        return;
+      }
+    }
+
     safeTrack("Workflow Run Initiated", {
       surface: "builder",
       workflow_id: activeDraftId,
       workflow_name: name,
-      node_count: graph?.nodes?.length || 0,
-      edge_count: graph?.edges?.length || 0,
-      status: "coming_soon",
+      node_count: graph.nodes?.length || 0,
+      edge_count: graph.edges?.length || 0,
+      is_preview: isPreview,
     });
 
-    setRunning(true);
-    setRunSoonOpen(true);
+    // Validate workflow graph before execution
+    const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
+    
+    if (!validation.valid) {
+      const errorMessage = validation.errors.join("\n\n");
+      setWfError(errorMessage);
+      safeTrack("Workflow Run Blocked", {
+        surface: "builder",
+        workflow_id: activeDraftId,
+        reason: "validation_failed",
+        errors: validation.errors,
+      });
+      return;
+    }
 
-    // premium "starting" feel; stops automatically
-    window.setTimeout(() => setRunning(false), 900);
+    // Extract inputs from workflow
+    const inputs = extractWorkflowInputs(graph.nodes || []);
+    const aiSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
+    const hasAiNodes = (graph.nodes || []).some((n: any) => aiSpecs.includes(n.data?.specId ?? ""));
+    const isBuilderTest = !isPreview;
+    const showInputPhase = inputs.length > 0 || (isBuilderTest && hasAiNodes);
+
+    // Builder test requires authentication (unlike preview/demo)
+    if (isBuilderTest) {
+      if (!requireAuth()) {
+        // User needs to sign in - requireAuth already opens the sign-in modal
+        return;
+      }
+    }
+
+    // Builder test: fetch remaining runs (used/limit) before opening modal
+    if (isBuilderTest && hasAiNodes) {
+      try {
+        const accessToken = await getAccessToken();
+        const headers: HeadersInit = { "Content-Type": "application/json" };
+        if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+        const remRes = await fetch(
+          `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=1`,
+          { method: "GET", headers, credentials: "include" }
+        );
+        if (remRes.ok) {
+          const rem = await remRes.json();
+          if (rem.ok) {
+            if (rem.isAdmin) {
+              setBuilderRunLimit({ used: 0, limit: 999999, isAdmin: true });
+            } else if (rem.used != null && rem.limit != null) {
+              setBuilderRunLimit({ used: rem.used, limit: rem.limit, isAdmin: false });
+            }
+          }
+        }
+      } catch {
+        setBuilderRunLimit({ used: 0, limit: 10 });
+      }
+    } else {
+      setBuilderRunLimit(null);
+    }
+
+    // Initialize run state
+    const workflowGraph = beRef.current?.getGraph?.();
+    const initialState: WorkflowRunState = {
+      workflowId: activeDraftId,
+      workflowName: name || "Untitled Workflow",
+      phase: showInputPhase ? "input" : "executing",
+      status: "idle",
+      steps: [],
+      graph: workflowGraph ? {
+        nodes: (workflowGraph.nodes || []).map((n: any) => ({
+          id: n.id,
+          data: {
+            specId: n.data?.specId,
+            title: n.data?.title,
+            config: n.data?.config,
+          },
+        })),
+        edges: (workflowGraph.edges || []).map((e: any) => ({
+          source: e.source,
+          target: e.target,
+        })),
+      } : undefined,
+      logs: [],
+      inputs: showInputPhase ? (inputs.length > 0 ? inputs : []) : undefined,
+      summary: validation.warnings.length > 0 
+        ? `${validation.warnings.length} warning(s): ${validation.warnings[0]}`
+        : undefined,
+    };
+
+    setRunState(initialState);
+    setRunModalOpen(true);
+    // Hide toast when modal opens
+    setShowPreparingToast(false);
+    setRunning(true);
 
     // keep the bus event for future, but don’t execute runtime logic now
     // emit("builder:run", { workflowId: activeDraftId });
@@ -1086,6 +1213,396 @@ export default function BuilderPage() {
   const publishWorkflow = () => {
     if (isPreview) return;
     emit("builder:publish", { workflowId: activeDraftId });
+  };
+
+  const handleSubmitInputs = async (inputValues: Record<string, any>) => {
+    if (!activeDraftId || !runState) return;
+
+    const graph = beRef.current?.getGraph?.();
+    if (!graph) return;
+    
+    const aiSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
+    const hasAiNodes = (graph.nodes || []).some((n: any) => aiSpecs.includes(n.data?.specId ?? ""));
+    
+    // Builder test requires authentication (unlike preview/demo)
+    const isBuilderTest = !isPreview;
+    if (isBuilderTest) {
+      if (!requireAuth()) {
+        // User needs to sign in - requireAuth already opens the sign-in modal
+        return;
+      }
+    }
+
+    // Track demo run for preview mode (increments count, allows up to 5)
+    if (isPreview) {
+      trackDemoRun(activeDraftId);
+    }
+
+    const openaiApiKeyFromModal = typeof inputValues.__openaiApiKey === "string" ? inputValues.__openaiApiKey.trim() : "";
+
+    // Convert File objects to base64 for transmission (exclude __openaiApiKey from inputs)
+    const processedInputs: Record<string, any> = {};
+    for (const [key, value] of Object.entries(inputValues)) {
+      if (key === "__openaiApiKey") continue;
+      if (value instanceof File) {
+        // Convert file to base64
+        try {
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              resolve(result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(value);
+          });
+          processedInputs[key] = {
+            filename: value.name,
+            type: value.type,
+            size: value.size,
+            data: base64,
+          };
+        } catch (error) {
+          console.error("Failed to convert file to base64:", error);
+          setWfError("Failed to process file upload. Please try again.");
+          return;
+        }
+      } else {
+        processedInputs[key] = value;
+      }
+    }
+
+    // Collect API keys from node configs
+    const userApiKeys: Record<string, Record<string, string>> = {};
+    for (const node of graph.nodes || []) {
+      const specId = node.data?.specId;
+      const apiKey = node.data?.config?.apiKey;
+      
+      // Check if this node requires API keys and has one configured
+      if (specId && ["openai-chat", "openai-embeddings", "openai-image"].includes(specId)) {
+        if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
+          userApiKeys[node.id] = { apiKey: apiKey.trim() };
+        }
+      }
+    }
+
+    // Update state to executing
+    setRunState({
+      ...runState,
+      phase: "executing",
+      status: "running",
+      inputValues: processedInputs,
+      startedAt: Date.now(),
+    });
+
+    try {
+      // Get access token from auth context to ensure session is passed
+      const accessToken = await getAccessToken();
+      
+      // Build headers with auth token if available
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+      
+      const response = await fetch("/api/flow/run", {
+        method: "POST",
+        headers,
+        credentials: "include", // Ensure cookies are sent
+        body: JSON.stringify({
+          workflowId: activeDraftId,
+          nodes: graph.nodes || [],
+          edges: graph.edges || [],
+          inputs: processedInputs,
+          userApiKeys,
+          isDemo: isPreview,
+          isBuilderTest: !isPreview,
+          openaiApiKey: !isPreview ? openaiApiKeyFromModal || undefined : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        let errorData: any = { error: `HTTP ${response.status}: ${response.statusText}` };
+        try {
+          errorData = await response.json();
+        } catch {
+          // If JSON parsing fails, use the status text
+        }
+        const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+        
+        // Update run counter from error response if available (failed runs also count)
+        if (!isPreview && activeDraftId && hasAiNodes && errorData.freeRunsRemaining != null) {
+          const FREE_BUILDER_RUNS = 10;
+          const freeRunsRemaining = errorData.freeRunsRemaining;
+          const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
+          setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
+          console.log(`[Run Counter] Updated from error response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      if (!result.ok) {
+        const errorMessage = result.error || result.message || "Execution failed";
+        
+        // Update run counter from error response if available (failed runs also count)
+        if (!isPreview && activeDraftId && hasAiNodes && result.freeRunsRemaining != null) {
+          const FREE_BUILDER_RUNS = 10;
+          const freeRunsRemaining = result.freeRunsRemaining;
+          const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
+          setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
+          console.log(`[Run Counter] Updated from error result: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      // Update run counter immediately from API response (before processing result)
+      // The API calculates freeRunsRemaining AFTER updating the database, so it's accurate
+      if (!isPreview && activeDraftId && hasAiNodes && result.freeRunsRemaining != null) {
+        const FREE_BUILDER_RUNS = 10;
+        const freeRunsRemaining = result.freeRunsRemaining;
+        const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
+        setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
+        console.log(`[Run Counter] Updated immediately from API response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+      }
+
+      const executionResult = result.result;
+      const logs = (executionResult.logs || []).map((log: any) => ({
+        t: log.timestamp || Date.now(),
+        level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
+        text: log.message || log.text || "",
+        nodeId: log.nodeId,
+        specId: log.specId,
+      }));
+
+      const steps = Object.entries(executionResult.nodeStatus || {}).map(([nodeId, status]: [string, any]) => {
+        const node = graph.nodes?.find((n: any) => n.id === nodeId);
+        const specId = node?.data?.specId || "default";
+        const nodeTitle = node?.data?.title || node?.data?.config?.name || humanReadableStep(specId);
+        const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
+        return {
+          id: nodeId,
+          title: nodeTitle,
+          detail: errorLog ? errorLog.text : undefined,
+          status: mapNodeStatus(status),
+          icon: getStepIcon(specId),
+          timestamp: Date.now(),
+        };
+      });
+
+      const outputs = extractWorkflowOutputs(graph.nodes || []).map((output) => {
+        const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+        return {
+          ...output,
+          value: finalOutput?.value || null,
+          type: typeof finalOutput?.value === "string" ? "string" : "json",
+        };
+      });
+
+      // Check for errors in logs or node status
+      const hasError = executionResult.workflowStatus === "failed" || 
+                       logs.some((l: any) => l.level === "error") ||
+                       Object.values(executionResult.nodeStatus || {}).some((s: any) => s === "failed" || s === "timeout");
+      
+      const errorMessage = hasError 
+        ? logs.find((l: any) => l.level === "error")?.text || 
+          Object.entries(executionResult.nodeStatus || {})
+            .filter(([_, status]: [string, any]) => status === "failed" || status === "timeout")
+            .map(([nodeId]: [string, any]) => {
+              const node = graph.nodes?.find((n: any) => n.id === nodeId);
+              return node?.data?.title || nodeId;
+            })
+            .join(", ") + " failed"
+        : undefined;
+
+      const workflowGraph = beRef.current?.getGraph?.();
+      setRunState({
+        ...runState,
+        phase: "output",
+        status: hasError ? "error" : "success",
+        steps,
+        logs,
+        outputs: hasError ? undefined : outputs,
+        outputsByNode: executionResult.outputsByNode || {},
+        error: errorMessage,
+        finishedAt: Date.now(),
+        summary: hasError ? undefined : "Workflow executed successfully",
+        graph: workflowGraph ? {
+          nodes: (workflowGraph.nodes || []).map((n: any) => ({
+            id: n.id,
+            data: {
+              specId: n.data?.specId,
+              title: n.data?.title,
+              config: n.data?.config,
+            },
+          })),
+          edges: (workflowGraph.edges || []).map((e: any) => ({
+            source: e.source,
+            target: e.target,
+          })),
+        } : runState?.graph,
+      });
+
+      // Refresh remaining runs after successful completion as a backup/verification
+      // (We already updated from the API response above, but this ensures sync with DB)
+      if (!isPreview && activeDraftId && hasAiNodes) {
+        setTimeout(async () => {
+          try {
+            const accessToken = await getAccessToken();
+            const headers: HeadersInit = { "Content-Type": "application/json" };
+            if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+            const remRes = await fetch(
+              `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=1`,
+              { method: "GET", headers, credentials: "include" }
+            );
+            if (remRes.ok) {
+              const rem = await remRes.json();
+              if (rem.ok) {
+                if (rem.isAdmin) {
+                  setBuilderRunLimit({ used: 0, limit: 999999, isAdmin: true });
+                } else if (rem.used != null && rem.limit != null) {
+                  setBuilderRunLimit({ used: rem.used, limit: rem.limit, isAdmin: false });
+                  console.log(`[Run Counter] Verified/refreshed from DB: ${rem.used}/${rem.limit}`);
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Failed to refresh run count:", err);
+          }
+        }, 500); // 500ms delay to ensure DB update completed
+      }
+
+      safeTrack("Workflow Run Completed", {
+        surface: "builder",
+        workflow_id: activeDraftId,
+        status: executionResult.workflowStatus,
+        duration_ms: Date.now() - (runState.startedAt || Date.now()),
+      });
+    } catch (error: any) {
+      const errorMessage = error?.message || error?.toString() || "Execution failed. Please check your workflow configuration and try again.";
+      
+      // Refetch remaining runs after failed run too (failed runs also count)
+      if (!isPreview && activeDraftId && hasAiNodes) {
+        setTimeout(async () => {
+          try {
+            const accessToken = await getAccessToken();
+            const headers: HeadersInit = { "Content-Type": "application/json" };
+            if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+            const remRes = await fetch(
+              `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=1`,
+              { method: "GET", headers, credentials: "include" }
+            );
+            if (remRes.ok) {
+              const rem = await remRes.json();
+              if (rem.ok) {
+                if (rem.isAdmin) {
+                  setBuilderRunLimit({ used: 0, limit: 999999, isAdmin: true });
+                } else if (rem.used != null && rem.limit != null) {
+                  setBuilderRunLimit({ used: rem.used, limit: rem.limit, isAdmin: false });
+                  console.log(`[Run Counter] Verified/refreshed after error: ${rem.used}/${rem.limit}`);
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Failed to refresh run count after error:", err);
+          }
+        }, 500); // 500ms delay to ensure DB update completed
+      }
+      
+      const workflowGraph = beRef.current?.getGraph?.();
+      setRunState({
+        ...runState,
+        phase: "output",
+        status: "error",
+        error: errorMessage,
+        finishedAt: Date.now(),
+        logs: [
+          ...(runState.logs || []),
+          {
+            t: Date.now(),
+            level: "error" as const,
+            text: errorMessage,
+          },
+        ],
+        graph: workflowGraph ? {
+          nodes: (workflowGraph.nodes || []).map((n: any) => ({
+            id: n.id,
+            data: {
+              specId: n.data?.specId,
+              title: n.data?.title,
+              config: n.data?.config,
+            },
+          })),
+          edges: (workflowGraph.edges || []).map((e: any) => ({
+            source: e.source,
+            target: e.target,
+          })),
+        } : runState?.graph,
+      });
+
+      safeTrack("Workflow Run Failed", {
+        surface: "builder",
+        workflow_id: activeDraftId,
+        error: errorMessage,
+      });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const mapNodeStatus = (status: string): "queued" | "running" | "done" | "error" | "skipped" => {
+    const map: Record<string, "queued" | "running" | "done" | "error" | "skipped"> = {
+      idle: "queued",
+      ready: "queued",
+      running: "running",
+      success: "done",
+      failed: "error",
+      timeout: "error",
+      skipped: "skipped",
+    };
+    return map[status] || "queued";
+  };
+
+  const getStepIcon = (specId: string): React.ReactNode => {
+    const icons: Record<string, React.ReactNode> = {
+      input: <ArrowRight className="h-4 w-4" />,
+      "openai-chat": <Play className="h-4 w-4" />,
+      "openai-embeddings": <Play className="h-4 w-4" />,
+      "openai-image": <Play className="h-4 w-4" />,
+      "http-request": <Play className="h-4 w-4" />,
+      merge: <Play className="h-4 w-4" />,
+      transform: <Play className="h-4 w-4" />,
+      output: <Play className="h-4 w-4" />,
+    };
+    return icons[specId] || <Play className="h-4 w-4" />;
+  };
+
+  const humanReadableStep = (specId: string): string => {
+    const map: Record<string, string> = {
+      input: "Collecting input data",
+      "openai-chat": "Processing with AI",
+      "openai-embeddings": "Generating embeddings",
+      "openai-image": "Creating image",
+      "http-request": "Fetching data",
+      merge: "Combining data",
+      transform: "Transforming data",
+      output: "Preparing output",
+    };
+    return map[specId] || `Executing ${specId}`;
+  };
+
+  const handleCancelRun = () => {
+    setRunState((prev) => (prev ? { ...prev, status: "error", error: "Cancelled by user" } : null));
+    setRunning(false);
+  };
+
+  const handleRerun = () => {
+    setRunState(null);
+    setRunModalOpen(false);
+    setShowPreparingToast(false);
+    setTimeout(() => runWorkflow(), 100);
   };
 
   // If user is on small viewport, keep builder unavailable (except in preview mode).
@@ -1099,16 +1616,20 @@ export default function BuilderPage() {
 
   const publishDraftForModal =
     !isPreview && publishWorkflowId && publishWorkflowId === activeDraftId && activeDraftId && userId
-      ? {
-          id: activeDraftId,
-          owner_id: userId,
-          title: name || "Untitled Workflow",
-          graph_json: latestGraphRef.current ?? beRef.current?.getGraph?.() ?? { nodes: [], edges: [] },
-          graph: latestGraphRef.current ?? beRef.current?.getGraph?.() ?? { nodes: [], edges: [] },
-          created_at: nowIso(),
-          updated_at: nowIso(),
-          last_opened_at: nowIso(),
-        }
+      ? (() => {
+          // Always get the latest graph from canvas to ensure we have the most recent config
+          const latestGraph = beRef.current?.getGraph?.() ?? latestGraphRef.current ?? { nodes: [], edges: [] };
+          return {
+            id: activeDraftId,
+            owner_id: userId,
+            title: name || "Untitled Workflow",
+            graph_json: latestGraph,
+            graph: latestGraph,
+            created_at: nowIso(),
+            updated_at: nowIso(),
+            last_opened_at: nowIso(),
+          };
+        })()
       : null;
 
   return (
@@ -1125,6 +1646,33 @@ export default function BuilderPage() {
         "absolute top-0 left-0 right-0 z-20 transition-all duration-200",
         isPreview ? "px-3 pt-3 md:px-5 md:pt-4" : "px-5 pt-4"
       )}>
+        {/* Preparing Toast Notification */}
+        {showPreparingToast && (
+          <div className="mb-3 opacity-0 animate-[fadeInSlide_0.3s_ease-out_forwards]">
+            <div className="w-full rounded-xl border border-cyan-500/30 bg-gradient-to-r from-cyan-500/10 to-purple-500/10 backdrop-blur-xl shadow-[0_8px_32px_rgba(34,211,238,0.25)] px-4 py-3 flex items-center gap-3">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-full bg-cyan-500/30 blur-md animate-pulse" />
+                <Loader2 className="relative h-5 w-5 text-cyan-400 animate-spin" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-white">Preparing to run</div>
+                <div className="text-xs text-white/60">Initializing workflow execution...</div>
+              </div>
+            </div>
+          </div>
+        )}
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes fadeInSlide {
+            from {
+              opacity: 0;
+              transform: translateY(-8px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `}} />
         {isPreview ? (
           /* Premium Preview Mode Topbar - Mobile Optimized */
           <div
@@ -1146,7 +1694,7 @@ export default function BuilderPage() {
                 </button>
               )}
               <div className="h-8 w-8 md:h-9 md:w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden shrink-0">
-                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={20} height={20} className="md:w-6 md:h-6" />
+                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={20} height={20} className="md:w-6 md:h-6" style={{ width: "auto", height: "auto" }} />
               </div>
               <div className="min-w-0">
                 <div className="text-[14px] md:text-[18px] font-semibold text-white truncate">{name || "Untitled Workflow"}</div>
@@ -1158,7 +1706,7 @@ export default function BuilderPage() {
               </div>
             </div>
 
-            {/* Right: Big Run Button (mobile optimized) */}
+            {/* Right: Run Button (mobile optimized) */}
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={runWorkflow}
@@ -1168,18 +1716,10 @@ export default function BuilderPage() {
                   "min-w-[100px] md:min-w-[140px]",
                   !activeDraftId && "opacity-50 cursor-not-allowed"
                 )}
-                title="Run (Coming soon)"
+                title="Run Workflow"
               >
                 <Play className="h-4 w-4 md:h-5 md:w-5" />
                 <span className="hidden sm:inline">Run</span>
-                <span className="ml-1 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[9px] md:text-[10px] font-semibold text-white/90">
-                  Soon
-                </span>
-                {running && (
-                  <span className="ml-1 inline-flex items-center">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  </span>
-                )}
               </button>
 
               {/* Zoom controls (mobile: smaller, desktop: normal) */}
@@ -1209,7 +1749,7 @@ export default function BuilderPage() {
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden">
-                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={24} height={24} />
+                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={24} height={24} style={{ width: "auto", height: "auto" }} />
               </div>
 
               <div className="min-w-0">
@@ -1275,14 +1815,6 @@ export default function BuilderPage() {
               >
                 <Play className="h-4 w-4" />
                 <span>Run</span>
-                <span className="ml-1 rounded-full border border-white/12 bg-white/5 px-2 py-[2px] text-[10px] font-semibold text-white/70">
-                  Coming soon
-                </span>
-                {running && (
-                  <span className="ml-1 inline-flex items-center">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  </span>
-                )}
               </button>
 
               <button
@@ -1447,9 +1979,15 @@ export default function BuilderPage() {
                 <InspectorPanel
                   selection={selection}
                   workflowId={activeDraftId ?? undefined}
+                  getLatestGraph={() => beRef.current?.getGraph?.() ?? null}
                   onUpdate={(nodeId, patch) => {
                     try {
                       beRef.current?.updateNodeConfig?.(nodeId, patch);
+                      // Force graph change to trigger autosave
+                      const graph = beRef.current?.getGraph?.();
+                      if (graph) {
+                        onGraphChange(graph);
+                      }
                     } catch {}
                   }}
                 />
@@ -1460,8 +1998,27 @@ export default function BuilderPage() {
 
       </div>
 
-      {/* Run (Coming soon) modal */}
-      <ComingSoonRunToast open={runSoonOpen} />
+      {/* Premium Run Modal */}
+      <PremiumWorkflowRunModal
+        open={runModalOpen}
+        onClose={() => {
+          if (runState?.status !== "running" && runState?.phase !== "executing") {
+            setRunModalOpen(false);
+            setRunState(null);
+          }
+        }}
+        state={runState}
+        onCancel={handleCancelRun}
+        onRerun={handleRerun}
+        onSubmitInputs={handleSubmitInputs}
+        onBuyWorkflow={activeDraftId && previewOwnerHandle && previewEdgazeCode ? () => {
+          router.push(`/${previewOwnerHandle}/${previewEdgazeCode}`);
+        } : undefined}
+        remainingDemoRuns={activeDraftId ? getRemainingDemoRuns(activeDraftId) : undefined}
+        workflowId={activeDraftId || undefined}
+        isBuilderTest={!isPreview}
+        builderRunLimit={builderRunLimit ?? undefined}
+      />
 
       {/* Publish modal (disabled in preview) */}
       {!isPreview && (
@@ -1525,6 +2082,8 @@ export default function BuilderPage() {
           newOpen={newOpen}
           newTitle={newTitle}
           creating={creating}
+          userId={userId}
+          onSignIn={openSignIn}
           onToggleNew={() => setNewOpen((v) => !v)}
           onNewTitle={(v) => setNewTitle(v)}
           onCreate={() => void createDraft()}
@@ -1541,31 +2100,6 @@ export default function BuilderPage() {
   );
 }
 
-function ComingSoonRunToast({ open }: { open: boolean }) {
-  return (
-    <div
-      className={cx(
-        "pointer-events-none absolute left-1/2 top-6 z-[90] -translate-x-1/2 transition-all duration-200",
-        open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
-      )}
-    >
-      <div className="pointer-events-none rounded-2xl border border-white/12 bg-black/55 backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.75)] px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl border border-white/12 bg-white/5 grid place-items-center">
-            <RefreshCw className={cx("h-4 w-4 text-white/80", open && "animate-spin")} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-white">Run in Edgaze</div>
-            <div className="text-xs text-white/60">Coming soon in a future update.</div>
-          </div>
-          <div className="ml-1 rounded-full border border-white/12 bg-white/5 px-2 py-1 text-[10px] font-semibold text-white/70">
-            Closed beta
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function LauncherOverlay({
   leftSafe,
@@ -1576,6 +2110,8 @@ function LauncherOverlay({
   newOpen,
   newTitle,
   creating,
+  userId,
+  onSignIn,
   onToggleNew,
   onNewTitle,
   onCreate,
@@ -1592,6 +2128,8 @@ function LauncherOverlay({
   newOpen: boolean;
   newTitle: string;
   creating: boolean;
+  userId: string | null;
+  onSignIn: () => void;
   onToggleNew: () => void;
   onNewTitle: (v: string) => void;
   onCreate: () => void;
@@ -1609,54 +2147,73 @@ function LauncherOverlay({
       <div className="absolute inset-0 flex items-center justify-center p-6 pointer-events-none">
         <div
           className={cx(
-            "w-[min(1180px,94vw)] h-[min(740px,90vh)] rounded-[26px]",
-            "border border-white/12 bg-black/55 shadow-[0_30px_140px_rgba(0,0,0,0.8)] overflow-hidden",
+            "w-[min(1180px,94vw)] h-[min(740px,90vh)] rounded-[28px]",
+            "border border-gray-700/40 bg-black/90 backdrop-blur-2xl shadow-[0_40px_160px_rgba(0,0,0,0.9)] overflow-hidden",
             "pointer-events-auto",
-            "transition-transform duration-200",
+            "transition-all duration-300 ease-out",
             "translate-y-0"
           )}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-700/30 bg-black/40">
             <div className="flex items-center gap-3">
-              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8" />
-              <div className="text-[18px] font-semibold text-white">Workflows</div>
-              <div className="text-[12px] text-white/45 ml-2">
-                Drafts autosave while you edit. Published items open as a new draft copy.
+              <div className="h-9 w-9 rounded-xl bg-black/40 border border-gray-700/40 grid place-items-center overflow-hidden">
+                <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-[18px] font-semibold text-white tracking-tight">Workflows</div>
+                <div className="text-[11px] text-gray-400 mt-0.5 font-medium">
+                  Drafts autosave while you edit. Published items open as a new draft copy.
+                </div>
               </div>
             </div>
 
             <button
               onClick={onRefresh}
               className={cx(
-                "inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors",
-                busy && "opacity-70 cursor-not-allowed"
+                "inline-flex items-center gap-2 rounded-xl border border-gray-700/40 bg-black/40 px-4 py-2 text-[12px] text-gray-300 hover:bg-black/60 hover:text-white hover:border-gray-600/50 transition-all duration-200",
+                busy && "opacity-50 cursor-not-allowed"
               )}
               disabled={busy}
               title="Refresh"
             >
-              <RefreshCw className={cx("h-4 w-4", busy && "animate-spin")} />
+              <RefreshCw className={cx("h-3.5 w-3.5", busy && "animate-spin")} />
               Refresh
             </button>
           </div>
 
           {/* Body */}
-          <div className="h-[calc(100%-72px)] grid grid-cols-12 gap-6 p-6 overflow-hidden">
+          <div className="h-[calc(100%-80px)] grid grid-cols-12 gap-6 p-6 overflow-hidden">
             {/* Left rail */}
             <div className="col-span-12 md:col-span-4 overflow-auto pr-1">
-              <button
-                onClick={onToggleNew}
-                className="w-full rounded-2xl border border-white/12 bg-white/5 hover:bg-white/10 px-5 py-4 text-left transition-colors"
-              >
-                <div className="text-sm font-semibold text-white">New</div>
-                <div className="text-xs text-white/55 mt-0.5">Start a new workflow</div>
-              </button>
+              {!userId ? (
+                <div className="w-full rounded-xl border border-gray-700/40 bg-black/40 p-5">
+                  <div className="text-sm font-semibold text-white mb-2">Sign in to create workflows</div>
+                  <div className="text-xs text-gray-400 mb-4">
+                    Sign in to save your workflows and access them from anywhere.
+                  </div>
+                  <button
+                    onClick={onSignIn}
+                    className="w-full rounded-lg bg-white text-black px-4 py-2.5 text-sm font-semibold hover:bg-gray-100 transition-colors shadow-lg shadow-white/10"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={onToggleNew}
+                  className="w-full rounded-xl border border-gray-700/40 bg-black/40 hover:bg-black/60 hover:border-gray-600/50 px-5 py-4 text-left transition-all duration-200 group"
+                >
+                  <div className="text-sm font-semibold text-white group-hover:text-white">New</div>
+                  <div className="text-xs text-gray-400 mt-0.5 group-hover:text-gray-300">Start a new workflow</div>
+                </button>
+              )}
 
-              {newOpen ? (
-                <div className="mt-4 rounded-2xl border border-white/12 bg-white/5 p-4">
-                  <div className="text-xs text-white/60 mb-2">Workflow name</div>
+              {userId && newOpen ? (
+                <div className="mt-4 rounded-xl border border-gray-700/40 bg-black/40 p-4 backdrop-blur-sm">
+                  <div className="text-xs text-gray-400 mb-2 font-medium">Workflow name</div>
                   <input
-                    className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm text-white outline-none"
+                    className="w-full rounded-lg bg-black/60 border border-gray-700/40 px-3 py-2 text-sm text-white placeholder:text-gray-500 outline-none focus:border-gray-600/50 focus:bg-black/80 transition-all duration-200"
                     value={newTitle}
                     onChange={(e) => onNewTitle(e.target.value)}
                     placeholder="e.g. hello-world"
@@ -1664,9 +2221,9 @@ function LauncherOverlay({
                   <div className="mt-3 flex gap-2">
                     <button
                       className={cx(
-                        "inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-colors",
-                        "bg-white text-black hover:bg-white/90",
-                        creating && "opacity-70 cursor-not-allowed"
+                        "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200",
+                        "bg-white text-black hover:bg-gray-100 shadow-lg shadow-white/10",
+                        creating && "opacity-60 cursor-not-allowed"
                       )}
                       disabled={creating}
                       onClick={onCreate}
@@ -1674,7 +2231,7 @@ function LauncherOverlay({
                       {creating ? "Creating…" : "Create"}
                     </button>
                     <button
-                      className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm border border-white/12 bg-white/5 text-white/85 hover:bg-white/10 transition-colors"
+                      className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm border border-gray-700/40 bg-black/40 text-gray-300 hover:bg-black/60 hover:text-white hover:border-gray-600/50 transition-all duration-200"
                       onClick={onCancelNew}
                       disabled={creating}
                     >
@@ -1686,55 +2243,72 @@ function LauncherOverlay({
               ) : null}
 
               {errorText && (
-                <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-[12px] text-red-300 leading-relaxed">
+                <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-[12px] text-red-300/90 leading-relaxed backdrop-blur-sm">
                   {errorText}
                 </div>
               )}
 
-              <div className="mt-4 text-[12px] text-white/45 leading-relaxed">
+              <div className="mt-4 text-[12px] text-gray-400 leading-relaxed font-medium">
                 Tip: open a draft to jump straight into the editor.
               </div>
             </div>
 
             {/* Right content */}
             <div className="col-span-12 md:col-span-8 overflow-auto pr-1">
-              <div>
-                <div className="text-sm font-semibold text-white/90 mb-3">Continue</div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {continueItems.length === 0 ? (
-                    <div className="text-sm text-white/50">No drafts yet.</div>
-                  ) : (
-                    continueItems.map((w) => (
-                      <WorkflowCard
-                        key={w.id}
-                        title={w.title}
-                        meta={`Draft · ${countSummary(w.graph)}`}
-                        graph={w.graph}
-                        onClick={() => onOpenDraft(w.id)}
-                      />
-                    ))
-                  )}
+              {!userId ? (
+                <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                  <div className="text-lg font-semibold text-white mb-2">Sign in to view your workflows</div>
+                  <div className="text-sm text-gray-400 mb-6 max-w-md">
+                    Sign in to see your drafts and published workflows. Your workflows will be saved and accessible from any device.
+                  </div>
+                  <button
+                    onClick={onSignIn}
+                    className="inline-flex items-center gap-2 rounded-lg bg-white text-black px-6 py-3 text-sm font-semibold hover:bg-gray-100 transition-colors shadow-lg shadow-white/10"
+                  >
+                    Sign In
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div>
+                    <div className="text-sm font-semibold text-white mb-4 tracking-tight">Continue</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {continueItems.length === 0 ? (
+                        <div className="text-sm text-gray-500">No drafts yet.</div>
+                      ) : (
+                        continueItems.map((w) => (
+                          <WorkflowCard
+                            key={w.id}
+                            title={w.title}
+                            meta={`Draft · ${countSummary(w.graph)}`}
+                            graph={w.graph}
+                            onClick={() => onOpenDraft(w.id)}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
 
-              <div className="mt-7">
-                <div className="text-sm font-semibold text-white/90 mb-3">Your workflows</div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                  {published.length === 0 ? (
-                    <div className="text-sm text-white/50">No published workflows yet.</div>
-                  ) : (
-                    published.map((w) => (
-                      <WorkflowCard
-                        key={w.id}
-                        title={w.title}
-                        meta={`Published · ${countSummary(w.graph)}`}
-                        graph={w.graph}
-                        onClick={() => onOpenPublished(w.id)}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
+                  <div className="mt-8">
+                    <div className="text-sm font-semibold text-white mb-4 tracking-tight">Your workflows</div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {published.length === 0 ? (
+                        <div className="text-sm text-gray-500">No published workflows yet.</div>
+                      ) : (
+                        published.map((w) => (
+                          <WorkflowCard
+                            key={w.id}
+                            title={w.title}
+                            meta={`Published · ${countSummary(w.graph)}`}
+                            graph={w.graph}
+                            onClick={() => onOpenPublished(w.id)}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1765,14 +2339,14 @@ function WorkflowCard({
     <button
       onClick={onClick}
       className={cx(
-        "rounded-2xl border border-white/12 bg-black/35 hover:bg-black/25 transition-colors",
-        "p-4 text-left shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+        "rounded-xl border border-gray-700/40 bg-black/40 hover:bg-black/60 hover:border-gray-600/50 transition-all duration-200",
+        "p-4 text-left shadow-[0_8px_32px_rgba(0,0,0,0.4)] group"
       )}
     >
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-white truncate">{title}</div>
-          <div className="mt-1 text-xs text-white/55">{meta}</div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-white truncate group-hover:text-white transition-colors">{title}</div>
+          <div className="mt-1 text-xs text-gray-400 group-hover:text-gray-300 transition-colors">{meta}</div>
         </div>
 
         <div className="shrink-0">
@@ -1834,7 +2408,7 @@ function GraphPreviewSquare({ graph }: { graph: any }) {
   });
 
   return (
-    <div className="h-[140px] w-[140px] rounded-2xl border border-white/12 bg-black/35 overflow-hidden">
+    <div className="h-[140px] w-[140px] rounded-xl border border-gray-700/40 bg-black/40 overflow-hidden backdrop-blur-sm">
       <svg viewBox={`0 0 ${W} ${H}`} className="h-full w-full">
         <defs>
           <linearGradient id="edg-preview" x1="0" y1="0" x2="1" y2="0">
@@ -1856,7 +2430,7 @@ function GraphPreviewSquare({ graph }: { graph: any }) {
             y1={l.y1}
             x2={l.x2}
             y2={l.y2}
-            stroke="rgba(255,255,255,0.18)"
+            stroke="rgba(255,255,255,0.20)"
             strokeWidth="1.2"
           />
         ))}
@@ -1868,8 +2442,8 @@ function GraphPreviewSquare({ graph }: { graph: any }) {
 
         {!hasPts && (
           <g>
-            <rect x="24" y="32" width="92" height="76" rx="18" fill="rgba(255,255,255,0.05)" />
-            <text x="70" y="78" textAnchor="middle" fill="rgba(255,255,255,0.38)" fontSize="12">
+            <rect x="24" y="32" width="92" height="76" rx="18" fill="rgba(255,255,255,0.06)" />
+            <text x="70" y="78" textAnchor="middle" fill="rgba(255,255,255,0.40)" fontSize="12">
               Empty
             </text>
           </g>

@@ -142,7 +142,13 @@ function ConditionNodeImpl(props: NodeProps) {
         type="target"
         position={Position.Left}
         className="edge-port edge-port--edg !h-4 !w-4"
-        style={{ left: "-8px", top: "50%", transform: "translateY(-50%)" }}
+        style={{
+          left: "-8px",
+          top: "50%",
+          transform: "translateY(-50%)",
+          padding: '8px',
+          margin: '-8px',
+        }}
       />
     </div>
   );
