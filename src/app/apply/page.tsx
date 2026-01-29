@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, ArrowRight, Sparkles, Search, PauseCircle } from "lucide-react";
+import { CheckCircle2, ArrowRight, Sparkles, Search, PauseCircle, X, AlertCircle } from "lucide-react";
 import TurnstileWidget from "../../components/apply/TurnstileWidget";
 import ApplyAuthPanel from "../../components/apply/ApplyAuthPanel";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -433,8 +433,8 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
 
   const step0Valid =
     fullName.trim().length >= 2 &&
-    /^\S+@\S+\.\S+$/.test(email.trim()) &&
-    phone.replace(/\D/g, "").length >= 6;
+    /^\S+@\S+\.\S+$/.test(email.trim());
+  // Phone is optional; no minimum length
 
   const q5Trim = q5.trim();
   const q5Valid = q5Trim.length >= 10 && q5Trim.length <= 140;
@@ -588,7 +588,7 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
   async function goToQuestions() {
     setError("");
     if (!step0Valid) {
-      setError("Fill your name, a valid email, and a real phone number.");
+      setError("Fill your name and a valid email.");
       return;
     }
     setStep("questions");
@@ -701,6 +701,54 @@ phone_number: phone.replace(/\s/g, ""),
     <div className="relative min-h-screen text-white">
       <Gradients />
 
+      {/* Error popup — show above content, dismissible */}
+      <AnimatePresence>
+        {error ? (
+          <motion.div
+            key="error-popup"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setError("")}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="rounded-2xl bg-[#0b0c11] ring-1 ring-red-400/30 shadow-xl max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start gap-3">
+                <div className="rounded-full bg-red-500/15 p-2 shrink-0">
+                  <AlertCircle className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-white">Something went wrong</h3>
+                  <p className="mt-2 text-sm text-white/80">{error}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setError("")}
+                  className="shrink-0 rounded-lg p-1.5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setError("")}
+                className="mt-5 w-full rounded-xl py-2.5 text-sm font-semibold bg-white/10 text-white hover:bg-white/15 transition-colors"
+              >
+                Dismiss
+              </button>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       <div className="sticky top-0 z-20">
         <div className="bg-[#07080b]/70 backdrop-blur-md ring-1 ring-white/10">
           <div className="mx-auto w-full max-w-4xl px-5 py-4 flex items-center justify-between">
@@ -724,6 +772,9 @@ phone_number: phone.replace(/\s/g, ""),
             <div>
               <div className="text-xs font-semibold tracking-widest text-white/55">EDGAZE CLOSED BETA</div>
               <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">Apply</h1>
+              <p className="mt-2 text-sm font-medium text-emerald-200/95">
+                Get access within 30 seconds of applying.
+              </p>
               <p className="mt-3 text-sm text-white/70 leading-relaxed">
                 By continuing, you agree to our{" "}
                 <Link href="/docs/terms-of-service" className="text-white/80 hover:text-white underline underline-offset-4">
@@ -784,7 +835,7 @@ phone_number: phone.replace(/\s/g, ""),
                           </div>
 
                           <div className="space-y-2 sm:col-span-2">
-                            <FieldLabel>PHONE</FieldLabel>
+                            <FieldLabel>PHONE (OPTIONAL)</FieldLabel>
                             <div className="grid grid-cols-[160px_1fr] gap-2">
                             <select
   value={countryCode}
@@ -1121,19 +1172,6 @@ phone_number: phone.replace(/\s/g, ""),
                             <SecondaryButton onClick={() => (window.location.href = "/")}>Back to home</SecondaryButton>
                           </div>
                         </div>
-                      </motion.div>
-                    ) : null}
-                  </AnimatePresence>
-
-                  <AnimatePresence>
-                    {error ? (
-                      <motion.div
-                        initial={reduce ? false : { opacity: 0, y: 6 }}
-                        animate={reduce ? undefined : { opacity: 1, y: 0 }}
-                        exit={reduce ? undefined : { opacity: 0, y: 6 }}
-                        className="mt-6 text-sm text-red-300"
-                      >
-                        {error}
                       </motion.div>
                     ) : null}
                   </AnimatePresence>

@@ -262,7 +262,7 @@ export async function POST(req: Request) {
 
   if (!full_name || full_name.length < 2) return NextResponse.json({ error: "Name required." }, { status: 400 });
   if (!isEmail(email)) return NextResponse.json({ error: "Valid email required." }, { status: 400 });
-  if (!phone_country_code || !phone_number) return NextResponse.json({ error: "Phone required." }, { status: 400 });
+  // Phone is optional; store whatever was provided (can be empty)
   if (!feedback_consent) return NextResponse.json({ error: "Feedback consent required." }, { status: 400 });
 
   // Hard rule: must be Yes
@@ -306,7 +306,7 @@ export async function POST(req: Request) {
   if ((userCount ?? 0) >= 1) return NextResponse.json({ error: "You already applied recently." }, { status: 429 });
 
   const scored = scoreAndTier({ q1, q2, q3, q4, q5 });
-  const phone_full = `${phone_country_code}${phone_number}`.replace(/\s/g, "");
+  const phone_full = [phone_country_code, phone_number].filter(Boolean).join("").replace(/\s/g, "") || "";
 
   const insertPayload = {
     auth_user_id,
