@@ -440,11 +440,10 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
   const q5Valid = q5Trim.length >= 10 && q5Trim.length <= 140;
 
   const questionsValid =
-    consent &&
     q1 &&
     q2 &&
     q3 &&
-    q4 === "Yes, I’m happy to give feedback" &&
+    q4 &&
     q5Valid &&
     q6 &&
     captchaVerified;
@@ -597,7 +596,7 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
   async function goToAuth() {
     setError("");
     if (!questionsValid) {
-      setError("Answer everything, commit to feedback (Yes), and verify captcha.");
+      setError("Answer everything and verify captcha.");
       return;
     }
     persistDraft();
@@ -897,41 +896,6 @@ phone_number: phone.replace(/\s/g, ""),
                         transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
                         className="mt-8 space-y-8"
                       >
-                        <label
-  htmlFor="beta-consent"
-  className="block rounded-3xl bg-white/4 ring-1 ring-white/10 p-5 cursor-pointer select-none active:scale-[0.99] transition-transform touch-manipulation"
->
-  <div className="flex items-start gap-3">
-    {/* Real checkbox (accessible) but hidden */}
-    <input
-      id="beta-consent"
-      type="checkbox"
-      checked={consent}
-      onChange={(e) => setConsent(e.target.checked)}
-      className="sr-only"
-    />
-
-    {/* Visible checkbox */}
-    <span
-      aria-hidden="true"
-      className={cn(
-        "mt-1 h-5 w-5 rounded-md ring-1 ring-white/20 bg-white/5 flex items-center justify-center shrink-0",
-        consent ? "bg-white/10 ring-white/35" : ""
-      )}
-    >
-      {consent ? <CheckCircle2 className="h-4 w-4 text-white/90" /> : null}
-    </span>
-
-    <div>
-      <div className="text-sm font-semibold text-white">I will give feedback during beta</div>
-      <p className="mt-1 text-sm text-white/70 leading-relaxed">
-        If something breaks or feels off, I’ll report it.
-      </p>
-    </div>
-  </div>
-</label>
-
-
                         <div className="space-y-3">
                           <FieldLabel>HOW OFTEN DO YOU USE AI TOOLS?</FieldLabel>
                           <div className="grid grid-cols-1 gap-2">
@@ -990,11 +954,6 @@ phone_number: phone.replace(/\s/g, ""),
                               </Option>
                             ))}
                           </div>
-                          {q4 && q4 !== "Yes, I’m happy to give feedback" ? (
-                            <div className="text-xs text-white/60">
-                              You must select <span className="text-white/85">Yes</span> to continue.
-                            </div>
-                          ) : null}
                         </div>
 
                         <div className="space-y-3">

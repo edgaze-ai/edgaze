@@ -265,10 +265,8 @@ export async function POST(req: Request) {
   // Phone is optional; store whatever was provided (can be empty)
   if (!feedback_consent) return NextResponse.json({ error: "Feedback consent required." }, { status: 400 });
 
-  // Hard rule: must be Yes
-  if (q4 !== "Yes, I’m happy to give feedback") {
-    return NextResponse.json({ error: "You must commit to feedback during beta." }, { status: 400 });
-  }
+  // q4 (feedback commitment) is stored for scoring; any answer is accepted
+  if (!q4) return NextResponse.json({ error: "Answer the feedback question." }, { status: 400 });
 
   if (!q5 || q5.trim().length < 10 || q5.trim().length > 140) {
     return NextResponse.json({ error: "One sentence, 10–140 chars." }, { status: 400 });
