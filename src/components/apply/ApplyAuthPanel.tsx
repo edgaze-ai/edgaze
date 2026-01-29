@@ -191,17 +191,19 @@ export default function ApplyAuthPanel({
     });
 
     try {
-      try {
-        sessionStorage.setItem("edgaze:apply:resume", "1");
-        sessionStorage.setItem("edgaze:apply:resumeStep", "auth");
-      } catch {}
+      sessionStorage.setItem("edgaze:apply:resume", "1");
+      sessionStorage.setItem("edgaze:apply:resumeStep", "auth");
+      // So callback can redirect back to /apply even if Supabase strips the next param
+      sessionStorage.setItem("edgaze:returnTo", "/apply?resume=1");
+      localStorage.setItem("edgaze:returnTo", "/apply?resume=1");
+    } catch {}
 
+    try {
       persistApplyDraft({
         email: (email || emailPrefill || "").trim(),
         fullName: (fullName || fullNamePrefill || "").trim(),
       });
 
-      // FIX: return directly to /apply, bypass /auth/callback
       await signInWithGoogle("/apply?resume=1");
 
       // Google sign-in likely redirects; this event may or may not flush depending on navigation timing.

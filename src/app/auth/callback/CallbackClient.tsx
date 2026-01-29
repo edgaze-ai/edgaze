@@ -116,57 +116,65 @@ export default function CallbackClient() {
           return;
         }
       }
-      // If an apply flow is in progress, ALWAYS return to /apply (ignore returnTo).
-      // This prevents Google OAuth from dumping users into /marketplace and skipping submission.
-      try {
-        const resume = sessionStorage.getItem("edgaze:apply:resume") === "1";
-        const resumeStep = sessionStorage.getItem("edgaze:apply:resumeStep");
-        if (resume && resumeStep === "auth") {
-          router.replace("/apply?resume=1");
-          return;
+      // Apply flow: we must exchange the code FIRST, then redirect to /apply?resume=1
+      // so the user lands with a session and sees the verifying screen (not marketplace).
+      // Do NOT redirect early here — that would send them to /apply without a session.
+      const isApplyFlow = (() => {
+        try {
+          const resume = sessionStorage.getItem("edgaze:apply:resume") === "1";
+          const resumeStep = sessionStorage.getItem("edgaze:apply:resumeStep");
+          return resume && resumeStep === "auth";
+        } catch {
+          return false;
         }
-      } catch {}
+      })();
 
       // Determine where to redirect after OAuth callback
-      // Priority: storage > query param > referrer > default to marketplace
+      // Priority: apply flow / storage / query param / referrer / default to marketplace
       let returnTo: string | null = null;
       let redirectReason = "";
       let fromStorage: string | null = null;
 
-      // Priority 1: Check query parameter (passed in redirectTo URL)
-      // This is the MOST reliable because it's passed in the OAuth redirect URL
-      // It works even if localStorage is cleared or if we're redirected to a different domain
+      // If user came from closed-beta apply flow, ALWAYS send them back to /apply?resume=1
+      // so they see the verifying screen and complete submission (never default to marketplace).
+      if (isApplyFlow) {
+        returnTo = "/apply?resume=1";
+        redirectReason = "apply flow (sessionStorage flags)";
+        console.log("[Auth Callback] Apply flow detected, will redirect to /apply?resume=1 after exchanging code");
+      }
+
+      // Priority 1: Check query parameter (passed in redirectTo URL) — unless already set by apply flow
       const nextParam = params.get("next");
-      if (nextParam) {
+      if (!returnTo && nextParam) {
         try {
           const decoded = decodeURIComponent(nextParam);
           const cleaned = cleanPath(decoded);
           if (cleaned) {
-            returnTo = cleaned;
+            // If next points to apply, ensure we use /apply?resume=1 so they see verifying screen
+            returnTo = cleaned.includes("/apply") ? "/apply?resume=1" : cleaned;
             redirectReason = `query param (${decoded})`;
-            console.log("[Auth Callback] Using path from query param:", cleaned);
+            console.log("[Auth Callback] Using path from query param:", returnTo);
           }
         } catch {
           const cleaned = cleanPath(nextParam);
           if (cleaned) {
-            returnTo = cleaned;
+            returnTo = cleaned.includes("/apply") ? "/apply?resume=1" : cleaned;
             redirectReason = `query param (raw: ${nextParam})`;
-            console.log("[Auth Callback] Using path from query param (raw):", cleaned);
+            console.log("[Auth Callback] Using path from query param (raw):", returnTo);
           }
         }
       }
-      
-      // Priority 2: Check storage (saved when modal was opened)
+
+      // Priority 2: Check storage (saved when modal was opened or by apply flow)
       // This should include query params like action=run, action=purchase, resume=1
-      // Use this as fallback if query param wasn't found
       if (!returnTo) {
         fromStorage = getReturnPath();
         if (fromStorage) {
           const cleaned = cleanPath(fromStorage);
           if (cleaned) {
-            returnTo = cleaned;
+            returnTo = cleaned.includes("/apply") ? "/apply?resume=1" : cleaned;
             redirectReason = `storage (${fromStorage})`;
-            console.log("[Auth Callback] Using path from storage:", cleaned);
+            console.log("[Auth Callback] Using path from storage:", returnTo);
           }
         }
       }
@@ -182,9 +190,9 @@ export default function CallbackClient() {
             const referrerPath = referrerUrl.pathname + referrerUrl.search + referrerUrl.hash;
             const cleaned = cleanPath(referrerPath);
             if (cleaned) {
-              returnTo = cleaned;
+              returnTo = cleaned.includes("/apply") ? "/apply?resume=1" : cleaned;
               redirectReason = `referrer (${referrerPath})`;
-              console.log("[Auth Callback] Using path from referrer:", cleaned);
+              console.log("[Auth Callback] Using path from referrer:", returnTo);
             }
           } else {
             console.warn("[Auth Callback] Ignoring referrer from different origin:", referrerUrl.origin, "vs", window.location.origin);
