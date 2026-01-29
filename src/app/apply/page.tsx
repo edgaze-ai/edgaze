@@ -443,7 +443,6 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
     q1 &&
     q2 &&
     q3 &&
-    q4 &&
     q5Valid &&
     q6 &&
     captchaVerified;
@@ -634,12 +633,12 @@ phone_number: phone.replace(/\s/g, ""),
           company: company || null,
           occupation: occupation || null,
 
-          feedback_consent: true,
+          feedback_consent: consent,
 
           q1,
           q2,
           q3,
-          q4,
+          q4: q4 || undefined,
           q5: q5Trim,
           q6,
         }),
@@ -946,7 +945,7 @@ phone_number: phone.replace(/\s/g, ""),
                         </div>
 
                         <div className="space-y-3">
-                          <FieldLabel>WILL YOU REPORT ISSUES / GIVE FEEDBACK DURING BETA?</FieldLabel>
+                          <FieldLabel>WILL YOU REPORT ISSUES / GIVE FEEDBACK DURING BETA? (optional)</FieldLabel>
                           <div className="grid grid-cols-1 gap-2">
                             {["Yes, I’m happy to give feedback", "Maybe, if I have time", "Probably not"].map((opt) => (
                               <Option key={opt} selected={q4 === opt} onClick={() => setQ4(opt)}>

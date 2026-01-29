@@ -58,7 +58,7 @@ function clampStr(s: any, max: number) {
   return String(s ?? "").trim().slice(0, max);
 }
 
-function scoreAndTier(args: { q1: Q1; q2: Q2; q3: Q3; q4: Q4; q5: string }) {
+function scoreAndTier(args: { q1: Q1; q2: Q2; q3: Q3; q4?: Q4; q5: string }) {
   const notes: string[] = [];
   let score = 0;
 
@@ -262,11 +262,7 @@ export async function POST(req: Request) {
 
   if (!full_name || full_name.length < 2) return NextResponse.json({ error: "Name required." }, { status: 400 });
   if (!isEmail(email)) return NextResponse.json({ error: "Valid email required." }, { status: 400 });
-  // Phone is optional; store whatever was provided (can be empty)
-  if (!feedback_consent) return NextResponse.json({ error: "Feedback consent required." }, { status: 400 });
-
-  // q4 (feedback commitment) is stored for scoring; any answer is accepted
-  if (!q4) return NextResponse.json({ error: "Answer the feedback question." }, { status: 400 });
+  // Phone, feedback consent, and q4 (feedback question) are optional
 
   if (!q5 || q5.trim().length < 10 || q5.trim().length > 140) {
     return NextResponse.json({ error: "One sentence, 10–140 chars." }, { status: 400 });
@@ -317,12 +313,12 @@ export async function POST(req: Request) {
     company,
     occupation,
 
-    feedback_consent: true,
+    feedback_consent: feedback_consent,
 
     q1_ai_usage_frequency: q1,
     q2_ai_done: q2,
     q3_why_edgaze: q3,
-    q4_feedback_commitment: q4,
+    q4_feedback_commitment: q4 ?? null,
     q5_one_liner: q5.trim(),
     q6_prior_sharing: q6,
 
