@@ -443,8 +443,6 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
     q1 &&
     q2 &&
     q3 &&
-    q5Valid &&
-    q6 &&
     captchaVerified;
 
   async function fetchAppsPaused() {
@@ -639,8 +637,8 @@ phone_number: phone.replace(/\s/g, ""),
           q2,
           q3,
           q4: q4 || undefined,
-          q5: q5Trim,
-          q6,
+          q5: q5Trim || undefined,
+          q6: q6 || undefined,
         }),
       });
 
@@ -963,7 +961,7 @@ phone_number: phone.replace(/\s/g, ""),
                               onChange={(e) => setQ5(e.target.value)}
                               rows={3}
                               maxLength={140}
-                              placeholder="One sentence (10–140 chars)"
+                              placeholder="One sentence (optional, max 140 chars)"
                             />
                             <div className="mt-2 flex items-center justify-between text-xs text-white/50">
                               <div className="text-white/40">Example: “Turn my research prompt into a reusable workflow”</div>
@@ -971,14 +969,14 @@ phone_number: phone.replace(/\s/g, ""),
                                 {q5Trim.length}/140
                               </div>
                             </div>
-                            {!q5Valid && q5Trim.length > 0 ? (
-                              <div className="mt-2 text-xs text-white/60">10–140 characters required.</div>
+                            {q5Trim.length > 140 ? (
+                              <div className="mt-2 text-xs text-white/60">Max 140 characters.</div>
                             ) : null}
                           </div>
                         </div>
 
                         <div className="space-y-3">
-                          <FieldLabel>HAVE YOU SHARED PROMPTS / WORKFLOWS BEFORE?</FieldLabel>
+                          <FieldLabel>HAVE YOU SHARED PROMPTS / WORKFLOWS BEFORE? (optional)</FieldLabel>
                           <div className="grid grid-cols-1 gap-2">
                             {[
                               "No, never",

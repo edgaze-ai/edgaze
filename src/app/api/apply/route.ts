@@ -262,12 +262,10 @@ export async function POST(req: Request) {
 
   if (!full_name || full_name.length < 2) return NextResponse.json({ error: "Name required." }, { status: 400 });
   if (!isEmail(email)) return NextResponse.json({ error: "Valid email required." }, { status: 400 });
-  // Phone, feedback consent, and q4 (feedback question) are optional
-
-  if (!q5 || q5.trim().length < 10 || q5.trim().length > 140) {
-    return NextResponse.json({ error: "One sentence, 10–140 chars." }, { status: 400 });
+  // Phone, feedback consent, q4, q5 (one-liner), and q6 (sharing) are optional. q5 max 140 chars if provided.
+  if (q5.trim().length > 140) {
+    return NextResponse.json({ error: "One sentence max 140 chars." }, { status: 400 });
   }
-  if (!q6) return NextResponse.json({ error: "Answer the sharing question." }, { status: 400 });
 
   // Rate limiting
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -320,7 +318,7 @@ export async function POST(req: Request) {
     q3_why_edgaze: q3,
     q4_feedback_commitment: q4 ?? null,
     q5_one_liner: q5.trim(),
-    q6_prior_sharing: q6,
+    q6_prior_sharing: q6 ?? null,
 
     score_total: scored.score,
     q5_quality: scored.q5_quality,
