@@ -46,27 +46,46 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!listing) {
     return {
-      title: "Edgaze",
-      openGraph: { title: "Edgaze", url: `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}` },
-      twitter: { card: "summary_large_image", title: "Edgaze" },
+      title: "Product",
+      description: "View this prompt or workflow on Edgaze",
+      openGraph: {
+        title: "Product | Edgaze",
+        description: "View this prompt or workflow on Edgaze",
+        url: `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: "Product | Edgaze",
+        description: "View this prompt or workflow on Edgaze",
+      },
     };
   }
 
-  const title = (listing.title || "Prompt | Edgaze").trim();
+  // Use title as-is (root layout template will add "| Edgaze")
+  const title = listing.title?.trim() || (listing.type === "workflow" ? "Workflow" : "Prompt");
+  // Optimize description for SEO (150-160 chars is ideal, max 160)
+  const rawDescription = listing.description?.trim() || "";
   const description =
-    (listing.description || "").trim().slice(0, 160) ||
-    (listing.type === "workflow" ? "Workflow on Edgaze" : "Prompt on Edgaze");
+    rawDescription.length > 0
+      ? rawDescription.slice(0, 160).replace(/\s+$/, "") // Trim trailing whitespace
+      : listing.type === "workflow"
+        ? "Discover and use this AI workflow on Edgaze. Build powerful automation with AI."
+        : "Discover and use this AI prompt on Edgaze. Create amazing content with AI.";
+  
   const imageUrl = absoluteImageUrl(listing.thumbnail_url);
   const pageUrl = `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`;
 
   return {
     title,
     description,
+    alternates: {
+      canonical: pageUrl,
+    },
     openGraph: {
       type: "website",
       url: pageUrl,
       siteName: "Edgaze",
-      title,
+      title: `${title} | Edgaze`, // Explicit for OG
       description,
       ...(imageUrl && {
         images: [{ url: imageUrl, width: 1200, height: 630, alt: title }],
@@ -74,7 +93,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     twitter: {
       card: "summary_large_image",
-      title,
+      title: `${title} | Edgaze`, // Explicit for Twitter
       description,
       ...(imageUrl && { images: [imageUrl] }),
     },
