@@ -193,6 +193,76 @@ function isImageUrl(s: string): boolean {
   return false;
 }
 
+/** Extract displayable content from any OpenAI-style response. Supports string, array (multimodal), tool_calls. */
+function extractOpenAIDisplayContent(value: unknown): { kind: "string"; text: string } | { kind: "parts"; parts: Array<{ type: "text"; text: string } | { type: "image"; url: string }> } | null {
+  if (value === null || value === undefined) return null;
+  const v = value as Record<string, unknown>;
+
+  // choices[0].message.content (string or array of parts)
+  if (Array.isArray(v?.choices) && v.choices[0] && typeof (v.choices[0] as any)?.message === "object") {
+    const msg = (v.choices[0] as any).message;
+    const content = msg?.content;
+    if (typeof content === "string" && content.trim()) return { kind: "string", text: content };
+    if (Array.isArray(content)) {
+      const parts: Array<{ type: "text"; text: string } | { type: "image"; url: string }> = [];
+      for (const part of content) {
+        if (part && typeof part === "object") {
+          const p = part as Record<string, unknown>;
+          if (p.type === "text" && typeof p.text === "string") parts.push({ type: "text", text: p.text });
+          if (p.type === "image_url" && p.image_url && typeof (p.image_url as any)?.url === "string") parts.push({ type: "image", url: (p.image_url as any).url });
+        }
+      }
+      if (parts.length) return { kind: "parts", parts };
+    }
+  }
+
+  // Top-level .content (string or array)
+  const content = v?.content;
+  if (typeof content === "string" && content.trim()) return { kind: "string", text: content };
+  if (Array.isArray(content)) {
+    const parts: Array<{ type: "text"; text: string } | { type: "image"; url: string }> = [];
+    for (const part of content) {
+      if (part && typeof part === "object") {
+        const p = part as Record<string, unknown>;
+        if (p.type === "text" && typeof p.text === "string") parts.push({ type: "text", text: p.text });
+        if (p.type === "image_url" && p.image_url && typeof (p.image_url as any)?.url === "string") parts.push({ type: "image", url: (p.image_url as any).url });
+      }
+    }
+    if (parts.length) return { kind: "parts", parts };
+  }
+
+  // .message.content
+  const msg = v?.message;
+  if (msg && typeof msg === "object") {
+    const mc = (msg as Record<string, unknown>).content;
+    if (typeof mc === "string" && (mc as string).trim()) return { kind: "string", text: mc as string };
+    if (Array.isArray(mc)) {
+      const parts: Array<{ type: "text"; text: string } | { type: "image"; url: string }> = [];
+      for (const part of mc) {
+        if (part && typeof part === "object") {
+          const p = part as Record<string, unknown>;
+          if (p.type === "text" && typeof p.text === "string") parts.push({ type: "text", text: p.text });
+          if (p.type === "image_url" && p.image_url && typeof (p.image_url as any)?.url === "string") parts.push({ type: "image", url: (p.image_url as any).url });
+        }
+      }
+      if (parts.length) return { kind: "parts", parts };
+    }
+  }
+
+  // tool_calls: show a short summary instead of raw object
+  const choices0 = (v as any).choices?.[0];
+  if (Array.isArray((v as any).tool_calls) && (v as any).tool_calls.length > 0) {
+    const count = (v as any).tool_calls.length;
+    return { kind: "string", text: `Tool calls (${count}): use the raw output or logs for details.` };
+  }
+  if (choices0 && Array.isArray(choices0?.message?.tool_calls) && choices0.message.tool_calls.length > 0) {
+    const count = choices0.message.tool_calls.length;
+    return { kind: "string", text: `Tool calls (${count}): use the raw output or logs for details.` };
+  }
+
+  return null;
+}
+
 function PremiumStepView({ 
   state, 
   onCopyOutput, 
@@ -795,7 +865,44 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
     );
   }
   if (typeof value === "object") {
-    // Filter out OpenAI API metadata fields
+    // For OpenAI responses, extract displayable content first (avoids gibberish; supports all response shapes)
+    if (isOpenAI) {
+      const extracted = extractOpenAIDisplayContent(value);
+      if (extracted) {
+        if (extracted.kind === "string") {
+          return (
+            <div className={cx("text-base leading-7", textColor)}>
+              {renderMarkdown(extracted.text)}
+            </div>
+          );
+        }
+        if (extracted.kind === "parts") {
+          return (
+            <div className="space-y-4">
+              {extracted.parts.map((part, i) => {
+                if (part.type === "text" && part.text.trim()) {
+                  return (
+                    <div key={i} className={cx("text-base leading-7", textColor)}>
+                      {renderMarkdown(part.text)}
+                    </div>
+                  );
+                }
+                if (part.type === "image") {
+                  return (
+                    <div key={i} className={cx("rounded-xl overflow-hidden border", borderColor, bgColor, "relative group")}>
+                      <img src={part.url} alt="Response" className="w-full max-h-[500px] object-contain" />
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          );
+        }
+      }
+    }
+
+    // Filter out OpenAI API metadata fields (no finishReason / finish_reason in UI)
     const metadataFields = new Set([
       "model",
       "usage",
@@ -811,54 +918,18 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
       "created",
       "system_fingerprint",
     ]);
-    
+
     const entries = Object.entries(value as Record<string, unknown>).filter(
       ([k, v]) => {
-        // Filter out metadata fields and null/undefined values
         if (metadataFields.has(k.toLowerCase())) return false;
         return v !== undefined && v !== null;
       }
     );
-    
+
     if (entries.length === 0) {
       return <div className={cx("text-sm italic", textColorMuted)}>No content</div>;
     }
-    
-    // For OpenAI responses, extract content from common structures
-    if (isOpenAI) {
-      if ("choices" in (value as any) && Array.isArray((value as any).choices)) {
-        const content = (value as any).choices[0]?.message?.content;
-        if (content && typeof content === "string") {
-          return (
-            <div className={cx("text-base leading-7", textColor)}>
-              {renderMarkdown(content)}
-            </div>
-          );
-        }
-      }
-      if ("content" in (value as any)) {
-        const content = (value as any).content;
-        if (typeof content === "string") {
-          return (
-            <div className={cx("text-base leading-7", textColor)}>
-              {renderMarkdown(content)}
-            </div>
-          );
-        }
-      }
-      // If it's a message object, extract content
-      if ("message" in (value as any) && typeof (value as any).message === "object") {
-        const messageContent = (value as any).message?.content;
-        if (messageContent && typeof messageContent === "string") {
-          return (
-            <div className={cx("text-base leading-7", textColor)}>
-              {renderMarkdown(messageContent)}
-            </div>
-          );
-        }
-      }
-    }
-    
+
     return (
       <div className="space-y-2">
         {entries.map(([k, v]) => (

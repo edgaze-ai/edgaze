@@ -21,6 +21,7 @@ import { validateWorkflowGraph } from "../../lib/workflow/validation";
 import { cx } from "../../lib/cx";
 import { emit, on } from "../../lib/bus";
 import { track } from "../../lib/mixpanel";
+import { getQuickStartTemplate } from "../../lib/quickStartTemplates";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -968,6 +969,75 @@ export default function BuilderPage() {
       setCreating(false);
     }
   }, [requireAuth, userId, supabase, newTitle, refreshWorkflows]);
+
+  const createDraftFromQuickStart = useCallback(
+    async (templateId: string) => {
+      setWfError(null);
+      if (!requireAuth()) return;
+      if (!userId) return;
+
+      const template = getQuickStartTemplate(templateId);
+      if (!template) {
+        setWfError("Quick start template not found.");
+        return;
+      }
+
+      setMode("edit");
+      setCreating(true);
+      try {
+        const g = normalizeGraph(template.graph);
+
+        const { data, error } = await supabase
+          .from("workflow_drafts")
+          .insert({
+            owner_id: userId,
+            title: template.title,
+            graph: g,
+            last_opened_at: nowIso(),
+          })
+          .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
+          .single();
+
+        if (error) throw error;
+
+        const row = data as DraftRow;
+
+        setActiveDraftId(String(row.id));
+        setName(row.title || "Untitled Workflow");
+        setEditingName(false);
+
+        beRef.current?.loadGraph?.(g);
+
+        latestGraphRef.current = g;
+        lastSavedHashRef.current = hashGraph(g);
+
+        setShowLauncher(false);
+
+        safeTrack("Workflow Created", {
+          surface: "builder",
+          source: "quick_start",
+          template_id: templateId,
+          workflow_id: String(row.id),
+          title: template.title,
+          node_count: g.nodes?.length ?? 0,
+          edge_count: g.edges?.length ?? 0,
+        });
+
+        await refreshWorkflows();
+      } catch (e: any) {
+        setWfError(e?.message || "Failed to load quick start.");
+        safeTrack("Workflow Create Failed", {
+          surface: "builder",
+          source: "quick_start",
+          template_id: templateId,
+          message: e?.message || "unknown",
+        });
+      } finally {
+        setCreating(false);
+      }
+    },
+    [requireAuth, userId, supabase, refreshWorkflows]
+  );
 
   const ensureDraftSavedNow = useCallback(async () => {
     if (isPreview) return;
@@ -1953,6 +2023,7 @@ export default function BuilderPage() {
                   onAdd={(specId: string) => {
                     emit("builder:addNode", { specId });
                   }}
+                  onLoadQuickStart={createDraftFromQuickStart}
                 />
               </div>
             )}

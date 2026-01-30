@@ -543,13 +543,12 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content ?? "";
-    
-    // Store full result object for reference, but also make content easily accessible
+
+    // Store result with content and usage only (no finish_reason in run modal)
     const result = {
       content,
       model: data.model,
       usage: data.usage,
-      finishReason: data.choices?.[0]?.finish_reason,
     };
 
     // Set output - downstream nodes can access both the full object and extract content easily

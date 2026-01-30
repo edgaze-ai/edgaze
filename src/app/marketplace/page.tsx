@@ -1549,8 +1549,14 @@ const [codeQuery, setCodeQuery] = useState("");
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
 
-  const [showFeaturedCTA, setShowFeaturedCTA] = useState<boolean | null>(null);
-  const [featuredCTAPosition, setFeaturedCTAPosition] = useState(2);
+  const [featuredCTAPosition, setFeaturedCTAPosition] = useState<number | null>(null);
+  const showFeaturedCTA = !loadingFirst && items.length > 0;
+
+  useEffect(() => {
+    if (!loadingFirst && items.length > 0 && featuredCTAPosition === null) {
+      setFeaturedCTAPosition(Math.floor(Math.random() * 9));
+    }
+  }, [loadingFirst, items.length, featuredCTAPosition]);
 
   const [sparkleOn, setSparkleOn] = useState(false);
   const sparkleTimer = useRef<number | null>(null);
@@ -1874,45 +1880,6 @@ const [codeQuery, setCodeQuery] = useState("");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [committedDebouncedQuery]);
-
-  useEffect(() => {
-    const main = mainRef.current;
-    if (!main) return;
-
-    const STORAGE_KEY = "eg_marketplace_featured_cta_roll";
-    const SCROLL_THRESHOLD = 380;
-    const SHOW_CHANCE = 0.38;
-
-    const onScroll = () => {
-      if (main.scrollTop < SCROLL_THRESHOLD) return;
-      if (showFeaturedCTA !== null) return;
-
-      try {
-        const stored = window.sessionStorage.getItem(STORAGE_KEY);
-        if (stored !== null) {
-          if (stored === "0") {
-            setShowFeaturedCTA(false);
-          } else {
-            const pos = parseInt(stored.slice(2), 10);
-            setShowFeaturedCTA(true);
-            setFeaturedCTAPosition(Number.isFinite(pos) && pos >= 2 && pos <= 4 ? pos : 2);
-          }
-          return;
-        }
-        const show = Math.random() < SHOW_CHANCE;
-        const pos = 2 + Math.floor(Math.random() * 2);
-        window.sessionStorage.setItem(STORAGE_KEY, show ? `1:${pos}` : "0");
-        setShowFeaturedCTA(show);
-        if (show) setFeaturedCTAPosition(pos);
-      } catch {
-        setShowFeaturedCTA(false);
-      }
-    };
-
-    onScroll();
-    main.addEventListener("scroll", onScroll, { passive: true });
-    return () => main.removeEventListener("scroll", onScroll);
-  }, [showFeaturedCTA]);
 
   useEffect(() => {
     if (!sentinelRef.current) return;
@@ -2642,9 +2609,39 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
 
           {loadingFirst ? (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 9 }).map((_, i) => (
+              {Array.from({ length: 2 }).map((_, i) => (
                 <div
                   key={i}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"
+                >
+                  <div className="aspect-video w-full animate-pulse rounded-2xl bg-white/5" />
+                  <div className="mt-3 flex gap-3">
+                    <div className="h-9 w-9 animate-pulse rounded-full bg-white/5" />
+                    <div className="flex-1">
+                      <div className="h-4 w-3/4 animate-pulse rounded bg-white/5" />
+                      <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-white/5" />
+                      <div className="mt-3 h-3 w-2/3 animate-pulse rounded bg-white/5" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"
+                aria-hidden
+              >
+                <div className="aspect-video w-full animate-pulse rounded-2xl bg-white/5" />
+                <div className="mt-3 flex gap-3">
+                  <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 w-3/4 animate-pulse rounded bg-white/5" />
+                    <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-white/5" />
+                    <div className="mt-3 h-3 w-2/3 animate-pulse rounded bg-white/5" />
+                  </div>
+                </div>
+              </div>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={`s-${i}`}
                   className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"
                 >
                   <div className="aspect-video w-full animate-pulse rounded-2xl bg-white/5" />
@@ -2664,10 +2661,11 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
           ) : (
             <>
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {showFeaturedCTA && dedupedItems.length <= PAGE_SIZE
+                {showFeaturedCTA
                   ? (() => {
-                      const before = dedupedItems.slice(0, featuredCTAPosition);
-                      const after = dedupedItems.slice(featuredCTAPosition);
+                      const pos = featuredCTAPosition ?? 0;
+                      const before = dedupedItems.slice(0, pos);
+                      const after = dedupedItems.slice(pos);
                       return (
                         <>
                           {before.map((p) => (

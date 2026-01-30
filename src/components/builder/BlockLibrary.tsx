@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useEffect, useRef, memo } from "react";
 import { listNodeSpecs } from "src/nodes/registry";
+import { matchNodesFromNaturalLanguage } from "src/nodes/nodeSearch";
 import type { NodeSpec } from "src/nodes/types";
-import { Search, Sparkles, Plus, ExternalLink } from "lucide-react";
+import { Search, Sparkles, Plus, ExternalLink, X } from "lucide-react";
 
 /* ---------- Size hook (kept as-is, just used for preview width) ---------- */
 function useElementSize<T extends HTMLElement>() {
@@ -69,40 +70,52 @@ function QuickStartItem({
   icon,
   title,
   caption,
-  href = "#",
+  templateId,
+  onLoad,
 }: {
   icon: React.ReactNode;
   title: string;
   caption: string;
-  href?: string;
+  templateId: string;
+  onLoad: (templateId: string) => void;
 }) {
   return (
-    <a
-      href={href}
-      className="flex items-center gap-3 rounded-xl bg-black/25 px-3 py-2 edge-glass edge-border text-[12px] hover:bg-white/5 transition-colors overflow-hidden"
+    <button
+      type="button"
+      onClick={() => onLoad(templateId)}
+      className="flex w-full items-center gap-3 rounded-xl bg-black/25 px-3 py-2 edge-glass edge-border text-[12px] hover:bg-white/5 transition-colors overflow-hidden text-left"
     >
-      <div className="grid h-8 w-8 place-items-center rounded-lg bg-white/[0.04]">
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.04]">
         {icon}
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <div className="font-semibold text-[12px]">{title}</div>
-          <ExternalLink size={13} className="opacity-60" />
+          <ExternalLink size={13} className="opacity-60 shrink-0" />
         </div>
         <div className="truncate text-[11px] opacity-70">{caption}</div>
       </div>
-    </a>
+    </button>
   );
 }
 
 /* ---------- Block library ---------- */
 function BlockLibrary({
   onAdd,
+  onLoadQuickStart,
 }: {
   onAdd?: (specId: string) => void;
+  onLoadQuickStart?: (templateId: string) => void;
 }) {
   const [q, setQ] = useState("");
   const [showQS, setShowQS] = useState(true);
+  const [aiSearchOpen, setAiSearchOpen] = useState(false);
+  const [aiSearchQuery, setAiSearchQuery] = useState("");
+  const [aiSearchResult, setAiSearchResult] = useState<{
+    suggestions: NodeSpec[];
+    message: string;
+  } | null>(null);
+  const aiSearchInputRef = useRef<HTMLInputElement>(null);
 
   const all = listNodeSpecs();
   const items = useMemo(() => {
@@ -120,6 +133,19 @@ function BlockLibrary({
     );
     onAdd?.(specId);
   };
+
+  const runAiSearch = () => {
+    const { suggestions, message } = matchNodesFromNaturalLanguage(aiSearchQuery, all);
+    setAiSearchResult({ suggestions, message });
+  };
+
+  useEffect(() => {
+    if (aiSearchOpen) {
+      setAiSearchResult(null);
+      setAiSearchQuery("");
+      setTimeout(() => aiSearchInputRef.current?.focus(), 50);
+    }
+  }, [aiSearchOpen]);
 
   return (
     <div className="flex h-full flex-col">
@@ -142,6 +168,7 @@ function BlockLibrary({
           className="edgaze-flow mb-2 w-full rounded-[12px] p-[1.2px]"
           title="Search nodes with AI"
           type="button"
+          onClick={() => setAiSearchOpen(true)}
         >
           <div className="flex w-full items-center justify-center gap-1.5 rounded-[10px] bg-[#121212] px-3 py-2 text-[12px]">
             <Sparkles size={15} />
@@ -149,6 +176,106 @@ function BlockLibrary({
           </div>
         </button>
       </div>
+
+      {/* AI Search modal (no LLM: natural-language match to nodes) */}
+      {aiSearchOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 py-6 safe-area-padding"
+          onClick={() => setAiSearchOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Search nodes with AI"
+        >
+          <div
+            className="ai-modal-glow my-auto w-full max-w-md flex-shrink-0 rounded-2xl p-[1.5px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex max-h-[min(85vh,28rem)] flex-col rounded-2xl bg-[#0a0a0a] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 flex-shrink-0">
+                <span className="flex items-center gap-2 text-[14px] font-semibold">
+                  <Sparkles size={16} className="opacity-80" />
+                  Search nodes with AI
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAiSearchOpen(false)}
+                  className="rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
+                <p className="text-[12px] text-white/70">
+                  Describe what you want in plain English (e.g. &quot;generate an image&quot;, &quot;call an API&quot;, &quot;merge data&quot;). I&apos;ll suggest matching nodes—no AI API used.
+                </p>
+                <div className="space-y-3">
+                  <div className="ai-input-glow w-full rounded-xl p-[1.5px]">
+                    <input
+                      ref={aiSearchInputRef}
+                      type="text"
+                      value={aiSearchQuery}
+                      onChange={(e) => setAiSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") runAiSearch();
+                      }}
+                      placeholder="e.g. send email, HTTP request, condition..."
+                      className="w-full rounded-[10px] bg-[#0d0d0d]/90 py-2.5 px-3 text-[13px] text-white placeholder:text-white/40 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={runAiSearch}
+                    className="ai-search-btn w-full rounded-xl p-[1.5px]"
+                  >
+                    <span className="flex w-full items-center justify-center gap-2 rounded-[10px] bg-[#0d0d0d]/90 py-2.5 text-[13px] font-medium text-white/90 transition-colors hover:bg-[#111]/90">
+                      <Search size={15} className="opacity-80" />
+                      Search
+                    </span>
+                  </button>
+                </div>
+                {aiSearchResult && (
+                  <div className="space-y-3">
+                    <p className="text-[12px] text-white/80 leading-snug">
+                      {aiSearchResult.message}
+                    </p>
+                    {aiSearchResult.suggestions.length > 0 && (
+                      <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {aiSearchResult.suggestions.map((spec) => (
+                          <li
+                            key={spec.id}
+                            className="flex items-center justify-between gap-2 rounded-lg bg-black/30 edge-border px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="text-[13px] font-medium truncate">
+                                {spec.label}
+                              </div>
+                              <div className="text-[11px] text-white/55 line-clamp-1">
+                                {spec.summary}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleAdd(spec.id);
+                                setAiSearchOpen(false);
+                              }}
+                              className="shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] edge-glass edge-border hover:bg-white/10 transition-colors"
+                            >
+                              <Plus size={12} />
+                              Add
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Scrollable content */}
       <div className="library-scroll -mr-3 flex-1 min-h-0 overflow-y-auto pr-4 pb-5">
@@ -172,16 +299,22 @@ function BlockLibrary({
                 icon={<span className="text-[15px]">📧</span>}
                 title="Email Parser"
                 caption="Turn emails into structured data."
+                templateId="email-parser"
+                onLoad={(id) => onLoadQuickStart?.(id)}
               />
               <QuickStartItem
                 icon={<span className="text-[15px]">✍️</span>}
                 title="Writer"
                 caption="Generate posts with AI."
+                templateId="writer"
+                onLoad={(id) => onLoadQuickStart?.(id)}
               />
               <QuickStartItem
                 icon={<span className="text-[15px]">🎨</span>}
                 title="Images"
                 caption="Text-to-image generation."
+                templateId="images"
+                onLoad={(id) => onLoadQuickStart?.(id)}
               />
             </div>
           )}
@@ -291,6 +424,62 @@ function BlockLibrary({
           }
           100% {
             background-position: 260% 50%;
+          }
+        }
+
+        .safe-area-padding {
+          padding-left: max(1rem, env(safe-area-inset-left));
+          padding-right: max(1rem, env(safe-area-inset-right));
+          padding-top: max(1rem, env(safe-area-inset-top));
+          padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+
+        .ai-modal-glow {
+          background: linear-gradient(
+            120deg,
+            #78e9ff,
+            #b68cff,
+            #ff6db2,
+            #78e9ff,
+            #b68cff
+          );
+          background-size: 300% 300%;
+          animation: ai-glow-move 8s ease-in-out infinite;
+        }
+
+        .ai-input-glow {
+          background: linear-gradient(
+            90deg,
+            #78e9ff,
+            #b68cff,
+            #ff6db2,
+            #78e9ff
+          );
+          background-size: 280% 100%;
+          animation: ai-glow-move 6s linear infinite;
+        }
+
+        .ai-search-btn {
+          background: linear-gradient(
+            90deg,
+            #78e9ff,
+            #b68cff,
+            #ff6db2,
+            #78e9ff
+          );
+          background-size: 280% 100%;
+          animation: ai-glow-move 5s linear infinite;
+        }
+
+        @keyframes ai-glow-move {
+          0% {
+            background-position: 0% 50%;
+          }
+          50% {
+            background-position: 100% 50%;
+          }
+          100% {
+            background-position: 0% 50%;
           }
         }
 

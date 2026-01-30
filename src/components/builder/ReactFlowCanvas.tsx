@@ -195,6 +195,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
 
   const [bubble, setBubble] = useState<BubbleState | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const connectionErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCopiedNodeRef = useRef<Node<EdgazeNodeData> | null>(null);
 
   // Prevent selection-change -> state -> selection-change loops
@@ -341,8 +343,17 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         }
       }
 
+      // Rule 7: No ambiguous connections - same target handle cannot receive multiple edges
+      const targetHandleKey = (connection as any).targetHandle ?? null;
+      const existingToSameHandle = edgesRef.current.filter(
+        (e) => e.target === connection.target && ((e as any).targetHandle ?? null) === targetHandleKey
+      );
+      if (existingToSameHandle.length >= 1) {
+        console.log("[Connection] Rejected: Rule 7 - This input already has a connection (ambiguous)");
+        return false;
+      }
+
       // Trust ReactFlow's handle system - if it allows the connection, we allow it
-      // ReactFlow will only allow connections between compatible handle types (source->target)
       console.log("[Connection] Allowed: All checks passed");
       return true;
     },
@@ -397,13 +408,21 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         }
       }
 
+      // Rule 8: No ambiguous connections - same target handle cannot receive multiple edges
+      const targetHandleKey = (connection as any).targetHandle ?? null;
+      const existingToSameHandle = edgesRef.current.filter(
+        (e) => e.target === connection.target && ((e as any).targetHandle ?? null) === targetHandleKey
+      );
+      if (existingToSameHandle.length >= 1) {
+        return "This input already has a connection. Remove it first to connect another.";
+      }
+
       // Rule 4: Prevent cycles
       if (sourceNode.id === targetNode.id) {
         return "Cannot connect a node to itself.";
       }
 
       // Trust ReactFlow's handle system for port validation
-      // ReactFlow ensures source handles connect to target handles
       return null;
     },
     []
@@ -416,16 +435,27 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       const sourceId = (params as any)?.source as string | undefined;
       const targetId = (params as any)?.target as string | undefined;
 
+      // Clear any previous connection error when user attempts a new connection
+      if (connectionErrorTimerRef.current) {
+        clearTimeout(connectionErrorTimerRef.current);
+        connectionErrorTimerRef.current = null;
+      }
+
       // Validate connection
       const isValid = isValidConnection(params);
       if (!isValid) {
         const error = getConnectionError(params);
         if (error) {
-          // Show error message (using alert for now, can be replaced with toast)
-          alert(error);
+          setConnectionError(error);
+          connectionErrorTimerRef.current = setTimeout(() => {
+            setConnectionError(null);
+            connectionErrorTimerRef.current = null;
+          }, 5000);
         }
         return;
       }
+
+      setConnectionError(null);
 
       const sourceSpecId = sourceId
         ? nodesRef.current.find((n) => n.id === sourceId)?.data?.specId
@@ -1096,6 +1126,13 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       onDragOver={onDragOver}
     >
       {/* Control panel removed - now integrated into top bar */}
+
+      {/* Connection error — shown in editor when connection is invalid or ambiguous */}
+      {!isPreview && connectionError && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg bg-rose-500/95 text-white text-sm font-medium shadow-lg border border-rose-400/50 max-w-[90vw] text-center">
+          {connectionError}
+        </div>
+      )}
 
       {/* Selection toolbar — hidden in preview */}
       {!isPreview && bubble && (
