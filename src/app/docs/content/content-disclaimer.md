@@ -65,7 +65,7 @@ Past or example results do not guarantee future outcomes.
 
 6. Testing and Experimental Use
 
-During closed beta:
+During beta:
 - Content is provided free of charge for testing and evaluation
 - Features and Content may be incomplete, unstable, or experimental
 - Content may change, be removed, or become unavailable without notice

@@ -393,7 +393,7 @@ export default function AdminModerationPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-base font-semibold">Applications</div>
-            <div className="text-sm text-white/60">Pause/resume accepting closed beta applications.</div>
+            <div className="text-sm text-white/60">Pause/resume accepting beta applications.</div>
           </div>
 
           <div className="flex items-center gap-3">

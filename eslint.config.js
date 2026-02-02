@@ -9,7 +9,7 @@ export default [
       "@next/next/no-img-element": "off",
       "@next/next/no-html-link-for-pages": "off",
 
-      // closed beta: keep CI green
+      // beta: keep CI green
       "no-console": ["warn", { allow: ["warn", "error"] }],
     },
   },

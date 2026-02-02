@@ -1,11 +1,11 @@
 title = "Platform Status and Beta Disclaimer"
-description = "Important disclosures regarding the closed beta status of the Edgaze platform."
+description = "Important disclosures regarding the beta status of the Edgaze platform."
 
 ---
 
 1. Platform Status
 
-Edgaze is currently operating in a closed beta stage.
+Edgaze is currently operating in a beta stage.
 
 The Platform is under active development and is made available solely for testing, evaluation, and feedback purposes.
 
@@ -15,7 +15,7 @@ The Platform is not a finalized or production-grade service.
 
 2. Experimental Nature of the Platform
 
-During the closed beta, the Platform may:
+During the beta, the Platform may:
 - Contain bugs, errors, or security vulnerabilities
 - Experience downtime, outages, or degraded performance
 - Produce incorrect, incomplete, or unexpected results
@@ -80,7 +80,7 @@ Support, if provided, is discretionary and may be limited or unavailable.
 
 7. Data Handling During Beta
 
-During the closed beta:
+During the beta:
 - Data may be modified, migrated, or deleted
 - Storage formats and systems may change
 - Data recovery is not guaranteed
@@ -94,7 +94,7 @@ Users are responsible for maintaining independent backups of any important data.
 Edgaze reserves the right to:
 - Modify or discontinue the Platform or any feature
 - Suspend or terminate access to the Platform
-- End the closed beta at any time
+- End the beta at any time
 
 Such actions may occur without prior notice.
 

@@ -923,7 +923,7 @@ export default function WorkflowProductPage() {
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
 
-  // Keep this behavior consistent with your prompts page: paid becomes free during closed beta.
+  // Keep this behavior consistent with your prompts page: paid becomes free during beta.
   const CLOSED_BETA = true;
 
   useEffect(() => {
@@ -1204,7 +1204,7 @@ export default function WorkflowProductPage() {
       return;
     }
 
-    // For closed beta OR free items: insert purchase row (free items still need purchase to show in library)
+    // For beta OR free items: insert purchase row (free items still need purchase to show in library)
     if (showClosedBetaFree || isNaturallyFree) {
       setPurchaseLoading(true);
       try {
@@ -1257,7 +1257,7 @@ export default function WorkflowProductPage() {
       }
     }
 
-    // Real paid checkout (Stripe) not wired yet - for paid items outside closed beta.
+    // Real paid checkout (Stripe) not wired yet - for paid items outside beta.
     if (!isNaturallyFree && !showClosedBetaFree) {
       setPurchaseError(
         "Paid checkout not wired yet. Stripe should create workflow_purchases(status='paid') server-side."
@@ -2310,7 +2310,7 @@ export default function WorkflowProductPage() {
 
                     {showClosedBetaFree && !isOwned && (
                       <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-white/60">
-                        Closed beta
+                        Beta
                       </span>
                     )}
 
@@ -2330,7 +2330,7 @@ export default function WorkflowProductPage() {
                           <div className="mt-1 flex items-baseline gap-2">
                             <div className="text-2xl font-semibold">$0.00</div>
                             <div className="text-[12px] text-white/55">
-                              during closed beta
+                              during beta
                             </div>
                           </div>
                           <div className="mt-1 text-[12px] text-white/50">

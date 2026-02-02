@@ -124,4 +124,4 @@ Run the migration `supabase/migrations/20250128000002_app_settings_rls.sql` (via
 - Enables RLS on `app_settings`. **SELECT** is allowed for everyone (anon + authenticated). There are no INSERT/UPDATE/DELETE policies; writes go through the `upsert_app_setting(p_key, p_value)` RPC.
 - Defines `is_app_admin()` (SECURITY DEFINER) and `upsert_app_setting(text, boolean)` (SECURITY DEFINER). The RPC checks admin and performs upsert, bypassing RLS and avoiding “new row violates row-level security” on upsert.
 
-`app_settings` stores flags such as `applications_paused` (closed beta) and `maintenance_mode`. Maintenance mode is toggled in **Admin → Moderation**; when enabled, all app routes except the landing page (`/`) and admin (`/admin/*`) show an Edgaze-style “Platform under maintenance” screen.
+`app_settings` stores flags such as `applications_paused` (beta) and `maintenance_mode`. Maintenance mode is toggled in **Admin → Moderation**; when enabled, all app routes except the landing page (`/`) and admin (`/admin/*`) show an Edgaze-style “Platform under maintenance” screen.

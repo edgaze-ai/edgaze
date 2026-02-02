@@ -25,22 +25,22 @@ Edgaze acts solely as a **neutral intermediary** and hosting provider.
 
 ---
 
-## 3. Closed Beta Disclaimer
+## 3. Beta Disclaimer
 
-Edgaze is currently operating in a **closed beta** phase.
+Edgaze is currently operating in a **beta** phase.
 
 During this phase:
 - Features may be incomplete, unstable, or experimental.
 - Data loss, downtime, bugs, or unexpected behavior may occur.
 - Functionality may change or be removed without notice.
 
-You acknowledge that use of the Platform during the closed beta is **entirely at your own risk**.
+You acknowledge that use of the Platform during the beta is **entirely at your own risk**.
 
 ---
 
 ## 4. Marketplace and Payments Disclaimer
 
-During the closed beta:
+During the beta:
 - **No payments are processed** through the Platform.
 - All marketplace content is provided **free of charge for testing and evaluation purposes only**.
 - No purchase, sale, license, or commercial transaction is legally formed through the Platform.
@@ -185,7 +185,7 @@ Upon termination, all licenses granted to you are revoked, except those granted 
 
 ## 15. Privacy
 
-Use of the Platform is subject to the Privacy Policy. During closed beta, data handling practices may evolve.
+Use of the Platform is subject to the Privacy Policy. During beta, data handling practices may evolve.
 
 Edgaze does not guarantee permanent data retention.
 

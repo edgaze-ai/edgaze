@@ -99,7 +99,7 @@ To the maximum extent permitted by law, Edgaze shall not be liable for:
 - Actions taken or not taken in response to reports
 - Delays or failures in addressing reported issues
 - Any damages arising from disclosure, non-disclosure, or reliance on communications
-- Losses resulting from use of the Platform during closed beta
+- Losses resulting from use of the Platform during beta
 
 Your sole remedy is to discontinue use of the Platform.
 

@@ -451,7 +451,7 @@ type StepKey = "details" | "pricing" | "media" | "visibility" | "review";
 const STEPS: Array<{ key: StepKey; title: string; desc: string }> = [
   { key: "details", title: "Basics", desc: "Title, description, tags, code." },
   { key: "pricing", title: "Pricing", desc: "Payments (beta = free)." },
-  { key: "media", title: "Media", desc: "Thumbnail + 3+ demos." },
+  { key: "media", title: "Media", desc: "Thumbnail + optional demos." },
   { key: "visibility", title: "Visibility", desc: "Public (beta)." },
   { key: "review", title: "Review", desc: "Confirm and publish." },
 ];
@@ -589,8 +589,8 @@ export default function PublishPromptModal({
   // Pricing is always "free" during beta (UI enforces)
   const isPricingValid = true;
 
-  // Media: require 3+ demo images
-  const isMediaValid = demoCount >= 3;
+  // Media: demo images optional during beta
+  const isMediaValid = true;
 
   // Visibility: only public enabled during beta
   const isVisibilityValid = visibility === "public";
@@ -876,9 +876,7 @@ export default function PublishPromptModal({
       if (codeStatus !== "available") return setErr("Wait for the Edgaze code check to finish.");
     }
 
-    if (key === "media") {
-      if (demoCount < 3) return setErr("Add at least 3 demo images.");
-    }
+    // Media: demo images are optional during beta
 
     if (key === "visibility") {
       if (visibility !== "public") return setErr("Only Public is available during beta.");
@@ -1074,10 +1072,6 @@ export default function PublishPromptModal({
       }
 
       const demoFinal = demoUrls.filter(Boolean).slice(0, 6);
-
-      if (demoFinal.length < 3) {
-        throw new Error("Add at least 3 demo images.");
-      }
 
       // When editing, merge media updates into the main update
       if (editId) {
@@ -1461,10 +1455,27 @@ export default function PublishPromptModal({
                             <div className="flex items-center justify-between">
                               <div className="text-[12px] font-semibold text-white">Paywall</div>
                               <span className="text-[10px] rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-white/70">
-                                Coming soon
+                                Unavailable
                               </span>
                             </div>
-                            <div className="text-[11px] text-white/55 mt-1">Sell prompts (disabled in beta).</div>
+                            <div className="text-[11px] text-white/55 mt-1">Payments unavailable during beta.</div>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled
+                            className={cx(
+                              "col-span-12 md:col-span-6 rounded-2xl border p-4 text-left",
+                              "border-white/10 bg-white/[0.02] opacity-70 cursor-not-allowed"
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="text-[12px] font-semibold text-white">Subscription</div>
+                              <span className="text-[10px] rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-white/70">
+                                Unavailable
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-white/55 mt-1">Payments unavailable during beta.</div>
                           </button>
                         </div>
 
@@ -1588,16 +1599,11 @@ export default function PublishPromptModal({
                           <div>
                             <div className="text-[12px] font-semibold text-white/85">Demo images</div>
                             <div className="text-[11px] text-white/50 mt-1">
-                              Add at least <span className="text-white/80 font-semibold">3</span> (up to 6).
+                              Optional. Add up to 6 example outputs.
                             </div>
                           </div>
-                          <div
-                            className={cx(
-                              "text-[11px] font-semibold rounded-full border px-3 py-1.5",
-                              demoCount >= 3 ? "border-cyan-400/25 bg-cyan-400/10 text-cyan-200" : "border-white/10 bg-white/[0.03] text-white/70"
-                            )}
-                          >
-                            {demoCount}/3 minimum
+                          <div className="text-[11px] font-semibold rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-white/70">
+                            {demoCount}/6
                           </div>
                         </div>
 
@@ -1774,18 +1780,13 @@ export default function PublishPromptModal({
 
                         <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4">
                           <div className="flex items-center justify-between">
-                            <div className="text-[11px] font-semibold text-white/70">Media readiness</div>
-                            <div
-                              className={cx(
-                                "text-[11px] font-semibold rounded-full border px-3 py-1.5",
-                                demoCount >= 3 ? "border-cyan-400/25 bg-cyan-400/10 text-cyan-200" : "border-red-500/25 bg-red-500/10 text-red-200"
-                              )}
-                            >
-                              {demoCount}/3 demos
+                            <div className="text-[11px] font-semibold text-white/70">Media</div>
+                            <div className="text-[11px] font-semibold rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-cyan-200">
+                              Thumbnail {demoCount > 0 ? `+ ${demoCount} demo(s)` : "(demos optional)"}
                             </div>
                           </div>
                           <div className="mt-1 text-[11px] text-white/50">
-                            You must upload at least 3 demo images to publish.
+                            Demo images are optional during beta.
                           </div>
                         </div>
                       </div>

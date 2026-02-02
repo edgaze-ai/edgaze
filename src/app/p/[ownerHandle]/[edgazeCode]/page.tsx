@@ -1505,7 +1505,7 @@ export default function PromptProductPage() {
       return;
     }
 
-    // For closed beta OR free items: insert purchase row (free items still need purchase to show in library)
+    // For beta OR free items: insert purchase row (free items still need purchase to show in library)
     if (showClosedBetaFree || isNaturallyFree) {
       setPurchaseLoading(true);
       try {
@@ -1567,9 +1567,9 @@ export default function PromptProductPage() {
       }
     }
 
-    // Real paid checkout (Stripe) not wired yet - for paid items outside closed beta.
+    // Real paid checkout (Stripe) not wired yet - for paid items outside beta.
     if (!isNaturallyFree && !showClosedBetaFree) {
-      setPurchaseError("Payments are not available during closed beta.");
+      setPurchaseError("Payments are not available during beta.");
       return;
     }
 
@@ -2496,7 +2496,7 @@ export default function PromptProductPage() {
                     </div>
 
                     {showClosedBetaFree && !isOwned && (
-                      <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-white/60">Closed beta</span>
+                      <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-white/60">Beta</span>
                     )}
 
                     {isOwned && (
@@ -2528,7 +2528,7 @@ export default function PromptProductPage() {
                           <div className="text-[11px] text-white/45">Price</div>
                           <div className="mt-1 flex items-baseline gap-2">
                             <div className="text-2xl font-semibold">$0.00</div>
-                            <div className="text-[12px] text-white/55">during closed beta</div>
+                            <div className="text-[12px] text-white/55">during beta</div>
                           </div>
                           <div className="mt-1 text-[12px] text-white/50">
                             <span className="line-through decoration-white/40">{paidLabel === "Paid" ? "$—" : paidLabel}</span>

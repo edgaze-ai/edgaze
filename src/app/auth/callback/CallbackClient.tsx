@@ -135,12 +135,11 @@ export default function CallbackClient() {
       let redirectReason = "";
       let fromStorage: string | null = null;
 
-      // If user came from closed-beta apply flow, ALWAYS send them back to /apply?resume=1
-      // so they see the verifying screen and complete submission (never default to marketplace).
+      // If user came from apply flow (e.g. sign-in from apply page), send them to marketplace.
       if (isApplyFlow) {
-        returnTo = "/apply?resume=1";
+        returnTo = "/marketplace";
         redirectReason = "apply flow (sessionStorage flags)";
-        console.log("[Auth Callback] Apply flow detected, will redirect to /apply?resume=1 after exchanging code");
+        console.log("[Auth Callback] Apply flow detected, will redirect to /marketplace after exchanging code");
       }
 
       // Priority 1: Check query parameter (passed in redirectTo URL) — unless already set by apply flow

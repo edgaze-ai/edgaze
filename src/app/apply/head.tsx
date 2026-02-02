@@ -1,15 +1,15 @@
 export default function Head() {
     return (
       <>
-        <title>Closed Beta Application | Edgaze</title>
+        <title>Beta | Edgaze</title>
         <meta
           name="description"
-          content="Apply for access to the Edgaze closed beta program."
+          content="Join the Edgaze beta."
         />
-        <meta property="og:title" content="Closed Beta Application | Edgaze" />
+        <meta property="og:title" content="Beta | Edgaze" />
         <meta
           property="og:description"
-          content="Apply for access to the Edgaze closed beta program."
+          content="Join the Edgaze beta."
         />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://edgaze.ai/apply" />

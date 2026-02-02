@@ -119,23 +119,17 @@ function Nav({ onTop }: { onTop: boolean }) {
           <SmoothLink className="hover:text-white" href="#anyone">
             Creators
           </SmoothLink>
-          <a className="hover:text-white" href="/apply">
-            Apply
-          </a>
+          <SmoothLink className="hover:text-white" href="#beta">
+            Beta
+          </SmoothLink>
         </div>
 
         <div className="flex items-center gap-2">
           <SmoothLink
-            href="/apply"
-            className="hidden rounded-full px-4 py-2 text-sm font-medium text-white/90 ring-1 ring-white/10 bg-white/5 hover:bg-white/8 transition-colors md:inline-flex"
-          >
-            Apply
-          </SmoothLink>
-          <SmoothLink
             href="/marketplace"
             className="rounded-full px-4 py-2 text-sm font-medium text-white bg-[#11131a] ring-1 ring-white/10 hover:bg-[#141722] transition-colors"
           >
-            Open marketplace
+            Enter marketplace
           </SmoothLink>
         </div>
       </Container>
@@ -1618,7 +1612,7 @@ export default function EdgazeLandingPage() {
   const [scrollProgress, setScrollProgress] = useState(0);
 
   const sectionIds = useMemo(
-    () => ["top", "prompt", "workflows", "marketplace", "features", "better", "anyone", "creators", "apply"],
+    () => ["top", "prompt", "workflows", "marketplace", "features", "better", "anyone", "creators", "beta"],
     []
   );
 
@@ -1824,8 +1818,7 @@ export default function EdgazeLandingPage() {
                   </Reveal>
                   <Reveal delay={0.16}>
                     <div className="mt-8 flex flex-wrap items-center gap-3">
-                      <PrimaryButton href="/marketplace">Open marketplace</PrimaryButton>
-                      <SecondaryButton href="/apply">Apply now</SecondaryButton>
+                      <PrimaryButton href="/marketplace">Enter marketplace</PrimaryButton>
                     </div>
                   </Reveal>
                 </div>
@@ -1955,7 +1948,7 @@ export default function EdgazeLandingPage() {
                 </Reveal>
                 <Reveal delay={0.1}>
                   <TextCard title="Join in simple steps">
-                    <p>Apply for closed beta, get approved, and you are in. Get distribution on your assets that were not productive.</p>
+                    <p>Join the beta and you're in. Get distribution on your assets that were not productive.</p>
                   </TextCard>
                 </Reveal>
               </div>
@@ -1979,7 +1972,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="apply" eyebrow="Closed beta" title="Apply for closed beta." desc="Creators can set prices now. Users run for free in beta. Payments activate later.">
+          <Section id="beta" eyebrow="Beta" title="Join the beta." desc="Creators can set prices now. Users run for free in beta. Payments activate later.">
             <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
               <Reveal>
                 <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
@@ -1990,8 +1983,8 @@ export default function EdgazeLandingPage() {
                     <p>People who care about clarity and quality.</p>
                   </div>
                   <div className="mt-7 flex flex-wrap gap-3">
-                    <PrimaryButton href="/apply">Apply now</PrimaryButton>
-                    <SecondaryButton href="#top">Back to top</SecondaryButton>
+                    <PrimaryButton href="/marketplace">Join the beta</PrimaryButton>
+                    <SecondaryButton href="/marketplace">Enter marketplace</SecondaryButton>
                   </div>
                 </div>
               </Reveal>
@@ -2006,7 +1999,7 @@ export default function EdgazeLandingPage() {
                     >
                       <span className="inline-flex items-center gap-2">
                         <Compass className="h-4 w-4 text-white/75" />
-                        Open marketplace
+                        Enter marketplace
                       </span>
                       <ArrowRight className="h-4 w-4 text-white/55" />
                     </a>

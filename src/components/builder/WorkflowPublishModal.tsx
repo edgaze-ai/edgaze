@@ -1063,7 +1063,7 @@ export default function WorkflowPublishModal({
                   <RailButton
                     active={tab === "pricing"}
                     title="Pricing"
-                    desc="Free, paywall, subscription."
+                    desc="Free only (payments unavailable during beta)."
                     onClick={() => setTab("pricing")}
                   />
                   <RailButton
@@ -1292,38 +1292,33 @@ export default function WorkflowPublishModal({
                     <div className="space-y-5">
                       <div>
                         <div className="text-[12px] font-semibold text-white/85">Monetisation</div>
+                        <div className="text-[11px] text-white/50 mt-1">
+                          Payments unavailable during beta. Only Free is available.
+                        </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {(["free", "paywall", "subscription"] as MonetisationMode[]).map((m) => (
-                            <button
-                              key={m}
-                              onClick={() => setMonetisationMode(m)}
-                              className={cx(
-                                "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
-                                monetisationMode === m
-                                  ? "border-white/18 bg-white/[0.08] text-white"
-                                  : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]"
-                              )}
-                            >
-                              {m === "free" ? "Free" : m === "paywall" ? "Paywall" : "Subscription"}
-                            </button>
-                          ))}
+                          {(["free", "paywall", "subscription"] as MonetisationMode[]).map((m) => {
+                            const disabled = m !== "free";
+                            return (
+                              <button
+                                key={m}
+                                type="button"
+                                disabled={disabled}
+                                onClick={() => !disabled && setMonetisationMode(m)}
+                                className={cx(
+                                  "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
+                                  disabled
+                                    ? "border-white/10 bg-white/[0.02] text-white/50 opacity-70 cursor-not-allowed"
+                                    : monetisationMode === m
+                                      ? "border-white/18 bg-white/[0.08] text-white"
+                                      : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]"
+                                )}
+                              >
+                                {m === "free" ? "Free" : m === "paywall" ? "Paywall" : "Subscription"}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-
-                      {monetisationMode === "paywall" ? (
-                        <div>
-                          <div className="text-[12px] font-semibold text-white/85">Price (USD)</div>
-                          <input
-                            value={priceUsd}
-                            onChange={(e) => setPriceUsd(e.target.value)}
-                            className="mt-2 w-[220px] rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-[13px] text-white outline-none focus:border-white/20"
-                            placeholder="2.99"
-                          />
-                          <div className="mt-2 text-[11px] text-white/45">
-                            Closed beta: payments can be disabled; users may still run for free.
-                          </div>
-                        </div>
-                      ) : null}
                     </div>
                   ) : null}
 
@@ -1403,24 +1398,35 @@ export default function WorkflowPublishModal({
                   {tab === "visibility" ? (
                     <div className="space-y-4">
                       <div className="text-[12px] font-semibold text-white/85">Visibility</div>
+                      <div className="text-[11px] text-white/50 mt-1">
+                        During beta, only <span className="text-white/80 font-semibold">Public</span> is available.
+                      </div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        {(["public", "unlisted", "private"] as Visibility[]).map((v) => (
-                          <button
-                            key={v}
-                            onClick={() => setVisibility(v)}
-                            className={cx(
-                              "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
-                              visibility === v
-                                ? "border-white/18 bg-white/[0.08] text-white"
-                                : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]"
-                            )}
-                          >
-                            {v === "public" ? "Public" : v === "unlisted" ? "Unlisted" : "Private"}
-                          </button>
-                        ))}
+                        {(["public", "unlisted", "private"] as Visibility[]).map((v) => {
+                          const disabled = v !== "public";
+                          return (
+                            <button
+                              key={v}
+                              type="button"
+                              disabled={disabled}
+                              onClick={() => !disabled && setVisibility(v)}
+                              className={cx(
+                                "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
+                                disabled
+                                  ? "border-white/10 bg-white/[0.02] text-white/50 opacity-70 cursor-not-allowed"
+                                  : visibility === v
+                                    ? "border-white/18 bg-white/[0.08] text-white"
+                                    : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]"
+                              )}
+                            >
+                              {v === "public" ? "Public" : v === "unlisted" ? "Unlisted" : "Private"}
+                              {disabled ? " (unavailable)" : ""}
+                            </button>
+                          );
+                        })}
                       </div>
                       <div className="text-[11px] text-white/45 leading-relaxed">
-                        Public = discoverable. Unlisted = link-only. Private = only you.
+                        Public = discoverable. Unlisted and Private are unavailable during beta.
                       </div>
                     </div>
                   ) : null}

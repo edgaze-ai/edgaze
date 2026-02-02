@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CheckCircle2, ArrowRight, Sparkles, Search, PauseCircle, X, AlertCircle } from "lucide-react";
 import TurnstileWidget from "../../components/apply/TurnstileWidget";
@@ -388,9 +389,15 @@ function PausedPanel() {
 }
 
 export default function ApplyPage() {
+  const router = useRouter();
   const reduce = useReducedMotion();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { userId, authReady } = useAuth();
+
+  // Redirect everyone who visits /apply to marketplace (no closed beta application)
+  useEffect(() => {
+    router.replace("/marketplace");
+  }, [router]);
 
   const [step, setStep] = useState<Step>("details");
 
@@ -755,7 +762,7 @@ phone_number: phone.replace(/\s/g, ""),
 
             <div className="inline-flex items-center gap-2 rounded-full bg-white/5 ring-1 ring-white/10 px-3 py-1 text-xs text-white/70">
               <Sparkles className="h-3.5 w-3.5 text-white/75" />
-              Closed beta application
+              Beta
             </div>
           </div>
           <AccentLine />
@@ -766,7 +773,7 @@ phone_number: phone.replace(/\s/g, ""),
         <Frame>
           <div className="p-6 sm:p-8">
             <div>
-              <div className="text-xs font-semibold tracking-widest text-white/55">EDGAZE CLOSED BETA</div>
+              <div className="text-xs font-semibold tracking-widest text-white/55">EDGAZE BETA</div>
               <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">Apply</h1>
               <p className="mt-2 text-sm font-medium text-emerald-200/95">
                 Get access within 30 seconds of applying.
@@ -780,7 +787,7 @@ phone_number: phone.replace(/\s/g, ""),
                 <Link href="/docs/privacy-policy" className="text-white/80 hover:text-white underline underline-offset-4">
                   Privacy Policy
                 </Link>
-                . By joining closed beta, you agree to give feedback to improve Edgaze.
+                . By joining beta, you agree to give feedback to improve Edgaze.
               </p>
             </div>
 

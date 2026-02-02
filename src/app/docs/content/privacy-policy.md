@@ -11,7 +11,7 @@ By using the Platform, you acknowledge and agree to the practices described in t
 
 ## 2. Scope and Status of the Platform
 
-Edgaze is currently operating in a **closed beta**.
+Edgaze is currently operating in a **beta**.
 
 Accordingly:
 - Features, data flows, and storage practices may evolve over time
@@ -159,7 +159,7 @@ We do not knowingly collect personal data from children. If such data is identif
 
 Depending on your jurisdiction, you may have certain rights regarding your personal data.
 
-Edgaze does **not guarantee** the availability of specific rights or mechanisms during the closed beta.
+Edgaze does **not guarantee** the availability of specific rights or mechanisms during the beta.
 
 Requests may be declined where permitted by law or where technically infeasible.
 
