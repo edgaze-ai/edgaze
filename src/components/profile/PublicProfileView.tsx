@@ -1204,18 +1204,18 @@ export default function PublicProfileView({
             </div>
           </div>
 
-          {/* Tabs + sort */}
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap gap-3">
+          {/* Tabs + sort — single row on all sizes */}
+          <div className="mt-4 flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 sm:justify-between">
+            <div className="flex shrink-0 items-center gap-1.5">
               {(["all", "prompts", "workflows"] as Tab[]).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTab(t)}
                   className={cn(
-                    "h-11 px-6 rounded-full border text-sm font-semibold transition-all duration-200 active:scale-[0.97]",
+                    "h-7 shrink-0 rounded-full border px-3 text-xs font-medium transition-all duration-200 active:scale-[0.97]",
                     tab === t
-                      ? "border-white/30 bg-white text-black shadow-[0_4px_20px_rgba(255,255,255,0.15)]"
+                      ? "border-white/30 bg-white text-black shadow-[0_2px_10px_rgba(255,255,255,0.12)]"
                       : "border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.06] hover:border-white/15 hover:text-white/85"
                   )}
                 >
@@ -1223,17 +1223,17 @@ export default function PublicProfileView({
                 </button>
               ))}
             </div>
-
-            <div className="flex flex-wrap gap-3">
+            <div className="mx-1 hidden h-4 w-px shrink-0 bg-white/15 sm:block" aria-hidden />
+            <div className="flex shrink-0 items-center gap-1.5">
               {(["newest", "popular", "oldest"] as Sort[]).map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setSort(s)}
                   className={cn(
-                    "h-11 px-6 rounded-full border text-sm font-semibold transition-all duration-200 active:scale-[0.97]",
+                    "h-7 shrink-0 rounded-full border px-3 text-xs font-medium transition-all duration-200 active:scale-[0.97]",
                     sort === s
-                      ? "border-white/30 bg-white/[0.08] text-white shadow-[0_4px_20px_rgba(255,255,255,0.08)]"
+                      ? "border-white/30 bg-white/[0.08] text-white shadow-[0_2px_10px_rgba(255,255,255,0.06)]"
                       : "border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/[0.06] hover:border-white/15 hover:text-white/85"
                   )}
                 >
@@ -1296,8 +1296,8 @@ export default function PublicProfileView({
       {editOpen && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/70" onClick={() => setEditOpen(false)} />
-          <div className="absolute bottom-0 left-0 right-0 mx-auto w-full max-w-3xl rounded-t-3xl border border-white/12 bg-[#0b0b0b] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+          <div className="absolute bottom-0 left-0 right-0 mx-auto w-full max-w-3xl rounded-t-3xl border border-gray-600/50 bg-[#0b0b0b] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-600/50 px-4 py-3">
               <div>
                 <div className="text-sm font-semibold text-white">Edit profile</div>
                 <div className="text-[11px] text-white/50">Handle editing disabled.</div>
@@ -1324,7 +1324,7 @@ export default function PublicProfileView({
                   <input
                     value={draftName}
                     onChange={(e) => setDraftName(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-white/12 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
+                    className="mt-1 h-11 w-full rounded-2xl border border-gray-600/50 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
                     placeholder="Your name"
                   />
                 </div>
@@ -1334,7 +1334,7 @@ export default function PublicProfileView({
                   <input
                     value={`@${creator.handle}`}
                     disabled
-                    className="mt-1 h-11 w-full cursor-not-allowed rounded-2xl border border-white/10 bg-white/5 px-3 text-sm text-white/50 outline-none"
+                    className="mt-1 h-11 w-full cursor-not-allowed rounded-2xl border border-gray-600/50 bg-white/5 px-3 text-sm text-white/50 outline-none"
                   />
                 </div>
               </div>
@@ -1345,12 +1345,12 @@ export default function PublicProfileView({
                   value={draftBio}
                   onChange={(e) => setDraftBio(e.target.value)}
                   rows={4}
-                  className="mt-1 w-full rounded-2xl border border-white/12 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-cyan-400/60"
+                  className="mt-1 w-full rounded-2xl border border-gray-600/50 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-cyan-400/60"
                   placeholder="What do you build?"
                 />
               </div>
 
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="mt-4 rounded-2xl border border-gray-600/50 bg-white/[0.03] p-4">
                 <div className="text-xs font-semibold text-white/80">Social links</div>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {["twitter", "linkedin", "youtube", "website", "github", "instagram"].map((k) => {
@@ -1363,7 +1363,7 @@ export default function PublicProfileView({
                           onChange={(e) =>
                             setDraftSocials((p) => ({ ...(p || {}), [k]: e.target.value }))
                           }
-                          className="mt-1 h-11 w-full rounded-2xl border border-white/12 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
+                          className="mt-1 h-11 w-full rounded-2xl border border-gray-600/50 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
                           placeholder="https://"
                         />
                       </div>

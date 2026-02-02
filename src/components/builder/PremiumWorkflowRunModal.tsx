@@ -666,12 +666,15 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
             alt="Generated image"
             className="w-full max-h-[500px] object-contain"
             onError={(e) => {
-              // If image fails to load, show the URL as text
+              // If image fails to load, show the URL as text (use textContent to prevent XSS)
               const target = e.target as HTMLImageElement;
               target.style.display = "none";
               const parent = target.parentElement;
               if (parent) {
-                parent.innerHTML = `<div class="p-4 text-sm text-white/70 break-all">${value}</div>`;
+                const fallback = document.createElement("div");
+                fallback.className = "p-4 text-sm text-white/70 break-all";
+                fallback.textContent = value;
+                parent.replaceChildren(fallback);
               }
             }}
           />
@@ -745,7 +748,10 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
                       target.style.display = "none";
                       const parent = target.parentElement;
                       if (parent) {
-                        parent.innerHTML = `<div class="p-4 text-sm text-white/70 break-all">${part.url}</div>`;
+                        const fallback = document.createElement("div");
+                        fallback.className = "p-4 text-sm text-white/70 break-all";
+                        fallback.textContent = part.url;
+                        parent.replaceChildren(fallback);
                       }
                     }}
                   />
@@ -811,7 +817,10 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
               target.style.display = "none";
               const parent = target.parentElement;
               if (parent) {
-                parent.innerHTML = `<div class="p-4 text-sm text-white/70 break-all">${displayValue}</div>`;
+                const fallback = document.createElement("div");
+                fallback.className = "p-4 text-sm text-white/70 break-all";
+                fallback.textContent = displayValue;
+                parent.replaceChildren(fallback);
               }
             }}
           />

@@ -1154,7 +1154,10 @@ function MarketplaceSearchBar({
   return (
     <div ref={predictBoxRef} className="relative z-[30]">
       <div
-        className="flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm focus-within:border-white/35 focus-within:bg-white/[0.07]"
+        className={cn(
+          "flex items-center rounded-full border border-white/15 bg-white/5 text-sm focus-within:border-white/35 focus-within:bg-white/[0.07]",
+          compact ? "gap-2 px-2 py-1.5" : "gap-3 px-4 py-2"
+        )}
         onMouseDown={(e) => {
           // Focus input even when user clicks padding/icon. Do NOT steal focus when they click the actual input.
           if ((e.target as HTMLElement)?.tagName?.toLowerCase() === "input") return;
@@ -2405,7 +2408,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
   return (
     <>
       <div className="flex h-screen flex-col bg-[#050505] text-white">
-      <header className="sticky top-0 z-[50] flex flex-col gap-3 bg-[#050505]/85 backdrop-blur px-4 py-3 sm:px-6 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
+      <header className="sticky top-0 z-[50] flex flex-col gap-2 bg-[#050505]/85 backdrop-blur px-4 py-2 sm:gap-3 sm:px-6 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
   <div className="flex items-center justify-between sm:justify-start">
     <div className="hidden sm:block leading-tight">
   <div className="flex items-center gap-2">

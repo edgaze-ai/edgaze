@@ -10,14 +10,12 @@ const SKIP_PREFIX = "/admin";
 
 function useMaintenanceMode() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const [loading, setLoading] = useState(true);
   const [maintenance, setMaintenance] = useState(false);
 
   useEffect(() => {
     let alive = true;
 
     async function fetchMaintenance() {
-      setLoading(true);
       try {
         const { data, error } = await supabase
           .from("app_settings")
@@ -31,8 +29,8 @@ function useMaintenanceMode() {
           return;
         }
         setMaintenance(Boolean((data as { value?: boolean } | null)?.value));
-      } finally {
-        if (alive) setLoading(false);
+      } catch {
+        if (alive) setMaintenance(false);
       }
     }
 
@@ -63,7 +61,7 @@ function useMaintenanceMode() {
     };
   }, [supabase]);
 
-  return { loading, maintenance };
+  return { maintenance };
 }
 
 export default function MaintenanceGate({
@@ -72,22 +70,21 @@ export default function MaintenanceGate({
   children: React.ReactNode;
 }) {
   const pathname = usePathname() || "";
-  const { loading, maintenance } = useMaintenanceMode();
+  const { maintenance } = useMaintenanceMode();
 
   const skip =
     SKIP_PATHS.has(pathname) || pathname.startsWith(SKIP_PREFIX);
 
+  // Never block: always render app immediately. Check maintenance in background.
+  // When maintenance is on, overlay the maintenance screen on top.
   if (skip) {
     return <>{children}</>;
   }
 
-  if (loading) {
-    return <div className="min-h-screen bg-[#0b0b0b]" />;
-  }
-
-  if (maintenance) {
-    return <MaintenanceScreen />;
-  }
-
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      {maintenance ? <MaintenanceScreen /> : null}
+    </>
+  );
 }

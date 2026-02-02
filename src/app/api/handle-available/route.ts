@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkSimpleIpRateLimit } from "@lib/rate-limiting/simple-ip";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,11 @@ function json(status: number, body: any) {
 
 export async function GET(req: Request) {
   try {
+    const { allowed } = checkSimpleIpRateLimit(req);
+    if (!allowed) {
+      return json(429, { available: false, reason: "rate_limit" });
+    }
+
     const url = new URL(req.url);
     const handleRaw = (url.searchParams.get("handle") || "").trim().toLowerCase();
 

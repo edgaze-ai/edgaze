@@ -1,45 +1,17 @@
 // src/app/api/assets/upload/route.ts
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { getUserAndClient } from "../../flow/_auth";
 
 const BUCKET = "edgaze-assets";
 
-async function supabaseServer() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {
-            // safe to ignore (headers may already be sent)
-          }
-        },
-      },
-    }
-  );
-}
-
 export async function POST(req: Request) {
   try {
-    const supabase = await supabaseServer();
-
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth?.user) {
+    const { user, supabase } = await getUserAndClient(req);
+    if (!user || !supabase) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const userId = auth.user.id;
+    const userId = user.id;
 
     const formData = await req.formData();
     const file = formData.get("file");

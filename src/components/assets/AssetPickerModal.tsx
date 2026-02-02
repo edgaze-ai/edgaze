@@ -28,7 +28,7 @@ export default function AssetPickerModal({
   onClose,
   onSelect,
 }: AssetPickerModalProps) {
-  const { user } = useAuth();
+  const { user, getAccessToken } = useAuth();
 
   const [isUploading, setIsUploading] = useState(false);
   const [assets, setAssets] = useState<EdgazeAsset[]>([]);
@@ -44,7 +44,10 @@ export default function AssetPickerModal({
         setLoadingAssets(true);
         setError(null);
 
-        const res = await fetch("/api/assets/list");
+        const headers: Record<string, string> = {};
+        const token = await getAccessToken?.();
+        if (token) headers.Authorization = `Bearer ${token}`;
+        const res = await fetch("/api/assets/list", { headers });
 
         if (!res.ok) {
           let message = "Failed to load assets";
@@ -93,8 +96,12 @@ export default function AssetPickerModal({
       formData.append("file", file);
       formData.append("userId", user.id);
 
+      const headers: Record<string, string> = {};
+      const token = await getAccessToken?.();
+      if (token) headers.Authorization = `Bearer ${token}`;
       const res = await fetch("/api/assets/upload", {
         method: "POST",
+        headers,
         body: formData,
       });
 

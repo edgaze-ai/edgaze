@@ -55,38 +55,9 @@ export default function ProfileRootPage() {
     router.replace(`/profile/${encodeURIComponent(handle)}`);
   }, [authReady, userId, handle, openSignIn, openingModalOnce, refreshProfile, router]);
 
-  // Manual fallback (uses router, not Link)
-  const manualOpen = () => {
-    if (!handle) return;
-    router.replace(`/profile/${encodeURIComponent(handle)}`);
-  };
-
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5">
-        <div className="flex items-center gap-2 text-sm text-white/80">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Opening your profile…
-        </div>
-
-        <div className="mt-3 text-xs text-white/50 space-y-1">
-          <div>authReady: {String(authReady)}</div>
-          <div>loading: {String(loading)}</div>
-          <div>userId: {userId ? "yes" : "no"}</div>
-          <div>profileLoaded: {profile ? "yes" : "no"}</div>
-          <div>handle: {handle ?? "null"}</div>
-        </div>
-
-        {/* If something prevents auto-nav, this always works */}
-        <button
-          type="button"
-          onClick={manualOpen}
-          disabled={!handle}
-          className="mt-4 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-60"
-        >
-          Open profile
-        </button>
-      </div>
+      <Loader2 className="h-6 w-6 animate-spin text-white/60" aria-hidden />
     </div>
   );
 }

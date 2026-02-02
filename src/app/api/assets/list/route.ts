@@ -1,48 +1,20 @@
 // src/app/api/assets/list/route.ts
-import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserAndClient } from "../../flow/_auth";
 
 const BUCKET = "edgaze-assets";
 
-async function supabaseServer() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {
-            // Route handlers can throw if headers already sent; safe to ignore.
-          }
-        },
-      },
-    }
-  );
-}
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const supabase = await supabaseServer();
-
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth?.user) {
+    const { user, supabase } = await getUserAndClient(req);
+    if (!user || !supabase) {
       return NextResponse.json(
         { error: "Not authenticated", assets: [] },
         { status: 401 }
       );
     }
 
-    const userId = auth.user.id;
+    const userId = user.id;
 
     const { data, error } = await supabase
       .from("assets")

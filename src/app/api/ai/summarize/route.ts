@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserFromRequest } from "../../flow/_auth";
 
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.1";
+const MAX_TEXT_LENGTH = 50_000; // ~50KB to prevent abuse
 
 /** tiny helper with timeout */
 function withTimeout<T>(p: Promise<T>, ms = 2500): Promise<T> {
@@ -11,11 +13,19 @@ function withTimeout<T>(p: Promise<T>, ms = 2500): Promise<T> {
   });
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const { user, error: authError } = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: authError ?? "Unauthorized" }, { status: 401 });
+    }
+
     const { text } = await req.json().catch(() => ({ text: "" }));
     if (!text || typeof text !== "string") {
       return NextResponse.json({ summary: "No activity to summarize." }, { status: 200 });
+    }
+    if (text.length > MAX_TEXT_LENGTH) {
+      return NextResponse.json({ error: "Text too long" }, { status: 400 });
     }
 
     // Try Ollama first (best-effort)

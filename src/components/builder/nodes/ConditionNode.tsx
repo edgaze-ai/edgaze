@@ -29,15 +29,22 @@ function ConditionNodeImpl(props: NodeProps) {
 
   const [hoveredOutput, setHoveredOutput] = useState<"true" | "false" | null>(null);
 
-  // Build condition preview text
+  // Build condition preview text (escape compareValue to prevent XSS from user-editable config)
+  const escapeHtml = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   const conditionText = (() => {
     if (operator === "truthy") return "is truthy";
     if (operator === "falsy") return "is falsy";
-    if (operator === "equals") return `equals "${compareValue}"`;
-    if (operator === "notEquals") return `does not equal "${compareValue}"`;
-    if (operator === "gt") return `&gt; ${compareValue}`;
-    if (operator === "lt") return `&lt; ${compareValue}`;
-    return operator;
+    if (operator === "equals") return `equals "${escapeHtml(String(compareValue))}"`;
+    if (operator === "notEquals") return `does not equal "${escapeHtml(String(compareValue))}"`;
+    if (operator === "gt") return `&gt; ${escapeHtml(String(compareValue))}`;
+    if (operator === "lt") return `&lt; ${escapeHtml(String(compareValue))}`;
+    return escapeHtml(String(operator));
   })();
 
   // Triangle dimensions

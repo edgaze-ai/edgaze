@@ -1,7 +1,6 @@
 // src/app/api/marketplace/publish/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { getUserAndClient } from "../../flow/_auth";
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription" | "paywall+subscription";
@@ -29,31 +28,6 @@ type PublishBody = {
   placeholders: PlaceholderDef[];
   meta: PublishMeta;
 };
-
-async function supabaseServer() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {
-            // ignore (headers may already be sent)
-          }
-        },
-      },
-    }
-  );
-}
 
 function slugifyHandle(raw: string): string {
   return (
@@ -128,14 +102,11 @@ async function generateEdgazeCode(supabase: any, title: string): Promise<string>
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await supabaseServer();
-
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth?.user) {
+    const { user, supabase } = await getUserAndClient(req);
+    if (!user || !supabase) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const user = auth.user;
     const userId = user.id;
 
     const body = (await req.json()) as PublishBody;

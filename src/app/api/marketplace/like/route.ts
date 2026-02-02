@@ -1,56 +1,25 @@
 // src/app/api/marketplace/like/route.ts
-// 
+//
 // This API route handles toggling likes for marketplace items (prompts/workflows).
-// 
+//
 // REQUIRED DATABASE TABLES:
 // - prompt_likes: (user_id UUID, item_id UUID, created_at TIMESTAMP)
 // - workflow_likes: (user_id UUID, item_id UUID, created_at TIMESTAMP)
-// 
+//
 // Both tables should have:
 // - Primary key on (user_id, item_id)
 // - Foreign key constraints to users and items
 // - RLS policies allowing authenticated users to insert/delete their own likes
 //
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-
-async function supabaseServer() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {
-            // ignore (headers may already be sent)
-          }
-        },
-      },
-    }
-  );
-}
+import { getUserAndClient } from "../../flow/_auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await supabaseServer();
-
-    // Get user - same pattern as other API routes
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth?.user) {
+    const { user, supabase } = await getUserAndClient(req);
+    if (!user || !supabase) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
-
-    const user = auth.user;
 
     const body = await req.json().catch(() => null);
     if (!body || typeof body.itemId !== "string" || typeof body.itemType !== "string") {
@@ -81,46 +50,16 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (checkError) {
-      // If table doesn't exist, fall back to old behavior (just update count)
       if (checkError.message.includes("does not exist") || checkError.message.includes("relation")) {
-        console.warn(`Table ${likesTable} does not exist. Falling back to count-only update.`);
-        
-        // Fallback: just increment the count (old behavior, but prevents errors)
-        // Note: This doesn't prevent unlimited likes, but at least the UI won't break
-        const { data: item } = await supabase
-          .from(itemsTable)
-          .select(likesCountColumn)
-          .eq("id", itemId)
-          .single();
-
-        const currentCount = (item as any)?.[likesCountColumn] ?? 0;
-        const newCount = currentCount + 1; // Always increment in fallback mode
-        
-        const { error: updateError } = await supabase
-          .from(itemsTable)
-          .update({ [likesCountColumn]: newCount })
-          .eq("id", itemId);
-
-        if (updateError) {
-        return NextResponse.json(
-          { error: "Failed to update like count", details: updateError.message },
-          { 
-            status: 500,
-            headers: { "Content-Type": "application/json" }
-          }
-        );
-        }
-
+        console.error(`Table ${likesTable} does not exist. Run the database migration for like tracking.`);
         return NextResponse.json(
           {
-            success: true,
-            likesCount: newCount,
-            isLiked: true,
-            warning: `Table ${likesTable} does not exist. Please run the database migration for proper like tracking.`,
+            error: "Like tracking is not configured. Please run the database migration.",
+            details: `Table ${likesTable} does not exist.`,
           },
-          { 
-            status: 200,
-            headers: { "Content-Type": "application/json" }
+          {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
           }
         );
       }
@@ -262,16 +201,11 @@ export async function POST(req: NextRequest) {
 // GET endpoint to check if user has liked an item
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await supabaseServer();
-    
-    // Get user - same pattern as other API routes
-    const { data: auth } = await supabase.auth.getUser();
-    
-    if (!auth?.user) {
+    const { user, supabase } = await getUserAndClient(req);
+
+    if (!user || !supabase) {
       return NextResponse.json({ isLiked: false }, { status: 200 });
     }
-
-    const user = auth.user;
 
     const { searchParams } = new URL(req.url);
     const itemId = searchParams.get("itemId");

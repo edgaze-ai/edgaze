@@ -26,14 +26,26 @@ export type SearchResult = {
   workflows: WorkflowHit[];
 };
 
+const MAX_QUERY_LENGTH = 150;
+
+/** Escape LIKE wildcards so user input is matched literally (prevents pattern abuse) */
+function escapeLikePattern(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
-  const q = (url.searchParams.get("q") || "").trim();
+  let q = (url.searchParams.get("q") || "").trim();
 
   // Empty query → empty results, but still 200
   if (!q) {
     const empty: SearchResult = { query: "", profiles: [], workflows: [] };
     return NextResponse.json(empty);
+  }
+
+  // Enforce max length to prevent abuse
+  if (q.length > MAX_QUERY_LENGTH) {
+    q = q.slice(0, MAX_QUERY_LENGTH);
   }
 
   // If Supabase is not configured yet, return empty but don't crash the UI
@@ -46,12 +58,13 @@ export async function GET(req: NextRequest) {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
+    const escaped = escapeLikePattern(q);
     // ---- Profiles search ----
     const { data: profileRows, error: profileError } = await supabase
       .from("profiles")
       .select("id, display_name, handle, avatar_url")
       .or(
-        `display_name.ilike.%${q}%,handle.ilike.%${q}%` // name or handle
+        `display_name.ilike.%${escaped}%,handle.ilike.%${escaped}%` // name or handle (escaped to prevent LIKE wildcard abuse)
       )
       .limit(5);
 
@@ -72,7 +85,7 @@ export async function GET(req: NextRequest) {
       .from("workflows")
       .select("id, title, slug, banner_url, is_public")
       .eq("is_public", true)
-      .ilike("title", `%${q}%`)
+      .ilike("title", `%${escaped}%`)
       .limit(5);
 
     if (workflowError) {
