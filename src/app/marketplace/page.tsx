@@ -2297,7 +2297,12 @@ const [codeQuery, setCodeQuery] = useState("");
       const listing = await findListingByCode(handlePart, codePart);
       if (!listing?.owner_handle || !listing?.edgaze_code) return;
 
-      await openWithMagic(`/p/${listing.owner_handle}/${listing.edgaze_code}`, {
+      // Use correct path: /handle/code for workflows, /p/handle/code for prompts
+      const path = listing.type === "workflow" 
+        ? `/${listing.owner_handle}/${listing.edgaze_code}`
+        : `/p/${listing.owner_handle}/${listing.edgaze_code}`;
+
+      await openWithMagic(path, {
         owner_handle: listing.owner_handle,
         edgaze_code: listing.edgaze_code,
         type: listing.type,
@@ -2483,7 +2488,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
           <section className="mb-6">
             <form
               onSubmit={handleCodeSubmit}
-              className="relative w-full overflow-visible rounded-3xl border border-white/10 bg-slate-950/90 px-4 py-4 sm:px-6 sm:py-5 shadow-[0_0_40px_rgba(15,23,42,0.7)]"
+              className="relative w-full overflow-visible rounded-3xl border border-white/15 bg-slate-950/95 backdrop-blur-sm px-5 py-5 sm:px-6 sm:py-5 shadow-[0_0_50px_rgba(15,23,42,0.8)]"
             >
               <div className="pointer-events-none absolute inset-[1px] rounded-[23px] opacity-70 edgaze-gradient" />
               <div className="pointer-events-none absolute inset-[1px] rounded-[23px] opacity-55 edgaze-gradient-2" />
@@ -2501,31 +2506,31 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
 
               <div className="relative">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src="/brand/edgaze-mark.png"
                       alt="Edgaze"
-                      className="h-5 w-5 rounded-md"
+                      className="h-5 w-5 sm:h-5 sm:w-5 rounded-md"
                     />
-                    <div className="text-sm font-semibold">Edgaze Codes</div>
+                    <div className="text-base sm:text-sm font-semibold text-white/95">Edgaze Codes</div>
                   </div>
                 </div>
 
-                <div className="relative mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <div className="relative flex-1">
-                    <div className="flex items-center rounded-full border border-white/25 bg-black/70 px-4 py-2 text-sm">
+                <div className="relative mt-4 sm:mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="relative flex-1 w-full">
+                    <div className="flex items-center rounded-full border border-white/30 bg-black/80 backdrop-blur-sm px-4 py-3 sm:px-4 sm:py-2.5 text-sm shadow-[0_0_20px_rgba(0,0,0,0.3)]">
                       <input
                         type="text"
                         value={codeQuery}
                         onChange={(e) => setCodeQuery(e.target.value)}
                         placeholder="@handle/code or /code"
-                        className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/35"
+                        className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
                       />
                     </div>
 
                     {(codeSugLoading || codeSuggestions.length > 0) && (
-                      <div className="absolute left-0 right-0 top-full z-[120] mt-2 overflow-hidden rounded-2xl border border-white/12 bg-[#0b0b10] shadow-xl">
+                      <div className="absolute left-0 right-0 top-full z-[120] mt-2 overflow-hidden rounded-2xl border border-white/15 bg-[#0b0b10] shadow-[0_20px_60px_rgba(0,0,0,0.7)] backdrop-blur-md">
                         {codeSugLoading ? (
                           <div className="flex items-center gap-2 px-4 py-3 text-sm text-white/70">
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -2539,13 +2544,17 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                                   type="button"
                                   onClick={async () => {
                                     if (!p.owner_handle || !p.edgaze_code) return;
-                                    await openWithMagic(`/p/${p.owner_handle}/${p.edgaze_code}`, {
+                                    // Use correct path: /handle/code for workflows, /p/handle/code for prompts
+                                    const path = p.type === "workflow"
+                                      ? `/${p.owner_handle}/${p.edgaze_code}`
+                                      : `/p/${p.owner_handle}/${p.edgaze_code}`;
+                                    await openWithMagic(path, {
                                       owner_handle: p.owner_handle,
                                       edgaze_code: p.edgaze_code,
                                       type: p.type,
                                     });
                                   }}
-                                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-white/85 hover:bg-white/5"
+                                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-white/85 hover:bg-white/5 transition-colors"
                                 >
                                   <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2 text-xs text-white/55 min-w-0">
@@ -2582,20 +2591,21 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                     type="submit"
                     disabled={codeSubmitting || !codeQuery.trim()}
                     className={cn(
-                      "inline-flex items-center justify-center gap-1 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-4 py-2 text-sm font-semibold text-black shadow-[0_0_18px_rgba(56,189,248,0.55)]",
+                      "group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-6 py-3.5 sm:px-5 sm:py-3 text-sm font-semibold text-black shadow-[0_0_24px_rgba(56,189,248,0.75)] hover:shadow-[0_0_32px_rgba(56,189,248,0.9)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]",
                       (codeSubmitting || !codeQuery.trim()) &&
-                        "cursor-not-allowed opacity-70"
+                        "cursor-not-allowed opacity-70 hover:scale-100 hover:shadow-[0_0_24px_rgba(56,189,248,0.75)]"
                     )}
                   >
+                    <span className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400/20 via-sky-500/20 to-pink-500/20 opacity-0 group-hover:opacity-100 transition-opacity blur-xl" />
                     {codeSubmitting ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Opening…
+                        <Loader2 className="relative h-4 w-4 animate-spin" />
+                        <span className="relative">Opening…</span>
                       </>
                     ) : (
                       <>
-                        Open
-                        <ArrowRight className="h-4 w-4" />
+                        <span className="relative">Open</span>
+                        <ArrowRight className="relative h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                       </>
                     )}
                   </button>

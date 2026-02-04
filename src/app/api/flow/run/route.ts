@@ -12,6 +12,7 @@ import {
 import { getEdgazeApiKey } from "@lib/workflow/edgaze-api-key";
 import type { GraphPayload } from "src/server/flow/types";
 import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
+import { createSupabaseAdminClient } from "@lib/supabase/admin";
 
 const FREE_BUILDER_RUNS = 10;
 
@@ -24,9 +25,10 @@ export async function POST(req: Request) {
       isDemo?: boolean;
       isBuilderTest?: boolean;
       openaiApiKey?: string;
+      deviceFingerprint?: string;
     };
 
-    const { nodes = [], edges = [], inputs = {}, workflowId, userApiKeys = {}, isDemo = false, isBuilderTest = false, openaiApiKey: modalOpenaiKey } = body;
+    const { nodes = [], edges = [], inputs = {}, workflowId, userApiKeys = {}, isDemo = false, isBuilderTest = false, openaiApiKey: modalOpenaiKey, deviceFingerprint } = body;
 
     if (!workflowId) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
@@ -38,6 +40,86 @@ export async function POST(req: Request) {
     if (user) {
       userId = user.id;
     } else if (isDemo) {
+      // For anonymous demo runs, check server-side tracking (device fingerprint + IP)
+      if (!deviceFingerprint || deviceFingerprint.length < 10) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Device fingerprint is required for demo runs",
+          },
+          { status: 400 }
+        );
+      }
+
+      // Extract IP address
+      const clientId = extractClientIdentifier(req);
+      const ipAddress = clientId.type === "ip" ? clientId.identifier : "unknown";
+
+      // Check if demo run is allowed (strict one-time check)
+      const supabase = createSupabaseAdminClient();
+      const { data: checkData, error: checkError } = await supabase.rpc("can_run_anonymous_demo", {
+        p_workflow_id: workflowId,
+        p_device_fingerprint: deviceFingerprint,
+        p_ip_address: ipAddress,
+      });
+
+      if (checkError) {
+        console.error("[Demo Runs] Error checking demo run eligibility:", checkError);
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Failed to verify demo run eligibility. Please try again.",
+          },
+          { status: 500 }
+        );
+      }
+
+      if (checkData !== true) {
+        // Demo run already used for this device + IP combination
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.",
+          },
+          { status: 403 }
+        );
+      }
+
+      // Record the demo run (atomic operation with duplicate check)
+      const { data: recordData, error: recordError } = await supabase.rpc("record_anonymous_demo_run", {
+        p_workflow_id: workflowId,
+        p_device_fingerprint: deviceFingerprint,
+        p_ip_address: ipAddress,
+      });
+
+      if (recordError) {
+        console.error("[Demo Runs] Error recording demo run:", recordError);
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Failed to record demo run. Please try again.",
+          },
+          { status: 500 }
+        );
+      }
+
+      const recordResult = recordData as {
+        success: boolean;
+        allowed: boolean;
+        error?: string;
+      };
+
+      if (!recordResult.success || !recordResult.allowed) {
+        // Race condition: another request already recorded this demo run
+        return NextResponse.json(
+          {
+            ok: false,
+            error: recordResult.error || "Demo run already used for this device and IP address.",
+          },
+          { status: 403 }
+        );
+      }
+
       userId = "anonymous_demo_user";
     } else {
       return NextResponse.json(

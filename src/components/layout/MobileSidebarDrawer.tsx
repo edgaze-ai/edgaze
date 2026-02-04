@@ -61,7 +61,7 @@ export default function MobileSidebarDrawer() {
       <aside
         className={cn(
           "fixed left-0 top-0 z-[90] h-full w-[86vw] max-w-[340px]",
-          "bg-[#050505] border-r border-white/10",
+          "bg-[#050505] border-r border-gray-600/50",
           "transform transition-transform duration-200 ease-out",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
@@ -69,7 +69,7 @@ export default function MobileSidebarDrawer() {
       >
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 h-14 border-b border-white/10">
+          <div className="flex items-center justify-between px-4 h-14 border-b border-gray-600/50">
             <div className="flex items-center gap-2">
               <div className="relative h-7 w-7">
                 <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="28px" />
@@ -83,7 +83,7 @@ export default function MobileSidebarDrawer() {
               type="button"
               onClick={closeMobile}
               aria-label="Close menu"
-              className="inline-flex items-center justify-center rounded-xl border border-white/14 bg-black/40 hover:bg-black/60 active:scale-95 transition-all h-9 w-9"
+              className="inline-flex items-center justify-center rounded-xl border border-gray-600/50 bg-black/40 hover:bg-black/60 active:scale-95 transition-all h-9 w-9"
             >
               <X className="h-5 w-5 text-white/80" />
             </button>
@@ -92,13 +92,13 @@ export default function MobileSidebarDrawer() {
           {/* Nav */}
           <div className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-4">
             <NavSection items={MOBILE_ITEMS_TOP} isActive={isActive} onNavigate={closeMobile} />
-            <div className="h-px bg-white/10" />
+            <div className="h-px bg-gray-600/50" />
             <NavSection items={MOBILE_ITEMS_ACCOUNT} isActive={isActive} onNavigate={closeMobile} />
           </div>
 
           {/* Footer */}
           <div className="px-3 pb-4">
-            <div className="h-px bg-white/10 mb-4" />
+            <div className="h-px bg-gray-600/50 mb-4" />
             <NavSection items={MOBILE_ITEMS_BOTTOM} isActive={isActive} onNavigate={closeMobile} />
           </div>
         </div>
@@ -135,7 +135,7 @@ function NavSection({
                 "transition-colors duration-150",
                 active
                   ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.45)]"
-                  : "border border-white/12 bg-white/[0.03] text-white/80 hover:bg-white/[0.08] hover:border-white/35"
+                  : "border border-gray-600/50 bg-white/[0.03] text-white/80 hover:bg-white/[0.08] hover:border-gray-500/60"
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />

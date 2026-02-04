@@ -27,7 +27,7 @@ import { track } from "../../../../lib/mixpanel";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../../lib/constants";
 import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
 import PremiumWorkflowRunModal, { type WorkflowRunState } from "../../../../components/builder/PremiumWorkflowRunModal";
-import { canRunDemo, trackDemoRun } from "../../../../lib/workflow/device-tracking";
+import { canRunDemo, trackDemoRun, getDeviceFingerprintHash, canRunDemoSync } from "../../../../lib/workflow/device-tracking";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../../lib/workflow/validation";
 import FoundingCreatorBadge from "../../../../components/ui/FoundingCreatorBadge";
@@ -1193,6 +1193,8 @@ export default function PromptProductPage() {
   const [purchaseLoading, setPurchaseLoading] = useState(false);
   const [purchase, setPurchase] = useState<PurchaseRow | null>(null);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [demoRunAllowed, setDemoRunAllowed] = useState<boolean | null>(null); // null = checking, true/false = result
+  const [checkingDemoRun, setCheckingDemoRun] = useState(false);
 
   const [runOpen, setRunOpen] = useState(false);
   const [workflowRunModalOpen, setWorkflowRunModalOpen] = useState(false);
@@ -1408,6 +1410,37 @@ export default function PromptProductPage() {
     return Boolean(purchase && (purchase.status === "paid" || purchase.status === "beta"));
   }, [listing, isOwner, purchase]);
 
+  // Check demo run eligibility for non-authenticated users on free workflows
+  useEffect(() => {
+    if (!listing || listing.type !== "workflow" || !isNaturallyFree || userId) {
+      setDemoRunAllowed(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCheckingDemoRun(true);
+    
+    (async () => {
+      try {
+        const allowed = await canRunDemo(listing.id, true);
+        if (!cancelled) {
+          setDemoRunAllowed(allowed);
+          setCheckingDemoRun(false);
+        }
+      } catch (err) {
+        console.error("[Demo Run] Error checking eligibility:", err);
+        if (!cancelled) {
+          setDemoRunAllowed(false); // Default to false on error
+          setCheckingDemoRun(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [listing?.id, listing?.type, isNaturallyFree, userId]);
+
   async function loadPurchaseRow(promptId: string, uid: string) {
     const { data, error } = await supabase
       .from("prompt_purchases")
@@ -1482,6 +1515,34 @@ export default function PromptProductPage() {
     const relativePath = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "") + window.location.hash;
     window.history.replaceState({}, "", relativePath);
 
+    // For workflows: allow demo runs even when not authenticated (if free)
+    if (listing.type === "workflow" && isNaturallyFree && !userId) {
+      // Check if demo run is allowed (server-side check)
+      const canRun = await canRunDemo(listing.id, true);
+      if (!canRun) {
+        setPurchaseError("You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.");
+        safeTrack("Workflow Demo Run Blocked", {
+          surface: "product_page",
+          listing_id: listing.id,
+          reason: "device_ip_limit_reached",
+        });
+        return;
+      }
+      
+      // Allow demo run for non-authenticated users
+      safeTrack("Workflow Demo Run Initiated", {
+        surface: "product_page",
+        listing_id: listing.id,
+        listing_type: listing.type,
+        edgaze_code: listing.edgaze_code,
+        authenticated: false,
+      });
+      
+      handleWorkflowRun();
+      return;
+    }
+
+    // For other cases, require authentication
     if (!requireAuth()) {
       return;
     }
@@ -1580,16 +1641,19 @@ export default function PromptProductPage() {
   async function handleWorkflowRun() {
     if (!listing || listing.type !== "workflow") return;
 
-    // Check device-based demo limit
-    const canRun = canRunDemo(listing.id);
-    if (!canRun) {
-      safeTrack("Workflow Demo Run Blocked", {
-        surface: "product_page",
-        listing_id: listing.id,
-        reason: "device_limit_reached",
-      });
-      setPurchaseError("You've already run this workflow demo on this device. Each device gets one demo run.");
-      return;
+    // Check device-based demo limit (server-side for strict enforcement)
+    // Only check if user is not authenticated (for authenticated users, use their run count)
+    if (!userId) {
+      const canRun = await canRunDemo(listing.id, true);
+      if (!canRun) {
+        safeTrack("Workflow Demo Run Blocked", {
+          surface: "product_page",
+          listing_id: listing.id,
+          reason: "device_ip_limit_reached",
+        });
+        setPurchaseError("You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.");
+        return;
+      }
     }
 
     safeTrack("Workflow Run Initiated", {
@@ -1656,8 +1720,10 @@ export default function PromptProductPage() {
   async function handleSubmitWorkflowInputs(inputValues: Record<string, any>) {
     if (!listing || !workflowGraph || !workflowRunState) return;
 
-    // Track demo run
-    trackDemoRun(listing.id);
+    // Track demo run (server-side for non-authenticated users)
+    if (!userId) {
+      await trackDemoRun(listing.id);
+    }
 
     // Convert File objects to base64 for transmission
     const processedInputs: Record<string, any> = {};
@@ -1714,6 +1780,9 @@ export default function PromptProductPage() {
     });
 
     try {
+      // Get device fingerprint for server-side tracking (for non-authenticated users)
+      const deviceFingerprint = !userId ? getDeviceFingerprintHash() : undefined;
+      
       const response = await fetch("/api/flow/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1723,7 +1792,8 @@ export default function PromptProductPage() {
           edges: workflowGraph.edges || [],
           inputs: processedInputs,
           userApiKeys,
-          isDemo: true, // One-time demo on product page uses Edgaze API key
+          isDemo: !userId, // Demo run for non-authenticated users
+          deviceFingerprint, // Required for server-side tracking
         }),
       });
 
@@ -2072,22 +2142,36 @@ export default function PromptProductPage() {
           <button
             type="button"
             onClick={grantAccessOrRun}
-            disabled={purchaseLoading}
+            disabled={purchaseLoading || (listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false)}
             className={cn(
-              "flex-1 inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold",
-              purchaseLoading
-                ? "bg-white/10 text-white/70 border border-white/10"
+              "flex-1 inline-flex items-center justify-center gap-1.5 rounded-full px-3 h-10 text-xs font-semibold relative",
+              purchaseLoading || (listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false)
+                ? "bg-white/10 text-white/70 border border-white/10 opacity-60"
                 : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_16px_rgba(56,189,248,0.6)]"
             )}
+            title={listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false 
+              ? "You've already used your one-time demo. Each device and IP address combination gets one demo run." 
+              : undefined}
           >
-            {purchaseLoading ? (
+            {purchaseLoading || checkingDemoRun ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : isOwned ? (
+            ) : isOwned || (listing?.type === "workflow" && isNaturallyFree && !userId && (demoRunAllowed === true || demoRunAllowed === null)) ? (
               <Sparkles className="h-3.5 w-3.5" />
+            ) : listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false ? (
+              <CheckCircle2 className="h-3.5 w-3.5" />
             ) : (
               <Lock className="h-3.5 w-3.5" />
             )}
-            <span>{isOwned ? (listing?.type === "workflow" ? "Try a one time demo" : "Run") : primaryCtaLabel}</span>
+            <span className="flex items-center gap-1.5">
+              {isOwned 
+                ? (listing?.type === "workflow" ? "Try a one time demo" : "Run")
+                : listing?.type === "workflow" && isNaturallyFree && !userId
+                  ? (demoRunAllowed === false ? "Used" : "Try a one time demo")
+                  : primaryCtaLabel}
+              {listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false && (
+                <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">Used</span>
+              )}
+            </span>
           </button>
           <button
             type="button"
@@ -2260,10 +2344,32 @@ export default function PromptProductPage() {
                 <button
                   type="button"
                   onClick={grantAccessOrRun}
-                  className="hidden sm:inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white hover:border-cyan-400/70"
+                  disabled={listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false}
+                  className={cn(
+                    "hidden sm:inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white hover:border-cyan-400/70 relative",
+                    listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false && "opacity-60 cursor-not-allowed"
+                  )}
+                  title={listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false 
+                    ? "You've already used your one-time demo. Each device and IP address combination gets one demo run." 
+                    : undefined}
                 >
-                  {isOwned ? <Sparkles className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                  {isOwned ? (listing?.type === "workflow" ? "Try a one time demo" : "Run") : primaryCtaLabel}
+                  {isOwned 
+                    ? <Sparkles className="h-4 w-4" />
+                    : listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false
+                      ? <CheckCircle2 className="h-4 w-4" />
+                      : listing?.type === "workflow" && isNaturallyFree && !userId && (demoRunAllowed === true || demoRunAllowed === null)
+                        ? <Sparkles className="h-4 w-4" />
+                        : <Lock className="h-4 w-4" />}
+                  <span className="flex items-center gap-1.5">
+                    {isOwned 
+                      ? (listing?.type === "workflow" ? "Try a one time demo" : "Run")
+                      : listing?.type === "workflow" && isNaturallyFree && !userId
+                        ? (demoRunAllowed === false ? "Used" : "Try a one time demo")
+                        : primaryCtaLabel}
+                    {listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false && (
+                      <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">Used</span>
+                    )}
+                  </span>
                 </button>
               </div>
 
@@ -2551,16 +2657,38 @@ export default function PromptProductPage() {
                     <button
                       type="button"
                       onClick={grantAccessOrRun}
-                      disabled={purchaseLoading}
+                      disabled={purchaseLoading || (listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false)}
                       className={cn(
-                        "flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold",
-                        purchaseLoading
-                          ? "bg-white/10 text-white/70 border border-white/10"
+                        "flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold relative",
+                        purchaseLoading || (listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false)
+                          ? "bg-white/10 text-white/70 border border-white/10 opacity-60"
                           : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
                       )}
+                      title={listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false 
+                        ? "You've already used your one-time demo. Each device and IP address combination gets one demo run." 
+                        : undefined}
                     >
-                      {purchaseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                      {isOwned ? "Run now" : primaryCtaLabel}
+                      {purchaseLoading || checkingDemoRun ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : isOwned ? (
+                        <Sparkles className="h-4 w-4" />
+                      ) : listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : listing?.type === "workflow" && isNaturallyFree && !userId && (demoRunAllowed === true || demoRunAllowed === null) ? (
+                        <Sparkles className="h-4 w-4" />
+                      ) : (
+                        <Lock className="h-4 w-4" />
+                      )}
+                      <span className="flex items-center gap-1.5">
+                        {isOwned 
+                          ? "Run now"
+                          : listing?.type === "workflow" && isNaturallyFree && !userId
+                            ? (demoRunAllowed === false ? "Used" : "Run now")
+                            : primaryCtaLabel}
+                        {listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false && (
+                          <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">Used</span>
+                        )}
+                      </span>
                     </button>
 
                     <button

@@ -1864,7 +1864,7 @@ export default function WorkflowProductPage() {
             onClick={grantAccessOrOpen}
             disabled={purchaseLoading}
             className={cn(
-              "flex-1 inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold",
+              "flex-1 inline-flex items-center justify-center gap-1.5 rounded-full px-3 h-10 text-xs font-semibold",
               purchaseLoading
                 ? "bg-white/10 text-white/70 border border-white/10"
                 : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_16px_rgba(56,189,248,0.6)]"

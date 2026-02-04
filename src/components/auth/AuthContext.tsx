@@ -12,7 +12,7 @@ import React, {
 import { useRouter, usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import SignInModal from "./SignInModal";
-import { identifyUser, resetIdentity, track } from "../../lib/mixpanel";
+import { identifyUser, resetIdentity, track, setUserProperties } from "../../lib/mixpanel";
 
 export type UserPlan = "Free" | "Pro" | "Team";
 
@@ -246,7 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Track if we've just signed in to handle redirect
   const justSignedInRef = useRef(false);
 
-  const openSignIn = useCallback(() => {
+    const openSignIn = useCallback(() => {
     if (modalOpenRef.current) return;
     
     // Save current path BEFORE opening modal
@@ -264,8 +264,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     modalOpenRef.current = true;
     setModalOpen(true);
-    safeTrack("Sign In Modal Opened", { surface: "auth_context" });
-  }, []);
+    safeTrack("Sign In Modal Opened", {
+      surface: "auth_context",
+      user_type: userId ? "authenticated" : "anonymous",
+    });
+  }, [userId]);
 
   const closeSignIn = useCallback(() => {
     modalOpenRef.current = false;
@@ -287,9 +290,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     lastIdentifiedRef.current = null;
 
     // Critical: clears Mixpanel distinct_id to avoid cross-account contamination
+    // This resets to anonymous tracking
     safeResetIdentity();
 
-    safeTrack("Logout", { surface: "auth_context" });
+    // Track logout and transition to anonymous
+    safeTrack("Logout", {
+      surface: "auth_context",
+      user_type: "anonymous",
+    });
+    
+    // Track anonymous user activity
+    safeTrack("Anonymous User Active", {
+      surface: "auth_context",
+      user_type: "anonymous",
+    });
   }, []);
 
   const loadProfile = useCallback(
@@ -375,6 +389,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Identify once per user id per session.
       // IMPORTANT: identifyUser() should alias anonymous -> user internally (in mixpanel.ts)
+      // This merges all anonymous events into the user's profile
       if (lastIdentifiedRef.current !== user.id) {
         lastIdentifiedRef.current = user.id;
 
@@ -388,6 +403,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           surface: "auth_context",
           method: user.app_metadata?.provider ?? "email",
           email_verified: Boolean(user.email_confirmed_at),
+          user_type: "authenticated",
         });
       }
 
@@ -442,17 +458,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadProfile, userId]);
 
   // Update People properties once profile is available (no aliasing here)
+  // This updates user properties without re-aliasing
   useEffect(() => {
     if (!userId) return;
     if (!profile) return;
 
-    safeIdentify(userId, {
-      email: profile.email ?? userEmail ?? undefined,
-      name: profile.full_name ?? undefined,
-      handle: profile.handle ?? undefined,
-      plan: profile.plan ?? undefined,
-      email_verified: profile.email_verified ?? isVerified,
-    });
+    // Use setUserProperties instead of identifyUser to avoid duplicate aliasing
+    try {
+      setUserProperties({
+        email: profile.email ?? userEmail ?? undefined,
+        name: profile.full_name ?? undefined,
+        handle: profile.handle ?? undefined,
+        plan: profile.plan ?? undefined,
+        email_verified: profile.email_verified ?? isVerified,
+        user_type: "authenticated",
+      });
+    } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, profile]);
 
@@ -483,12 +504,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refresh();
 
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-      safeTrack("Auth State Changed", { event, hasSession: Boolean(session) });
+      safeTrack("Auth State Changed", {
+        event,
+        hasSession: Boolean(session),
+        user_type: session?.user ? "authenticated" : "anonymous",
+      });
 
       const previousUserId = userId;
       await applyUser(session?.user ?? null);
       setLoading(false);
       setAuthReady(true);
+      
+      // Track anonymous user activity if no session
+      if (!session?.user) {
+        safeTrack("Anonymous User Active", {
+          surface: "auth_context",
+          user_type: "anonymous",
+        });
+      }
       
       // Handle redirect after successful sign-in (for email sign-in, not OAuth)
       // OAuth redirects are handled by the callback handler
@@ -651,7 +684,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithEmail = async (email: string, password: string) => {
-    safeTrack("Sign In Started", { surface: "auth_context", method: "email" });
+    safeTrack("Sign In Started", {
+      surface: "auth_context",
+      method: "email",
+      user_type: "anonymous", // Tracking as anonymous before login
+    });
 
     // Path should already be saved when modal was opened
     // But ensure we have it saved (in case modal was opened differently)
@@ -668,6 +705,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         surface: "auth_context",
         method: "email",
         message: error.message,
+        user_type: "anonymous",
       });
       throw error;
     }
@@ -688,7 +726,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     const normalizedHandle = normalizeHandle(handle);
 
-    safeTrack("Sign Up Started", { surface: "auth_context", method: "email" });
+    safeTrack("Sign Up Started", {
+      surface: "auth_context",
+      method: "email",
+      user_type: "anonymous", // Tracking as anonymous before signup
+    });
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -704,6 +746,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         surface: "auth_context",
         method: "email",
         message: error.message,
+        user_type: "anonymous",
       });
       throw error;
     }
@@ -712,6 +755,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       surface: "auth_context",
       method: "email",
       requiresVerification: true,
+      user_type: "anonymous",
     });
   };
 
