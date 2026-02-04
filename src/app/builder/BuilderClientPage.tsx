@@ -16,7 +16,7 @@ import InspectorPanel from "../../components/builder/InspectorPanel";
 import WorkflowPublishModal from "../../components/builder/WorkflowPublishModal";
 import PremiumWorkflowRunModal, { type WorkflowRunState, type BuilderRunLimit } from "../../components/builder/PremiumWorkflowRunModal";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
-import { canRunDemo, trackDemoRun, getRemainingDemoRuns } from "../../lib/workflow/device-tracking";
+import { canRunDemo, canRunDemoSync, trackDemoRun, getRemainingDemoRuns, getRemainingDemoRunsSync } from "../../lib/workflow/device-tracking";
 import { validateWorkflowGraph } from "../../lib/workflow/validation";
 import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
 
@@ -1164,8 +1164,8 @@ export default function BuilderPage() {
 
     // Check device-based demo limit (for preview mode) - allow 5 runs
     if (isPreview) {
-      const canRun = canRunDemo(activeDraftId);
-      const remaining = getRemainingDemoRuns(activeDraftId);
+      const canRun = await canRunDemo(activeDraftId);
+      const remaining = await getRemainingDemoRuns(activeDraftId);
       if (!canRun) {
         safeTrack("Workflow Demo Run Blocked", {
           surface: "builder",
@@ -2097,7 +2097,7 @@ export default function BuilderPage() {
         onBuyWorkflow={activeDraftId && previewOwnerHandle && previewEdgazeCode ? () => {
           router.push(`/${previewOwnerHandle}/${previewEdgazeCode}`);
         } : undefined}
-        remainingDemoRuns={activeDraftId ? getRemainingDemoRuns(activeDraftId) : undefined}
+        remainingDemoRuns={activeDraftId ? getRemainingDemoRunsSync(activeDraftId) : undefined}
         workflowId={activeDraftId || undefined}
         isBuilderTest={!isPreview}
         builderRunLimit={builderRunLimit ?? undefined}
