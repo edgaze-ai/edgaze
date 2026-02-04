@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import DocsSidebar from "./DocsSidebar";
 import type { DocMeta } from "../utils/docs";
 
@@ -43,8 +44,9 @@ export default function DocsShell({
             </Link>
           </div>
 
-          <Link href="/" className="text-sm text-white/60 hover:text-white/85 transition">
-            Back
+          <Link href="/" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-white/60 hover:text-white/85 hover:bg-white/5 transition">
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Back</span>
           </Link>
         </div>
       </div>

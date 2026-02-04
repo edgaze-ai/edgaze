@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import DocRenderer from "../components/DocRenderer";
 import DocTOC from "../components/DocTOC";
-import { getAllDocs, getDoc } from "../utils/docs";
+import { getDoc } from "../utils/docs";
 
 function extractToc(md: string) {
   const lines = md.split("\n");
@@ -22,55 +22,25 @@ function extractToc(md: string) {
   return items;
 }
 
-export function generateStaticParams() {
-  return getAllDocs().map((d) => ({ slug: d.slug }));
-}
+export const metadata: Metadata = {
+  title: "Builder Documentation | Edgaze",
+  description: "Learn how to use Workflow Studio and Prompt Studio to create AI products. Complete guides for building workflows and prompts.",
+  openGraph: {
+    title: "Builder Documentation | Edgaze",
+    description: "Learn how to use Workflow Studio and Prompt Studio to create AI products. Complete guides for building workflows and prompts.",
+    type: "article",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Builder Documentation | Edgaze",
+    description: "Learn how to use Workflow Studio and Prompt Studio to create AI products. Complete guides for building workflows and prompts.",
+  },
+};
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
-  const { slug } = await params;
-  const doc = getDoc(slug);
-
-  if (!doc) {
-    return {
-      title: "Documentation",
-      description: "Edgaze documentation",
-    };
-  }
-
-  return {
-    title: `${doc.title} | Edgaze Documentation`,
-    description: doc.description || `Learn about ${doc.title} in Edgaze`,
-    openGraph: {
-      title: `${doc.title} | Edgaze Documentation`,
-      description: doc.description || `Learn about ${doc.title} in Edgaze`,
-      type: "article",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: `${doc.title} | Edgaze Documentation`,
-      description: doc.description || `Learn about ${doc.title} in Edgaze`,
-    },
-  };
-}
-
-export default async function DocPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-  const doc = getDoc(slug);
+export default async function BuilderDocPage() {
+  const doc = getDoc("builder");
 
   if (!doc) {
-    // If it's a builder route, try redirecting
-    if (slug === "builder") {
-      redirect("/docs/builder");
-      return null;
-    }
     redirect("/docs/changelog");
     return null;
   }

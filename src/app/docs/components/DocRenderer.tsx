@@ -1,5 +1,6 @@
 // src/app/docs/components/DocRenderer.tsx
 import React from "react";
+import Link from "next/link";
 
 type Block =
   | { type: "h"; level: 2 | 3; text: string; id: string }
@@ -126,9 +127,119 @@ export default function DocRenderer({ content }: { content: string }) {
         }
 
         if (b.type === "p") {
+          // Convert **text** to <strong>text</strong> and [text](url) to <Link>
+          const parts: (string | JSX.Element)[] = [];
+          const text = b.text;
+          let lastIndex = 0;
+          
+          // Process both bold and links - links first to avoid conflicts
+          const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+          const boldRegex = /\*\*(.+?)\*\*/g;
+          
+          // Collect all matches with their positions
+          const matches: Array<{ type: "link" | "bold"; start: number; end: number; text: string; url?: string }> = [];
+          
+          let match: RegExpExecArray | null;
+          linkRegex.lastIndex = 0; // Reset regex
+          while ((match = linkRegex.exec(text)) !== null) {
+            const linkText = match[1];
+            const linkUrl = match[2];
+            const matchIndex = match.index;
+            const matchLength = match[0]?.length;
+            if (linkText && linkUrl && matchIndex !== undefined && matchLength !== undefined) {
+              matches.push({
+                type: "link",
+                start: matchIndex,
+                end: matchIndex + matchLength,
+                text: linkText,
+                url: linkUrl,
+              });
+            }
+          }
+          
+          boldRegex.lastIndex = 0; // Reset regex
+          while ((match = boldRegex.exec(text)) !== null) {
+            const boldText = match[1];
+            const matchIndex = match.index;
+            const matchLength = match[0]?.length;
+            if (boldText && matchIndex !== undefined && matchLength !== undefined) {
+              matches.push({
+                type: "bold",
+                start: matchIndex,
+                end: matchIndex + matchLength,
+                text: boldText,
+              });
+            }
+          }
+          
+          // Sort by position
+          matches.sort((a, b) => a.start - b.start);
+          
+          // Remove overlapping matches (prefer links over bold)
+          const filteredMatches: typeof matches = [];
+          for (const m of matches) {
+            const overlaps = filteredMatches.some(
+              (f) => !(m.end <= f.start || m.start >= f.end)
+            );
+            if (!overlaps) {
+              filteredMatches.push(m);
+            }
+          }
+          
+          // Build parts
+          for (const m of filteredMatches) {
+            // Add text before match
+            if (m.start > lastIndex) {
+              const beforeText = text.slice(lastIndex, m.start);
+              parts.push(beforeText);
+            }
+            
+            // Add the match
+            if (m.type === "link") {
+              const href = m.url || "#";
+              const isExternal = href.startsWith("http");
+              if (isExternal) {
+                parts.push(
+                  <a
+                    key={m.start}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
+                  >
+                    {m.text}
+                  </a>
+                );
+              } else {
+                parts.push(
+                  <Link
+                    key={m.start}
+                    href={href}
+                    className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
+                  >
+                    {m.text}
+                  </Link>
+                );
+              }
+            } else {
+              parts.push(
+                <strong key={m.start} className="font-semibold text-white/90">
+                  {m.text}
+                </strong>
+              );
+            }
+            
+            lastIndex = m.end;
+          }
+          
+          // Add remaining text
+          if (lastIndex < text.length) {
+            parts.push(text.slice(lastIndex));
+          }
+
           return (
             <p key={idx} className="mt-3 text-[15px] leading-7 text-white/75 max-w-3xl">
-              {b.text}
+              {parts.length > 0 ? parts : b.text}
             </p>
           );
         }
@@ -136,11 +247,114 @@ export default function DocRenderer({ content }: { content: string }) {
         if (b.type === "ul") {
           return (
             <ul key={idx} className="mt-3 list-disc pl-6 text-white/75 max-w-3xl">
-              {b.items.map((it, j) => (
-                <li key={j} className="mt-1 text-[15px] leading-7">
-                  {it}
-                </li>
-              ))}
+              {b.items.map((it, j) => {
+                // Convert **text** to <strong>text</strong> and [text](url) to <Link> for list items
+                const parts: (string | JSX.Element)[] = [];
+                let lastIndex = 0;
+                
+                // Process both bold and links
+                const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                const boldRegex = /\*\*(.+?)\*\*/g;
+                
+                const matches: Array<{ type: "link" | "bold"; start: number; end: number; text: string; url?: string }> = [];
+                
+                let match: RegExpExecArray | null;
+                linkRegex.lastIndex = 0; // Reset regex
+                while ((match = linkRegex.exec(it)) !== null) {
+                  const linkText = match[1];
+                  const linkUrl = match[2];
+                  const matchIndex = match.index;
+                  const matchLength = match[0]?.length;
+                  if (linkText && linkUrl && matchIndex !== undefined && matchLength !== undefined) {
+                    matches.push({
+                      type: "link",
+                      start: matchIndex,
+                      end: matchIndex + matchLength,
+                      text: linkText,
+                      url: linkUrl,
+                    });
+                  }
+                }
+                
+                boldRegex.lastIndex = 0; // Reset regex
+                while ((match = boldRegex.exec(it)) !== null) {
+                  const boldText = match[1];
+                  const matchIndex = match.index;
+                  const matchLength = match[0]?.length;
+                  if (boldText && matchIndex !== undefined && matchLength !== undefined) {
+                    matches.push({
+                      type: "bold",
+                      start: matchIndex,
+                      end: matchIndex + matchLength,
+                      text: boldText,
+                    });
+                  }
+                }
+                
+                matches.sort((a, b) => a.start - b.start);
+                
+                const filteredMatches: typeof matches = [];
+                for (const m of matches) {
+                  const overlaps = filteredMatches.some(
+                    (f) => !(m.end <= f.start || m.start >= f.end)
+                  );
+                  if (!overlaps) {
+                    filteredMatches.push(m);
+                  }
+                }
+                
+                for (const m of filteredMatches) {
+                  if (m.start > lastIndex) {
+                    parts.push(it.slice(lastIndex, m.start));
+                  }
+                  
+                  if (m.type === "link") {
+                    const href = m.url || "#";
+                    const isExternal = href.startsWith("http");
+                    if (isExternal) {
+                      parts.push(
+                        <a
+                          key={m.start}
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
+                        >
+                          {m.text}
+                        </a>
+                      );
+                    } else {
+                      parts.push(
+                        <Link
+                          key={m.start}
+                          href={href}
+                          className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
+                        >
+                          {m.text}
+                        </Link>
+                      );
+                    }
+                  } else {
+                    parts.push(
+                      <strong key={m.start} className="font-semibold text-white/90">
+                        {m.text}
+                      </strong>
+                    );
+                  }
+                  
+                  lastIndex = m.end;
+                }
+                
+                if (lastIndex < it.length) {
+                  parts.push(it.slice(lastIndex));
+                }
+
+                return (
+                  <li key={j} className="mt-1 text-[15px] leading-7">
+                    {parts.length > 0 ? parts : it}
+                  </li>
+                );
+              })}
             </ul>
           );
         }

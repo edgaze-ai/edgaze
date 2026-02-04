@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Plus, Code2, Play, Save, Upload, Type, Hash } from "lucide-react";
+import Link from "next/link";
+import { Plus, Code2, Play, Save, Upload, Type, Hash, BookOpen } from "lucide-react";
 
 type Props = {
   title: string;
@@ -38,14 +39,25 @@ export default function PromptToolbar({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onPublish}
-          className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-4 py-2 text-[12px] font-semibold text-black shadow-[0_0_18px_rgba(56,189,248,0.18)] hover:brightness-110"
-        >
-          <Upload className="h-4 w-4" />
-          Publish
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/docs/builder/prompt-studio"
+            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/10 transition-colors"
+            title="Documentation"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden sm:inline">Docs</span>
+          </Link>
+
+          <button
+            type="button"
+            onClick={onPublish}
+            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-4 py-2 text-[12px] font-semibold text-black shadow-[0_0_18px_rgba(56,189,248,0.18)] hover:brightness-110"
+          >
+            <Upload className="h-4 w-4" />
+            Publish
+          </button>
+        </div>
       </div>
 
       {/* Ribbon panel */}
