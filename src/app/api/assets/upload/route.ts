@@ -1,6 +1,7 @@
 // src/app/api/assets/upload/route.ts
 import { NextResponse } from "next/server";
 import { getUserAndClient } from "../../flow/_auth";
+import { validateAssetFile } from "@lib/asset-upload-validation";
 
 const BUCKET = "edgaze-assets";
 
@@ -20,12 +21,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    const fileExt = file.name.includes(".") ? file.name.split(".").pop() : "";
-    const fileName = `${crypto.randomUUID()}${fileExt ? `.${fileExt}` : ""}`;
-    const filePath = `${userId}/${fileName}`;
-
     const arrayBuffer = await file.arrayBuffer();
     const fileBytes = new Uint8Array(arrayBuffer);
+
+    const validationError = validateAssetFile(file, fileBytes);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
+    const fileExt = file.name.includes(".") ? file.name.split(".").pop()?.toLowerCase() ?? "" : "";
+    const safeExt = /^[a-z0-9]+$/.test(fileExt) ? fileExt : "";
+    const fileName = `${crypto.randomUUID()}${safeExt ? `.${safeExt}` : ""}`;
+    const filePath = `${userId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage.from(BUCKET).upload(filePath, fileBytes, {
       contentType: file.type || "application/octet-stream",

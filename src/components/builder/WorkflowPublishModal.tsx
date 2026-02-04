@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cx } from "../../lib/cx";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
+import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
 import { generateWorkflowThumbnailFile } from "./workflowThumbnailGenerator";
 import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import ProfileAvatar from "../ui/ProfileAvatar";
@@ -811,8 +812,8 @@ export default function WorkflowPublishModal({
         thumbnail_url: thumbnailUrl,
         demo_images: demoUrls.length ? demoUrls : null,
 
-        graph_json: graph,
-        graph,
+        graph_json: stripGraphSecrets(graph) as any,
+        graph: stripGraphSecrets(graph) as any,
 
         edgaze_code: finalCode,
 

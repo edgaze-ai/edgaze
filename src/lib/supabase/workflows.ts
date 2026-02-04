@@ -2,6 +2,7 @@
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
+import { stripGraphSecrets } from "@lib/workflow/stripGraphSecrets";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -154,14 +155,15 @@ export async function getWorkflowById(id: string) {
 }
 
 export async function createWorkflow(input: { title: string; graph: any }) {
+  const safeGraph = stripGraphSecrets(input.graph) as any;
   const inserts: Record<string, any>[] = [
-    { title: input.title, graph: input.graph },
-    { title: input.title, graph_json: input.graph },
-    { title: input.title, canvas: input.graph },
-    { title: input.title, data: input.graph },
-    { name: input.title, graph: input.graph },
-    { name: input.title, canvas: input.graph },
-    { name: input.title, data: input.graph },
+    { title: input.title, graph: safeGraph },
+    { title: input.title, graph_json: safeGraph },
+    { title: input.title, canvas: safeGraph },
+    { title: input.title, data: safeGraph },
+    { name: input.title, graph: safeGraph },
+    { name: input.title, canvas: safeGraph },
+    { name: input.title, data: safeGraph },
     { title: input.title },
     { name: input.title },
   ];
@@ -200,5 +202,6 @@ export async function touchWorkflowOpened(id: string) {
 }
 
 export async function updateWorkflowGraph(id: string, graph: any) {
-  await updateWithFallback(id, [{ graph }, { graph_json: graph }, { canvas: graph }, { data: graph }]);
+  const safeGraph = stripGraphSecrets(graph) as any;
+  await updateWithFallback(id, [{ graph: safeGraph }, { graph_json: safeGraph }, { canvas: safeGraph }, { data: safeGraph }]);
 }

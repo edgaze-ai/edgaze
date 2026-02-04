@@ -7,6 +7,7 @@ import {
   updateWorkflowRun,
   workflowExists,
   getWorkflowDraftId,
+  isAdmin,
 } from "@lib/supabase/executions";
 
 export type TrackingDiagnosticRow = {
@@ -37,6 +38,13 @@ export async function GET(req: Request) {
         { ok: false, error: authError ?? "Sign in required" },
         { status: 401 }
       );
+    }
+
+    if (process.env.NODE_ENV === "production") {
+      const userIsAdmin = await isAdmin(user.id);
+      if (!userIsAdmin) {
+        return NextResponse.json({ ok: false, error: "Admin access required" }, { status: 403 });
+      }
     }
 
     const userId = user.id;

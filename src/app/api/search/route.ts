@@ -1,6 +1,7 @@
 // src/app/api/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { checkSimpleIpRateLimit } from "@lib/rate-limiting/simple-ip";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -34,6 +35,14 @@ function escapeLikePattern(s: string): string {
 }
 
 export async function GET(req: NextRequest) {
+  const { allowed } = checkSimpleIpRateLimit(req);
+  if (!allowed) {
+    return NextResponse.json(
+      { query: "", profiles: [], workflows: [] },
+      { status: 429 }
+    );
+  }
+
   const url = new URL(req.url);
   let q = (url.searchParams.get("q") || "").trim();
 

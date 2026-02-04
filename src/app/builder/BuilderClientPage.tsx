@@ -17,6 +17,7 @@ import PremiumWorkflowRunModal, { type WorkflowRunState, type BuilderRunLimit } 
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
 import { canRunDemo, trackDemoRun, getRemainingDemoRuns } from "../../lib/workflow/device-tracking";
 import { validateWorkflowGraph } from "../../lib/workflow/validation";
+import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
 
 import { cx } from "../../lib/cx";
 import { emit, on } from "../../lib/bus";
@@ -683,7 +684,7 @@ export default function BuilderPage() {
 
         const { data: created, error: insErr } = await supabase
           .from("workflow_drafts")
-          .insert({ owner_id: userId, title: wfRow?.title || "Untitled Workflow", graph: g, last_opened_at: nowIso() })
+          .insert({ owner_id: userId, title: wfRow?.title || "Untitled Workflow", graph: stripGraphSecrets(g) as any, last_opened_at: nowIso() })
           .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
           .single();
 
@@ -778,7 +779,7 @@ export default function BuilderPage() {
 
         const { data: created, error: insErr } = await supabase
           .from("workflow_drafts")
-          .insert({ owner_id: userId, title: wfRow?.title || "Untitled Workflow", graph: g, last_opened_at: nowIso() })
+          .insert({ owner_id: userId, title: wfRow?.title || "Untitled Workflow", graph: stripGraphSecrets(g) as any, last_opened_at: nowIso() })
           .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
           .single();
 
@@ -992,7 +993,7 @@ export default function BuilderPage() {
           .insert({
             owner_id: userId,
             title: template.title,
-            graph: g,
+            graph: stripGraphSecrets(g) as any,
             last_opened_at: nowIso(),
           })
           .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
@@ -1048,7 +1049,7 @@ export default function BuilderPage() {
 
     latestGraphRef.current = g;
 
-    const update = { title: name || "Untitled Workflow", graph: g, updated_at: nowIso() };
+    const update = { title: name || "Untitled Workflow", graph: stripGraphSecrets(g) as any, updated_at: nowIso() };
 
     const { error } = await supabase.from("workflow_drafts").update(update).eq("id", activeDraftId).eq("owner_id", userId);
     
@@ -1689,12 +1690,13 @@ export default function BuilderPage() {
       ? (() => {
           // Always get the latest graph from canvas to ensure we have the most recent config
           const latestGraph = beRef.current?.getGraph?.() ?? latestGraphRef.current ?? { nodes: [], edges: [] };
+          const safeGraph = stripGraphSecrets(latestGraph) as any;
           return {
             id: activeDraftId,
             owner_id: userId,
             title: name || "Untitled Workflow",
-            graph_json: latestGraph,
-            graph: latestGraph,
+            graph_json: safeGraph,
+            graph: safeGraph,
             created_at: nowIso(),
             updated_at: nowIso(),
             last_opened_at: nowIso(),

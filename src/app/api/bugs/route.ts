@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getUserFromRequest } from "../flow/_auth";
+import { checkSimpleIpRateLimit } from "@lib/rate-limiting/simple-ip";
+import { getMimeFromMagic } from "@lib/asset-upload-validation";
 
 export const runtime = "nodejs";
 
@@ -68,6 +70,11 @@ function computeTags(params: { severity: Severity; feature_area: FeatureArea; re
 
 export async function POST(req: Request) {
   try {
+    const { allowed } = checkSimpleIpRateLimit(req);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+    }
+
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.toLowerCase().includes("multipart/form-data")) {
       return NextResponse.json({ error: "Invalid request: expected multipart/form-data" }, { status: 400 });
@@ -144,6 +151,20 @@ export async function POST(req: Request) {
       if (!okType) return NextResponse.json({ error: "Attachments must be images/videos" }, { status: 400 });
       const mb = f.size / (1024 * 1024);
       if (mb > MAX_FILE_MB) return NextResponse.json({ error: `Max ${MAX_FILE_MB}MB per file` }, { status: 400 });
+      if (f.type.startsWith("image/")) {
+        const headerBlob = f.size >= 12 ? f.slice(0, 12) : f.slice(0, f.size);
+        const buf = new Uint8Array(await headerBlob.arrayBuffer());
+        const magicMime = getMimeFromMagic(buf);
+        if (magicMime && magicMime !== f.type) {
+          return NextResponse.json({ error: "Attachment content does not match declared image type" }, { status: 400 });
+        }
+        if (
+          ["image/png", "image/jpeg", "image/gif", "image/webp"].includes(f.type) &&
+          !getMimeFromMagic(buf)
+        ) {
+          return NextResponse.json({ error: "Attachment content does not match declared image type" }, { status: 400 });
+        }
+      }
     }
 
     const supabase = getSupabaseAdmin();
