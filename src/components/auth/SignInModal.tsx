@@ -448,8 +448,7 @@ export default function SignInModal({
                     type="button"
                     onClick={() => {
                       setError(null);
-                      close(); // closes modal + clears error
-                      router.push("/apply");
+                      setMode("signup");
                     }}
                     className="font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4"
                   >
