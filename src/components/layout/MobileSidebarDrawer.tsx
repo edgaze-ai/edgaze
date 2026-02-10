@@ -23,7 +23,10 @@ const MOBILE_ITEMS_TOP: NavItem[] = [
   { href: "/library", label: "Library", icon: Files },
 ];
 
-const MOBILE_ITEMS_ACCOUNT: NavItem[] = [{ href: "/profile", label: "Profile", icon: User }];
+// Include a query param so /profile can show a sign-in CTA only when opened from sidebar.
+const MOBILE_ITEMS_ACCOUNT: NavItem[] = [
+  { href: "/profile?from=sidebar", label: "Profile", icon: User },
+];
 
 const MOBILE_ITEMS_BOTTOM: NavItem[] = [
   { href: "/help", label: "Help", icon: HelpCircle },

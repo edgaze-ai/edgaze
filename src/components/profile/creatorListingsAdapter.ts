@@ -179,6 +179,7 @@ async function fetchWorkflows(
       .select(baseSelect)
       .eq("owner_id", creatorId)
       .eq("is_published", true)
+      .is("removed_at", null)
       .limit(limit);
 
     if (mode === "visibility") {

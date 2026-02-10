@@ -1,6 +1,6 @@
 // src/app/api/marketplace/publish/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getUserAndClient } from "../../flow/_auth";
+import { getUserAndClient } from "@lib/auth/server";
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription" | "paywall+subscription";

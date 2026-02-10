@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getUserFromRequest } from "../flow/_auth";
+import { getUserFromRequest } from "@lib/auth/server";
 import { checkSimpleIpRateLimit } from "@lib/rate-limiting/simple-ip";
 import { getMimeFromMagic } from "@lib/asset-upload-validation";
 

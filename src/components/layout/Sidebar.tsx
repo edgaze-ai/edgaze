@@ -46,7 +46,10 @@ const BUILD_ITEMS: NavItem[] = [
   { href: "/prompt-studio", label: "Prompt Studio", icon: Sparkles },
 ];
 
-const ACCOUNT_ITEMS: NavItem[] = [{ href: "/profile", label: "Profile", icon: User }];
+// Include a query param so /profile can show a sign-in CTA only when opened from sidebar.
+const ACCOUNT_ITEMS: NavItem[] = [
+  { href: "/profile?from=sidebar", label: "Profile", icon: User },
+];
 
 const FOOTER_ITEMS: NavItem[] = [
   { href: "/help", label: "Help", icon: HelpCircle },

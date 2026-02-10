@@ -74,6 +74,10 @@ type WorkflowListing = {
 
   graph_json: any | null;
   graph: any | null;
+
+  removed_at?: string | null;
+  removed_reason?: string | null;
+  removed_by?: string | null;
 };
 
 type PurchaseRow = {
@@ -993,7 +997,6 @@ export default function WorkflowProductPage() {
       setListing(record);
       setLoading(false);
 
-      // Views increment (best-effort).
       supabase
         .from("workflows")
         .update({ views_count: (record.views_count ?? 0) + 1 })
@@ -1058,14 +1061,19 @@ export default function WorkflowProductPage() {
     };
   }, [listing?.owner_handle, supabase]);
 
+  const creatorHandle = useMemo(() => {
+    if (!listing) return ownerHandle || "";
+    const isOwner = !!userId && String(listing.owner_id) === String(userId);
+    if (isOwner && (profile as { handle?: string } | null)?.handle) return (profile as { handle?: string }).handle!;
+    return listing.owner_handle || creatorProfile?.handle || ownerHandle || "creator";
+  }, [listing, userId, profile, creatorProfile, ownerHandle]);
+
   const canonicalShareUrl = useMemo(() => {
-    const h = listing?.owner_handle || ownerHandle || "";
+    const h = creatorHandle || listing?.owner_handle || ownerHandle || "";
     const c = listing?.edgaze_code || edgazeCode || "";
-    // Use current origin (works for localhost and production)
     const origin = typeof window !== "undefined" ? window.location.origin : "https://edgaze.ai";
-    // NO /p
     return `${origin}/${h}/${c}`;
-  }, [listing?.owner_handle, listing?.edgaze_code, ownerHandle, edgazeCode]);
+  }, [creatorHandle, listing?.owner_handle, listing?.edgaze_code, ownerHandle, edgazeCode]);
 
   // Typed routes in Next can be strict; cast to any for runtime-safe string routes.
   const goBack = () => router.push("/marketplace" as any);
@@ -1634,6 +1642,29 @@ export default function WorkflowProductPage() {
     );
   }
 
+  if (listing.removed_at) {
+    const reasonText =
+      listing.removed_by === "owner"
+        ? "Removed by owner"
+        : (listing.removed_reason || "This item has been removed.");
+    return (
+      <div className="flex h-full flex-col bg-[#050505] text-white">
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
+          <p className="text-lg font-semibold">This item has been removed</p>
+          <p className="text-sm text-white/70 text-center max-w-md">{reasonText}</p>
+          <button
+            type="button"
+            onClick={goBack}
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm text-white hover:border-cyan-400 hover:text-cyan-200"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to marketplace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col bg-[#050505] text-white">
       <PurchaseSuccessModal
@@ -1651,7 +1682,7 @@ export default function WorkflowProductPage() {
         onClose={() => setShareOpen(false)}
         shareUrl={canonicalShareUrl}
         code={listing.edgaze_code || ""}
-        ownerHandle={listing.owner_handle || ""}
+        ownerHandle={creatorHandle || listing.owner_handle || ""}
         title={listing.title}
       />
 
@@ -1661,7 +1692,7 @@ export default function WorkflowProductPage() {
         targetType="workflow"
         targetId={listing.id}
         targetTitle={listing.title}
-        targetOwnerHandle={listing.owner_handle}
+        targetOwnerHandle={creatorHandle || listing.owner_handle}
         targetOwnerName={listing.owner_name}
       />
 
@@ -1785,7 +1816,7 @@ export default function WorkflowProductPage() {
             </button>
 
             <span className="truncate text-xs text-white/40">
-              edgaze.ai/{listing.owner_handle}/{listing.edgaze_code}
+              edgaze.ai/{creatorHandle}/{listing.edgaze_code}
             </span>
           </div>
 
@@ -1820,25 +1851,25 @@ export default function WorkflowProductPage() {
 
             <div className="flex items-center gap-2 min-w-0">
               <ProfileAvatar
-                name={creatorProfile?.full_name || listing.owner_name || listing.owner_handle}
+                name={creatorProfile?.full_name || listing.owner_name || creatorHandle}
                 avatarUrl={creatorProfile?.avatar_url || null}
                 size={32}
-                handle={listing.owner_handle}
+                handle={creatorHandle}
               />
               <div className="hidden sm:flex flex-col leading-tight min-w-0">
                 <div className="flex flex-wrap items-center gap-2 min-w-0">
                   <ProfileLink
                     name={creatorProfile?.full_name || listing.owner_name || "Creator"}
-                    handle={listing.owner_handle}
+                    handle={creatorHandle}
                     showBadge={true}
                     badgeSize="md"
                     className="min-w-0 truncate text-xs font-medium text-white/90"
                   />
                 </div>
-                {listing.owner_handle && (
+                {creatorHandle && (
                   <ProfileLink
-                    name={`@${listing.owner_handle}`}
-                    handle={listing.owner_handle}
+                    name={`@${creatorHandle}`}
+                    handle={creatorHandle}
                     className="truncate text-[11px] text-white/50"
                   />
                 )}
@@ -2029,24 +2060,24 @@ export default function WorkflowProductPage() {
               <div className="mt-4 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <ProfileAvatar
-                    name={creatorProfile?.full_name || listing.owner_name || listing.owner_handle}
+                    name={creatorProfile?.full_name || listing.owner_name || creatorHandle}
                     avatarUrl={creatorProfile?.avatar_url || null}
                     size={40}
-                    handle={listing.owner_handle}
+                    handle={creatorHandle}
                   />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <ProfileLink
                         name={creatorProfile?.full_name || listing.owner_name || "Creator"}
-                        handle={listing.owner_handle}
+                        handle={creatorHandle}
                         showBadge={true}
                         badgeSize="md"
                         className="min-w-0 truncate text-sm font-medium text-white/90"
                       />
                     </div>
                     <ProfileLink
-                      name={`@${listing.owner_handle || "creator"}`}
-                      handle={listing.owner_handle}
+                      name={`@${creatorHandle || "creator"}`}
+                      handle={creatorHandle}
                       className="truncate text-[12px] text-white/55"
                     />
                   </div>

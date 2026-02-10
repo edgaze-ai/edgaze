@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserFromRequest } from "../../flow/_auth";
+import { getUserFromRequest } from "@lib/auth/server";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 
 export async function POST(req: NextRequest) {

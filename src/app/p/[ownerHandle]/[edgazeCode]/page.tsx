@@ -20,6 +20,8 @@ import {
   Lock,
   CheckCircle2,
   Flag,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../../../lib/supabase/browser";
 import { useAuth } from "../../../../components/auth/AuthContext";
@@ -75,6 +77,9 @@ type PromptListing = {
   price_usd: number | null;
   view_count: number | null;
   like_count: number | null;
+  removed_at?: string | null;
+  removed_reason?: string | null;
+  removed_by?: string | null;
 };
 
 type PurchaseRow = {
@@ -1185,6 +1190,7 @@ export default function PromptProductPage() {
   const [creatorProfile, setCreatorProfile] = useState<PublicProfileLite | null>(null);
 
   const [mainDemoIndex, setMainDemoIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const [shareOpen, setShareOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
@@ -1248,7 +1254,6 @@ export default function PromptProductPage() {
         )
         .eq("owner_handle", ownerHandle)
         .eq("edgaze_code", edgazeCode)
-        .in("visibility", ["public", "unlisted"])
         .maybeSingle();
 
       if (cancelled) return;
@@ -1270,33 +1275,35 @@ export default function PromptProductPage() {
       setListing(record);
       setLoading(false);
 
-      // Track product page view
-      safeTrack("Product Page Viewed", {
-        surface: "product_page",
-        listing_id: record.id,
-        listing_type: record.type || "prompt",
-        owner_handle: record.owner_handle,
-        edgaze_code: record.edgaze_code,
-        title: record.title,
-        is_paid: record.is_paid || false,
-        monetisation_mode: record.monetisation_mode,
-        price_usd: record.price_usd,
-        view_count: record.view_count || 0,
-        like_count: record.like_count || 0,
-        has_demo_images: Array.isArray(record.demo_images) && record.demo_images.length > 0,
-        placeholder_count: Array.isArray(coercePlaceholders(record.placeholders)) ? coercePlaceholders(record.placeholders).length : 0,
-        is_owner: currentUserId ? String(record.owner_id) === String(currentUserId) : false,
-      });
+      {
+        // Track product page view only when not removed
+        safeTrack("Product Page Viewed", {
+          surface: "product_page",
+          listing_id: record.id,
+          listing_type: record.type || "prompt",
+          owner_handle: record.owner_handle,
+          edgaze_code: record.edgaze_code,
+          title: record.title,
+          is_paid: record.is_paid || false,
+          monetisation_mode: record.monetisation_mode,
+          price_usd: record.price_usd,
+          view_count: record.view_count || 0,
+          like_count: record.like_count || 0,
+          has_demo_images: Array.isArray(record.demo_images) && record.demo_images.length > 0,
+          placeholder_count: Array.isArray(coercePlaceholders(record.placeholders)) ? coercePlaceholders(record.placeholders).length : 0,
+          is_owner: currentUserId ? String(record.owner_id) === String(currentUserId) : false,
+        });
 
-      // best-effort view count bump
-      (async () => {
-        try {
-          await supabase
-            .from("prompts")
-            .update({ view_count: (record.view_count ?? 0) + 1 })
-            .eq("id", record.id);
-        } catch {}
-      })();
+        // best-effort view count bump
+        (async () => {
+          try {
+            await supabase
+              .from("prompts")
+              .update({ view_count: (record.view_count ?? 0) + 1 })
+              .eq("id", record.id);
+          } catch {}
+        })();
+      }
     }
 
     load();
@@ -1342,6 +1349,28 @@ export default function PromptProductPage() {
   }, [listing]);
 
   const activeDemo = demoImages[mainDemoIndex] || null;
+
+  // Lightbox: lock body scroll and close on Escape
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      if (demoImages.length > 1) {
+        if (e.key === "ArrowLeft") {
+          setMainDemoIndex((i) => (i === 0 ? demoImages.length - 1 : i - 1));
+        } else if (e.key === "ArrowRight") {
+          setMainDemoIndex((i) => (i === demoImages.length - 1 ? 0 : i + 1));
+        }
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [lightboxOpen, demoImages.length]);
 
   const currentUserId = userId ?? null;
   const currentUserName = (profile as any)?.full_name ?? null;
@@ -1987,8 +2016,36 @@ export default function PromptProductPage() {
       </div>
     );
   }
+
+  if (listing.removed_at) {
+    const reasonText =
+      listing.removed_by === "owner"
+        ? "Removed by owner"
+        : (listing.removed_reason || "This item has been removed.");
+    return (
+      <div className="flex h-full flex-col bg-[#050505] text-white">
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
+          <p className="text-lg font-semibold">This item has been removed</p>
+          <p className="text-sm text-white/70 text-center max-w-md">{reasonText}</p>
+          <button
+            type="button"
+            onClick={goBack}
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm text-white hover:border-cyan-400 hover:text-cyan-200"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to marketplace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const creatorName = creatorProfile?.full_name || listing.owner_name || "Creator";
-  const creatorHandle = creatorProfile?.handle || listing.owner_handle || "creator";
+  // When viewer is owner, use current profile handle so updated handle shows immediately (isOwner from useMemo above)
+  const creatorHandle =
+    (isOwner && (profile as { handle?: string } | null)?.handle) ||
+    listing.owner_handle ||
+    creatorProfile?.handle ||
+    "creator";
   const creatorAvatar = creatorProfile?.avatar_url || null;
 
   return (
@@ -2040,7 +2097,7 @@ export default function PromptProductPage() {
               <ArrowLeft className="h-4 w-4" /> Marketplace
             </button>
             <span className="truncate text-xs text-white/40">
-              edgaze.ai/p/{listing.owner_handle}/{listing.edgaze_code}
+              edgaze.ai/p/{creatorHandle}/{listing.edgaze_code}
             </span>
           </div>
 
@@ -2114,7 +2171,7 @@ export default function PromptProductPage() {
         onClose={() => setShareOpen(false)}
         shareUrl={canonicalShareUrl}
         code={listing.edgaze_code || ""}
-        ownerHandle={listing.owner_handle || ""}
+        ownerHandle={creatorHandle || listing.owner_handle || ""}
         title={listing.title}
       />
 
@@ -2124,7 +2181,7 @@ export default function PromptProductPage() {
         targetType={listing.type === "workflow" ? "workflow" : "prompt"}
         targetId={listing.id}
         targetTitle={listing.title}
-        targetOwnerHandle={listing.owner_handle}
+        targetOwnerHandle={creatorHandle || listing.owner_handle}
         targetOwnerName={listing.owner_name}
       />
 
@@ -2204,7 +2261,7 @@ export default function PromptProductPage() {
                       src={activeDemo}
                       alt={listing.title || "Demo image"}
                       className="h-full w-full cursor-pointer object-cover"
-                      onClick={() => window.open(activeDemo, "_blank", "noopener,noreferrer")}
+                      onClick={() => setLightboxOpen(true)}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-xs text-white/50">
@@ -2262,7 +2319,10 @@ export default function PromptProductPage() {
                     <button
                       key={img + idx}
                       type="button"
-                      onClick={() => setMainDemoIndex(idx)}
+                      onClick={() => {
+                        setMainDemoIndex(idx);
+                        setLightboxOpen(true);
+                      }}
                       className={cn(
                         "relative h-14 w-24 flex-none overflow-hidden rounded-xl border border-white/10 bg-black/60",
                         idx === mainDemoIndex && "border-cyan-400 shadow-[0_0_14px_rgba(56,189,248,0.55)]"
@@ -2273,6 +2333,66 @@ export default function PromptProductPage() {
                       <img src={img} alt={`Demo ${idx + 1}`} className="h-full w-full object-cover" />
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* In-app image lightbox: no external links, show bigger with arrows */}
+              {lightboxOpen && activeDemo && (
+                <div
+                  className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Image viewer"
+                  onClick={() => setLightboxOpen(false)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setLightboxOpen(false)}
+                    className="absolute right-4 top-4 z-10 rounded-full border border-white/20 bg-black/50 p-2 text-white hover:bg-white/10"
+                    aria-label="Close"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                  <div
+                    className="relative flex max-h-[100vh] max-w-[100vw] items-center justify-center p-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {demoImages.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newIndex = mainDemoIndex === 0 ? demoImages.length - 1 : mainDemoIndex - 1;
+                          setMainDemoIndex(newIndex);
+                          safeTrack("Demo Image Navigated", { surface: "lightbox", direction: "previous", index: newIndex, total_images: demoImages.length, listing_id: listing?.id });
+                        }}
+                        className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white hover:bg-white/10 sm:left-4"
+                        aria-label="Previous image"
+                      >
+                        <ChevronLeft className="h-6 w-6 sm:h-8 sm:w-8" />
+                      </button>
+                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={activeDemo}
+                      alt={listing?.title || `Demo ${mainDemoIndex + 1}`}
+                      className="max-h-[90vh] max-w-full object-contain"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    {demoImages.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newIndex = mainDemoIndex === demoImages.length - 1 ? 0 : mainDemoIndex + 1;
+                          setMainDemoIndex(newIndex);
+                          safeTrack("Demo Image Navigated", { surface: "lightbox", direction: "next", index: newIndex, total_images: demoImages.length, listing_id: listing?.id });
+                        }}
+                        className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white hover:bg-white/10 sm:right-4"
+                        aria-label="Next image"
+                      >
+                        <ChevronRight className="h-6 w-6 sm:h-8 sm:w-8" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 

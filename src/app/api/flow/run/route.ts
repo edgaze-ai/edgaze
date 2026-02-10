@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUserFromRequest } from "../_auth";
+import { getUserFromRequest } from "@lib/auth/server";
 import { runFlow } from "src/server/flow/engine";
 import { enforceRuntimeLimits, redactSecrets } from "src/server/flow/runtime-enforcement";
 import {

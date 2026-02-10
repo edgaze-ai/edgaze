@@ -12,7 +12,7 @@
 // - RLS policies allowing authenticated users to insert/delete their own likes
 //
 import { NextRequest, NextResponse } from "next/server";
-import { getUserAndClient } from "../../flow/_auth";
+import { getUserAndClient } from "@lib/auth/server";
 
 export async function POST(req: NextRequest) {
   try {

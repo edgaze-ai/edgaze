@@ -1,38 +1,45 @@
 <div align="center">
 
-<img src="public/brand/edgaze-mark.png" alt="Edgaze" width="80" height="80" />
+<img src="public/brand/edgaze-mark.png" alt="Edgaze" width="96" height="96" />
 
 # **Edgaze**
 
 ### *Create, sell, and distribute AI products.*
 
-**A marketplace for prompts and workflows.** Build once. Publish a clean page. Share one link.
+A curated marketplace for prompts and workflows. One link. One experience. Built for creators who ship.
 
 <br />
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Release](https://img.shields.io/badge/Release-1.0.0-111827?style=for-the-badge)](CHANGELOG.md)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Node](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/License-Proprietary-7f1d1d?style=for-the-badge)](LICENSE)
 
 <br />
 
-[**Product**](#-product) • [**Screenshots**](#-screenshots) • [**Tech**](#-tech) • [**Run locally**](#-run-locally)
+[**Overview**](#overview) · [**Product**](#product) · [**Screenshots**](#screenshots) · [**Tech**](#tech-stack) · [**Getting started**](#getting-started) · [**Docs**](#documentation)
 
 </div>
 
 ---
 
+## Overview
+
+Edgaze is a **first-party platform** for building, publishing, and distributing AI products at scale. Prompts and workflows get a permanent home: a clean product page, a short **Edgaze code** (e.g. `@handle/essay`), and a single shareable link. No fragmentation—just one place to create, one place to discover, one place to run.
+
+*Built for reliability, designed for clarity.*
+
+---
+
 ## Product
 
-**Edgaze** is a platform where creators build, publish, and distribute AI products—prompts and workflows—through a single marketplace and shareable links.
+| Pillar | Description |
+|--------|-------------|
+| **Prompt Studio** | Structured prompts with placeholders. Version control, one-click publish, and a polished product page for every prompt. |
+| **Workflow Builder** | Visual flows: inputs, prompts, tools, outputs. One canvas. One link. Repeatable, shareable runs. |
+| **Marketplace** | Curated discovery and search. Creators get a storefront; users open and run in one tap. |
 
-| Pillar | What it does |
-|--------|----------------|
-| **Prompt Studio** | Create prompts with structure and placeholders. Version, publish, and share a clean product page. |
-| **Workflow Builder** | Build visual flows: inputs, prompts, tools, outputs. One canvas, one link, repeatable runs. |
-| **Marketplace** | Discovery, search, and product pages. Creators get a storefront; users open and run in one tap. |
-
-Every prompt and workflow gets a short **Edgaze code** (e.g. `@handle/essay`) and a direct link. The product is in **beta**: creators can set prices; payments will activate later.
+Every asset gets a **canonical URL** and an **Edgaze code**. The platform is in **beta**; creators can set prices—payments will follow in a future release.
 
 ---
 
@@ -40,13 +47,13 @@ Every prompt and workflow gets a short **Edgaze code** (e.g. `@handle/essay`) an
 
 <div align="center">
 
-**Landing — Enter a code, open a prompt or workflow**
+**Landing** — Enter a code, open a prompt or workflow.
 
 <img src="public/landing.png" alt="Edgaze landing" width="800" />
 
 <br /><br />
 
-**Workflow Builder — Visual canvas, publish and share**
+**Workflow Builder** — Visual canvas. Publish and share.
 
 <img src="public/builder.png" alt="Edgaze workflow builder" width="800" />
 
@@ -54,28 +61,30 @@ Every prompt and workflow gets a short **Edgaze code** (e.g. `@handle/essay`) an
 
 ---
 
-## Tech
+## Tech stack
 
-- **Framework:** Next.js 16 (App Router)
-- **Language:** TypeScript
-- **UI:** React 18, Tailwind CSS, Framer Motion
-- **Runtime:** Node.js 20+
+| Layer | Choice |
+|-------|--------|
+| **Framework** | Next.js 16 (App Router) |
+| **Language** | TypeScript 5.6 |
+| **UI** | React 18, Tailwind CSS, Framer Motion |
+| **Runtime** | Node.js 20+ |
 
 ---
 
-## Run locally
+## Getting started
 
 **Prerequisites:** Node.js 20+, npm (or pnpm/yarn).
 
-1. **Clone the repository** and install dependencies:
+1. **Clone** and install dependencies:
 
    ```bash
    npm install
    ```
 
-2. **Environment:** Copy `.env.example` to `.env.local` and set the required variables for your environment.
+2. **Environment:** Copy `.env.example` to `.env.local` and configure variables for your environment.
 
-3. **Start the dev server:**
+3. **Run** the development server:
 
    ```bash
    npm run dev
@@ -83,12 +92,10 @@ Every prompt and workflow gets a short **Edgaze code** (e.g. `@handle/essay`) an
 
    Open [http://localhost:3000](http://localhost:3000).
 
----
-
-## Scripts
+### Scripts
 
 | Command | Description |
-|--------|-------------|
+|---------|-------------|
 | `npm run dev` | Development server |
 | `npm run build` | Production build |
 | `npm run start` | Production server |
@@ -97,14 +104,31 @@ Every prompt and workflow gets a short **Edgaze code** (e.g. `@handle/essay`) an
 
 ---
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [**CHANGELOG**](CHANGELOG.md) | Release history and notable changes |
+| [**SECURITY**](SECURITY.md) | Vulnerability disclosure and supported versions |
+| [**CONTRIBUTING**](CONTRIBUTING.md) | Contribution guidelines (internal) |
+| [**SUPPORT**](SUPPORT.md) | How to get help |
+| [**AUTH**](AUTH.md) | Authentication implementation |
+| [**OVERVIEW**](docs/OVERVIEW.md) | Architecture and standards |
+
+### Releases
+
+Releases are published when version tags are pushed (e.g. `v1.0.0`). See [CHANGELOG.md](CHANGELOG.md) for version history.
+
+---
+
 ## License
 
-Proprietary. All rights reserved.
+Proprietary. All rights reserved. See [LICENSE](LICENSE).
 
 ---
 
 <div align="center">
 
-**Edgaze** — *Collect → Publish → Share*
+**Edgaze** — *Create → Sell → Distribute*
 
 </div>

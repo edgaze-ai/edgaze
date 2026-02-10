@@ -1,0 +1,5 @@
+# CODEOWNERS — these owners are requested for review when someone opens a PR.
+# One owner per line; use teams with @org/team-name if you use GitHub teams.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @your-org/edgaze-maintainers

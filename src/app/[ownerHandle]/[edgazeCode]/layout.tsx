@@ -1,6 +1,8 @@
 // src/app/[ownerHandle]/[edgazeCode]/layout.tsx
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { getWorkflowRedirectPath } from "@lib/supabase/handle-redirect";
 
 const METADATA_BASE = "https://edgaze.ai";
 
@@ -101,6 +103,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function WorkflowProductLayout({ children }: Props) {
+export default async function WorkflowProductLayout({ children, params }: Props) {
+  const { ownerHandle, edgazeCode } = await params;
+  const listing = await getWorkflowListing(ownerHandle, edgazeCode);
+  if (!listing) {
+    const redirectPath = await getWorkflowRedirectPath(ownerHandle, edgazeCode);
+    if (redirectPath) redirect(redirectPath);
+  }
   return <>{children}</>;
 }

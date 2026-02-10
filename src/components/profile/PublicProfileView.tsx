@@ -120,6 +120,8 @@ function normalizeHandle(input: string) {
     .slice(0, 24);
 }
 
+const HANDLE_REGEX = /^[a-z0-9_]{3,24}$/;
+
 function sanitizeUrl(url: string) {
   const v = (url || "").trim();
   if (!v) return "";
@@ -640,6 +642,7 @@ export default function PublicProfileView({
   const [saveErr, setSaveErr] = useState<string | null>(null);
 
   const [draftName, setDraftName] = useState("");
+  const [draftHandle, setDraftHandle] = useState("");
   const [draftBio, setDraftBio] = useState("");
   const [draftSocials, setDraftSocials] = useState<Record<string, string>>({});
 
@@ -928,13 +931,39 @@ export default function PublicProfileView({
     setSaveErr(null);
 
     try {
+      const normalizedHandle = normalizeHandle(draftHandle);
+      const handleChanged = normalizedHandle && normalizedHandle !== (creator.handle || "").toLowerCase();
+
+      if (handleChanged) {
+        if (!HANDLE_REGEX.test(normalizedHandle)) {
+          setSaveErr("Handle must be 3–24 characters, only letters, numbers, and underscores.");
+          setSaving(false);
+          return;
+        }
+        const res = await fetch(
+          `/api/handle-available?handle=${encodeURIComponent(normalizedHandle)}&exclude_user_id=${encodeURIComponent(viewerId ?? "")}`
+        );
+        const data = await res.json();
+        if (!data.available) {
+          setSaveErr(data.reason === "invalid" ? "Invalid handle format." : "That handle is already taken.");
+          setSaving(false);
+          return;
+        }
+        const result = await auth.updateProfile({ handle: normalizedHandle });
+        if (!result.ok) {
+          setSaveErr(result.error ?? "Failed to update handle.");
+          setSaving(false);
+          return;
+        }
+      }
+
       const socials: Record<string, string> = {};
       Object.entries(draftSocials || {}).forEach(([k, v]) => {
         const u = sanitizeUrl(v || "");
         if (u) socials[k] = u;
       });
 
-      const patch = {
+      const patch: Record<string, unknown> = {
         full_name: (draftName || "").trim() || null,
         bio: (draftBio || "").trim() || null,
         socials,
@@ -943,8 +972,11 @@ export default function PublicProfileView({
       const { error } = await supabase.from("profiles").update(patch).eq("id", creator.id);
       if (error) throw error;
 
-      setCreator((c) => (c ? { ...c, ...patch } : c));
+      setCreator((c) => (c ? { ...c, ...patch, ...(handleChanged && normalizedHandle ? { handle: normalizedHandle } : {}) } : c));
       setEditOpen(false);
+      if (handleChanged && normalizedHandle) {
+        router.replace(`/profile/${encodeURIComponent(normalizedHandle)}`);
+      }
     } catch (e: any) {
       setSaveErr(e?.message || "Save failed");
     } finally {
@@ -1167,6 +1199,7 @@ export default function PublicProfileView({
                       type="button"
                       onClick={() => {
                         setDraftName(creator.full_name || "");
+                        setDraftHandle(creator.handle || "");
                         setDraftBio(creator.bio || "");
                         setDraftSocials((creator.socials || {}) as any);
                         setEditOpen(true);
@@ -1300,7 +1333,7 @@ export default function PublicProfileView({
             <div className="flex items-center justify-between border-b border-gray-600/50 px-4 py-3">
               <div>
                 <div className="text-sm font-semibold text-white">Edit profile</div>
-                <div className="text-[11px] text-white/50">Handle editing disabled.</div>
+                <div className="text-[11px] text-white/50">Name, handle, bio, and social links</div>
               </div>
               <button
                 type="button"
@@ -1332,9 +1365,13 @@ export default function PublicProfileView({
                 <div>
                   <label className="text-[11px] text-white/60">Handle</label>
                   <input
-                    value={`@${creator.handle}`}
-                    disabled
-                    className="mt-1 h-11 w-full cursor-not-allowed rounded-2xl border border-gray-600/50 bg-white/5 px-3 text-sm text-white/50 outline-none"
+                    value={draftHandle}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase().slice(0, 24);
+                      setDraftHandle(v);
+                    }}
+                    placeholder="handle"
+                    className="mt-1 h-11 w-full rounded-2xl border border-gray-600/50 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
                   />
                 </div>
               </div>

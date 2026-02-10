@@ -1,6 +1,8 @@
 // src/app/p/[ownerHandle]/[edgazeCode]/layout.tsx
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { getProductRedirectPath } from "@lib/supabase/handle-redirect";
 
 const METADATA_BASE = "https://edgaze.ai";
 
@@ -17,7 +19,6 @@ async function getListing(ownerHandle: string, edgazeCode: string) {
       .select("title, description, thumbnail_url, type")
       .eq("owner_handle", ownerHandle)
       .eq("edgaze_code", edgazeCode)
-      .in("visibility", ["public", "unlisted"])
       .maybeSingle();
 
     if (error || !data) return null;
@@ -100,6 +101,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function ProductLayout({ children }: Props) {
+export default async function ProductLayout({ children, params }: Props) {
+  const { ownerHandle, edgazeCode } = await params;
+  const listing = await getListing(ownerHandle, edgazeCode);
+  if (!listing) {
+    const redirectPath = await getProductRedirectPath(ownerHandle, edgazeCode);
+    if (redirectPath) redirect(redirectPath);
+  }
   return <>{children}</>;
 }

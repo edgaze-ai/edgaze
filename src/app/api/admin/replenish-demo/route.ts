@@ -1,6 +1,6 @@
 // src/app/api/admin/replenish-demo/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getUserFromRequest } from "../../flow/_auth";
+import { getUserFromRequest } from "@lib/auth/server";
 import { isAdmin } from "@lib/supabase/executions";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 

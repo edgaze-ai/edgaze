@@ -7,6 +7,7 @@ import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, BadgeCheck, Compass, Link2, Search, Sparkles } from "lucide-react";
 import FoundingCreatorBadge from "src/components/ui/FoundingCreatorBadge";
+import dynamic from "next/dynamic";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
@@ -1145,13 +1146,22 @@ function Illustration({ kind }: { kind: IllustrationKind }) {
   return <IlluStorefrontRevenue />;
 }
 
+// Lazy load illustrations to improve initial page load
+const LazyIllustration = dynamic<{ kind: IllustrationKind }>(
+  () => Promise.resolve({ default: Illustration }),
+  { 
+    ssr: false,
+    loading: () => <div className="h-[320px] sm:h-[360px] w-full rounded-3xl bg-white/4 ring-1 ring-white/10 animate-pulse" />
+  }
+);
+
 function FeatureSplit({ kind, children }: { kind: IllustrationKind; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
       <div>{children}</div>
       <div className="md:pt-2">
         <Reveal delay={0.08}>
-          <Illustration kind={kind} />
+          <LazyIllustration kind={kind} />
         </Reveal>
       </div>
     </div>
@@ -1824,7 +1834,7 @@ export default function EdgazeLandingPage() {
                 </div>
 
                 <Reveal delay={0.08}>
-                  <Illustration kind="hero" />
+                  <LazyIllustration kind="hero" />
                 </Reveal>
               </div>
             </Container>

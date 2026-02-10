@@ -20,6 +20,7 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const handleRaw = (url.searchParams.get("handle") || "").trim().toLowerCase();
+    const excludeUserId = url.searchParams.get("exclude_user_id")?.trim() || null;
 
     if (!handleRaw) return json(400, { available: false, reason: "missing_handle" });
 
@@ -35,21 +36,20 @@ export async function GET(req: Request) {
       return json(500, { available: false, reason: "server_misconfig" });
     }
 
-    // Service role: bypasses RLS (only on server)
     const admin = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false },
     });
 
-    // IMPORTANT: change "profiles" + "handle" to your actual table/column
-    const { data, error } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("handle", handleRaw)
-      .limit(1);
+    let query = admin.from("profiles").select("id").eq("handle", handleRaw).limit(2);
+    if (excludeUserId) {
+      query = query.neq("id", excludeUserId);
+    }
+    const { data, error } = await query;
 
     if (error) return json(500, { available: false, reason: "db_error" });
 
-    const taken = (data?.length || 0) > 0;
+    // Taken if any row exists (when excluding, only "other" users count as taken)
+    const taken = (data?.length ?? 0) > 0;
     return json(200, { available: !taken });
   } catch {
     return json(500, { available: false, reason: "unknown" });

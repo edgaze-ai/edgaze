@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getUserFromRequest } from "../../flow/_auth";
+import { getUserFromRequest } from "@lib/auth/server";
 import { isAdmin } from "@lib/supabase/executions";
 import { updateTokenLimits, getTokenLimits } from "@lib/workflow/token-limits";
 

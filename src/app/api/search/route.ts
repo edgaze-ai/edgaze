@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
       .from("workflows")
       .select("id, title, slug, banner_url, is_public")
       .eq("is_public", true)
+      .is("removed_at", null)
       .ilike("title", `%${escaped}%`)
       .limit(5);
 

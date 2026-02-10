@@ -1,6 +1,6 @@
 // src/app/api/assets/upload/route.ts
 import { NextResponse } from "next/server";
-import { getUserAndClient } from "../../flow/_auth";
+import { getUserAndClient } from "@lib/auth/server";
 import { validateAssetFile } from "@lib/asset-upload-validation";
 
 const BUCKET = "edgaze-assets";

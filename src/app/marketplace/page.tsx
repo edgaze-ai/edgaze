@@ -34,6 +34,7 @@ type MarketplacePrompt = {
   prompt_text: string | null;
   thumbnail_url: string | null;
 
+  owner_id: string | null;
   owner_name: string | null;
   owner_handle: string | null;
 
@@ -571,6 +572,7 @@ async function safeInsertAnalyticsEvent(
 function PromptCard({
   prompt,
   currentUserId,
+  currentUserHandle,
   requireAuth,
   supabase,
   supabaseAuth,
@@ -579,6 +581,7 @@ function PromptCard({
 }: {
   prompt: MarketplacePrompt;
   currentUserId: string | null;
+  currentUserHandle: string | null | undefined;
   requireAuth: () => boolean;
   supabase: ReturnType<typeof createSupabasePublicBrowserClient>;
   supabaseAuth: ReturnType<typeof createSupabaseBrowserClient>;
@@ -680,22 +683,27 @@ function PromptCard({
     checkLikeStatus();
   }, [prompt.id, prompt.type, currentUserId, supabaseAuth, supabase]);
 
-  const detailPath =
-  prompt.edgaze_code && prompt.owner_handle
-    ? prompt.type === "workflow"
-      ? `/${prompt.owner_handle}/${prompt.edgaze_code}`
-      : `/p/${prompt.owner_handle}/${prompt.edgaze_code}`
-    : undefined;
+  const displayHandle =
+    currentUserId && prompt.owner_id && String(prompt.owner_id) === String(currentUserId) && currentUserHandle
+      ? currentUserHandle
+      : prompt.owner_handle;
 
-  const ownerHandleKey = (prompt.owner_handle || "").toLowerCase();
+  const detailPath =
+    prompt.edgaze_code && displayHandle
+      ? prompt.type === "workflow"
+        ? `/${displayHandle}/${prompt.edgaze_code}`
+        : `/p/${displayHandle}/${prompt.edgaze_code}`
+      : undefined;
+
+  const ownerHandleKey = (displayHandle || prompt.owner_handle || "").toLowerCase();
   const ownerProfile = ownerHandleKey ? ownerProfiles[ownerHandleKey] : undefined;
 
   const creatorName =
     ownerProfile?.full_name ||
     prompt.owner_name ||
-    (prompt.owner_handle ? `@${prompt.owner_handle}` : "Unknown");
+    (displayHandle ? `@${displayHandle}` : "Unknown");
 
-  const creatorHandle = prompt.owner_handle ? `@${prompt.owner_handle}` : "";
+  const creatorHandle = displayHandle ? `@${displayHandle}` : "";
 
   const priceLabel = isFree
     ? "Free"
@@ -722,7 +730,7 @@ function PromptCard({
       name: "click_card",
       item_id: prompt.id,
       item_type: prompt.type,
-      owner_handle: prompt.owner_handle ?? null,
+      owner_handle: displayHandle ?? prompt.owner_handle ?? null,
       tags: parseTags(prompt.tags),
       meta: { is_free: isFree },
     });
@@ -918,7 +926,7 @@ function PromptCard({
           name={creatorName}
           avatarUrl={ownerProfile?.avatar_url || null}
           size={36}
-          handle={prompt.owner_handle}
+          handle={displayHandle}
           className="mt-0.5"
         />
 
@@ -930,7 +938,7 @@ function PromptCard({
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/60 min-w-0">
             <ProfileLink
               name={creatorName}
-              handle={prompt.owner_handle}
+              handle={displayHandle}
               showBadge={true}
               badgeSize="sm"
               className="min-w-0 truncate"
@@ -938,7 +946,7 @@ function PromptCard({
             {creatorHandle && (
               <ProfileLink
                 name={creatorHandle}
-                handle={prompt.owner_handle}
+                handle={displayHandle}
                 className="truncate text-white/35"
               />
             )}
@@ -1584,14 +1592,19 @@ const [codeQuery, setCodeQuery] = useState("");
 
   // close predictor when clicking outside
   
-  const fetchOwnerProfiles = async (prompts: MarketplacePrompt[]) => {
-    const handles = Array.from(
-      new Set(
-        (prompts || [])
-          .map((p) => (p.owner_handle || "").toLowerCase())
-          .filter(Boolean)
-      )
-    );
+  const fetchOwnerProfiles = async (
+    prompts: MarketplacePrompt[],
+    opts?: { userId: string | null; currentUserHandle: string | null | undefined }
+  ) => {
+    const handlesSet = new Set<string>();
+    (prompts || []).forEach((p) => {
+      const h = (p.owner_handle || "").toLowerCase();
+      if (h) handlesSet.add(h);
+      if (opts?.userId && opts?.currentUserHandle && p.owner_id && String(p.owner_id) === String(opts.userId)) {
+        handlesSet.add(opts.currentUserHandle.toLowerCase());
+      }
+    });
+    const handles = Array.from(handlesSet);
 
     const missing = handles.filter((h) => !ownerProfiles[h]);
     if (missing.length === 0) return;
@@ -1627,6 +1640,7 @@ const [codeQuery, setCodeQuery] = useState("");
       .select(
         [
           "id",
+          "owner_id",
           "type",
           "edgaze_code",
           "title",
@@ -1670,6 +1684,7 @@ const [codeQuery, setCodeQuery] = useState("");
 
     const mapped: MarketplacePrompt[] = (data ?? []).map((p: any) => ({
       id: String(p.id),
+      owner_id: p.owner_id != null ? String(p.owner_id) : null,
       type: (p.type as any) ?? "prompt",
       edgaze_code: p.edgaze_code ?? null,
       title: p.title ?? null,
@@ -1696,6 +1711,7 @@ const [codeQuery, setCodeQuery] = useState("");
   const fetchWorkflows = async (offset: number, q: string) => {
     const baseSelect = [
       "id",
+      "owner_id",
       "type",
       "edgaze_code",
       "title",
@@ -1756,12 +1772,12 @@ const [codeQuery, setCodeQuery] = useState("");
 
     const mapped: MarketplacePrompt[] = (res.data ?? []).map((w: any) => ({
       id: String(w.id),
+      owner_id: w.owner_id != null ? String(w.owner_id) : null,
       type: (w.type as any) ?? "workflow",
       edgaze_code: w.edgaze_code ?? null,
       title: w.title ?? null,
       description: w.description ?? null,
       prompt_text: w.prompt_text ?? null,
-      // IMPORTANT: use workflows.thumbnail_url (per your request)
       thumbnail_url: w.thumbnail_url ?? null,
       owner_name: w.owner_name ?? null,
       owner_handle: w.owner_handle ?? null,
@@ -1831,8 +1847,9 @@ const [codeQuery, setCodeQuery] = useState("");
       setItems((prev) => (replace ? nextPage : [...prev, ...nextPage]));
       setPending(nextPending);
 
-      fetchOwnerProfiles(nextPage).catch(() => {});
-      fetchOwnerProfiles(nextPending.slice(0, 24)).catch(() => {});
+      const profileOpts = { userId, currentUserHandle: profile?.handle };
+      fetchOwnerProfiles(nextPage, profileOpts).catch(() => {});
+      fetchOwnerProfiles(nextPending.slice(0, 24), profileOpts).catch(() => {});
 
       const promptsMore = prompts.length === PAGE_SIZE;
       const workflowsMore = workflows.length === PAGE_SIZE;
@@ -1884,6 +1901,7 @@ const [codeQuery, setCodeQuery] = useState("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [committedDebouncedQuery]);
 
+  // Start loading more well before user reaches the bottom so content is ready when they scroll
   useEffect(() => {
     if (!sentinelRef.current) return;
     const el = sentinelRef.current;
@@ -1900,12 +1918,30 @@ const [codeQuery, setCodeQuery] = useState("");
         setLoadingMore(false);
         if (!more) setHasMore(false);
       },
-      { root: null, rootMargin: "900px 0px", threshold: 0 }
+      { root: null, rootMargin: "1800px 0px", threshold: 0 }
     );
 
     obs.observe(el);
     return () => obs.disconnect();
   }, [cursor, hasMore, loadingFirst, loadingMore]);
+
+  // Prefetch next page as soon as first load finishes so bottom content is ready when user scrolls
+  useEffect(() => {
+    if (loadingFirst || loadingMore || !hasMore || items.length === 0) return;
+    let cancelled = false;
+    setLoadingMore(true);
+    (async () => {
+      const more = await loadPage({ cursorState: cursor, replace: false });
+      if (cancelled) return;
+      setLoadingMore(false);
+      if (!more) setHasMore(false);
+    })();
+    return () => {
+      cancelled = true;
+      setLoadingMore(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingFirst]);
 
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
@@ -2686,6 +2722,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                               key={`${p.type ?? "x"}-${p.id}`}
                               prompt={p}
                               currentUserId={userId}
+                              currentUserHandle={profile?.handle ?? null}
                               requireAuth={requireAuth}
                               supabase={supabase}
                               supabaseAuth={supabaseAuth}
@@ -2699,6 +2736,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                               key={`${p.type ?? "x"}-${p.id}`}
                               prompt={p}
                               currentUserId={userId}
+                              currentUserHandle={profile?.handle ?? null}
                               requireAuth={requireAuth}
                               supabase={supabase}
                               supabaseAuth={supabaseAuth}
@@ -2714,6 +2752,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                         key={`${p.type ?? "x"}-${p.id}`}
                         prompt={p}
                         currentUserId={userId}
+                        currentUserHandle={profile?.handle ?? null}
                         requireAuth={requireAuth}
                         supabase={supabase}
                         supabaseAuth={supabaseAuth}

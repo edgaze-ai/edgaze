@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
-import { getUserFromRequest } from "../../_auth";
+import { getUserFromRequest } from "@lib/auth/server";
 import {
   getUserWorkflowRunCount,
   createWorkflowRun,

@@ -27,7 +27,53 @@ const nextConfig = (() => {
   }
 
   return {
-    images: { remotePatterns },
+    images: { 
+      remotePatterns,
+      formats: ['image/avif', 'image/webp'],
+      minimumCacheTTL: 60,
+      dangerouslyAllowSVG: true,
+      contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    },
+    compress: true,
+    poweredByHeader: false,
+    reactStrictMode: true,
+    // Optimize production builds
+    productionBrowserSourceMaps: false,
+    // Optimize bundle size
+    experimental: {
+      optimizePackageImports: ['lucide-react', 'framer-motion'],
+    },
+    // Headers for performance
+    async headers() {
+      return [
+        {
+          source: '/:path*',
+          headers: [
+            {
+              key: 'X-DNS-Prefetch-Control',
+              value: 'on'
+            },
+            {
+              key: 'X-Frame-Options',
+              value: 'SAMEORIGIN'
+            },
+            {
+              key: 'X-Content-Type-Options',
+              value: 'nosniff'
+            },
+          ],
+        },
+        {
+          source: '/:path*\\.(jpg|jpeg|png|gif|ico|svg|webp|avif)',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        },
+      ];
+    },
   };
 })();
 

@@ -28,6 +28,14 @@ export type Profile = {
   plan: UserPlan;
   email_verified?: boolean | null;
   is_founding_creator?: boolean | null;
+  handle_last_changed_at?: string | null;
+};
+
+export type HandleChangeStatus = {
+  canChange: boolean;
+  lastChangedAt: string | null;
+  nextAllowedAt: string | null;
+  daysRemaining: number;
 };
 
 export type AuthUser = {
@@ -407,26 +415,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
+      // Load profile immediately (critical for UI)
       loadProfile(user.id).catch(() => setProfile(null));
-      loadAdmin(user.id).catch(() => setIsAdmin(false));
+      
+      // Defer non-critical checks to improve initial load time
+      // Admin check can wait a bit
+      setTimeout(() => {
+        loadAdmin(user.id).catch(() => setIsAdmin(false));
+      }, 50);
 
-      loadModeration(user.id)
-        .then((stillBanned) => {
-          if (stillBanned) {
-            safeTrack("User Banned Redirect", { surface: "auth_context" });
-            if (
-              typeof window !== "undefined" &&
-              window.location.pathname !== "/banned"
-            ) {
-              window.location.href = "/banned";
+      // Moderation check is important but can be slightly deferred
+      setTimeout(() => {
+        loadModeration(user.id)
+          .then((stillBanned) => {
+            if (stillBanned) {
+              safeTrack("User Banned Redirect", { surface: "auth_context" });
+              if (
+                typeof window !== "undefined" &&
+                window.location.pathname !== "/banned"
+              ) {
+                window.location.href = "/banned";
+              }
             }
-          }
-        })
-        .catch(() => {
-          setIsBanned(false);
-          setBanReason(null);
-          setBanExpiresAt(null);
-        });
+          })
+          .catch(() => {
+            setIsBanned(false);
+            setBanReason(null);
+            setBanExpiresAt(null);
+          });
+      }, 100);
     },
     [applyNoUser, loadAdmin, loadModeration, loadProfile]
   );
@@ -482,22 +499,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!userId) return { ok: false, error: "Not signed in" };
 
       const payload: any = { ...patch };
+      const previousHandle = profile?.handle ?? undefined;
       if (typeof payload.handle === "string")
         payload.handle = normalizeHandle(payload.handle);
 
-      const { error } = await supabase.from("profiles").update(payload).eq("id", userId);
-      if (error) return { ok: false, error: error.message };
+      // Use backend API endpoint that enforces 60-day cooldown for handle changes
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
 
-      await loadProfile(userId);
+        const res = await fetch("/api/profile/update", {
+          method: "POST",
+          credentials: "include",
+          headers,
+          body: JSON.stringify(payload),
+        });
 
-      safeTrack("Profile Updated", {
-        surface: "auth_context",
-        keys: Object.keys(patch),
-      });
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: "Update failed" }));
+          return { ok: false, error: errorData.error || "Failed to update profile" };
+        }
 
-      return { ok: true };
+        await loadProfile(userId);
+
+        // Cascade handle/full_name to workflows, prompts, comments; record old handle for redirects
+        if (payload.handle !== undefined || payload.full_name !== undefined) {
+          try {
+            const body: { oldHandle?: string } = {};
+            if (payload.handle !== undefined && previousHandle) body.oldHandle = previousHandle;
+            const cascadeRes = await fetch("/api/profile/cascade-handle", {
+              method: "POST",
+              credentials: "include",
+              headers,
+              body: Object.keys(body).length ? JSON.stringify(body) : undefined,
+            });
+            if (!cascadeRes.ok) {
+              console.warn("[Auth] cascade-handle failed", await cascadeRes.text());
+            }
+          } catch (e) {
+            console.warn("[Auth] cascade-handle request failed", e);
+          }
+        }
+
+        safeTrack("Profile Updated", {
+          surface: "auth_context",
+          keys: Object.keys(patch),
+        });
+
+        return { ok: true };
+      } catch (e: any) {
+        console.error("[Auth] Profile update failed:", e);
+        return { ok: false, error: e.message || "Network error" };
+      }
     },
-    [loadProfile, supabase, userId]
+    [loadProfile, supabase, userId, profile?.handle]
   );
 
   useEffect(() => {

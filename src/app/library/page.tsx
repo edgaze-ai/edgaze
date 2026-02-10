@@ -3,7 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Edit3, ExternalLink, Layers, ShoppingBag, BookOpen, Zap, Sparkles } from "lucide-react";
+import { Loader2, Edit3, ExternalLink, Layers, ShoppingBag, BookOpen, Zap, Sparkles, EyeOff } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../../components/auth/AuthContext";
@@ -50,6 +50,10 @@ type PromptRowRaw = {
   placeholders?: any | null;
   demo_images?: any | null;
   output_demo_urls?: any | null;
+
+  removed_at?: string | null;
+  removed_reason?: string | null;
+  removed_by?: string | null;
 };
 
 type WorkflowRowRaw = {
@@ -81,6 +85,10 @@ type WorkflowRowRaw = {
   graph_json?: any | null;
   demo_images?: any | null;
   output_demo_urls?: any | null;
+
+  removed_at?: string | null;
+  removed_reason?: string | null;
+  removed_by?: string | null;
 };
 
 type PurchasePromptRow = {
@@ -122,6 +130,10 @@ type LibraryItem = {
   runs: number;
 
   updated_at: string | null;
+
+  removed_at?: string | null;
+  removed_reason?: string | null;
+  removed_by?: string | null;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -155,6 +167,9 @@ function normalizePrompt(row: PromptRowRaw): LibraryItem {
     likes,
     runs,
     updated_at: row.updated_at ?? null,
+    removed_at: row.removed_at ?? null,
+    removed_reason: row.removed_reason ?? null,
+    removed_by: row.removed_by ?? null,
   };
 }
 
@@ -178,6 +193,9 @@ function normalizeWorkflow(row: WorkflowRowRaw): LibraryItem {
     likes,
     runs,
     updated_at: row.updated_at ?? null,
+    removed_at: row.removed_at ?? null,
+    removed_reason: row.removed_reason ?? null,
+    removed_by: row.removed_by ?? null,
   };
 }
 
@@ -185,10 +203,14 @@ type LibraryCardProps = {
   item: LibraryItem;
   context: "created" | "purchased";
   onEdit?: (kind: LibraryKind, id: string) => void;
+  onRemoveSuccess?: () => void;
 };
 
-function LibraryCard({ item, context, onEdit }: LibraryCardProps) {
+function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProps) {
   const router = useRouter();
+  const { getAccessToken } = useAuth();
+  const [removing, setRemoving] = useState(false);
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
 
   const isFree = item.monetisation_mode === "free" || item.is_paid === false;
   const priceLabel =
@@ -209,8 +231,37 @@ function LibraryCard({ item, context, onEdit }: LibraryCardProps) {
     router.push(`/p/${item.owner_handle}/${item.edgaze_code}`);
   };
 
+  async function handleRemoveFromMarketplace(e: React.MouseEvent) {
+    e.stopPropagation();
+    setRemoveConfirmOpen(false);
+    setRemoving(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+      const res = await fetch("/api/me/remove-listing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ kind: item.kind, id: item.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        onRemoveSuccess?.();
+      }
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  const isRemoved = !!item.removed_at;
+  const removedBannerText =
+    item.removed_by === "owner"
+      ? "Removed by owner"
+      : item.removed_reason
+        ? `Removed: ${item.removed_reason}`
+        : "Removed from marketplace";
+
   return (
-    <div 
+    <div
       onClick={openListing}
       className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-white/[0.01] backdrop-blur-sm transition-all duration-300 cursor-pointer hover:from-white/[0.06] hover:via-white/[0.03] hover:to-white/[0.02]"
       style={{
@@ -222,6 +273,44 @@ function LibraryCard({ item, context, onEdit }: LibraryCardProps) {
       
       {/* Content */}
       <div className="relative p-5 sm:p-6">
+        {isRemoved && (
+          <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            <EyeOff className="h-4 w-4 shrink-0" />
+            <span>{removedBannerText}</span>
+          </div>
+        )}
+        {removeConfirmOpen && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-black/80 p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rounded-xl border border-white/10 bg-[#0f0f0f] p-4 text-center shadow-xl">
+              <p className="text-sm text-white/90">
+                Remove this listing from the marketplace? You can still see it here as removed.
+              </p>
+              <div className="mt-3 flex justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRemoveConfirmOpen(false);
+                  }}
+                  className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemoveFromMarketplace}
+                  disabled={removing}
+                  className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs text-amber-200 hover:bg-amber-500/30 disabled:opacity-50"
+                >
+                  {removing ? "Removing…" : "Remove"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="flex items-start gap-4">
           {/* Thumbnail - larger and more prominent */}
           <div className="relative h-24 w-32 sm:h-28 sm:w-40 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900/90 to-slate-800/80 shrink-0 ring-1 ring-white/5 group-hover:ring-white/10 transition-all duration-300">
@@ -304,18 +393,35 @@ function LibraryCard({ item, context, onEdit }: LibraryCardProps) {
               </div>
 
               {context === "created" && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit?.(item.kind, item.id);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/80 transition-all duration-200 border border-white/5 hover:border-white/10"
-                  title="Edit & republish"
-                >
-                  <Edit3 className="h-3.5 w-3.5" />
-                  Edit
-                </button>
+                <div className="flex items-center gap-2">
+                  {!isRemoved && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRemoveConfirmOpen(true);
+                      }}
+                      disabled={removing}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 text-[11px] font-medium text-amber-200/90 hover:bg-amber-500/10 disabled:opacity-50"
+                      title="Remove from marketplace"
+                    >
+                      <EyeOff className="h-3.5 w-3.5" />
+                      Remove from marketplace
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit?.(item.kind, item.id);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/80 transition-all duration-200 border border-white/5 hover:border-white/10"
+                    title="Edit & republish"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    Edit
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -532,6 +638,9 @@ export default function LibraryPage() {
                 "placeholders",
                 "demo_images",
                 "output_demo_urls",
+                "removed_at",
+                "removed_reason",
+                "removed_by",
               ].join(",")
             )
             .eq("owner_id", userId)
@@ -564,6 +673,9 @@ export default function LibraryPage() {
                 "graph_json",
                 "demo_images",
                 "output_demo_urls",
+                "removed_at",
+                "removed_reason",
+                "removed_by",
               ].join(",")
             )
             .eq("owner_id", userId)
@@ -680,6 +792,9 @@ export default function LibraryPage() {
                     "like_count",
                     "runs_count",
                     "updated_at",
+                    "removed_at",
+                    "removed_reason",
+                    "removed_by",
                   ].join(",")
                 )
                 .in("id", promptIds)
@@ -707,6 +822,9 @@ export default function LibraryPage() {
                     "likes_count",
                     "runs_count",
                     "updated_at",
+                    "removed_at",
+                    "removed_reason",
+                    "removed_by",
                   ].join(",")
                 )
                 .in("id", workflowIds)
@@ -943,7 +1061,7 @@ export default function LibraryPage() {
                   </div>
                 ) : (
                   created.map((item) => (
-                    <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="created" onEdit={openEdit} />
+                    <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="created" onEdit={openEdit} onRemoveSuccess={triggerRefresh} />
                   ))
                 )}
               </div>
@@ -1015,7 +1133,7 @@ export default function LibraryPage() {
                   </div>
                 ) : (
                   created.map((item) => (
-                    <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="created" onEdit={openEdit} />
+                    <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="created" onEdit={openEdit} onRemoveSuccess={triggerRefresh} />
                   ))
                 )}
               </div>

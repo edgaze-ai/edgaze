@@ -17,7 +17,6 @@ type ReportRow = {
   admin_notes: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
-  // Product details (for prompts/workflows)
   target_title?: string | null;
   target_owner_handle?: string | null;
   target_owner_name?: string | null;
@@ -33,7 +32,6 @@ function fmt(ts: string) {
 }
 
 function targetHref(r: ReportRow, ownerHandle?: string | null, edgazeCode?: string | null) {
-  // Adjust these routes if your app differs.
   if (r.target_type === "prompt") {
     if (ownerHandle && edgazeCode) return `/p/${ownerHandle}/${edgazeCode}`;
     return `/p/${r.target_id}`;
@@ -42,14 +40,59 @@ function targetHref(r: ReportRow, ownerHandle?: string | null, edgazeCode?: stri
     if (ownerHandle && edgazeCode) return `/${ownerHandle}/${edgazeCode}`;
     return `/${r.target_id}`;
   }
-  if (r.target_type === "comment") return `/admin/moderation?focus=${r.id}`; // comments need context; keep in admin
-  return `/u/${r.target_id}`; // user profile
+  if (r.target_type === "comment") return `/admin/moderation?focus=${r.id}`;
+  return `/u/${r.target_id}`;
+}
+
+type Section = "reports" | "platform" | "tools";
+
+function AdminToggle({
+  checked,
+  onToggle,
+  disabled,
+  labelOff,
+  labelOn,
+  variant = "default",
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+  labelOff: string;
+  labelOn: string;
+  variant?: "default" | "warning";
+}) {
+  const trackClass =
+    variant === "warning"
+      ? checked
+        ? "bg-amber-500/20 border-amber-500/30"
+        : "bg-white/[0.06] border-white/[0.12]"
+      : checked
+        ? "bg-amber-500/20 border-amber-500/30"
+        : "bg-emerald-500/20 border-emerald-500/30";
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={checked ? labelOn : labelOff}
+      disabled={disabled}
+      onClick={onToggle}
+      className={`relative inline-flex h-9 w-[7.25rem] shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-[#0b0b0b] disabled:opacity-50 disabled:cursor-not-allowed ${trackClass}`}
+    >
+      <span
+        className={`absolute top-1/2 h-7 w-7 -translate-y-1/2 rounded-full bg-white/95 shadow-sm transition-transform duration-200 left-0.5 ${
+          checked ? "translate-x-[4.5rem]" : "translate-x-0"
+        }`}
+      />
+    </button>
+  );
 }
 
 export default function AdminModerationPage() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { authReady, userId } = useAuth();
+  const { authReady, userId, getAccessToken } = useAuth();
 
+  const [section, setSection] = useState<Section>("reports");
   const [tab, setTab] = useState<"open" | "triaged" | "all">("open");
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ReportRow[]>([]);
@@ -58,20 +101,20 @@ export default function AdminModerationPage() {
   const [notes, setNotes] = useState("");
   const [banUserId, setBanUserId] = useState("");
   const [banReason, setBanReason] = useState("");
-  const [banExpiresAt, setBanExpiresAt] = useState<string>(""); // ISO-ish from input
+  const [banExpiresAt, setBanExpiresAt] = useState<string>("");
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
-  // Demo replenish state
+  const [takedownReason, setTakedownReason] = useState("");
+  const [takedownLoading, setTakedownLoading] = useState(false);
+
   const [replenishUsername, setReplenishUsername] = useState("");
   const [replenishWorkflowId, setReplenishWorkflowId] = useState("");
   const [replenishLoading, setReplenishLoading] = useState(false);
 
-  // Applications pause toggle
   const [appsPausedLoading, setAppsPausedLoading] = useState(true);
   const [appsPausedSaving, setAppsPausedSaving] = useState(false);
   const [appsPaused, setAppsPaused] = useState(false);
 
-  // Maintenance mode toggle (platform-wide, except landing + admin)
   const [maintenanceLoading, setMaintenanceLoading] = useState(true);
   const [maintenanceSaving, setMaintenanceSaving] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -87,7 +130,6 @@ export default function AdminModerationPage() {
       if (error) throw error;
       setAppsPaused(Boolean((data as any)?.value));
     } catch {
-      // If settings table missing, default to "not paused" and keep admin functional
       setAppsPaused(false);
     } finally {
       setAppsPausedLoading(false);
@@ -102,7 +144,6 @@ export default function AdminModerationPage() {
         p_key: "applications_paused",
         p_value: next,
       });
-
       if (error) throw error;
       setAppsPaused(next);
       setActionMsg(next ? "Applications paused." : "Applications resumed.");
@@ -138,7 +179,6 @@ export default function AdminModerationPage() {
         p_key: "maintenance_mode",
         p_value: next,
       });
-
       if (error) throw error;
       setMaintenanceMode(next);
       setActionMsg(next ? "Maintenance mode enabled." : "Maintenance mode disabled.");
@@ -152,12 +192,9 @@ export default function AdminModerationPage() {
   async function load() {
     setLoading(true);
     setActionMsg(null);
-
     let q = supabase.from("reports").select("*").order("created_at", { ascending: false });
-
     if (tab === "open") q = q.in("status", ["open"]);
     if (tab === "triaged") q = q.in("status", ["triaged"]);
-
     const { data, error } = await q.limit(200);
 
     if (error) {
@@ -169,8 +206,6 @@ export default function AdminModerationPage() {
     }
 
     const list = (data as any as ReportRow[]) || [];
-    
-    // Enrich reports with product details for prompts/workflows
     const enrichedList = await Promise.all(
       list.map(async (report) => {
         if (report.target_type === "prompt" || report.target_type === "workflow") {
@@ -180,7 +215,6 @@ export default function AdminModerationPage() {
             .select("title, owner_handle, owner_name, edgaze_code")
             .eq("id", report.target_id)
             .maybeSingle();
-          
           if (product) {
             return {
               ...report,
@@ -194,7 +228,6 @@ export default function AdminModerationPage() {
         return report;
       })
     );
-    
     setRows(enrichedList);
     setSelected((prev) => (prev ? enrichedList.find((x) => x.id === prev.id) ?? null : null));
     setLoading(false);
@@ -205,45 +238,33 @@ export default function AdminModerationPage() {
     load();
     loadAppsPaused();
     loadMaintenanceMode();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, userId, tab]);
 
-  // realtime subscribe so admin UI also flips instantly if changed elsewhere
   useEffect(() => {
     const chApps = supabase
       .channel("realtime:app_settings:applications_paused_admin")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "app_settings", filter: "key=eq.applications_paused" },
-        (payload: any) => {
-          const next = Boolean(payload?.new?.value);
-          setAppsPaused(next);
-        }
+        (payload: any) => setAppsPaused(Boolean(payload?.new?.value))
       )
       .subscribe();
-
     const chMaint = supabase
       .channel("realtime:app_settings:maintenance_mode_admin")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "app_settings", filter: "key=eq.maintenance_mode" },
-        (payload: any) => {
-          const next = Boolean(payload?.new?.value);
-          setMaintenanceMode(next);
-        }
+        (payload: any) => setMaintenanceMode(Boolean(payload?.new?.value))
       )
       .subscribe();
-
     return () => {
       try {
         supabase.removeChannel(chApps);
         supabase.removeChannel(chMaint);
       } catch {}
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supabase]);
 
-  // Enable scrolling on admin/moderation (same as help page)
   useEffect(() => {
     const main = document.querySelector("main");
     if (!main) return;
@@ -263,7 +284,6 @@ export default function AdminModerationPage() {
       reviewed_by: userId,
       admin_notes: notes || null,
     };
-
     const { error } = await supabase.from("reports").update(payload).eq("id", id);
     if (error) {
       setActionMsg(error.message);
@@ -274,41 +294,34 @@ export default function AdminModerationPage() {
 
   async function banOrUnban(isBanned: boolean) {
     setActionMsg(null);
-
     const uid = (banUserId || "").trim();
     if (!uid) {
       setActionMsg("Missing user id");
       return;
     }
-
     const expires = banExpiresAt && banExpiresAt.trim() ? new Date(banExpiresAt).toISOString() : null;
-
     const { error } = await supabase.rpc("admin_set_ban", {
       p_user_id: uid,
       p_is_banned: isBanned,
       p_reason: banReason || null,
       p_expires_at: expires,
     });
-
     if (error) {
       setActionMsg(error.message);
       return;
     }
-
     setActionMsg(isBanned ? "User banned." : "User unbanned.");
   }
 
   async function replenishDemo() {
     setActionMsg(null);
     setReplenishLoading(true);
-
     const username = replenishUsername.trim();
     if (!username) {
       setActionMsg("Username is required");
       setReplenishLoading(false);
       return;
     }
-
     try {
       const response = await fetch("/api/admin/replenish-demo", {
         method: "POST",
@@ -318,14 +331,11 @@ export default function AdminModerationPage() {
           workflowId: replenishWorkflowId.trim() || null,
         }),
       });
-
       const result = await response.json();
-
       if (!response.ok) {
         setActionMsg(result.error || "Failed to replenish demo runs");
         return;
       }
-
       setActionMsg(result.message || "Demo runs replenished successfully");
       setReplenishUsername("");
       setReplenishWorkflowId("");
@@ -339,437 +349,512 @@ export default function AdminModerationPage() {
   function pick(r: ReportRow) {
     setSelected(r);
     setNotes(r.admin_notes || "");
-    // prefill ban user id with target user if it’s a user report; otherwise blank
     setBanUserId(r.target_type === "user" ? r.target_id : "");
     setBanReason("");
     setBanExpiresAt("");
+    setTakedownReason("");
   }
 
+  async function takeDownListing() {
+    if (!selected || (selected.target_type !== "prompt" && selected.target_type !== "workflow")) return;
+    const reason = takedownReason.trim();
+    if (!reason) {
+      setActionMsg("Enter a reason for the takedown.");
+      return;
+    }
+    setActionMsg(null);
+    setTakedownLoading(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setActionMsg("Not authenticated.");
+        return;
+      }
+      const res = await fetch("/api/admin/takedown", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          target_type: selected.target_type,
+          target_id: selected.target_id,
+          reason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setActionMsg(data.error || "Takedown failed.");
+        return;
+      }
+      setActionMsg("Taken down.");
+      setTakedownReason("");
+      await setStatus(selected.id, "actioned");
+    } catch (e: unknown) {
+      setActionMsg(e instanceof Error ? e.message : "Takedown failed.");
+    } finally {
+      setTakedownLoading(false);
+    }
+  }
+
+  const cardClass =
+    "rounded-2xl border border-white/[0.08] bg-white/[0.03] shadow-sm";
+  const cardHeaderClass = "text-xs font-medium uppercase tracking-wider text-white/50 mb-1";
+  const inputClass =
+    "w-full rounded-xl border border-white/[0.1] bg-black/30 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20 transition-colors";
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-lg font-semibold">Reports</div>
-          <div className="text-sm text-white/60">Review reports. Action reports. Ban users when necessary.</div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setTab("open")}
-            className={`text-sm px-3 py-2 rounded-xl border ${
-              tab === "open" ? "bg-white/10 border-white/20" : "bg-white/5 border-white/10 hover:bg-white/10"
-            }`}
-          >
-            Open
-          </button>
-          <button
-            onClick={() => setTab("triaged")}
-            className={`text-sm px-3 py-2 rounded-xl border ${
-              tab === "triaged" ? "bg-white/10 border-white/20" : "bg-white/5 border-white/10 hover:bg-white/10"
-            }`}
-          >
-            Triaged
-          </button>
-          <button
-            onClick={() => setTab("all")}
-            className={`text-sm px-3 py-2 rounded-xl border ${
-              tab === "all" ? "bg-white/10 border-white/20" : "bg-white/5 border-white/10 hover:bg-white/10"
-            }`}
-          >
-            All
-          </button>
-
-          <button
-            onClick={load}
-            className="text-sm px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10"
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* Applications toggle panel */}
-      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-base font-semibold">Applications</div>
-            <div className="text-sm text-white/60">Pause/resume accepting beta applications.</div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div
-              className={`text-xs px-2 py-1 rounded-full border ${
-                appsPaused
-                  ? "border-amber-400/30 text-amber-200 bg-amber-500/10"
-                  : "border-emerald-400/30 text-emerald-200 bg-emerald-500/10"
+    <div className="space-y-8">
+      {/* Section tabs */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold tracking-tight text-white/95">Moderation</h1>
+        <nav className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
+          {(
+            [
+              ["reports", "Reports"],
+              ["platform", "Platform"],
+              ["tools", "Tools"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setSection(key)}
+              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                section === key
+                  ? "bg-white/10 text-white shadow-sm"
+                  : "text-white/60 hover:text-white/80 hover:bg-white/[0.06]"
               }`}
             >
-              {appsPaused ? "Paused" : "Accepting"}
-            </div>
-
-            <button
-              disabled={appsPausedLoading || appsPausedSaving}
-              onClick={() => saveAppsPaused(!appsPaused)}
-              className={`relative inline-flex h-10 w-[120px] items-center rounded-2xl border transition-colors ${
-                appsPaused
-                  ? "bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15"
-                  : "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/15"
-              } ${appsPausedLoading || appsPausedSaving ? "opacity-60 cursor-not-allowed" : ""}`}
-            >
-              <span className="absolute left-3 text-xs font-semibold text-white/80">
-                {appsPaused ? "Resume" : "Pause"}
-              </span>
-              <span
-                className={`absolute right-2 h-7 w-7 rounded-xl border bg-black/30 transition-transform ${
-                  appsPaused ? "translate-x-0 border-amber-500/30" : "translate-x-0 border-emerald-500/30"
-                }`}
-              />
-              <span
-                className={`absolute right-2 h-7 w-7 rounded-xl bg-white/10 transition-transform ${
-                  appsPaused ? "-translate-x-[74px]" : "translate-x-0"
-                }`}
-              />
+              {label}
             </button>
-          </div>
-        </div>
-
-        {appsPausedLoading ? <div className="mt-3 text-xs text-white/50">Loading applications state…</div> : null}
-        {appsPausedSaving ? <div className="mt-1 text-xs text-white/50">Saving…</div> : null}
-      </div>
-
-      {/* Maintenance mode panel */}
-      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <div className="text-base font-semibold">Maintenance mode</div>
-            <div className="text-sm text-white/60 mt-0.5">
-              Show &quot;Platform under maintenance&quot; on all pages except landing and admin. Use with caution.
-            </div>
-            <div className="mt-2 inline-flex items-center gap-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-200">
-              <span className="font-medium">Warning:</span> Enabling this blocks marketplace, builder, prompt studio, profiles, and all other app routes. Only the homepage and admin stay accessible.
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div
-              className={`text-xs px-2 py-1 rounded-full border ${
-                maintenanceMode
-                  ? "border-amber-400/30 text-amber-200 bg-amber-500/10"
-                  : "border-emerald-400/30 text-emerald-200 bg-emerald-500/10"
-              }`}
-            >
-              {maintenanceMode ? "On" : "Off"}
-            </div>
-
-            <button
-              disabled={maintenanceLoading || maintenanceSaving}
-              onClick={() => saveMaintenanceMode(!maintenanceMode)}
-              className={`relative inline-flex h-10 w-[120px] items-center rounded-2xl border transition-colors ${
-                maintenanceMode
-                  ? "bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15"
-                  : "bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/15"
-              } ${maintenanceLoading || maintenanceSaving ? "opacity-60 cursor-not-allowed" : ""}`}
-            >
-              <span className="absolute left-3 text-xs font-semibold text-white/80">
-                {maintenanceMode ? "Disable" : "Enable"}
-              </span>
-              <span
-                className={`absolute right-2 h-7 w-7 rounded-xl border bg-black/30 transition-transform ${
-                  maintenanceMode ? "translate-x-0 border-amber-500/30" : "translate-x-0 border-emerald-500/30"
-                }`}
-              />
-              <span
-                className={`absolute right-2 h-7 w-7 rounded-xl bg-white/10 transition-transform ${
-                  maintenanceMode ? "-translate-x-[74px]" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-
-        {maintenanceLoading ? <div className="mt-3 text-xs text-white/50">Loading maintenance state…</div> : null}
-        {maintenanceSaving ? <div className="mt-1 text-xs text-white/50">Saving…</div> : null}
+          ))}
+        </nav>
       </div>
 
       {actionMsg ? (
-        <div className="text-sm text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
+        >
           {actionMsg}
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left list */}
-        <div className="lg:col-span-1 rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-            <div className="text-sm font-semibold">Queue</div>
-            <div className="text-xs text-white/50">{rows.length}</div>
+      {/* Reports */}
+      {section === "reports" && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-sm text-white/55 max-w-xl">
+              Review and action user reports. Mark triaged, actioned, or rejected. Takedown prompts/workflows when needed.
+            </p>
+            <div className="flex items-center gap-2">
+              {(["open", "triaged", "all"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    tab === t
+                      ? "border-white/20 bg-white/10 text-white"
+                      : "border-white/[0.1] bg-white/[0.04] text-white/70 hover:bg-white/[0.08]"
+                  }`}
+                >
+                  {t === "open" ? "Open" : t === "triaged" ? "Triaged" : "All"}
+                </button>
+              ))}
+              <button
+                onClick={load}
+                className="rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-medium text-white/70 hover:bg-white/[0.08] transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
 
-          {loading ? (
-            <div className="px-4 py-6 text-sm text-white/60">Loading…</div>
-          ) : rows.length === 0 ? (
-            <div className="px-4 py-6 text-sm text-white/60">No reports.</div>
-          ) : (
-            <div className="max-h-[70vh] overflow-y-auto">
-              {rows.map((r) => {
-                const active = selected?.id === r.id;
-                return (
-                  <button
-                    key={r.id}
-                    onClick={() => pick(r)}
-                    className={`w-full text-left px-4 py-3 border-b border-white/10 hover:bg-white/10 ${
-                      active ? "bg-white/10" : ""
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-medium">
-                        {r.target_type} • {r.reason}
-                      </div>
-                      <div
-                        className={`text-xs px-2 py-0.5 rounded-full border ${
-                          r.status === "open"
-                            ? "border-cyan-400/30 text-cyan-200 bg-cyan-500/10"
-                            : r.status === "triaged"
-                            ? "border-purple-400/30 text-purple-200 bg-purple-500/10"
-                            : r.status === "actioned"
-                            ? "border-emerald-400/30 text-emerald-200 bg-emerald-500/10"
-                            : "border-white/15 text-white/60 bg-white/5"
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className={`${cardClass} flex flex-col overflow-hidden lg:col-span-1`}>
+              <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+                <span className={cardHeaderClass}>Queue</span>
+                <span className="text-sm font-medium tabular-nums text-white/60">{rows.length}</span>
+              </div>
+              {loading ? (
+                <div className="px-5 py-8 text-sm text-white/50">Loading…</div>
+              ) : rows.length === 0 ? (
+                <div className="px-5 py-8 text-sm text-white/50">No reports.</div>
+              ) : (
+                <div className="max-h-[65vh] overflow-y-auto">
+                  {rows.map((r) => {
+                    const active = selected?.id === r.id;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => pick(r)}
+                        className={`w-full text-left border-b border-white/[0.06] px-5 py-3.5 transition-colors last:border-0 hover:bg-white/[0.06] ${
+                          active ? "bg-white/[0.08]" : ""
                         }`}
                       >
-                        {r.status}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-white/90 truncate">
+                            {r.target_type} · {r.reason}
+                          </span>
+                          <span
+                            className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${
+                              r.status === "open"
+                                ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-200"
+                                : r.status === "triaged"
+                                  ? "border-purple-400/30 bg-purple-500/10 text-purple-200"
+                                  : r.status === "actioned"
+                                    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                                    : "border-white/15 bg-white/5 text-white/50"
+                            }`}
+                          >
+                            {r.status}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-xs text-white/45">{fmt(r.created_at)}</div>
+                        {r.details ? (
+                          <div className="mt-1 line-clamp-2 text-xs text-white/55">{r.details}</div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className={`${cardClass} p-6 lg:col-span-2`}>
+              {!selected ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <p className="text-sm text-white/50">Select a report from the queue</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-base font-semibold text-white/95">
+                        {selected.target_type} reported
+                      </h2>
+                      <p className="mt-1 text-xs text-white/50">
+                        {fmt(selected.created_at)} · reporter {selected.reporter_id}
+                      </p>
+                    </div>
+                    <a
+                      href={targetHref(selected, selected.target_owner_handle, selected.target_edgaze_code)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-lg border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/90 hover:bg-white/[0.1] transition-colors"
+                    >
+                      Open target
+                    </a>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                      <p className={cardHeaderClass}>Target</p>
+                      <p className="mt-2 text-sm text-white/80">
+                        {selected.target_type}
+                        {(selected.target_type === "prompt" || selected.target_type === "workflow") &&
+                          selected.target_title && (
+                            <span className="mt-1 block font-medium text-white/95">
+                              {selected.target_title}
+                            </span>
+                          )}
+                        {selected.target_owner_handle && (
+                          <span className="mt-1 block text-xs text-white/55">
+                            by @{selected.target_owner_handle}
+                            {selected.target_owner_name && ` (${selected.target_owner_name})`}
+                          </span>
+                        )}
+                        {selected.target_edgaze_code && (
+                          <span className="mt-0.5 block text-xs text-white/45">
+                            Code: {selected.target_edgaze_code}
+                          </span>
+                        )}
+                        <span className="mt-1 block break-all text-xs text-white/40">
+                          {selected.target_id}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                      <p className={cardHeaderClass}>Reason</p>
+                      <p className="mt-2 text-sm text-white/85">{selected.reason}</p>
+                    </div>
+                  </div>
+
+                  {selected.details ? (
+                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                      <p className={cardHeaderClass}>Details</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-white/85">
+                        {selected.details}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {selected.evidence_urls && selected.evidence_urls.length > 0 ? (
+                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                      <p className={cardHeaderClass}>Evidence</p>
+                      <div className="mt-2 space-y-1">
+                        {selected.evidence_urls.map((u) => (
+                          <a
+                            key={u}
+                            href={u}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block break-all text-sm text-cyan-300 hover:underline"
+                          >
+                            {u}
+                          </a>
+                        ))}
                       </div>
                     </div>
-                    <div className="text-xs text-white/50 mt-1">{fmt(r.created_at)}</div>
-                    {r.details ? <div className="text-xs text-white/60 mt-1 line-clamp-2">{r.details}</div> : null}
-                  </button>
-                );
-              })}
+                  ) : null}
+
+                  <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                    <p className={`${cardHeaderClass} mb-2`}>Admin notes</p>
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={3}
+                      className={inputClass}
+                      placeholder="What did you find? What action did you take?"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setStatus(selected.id, "triaged")}
+                      className="rounded-lg border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/85 hover:bg-white/[0.1] transition-colors"
+                    >
+                      Mark triaged
+                    </button>
+                    <button
+                      onClick={() => setStatus(selected.id, "actioned")}
+                      className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-4 py-2.5 text-sm font-medium text-emerald-200 hover:bg-emerald-500/20 transition-colors"
+                    >
+                      Mark actioned
+                    </button>
+                    <button
+                      onClick={() => setStatus(selected.id, "rejected")}
+                      className="rounded-lg border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/85 hover:bg-white/[0.1] transition-colors"
+                    >
+                      Reject
+                    </button>
+                  </div>
+
+                  {(selected.target_type === "prompt" || selected.target_type === "workflow") && (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+                      <p className={cardHeaderClass}>
+                        Take down (removes from marketplace, reason shown to owner)
+                      </p>
+                      <textarea
+                        value={takedownReason}
+                        onChange={(e) => setTakedownReason(e.target.value)}
+                        rows={2}
+                        className={inputClass}
+                        placeholder="Reason for takedown (shown to owner)"
+                      />
+                      <button
+                        type="button"
+                        onClick={takeDownListing}
+                        disabled={takedownLoading || !takedownReason.trim()}
+                        className="rounded-lg border border-amber-500/30 bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {takedownLoading ? "Taking down…" : "Take down"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
+      )}
 
-        {/* Right detail */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            {!selected ? (
-              <div className="text-sm text-white/60">Select a report.</div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-base font-semibold">{selected.target_type} reported</div>
-                    <div className="text-xs text-white/50">
-                      Reported {fmt(selected.created_at)} • reporter {selected.reporter_id}
-                    </div>
-                  </div>
+      {/* Platform */}
+      {section === "platform" && (
+        <div className="space-y-6">
+          <p className="text-sm text-white/55 max-w-xl">
+            Control beta applications and platform-wide maintenance. Changes apply immediately.
+          </p>
 
-                  <a
-                    href={targetHref(selected, selected.target_owner_handle, selected.target_edgaze_code)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10"
+          <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
+            <div className={`${cardClass} p-6`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-white/95">Applications</h3>
+                  <p className="mt-1 text-sm text-white/55">
+                    Pause or resume accepting beta applications.
+                  </p>
+                  {(appsPausedLoading || appsPausedSaving) && (
+                    <p className="mt-2 text-xs text-white/45">
+                      {appsPausedLoading ? "Loading…" : "Saving…"}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+                      appsPaused
+                        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                        : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                    }`}
                   >
-                    Open target
-                  </a>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                    <div className="text-xs text-white/50">Target</div>
-                    <div className="text-sm mt-1">
-                      <span className="text-white/70">{selected.target_type}</span>
-                      {(selected.target_type === "prompt" || selected.target_type === "workflow") && selected.target_title && (
-                        <div className="text-sm font-semibold text-white/90 mt-1">
-                          {selected.target_title}
-                        </div>
-                      )}
-                      {selected.target_owner_handle && (
-                        <div className="text-xs text-white/60 mt-1">
-                          by @{selected.target_owner_handle}
-                          {selected.target_owner_name && ` (${selected.target_owner_name})`}
-                        </div>
-                      )}
-                      {selected.target_edgaze_code && (
-                        <div className="text-xs text-white/50 mt-1">
-                          Code: {selected.target_edgaze_code}
-                        </div>
-                      )}
-                      <div className="text-xs text-white/40 mt-1 break-all">{selected.target_id}</div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                    <div className="text-xs text-white/50">Reason</div>
-                    <div className="text-sm mt-1">{selected.reason}</div>
-                  </div>
-                </div>
-
-                {selected.details ? (
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                    <div className="text-xs text-white/50">Details</div>
-                    <div className="text-sm mt-1 whitespace-pre-wrap">{selected.details}</div>
-                  </div>
-                ) : null}
-
-                {selected.evidence_urls && selected.evidence_urls.length > 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                    <div className="text-xs text-white/50">Evidence</div>
-                    <div className="text-sm mt-2 space-y-1">
-                      {selected.evidence_urls.map((u) => (
-                        <a key={u} href={u} target="_blank" rel="noreferrer" className="block text-cyan-200 hover:underline break-all">
-                          {u}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                  <div className="text-xs text-white/50 mb-2">Admin notes</div>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={4}
-                    className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm outline-none focus:border-white/20"
-                    placeholder="What did you find? What action did you take?"
+                    {appsPaused ? "Paused" : "Accepting"}
+                  </span>
+                  <AdminToggle
+                    checked={appsPaused}
+                    onToggle={() => saveAppsPaused(!appsPaused)}
+                    disabled={appsPausedLoading || appsPausedSaving}
+                    labelOff="Pause"
+                    labelOn="Resume"
                   />
                 </div>
+              </div>
+            </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setStatus(selected.id, "triaged")}
-                    className="text-sm px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10"
+            <div className={`${cardClass} border-amber-500/15 bg-amber-500/[0.03] p-6`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-white/95">Maintenance mode</h3>
+                  <p className="mt-1 text-sm text-white/55">
+                    Show &quot;Platform under maintenance&quot; on all pages except landing and admin.
+                  </p>
+                  <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                    <strong>Warning:</strong> Enabling blocks marketplace, builder, prompt studio, and profiles. Only homepage and admin stay accessible.
+                  </div>
+                  {(maintenanceLoading || maintenanceSaving) && (
+                    <p className="mt-2 text-xs text-white/45">
+                      {maintenanceLoading ? "Loading…" : "Saving…"}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 sm:shrink-0">
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+                      maintenanceMode
+                        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+                        : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                    }`}
                   >
-                    Mark triaged
-                  </button>
-                  <button
-                    onClick={() => setStatus(selected.id, "actioned")}
-                    className="text-sm px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/20 border border-emerald-500/25"
-                  >
-                    Mark actioned
-                  </button>
-                  <button
-                    onClick={() => setStatus(selected.id, "rejected")}
-                    className="text-sm px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10"
-                  >
-                    Reject
-                  </button>
+                    {maintenanceMode ? "On" : "Off"}
+                  </span>
+                  <AdminToggle
+                    checked={maintenanceMode}
+                    onToggle={() => saveMaintenanceMode(!maintenanceMode)}
+                    disabled={maintenanceLoading || maintenanceSaving}
+                    labelOff="Enable"
+                    labelOn="Disable"
+                    variant="warning"
+                  />
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Demo Replenish panel */}
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div>
-                <div className="text-base font-semibold">Replenish Demo Runs</div>
-                <div className="text-sm text-white/60">
-                  Reset demo run limits for a user by username/handle.
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-white/50 mb-1">Username / Handle</div>
-                <input
-                  value={replenishUsername}
-                  onChange={(e) => setReplenishUsername(e.target.value)}
-                  className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm outline-none focus:border-white/20"
-                  placeholder="e.g. username or @username"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !replenishLoading) {
-                      replenishDemo();
-                    }
-                  }}
-                />
-              </div>
-
-              <div>
-                <div className="text-xs text-white/50 mb-1">Workflow ID (optional)</div>
-                <input
-                  value={replenishWorkflowId}
-                  onChange={(e) => setReplenishWorkflowId(e.target.value)}
-                  className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm outline-none focus:border-white/20"
-                  placeholder="Leave blank for all workflows"
-                />
-                <div className="text-xs text-white/40 mt-1">Leave blank to reset all demo runs for user.</div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mt-3">
-              <button
-                onClick={replenishDemo}
-                disabled={replenishLoading || !replenishUsername.trim()}
-                className="text-sm px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/20 border border-amber-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {replenishLoading ? "Replenishing..." : "Replenish Demo Runs"}
-              </button>
-            </div>
-          </div>
-
-          {/* Ban panel */}
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div>
-                <div className="text-base font-semibold">Ban / Unban</div>
-                <div className="text-sm text-white/60">
-                  Uses RPC <span className="text-white/70">admin_set_ban</span>.
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-white/50 mb-1">User ID</div>
-                <input
-                  value={banUserId}
-                  onChange={(e) => setBanUserId(e.target.value)}
-                  className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm outline-none focus:border-white/20"
-                  placeholder="uuid"
-                />
-              </div>
-
-              <div>
-                <div className="text-xs text-white/50 mb-1">Ban expires at (optional)</div>
-                <input
-                  value={banExpiresAt}
-                  onChange={(e) => setBanExpiresAt(e.target.value)}
-                  className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm outline-none focus:border-white/20"
-                  placeholder="e.g. 2026-02-01T12:00"
-                />
-                <div className="text-xs text-white/40 mt-1">Leave blank for permanent ban.</div>
-              </div>
-
-              <div className="md:col-span-2">
-                <div className="text-xs text-white/50 mb-1">Reason (optional)</div>
-                <input
-                  value={banReason}
-                  onChange={(e) => setBanReason(e.target.value)}
-                  className="w-full rounded-xl bg-black/40 border border-white/10 px-3 py-2 text-sm outline-none focus:border-white/20"
-                  placeholder="e.g. Scam / IP theft / harassment"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 mt-3">
-              <button
-                onClick={() => banOrUnban(true)}
-                className="text-sm px-3 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/20 border border-red-500/25"
-              >
-                Ban user
-              </button>
-              <button
-                onClick={() => banOrUnban(false)}
-                className="text-sm px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10"
-              >
-                Unban user
-              </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Tools */}
+      {section === "tools" && (
+        <div className="space-y-6">
+          <p className="text-sm text-white/55 max-w-xl">
+            Replenish demo runs for users and manage user bans. Use after reviewing reports when needed.
+          </p>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className={`${cardClass} p-6`}>
+              <h3 className="text-base font-semibold text-white/95">Replenish demo runs</h3>
+              <p className="mt-1 text-sm text-white/55">
+                Reset demo run limits for a user by username or handle.
+              </p>
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5">
+                    Username / handle
+                  </label>
+                  <input
+                    value={replenishUsername}
+                    onChange={(e) => setReplenishUsername(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g. username or @username"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !replenishLoading) replenishDemo();
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5">
+                    Workflow ID (optional)
+                  </label>
+                  <input
+                    value={replenishWorkflowId}
+                    onChange={(e) => setReplenishWorkflowId(e.target.value)}
+                    className={inputClass}
+                    placeholder="Leave blank for all workflows"
+                  />
+                  <p className="mt-1 text-xs text-white/45">Leave blank to reset all demo runs for the user.</p>
+                </div>
+                <button
+                  onClick={replenishDemo}
+                  disabled={replenishLoading || !replenishUsername.trim()}
+                  className="rounded-lg border border-amber-500/25 bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {replenishLoading ? "Replenishing…" : "Replenish demo runs"}
+                </button>
+              </div>
+            </div>
+
+            <div className={`${cardClass} p-6`}>
+              <h3 className="text-base font-semibold text-white/95">Ban / unban user</h3>
+              <p className="mt-1 text-sm text-white/55">
+                Ban or unban by user ID (e.g. from a report). Uses <code className="rounded bg-white/10 px-1 text-xs">admin_set_ban</code>.
+              </p>
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5">User ID</label>
+                  <input
+                    value={banUserId}
+                    onChange={(e) => setBanUserId(e.target.value)}
+                    className={inputClass}
+                    placeholder="UUID"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5">
+                    Ban expires at (optional)
+                  </label>
+                  <input
+                    value={banExpiresAt}
+                    onChange={(e) => setBanExpiresAt(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g. 2026-02-01T12:00"
+                  />
+                  <p className="mt-1 text-xs text-white/45">Leave blank for permanent ban.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-white/50 mb-1.5">Reason (optional)</label>
+                  <input
+                    value={banReason}
+                    onChange={(e) => setBanReason(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g. Scam / IP theft / harassment"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => banOrUnban(true)}
+                    className="rounded-lg border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-200 hover:bg-red-500/20 transition-colors"
+                  >
+                    Ban user
+                  </button>
+                  <button
+                    onClick={() => banOrUnban(false)}
+                    className="rounded-lg border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/85 hover:bg-white/[0.1] transition-colors"
+                  >
+                    Unban user
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // src/app/api/assets/list/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getUserAndClient } from "../../flow/_auth";
+import { getUserAndClient } from "@lib/auth/server";
 
 const BUCKET = "edgaze-assets";
 

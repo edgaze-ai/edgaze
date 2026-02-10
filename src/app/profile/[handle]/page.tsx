@@ -1,6 +1,12 @@
 import React from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import PublicProfileView from "../../../components/profile/PublicProfileView";
+import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
+import {
+  getProfileRedirectHandle,
+  getProfileRedirectByOwnerHandle,
+} from "../../../lib/supabase/handle-redirect";
 
 function normalizeHandle(raw: string) {
   const decoded = decodeURIComponent(raw || "").trim();
@@ -52,6 +58,41 @@ export default async function ProfileByHandlePage(props: any) {
     );
   }
 
-  // This is client component; passing debug down enables the debug panels inside it.
-  return <PublicProfileView handle={handle} debug={debug} />;
+  const supabase = createSupabaseAdminClient();
+  // Case-insensitive lookup so /profile/MyHandle works when DB has "myhandle"
+  const { data: profileData } = await supabase.rpc("get_profile_by_handle_insensitive", {
+    handle_input: handle,
+  });
+  const profileRow = Array.isArray(profileData) ? profileData[0] : profileData;
+  const profileId = profileRow?.id;
+  const canonicalHandle = profileRow?.handle;
+
+  if (!profileId) {
+    // Try redirect: handle_history first, then fallback from workflows/prompts (for manual DB updates)
+    let newHandle = await getProfileRedirectHandle(handle);
+    if (!newHandle) newHandle = await getProfileRedirectByOwnerHandle(handle);
+    if (newHandle) redirect(`/profile/${encodeURIComponent(newHandle)}`);
+
+    // No profile and no redirect: show not found
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5">
+          <div className="text-sm font-semibold text-white/90">Profile not found.</div>
+          <div className="mt-2 text-xs text-white/55">
+            No profile exists for @{handle}. The link may be broken or the account may have been removed.
+          </div>
+          <Link
+            href="/marketplace"
+            className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-black"
+          >
+            Browse marketplace
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <PublicProfileView handle={canonicalHandle ?? handle} debug={debug} />
+  );
 }

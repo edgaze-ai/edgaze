@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUserFromRequest } from "../../_auth";
+import { getUserFromRequest } from "@lib/auth/server";
 import { getUserWorkflowRunCount, isAdmin, workflowExists, getWorkflowDraftId } from "@lib/supabase/executions";
 
 const BUILDER_TEST_RUN_LIMIT = 10;
