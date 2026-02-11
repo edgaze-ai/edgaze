@@ -1123,9 +1123,9 @@ type SearchBarProps = {
   handlePredictSelect: (r: { kind: "profile" | "prompt" | "workflow"; item: any }) => void;
 
   // refs/timers
-  predictBoxRef: React.RefObject<HTMLDivElement>;
+  predictBoxRef: React.RefObject<HTMLDivElement | null>;
   predictBlurTimer: React.MutableRefObject<number | null>;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
 };
 
 function MarketplaceSearchBar({

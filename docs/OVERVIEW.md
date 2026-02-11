@@ -47,10 +47,12 @@ This document outlines the technical posture and standards behind Edgaze. It is 
 
 | Document | Purpose |
 |----------|---------|
-| [README](../README.md) | Product overview, getting started, docs index. |
-| [AUTH](../AUTH.md) | Authentication flow and how to use it in API routes. |
-| [CHANGELOG](../CHANGELOG.md) | Version history and release notes. |
-| [SECURITY](../SECURITY.md) | Supported versions and vulnerability reporting. |
-| [CONTRIBUTING](../CONTRIBUTING.md) | Branching, PR process, and conventions. |
+| [README](../README.md) | Product overview, getting started, docs index |
+| [DEVELOPMENT](DEVELOPMENT.md) | Local setup and development workflow |
+| [AUTH](../AUTH.md) | Authentication flow and how to use it in API routes |
+| [API](API.md) | API routes and endpoints reference |
+| [CHANGELOG](../CHANGELOG.md) | Version history and release notes |
+| [SECURITY](../SECURITY.md) | Supported versions and vulnerability reporting |
+| [ROADMAP](ROADMAP.md) | Planned features and future direction |
 
 This overview is maintained as the project evolves. For implementation details, see the codebase and the docs above.

@@ -18,7 +18,7 @@ function cn(...args: Array<string | false | null | undefined>) {
 }
 
 type ScrollCtx = {
-  scrollerRef: React.RefObject<HTMLDivElement>;
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
 };
 
 const ScrollContext = createContext<ScrollCtx | null>(null);

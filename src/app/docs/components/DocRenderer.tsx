@@ -117,7 +117,7 @@ export default function DocRenderer({ content }: { content: string }) {
               ? "mt-12 text-xl sm:text-2xl font-semibold tracking-tight text-white/95 scroll-mt-24"
               : "mt-8 text-lg sm:text-xl font-semibold tracking-tight text-white/95 scroll-mt-24";
 
-          const Tag = (b.level === 2 ? "h2" : "h3") as keyof JSX.IntrinsicElements;
+          const Tag = (b.level === 2 ? "h2" : "h3") as keyof React.JSX.IntrinsicElements;
 
           return (
             <Tag key={idx} id={b.id} className={cls}>
@@ -128,7 +128,7 @@ export default function DocRenderer({ content }: { content: string }) {
 
         if (b.type === "p") {
           // Convert **text** to <strong>text</strong> and [text](url) to <Link>
-          const parts: (string | JSX.Element)[] = [];
+          const parts: (string | React.JSX.Element)[] = [];
           const text = b.text;
           let lastIndex = 0;
           
@@ -249,7 +249,7 @@ export default function DocRenderer({ content }: { content: string }) {
             <ul key={idx} className="mt-3 list-disc pl-6 text-white/75 max-w-3xl">
               {b.items.map((it, j) => {
                 // Convert **text** to <strong>text</strong> and [text](url) to <Link> for list items
-                const parts: (string | JSX.Element)[] = [];
+                const parts: (string | React.JSX.Element)[] = [];
                 let lastIndex = 0;
                 
                 // Process both bold and links

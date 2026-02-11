@@ -25,7 +25,7 @@ This migration:
 ### Step 2: Fix Existing Stuck Runs (Optional but Recommended)
 Run this script to clean up any existing stuck runs:
 ```
-scripts/fix_stuck_runs.sql
+supabase/migrations/20250211000002_fix_stuck_runs.sql
 ```
 
 ### Step 3: Code Changes (Already Done)

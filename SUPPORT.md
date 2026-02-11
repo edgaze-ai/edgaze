@@ -1,6 +1,6 @@
 # Support
 
-Edgaze is a private product. Support is provided through internal channels only.
+Edgaze is a **closed-source, proprietary platform**. Support is provided through **internal channels only**.
 
 ---
 
@@ -8,11 +8,22 @@ Edgaze is a private product. Support is provided through internal channels only.
 
 | Need | Where to go |
 |------|-------------|
-| **Setup & run** | [README — Getting started](README.md#getting-started) |
+| **Setup & run** | [README — Quick Start](README.md#quick-start) |
 | **Auth & API** | [AUTH.md](AUTH.md) |
 | **Architecture & standards** | [docs/OVERVIEW.md](docs/OVERVIEW.md) |
-| **Bugs & features** | This repo’s **Issues** (authorized contributors) or your team’s issue tracker |
-| **Security** | [SECURITY.md](SECURITY.md) — do not open public issues for vulnerabilities |
+| **Bugs & features** | Internal issue tracker or team Slack |
+| **Security** | [SECURITY.md](SECURITY.md) — report privately to security team |
 | **Releases** | [CHANGELOG.md](CHANGELOG.md) |
+| **Access & permissions** | Contact team lead or admin |
 
-For general questions, access, or deployment, use your organization’s designated channel (e.g. Slack, email).
+For general questions, access, or deployment, use your organization's designated channel (e.g., Slack, email).
+
+---
+
+## Internal support channels
+
+- **Slack:** #edgaze-dev (or your team channel)
+- **Email:** Contact your team lead
+- **Security:** Report to security team privately
+
+⚠️ **Confidentiality:** All discussions about the codebase must remain internal and confidential.

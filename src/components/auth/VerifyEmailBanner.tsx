@@ -2,6 +2,6 @@
 
 import React from "react";
 
-export default function VerifyEmailBanner(): JSX.Element | null {
+export default function VerifyEmailBanner(): React.JSX.Element | null {
   return null;
 }

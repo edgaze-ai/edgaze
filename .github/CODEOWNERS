@@ -1,5 +1,37 @@
-# CODEOWNERS — these owners are requested for review when someone opens a PR.
-# One owner per line; use teams with @org/team-name if you use GitHub teams.
-# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# CODEOWNERS file
+# Edgaze — Closed-source, proprietary platform
+# 
+# These owners will be the default reviewers for everything in the repo.
+# Unless a later match takes precedence, these owners will be requested for
+# review when someone opens a pull request.
 
-* @your-org/edgaze-maintainers
+# Default owners for everything in the repo
+* @edgaze-team/maintainers
+
+# Documentation
+*.md @edgaze-team/maintainers
+/docs/ @edgaze-team/maintainers
+
+# Database and migrations
+/supabase/migrations/ @edgaze-team/backend
+
+# API routes
+/src/app/api/ @edgaze-team/backend
+
+# Authentication
+/src/components/auth/ @edgaze-team/backend
+/src/lib/auth/ @edgaze-team/backend
+/AUTH.md @edgaze-team/backend
+
+# Frontend components
+/src/components/ @edgaze-team/frontend
+/src/app/ @edgaze-team/frontend
+
+# Infrastructure and CI/CD
+/.github/ @edgaze-team/infra
+/package.json @edgaze-team/infra
+/tsconfig.json @edgaze-team/infra
+
+# Security-sensitive files
+/SECURITY.md @edgaze-team/security
+/.env.example @edgaze-team/security
