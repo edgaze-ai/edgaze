@@ -2,6 +2,9 @@
 # Attaches the repo as the release body; you can edit the release in the UI.
 name: Release
 
+permissions:
+  contents: write
+
 on:
   push:
     tags:
