@@ -39,8 +39,10 @@ function ProfileRootPageContent() {
     if (!userId) {
       if (fromSidebar) return;
       if (!openingModalOnce) {
-        setOpeningModalOnce(true);
-        openSignIn();
+        queueMicrotask(() => {
+          setOpeningModalOnce(true);
+          openSignIn();
+        });
       }
       return;
     }

@@ -15,188 +15,126 @@ import { evaluateConditionWithAI } from "../../lib/ai/condition-evaluator";
 const inputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   // Input node: accepts workflow-level input data
   const external = ctx.inputs?.[node.id];
-  
-  // If external input is explicitly provided (including empty string), use it
+
+  // Resolve the actual value: external input (string or object e.g. file), then config fallback
+  let value: unknown;
   if (external !== undefined && external !== null) {
-    ctx.setNodeOutput(node.id, external);
-    return external;
+    value = external;
+  } else {
+    const configValue = node.data?.config?.value ?? node.data?.config?.text ?? node.data?.config?.defaultValue;
+    value = configValue !== undefined && configValue !== null && configValue !== "" ? configValue : "";
   }
-  
-  // Fallback: use config value if provided
-  const configValue = node.data?.config?.value ?? node.data?.config?.text ?? node.data?.config?.defaultValue;
-  
-  if (configValue !== undefined && configValue !== null && configValue !== "") {
-    ctx.setNodeOutput(node.id, configValue);
-    return configValue;
+
+  const question = typeof node.data?.config?.question === "string" ? node.data.config.question.trim() : undefined;
+
+  // When question is set, output { value, question } so OpenAI can show "Question / Answer" in an Inputs section
+  if (question && question.length > 0) {
+    const output = { value, question };
+    ctx.setNodeOutput(node.id, output);
+    return output;
   }
-  
-  // If no value at all, output empty string (not null) so downstream nodes can detect it
-  // Empty string will be handled by merge/openai-chat appropriately
-  ctx.setNodeOutput(node.id, "");
-  return "";
+
+  ctx.setNodeOutput(node.id, value);
+  return value;
 };
 
 const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   // Merge node: combines multiple inputs intelligently
   // This node receives outputs from previous nodes (like ChatGPT) and combines them
   const inbound = ctx.getInboundValues(node.id);
-  
-  console.log(`[Merge Node ${node.id}] Received inbound values:`, inbound.map(v => ({
+
+  console.warn(`[Merge Node ${node.id}] Received inbound values:`, inbound.map(v => ({
     type: typeof v,
     isArray: Array.isArray(v),
     preview: typeof v === "string" ? v.substring(0, 50) : Array.isArray(v) ? `Array[${v.length}]` : typeof v === "object" ? "Object" : String(v)
   })));
-  
+
   // Filter out only null/undefined (preserve empty strings, 0, false, etc. - let downstream nodes decide)
   const valid = inbound.filter((v) => v !== null && v !== undefined);
-  
+
   // If no valid inputs at all, return empty string (not null) so downstream nodes can detect it
   if (valid.length === 0) {
-    console.log(`[Merge Node ${node.id}] No valid inputs, returning empty string`);
+    console.warn(`[Merge Node ${node.id}] No valid inputs, returning empty string`);
     ctx.setNodeOutput(node.id, "");
     return "";
   }
-  
-  // If only one input, pass it through directly (no merging needed)
-  // Convert to string if it's not already, to ensure consistent output format
-  if (valid.length === 1) {
-    const single = valid[0];
-    let output: string;
-    if (typeof single === "string") {
-      output = single;
-    } else if (typeof single === "object") {
-      // Try to extract string from common fields
-      const obj = single as any;
-      if (typeof obj.content === "string") {
-        output = obj.content;
-      } else if (typeof obj.text === "string") {
-        output = obj.text;
-      } else if (typeof obj.message === "string") {
-        output = obj.message;
-      } else {
-        // Convert to JSON string
-        try {
-          output = JSON.stringify(single);
-        } catch {
-          output = String(single);
-        }
-      }
-    } else {
-      output = String(single);
-    }
-    console.log(`[Merge Node ${node.id}] Single input, passing through:`, output.substring(0, 100));
-    ctx.setNodeOutput(node.id, output);
-    return output;
-  }
-  
-  // Multiple inputs: merge intelligently
-  
-  // Convert all inputs to strings first for consistent merging
-  const stringInputs = valid.map(v => {
-    if (typeof v === "string") {
-      return v;
-    } else if (typeof v === "object" && v !== null) {
-      // Try to extract string from common fields
-      const obj = v as any;
-      if (typeof obj.content === "string") {
-        return obj.content;
-      } else if (typeof obj.text === "string") {
-        return obj.text;
-      } else if (typeof obj.message === "string") {
-        return obj.message;
-      } else if (Array.isArray(obj)) {
-        return obj.map(item => typeof item === "string" ? item : JSON.stringify(item)).join(" ");
-      } else {
-        // Convert object to JSON string
-        try {
-          return JSON.stringify(v);
-        } catch {
-          return String(v);
-        }
-      }
-    } else {
-      return String(v);
-    }
-  }).filter(s => s.trim().length > 0); // Filter out empty strings after conversion
-  
-  // Join all string inputs with space
-  if (stringInputs.length > 0) {
-    const merged = stringInputs.join(" ");
-    console.log(`[Merge Node ${node.id}] Merged ${valid.length} inputs into string:`, merged.substring(0, 100));
-    ctx.setNodeOutput(node.id, merged);
-    return merged;
-  }
-  
-  // If all are arrays, concatenate them
-  if (valid.every((v) => Array.isArray(v))) {
-    const merged = (valid as any[][]).flat();
-    console.log(`[Merge Node ${node.id}] Merged arrays:`, merged.length, "items");
-    ctx.setNodeOutput(node.id, merged);
-    return merged;
-  }
-  
-  // If all are objects, merge them (shallow)
-  if (valid.every((v) => typeof v === "object" && !Array.isArray(v))) {
-    const merged = Object.assign({}, ...(valid as Record<string, any>[]));
-    console.log(`[Merge Node ${node.id}] Merged objects:`, Object.keys(merged).length, "keys");
-    ctx.setNodeOutput(node.id, merged);
-    return merged;
-  }
-  
-  // Default: convert all to strings and join
-  const defaultMerged = valid.map(v => {
+
+  // Helper: convert one value to string for merging (handles input node { value, question })
+  const toMergeString = (v: unknown): string => {
     if (typeof v === "string") return v;
-    if (typeof v === "object") {
+    if (v !== null && typeof v === "object" && !Array.isArray(v)) {
+      const obj = v as any;
+      if (typeof obj.question === "string" && "value" in obj) {
+        const answer = obj.value === undefined || obj.value === null ? "" : typeof obj.value === "string" ? obj.value : JSON.stringify(obj.value);
+        return answer;
+      }
+      if (typeof obj.content === "string") return obj.content;
+      if (typeof obj.text === "string") return obj.text;
+      if (typeof obj.message === "string") return obj.message;
+      if (typeof obj.value === "string") return obj.value;
       try {
         return JSON.stringify(v);
       } catch {
         return String(v);
       }
     }
+    if (Array.isArray(v)) return v.map((item) => (typeof item === "string" ? item : JSON.stringify(item))).join(" ");
     return String(v);
-  }).join(" ");
-  
-  console.log(`[Merge Node ${node.id}] Default merge (mixed types):`, defaultMerged.substring(0, 100));
-  ctx.setNodeOutput(node.id, defaultMerged);
-  return defaultMerged;
+  };
+
+  // If only one input, pass it through directly (no merging needed)
+  if (valid.length === 1) {
+    const single = valid[0];
+    const output = toMergeString(single);
+    console.warn(`[Merge Node ${node.id}] Single input, passing through:`, output.substring(0, 100));
+    ctx.setNodeOutput(node.id, output);
+    return output;
+  }
+
+  // Multiple inputs: merge all into one string (do not drop any input)
+  const stringInputs = valid.map((v) => toMergeString(v));
+  const merged = stringInputs.join("\n\n");
+  console.warn(`[Merge Node ${node.id}] Merged ${valid.length} inputs into string:`, merged.substring(0, 100));
+  ctx.setNodeOutput(node.id, merged);
+  return merged;
 };
 
 const outputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   // Output node: combines all connected inputs into final result
   const inbound = ctx.getInboundValues(node.id);
-  
+
   // Filter out undefined/null
   const valid = inbound.filter((v) => v !== undefined && v !== null);
-  
+
   if (valid.length === 0) {
     ctx.setNodeOutput(node.id, null);
     return null;
   }
-  
+
   // If single input, return as-is
   if (valid.length === 1) {
     ctx.setNodeOutput(node.id, valid[0]);
     return valid[0];
   }
-  
+
   // Multiple inputs: merge intelligently
   const config = node.data?.config ?? {};
   const format = config.format || "json";
-  
+
   if (format === "text") {
     // Join all as text
     const text = valid.map((v) => String(v)).join("\n");
     ctx.setNodeOutput(node.id, text);
     return text;
   }
-  
+
   // Default: return as structured object
   const result = {
     results: valid,
     count: valid.length,
     timestamp: Date.now(),
   };
-  
+
   ctx.setNodeOutput(node.id, result);
   return result;
 };
@@ -207,11 +145,11 @@ const getApiKey = (node: GraphNode, ctx: RuntimeContext): string | null => {
   // First check if API key is provided via inputs (from run modal or Edgaze)
   const key = ctx.inputs?.[`__api_key_${node.id}`];
   if (typeof key === "string" && key.trim()) return key.trim();
-  
+
   // Fallback: check node config (stored in inspector - user's own key)
   const configKey = node.data?.config?.apiKey;
   if (typeof configKey === "string" && configKey.trim()) return configKey.trim();
-  
+
   return null;
 };
 
@@ -223,13 +161,13 @@ const isUserProvidedApiKey = (node: GraphNode, ctx: RuntimeContext): boolean => 
   if ((ctx.inputs as any)?.["__builder_user_key"]) {
     return true;
   }
-  
+
   // Check if node config has user's stored API key
   const configKey = node.data?.config?.apiKey;
   if (typeof configKey === "string" && configKey.trim().length > 0) {
     return true;
   }
-  
+
   // Otherwise, it's Edgaze's key (for free tier)
   return false;
 };
@@ -242,18 +180,17 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
 
   const config = node.data?.config ?? {};
   const inbound = ctx.getInboundValues(node.id);
-  
+
   // Debug: log inbound values to help diagnose issues
-  console.log(`[OpenAI Chat] Node ${node.id} received inbound values:`, inbound.length, inbound.map(v => typeof v === "string" ? `"${v.substring(0, 50)}${v.length > 50 ? "..." : ""}"` : typeof v));
-  
+  console.warn(`[OpenAI Chat] Node ${node.id} received inbound values:`, inbound.length, inbound.map(v => typeof v === "string" ? `"${v.substring(0, 50)}${v.length > 50 ? "..." : ""}"` : typeof v));
+
   // Extract prompt/messages from inbound - BE LENIENT, convert ANYTHING to usable format
-  let inboundString: string | undefined = undefined;
   let inboundMessages: any[] | undefined = undefined;
-  
+
   // First: look for messages array (highest priority)
   for (const val of inbound) {
     if (val === null || val === undefined) continue;
-    
+
     if (Array.isArray(val) && val.length > 0) {
       // Check if it's OpenAI messages format
       if (val.every((item: any) => item && typeof item === "object" && ("role" in item || "content" in item))) {
@@ -261,164 +198,73 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
         break;
       }
     }
-    
+
     if (typeof val === "object" && !Array.isArray(val) && Array.isArray((val as any).messages)) {
       inboundMessages = (val as any).messages;
       break;
     }
   }
-  
-  // Second: extract ANY string value from inbound (be super lenient)
-  if (!inboundMessages) {
-    for (const val of inbound) {
-      if (val === null || val === undefined) continue;
-      
-      // Strings - use directly, even if empty
-      if (typeof val === "string") {
-        inboundString = val; // Don't trim, use as-is
-        break;
-      }
-      
-      // Objects - check common fields
-      if (typeof val === "object" && !Array.isArray(val)) {
-        const obj = val as any;
-        if (typeof obj.prompt === "string") {
-          inboundString = obj.prompt;
-          break;
-        }
-        if (typeof obj.content === "string") {
-          inboundString = obj.content;
-          break;
-        }
-        if (typeof obj.text === "string") {
-          inboundString = obj.text;
-          break;
-        }
-        if (typeof obj.message === "string") {
-          inboundString = obj.message;
-          break;
-        }
-        // Convert entire object to JSON string
-        try {
-          inboundString = JSON.stringify(val);
-        } catch {
-          inboundString = String(val);
-        }
-        break;
-      }
-      
-      // Arrays - join into string
-      if (Array.isArray(val)) {
-        inboundString = val.map(v => {
-          if (typeof v === "string") return v;
-          if (typeof v === "object") {
-            try {
-              return JSON.stringify(v);
-            } catch {
-              return String(v);
-            }
-          }
-          return String(v);
-        }).join(" ");
-        break;
-      }
-      
-      // Anything else - convert to string
-      inboundString = String(val);
-      break;
-    }
-  }
-  
-  // Use inbound if available (even if empty string), otherwise fall back to config
-  // Combine node prompt (from OpenAI block) + connected input (from input/merge): both go to OpenAI
-  let prompt: string | undefined;
+
+  // Build prompt from ALL inbound values (no dropping): format as "## Inputs" section so OpenAI receives every connected input
   const configPrompt = typeof config.prompt === "string" ? config.prompt.trim() || undefined : undefined;
-  
-  // Extract connection value: prefer inboundString if found, otherwise try inbound[0]
-  let fromConnection: string | undefined = undefined;
-  if (inboundString !== undefined) {
-    // We found a string in the inbound values
-    fromConnection = inboundString;
-    console.log(`[OpenAI Chat ${node.id}] Using extracted inboundString:`, fromConnection.substring(0, 100));
-  } else if (inbound.length > 0 && !inboundMessages) {
-    // No string found yet, but we have inbound values - try to extract from first value
-    const firstVal = inbound[0];
-    console.log(`[OpenAI Chat ${node.id}] Extracting from first inbound value:`, {
-      type: typeof firstVal,
-      isArray: Array.isArray(firstVal),
-      preview: typeof firstVal === "string" ? firstVal.substring(0, 50) : "non-string"
-    });
-    
-    if (firstVal != null) {
-      if (typeof firstVal === "string") {
-        fromConnection = firstVal;
-        console.log(`[OpenAI Chat ${node.id}] Using string value directly:`, fromConnection.substring(0, 100));
-      } else if (typeof firstVal === "object") {
-        // Try common fields first
-        const obj = firstVal as any;
-        if (typeof obj.prompt === "string") {
-          fromConnection = obj.prompt;
-        } else if (typeof obj.content === "string") {
-          fromConnection = obj.content;
-        } else if (typeof obj.text === "string") {
-          fromConnection = obj.text;
-        } else if (typeof obj.message === "string") {
-          fromConnection = obj.message;
-        } else {
-          // Convert object to JSON string
-          try {
-            fromConnection = JSON.stringify(firstVal);
-          } catch {
-            fromConnection = String(firstVal);
-          }
-        }
-        console.log(`[OpenAI Chat ${node.id}] Extracted from object:`, fromConnection?.substring(0, 100));
-      } else {
-        // Number, boolean, etc. - convert to string
-        fromConnection = String(firstVal);
-        console.log(`[OpenAI Chat ${node.id}] Converted to string:`, fromConnection);
+
+  /** Convert one inbound value to a string for the Inputs section (handles input node { value, question }) */
+  const oneInboundToInputSegment = (val: unknown): string => {
+    if (val === null || val === undefined) return "";
+    if (typeof val === "string") return val;
+    if (typeof val === "object" && !Array.isArray(val)) {
+      const obj = val as any;
+      if (typeof obj.question === "string" && "value" in obj) {
+        const answer = obj.value === undefined || obj.value === null ? "" : typeof obj.value === "string" ? obj.value : JSON.stringify(obj.value);
+        return answer;
+      }
+      if (typeof obj.prompt === "string") return obj.prompt;
+      if (typeof obj.content === "string") return obj.content;
+      if (typeof obj.text === "string") return obj.text;
+      if (typeof obj.message === "string") return obj.message;
+      if (typeof obj.value === "string") return obj.value;
+      try {
+        return JSON.stringify(val);
+      } catch {
+        return String(val);
       }
     }
-  }
-  
-  // Log if we still don't have a connection value
-  if (fromConnection === undefined && inbound.length > 0) {
-    console.warn(`[OpenAI Chat ${node.id}] Could not extract string from inbound values:`, inbound.map(v => ({
-      type: typeof v,
-      isArray: Array.isArray(v),
-      preview: typeof v === "string" ? v.substring(0, 50) : "non-string"
-    })));
-  }
-  
-  // Combine config prompt + connection value
-  if (fromConnection !== undefined) {
-    // We have a connection value - combine with config prompt if it exists
-    // If both exist, combine them; if only connection exists, use it (even if empty string)
-    if (configPrompt) {
-      prompt = `${configPrompt}\n\n${fromConnection}`;
-    } else {
-      prompt = fromConnection; // Use connection value even if empty (let OpenAI handle it)
+    if (Array.isArray(val)) {
+      return val.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(" ");
     }
-    console.log(`[OpenAI Chat] Built prompt from connection:`, { 
-      fromConnection: typeof fromConnection === "string" ? fromConnection.substring(0, 100) : String(fromConnection), 
-      configPrompt, 
-      prompt: typeof prompt === "string" ? prompt.substring(0, 100) : String(prompt) 
-    });
+    return String(val);
+  };
+
+  let prompt: string | undefined;
+  if (!inboundMessages && inbound.length > 0) {
+    const validInbound = inbound.filter((v) => v !== null && v !== undefined);
+    const segments = validInbound.map(oneInboundToInputSegment).filter((s) => s.length > 0 || validInbound.length === 1);
+    const inputsSection = segments.join("\n\n");
+    if (inputsSection) {
+      prompt = configPrompt
+        ? `## Inputs\n\n${inputsSection}\n\n## Prompt\n\n${configPrompt}`
+        : `## Inputs\n\n${inputsSection}`;
+      console.warn(`[OpenAI Chat ${node.id}] Built prompt from ${validInbound.length} inbound value(s) (Inputs section):`, prompt.substring(0, 150));
+    } else {
+      prompt = configPrompt;
+      console.warn(`[OpenAI Chat ${node.id}] No usable text from inbound, using config prompt only:`, configPrompt?.substring(0, 80));
+    }
   } else {
-    // No connection value - use config prompt only
     prompt = configPrompt;
-    console.log(`[OpenAI Chat] Using config prompt only:`, configPrompt?.substring(0, 100));
+    if (inbound.length === 0) {
+      console.warn(`[OpenAI Chat ${node.id}] No inbound connections, using config prompt only:`, configPrompt?.substring(0, 80));
+    }
   }
 
   const userSystem = typeof config.system === "string" ? config.system.trim() || undefined : undefined;
   const messages = inboundMessages;
-  
+
   // Server-side enforced system prompt (from env or default)
-  const serverSystemPrompt = process.env.EDGAZE_SERVER_SYSTEM_PROMPT || 
-    "You are a helpful AI assistant running in Edgaze workflows. Be concise, accurate, and follow user instructions carefully.";
-  
+  const serverSystemPrompt = process.env.EDGAZE_SERVER_SYSTEM_PROMPT ||
+    "You are a helpful AI assistant running in Edgaze workflows. Be concise, accurate, and follow user instructions carefully.\n\nDo not echo or repeat the input values in your response. Just provide the requested output directly.";
+
   // Combine server system prompt with user's system prompt (server first, then user)
-  const system = userSystem 
+  const system = userSystem
     ? `${serverSystemPrompt}\n\nUser context: ${userSystem}`
     : serverSystemPrompt;
 
@@ -469,14 +315,14 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     }
     messagesForTokenCount = tempMessages;
   }
-  
+
   const tokenCount = countChatTokens({
     prompt,
     system, // Already includes server prompt + user system
     messages: messagesForTokenCount,
     maxTokens,
   });
-  
+
   const tokenValidation = validateNodeTokenLimit(
     node.id,
     tokenCount.total,
@@ -498,7 +344,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     // Prepend server system prompt to messages array (as first system message)
     const messageList: any[] = [];
     messageList.push({ role: "system", content: serverSystemPrompt });
-    
+
     // If user had a system message in their array, combine it
     const userSystemMsg = messages.find((m: any) => m.role === "system");
     if (userSystemMsg && userSystemMsg.content) {
@@ -509,7 +355,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       // No user system message, just prepend server system and add all user messages
       messageList.push(...messages);
     }
-    
+
     requestBody.messages = messageList;
   } else {
     const messageList: any[] = [];
@@ -554,7 +400,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     // Set output - downstream nodes can access both the full object and extract content easily
     // The getInboundValues will pass this object, and nodes can extract .content if needed
     ctx.setNodeOutput(node.id, result);
-    
+
     // Also store content separately for easier access (nodes can check for both)
     // This ensures backward compatibility and makes data flow smoother
     return result;
@@ -643,14 +489,14 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (node: GraphNode, ctx:
 const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const apiKey = getApiKey(node, ctx);
   const hasApiKey = !!apiKey;
-  
+
   // Check if this is user's own API key (not Edgaze's key)
   const isUserApiKey = isUserProvidedApiKey(node, ctx);
-  
+
   // RATE LIMITING: Check if image generation is allowed (5 free per user, then BYOK)
   const requestMeta = ctx.requestMetadata;
   const userId = requestMeta?.userId || undefined;
-  
+
   // Only check rate limits if user hasn't provided their own API key
   // If user provided their own key, they bypass free tier limits
   if (!isUserApiKey && requestMeta?.identifier && requestMeta?.identifierType) {
@@ -667,13 +513,13 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         const freeUsed = rateLimitCheck.freeUsed || 0;
         const freeRemaining = rateLimitCheck.freeRemaining || 0;
         throw new Error(
-          rateLimitCheck.error || 
+          rateLimitCheck.error ||
           `You have used all 5 free images (${freeUsed}/5 used). Please provide your OpenAI API key in the run modal to continue generating images.`
         );
       }
       // If check failed for other reasons, throw error
       throw new Error(
-        rateLimitCheck.error || 
+        rateLimitCheck.error ||
         "Image generation is not allowed at this time. Please provide your OpenAI API key."
       );
     }
@@ -720,6 +566,25 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   const quality = config.quality || "standard";
   const timeout = config.timeout ?? 60000;
 
+  // DALL-E 2 does not support "quality" parameter — only DALL-E 3 does. Never send it for dall-e-2.
+  const DALL_E_2_SIZES = ["256x256", "512x512", "1024x1024"];
+  const DALL_E_3_SIZES = ["1024x1024", "1792x1024", "1024x1792"];
+  const validSize =
+    model === "dall-e-3"
+      ? (DALL_E_3_SIZES.includes(size) ? size : "1024x1024")
+      : (DALL_E_2_SIZES.includes(size) ? size : "1024x1024");
+
+  const body: Record<string, unknown> = {
+    model,
+    prompt,
+    size: validSize,
+    n: 1,
+  };
+  if (model === "dall-e-3") {
+    body.quality = quality === "hd" ? "hd" : "standard";
+  }
+  // Never send "quality" for dall-e-2 — API returns "Unknown parameter: 'quality'"
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -730,13 +595,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model,
-        prompt,
-        size,
-        quality,
-        n: 1,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
@@ -897,7 +756,7 @@ const conditionHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtim
   const operator = config.operator || "truthy";
   const compareValue = config.compareValue;
   const humanCondition = config.humanCondition; // New: human-readable condition text
-  
+
   let result: boolean | undefined = undefined;
 
   // If human-readable condition is provided, use AI evaluation
@@ -907,7 +766,7 @@ const conditionHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtim
       try {
         const aiResult = await evaluateConditionWithAI(humanCondition.trim(), value, apiKey);
         result = aiResult.result;
-        console.log(`[Condition Node ${node.id}] AI evaluation: "${humanCondition}" = ${result} (confidence: ${aiResult.confidence})`);
+        console.warn(`[Condition Node ${node.id}] AI evaluation: "${humanCondition}" = ${result} (confidence: ${aiResult.confidence})`);
       } catch (err) {
         console.error(`[Condition Node ${node.id}] AI evaluation failed, falling back to operator:`, err);
         // Fall through to operator-based evaluation

@@ -6,28 +6,9 @@ import { matchNodesFromNaturalLanguage } from "src/nodes/nodeSearch";
 import type { NodeSpec } from "src/nodes/types";
 import { Search, Sparkles, Plus, ExternalLink, X } from "lucide-react";
 
-/* ---------- Size hook (kept as-is, just used for preview width) ---------- */
-function useElementSize<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const ro = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      const cr = entry.contentRect;
-      setSize({ width: cr.width, height: cr.height });
-    });
-    
-    ro.observe(ref.current);
-    return () => ro.disconnect();
-  }, []);
-
-  return { ref, size };
-}
-
 /* ---------- Compact preview card shown inside each block ---------- */
+const PREVIEW_CARD_WIDTH = 322;
+
 function PreviewCard({
   spec,
   onDragStart,
@@ -35,16 +16,11 @@ function PreviewCard({
   spec: NodeSpec;
   onDragStart: (e: React.DragEvent) => void;
 }) {
-  const stage = useElementSize<HTMLDivElement>();
-
-  // slightly narrower and shorter
-  const innerWidth = Math.max(200, Math.min(340, stage.size.width - 18));
-
   return (
-    <div ref={stage.ref} className="preview-stage edgaze-no-select">
+    <div className="preview-stage edgaze-no-select">
       <div
         className="edge-card preview-card overflow-hidden rounded-xl text-[11px] leading-snug"
-        style={{ width: `${innerWidth}px` }}
+        style={{ width: `${PREVIEW_CARD_WIDTH}px` }}
         draggable
         onDragStart={onDragStart}
         title="Drag to canvas"
@@ -140,11 +116,13 @@ function BlockLibrary({
   };
 
   useEffect(() => {
-    if (aiSearchOpen) {
+    if (!aiSearchOpen) return;
+    queueMicrotask(() => {
       setAiSearchResult(null);
       setAiSearchQuery("");
-      setTimeout(() => aiSearchInputRef.current?.focus(), 50);
-    }
+    });
+    const t = setTimeout(() => aiSearchInputRef.current?.focus(), 50);
+    return () => clearTimeout(t);
   }, [aiSearchOpen]);
 
   return (

@@ -77,7 +77,7 @@ export default function HandleChangeWarningDialog({
               <div>
                 <div className="text-[13px] font-semibold text-red-400 mb-0.5">60-Day Cooldown</div>
                 <div className="text-[12px] text-white/70 leading-relaxed">
-                  You won't be able to change it again for 2 months (60 days).
+                  You won&apos;t be able to change it again for 2 months (60 days).
                 </div>
               </div>
             </div>
@@ -99,7 +99,7 @@ export default function HandleChangeWarningDialog({
             <div className="text-[12px] text-white/60 leading-relaxed">
               <p className="font-medium mb-1.5">You acknowledge:</p>
               <ul className="space-y-1 ml-3 list-disc list-outside">
-                <li>Can't change again for 60 days</li>
+                <li>Can&apos;t change again for 60 days</li>
                 <li>Profile URL will update</li>
                 <li>All products will use new handle</li>
                 <li>Should update external links</li>

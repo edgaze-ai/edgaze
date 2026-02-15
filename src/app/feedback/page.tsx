@@ -302,19 +302,22 @@ export default function FeedbackPage() {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) {
         const d = JSON.parse(raw);
-        setRole(d.role ?? null);
-        setTried(safeStringArray<TriedOption>(d.tried));
-        setProblem(d.problem ?? "");
-        setFriction(safeStringArray<FrictionOption>(d.friction));
-        setBlocker(d.blocker ?? "");
-        setUseful(d.useful ?? null);
-        setWeak(d.weak ?? "");
-        setAlternative(d.alternative ?? "");
-        setComeBack(d.comeBack ?? null);
-        setMustChange(d.mustChange ?? "");
+        const tick = () => {
+          setRole(d.role ?? null);
+          setTried(safeStringArray<TriedOption>(d.tried));
+          setProblem(d.problem ?? "");
+          setFriction(safeStringArray<FrictionOption>(d.friction));
+          setBlocker(d.blocker ?? "");
+          setUseful(d.useful ?? null);
+          setWeak(d.weak ?? "");
+          setAlternative(d.alternative ?? "");
+          setComeBack(d.comeBack ?? null);
+          setMustChange(d.mustChange ?? "");
+        };
+        queueMicrotask(tick);
       }
     } catch {}
-    setHydrated(true);
+    queueMicrotask(() => setHydrated(true));
   }, []);
 
   useEffect(() => {

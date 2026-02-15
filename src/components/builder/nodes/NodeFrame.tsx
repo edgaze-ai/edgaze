@@ -89,6 +89,7 @@ function NodeFrameImpl(props: NodeProps) {
   const inlineToggles = (spec as any)?.inlineToggles ?? [];
   const canvasFields = (spec as any)?.canvasFields ?? [];
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- data is from React Flow node, stable in practice
   const previewText = useMemo(() => buildPreview(data, summary), [data, summary]);
 
   const { nodeInternals, edges } = useStore((s) => ({
@@ -109,7 +110,7 @@ function NodeFrameImpl(props: NodeProps) {
   const hasConnections = connectedNames.length > 0;
 
   const isOutput = (spec as any)?.id === "output";
-  
+
   // Get connected input for output node
   const connectedInput = useMemo(() => {
     if (!isOutput) return null;
@@ -128,7 +129,7 @@ function NodeFrameImpl(props: NodeProps) {
     const sourceTitle = connectedInput.data?.title || connectedInput.id;
     const sourceSpec = getNodeSpec(connectedInput.data?.specId);
     const sourceLabel = sourceSpec?.label || sourceTitle;
-    
+
     const format = data?.config?.format || "json";
     if (format === "json") {
       return `Will output the result from "${sourceLabel}" as JSON.`;

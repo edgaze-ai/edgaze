@@ -12,6 +12,7 @@ import React, {
 } from "react";
 import ReactFlow, {
   addEdge,
+  applyEdgeChanges,
   Background,
   BackgroundVariant,
   Connection,
@@ -183,7 +184,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
   const [nodes, setNodes, baseOnNodesChange] = useNodesState<EdgazeNodeData>([]);
 
-  const [edges, setEdges, baseOnEdgesChange] = useEdgesState<Edge>([]);
+  const [edges, setEdges] = useEdgesState<Edge>([]);
 
   const [locked, setLocked] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
@@ -263,7 +264,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const isValidConnection = useCallback(
     (connection: Connection | Edge): boolean => {
       if (!connection.source || !connection.target) {
-        console.log("[Connection] Rejected: Missing source or target", connection);
+        console.warn("[Connection] Rejected: Missing source or target", connection);
         return false;
       }
 
@@ -271,7 +272,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       const targetNode = nodesRef.current.find((n) => n.id === connection.target);
 
       if (!sourceNode || !targetNode) {
-        console.log("[Connection] Rejected: Nodes not found", { sourceNode, targetNode });
+        console.warn("[Connection] Rejected: Nodes not found", { sourceNode, targetNode });
         return false;
       }
 
@@ -280,11 +281,11 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       // If specs not found, allow connection (fallback)
       if (!sourceSpec || !targetSpec) {
-        console.log("[Connection] Allowed: Specs not found (fallback)", { sourceSpec, targetSpec });
+        console.warn("[Connection] Allowed: Specs not found (fallback)", { sourceSpec, targetSpec });
         return true;
       }
 
-      console.log("[Connection] Validating", {
+      console.warn("[Connection] Validating", {
         source: sourceSpec.id,
         target: targetSpec.id,
         sourceNodeId: sourceNode.id,
@@ -293,19 +294,19 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       // Rule 1: Input nodes cannot receive connections (they only output)
       if (targetSpec.id === "input") {
-        console.log("[Connection] Rejected: Rule 1 - Input nodes cannot receive connections");
+        console.warn("[Connection] Rejected: Rule 1 - Input nodes cannot receive connections");
         return false;
       }
 
       // Rule 2: Output nodes cannot send connections (they only receive)
       if (sourceSpec.id === "output") {
-        console.log("[Connection] Rejected: Rule 2 - Output nodes cannot send connections");
+        console.warn("[Connection] Rejected: Rule 2 - Output nodes cannot send connections");
         return false;
       }
 
       // Rule 3: Prevent self-connections
       if (sourceNode.id === targetNode.id) {
-        console.log("[Connection] Rejected: Rule 3 - Self-connection");
+        console.warn("[Connection] Rejected: Rule 3 - Self-connection");
         return false;
       }
 
@@ -313,7 +314,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       if (targetSpec.id === "condition") {
         const existingInputs = edgesRef.current.filter((e) => e.target === connection.target);
         if (existingInputs.length >= 1) {
-          console.log("[Connection] Rejected: Rule 4 - Condition node already has input");
+          console.warn("[Connection] Rejected: Rule 4 - Condition node already has input");
           return false;
         }
       }
@@ -322,7 +323,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       // Allow replacing existing connection (remove old one when connecting new one)
       if (targetSpec.id === "output") {
         const existingInputs = edgesRef.current.filter((e) => e.target === connection.target);
-        console.log("[Connection] Checking Rule 5 - Output node", {
+        console.warn("[Connection] Checking Rule 5 - Output node", {
           targetNodeId: connection.target,
           sourceNodeId: connection.source,
           existingInputs: existingInputs.length,
@@ -330,7 +331,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         });
         // Always allow - we'll replace the old connection in onConnect
         if (existingInputs.length >= 1) {
-          console.log("[Connection] Allowed: Rule 5 - Will replace existing connection");
+          console.warn("[Connection] Allowed: Rule 5 - Will replace existing connection");
         }
       }
 
@@ -338,7 +339,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       if (sourceSpec.id === "input") {
         const existingOutputs = edgesRef.current.filter((e) => e.source === connection.source);
         if (existingOutputs.length >= 1) {
-          console.log("[Connection] Rejected: Rule 6 - Input node already has output");
+          console.warn("[Connection] Rejected: Rule 6 - Input node already has output");
           return false;
         }
       }
@@ -349,12 +350,12 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         (e) => e.target === connection.target && ((e as any).targetHandle ?? null) === targetHandleKey
       );
       if (existingToSameHandle.length >= 1) {
-        console.log("[Connection] Rejected: Rule 7 - This input already has a connection (ambiguous)");
+        console.warn("[Connection] Rejected: Rule 7 - This input already has a connection (ambiguous)");
         return false;
       }
 
       // Trust ReactFlow's handle system - if it allows the connection, we allow it
-      console.log("[Connection] Allowed: All checks passed");
+      console.warn("[Connection] Allowed: All checks passed");
       return true;
     },
     []
@@ -469,13 +470,17 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       const targetSpec = targetNode ? getNodeSpec(targetNode.data?.specId) : null;
       if (targetSpec?.id === "output") {
         setEdges((eds) => {
-          // Remove existing edges to this output node
           const filtered = eds.filter((e) => e.target !== targetId);
-          // Add the new edge
-          return addEdge({ ...params, type: EDGE_TYPE }, filtered);
+          const next = addEdge({ ...params, type: EDGE_TYPE }, filtered);
+          edgesRef.current = next;
+          return next;
         });
       } else {
-        setEdges((eds) => addEdge({ ...params, type: EDGE_TYPE }, eds));
+        setEdges((eds) => {
+          const next = addEdge({ ...params, type: EDGE_TYPE }, eds);
+          edgesRef.current = next;
+          return next;
+        });
       }
 
       safeTrack("Builder Edge Created", {
@@ -539,7 +544,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             title: spec.label,
             version: spec.version ?? "1.0.0",
             summary: spec.summary ?? "",
-            config: (spec as any).defaultConfig ?? {},
+            // Clone defaultConfig so each node has its own copy; shared refs caused all input nodes to update together
+            config: JSON.parse(JSON.stringify((spec as any).defaultConfig ?? {})),
             icon: (spec as any).icon ?? spec.label?.charAt(0) ?? "N",
             connectedNames: [],
           },
@@ -571,14 +577,14 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       if (!specId || isPreview) return;
       addNodeAtCenter(specId);
     };
-    
+
     const busOff = on("builder:addNode", handler);
     const domHandler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       handler(detail);
     };
     window.addEventListener("edgaze:add-node", domHandler);
-    
+
     return () => {
       try {
         busOff?.();
@@ -778,7 +784,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
               }
             : n
         );
-        
+
         // Sync selection state if this node is currently selected - defer to avoid setState in render
         const updatedNode = updated.find((n) => n.id === nodeId);
         if (updatedNode && lastSelectionKeyRef.current === `n:${nodeId}`) {
@@ -791,7 +797,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             });
           }, 0);
         }
-        
+
         return updated;
       });
     },
@@ -805,6 +811,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       setNodes(nextNodes);
       setEdges(nextEdges);
+      edgesRef.current = nextEdges;
 
       fitSafely();
     },
@@ -893,7 +900,11 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             count: selectedEdgeIds.length,
             via: "keyboard",
           });
-          setEdges((eds) => eds.filter((ed) => !selectedEdgeIds.includes(ed.id)));
+          setEdges((eds) => {
+            const next = eds.filter((ed) => !selectedEdgeIds.includes(ed.id));
+            edgesRef.current = next;
+            return next;
+          });
           lastSelectionKeyRef.current = "none";
           setBubble(null);
           return;
@@ -916,7 +927,11 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         }
 
         setNodes((nds) => nds.filter((n) => n.selected !== true));
-        setEdges((eds) => eds.filter((ed) => ed.selected !== true));
+        setEdges((eds) => {
+          const next = eds.filter((ed) => ed.selected !== true);
+          edgesRef.current = next;
+          return next;
+        });
         lastSelectionKeyRef.current = "none";
         setBubble(null);
         onSelectionChange?.({ nodeId: null });
@@ -1010,6 +1025,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           y: (src.position?.y ?? 0) + 24,
         },
         selected: false,
+        // Clone data so pasted node has its own config; avoid shared refs between nodes
+        data: JSON.parse(JSON.stringify(src.data ?? {})),
       })
     );
   };
@@ -1038,6 +1055,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           y: (src.position?.y ?? 0) + 18,
         },
         selected: false,
+        // Clone data so duplicated node has its own config; avoid shared refs between nodes
+        data: JSON.parse(JSON.stringify(src.data ?? {})),
       })
     );
   };
@@ -1066,7 +1085,11 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       count: 1,
       via: "ui",
     });
-    setEdges((eds) => eds.filter((e) => e.id !== bubble.id));
+    setEdges((eds) => {
+      const next = eds.filter((e) => e.id !== bubble.id);
+      edgesRef.current = next;
+      return next;
+    });
     lastSelectionKeyRef.current = "none";
     setBubble(null);
   };
@@ -1104,18 +1127,29 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     [baseOnNodesChange, isPreview]
   );
 
-  // Preview blocks edge changes entirely (keep selection only)
+  // Apply edge changes and sync edgesRef immediately so reconnection after
+  // disconnect sees up-to-date state (avoids "can't reconnect" bug).
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       if (!isPreview) {
-        baseOnEdgesChange(changes);
+        setEdges((eds) => {
+          const next = applyEdgeChanges(changes, eds);
+          edgesRef.current = next;
+          return next;
+        });
         return;
       }
 
       const allowed = changes.filter((c: any) => c?.type === "select");
-      if (allowed.length > 0) baseOnEdgesChange(allowed);
+      if (allowed.length > 0) {
+        setEdges((eds) => {
+          const next = applyEdgeChanges(allowed, eds);
+          edgesRef.current = next;
+          return next;
+        });
+      }
     },
-    [baseOnEdgesChange, isPreview]
+    [setEdges, isPreview]
   );
 
   return (
@@ -1262,7 +1296,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             }
             return;
           }
-          
+
           const selectedNode = sel?.nodes?.[0] as Node<EdgazeNodeData> | undefined;
           const selectedEdge = sel?.edges?.[0];
 

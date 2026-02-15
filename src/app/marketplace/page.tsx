@@ -1124,7 +1124,7 @@ type SearchBarProps = {
 
   // refs/timers
   predictBoxRef: React.RefObject<HTMLDivElement | null>;
-  predictBlurTimer: React.MutableRefObject<number | null>;
+  predictBlurTimerRef: React.MutableRefObject<number | null>;
   inputRef: React.RefObject<HTMLInputElement | null>;
 };
 
@@ -1146,7 +1146,7 @@ function MarketplaceSearchBar({
   setActivePredictIndexValue,
   handlePredictSelect,
   predictBoxRef,
-  predictBlurTimer,
+  predictBlurTimerRef,
   inputRef,
 }: SearchBarProps) {
   const showPredict =
@@ -1188,13 +1188,13 @@ function MarketplaceSearchBar({
             setPredictOpen(true);
           }}
           onFocus={() => {
-            if (predictBlurTimer.current) window.clearTimeout(predictBlurTimer.current);
+            if (predictBlurTimerRef.current) window.clearTimeout(predictBlurTimerRef.current);
             setSearchFocused(true);
             setPredictOpen(true);
           }}
           onBlur={() => {
-            if (predictBlurTimer.current) window.clearTimeout(predictBlurTimer.current);
-            predictBlurTimer.current = window.setTimeout(() => {
+            if (predictBlurTimerRef.current) window.clearTimeout(predictBlurTimerRef.current);
+            predictBlurTimerRef.current = window.setTimeout(() => {
               setPredictOpen(false);
               setSearchFocused(false);
             }, 180);
@@ -1509,7 +1509,7 @@ const committedDebouncedQuery = useDebouncedValue(query.trim(), 3000);
   // predictor
   const [predictOpen, setPredictOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
-  const predictBlurTimer = useRef<number | null>(null);
+  const predictBlurTimerRef = useRef<number | null>(null);
   const [predictLoading, setPredictLoading] = useState(false);
   const [predictResults, setPredictResults] = useState<UnifiedSearchResult[]>([]);
   const predictDebounced = useDebouncedValue(query.trim(), 160);
@@ -2485,7 +2485,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
               setActivePredictIndexValue={(v) => setActivePredictIndex(v)}
               handlePredictSelect={handlePredictSelect}
               predictBoxRef={predictBoxRef}
-              predictBlurTimer={predictBlurTimer}
+              predictBlurTimerRef={predictBlurTimerRef}
               inputRef={searchInputRef}
             />
           </div>
@@ -2509,7 +2509,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
               setActivePredictIndexValue={(v) => setActivePredictIndex(v)}
               handlePredictSelect={handlePredictSelect}
               predictBoxRef={predictBoxRef}
-              predictBlurTimer={predictBlurTimer}
+              predictBlurTimerRef={predictBlurTimerRef}
               inputRef={searchInputRefMobile}
             />
           </div>

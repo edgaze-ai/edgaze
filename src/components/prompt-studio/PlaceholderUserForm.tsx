@@ -14,15 +14,17 @@ export default function PlaceholderUserForm({ placeholders }: Props) {
   const [values, setValues] = useState<ValueMap>({});
 
   useEffect(() => {
-    setValues((prev) => {
-      const next: ValueMap = { ...prev };
-      for (const ph of placeholders) {
-        if (next[ph.name] === undefined) next[ph.name] = "";
-      }
-      Object.keys(next).forEach((key) => {
-        if (!placeholders.find((p) => p.name === key)) delete next[key];
+    queueMicrotask(() => {
+      setValues((prev) => {
+        const next: ValueMap = { ...prev };
+        for (const ph of placeholders) {
+          if (next[ph.name] === undefined) next[ph.name] = "";
+        }
+        Object.keys(next).forEach((key) => {
+          if (!placeholders.find((p) => p.name === key)) delete next[key];
+        });
+        return next;
       });
-      return next;
     });
   }, [placeholders]);
 

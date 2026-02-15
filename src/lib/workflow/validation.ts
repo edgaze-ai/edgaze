@@ -31,6 +31,35 @@ const EXPENSIVE_NODE_TYPES = [
   "google-ai",
 ];
 
+/** DALL-E 2 does not support "quality" (API returns unknown parameter). Only DALL-E 3 supports "standard" | "hd". */
+const DALL_E_2_SIZES = ["256x256", "512x512", "1024x1024"];
+const DALL_E_3_SIZES = ["1024x1024", "1792x1024", "1024x1792"];
+
+function validateOpenAIImageNode(node: GraphNode): string[] {
+  const config = node.data?.config ?? {};
+  const model = config.model || "dall-e-2";
+  const quality = config.quality || "standard";
+  const size = config.size || "1024x1024";
+  const name = config.name || node.data?.specId || "OpenAI Image";
+  const errs: string[] = [];
+  if (model === "dall-e-2" && quality === "hd") {
+    errs.push(
+      `${name}: Quality "HD" is only supported with DALL-E 3. In the inspector, either set Model to "DALL-E 3" or set Quality to "Standard".`
+    );
+  }
+  if (model === "dall-e-2" && !DALL_E_2_SIZES.includes(size)) {
+    errs.push(
+      `${name}: Size "${size}" is not valid for DALL-E 2. In the inspector, choose Model "DALL-E 3" or set Size to one of: 256x256, 512x512, 1024x1024.`
+    );
+  }
+  if (model === "dall-e-3" && !DALL_E_3_SIZES.includes(size)) {
+    errs.push(
+      `${name}: Size "${size}" is not valid for DALL-E 3. In the inspector, set Size to one of: 1024x1024, 1792x1024, 1024x1792.`
+    );
+  }
+  return errs;
+}
+
 const MAX_NODES = 50;
 const MAX_EXPENSIVE_NODES = 10;
 const MAX_DEPTH = 20;
@@ -148,6 +177,14 @@ export function validateWorkflowGraph(
     errors.push(
       `Workflow contains ${nodes.length} nodes, which exceeds the maximum of ${MAX_NODES}. Large workflows can consume significant resources. Please simplify your workflow.`
     );
+  }
+
+  // Validate OpenAI Image node config so invalid params are never sent to the API
+  for (const node of nodes) {
+    if (node.data?.specId === "openai-image") {
+      const nodeErrors = validateOpenAIImageNode(node);
+      errors.push(...nodeErrors);
+    }
   }
 
   // Check for expensive nodes

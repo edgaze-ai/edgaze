@@ -45,10 +45,10 @@ export default function ProfileMenu() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // IMPORTANT: hooks must run on every render (fixes "Rendered more hooks than previous render")
+  const userHandle = (user as any)?.handle;
   const readyHandle = useMemo(
-    () => safeHandle(profile?.handle) || safeHandle((user as any)?.handle),
-    [profile?.handle, (user as any)?.handle]
+    () => safeHandle(profile?.handle) || safeHandle(userHandle),
+    [profile?.handle, userHandle]
   );
 
   const avatarSrc = profile?.avatar_url || DEFAULT_AVATAR_SRC;

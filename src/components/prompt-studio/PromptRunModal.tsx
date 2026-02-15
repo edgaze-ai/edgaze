@@ -103,30 +103,32 @@ export default function PromptRunModal({
     placeholders.forEach((p) => {
       init[p.key] = (p.default ?? "").toString();
     });
-    setValues(init);
-    setCopied(false);
-    setProviderHint("chatgpt");
-    setMobileTab(placeholders.length > 0 ? "fields" : "prompt");
+    queueMicrotask(() => {
+      setValues(init);
+      setCopied(false);
+      setProviderHint("chatgpt");
+      setMobileTab(placeholders.length > 0 ? "fields" : "prompt");
+    });
   }, [open]);
 
   // Update values when placeholders change (add new ones, but keep existing values)
   useEffect(() => {
     if (!open) return;
-    
-    setValues((prev) => {
-      const updated = { ...prev };
-      placeholders.forEach((p) => {
-        if (!(p.key in updated)) {
-          updated[p.key] = (p.default ?? "").toString();
-        }
+    queueMicrotask(() => {
+      setValues((prev) => {
+        const updated = { ...prev };
+        placeholders.forEach((p) => {
+          if (!(p.key in updated)) {
+            updated[p.key] = (p.default ?? "").toString();
+          }
+        });
+        Object.keys(updated).forEach((key) => {
+          if (!placeholders.some((p) => p.key === key)) {
+            delete updated[key];
+          }
+        });
+        return updated;
       });
-      // Remove values for placeholders that no longer exist
-      Object.keys(updated).forEach((key) => {
-        if (!placeholders.some((p) => p.key === key)) {
-          delete updated[key];
-        }
-      });
-      return updated;
     });
   }, [placeholders, open]);
 
@@ -285,7 +287,7 @@ export default function PromptRunModal({
           <ExternalLink className="h-4 w-4 mt-[1px] text-white/45" />
           <div className="min-w-0">
             <div className="text-white/80 font-semibold">Fast fallback</div>
-            <div className="mt-0.5 leading-snug">If prefill doesn't show, paste (Cmd+V / Ctrl+V) and send.</div>
+            <div className="mt-0.5 leading-snug">If prefill doesn&apos;t show, paste (Cmd+V / Ctrl+V) and send.</div>
           </div>
         </div>
       </div>

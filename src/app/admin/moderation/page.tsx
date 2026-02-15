@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
 
@@ -64,11 +64,11 @@ function AdminToggle({
   const trackClass =
     variant === "warning"
       ? checked
-        ? "bg-amber-500/20 border-amber-500/30"
-        : "bg-white/[0.06] border-white/[0.12]"
+        ? "bg-amber-500/25 border-amber-500/35 shadow-[inset_0_1px_0_rgba(251,191,36,0.15)]"
+        : "bg-white/[0.06] border-white/[0.1]"
       : checked
-        ? "bg-amber-500/20 border-amber-500/30"
-        : "bg-emerald-500/20 border-emerald-500/30";
+        ? "bg-amber-500/25 border-amber-500/35 shadow-[inset_0_1px_0_rgba(251,191,36,0.15)]"
+        : "bg-emerald-500/20 border-emerald-500/30 shadow-[inset_0_1px_0_rgba(34,197,94,0.1)]";
   return (
     <button
       type="button"
@@ -77,10 +77,10 @@ function AdminToggle({
       aria-label={checked ? labelOn : labelOff}
       disabled={disabled}
       onClick={onToggle}
-      className={`relative inline-flex h-9 w-[7.25rem] shrink-0 items-center rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-[#0b0b0b] disabled:opacity-50 disabled:cursor-not-allowed ${trackClass}`}
+      className={`relative inline-flex h-9 w-[7.25rem] shrink-0 items-center rounded-full border transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:ring-offset-2 focus:ring-offset-[#070708] disabled:opacity-50 disabled:cursor-not-allowed ${trackClass}`}
     >
       <span
-        className={`absolute top-1/2 h-7 w-7 -translate-y-1/2 rounded-full bg-white/95 shadow-sm transition-transform duration-200 left-0.5 ${
+        className={`absolute top-1/2 h-7 w-7 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.8)] transition-transform duration-200 left-0.5 ${
           checked ? "translate-x-[4.5rem]" : "translate-x-0"
         }`}
       />
@@ -111,6 +111,10 @@ export default function AdminModerationPage() {
   const [replenishWorkflowId, setReplenishWorkflowId] = useState("");
   const [replenishLoading, setReplenishLoading] = useState(false);
 
+  const [refillWorkflowUsername, setRefillWorkflowUsername] = useState("");
+  const [refillWorkflowId, setRefillWorkflowId] = useState("");
+  const [refillWorkflowLoading, setRefillWorkflowLoading] = useState(false);
+
   const [appsPausedLoading, setAppsPausedLoading] = useState(true);
   const [appsPausedSaving, setAppsPausedSaving] = useState(false);
   const [appsPaused, setAppsPaused] = useState(false);
@@ -119,7 +123,7 @@ export default function AdminModerationPage() {
   const [maintenanceSaving, setMaintenanceSaving] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
 
-  async function loadAppsPaused() {
+  const loadAppsPaused = useCallback(async () => {
     setAppsPausedLoading(true);
     try {
       const { data, error } = await supabase
@@ -134,7 +138,7 @@ export default function AdminModerationPage() {
     } finally {
       setAppsPausedLoading(false);
     }
-  }
+  }, [supabase]);
 
   async function saveAppsPaused(next: boolean) {
     setAppsPausedSaving(true);
@@ -154,7 +158,7 @@ export default function AdminModerationPage() {
     }
   }
 
-  async function loadMaintenanceMode() {
+  const loadMaintenanceMode = useCallback(async () => {
     setMaintenanceLoading(true);
     try {
       const { data, error } = await supabase
@@ -169,7 +173,7 @@ export default function AdminModerationPage() {
     } finally {
       setMaintenanceLoading(false);
     }
-  }
+  }, [supabase]);
 
   async function saveMaintenanceMode(next: boolean) {
     setMaintenanceSaving(true);
@@ -189,7 +193,7 @@ export default function AdminModerationPage() {
     }
   }
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setActionMsg(null);
     let q = supabase.from("reports").select("*").order("created_at", { ascending: false });
@@ -231,14 +235,14 @@ export default function AdminModerationPage() {
     setRows(enrichedList);
     setSelected((prev) => (prev ? enrichedList.find((x) => x.id === prev.id) ?? null : null));
     setLoading(false);
-  }
+  }, [supabase, tab]);
 
   useEffect(() => {
     if (!authReady || !userId) return;
     load();
     loadAppsPaused();
     loadMaintenanceMode();
-  }, [authReady, userId, tab]);
+  }, [authReady, userId, tab, load, loadAppsPaused, loadMaintenanceMode]);
 
   useEffect(() => {
     const chApps = supabase
@@ -323,9 +327,18 @@ export default function AdminModerationPage() {
       return;
     }
     try {
+      const token = await getAccessToken();
+      if (!token) {
+        setActionMsg("Not authenticated.");
+        setReplenishLoading(false);
+        return;
+      }
       const response = await fetch("/api/admin/replenish-demo", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           username: username.replace(/^@/, ""),
           workflowId: replenishWorkflowId.trim() || null,
@@ -343,6 +356,48 @@ export default function AdminModerationPage() {
       setActionMsg(error.message || "Failed to replenish demo runs");
     } finally {
       setReplenishLoading(false);
+    }
+  }
+
+  async function refillWorkflowRuns() {
+    setActionMsg(null);
+    setRefillWorkflowLoading(true);
+    const username = refillWorkflowUsername.trim();
+    if (!username) {
+      setActionMsg("Username is required for workflow run refill.");
+      setRefillWorkflowLoading(false);
+      return;
+    }
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setActionMsg("Not authenticated.");
+        setRefillWorkflowLoading(false);
+        return;
+      }
+      const response = await fetch("/api/admin/refill-workflow-runs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          username: username.replace(/^@/, ""),
+          workflowId: refillWorkflowId.trim() || null,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setActionMsg(result.error || "Failed to refill workflow runs");
+        return;
+      }
+      setActionMsg(result.message || "Workflow runs refilled successfully.");
+      setRefillWorkflowUsername("");
+      setRefillWorkflowId("");
+    } catch (error: unknown) {
+      setActionMsg(error instanceof Error ? error.message : "Failed to refill workflow runs");
+    } finally {
+      setRefillWorkflowLoading(false);
     }
   }
 
@@ -395,17 +450,25 @@ export default function AdminModerationPage() {
   }
 
   const cardClass =
-    "rounded-2xl border border-white/[0.08] bg-white/[0.03] shadow-sm";
-  const cardHeaderClass = "text-xs font-medium uppercase tracking-wider text-white/50 mb-1";
+    "rounded-2xl border border-white/[0.06] bg-gradient-to-b from-white/[0.04] to-white/[0.01] shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset,0_4px_24px_-4px_rgba(0,0,0,0.4)]";
+  const cardHeaderClass =
+    "text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5";
   const inputClass =
-    "w-full rounded-xl border border-white/[0.1] bg-black/30 px-3 py-2.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/20 transition-colors";
+    "w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-[14px] text-white placeholder:text-white/35 outline-none transition-all focus:border-cyan-500/40 focus:ring-2 focus:ring-cyan-500/10 focus:bg-white/[0.04]";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Section tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold tracking-tight text-white/95">Moderation</h1>
-        <nav className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
+      <div className="flex flex-wrap items-center justify-between gap-6">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">
+            Moderation
+          </h1>
+          <p className="mt-1 text-[13px] text-white/50">
+            Review reports, control platform settings, and manage users
+          </p>
+        </div>
+        <nav className="flex rounded-xl border border-white/[0.06] bg-white/[0.02] p-1 shadow-sm">
           {(
             [
               ["reports", "Reports"],
@@ -416,10 +479,10 @@ export default function AdminModerationPage() {
             <button
               key={key}
               onClick={() => setSection(key)}
-              className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`rounded-lg px-5 py-2.5 text-[13px] font-medium transition-all ${
                 section === key
-                  ? "bg-white/10 text-white shadow-sm"
-                  : "text-white/60 hover:text-white/80 hover:bg-white/[0.06]"
+                  ? "bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                  : "text-white/55 hover:text-white/85 hover:bg-white/[0.05]"
               }`}
             >
               {label}
@@ -431,7 +494,7 @@ export default function AdminModerationPage() {
       {actionMsg ? (
         <div
           role="alert"
-          className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-200"
+          className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3.5 text-[13px] text-amber-200/95 shadow-[0_1px_0_0_rgba(251,191,36,0.1)_inset]"
         >
           {actionMsg}
         </div>
@@ -441,7 +504,7 @@ export default function AdminModerationPage() {
       {section === "reports" && (
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <p className="text-sm text-white/55 max-w-xl">
+            <p className="text-[13px] text-white/50 max-w-xl">
               Review and action user reports. Mark triaged, actioned, or rejected. Takedown prompts/workflows when needed.
             </p>
             <div className="flex items-center gap-2">
@@ -449,10 +512,10 @@ export default function AdminModerationPage() {
                 <button
                   key={t}
                   onClick={() => setTab(t)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`rounded-lg border px-4 py-2.5 text-[13px] font-medium transition-all ${
                     tab === t
-                      ? "border-white/20 bg-white/10 text-white"
-                      : "border-white/[0.1] bg-white/[0.04] text-white/70 hover:bg-white/[0.08]"
+                      ? "border-white/15 bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                      : "border-white/[0.08] bg-white/[0.03] text-white/65 hover:bg-white/[0.06] hover:text-white/85"
                   }`}
                 >
                   {t === "open" ? "Open" : t === "triaged" ? "Triaged" : "All"}
@@ -460,7 +523,7 @@ export default function AdminModerationPage() {
               ))}
               <button
                 onClick={load}
-                className="rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-medium text-white/70 hover:bg-white/[0.08] transition-colors"
+                className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2.5 text-[13px] font-medium text-white/65 hover:bg-white/[0.06] hover:text-white/85 transition-all"
               >
                 Refresh
               </button>
@@ -469,14 +532,20 @@ export default function AdminModerationPage() {
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className={`${cardClass} flex flex-col overflow-hidden lg:col-span-1`}>
-              <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
+              <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4">
                 <span className={cardHeaderClass}>Queue</span>
-                <span className="text-sm font-medium tabular-nums text-white/60">{rows.length}</span>
+                <span className="text-[13px] font-semibold tabular-nums text-white/55">{rows.length}</span>
               </div>
               {loading ? (
-                <div className="px-5 py-8 text-sm text-white/50">Loading…</div>
+                <div className="flex flex-col items-center justify-center px-6 py-12 gap-3">
+                  <div className="h-6 w-6 rounded-full border-2 border-cyan-400/20 border-t-cyan-400/80 animate-spin" />
+                  <p className="text-[13px] text-white/45">Loading…</p>
+                </div>
               ) : rows.length === 0 ? (
-                <div className="px-5 py-8 text-sm text-white/50">No reports.</div>
+                <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+                  <p className="text-[13px] text-white/45">No reports in this view</p>
+                  <p className="mt-1 text-[12px] text-white/35">Try another filter or check back later</p>
+                </div>
               ) : (
                 <div className="max-h-[65vh] overflow-y-auto">
                   {rows.map((r) => {
@@ -486,31 +555,33 @@ export default function AdminModerationPage() {
                         key={r.id}
                         type="button"
                         onClick={() => pick(r)}
-                        className={`w-full text-left border-b border-white/[0.06] px-5 py-3.5 transition-colors last:border-0 hover:bg-white/[0.06] ${
-                          active ? "bg-white/[0.08]" : ""
+                        className={`w-full text-left border-b border-white/[0.05] px-6 py-4 transition-all last:border-0 hover:bg-white/[0.04] relative ${
+                          active
+                            ? "bg-white/[0.06] border-l-2 border-l-cyan-500/60 pl-[22px]"
+                            : "border-l-2 border-l-transparent"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium text-white/90 truncate">
+                          <span className="text-[13px] font-medium text-white/90 truncate">
                             {r.target_type} · {r.reason}
                           </span>
                           <span
-                            className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${
+                            className={`shrink-0 rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
                               r.status === "open"
-                                ? "border-cyan-400/30 bg-cyan-500/10 text-cyan-200"
+                                ? "border-cyan-400/25 bg-cyan-500/15 text-cyan-300/95"
                                 : r.status === "triaged"
-                                  ? "border-purple-400/30 bg-purple-500/10 text-purple-200"
+                                  ? "border-purple-400/25 bg-purple-500/15 text-purple-300/95"
                                   : r.status === "actioned"
-                                    ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                                    : "border-white/15 bg-white/5 text-white/50"
+                                    ? "border-emerald-400/25 bg-emerald-500/15 text-emerald-300/95"
+                                    : "border-white/10 bg-white/5 text-white/45"
                             }`}
                           >
                             {r.status}
                           </span>
                         </div>
-                        <div className="mt-1 text-xs text-white/45">{fmt(r.created_at)}</div>
+                        <div className="mt-1.5 text-[12px] text-white/40">{fmt(r.created_at)}</div>
                         {r.details ? (
-                          <div className="mt-1 line-clamp-2 text-xs text-white/55">{r.details}</div>
+                          <div className="mt-1.5 line-clamp-2 text-[12px] text-white/50">{r.details}</div>
                         ) : null}
                       </button>
                     );
@@ -521,17 +592,23 @@ export default function AdminModerationPage() {
 
             <div className={`${cardClass} p-6 lg:col-span-2`}>
               {!selected ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <p className="text-sm text-white/50">Select a report from the queue</p>
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 mb-4">
+                    <div className="h-12 w-12 rounded-xl bg-white/[0.05] flex items-center justify-center mx-auto text-white/30 text-2xl font-light">
+                      →
+                    </div>
+                  </div>
+                  <p className="text-[14px] font-medium text-white/50">Select a report from the queue</p>
+                  <p className="mt-1 text-[12px] text-white/35">Details and actions will appear here</p>
                 </div>
               ) : (
                 <div className="space-y-6">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <h2 className="text-base font-semibold text-white/95">
+                      <h2 className="text-lg font-semibold text-white">
                         {selected.target_type} reported
                       </h2>
-                      <p className="mt-1 text-xs text-white/50">
+                      <p className="mt-1.5 text-[12px] text-white/45">
                         {fmt(selected.created_at)} · reporter {selected.reporter_id}
                       </p>
                     </div>
@@ -539,16 +616,16 @@ export default function AdminModerationPage() {
                       href={targetHref(selected, selected.target_owner_handle, selected.target_edgaze_code)}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-lg border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/90 hover:bg-white/[0.1] transition-colors"
+                      className="rounded-xl border border-white/[0.1] bg-white/[0.04] px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.08] hover:border-white/[0.15] transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                     >
                       Open target
                     </a>
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
                       <p className={cardHeaderClass}>Target</p>
-                      <p className="mt-2 text-sm text-white/80">
+                      <p className="mt-2 text-[13px] text-white/75">
                         {selected.target_type}
                         {(selected.target_type === "prompt" || selected.target_type === "workflow") &&
                           selected.target_title && (
@@ -572,32 +649,32 @@ export default function AdminModerationPage() {
                         </span>
                       </p>
                     </div>
-                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
                       <p className={cardHeaderClass}>Reason</p>
-                      <p className="mt-2 text-sm text-white/85">{selected.reason}</p>
+                      <p className="mt-2 text-[13px] text-white/85">{selected.reason}</p>
                     </div>
                   </div>
 
                   {selected.details ? (
-                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
                       <p className={cardHeaderClass}>Details</p>
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-white/85">
+                      <p className="mt-2 whitespace-pre-wrap text-[13px] text-white/85 leading-relaxed">
                         {selected.details}
                       </p>
                     </div>
                   ) : null}
 
                   {selected.evidence_urls && selected.evidence_urls.length > 0 ? (
-                    <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
                       <p className={cardHeaderClass}>Evidence</p>
-                      <div className="mt-2 space-y-1">
+                      <div className="mt-2 space-y-1.5">
                         {selected.evidence_urls.map((u) => (
                           <a
                             key={u}
                             href={u}
                             target="_blank"
                             rel="noreferrer"
-                            className="block break-all text-sm text-cyan-300 hover:underline"
+                            className="block break-all text-[13px] text-cyan-400/90 hover:text-cyan-300 hover:underline transition-colors"
                           >
                             {u}
                           </a>
@@ -606,7 +683,7 @@ export default function AdminModerationPage() {
                     </div>
                   ) : null}
 
-                  <div className="rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
                     <p className={`${cardHeaderClass} mb-2`}>Admin notes</p>
                     <textarea
                       value={notes}
@@ -617,29 +694,29 @@ export default function AdminModerationPage() {
                     />
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-3">
                     <button
                       onClick={() => setStatus(selected.id, "triaged")}
-                      className="rounded-lg border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/85 hover:bg-white/[0.1] transition-colors"
+                      className="rounded-xl border border-white/[0.1] bg-white/[0.04] px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.08] transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
                     >
                       Mark triaged
                     </button>
                     <button
                       onClick={() => setStatus(selected.id, "actioned")}
-                      className="rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-4 py-2.5 text-sm font-medium text-emerald-200 hover:bg-emerald-500/20 transition-colors"
+                      className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-4 py-2.5 text-[13px] font-medium text-emerald-200 hover:bg-emerald-500/25 transition-all shadow-[0_1px_0_rgba(34,197,94,0.2)_inset]"
                     >
                       Mark actioned
                     </button>
                     <button
                       onClick={() => setStatus(selected.id, "rejected")}
-                      className="rounded-lg border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/85 hover:bg-white/[0.1] transition-colors"
+                      className="rounded-xl border border-white/[0.1] bg-white/[0.04] px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.08] transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
                     >
                       Reject
                     </button>
                   </div>
 
                   {(selected.target_type === "prompt" || selected.target_type === "workflow") && (
-                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-3">
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-5 space-y-4 shadow-[inset_0_1px_0_rgba(251,191,36,0.08)]">
                       <p className={cardHeaderClass}>
                         Take down (removes from marketplace, reason shown to owner)
                       </p>
@@ -654,7 +731,7 @@ export default function AdminModerationPage() {
                         type="button"
                         onClick={takeDownListing}
                         disabled={takedownLoading || !takedownReason.trim()}
-                        className="rounded-lg border border-amber-500/30 bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="rounded-xl border border-amber-500/30 bg-amber-500/15 px-4 py-2.5 text-[13px] font-medium text-amber-200 hover:bg-amber-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_1px_0_rgba(251,191,36,0.15)_inset]"
                       >
                         {takedownLoading ? "Taking down…" : "Take down"}
                       </button>
@@ -670,30 +747,31 @@ export default function AdminModerationPage() {
       {/* Platform */}
       {section === "platform" && (
         <div className="space-y-6">
-          <p className="text-sm text-white/55 max-w-xl">
+          <p className="text-[13px] text-white/50 max-w-xl">
             Control beta applications and platform-wide maintenance. Changes apply immediately.
           </p>
 
           <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
             <div className={`${cardClass} p-6`}>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="text-base font-semibold text-white/95">Applications</h3>
-                  <p className="mt-1 text-sm text-white/55">
+                  <h3 className="text-[15px] font-semibold text-white">Applications</h3>
+                  <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed">
                     Pause or resume accepting beta applications.
                   </p>
                   {(appsPausedLoading || appsPausedSaving) && (
-                    <p className="mt-2 text-xs text-white/45">
+                    <p className="mt-2.5 text-[12px] text-white/40 flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400/80 animate-pulse" />
                       {appsPausedLoading ? "Loading…" : "Saving…"}
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 sm:shrink-0">
                   <span
-                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+                    className={`rounded-lg border px-3 py-1.5 text-[12px] font-semibold uppercase tracking-wide ${
                       appsPaused
-                        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
-                        : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                        ? "border-amber-400/25 bg-amber-500/15 text-amber-300/95"
+                        : "border-emerald-400/25 bg-emerald-500/15 text-emerald-300/95"
                     }`}
                   >
                     {appsPaused ? "Paused" : "Accepting"}
@@ -709,28 +787,29 @@ export default function AdminModerationPage() {
               </div>
             </div>
 
-            <div className={`${cardClass} border-amber-500/15 bg-amber-500/[0.03] p-6`}>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className={`${cardClass} border-amber-500/15 bg-gradient-to-b from-amber-500/[0.06] to-amber-500/[0.02] p-6`}>
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h3 className="text-base font-semibold text-white/95">Maintenance mode</h3>
-                  <p className="mt-1 text-sm text-white/55">
+                  <h3 className="text-[15px] font-semibold text-white">Maintenance mode</h3>
+                  <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed">
                     Show &quot;Platform under maintenance&quot; on all pages except landing and admin.
                   </p>
-                  <div className="mt-3 rounded-lg border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                    <strong>Warning:</strong> Enabling blocks marketplace, builder, prompt studio, and profiles. Only homepage and admin stay accessible.
+                  <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-[12px] text-amber-200/90 leading-relaxed shadow-[inset_0_1px_0_rgba(251,191,36,0.08)]">
+                    <strong className="font-semibold text-amber-200">Warning:</strong> Enabling blocks marketplace, builder, prompt studio, and profiles. Only homepage and admin stay accessible.
                   </div>
                   {(maintenanceLoading || maintenanceSaving) && (
-                    <p className="mt-2 text-xs text-white/45">
+                    <p className="mt-2.5 text-[12px] text-white/40 flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400/80 animate-pulse" />
                       {maintenanceLoading ? "Loading…" : "Saving…"}
                     </p>
                   )}
                 </div>
                 <div className="flex items-center gap-3 sm:shrink-0">
                   <span
-                    className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+                    className={`rounded-lg border px-3 py-1.5 text-[12px] font-semibold uppercase tracking-wide ${
                       maintenanceMode
-                        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
-                        : "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
+                        ? "border-amber-400/25 bg-amber-500/15 text-amber-300/95"
+                        : "border-emerald-400/25 bg-emerald-500/15 text-emerald-300/95"
                     }`}
                   >
                     {maintenanceMode ? "On" : "Off"}
@@ -753,19 +832,19 @@ export default function AdminModerationPage() {
       {/* Tools */}
       {section === "tools" && (
         <div className="space-y-6">
-          <p className="text-sm text-white/55 max-w-xl">
-            Replenish demo runs for users and manage user bans. Use after reviewing reports when needed.
+          <p className="text-[13px] text-white/50 max-w-xl">
+            Replenish demo runs, refill workflow runs (free run count), and manage user bans. Use after reviewing reports when needed.
           </p>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <div className={`${cardClass} p-6`}>
-              <h3 className="text-base font-semibold text-white/95">Replenish demo runs</h3>
-              <p className="mt-1 text-sm text-white/55">
+              <h3 className="text-[15px] font-semibold text-white">Replenish demo runs</h3>
+              <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed">
                 Reset demo run limits for a user by username or handle.
               </p>
-              <div className="mt-5 space-y-4">
+              <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5">
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">
                     Username / handle
                   </label>
                   <input
@@ -779,7 +858,7 @@ export default function AdminModerationPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5">
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">
                     Workflow ID (optional)
                   </label>
                   <input
@@ -788,12 +867,12 @@ export default function AdminModerationPage() {
                     className={inputClass}
                     placeholder="Leave blank for all workflows"
                   />
-                  <p className="mt-1 text-xs text-white/45">Leave blank to reset all demo runs for the user.</p>
+                  <p className="mt-1.5 text-[12px] text-white/40">Leave blank to reset all demo runs for the user.</p>
                 </div>
                 <button
                   onClick={replenishDemo}
                   disabled={replenishLoading || !replenishUsername.trim()}
-                  className="rounded-lg border border-amber-500/25 bg-amber-500/15 px-4 py-2.5 text-sm font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="rounded-xl border border-amber-500/25 bg-amber-500/15 px-4 py-2.5 text-[13px] font-medium text-amber-200 hover:bg-amber-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_1px_0_rgba(251,191,36,0.15)_inset]"
                 >
                   {replenishLoading ? "Replenishing…" : "Replenish demo runs"}
                 </button>
@@ -801,13 +880,55 @@ export default function AdminModerationPage() {
             </div>
 
             <div className={`${cardClass} p-6`}>
-              <h3 className="text-base font-semibold text-white/95">Ban / unban user</h3>
-              <p className="mt-1 text-sm text-white/55">
-                Ban or unban by user ID (e.g. from a report). Uses <code className="rounded bg-white/10 px-1 text-xs">admin_set_ban</code>.
+              <h3 className="text-[15px] font-semibold text-white">Refill workflow runs</h3>
+              <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed">
+                Reset workflow run count (free runs) for a user by username. Deletes their workflow_runs so they get their free runs back.
               </p>
-              <div className="mt-5 space-y-4">
+              <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5">User ID</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">
+                    Username / handle
+                  </label>
+                  <input
+                    value={refillWorkflowUsername}
+                    onChange={(e) => setRefillWorkflowUsername(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g. username or @username"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !refillWorkflowLoading) refillWorkflowRuns();
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">
+                    Workflow ID (optional)
+                  </label>
+                  <input
+                    value={refillWorkflowId}
+                    onChange={(e) => setRefillWorkflowId(e.target.value)}
+                    className={inputClass}
+                    placeholder="Leave blank for all workflows"
+                  />
+                  <p className="mt-1.5 text-[12px] text-white/40">Leave blank to reset run count for all workflows for this user.</p>
+                </div>
+                <button
+                  onClick={refillWorkflowRuns}
+                  disabled={refillWorkflowLoading || !refillWorkflowUsername.trim()}
+                  className="rounded-xl border border-emerald-500/25 bg-emerald-500/15 px-4 py-2.5 text-[13px] font-medium text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_1px_0_rgba(34,197,94,0.2)_inset]"
+                >
+                  {refillWorkflowLoading ? "Refilling…" : "Refill workflow runs"}
+                </button>
+              </div>
+            </div>
+
+            <div className={`${cardClass} p-6`}>
+              <h3 className="text-[15px] font-semibold text-white">Ban / unban user</h3>
+              <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed">
+                Ban or unban by user ID (e.g. from a report). Uses <code className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[12px] font-mono text-white/70">admin_set_ban</code>.
+              </p>
+              <div className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">User ID</label>
                   <input
                     value={banUserId}
                     onChange={(e) => setBanUserId(e.target.value)}
@@ -816,7 +937,7 @@ export default function AdminModerationPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5">
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">
                     Ban expires at (optional)
                   </label>
                   <input
@@ -825,10 +946,10 @@ export default function AdminModerationPage() {
                     className={inputClass}
                     placeholder="e.g. 2026-02-01T12:00"
                   />
-                  <p className="mt-1 text-xs text-white/45">Leave blank for permanent ban.</p>
+                  <p className="mt-1.5 text-[12px] text-white/40">Leave blank for permanent ban.</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-white/50 mb-1.5">Reason (optional)</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">Reason (optional)</label>
                   <input
                     value={banReason}
                     onChange={(e) => setBanReason(e.target.value)}
@@ -836,16 +957,16 @@ export default function AdminModerationPage() {
                     placeholder="e.g. Scam / IP theft / harassment"
                   />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <button
                     onClick={() => banOrUnban(true)}
-                    className="rounded-lg border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-sm font-medium text-red-200 hover:bg-red-500/20 transition-colors"
+                    className="rounded-xl border border-red-500/30 bg-red-500/15 px-4 py-2.5 text-[13px] font-medium text-red-200 hover:bg-red-500/25 transition-all shadow-[0_1px_0_rgba(239,68,68,0.2)_inset]"
                   >
                     Ban user
                   </button>
                   <button
                     onClick={() => banOrUnban(false)}
-                    className="rounded-lg border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-medium text-white/85 hover:bg-white/[0.1] transition-colors"
+                    className="rounded-xl border border-white/[0.1] bg-white/[0.04] px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.08] transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
                   >
                     Unban user
                   </button>

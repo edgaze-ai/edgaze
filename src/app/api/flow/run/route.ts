@@ -26,9 +26,10 @@ export async function POST(req: Request) {
       isBuilderTest?: boolean;
       openaiApiKey?: string;
       deviceFingerprint?: string;
+      stream?: boolean;
     };
 
-    const { nodes = [], edges = [], inputs = {}, workflowId, userApiKeys = {}, isDemo = false, isBuilderTest = false, openaiApiKey: modalOpenaiKey, deviceFingerprint } = body;
+    const { nodes = [], edges = [], inputs = {}, workflowId, userApiKeys = {}, isDemo = false, isBuilderTest = false, openaiApiKey: modalOpenaiKey, deviceFingerprint, stream: useStream = false } = body;
 
     if (!workflowId) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
@@ -201,15 +202,15 @@ export async function POST(req: Request) {
       try {
         // Check if workflow exists in workflows table
         const workflowExistsInDb = await workflowExists(workflowId);
-        
+
         if (!workflowExistsInDb && isBuilderTest) {
           // For builder test runs, check if it's a draft
           draftId = await getWorkflowDraftId(workflowId, userId);
           if (!draftId) {
-            console.log(`[Run Tracking] Skipping run tracking: workflow ${workflowId} not found in workflows or drafts`);
+            console.warn(`[Run Tracking] Skipping run tracking: workflow ${workflowId} not found in workflows or drafts`);
           }
         }
-        
+
         if (workflowExistsInDb || draftId) {
           const run = await createWorkflowRun({
             workflowId: workflowExistsInDb ? workflowId : null,
@@ -225,7 +226,7 @@ export async function POST(req: Request) {
           });
           runId = run.id;
           await updateWorkflowRun(runId, { status: "running" });
-          console.log(
+          console.warn(
             `[Run Tracking] Created run ${runId} for user ${userId}, ${draftId ? `draft ${draftId}` : `workflow ${workflowId}`}, status: running`
           );
         }
@@ -245,34 +246,124 @@ export async function POST(req: Request) {
 
     const startTime = Date.now();
     let result;
+    const clientId = extractClientIdentifier(req);
+    const flowPayload = {
+      nodes,
+      edges,
+      inputs: { ...enrichedInputs, __workflow_id: workflowId } as Record<string, unknown>,
+      workflowId,
+      requestMetadata: {
+        userId: userId || null,
+        identifier: clientId.identifier,
+        identifierType: clientId.type,
+        workflowId: workflowId,
+      },
+    };
 
-    try {
-      // Add workflow ID to inputs so handlers can access it for token limits
-      enrichedInputs["__workflow_id"] = workflowId;
-      
-      // Extract client identifier for rate limiting
-      const clientId = extractClientIdentifier(req);
-      
-      // Execute workflow with request metadata for rate limiting
-      result = await runFlow({
-        nodes,
-        edges,
-        inputs: enrichedInputs,
-        workflowId,
-        requestMetadata: {
-          userId: userId || null,
-          identifier: clientId.identifier,
-          identifierType: clientId.type,
-          workflowId: workflowId,
+    // Streaming mode: return NDJSON stream with live node progress
+    if (useStream) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const write = (obj: object) => {
+            try {
+              controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
+            } catch (e) {
+              console.error("[Flow Stream] Failed to write:", e);
+            }
+          };
+          try {
+            result = await runFlow(flowPayload, {
+              onProgress: (event) => write(event),
+            });
+            const duration = Date.now() - startTime;
+            const finalStatus = result.workflowStatus === "completed" ? "completed" : "failed";
+            let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
+
+            if (runId) {
+              try {
+                await updateWorkflowRun(runId, {
+                  status: finalStatus,
+                  completed_at: new Date().toISOString(),
+                  duration_ms: duration,
+                  state_snapshot: {
+                    nodeStatus: result.nodeStatus,
+                    outputsByNode: redactSecrets(result.outputsByNode),
+                  },
+                });
+              } catch (updateErr: any) {
+                console.error("[Flow Stream] Run update failed:", updateErr?.message);
+              }
+            }
+            if (runId && isTrackedUser) {
+              try {
+                await new Promise((r) => setTimeout(r, 300));
+                const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
+                const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
+              } catch {
+                // ignore
+              }
+            }
+            const safeResult = {
+              ...result,
+              outputsByNode: redactSecrets(result.outputsByNode) as Record<string, unknown>,
+              finalOutputs: result.finalOutputs.map((fo) => ({
+                nodeId: fo.nodeId,
+                value: redactSecrets(fo.value),
+              })),
+            };
+            write({ type: "complete", ok: true, result: safeResult, freeRunsRemaining: updatedFreeRunsRemaining, runId });
+          } catch (err: any) {
+            const duration = Date.now() - startTime;
+            if (runId) {
+              try {
+                await updateWorkflowRun(runId, {
+                  status: "failed",
+                  completed_at: new Date().toISOString(),
+                  duration_ms: duration,
+                  error_details: redactSecrets({ message: err?.message, stack: err?.stack }),
+                });
+              } catch {
+                // ignore
+              }
+            }
+            let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
+            if (runId && isTrackedUser) {
+              try {
+                await new Promise((r) => setTimeout(r, 300));
+                const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
+                const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
+              } catch {
+                // ignore
+              }
+            }
+            write({ type: "complete", ok: false, error: err?.message || "Unknown error", freeRunsRemaining: updatedFreeRunsRemaining, runId });
+          } finally {
+            controller.close();
+          }
         },
       });
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "application/x-ndjson",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // Non-streaming: execute and return JSON
+    try {
+      result = await runFlow(flowPayload);
 
       const duration = Date.now() - startTime;
 
       // Update run record on completion - ALWAYS update to track usage
       let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
       const finalStatus = result.workflowStatus === "completed" ? "completed" : "failed";
-      
+
       // CRITICAL: Update run status - retry up to 3 times if it fails
       let updateSuccess = false;
       if (runId) {
@@ -288,7 +379,7 @@ export async function POST(req: Request) {
               },
             });
             updateSuccess = true;
-            console.log(`[Run Tracking] Successfully updated run ${runId} to ${finalStatus} (attempt ${attempt})`);
+            console.warn(`[Run Tracking] Successfully updated run ${runId} to ${finalStatus} (attempt ${attempt})`);
             break;
           } catch (updateErr: any) {
             console.error(`[Run Tracking] Update attempt ${attempt} failed:`, {
@@ -301,7 +392,7 @@ export async function POST(req: Request) {
               workflowId,
               finalStatus,
             });
-            
+
             if (attempt < 3) {
               // Wait before retry (exponential backoff)
               await new Promise(resolve => setTimeout(resolve, 100 * attempt));
@@ -314,21 +405,21 @@ export async function POST(req: Request) {
       } else {
         console.warn(`[Run Tracking] No runId available - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
       }
-      
+
       // ALWAYS recalculate count after completion - retry up to 3 times
       let countSuccess = false;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           // Add a delay to ensure DB consistency (longer delay for first attempt)
           await new Promise(resolve => setTimeout(resolve, attempt === 1 ? 300 : 100));
-          
+
           const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
           const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
           countSuccess = true;
-          
-          console.log(`[Run Tracking] Recalculated count: ${updatedRunCount}/${freeRunLimit}, remaining: ${updatedFreeRunsRemaining} (attempt ${attempt})`);
-          
+
+          console.warn(`[Run Tracking] Recalculated count: ${updatedRunCount}/${freeRunLimit}, remaining: ${updatedFreeRunsRemaining} (attempt ${attempt})`);
+
           // Verify the update worked
           if (updateSuccess && updatedRunCount <= enforcement.freeRunsRemaining && enforcement.freeRunsRemaining < freeRunLimit && updatedRunCount < freeRunLimit) {
             console.warn(`[Run Tracking] WARNING: Count may not have updated correctly. Expected increase but got: ${updatedRunCount} (was ${enforcement.freeRunsRemaining}). RunId: ${runId}, Status: ${finalStatus}`);
@@ -344,7 +435,7 @@ export async function POST(req: Request) {
             workflowId,
             runId,
           });
-          
+
           if (attempt < 3) {
             await new Promise(resolve => setTimeout(resolve, 100 * attempt));
           } else {
@@ -352,12 +443,12 @@ export async function POST(req: Request) {
           }
         }
       }
-      
+
       // Final verification: if update succeeded but count didn't increase, log warning
       if (updateSuccess && !countSuccess) {
         console.error("[Run Tracking] CRITICAL: Run was updated but count query failed. RunId:", runId);
       }
-      
+
       // Redact secrets from response
       const safeResult = {
         ...result,
@@ -381,7 +472,7 @@ export async function POST(req: Request) {
       // Update run record on error - ALWAYS update to track usage with retries
       let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
       let updateSuccess = false;
-      
+
       if (runId) {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
@@ -392,7 +483,7 @@ export async function POST(req: Request) {
               error_details: redactSecrets({ message: errorMessage, stack: err?.stack }),
             });
             updateSuccess = true;
-            console.log(`[Run Tracking] Successfully updated run ${runId} to failed (attempt ${attempt})`);
+            console.warn(`[Run Tracking] Successfully updated run ${runId} to failed (attempt ${attempt})`);
             break;
           } catch (updateErr: any) {
             console.error(`[Run Tracking] Update attempt ${attempt} failed:`, {
@@ -404,7 +495,7 @@ export async function POST(req: Request) {
               userId,
               workflowId,
             });
-            
+
             if (attempt < 3) {
               await new Promise(resolve => setTimeout(resolve, 100 * attempt));
             } else {
@@ -415,20 +506,20 @@ export async function POST(req: Request) {
       } else {
         console.warn(`[Run Tracking] No runId available on error - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
       }
-      
+
       // ALWAYS recalculate count after error - retry up to 3 times
       let countSuccess = false;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           await new Promise(resolve => setTimeout(resolve, attempt === 1 ? 300 : 100));
-          
+
           const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
           const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
           countSuccess = true;
-          
-          console.log(`[Run Tracking] Recalculated count after error: ${updatedRunCount}/${freeRunLimit}, remaining: ${updatedFreeRunsRemaining} (attempt ${attempt})`);
-          
+
+          console.warn(`[Run Tracking] Recalculated count after error: ${updatedRunCount}/${freeRunLimit}, remaining: ${updatedFreeRunsRemaining} (attempt ${attempt})`);
+
           if (updateSuccess && updatedRunCount <= enforcement.freeRunsRemaining && enforcement.freeRunsRemaining < freeRunLimit && updatedRunCount < freeRunLimit) {
             console.warn(`[Run Tracking] WARNING: Count may not have updated correctly after error. Expected increase but got: ${updatedRunCount} (was ${enforcement.freeRunsRemaining}). RunId: ${runId}`);
           }
@@ -443,7 +534,7 @@ export async function POST(req: Request) {
             workflowId,
             runId,
           });
-          
+
           if (attempt < 3) {
             await new Promise(resolve => setTimeout(resolve, 100 * attempt));
           } else {
@@ -451,7 +542,7 @@ export async function POST(req: Request) {
           }
         }
       }
-      
+
       if (updateSuccess && !countSuccess) {
         console.error("[Run Tracking] CRITICAL: Failed run was updated but count query failed. RunId:", runId);
       }

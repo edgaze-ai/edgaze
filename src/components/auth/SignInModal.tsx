@@ -219,12 +219,14 @@ export default function SignInModal({
   // reset state when opened (called from multiple places)
   useEffect(() => {
     if (!open) return;
-    setMode("signin");
-    setEmail("");
-    setPassword("");
-    setConfirm("");
-    setFullName("");
-    setError(null);
+    queueMicrotask(() => {
+      setMode("signin");
+      setEmail("");
+      setPassword("");
+      setConfirm("");
+      setFullName("");
+      setError(null);
+    });
   }, [open]);
 
   const pw = useMemo(() => passwordStrength(password), [password]);

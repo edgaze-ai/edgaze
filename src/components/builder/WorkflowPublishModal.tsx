@@ -245,42 +245,42 @@ async function qrWithCenteredLogoDataUrl(text: string) {
 }
 
 function ConfettiSides({ active }: { active: boolean }) {
-  if (!active) return null;
+  const [leftStyles, setLeftStyles] = useState<Array<Record<string, string>>>([]);
+  const [rightStyles, setRightStyles] = useState<Array<Record<string, string>>>([]);
 
-  const pieces = 90;
-  const left = Array.from({ length: pieces / 2 });
-  const right = Array.from({ length: pieces / 2 });
+  useEffect(() => {
+    queueMicrotask(() => {
+      setLeftStyles(
+        Array.from({ length: 45 }, () => ({
+          left: `${Math.random() * 100}%`,
+          top: "-12%",
+          animationDelay: `${Math.random() * 0.25}s`,
+          transform: `rotate(${Math.random() * 360}deg)`,
+        }))
+      );
+      setRightStyles(
+        Array.from({ length: 45 }, () => ({
+          left: `${Math.random() * 100}%`,
+          top: "-12%",
+          animationDelay: `${Math.random() * 0.25}s`,
+          transform: `rotate(${Math.random() * 360}deg)`,
+        }))
+      );
+    });
+  }, []);
+
+  if (!active) return null;
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* left */}
       <div className="absolute left-0 top-0 bottom-0 w-[18%]">
-        {left.map((_, i) => (
-          <span
-            key={`l-${i}`}
-            className="confetti"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `-12%`,
-              animationDelay: `${Math.random() * 0.25}s`,
-              transform: `rotate(${Math.random() * 360}deg)`,
-            }}
-          />
+        {leftStyles.length > 0 && leftStyles.map((style, i) => (
+          <span key={`l-${i}`} className="confetti" style={style} />
         ))}
       </div>
-      {/* right */}
       <div className="absolute right-0 top-0 bottom-0 w-[18%]">
-        {right.map((_, i) => (
-          <span
-            key={`r-${i}`}
-            className="confetti"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `-12%`,
-              animationDelay: `${Math.random() * 0.25}s`,
-              transform: `rotate(${Math.random() * 360}deg)`,
-            }}
-          />
+        {rightStyles.length > 0 && rightStyles.map((style, i) => (
+          <span key={`r-${i}`} className="confetti" style={style} />
         ))}
       </div>
 

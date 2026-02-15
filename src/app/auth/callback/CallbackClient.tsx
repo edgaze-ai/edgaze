@@ -54,7 +54,7 @@ function getReturnPath(): string | null {
     const fromLocal = localStorage.getItem("edgaze:returnTo");
     const fromSession = sessionStorage.getItem("edgaze:returnTo");
     const result = fromLocal || fromSession;
-    console.log("[Callback getReturnPath] Retrieved:", result, "from localStorage:", !!fromLocal, "from sessionStorage:", !!fromSession);
+    console.warn("[Callback getReturnPath] Retrieved:", result, "from localStorage:", !!fromLocal, "from sessionStorage:", !!fromSession);
     return result;
   } catch (err) {
     console.error("[Callback getReturnPath] Error reading path:", err);
@@ -91,10 +91,10 @@ export default function CallbackClient() {
       const currentOrigin = typeof window !== "undefined" ? window.location.origin : "unknown";
       const currentUrl = typeof window !== "undefined" ? window.location.href : "unknown";
       
-      console.log("[Auth Callback] Current origin:", currentOrigin);
-      console.log("[Auth Callback] Current URL:", currentUrl);
-      console.log("[Auth Callback] Expected origin for localhost:", "http://localhost:3000");
-      console.log("[Auth Callback] Expected origin for production:", "https://edgaze.ai");
+      console.warn("[Auth Callback] Current origin:", currentOrigin);
+      console.warn("[Auth Callback] Current URL:", currentUrl);
+      console.warn("[Auth Callback] Expected origin for localhost:", "http://localhost:3000");
+      console.warn("[Auth Callback] Expected origin for production:", "https://edgaze.ai");
       
       // If we're on localhost but got redirected to production, show error
       if (currentOrigin.includes("edgaze.ai") && typeof window !== "undefined") {
@@ -139,7 +139,7 @@ export default function CallbackClient() {
       if (isApplyFlow) {
         returnTo = "/marketplace";
         redirectReason = "apply flow (sessionStorage flags)";
-        console.log("[Auth Callback] Apply flow detected, will redirect to /marketplace after exchanging code");
+        console.warn("[Auth Callback] Apply flow detected, will redirect to /marketplace after exchanging code");
       }
 
       // Priority 1: Check query parameter (passed in redirectTo URL) — unless already set by apply flow
@@ -152,14 +152,14 @@ export default function CallbackClient() {
             // If next points to apply, ensure we use /apply?resume=1 so they see verifying screen
             returnTo = cleaned.includes("/apply") ? "/apply?resume=1" : cleaned;
             redirectReason = `query param (${decoded})`;
-            console.log("[Auth Callback] Using path from query param:", returnTo);
+            console.warn("[Auth Callback] Using path from query param:", returnTo);
           }
         } catch {
           const cleaned = cleanPath(nextParam);
           if (cleaned) {
             returnTo = cleaned.includes("/apply") ? "/apply?resume=1" : cleaned;
             redirectReason = `query param (raw: ${nextParam})`;
-            console.log("[Auth Callback] Using path from query param (raw):", returnTo);
+            console.warn("[Auth Callback] Using path from query param (raw):", returnTo);
           }
         }
       }
@@ -173,7 +173,7 @@ export default function CallbackClient() {
           if (cleaned) {
             returnTo = cleaned.includes("/apply") ? "/apply?resume=1" : cleaned;
             redirectReason = `storage (${fromStorage})`;
-            console.log("[Auth Callback] Using path from storage:", returnTo);
+            console.warn("[Auth Callback] Using path from storage:", returnTo);
           }
         }
       }
@@ -191,7 +191,7 @@ export default function CallbackClient() {
             if (cleaned) {
               returnTo = cleaned.includes("/apply") ? "/apply?resume=1" : cleaned;
               redirectReason = `referrer (${referrerPath})`;
-              console.log("[Auth Callback] Using path from referrer:", returnTo);
+              console.warn("[Auth Callback] Using path from referrer:", returnTo);
             }
           } else {
             console.warn("[Auth Callback] Ignoring referrer from different origin:", referrerUrl.origin, "vs", window.location.origin);
@@ -220,7 +220,7 @@ export default function CallbackClient() {
         }
       }
       
-      console.log("[Auth Callback] Final redirect decision:", {
+      console.warn("[Auth Callback] Final redirect decision:", {
         returnTo,
         reason: redirectReason,
         currentOrigin: typeof window !== "undefined" ? window.location.origin : "unknown",
@@ -238,7 +238,7 @@ export default function CallbackClient() {
       // 1) If already signed in, redirect immediately
       const existing = await supabase.auth.getSession();
       if (existing.data.session) {
-        console.log("[Auth Callback] Already signed in, redirecting to:", returnTo);
+        console.warn("[Auth Callback] Already signed in, redirecting to:", returnTo);
         clearReturnPath(); // Clear only after we're about to redirect
         router.replace(returnTo);
         return;
@@ -253,11 +253,11 @@ export default function CallbackClient() {
       }
 
       // 3) Exchange code for session
-      console.log("[Auth Callback] Exchanging code for session...");
+      console.warn("[Auth Callback] Exchanging code for session...");
       const { error, data } = await supabase.auth.exchangeCodeForSession(code);
 
       if (!error && data.session) {
-        console.log("[Auth Callback] Session created successfully, redirecting to:", returnTo);
+        console.warn("[Auth Callback] Session created successfully, redirecting to:", returnTo);
         clearReturnPath(); // Clear only after we're about to redirect
         router.replace(returnTo);
         return;
@@ -268,12 +268,12 @@ export default function CallbackClient() {
       }
 
       // Fallback: wait a bit then check session again
-      console.log("[Auth Callback] Waiting and checking session again...");
+      console.warn("[Auth Callback] Waiting and checking session again...");
       await sleep(250);
       const again = await supabase.auth.getSession();
 
       if (again.data.session) {
-        console.log("[Auth Callback] Session found after wait, redirecting to:", returnTo);
+        console.warn("[Auth Callback] Session found after wait, redirecting to:", returnTo);
         clearReturnPath(); // Clear only after we're about to redirect
         router.replace(returnTo);
         return;

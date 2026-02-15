@@ -1,4 +1,5 @@
 import type {
+  FlowProgressEvent,
   GraphEdge,
   GraphNode,
   GraphPayload,
@@ -22,10 +23,10 @@ function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
       adj.get(e.source)?.push(e.target);
       indeg.set(e.target, (indeg.get(e.target) ?? 0) + 1);
     });
-  
+
     const q: string[] = [];
     indeg.forEach((d, id) => d === 0 && q.push(id));
-  
+
     const order: string[] = [];
     while (q.length) {
       const u = q.shift()!;
@@ -37,13 +38,22 @@ function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
     }
     return order.length === nodes.length ? order : nodes.map((n) => n.id);
   }
-  
+
 import { validateWorkflowTokenLimit, countChatTokens, countEmbeddingTokens, countImageTokens } from "@lib/workflow/token-counting";
 import { getTokenLimits } from "@lib/workflow/token-limits";
 
-export async function runFlow(payload: GraphPayload & { workflowId?: string }): Promise<RuntimeResult> {
+export type RunFlowOptions = {
+  /** Called whenever a node's execution status changes (for live streaming) */
+  onProgress?: (event: FlowProgressEvent) => void;
+};
+
+export async function runFlow(
+  payload: GraphPayload & { workflowId?: string },
+  options?: RunFlowOptions
+): Promise<RuntimeResult> {
   const { nodes, edges, inputs = {}, workflowId, requestMetadata } = payload;
-  
+  const onProgress = options?.onProgress;
+
   // Validate graph integrity: filter out edges that reference non-existent nodes
   const nodeIds = new Set(nodes.map((n) => n.id));
   const validEdges = edges.filter((e) => {
@@ -67,17 +77,17 @@ export async function runFlow(payload: GraphPayload & { workflowId?: string }): 
       `Original edges: ${edges.length}, Valid edges: ${validEdges.length}`
     );
   }
-  
+
   // Get configurable token limits
   const tokenLimits = await getTokenLimits(workflowId);
-  
+
   // Pre-validate workflow token limits (best effort - actual counts may vary)
   // This is a conservative estimate before execution
   let totalEstimatedTokens = 0;
   for (const node of nodes) {
     const specId = node.data?.specId;
     const config = node.data?.config ?? {};
-    
+
     if (specId === "openai-chat") {
       // Estimate based on config defaults
       const estimatedPrompt = config.prompt || "";
@@ -97,7 +107,7 @@ export async function runFlow(payload: GraphPayload & { workflowId?: string }): 
       totalEstimatedTokens += tokenCount;
     }
   }
-  
+
   // Only validate if we have OpenAI nodes (to avoid false positives)
   if (totalEstimatedTokens > 0) {
     const workflowTokenValidation = validateWorkflowTokenLimit(
@@ -164,6 +174,16 @@ export async function runFlow(payload: GraphPayload & { workflowId?: string }): 
     if (d === 0) {
       state.setNodeStatus(id, "ready");
       ready.push(id);
+      const n = nodeById.get(id);
+      if (onProgress && n) {
+        onProgress({
+          type: "node_ready",
+          nodeId: id,
+          specId: n.data?.specId ?? "unknown",
+          nodeTitle: n.data?.title,
+          timestamp: Date.now(),
+        });
+      }
     }
   });
 
@@ -175,9 +195,11 @@ export async function runFlow(payload: GraphPayload & { workflowId?: string }): 
       throw new Error(`Node ${nodeId} not found in graph`);
     }
     const specId = node.data?.specId ?? "unknown";
+    const nodeTitle = node.data?.title;
     const ts = Date.now();
 
     state.setNodeStatus(nodeId, "running");
+    onProgress?.({ type: "node_start", nodeId, specId, nodeTitle, timestamp: ts });
     logs.push({ type: "start", nodeId, specId, timestamp: ts, message: `Starting "${specId}"` });
 
     const handler: NodeRuntimeHandler | undefined = runtimeRegistry[specId];
@@ -230,11 +252,13 @@ export async function runFlow(payload: GraphPayload & { workflowId?: string }): 
     }
 
     state.setNodeStatus(nodeId, "success");
+    const doneTs = Date.now();
+    onProgress?.({ type: "node_done", nodeId, specId, nodeTitle: node.data?.title, timestamp: doneTs });
     logs.push({
       type: "success",
       nodeId,
       specId,
-      timestamp: Date.now(),
+      timestamp: doneTs,
       message: `Finished "${specId}"`,
     });
   };
@@ -249,12 +273,21 @@ export async function runFlow(payload: GraphPayload & { workflowId?: string }): 
         } catch (err: any) {
           // Set node to failed state (now allowed from ready state)
           state.setNodeStatus(nodeId, "failed");
-          
+
           // Safely get node info for logging
           const failedNode = nodeById.get(nodeId);
           const failedSpecId = failedNode?.data?.specId ?? "unknown";
           const errorMessage = err?.message ?? "Unknown error";
-          
+
+          onProgress?.({
+            type: "node_failed",
+            nodeId,
+            specId: failedSpecId,
+            nodeTitle: failedNode?.data?.title,
+            error: errorMessage,
+            timestamp: Date.now(),
+          });
+
           logs.push({
             type: "error",
             nodeId,
@@ -269,6 +302,16 @@ export async function runFlow(payload: GraphPayload & { workflowId?: string }): 
             if ((indeg.get(v) ?? 0) === 0) {
               state.setNodeStatus(v, "ready");
               ready.push(v);
+              const n = nodeById.get(v);
+              if (onProgress && n) {
+                onProgress({
+                  type: "node_ready",
+                  nodeId: v,
+                  specId: n.data?.specId ?? "unknown",
+                  nodeTitle: n.data?.title,
+                  timestamp: Date.now(),
+                });
+              }
             }
           });
         }
@@ -276,16 +319,35 @@ export async function runFlow(payload: GraphPayload & { workflowId?: string }): 
     );
   }
 
-  const nodesWithOutgoing = new Set(validEdges.map((e) => e.source));
-  const finals = nodes.filter((n) => !nodesWithOutgoing.has(n.id) || n.data?.specId === "output");
   const snapshot = state.getSnapshot();
+
+  // Only Output nodes can be "final" for display. Sink nodes like Merge are never shown as workflow output.
+  const outputNodes = nodes.filter((n) => n.data?.specId === "output");
+
+  // Processing nodes: produce real output (LLM, API, etc). Input/Merge are passthrough.
+  const PROCESSING_SPECS = new Set(["openai-chat", "openai-embeddings", "openai-image", "http-request", "transform"]);
+  const hasProcessingUpstream = (nodeId: string, visited = new Set<string>()): boolean => {
+    if (visited.has(nodeId)) return false;
+    visited.add(nodeId);
+    const srcs = inboundByNode.get(nodeId) ?? [];
+    for (const sid of srcs) {
+      const node = nodeById.get(sid);
+      const specId = node?.data?.specId ?? "";
+      if (PROCESSING_SPECS.has(specId)) return true;
+      if (hasProcessingUpstream(sid, visited)) return true;
+    }
+    return false;
+  };
+
+  // Only include Output nodes that have processing upstream (exclude passthrough: Input/Merge only)
+  const meaningfulFinals = outputNodes.filter((n) => hasProcessingUpstream(n.id));
 
   const hasFailure = Object.values(snapshot.nodeStatus).some((s) => s === "failed" || s === "timeout");
   state.setWorkflowStatus(hasFailure ? "failed" : "completed");
 
   return {
     outputsByNode: snapshot.outputsByNode,
-    finalOutputs: finals.map((n) => ({ nodeId: n.id, value: snapshot.outputsByNode[n.id] })),
+    finalOutputs: meaningfulFinals.map((n) => ({ nodeId: n.id, value: snapshot.outputsByNode[n.id] })),
     logs,
     nodeStatus: snapshot.nodeStatus,
     workflowStatus: snapshot.workflowStatus,

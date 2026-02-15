@@ -1857,14 +1857,17 @@ export default function PromptProductPage() {
         };
       });
 
-      const outputs = extractWorkflowOutputs(workflowGraph.nodes || []).map((output) => {
-        const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
-        return {
-          ...output,
-          value: finalOutput?.value || null,
-          type: typeof finalOutput?.value === "string" ? "string" : "json",
-        };
-      });
+      const outputs = extractWorkflowOutputs(workflowGraph.nodes || [])
+        .map((output) => {
+          const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+          if (!finalOutput) return null;
+          return {
+            ...output,
+            value: finalOutput.value,
+            type: typeof finalOutput.value === "string" ? "string" : "json",
+          };
+        })
+        .filter((o): o is NonNullable<typeof o> => o != null);
 
       setWorkflowRunState({
         ...workflowRunState,

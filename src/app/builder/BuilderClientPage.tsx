@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ArrowLeft, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2, Sparkles, Loader2, BookOpen } from "lucide-react";
+import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ArrowLeft, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2, Sparkles, Loader2, BookOpen, Undo2, Redo2 } from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "../../components/auth/AuthContext";
@@ -14,7 +14,7 @@ import ReactFlowCanvas, { CanvasRef as BECanvasRef } from "../../components/buil
 import BlockLibrary from "../../components/builder/BlockLibrary";
 import InspectorPanel from "../../components/builder/InspectorPanel";
 import WorkflowPublishModal from "../../components/builder/WorkflowPublishModal";
-import PremiumWorkflowRunModal, { type WorkflowRunState, type BuilderRunLimit } from "../../components/builder/PremiumWorkflowRunModal";
+import PremiumWorkflowRunModal, { type WorkflowRunState, type WorkflowRunStep, type BuilderRunLimit } from "../../components/builder/PremiumWorkflowRunModal";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
 import { canRunDemo, canRunDemoSync, trackDemoRun, getRemainingDemoRuns, getRemainingDemoRunsSync } from "../../lib/workflow/device-tracking";
 import { validateWorkflowGraph } from "../../lib/workflow/validation";
@@ -88,6 +88,32 @@ function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
 }
 
+/** Kahn's topological sort - matches server execution order */
+function getExecutionOrder(nodes: { id: string }[], edges: { source: string; target: string }[]): string[] {
+  const indeg = new Map<string, number>();
+  const adj = new Map<string, string[]>();
+  nodes.forEach((n) => {
+    indeg.set(n.id, 0);
+    adj.set(n.id, []);
+  });
+  edges.forEach((e) => {
+    adj.get(e.source)?.push(e.target);
+    indeg.set(e.target, (indeg.get(e.target) ?? 0) + 1);
+  });
+  const q: string[] = [];
+  indeg.forEach((d, id) => d === 0 && q.push(id));
+  const order: string[] = [];
+  while (q.length) {
+    const u = q.shift()!;
+    order.push(u);
+    for (const v of adj.get(u) ?? []) {
+      indeg.set(v, (indeg.get(v) ?? 0) - 1);
+      if ((indeg.get(v) ?? 0) === 0) q.push(v);
+    }
+  }
+  return order.length === nodes.length ? order : nodes.map((n) => n.id);
+}
+
 const DESKTOP_MIN_W = 1100;
 const DESKTOP_MIN_H = 680;
 
@@ -112,7 +138,7 @@ export default function BuilderPage() {
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const [name, setName] = useState("Untitled Workflow");
   const [editingName, setEditingName] = useState(false);
-  
+
   // Preview mode: store product page info for back button
   const [previewOwnerHandle, setPreviewOwnerHandle] = useState<string | null>(null);
   const [previewEdgazeCode, setPreviewEdgazeCode] = useState<string | null>(null);
@@ -124,7 +150,7 @@ export default function BuilderPage() {
   // selection/stats
   const [selection, setSelection] = useState<Selection>({ nodeId: null });
   const [stats, setStats] = useState({ nodes: 0, edges: 0 });
-  
+
   // Canvas control states
   const [showGrid, setShowGrid] = useState(true);
   const [locked, setLocked] = useState(false);
@@ -150,6 +176,15 @@ export default function BuilderPage() {
   const saveInFlightRef = useRef(false);
   const saveAgainRef = useRef(false);
 
+  // Undo/redo: graph history (only in edit mode with a draft)
+  const UNDO_HISTORY_MAX = 50;
+  const UNDO_DEBOUNCE_MS = 600;
+  const [undoStack, setUndoStack] = useState<{ nodes: any[]; edges: any[] }[]>([]);
+  const [redoStack, setRedoStack] = useState<{ nodes: any[]; edges: any[] }[]>([]);
+  const previousGraphRef = useRef<{ nodes: any[]; edges: any[] } | null>(null);
+  const isUndoRedoRef = useRef(false);
+  const graphChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // publish modal
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishWorkflowId, setPublishWorkflowId] = useState<string | null>(null);
@@ -168,13 +203,13 @@ export default function BuilderPage() {
   const headerRef = useRef<HTMLDivElement>(null);
   const topbarInnerRef = useRef<HTMLDivElement>(null);
   const minimapElRef = useRef<HTMLElement | null>(null);
-  
+
   // Track if user has moved panels (so we don't override their layout)
   const userMovedRef = useRef<Record<WindowKind, boolean>>({
     blocks: false,
     inspector: false,
   });
-  
+
   function findMinimapEl(): HTMLElement | null {
     return (
       (document.querySelector(".react-flow__minimap") as HTMLElement | null) ??
@@ -188,6 +223,7 @@ export default function BuilderPage() {
   const [builderRunLimit, setBuilderRunLimit] = useState<BuilderRunLimit | null>(null);
   const [running, setRunning] = useState(false);
   const [showPreparingToast, setShowPreparingToast] = useState(false);
+  const runAbortRef = useRef<AbortController | null>(null);
 
   // deep-link guard (prevents repeated opening)
   const openedWorkflowIdRef = useRef<string | null>(null);
@@ -353,7 +389,7 @@ export default function BuilderPage() {
       const g = beRef.current?.getGraph?.();
       if (!g) return;
       setStats({ nodes: g.nodes?.length ?? 0, edges: g.edges?.length ?? 0 });
-      
+
       // Sync canvas control states
       if (beRef.current) {
         setShowGrid(beRef.current.getShowGrid?.() ?? true);
@@ -516,6 +552,81 @@ export default function BuilderPage() {
     return `${g.nodes?.length ?? 0}/${g.edges?.length ?? 0}::${ns}::${es}`;
   };
 
+  const cloneGraph = (g: { nodes: any[]; edges: any[] }) =>
+    JSON.parse(JSON.stringify({ nodes: g.nodes ?? [], edges: g.edges ?? [] }));
+
+  const loadGraphAndResetHistory = useCallback((g: { nodes: any[]; edges: any[] }) => {
+    const normalized = normalizeGraph(g);
+    setUndoStack([]);
+    setRedoStack([]);
+    isUndoRedoRef.current = true;
+    previousGraphRef.current = cloneGraph(normalized);
+    latestGraphRef.current = normalized;
+    beRef.current?.loadGraph?.(normalized);
+    setTimeout(() => {
+      isUndoRedoRef.current = false;
+    }, 0);
+  }, []);
+
+  const undo = useCallback(() => {
+    if (undoStack.length === 0 || !activeDraftId) return;
+    const current = beRef.current?.getGraph?.();
+    if (!current) return;
+    const prev = undoStack[undoStack.length - 1];
+    if (!prev) return;
+    isUndoRedoRef.current = true;
+    setRedoStack((r) => [...r.slice(-(UNDO_HISTORY_MAX - 1)), cloneGraph(current)]);
+    setUndoStack((u) => u.slice(0, -1));
+    previousGraphRef.current = cloneGraph(prev);
+    beRef.current?.loadGraph?.(prev);
+    setTimeout(() => {
+      isUndoRedoRef.current = false;
+    }, 0);
+  }, [activeDraftId, undoStack.length]);
+
+  const redo = useCallback(() => {
+    if (redoStack.length === 0 || !activeDraftId) return;
+    const current = beRef.current?.getGraph?.();
+    if (!current) return;
+    const next = redoStack[redoStack.length - 1];
+    if (!next) return;
+    isUndoRedoRef.current = true;
+    setUndoStack((u) => [...u.slice(-(UNDO_HISTORY_MAX - 1)), cloneGraph(current)]);
+    setRedoStack((r) => r.slice(0, -1));
+    previousGraphRef.current = cloneGraph(next);
+    beRef.current?.loadGraph?.(next);
+    setTimeout(() => {
+      isUndoRedoRef.current = false;
+    }, 0);
+  }, [activeDraftId, redoStack.length]);
+
+  // Edit mode: Ctrl+Z undo, Ctrl+Shift+Z / Ctrl+Y redo
+  useEffect(() => {
+    if (!mounted || isPreview) return;
+
+    const handler = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      const meta = e.metaKey || e.ctrlKey;
+      const shift = e.shiftKey;
+
+      if (meta && key === "z") {
+        if (shift) {
+          e.preventDefault();
+          redo();
+        } else {
+          e.preventDefault();
+          undo();
+        }
+      } else if (meta && key === "y") {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [mounted, isPreview, undo, redo]);
+
   const doAutosave = useCallback(async () => {
     if (isPreview) return;
     if (!userId || !activeDraftId) return;
@@ -563,6 +674,22 @@ export default function BuilderPage() {
 
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = setTimeout(() => void doAutosave(), AUTOSAVE_MS);
+
+      // Push previous graph to undo stack (debounced) so we don't record every drag frame
+      if (isUndoRedoRef.current) return;
+      if (graphChangeTimerRef.current) clearTimeout(graphChangeTimerRef.current);
+      graphChangeTimerRef.current = setTimeout(() => {
+        graphChangeTimerRef.current = null;
+        const prev = previousGraphRef.current;
+        const prevHash = prev ? hashGraph(prev) : "";
+        const newHash = hashGraph(graph);
+        if (prevHash === newHash) return;
+        if (prev && (prev.nodes?.length > 0 || prev.edges?.length > 0)) {
+          setUndoStack((u) => [...u.slice(-(UNDO_HISTORY_MAX - 1)), cloneGraph(prev)]);
+          setRedoStack([]);
+        }
+        previousGraphRef.current = cloneGraph(graph);
+      }, UNDO_DEBOUNCE_MS);
     },
     [activeDraftId, doAutosave, isPreview]
   );
@@ -620,7 +747,7 @@ export default function BuilderPage() {
         setEditingName(false);
 
         const g = normalizeGraph(row.graph);
-        beRef.current?.loadGraph?.(g);
+        loadGraphAndResetHistory(g);
 
         safeTrack("Workflow Opened", {
           surface: "builder",
@@ -697,10 +824,8 @@ export default function BuilderPage() {
         setName(row.title || "Untitled Workflow");
         setEditingName(false);
 
-        beRef.current?.loadGraph?.(normalizeGraph(row.graph));
-
         const ng = normalizeGraph(row.graph);
-        latestGraphRef.current = ng;
+        loadGraphAndResetHistory(ng);
         lastSavedHashRef.current = hashGraph(ng);
 
         safeTrack("Workflow Opened", {
@@ -793,9 +918,7 @@ export default function BuilderPage() {
         setEditingName(false);
 
         const loaded = normalizeGraph(row.graph);
-        beRef.current?.loadGraph?.(loaded);
-
-        latestGraphRef.current = loaded;
+        loadGraphAndResetHistory(loaded);
         lastSavedHashRef.current = hashGraph(loaded);
 
         await refreshWorkflows();
@@ -858,14 +981,12 @@ export default function BuilderPage() {
         setActiveDraftId(String(workflowId)); // run uses this id
         setName(wfRow?.title || "Untitled Workflow");
         setEditingName(false);
-        
+
         // Store product page info for back button
         setPreviewOwnerHandle(wfRow?.owner_handle ?? null);
         setPreviewEdgazeCode(wfRow?.edgaze_code ?? null);
 
-        beRef.current?.loadGraph?.(g);
-
-        latestGraphRef.current = g;
+        loadGraphAndResetHistory(g);
         lastSavedHashRef.current = hashGraph(g);
 
         setWindows((p) => ({
@@ -943,9 +1064,7 @@ export default function BuilderPage() {
       setEditingName(false);
 
       const g = normalizeGraph(row.graph);
-      beRef.current?.loadGraph?.(g);
-
-      latestGraphRef.current = g;
+      loadGraphAndResetHistory(g);
       lastSavedHashRef.current = hashGraph(g);
 
       setShowLauncher(false);
@@ -1008,9 +1127,7 @@ export default function BuilderPage() {
         setName(row.title || "Untitled Workflow");
         setEditingName(false);
 
-        beRef.current?.loadGraph?.(g);
-
-        latestGraphRef.current = g;
+        loadGraphAndResetHistory(g);
         lastSavedHashRef.current = hashGraph(g);
 
         setShowLauncher(false);
@@ -1053,7 +1170,7 @@ export default function BuilderPage() {
     const update = { title: name || "Untitled Workflow", graph: stripGraphSecrets(g) as any, updated_at: nowIso() };
 
     const { error } = await supabase.from("workflow_drafts").update(update).eq("id", activeDraftId).eq("owner_id", userId);
-    
+
     if (!error) {
       lastSavedHashRef.current = hashGraph(g);
     } else {
@@ -1188,7 +1305,7 @@ export default function BuilderPage() {
 
     // Validate workflow graph before execution
     const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
-    
+
     if (!validation.valid) {
       const errorMessage = validation.errors.join("\n\n");
       setWfError(errorMessage);
@@ -1267,7 +1384,7 @@ export default function BuilderPage() {
       } : undefined,
       logs: [],
       inputs: showInputPhase ? (inputs.length > 0 ? inputs : []) : undefined,
-      summary: validation.warnings.length > 0 
+      summary: validation.warnings.length > 0
         ? `${validation.warnings.length} warning(s): ${validation.warnings[0]}`
         : undefined,
     };
@@ -1292,10 +1409,10 @@ export default function BuilderPage() {
 
     const graph = beRef.current?.getGraph?.();
     if (!graph) return;
-    
+
     const aiSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
     const hasAiNodes = (graph.nodes || []).some((n: any) => aiSpecs.includes(n.data?.specId ?? ""));
-    
+
     // Builder test requires authentication (unlike preview/demo)
     const isBuilderTest = !isPreview;
     if (isBuilderTest) {
@@ -1349,7 +1466,7 @@ export default function BuilderPage() {
     for (const node of graph.nodes || []) {
       const specId = node.data?.specId;
       const apiKey = node.data?.config?.apiKey;
-      
+
       // Check if this node requires API keys and has one configured
       if (specId && ["openai-chat", "openai-embeddings", "openai-image"].includes(specId)) {
         if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
@@ -1370,17 +1487,19 @@ export default function BuilderPage() {
     try {
       // Get access token from auth context to ensure session is passed
       const accessToken = await getAccessToken();
-      
+
       // Build headers with auth token if available
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (accessToken) {
         headers["Authorization"] = `Bearer ${accessToken}`;
       }
-      
+
+      runAbortRef.current = new AbortController();
       const response = await fetch("/api/flow/run", {
         method: "POST",
         headers,
         credentials: "include", // Ensure cookies are sent
+        signal: runAbortRef.current.signal,
         body: JSON.stringify({
           workflowId: activeDraftId,
           nodes: graph.nodes || [],
@@ -1390,6 +1509,7 @@ export default function BuilderPage() {
           isDemo: isPreview,
           isBuilderTest: !isPreview,
           openaiApiKey: !isPreview ? openaiApiKeyFromModal || undefined : undefined,
+          stream: true,
         }),
       });
 
@@ -1401,32 +1521,100 @@ export default function BuilderPage() {
           // If JSON parsing fails, use the status text
         }
         const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
-        
+
         // Update run counter from error response if available (failed runs also count)
         if (!isPreview && activeDraftId && hasAiNodes && errorData.freeRunsRemaining != null) {
           const FREE_BUILDER_RUNS = 10;
           const freeRunsRemaining = errorData.freeRunsRemaining;
           const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
           setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
-          console.log(`[Run Counter] Updated from error response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+          console.warn(`[Run Counter] Updated from error response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
         }
-        
+
         throw new Error(errorMessage);
       }
 
-      const result = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const isStreaming = contentType.includes("ndjson");
+
+      let result: any;
+
+      if (isStreaming && response.body) {
+        // Live streaming: consume NDJSON and update runState as nodes execute
+        const execOrder = getExecutionOrder(graph.nodes || [], graph.edges || []);
+        const nodeMap = new Map((graph.nodes || []).map((n: any) => [n.id, n]));
+        const initialSteps: WorkflowRunStep[] = execOrder.map((nodeId) => {
+          const node = nodeMap.get(nodeId);
+          const specId = node?.data?.specId || "default";
+          return {
+            id: nodeId,
+            title: node?.data?.title || node?.data?.config?.name || humanReadableStep(specId),
+            status: "queued" as const,
+            timestamp: Date.now(),
+          };
+        });
+
+        setRunState((prev) => (prev ? { ...prev, steps: initialSteps } : prev));
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const evt = JSON.parse(line);
+              if (evt.type === "node_start") {
+                setRunState((prev) => {
+                  if (!prev) return prev;
+                  const next = prev.steps.map((s) => (s.id === evt.nodeId ? { ...s, status: "running" as const } : s));
+                  return { ...prev, steps: next, currentStepId: evt.nodeId };
+                });
+              } else if (evt.type === "node_done") {
+                setRunState((prev) => {
+                  if (!prev) return prev;
+                  const next = prev.steps.map((s) => (s.id === evt.nodeId ? { ...s, status: "done" as const } : s));
+                  return { ...prev, steps: next, currentStepId: null };
+                });
+              } else if (evt.type === "node_failed") {
+                setRunState((prev) => {
+                  if (!prev) return prev;
+                  const next = prev.steps.map((s) => (s.id === evt.nodeId ? { ...s, status: "error" as const, detail: evt.error } : s));
+                  return { ...prev, steps: next, currentStepId: null };
+                });
+              } else if (evt.type === "complete") {
+                result = evt;
+                break;
+              }
+            } catch {
+              // Skip malformed lines
+            }
+          }
+          if (result) break;
+        }
+        if (!result || !result.ok) {
+          throw new Error(result?.error || "Execution failed");
+        }
+      } else {
+        result = await response.json();
+      }
       if (!result.ok) {
         const errorMessage = result.error || result.message || "Execution failed";
-        
+
         // Update run counter from error response if available (failed runs also count)
         if (!isPreview && activeDraftId && hasAiNodes && result.freeRunsRemaining != null) {
           const FREE_BUILDER_RUNS = 10;
           const freeRunsRemaining = result.freeRunsRemaining;
           const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
           setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
-          console.log(`[Run Counter] Updated from error result: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+          console.warn(`[Run Counter] Updated from error result: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -1437,7 +1625,7 @@ export default function BuilderPage() {
         const freeRunsRemaining = result.freeRunsRemaining;
         const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
         setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
-        console.log(`[Run Counter] Updated immediately from API response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+        console.warn(`[Run Counter] Updated immediately from API response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
       }
 
       const executionResult = result.result;
@@ -1464,22 +1652,70 @@ export default function BuilderPage() {
         };
       });
 
-      const outputs = extractWorkflowOutputs(graph.nodes || []).map((output) => {
-        const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
-        return {
-          ...output,
-          value: finalOutput?.value || null,
-          type: typeof finalOutput?.value === "string" ? "string" : "json",
-        };
-      });
+      // Build set of raw input values so we never show them as output (hide passthrough/echo)
+      const displayInputValues = processedInputs
+        ? Object.fromEntries(
+            Object.entries(processedInputs).filter(
+              ([k]) =>
+                !k.startsWith("__") &&
+                k !== "__openaiApiKey" &&
+                k !== "__builder_test" &&
+                k !== "__builder_user_key" &&
+                k !== "__workflow_id"
+            )
+          )
+        : {};
+      const echoParts = Object.values(displayInputValues)
+        .map((v) => String(v ?? "").trim())
+        .filter(Boolean);
+      const echoPartSet = new Set(echoParts);
+      const normalizeLines = (s: string) =>
+        s
+          .trim()
+          .replace(/\r\n/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .split(/\n/)
+          .map((l) => l.trim())
+          .filter(Boolean)
+          .sort()
+          .join("\n");
+      const isEchoString = (s: string) => {
+        const t = String(s).trim();
+        if (!t.length) return false;
+        if (echoPartSet.has(t)) return true;
+        const norm = normalizeLines(t);
+        const expectedNorm = echoParts.slice().sort().join("\n");
+        return norm === expectedNorm;
+      };
+
+      const outputs = extractWorkflowOutputs(graph.nodes || [])
+        .map((output) => {
+          const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+          if (!finalOutput) return null;
+          let value = finalOutput.value;
+          if (typeof value === "string" && isEchoString(value)) return null;
+          if (value !== null && typeof value === "object" && Array.isArray((value as any).results)) {
+            const results = ((value as any).results as unknown[]).filter(
+              (item) => typeof item !== "string" || !isEchoString(item)
+            );
+            if (results.length === 0) return null;
+            value = results.length === 1 ? results[0] : { ...(value as object), results };
+          }
+          return {
+            ...output,
+            value,
+            type: typeof value === "string" ? "string" : "json",
+          };
+        })
+        .filter((o): o is NonNullable<typeof o> => o != null);
 
       // Check for errors in logs or node status
-      const hasError = executionResult.workflowStatus === "failed" || 
+      const hasError = executionResult.workflowStatus === "failed" ||
                        logs.some((l: any) => l.level === "error") ||
                        Object.values(executionResult.nodeStatus || {}).some((s: any) => s === "failed" || s === "timeout");
-      
-      const errorMessage = hasError 
-        ? logs.find((l: any) => l.level === "error")?.text || 
+
+      const errorMessage = hasError
+        ? logs.find((l: any) => l.level === "error")?.text ||
           Object.entries(executionResult.nodeStatus || {})
             .filter(([_, status]: [string, any]) => status === "failed" || status === "timeout")
             .map(([nodeId]: [string, any]) => {
@@ -1536,7 +1772,7 @@ export default function BuilderPage() {
                   setBuilderRunLimit({ used: 0, limit: 999999, isAdmin: true });
                 } else if (rem.used != null && rem.limit != null) {
                   setBuilderRunLimit({ used: rem.used, limit: rem.limit, isAdmin: false });
-                  console.log(`[Run Counter] Verified/refreshed from DB: ${rem.used}/${rem.limit}`);
+                  console.warn(`[Run Counter] Verified/refreshed from DB: ${rem.used}/${rem.limit}`);
                 }
               }
             }
@@ -1553,8 +1789,12 @@ export default function BuilderPage() {
         duration_ms: Date.now() - (runState.startedAt || Date.now()),
       });
     } catch (error: any) {
+      if (error?.name === "AbortError") {
+        setRunning(false);
+        return; // User cancelled - handleCancelRun already updated state
+      }
       const errorMessage = error?.message || error?.toString() || "Execution failed. Please check your workflow configuration and try again.";
-      
+
       // Refetch remaining runs after failed run too (failed runs also count)
       if (!isPreview && activeDraftId && hasAiNodes) {
         setTimeout(async () => {
@@ -1573,7 +1813,7 @@ export default function BuilderPage() {
                   setBuilderRunLimit({ used: 0, limit: 999999, isAdmin: true });
                 } else if (rem.used != null && rem.limit != null) {
                   setBuilderRunLimit({ used: rem.used, limit: rem.limit, isAdmin: false });
-                  console.log(`[Run Counter] Verified/refreshed after error: ${rem.used}/${rem.limit}`);
+                  console.warn(`[Run Counter] Verified/refreshed after error: ${rem.used}/${rem.limit}`);
                 }
               }
             }
@@ -1582,7 +1822,7 @@ export default function BuilderPage() {
           }
         }, 500); // 500ms delay to ensure DB update completed
       }
-      
+
       const workflowGraph = beRef.current?.getGraph?.();
       setRunState({
         ...runState,
@@ -1666,6 +1906,7 @@ export default function BuilderPage() {
   };
 
   const handleCancelRun = () => {
+    runAbortRef.current?.abort();
     setRunState((prev) => (prev ? { ...prev, status: "error", error: "Cancelled by user" } : null));
     setRunning(false);
   };
@@ -1818,7 +2059,7 @@ export default function BuilderPage() {
           /* Edit Mode Topbar (existing) */
           <div
             ref={topbarInnerRef}
-            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-4 py-3 flex items-center justify-between transition-all duration-200"
+            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden">
@@ -1868,7 +2109,7 @@ export default function BuilderPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Link
                 href="/docs/builder/workflow-studio"
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors"
@@ -1921,8 +2162,34 @@ export default function BuilderPage() {
                 Refresh
               </button>
 
-              {/* Canvas controls */}
+              {/* Canvas controls: Undo, Redo, Zoom, Grid, Lock */}
               <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+                <button
+                  onClick={undo}
+                  disabled={!activeDraftId || undoStack.length === 0}
+                  className={cx(
+                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
+                    activeDraftId && undoStack.length > 0
+                      ? "bg-white/5 text-white/85 hover:bg-white/10"
+                      : "bg-white/5 text-white/40 cursor-not-allowed"
+                  )}
+                  title="Undo (Ctrl+Z)"
+                >
+                  <Undo2 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={redo}
+                  disabled={!activeDraftId || redoStack.length === 0}
+                  className={cx(
+                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
+                    activeDraftId && redoStack.length > 0
+                      ? "bg-white/5 text-white/85 hover:bg-white/10"
+                      : "bg-white/5 text-white/40 cursor-not-allowed"
+                  )}
+                  title="Redo (Ctrl+Shift+Z)"
+                >
+                  <Redo2 className="h-4 w-4" />
+                </button>
                 <button
                   onClick={() => beRef.current?.zoomOut?.()}
                   title="Zoom out (−)"

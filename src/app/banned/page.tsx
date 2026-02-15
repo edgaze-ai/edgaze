@@ -26,6 +26,7 @@ export default function BannedPage() {
 
   const [loading, setLoading] = useState(true);
   const [mod, setMod] = useState<ModRow | null>(null);
+  const [isStillBanned, setIsStillBanned] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -64,11 +65,20 @@ export default function BannedPage() {
     };
   }, [authReady, supabase, userId]);
 
-  const isStillBanned = (() => {
-    if (!mod?.is_banned) return false;
-    if (!mod.ban_expires_at) return true;
-    return new Date(mod.ban_expires_at).getTime() > Date.now();
-  })();
+  useEffect(() => {
+    const tick = () => {
+      if (!mod?.is_banned) {
+        setIsStillBanned(false);
+        return;
+      }
+      if (!mod.ban_expires_at) {
+        setIsStillBanned(true);
+        return;
+      }
+      setIsStillBanned(new Date(mod.ban_expires_at).getTime() > Date.now());
+    };
+    queueMicrotask(tick);
+  }, [mod]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">

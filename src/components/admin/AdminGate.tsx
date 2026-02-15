@@ -54,8 +54,13 @@ export default function AdminGate({ children }: { children: React.ReactNode }) {
 
   if (!authReady || checking) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="text-sm text-white/70">Checking access…</div>
+      <div className="min-h-[60vh] flex items-center justify-center bg-[#070708]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-9 w-9 rounded-xl border border-white/[0.08] bg-white/[0.04] flex items-center justify-center">
+            <div className="h-4 w-4 rounded-full border-2 border-cyan-400/30 border-t-cyan-400 animate-spin" />
+          </div>
+          <p className="text-[13px] font-medium text-white/60">Checking access…</p>
+        </div>
       </div>
     );
   }

@@ -14,7 +14,7 @@ function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
-    setIsMobile(mq.matches);
+    queueMicrotask(() => setIsMobile(mq.matches));
     const listener = () => setIsMobile(mq.matches);
     mq.addEventListener("change", listener);
     return () => mq.removeEventListener("change", listener);

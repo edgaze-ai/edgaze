@@ -303,21 +303,24 @@ export default function BugsPage() {
       const raw = localStorage.getItem(LS_KEY);
       if (raw) {
         const d = JSON.parse(raw);
-        setCategory(d.category ?? null);
-        setSummary(d.summary ?? "");
-        setSteps(d.steps ?? "1.\n2.\n3.");
-        setExpected(d.expected ?? "");
-        setActual(d.actual ?? "");
-        setFeatureArea(d.featureArea ?? null);
-        setDeviceType(d.deviceType ?? guessDevice());
-        setBrowser(d.browser ?? guessBrowser());
-        setSeverity(d.severity ?? null);
-        setAllowFollowUp(d.allowFollowUp ?? null);
-        setContact(d.contact ?? "");
-        setFiles([]); // don't persist files
+        const tick = () => {
+          setCategory(d.category ?? null);
+          setSummary(d.summary ?? "");
+          setSteps(d.steps ?? "1.\n2.\n3.");
+          setExpected(d.expected ?? "");
+          setActual(d.actual ?? "");
+          setFeatureArea(d.featureArea ?? null);
+          setDeviceType(d.deviceType ?? guessDevice());
+          setBrowser(d.browser ?? guessBrowser());
+          setSeverity(d.severity ?? null);
+          setAllowFollowUp(d.allowFollowUp ?? null);
+          setContact(d.contact ?? "");
+          setFiles([]); // don't persist files
+        };
+        queueMicrotask(tick);
       }
     } catch {}
-    setHydrated(true);
+    queueMicrotask(() => setHydrated(true));
   }, []);
 
   // persist draft

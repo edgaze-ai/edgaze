@@ -42,7 +42,7 @@ export async function enforceRuntimeLimits(params: {
       const premiumNodeSpecs = ["openai-chat", "openai-embeddings", "openai-image", "http-request"];
       const premiumNodes = nodes.filter((n) => premiumNodeSpecs.includes(n.data?.specId ?? ""));
       const shouldUseEdgazeKey = hasEdgazeApiKey() && premiumNodes.length > 0;
-      
+
       return {
         allowed: true,
         requiresApiKeys: [],
@@ -59,7 +59,7 @@ export async function enforceRuntimeLimits(params: {
       const aiNodeSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
       const aiNodes = nodes.filter((n) => aiNodeSpecs.includes(n.data?.specId ?? ""));
       const shouldUseEdgazeKey = hasEdgazeApiKey() && aiNodes.length > 0;
-      
+
       return {
         allowed: true,
         requiresApiKeys: [],
@@ -67,7 +67,7 @@ export async function enforceRuntimeLimits(params: {
         useEdgazeKey: shouldUseEdgazeKey,
       };
     }
-    
+
     // Check workflow-specific run count (check drafts if workflow doesn't exist)
     let draftId: string | null = null;
     try {
@@ -79,7 +79,7 @@ export async function enforceRuntimeLimits(params: {
       // If check fails, proceed with workflowId only
     }
     const workflowRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
-    
+
     // Check user's total run count across all workflows
     const { count: userTotalRuns, error: userCountError } = await supabase
       .from("workflow_runs")
@@ -132,8 +132,8 @@ export async function enforceRuntimeLimits(params: {
 
     // Determine if we should use Edgaze API key
     // Use Edgaze key for: demos or first N free runs (builder: 10, else 5)
-    const shouldUseEdgazeKey = 
-      (isDemo || workflowRunCount < freeRunLimit) && 
+    const shouldUseEdgazeKey =
+      (isDemo || workflowRunCount < freeRunLimit) &&
       hasEdgazeApiKey() &&
       aiNodes.length > 0;
 
@@ -153,7 +153,7 @@ export async function enforceRuntimeLimits(params: {
       const nodeKeys = userApiKeys[node.id];
       // Also check if API key is stored in node config
       const configKey = node.data?.config?.apiKey;
-      if ((!nodeKeys || !nodeKeys.apiKey || nodeKeys.apiKey.trim() === "") && 
+      if ((!nodeKeys || !nodeKeys.apiKey || nodeKeys.apiKey.trim() === "") &&
           (!configKey || typeof configKey !== "string" || configKey.trim() === "")) {
         missingKeys.push(node.id);
       }

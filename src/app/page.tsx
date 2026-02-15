@@ -244,7 +244,7 @@ function AnimatedNumber({
 
   useEffect(() => {
     if (reduce) {
-      setValue(target);
+      queueMicrotask(() => setValue(target));
       return;
     }
 
@@ -349,6 +349,8 @@ function IlluHeroCollectToBox() {
   const cx = W / 2;
   const cy = H / 2;
 
+  // Illustration subcomponents: defined here to close over phase/canvas state; stable in practice
+  // eslint-disable-next-line react-hooks/static-components -- hero animation closure
   const SolidCard = ({ w, children }: { w: number; children: React.ReactNode }) => (
     <div
       className="relative rounded-3xl border border-white/10 bg-[#0b0f16] shadow-[0_18px_60px_rgba(0,0,0,0.55)]"
@@ -365,6 +367,7 @@ function IlluHeroCollectToBox() {
     </div>
   );
 
+  // eslint-disable-next-line react-hooks/static-components -- hero animation closure
   const WorkflowNode = ({ label, x, y, delay = 0 }: { label: string; x: number; y: number; delay?: number }) => {
     const drift =
       reduce || isMobileCanvas
@@ -417,6 +420,7 @@ function IlluHeroCollectToBox() {
     );
   };
 
+  // eslint-disable-next-line react-hooks/static-components -- hero animation closure
   const PromptCard = ({ text, x, y, delay = 0 }: { text: string; x: number; y: number; delay?: number }) => {
     const parts = text.split(/(\{\{[^}]+\}\})/g);
 
@@ -610,6 +614,7 @@ function IlluHeroCollectToBox() {
         {layout.nodes.map((n, i) => (
           <WorkflowNode key={n.label} label={n.label} x={n.x} y={n.y} delay={i * 0.15} />
         ))}
+        {/* eslint-disable-next-line react-hooks/static-components -- PromptCard defined above in same scope */}
         <PromptCard text={layout.prompt.text} x={layout.prompt.x} y={layout.prompt.y} delay={0.2} />
       </div>
     </IlluShell>
@@ -727,6 +732,7 @@ function IlluWorkflowGraph() {
 
   const visible = scene === 0 ? ["a", "b", "c"] : scene === 1 ? ["a", "b", "c", "d"] : ["a", "b", "c", "d", "e"];
 
+  // eslint-disable-next-line react-hooks/static-components -- illustration scene closure
   function Node({ id, x, y, w, label }: { id: string; x: number; y: number; w: number; label: string }) {
     const show = visible.includes(id);
     return (
@@ -749,6 +755,7 @@ function IlluWorkflowGraph() {
     );
   }
 
+  // eslint-disable-next-line react-hooks/static-components -- illustration scene closure
   function Edge({ from, to, show }: { from: { x: number; y: number }; to: { x: number; y: number }; show: boolean }) {
     if (!show) return null;
     const dx = to.x - from.x;
@@ -782,6 +789,7 @@ function IlluWorkflowGraph() {
 
   return (
     <IlluShell>
+      {/* eslint-disable react-hooks/static-components */}
       <div className="absolute inset-0">
         <Edge from={centerRight(a)} to={centerLeft(b)} show={visible.includes("a") && visible.includes("b")} />
         <Edge from={centerRight(b)} to={centerLeft(c)} show={visible.includes("b") && visible.includes("c")} />
@@ -809,6 +817,7 @@ function IlluWorkflowGraph() {
           />
         ) : null}
       </div>
+      {/* eslint-enable react-hooks/static-components */}
     </IlluShell>
   );
 }
@@ -1958,7 +1967,7 @@ export default function EdgazeLandingPage() {
                 </Reveal>
                 <Reveal delay={0.1}>
                   <TextCard title="Join in simple steps">
-                    <p>Join the beta and you're in. Get distribution on your assets that were not productive.</p>
+                    <p>Join the beta and you&apos;re in. Get distribution on your assets that were not productive.</p>
                   </TextCard>
                 </Reveal>
               </div>

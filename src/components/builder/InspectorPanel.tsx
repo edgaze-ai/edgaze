@@ -44,13 +44,15 @@ function useAnalytics(workflowId?: string) {
 
   useEffect(() => {
     if (!workflowId) {
-      setState("missing");
-      setData(null);
+      queueMicrotask(() => {
+        setState("missing");
+        setData(null);
+      });
       return;
     }
 
     let aborted = false;
-    setState("loading");
+    queueMicrotask(() => setState("loading"));
 
     fetch(`/api/analytics/workflow?workflowId=${workflowId}`)
       .then(async (res) => {
@@ -101,13 +103,15 @@ function useCommunity(workflowId?: string) {
 
   useEffect(() => {
     if (!workflowId) {
-      setState("missing");
-      setData(null);
+      queueMicrotask(() => {
+        setState("missing");
+        setData(null);
+      });
       return;
     }
 
     let aborted = false;
-    setState("loading");
+    queueMicrotask(() => setState("loading"));
 
     fetch(`/api/community/workflow?workflowId=${workflowId}`)
       .then(async (res) => {
@@ -176,7 +180,7 @@ function Card({
 const Input = (props: any) => (
   <input
     {...props}
-    className={`w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10 
+    className={`w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10
     focus:outline-none focus:ring-2 focus:ring-white/10 ${props.className ?? ""}`}
   />
 );
@@ -184,7 +188,7 @@ const Input = (props: any) => (
 const TextArea = (props: any) => (
   <textarea
     {...props}
-    className={`w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10 
+    className={`w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10
     focus:outline-none focus:ring-2 focus:ring-white/10 ${props.className ?? ""}`}
   />
 );
@@ -206,6 +210,24 @@ function GeneralPanel({
   const cfg = selection.config ?? {};
   const inspectorFields = spec?.inspector ?? [];
   const advancedKeys = new Set(["timeout", "retries", "allowOnly", "denyHosts", "maxTokens", "maxIterations"]);
+
+  // Auto-fix OpenAI Image config so invalid model+size/quality are never sent to the API
+  useEffect(() => {
+    if (spec?.id !== "openai-image" || !selection.nodeId) return;
+    const model = cfg.model || "dall-e-2";
+    const size = cfg.size || "1024x1024";
+    const quality = cfg.quality || "standard";
+    const dallE2Sizes = ["256x256", "512x512", "1024x1024"];
+    const dallE3Sizes = ["1024x1024", "1792x1024", "1024x1792"];
+    const updates: Record<string, string> = {};
+    if (model === "dall-e-2") {
+      if (quality === "hd") updates.quality = "standard";
+      if (!dallE2Sizes.includes(size)) updates.size = "1024x1024";
+    } else if (model === "dall-e-3" && !dallE3Sizes.includes(size)) {
+      updates.size = "1024x1024";
+    }
+    if (Object.keys(updates).length > 0) onUpdate(updates);
+  }, [spec?.id, selection.nodeId, cfg.model, cfg.size, cfg.quality, onUpdate]);
 
   const renderField = (field: any) => {
     const value = cfg[field.key] ?? (spec.defaultConfig?.[field.key] ?? "");
@@ -343,33 +365,64 @@ function GeneralPanel({
           </div>
         );
 
-      case "select":
+      case "select": {
+        // OpenAI Image: Quality is only for DALL-E 3; Size options depend on model
+        const isOpenAIImage = spec?.id === "openai-image";
+        const imageModel = cfg.model || "dall-e-2";
+        const qualityDisabled = isOpenAIImage && field.key === "quality" && imageModel === "dall-e-2";
+        const sizeOptionsDallE2 = [
+          { label: "1024x1024", value: "1024x1024" },
+          { label: "512x512", value: "512x512" },
+          { label: "256x256", value: "256x256" },
+        ];
+        const sizeOptionsDallE3 = [
+          { label: "1024x1024", value: "1024x1024" },
+          { label: "1792x1024", value: "1792x1024" },
+          { label: "1024x1792", value: "1024x1792" },
+        ];
+        const selectOptions =
+          isOpenAIImage && field.key === "size"
+            ? imageModel === "dall-e-3"
+              ? sizeOptionsDallE3
+              : sizeOptionsDallE2
+            : field.options ?? [];
+        let effectiveValue: string = qualityDisabled ? "standard" : value;
+        if (isOpenAIImage && field.key === "size" && !selectOptions.some((o: any) => o.value === value)) {
+          effectiveValue = selectOptions[0]?.value ?? "1024x1024";
+        }
         return (
           <div key={field.key}>
             <label className="text-[11px] text-white/60 flex items-center gap-1">
               {field.label}
-              {field.helpText && (
-                <span className="text-white/40" title={field.helpText}>
+              {(field.helpText || (qualityDisabled && "Only for DALL-E 3")) && (
+                <span className="text-white/40" title={qualityDisabled ? "Only for DALL-E 3" : field.helpText}>
                   (?)
                 </span>
               )}
             </label>
             <select
-              defaultValue={value}
+              value={effectiveValue}
+              disabled={qualityDisabled}
               onChange={(e) => onUpdate({ [field.key]: e.target.value })}
-              className="w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10 focus:outline-none focus:ring-2 focus:ring-white/10"
+              className="w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10 focus:outline-none focus:ring-2 focus:ring-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {field.options?.map((opt: any) => (
+              {selectOptions.map((opt: any) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
             </select>
-            {field.helpText && (
+            {qualityDisabled && (
+              <div className="mt-1 text-[10px] text-amber-400/90">
+                Only available for DALL-E 3. Set Model to DALL-E 3 to use HD quality.
+              </div>
+            )}
+            {field.helpText && !qualityDisabled && (
               <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
             )}
           </div>
         );
+      }
 
       default:
         return null;
@@ -427,7 +480,7 @@ function GeneralPanel({
                 }
               />
               <div className="mt-1 text-[10px] text-white/45">
-                Your API key is stored locally and only used when running this workflow. After 10 free runs, you'll need to provide your own API key.
+                Your API key is stored locally and only used when running this workflow. After 10 free runs, you&apos;ll need to provide your own API key.
               </div>
             </div>
           )}
@@ -469,7 +522,7 @@ function GeneralPanel({
                 )}
               </div>
               <div className="mt-2 text-[10px] text-white/50">
-                Examples: "If age &gt; 18", "If status equals 'active'", "If count is truthy"
+                Examples: &quot;If age &gt; 18&quot;, &quot;If status equals &apos;active&apos;&quot;, &quot;If count is truthy&quot;
               </div>
             </div>
           </div>
@@ -564,7 +617,7 @@ function InputsPanel({
                         inputs: { ...(cfg.inputs ?? {}), [port.id]: e.currentTarget.value },
                       })
                     }
-                    
+
                   />
                 </div>
                 <div>
@@ -605,6 +658,31 @@ function CodePanel({ selection, spec }: { selection: Selection; spec: any }) {
 
 type TabKey = "general" | "inputs" | "code";
 
+function TabPill({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={[
+        "px-3 py-1.5 rounded-full border text-[12px]",
+        active
+          ? "bg-white/10 border-white/12 text-white"
+          : "bg-transparent border-white/10 text-white/70 hover:bg-white/5",
+      ].join(" ")}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function InspectorPanel({
   selection,
   workflowId,
@@ -624,7 +702,7 @@ export default function InspectorPanel({
       specId: selection?.specId,
       config: selection?.config,
     };
-    
+
     // If we have a nodeId and a way to get the latest graph, use the latest config
     if (base.nodeId && getLatestGraph) {
       const graph = getLatestGraph();
@@ -636,7 +714,7 @@ export default function InspectorPanel({
         };
       }
     }
-    
+
     return base;
   }, [selection?.nodeId, selection?.specId, selection?.config, getLatestGraph]);
 
@@ -645,7 +723,7 @@ export default function InspectorPanel({
 
   // When selection changes, keep UX predictable
   useEffect(() => {
-    setTab("general");
+    queueMicrotask(() => setTab("general"));
   }, [safeSelection.nodeId, safeSelection.specId]);
 
   const spec = useMemo(() => {
@@ -673,29 +751,6 @@ export default function InspectorPanel({
 
   // Creator-friendly: hide advanced execution knobs by default
   const [showAdvanced, setShowAdvanced] = useState(false);
-
-  const TabPill = ({
-    active,
-    children,
-    onClick,
-  }: {
-    active: boolean;
-    children: React.ReactNode;
-    onClick: () => void;
-  }) => (
-    <button
-      onClick={onClick}
-      className={[
-        "px-3 py-1.5 rounded-full border text-[12px]",
-        active
-          ? "bg-white/10 border-white/12 text-white"
-          : "bg-transparent border-white/10 text-white/70 hover:bg-white/5",
-      ].join(" ")}
-      type="button"
-    >
-      {children}
-    </button>
-  );
 
   return (
     // IMPORTANT: make the panel actually scroll inside the floating window

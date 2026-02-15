@@ -155,7 +155,7 @@ function saveReturnPath(path: string) {
   try {
     const cleaned = cleanPath(path);
     if (cleaned) {
-      console.log("[saveReturnPath] Saving path:", cleaned, "from original:", path);
+      console.warn("[saveReturnPath] Saving path:", cleaned, "from original:", path);
       localStorage.setItem("edgaze:returnTo", cleaned);
       sessionStorage.setItem("edgaze:returnTo", cleaned);
     } else {
@@ -176,7 +176,7 @@ function getReturnPath(): string | null {
     const fromLocal = localStorage.getItem("edgaze:returnTo");
     const fromSession = sessionStorage.getItem("edgaze:returnTo");
     const result = fromLocal || fromSession;
-    console.log("[getReturnPath] Retrieved:", result, "from localStorage:", !!fromLocal, "from sessionStorage:", !!fromSession);
+    console.warn("[getReturnPath] Retrieved:", result, "from localStorage:", !!fromLocal, "from sessionStorage:", !!fromSession);
     return result;
   } catch (err) {
     console.error("[getReturnPath] Error reading path:", err);
@@ -261,12 +261,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // CRITICAL: This includes query params and hash (action=run, action=purchase, etc.)
     if (typeof window !== "undefined") {
       const currentPath = window.location.pathname + window.location.search + window.location.hash;
-      console.log("[openSignIn] Saving current path:", currentPath);
+      console.warn("[openSignIn] Saving current path:", currentPath);
       // Only save if it's a valid path (not root, not auth pages)
       if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
         saveReturnPath(currentPath);
       } else {
-        console.log("[openSignIn] Not saving path (invalid):", currentPath);
+        console.warn("[openSignIn] Not saving path (invalid):", currentPath);
       }
     }
     
@@ -594,23 +594,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               const returnPath = getReturnPath();
               
-              console.log("[Auth State Change] Email sign-in detected, checking return path:", returnPath);
+              console.warn("[Auth State Change] Email sign-in detected, checking return path:", returnPath);
               
               if (returnPath) {
                 const cleaned = cleanPath(returnPath);
                 
                 if (cleaned && pathname !== cleaned) {
-                  console.log("[Auth State Change] Redirecting to:", cleaned);
+                  console.warn("[Auth State Change] Redirecting to:", cleaned);
                   // Clear storage and redirect
                   clearReturnPath();
                   router.push(cleaned);
                 } else {
-                  console.log("[Auth State Change] Invalid path or already on target, clearing storage");
+                  console.warn("[Auth State Change] Invalid path or already on target, clearing storage");
                   // Invalid path or already on that path - just clear storage
                   clearReturnPath();
                 }
               } else {
-                console.log("[Auth State Change] No return path found, staying on current page");
+                console.warn("[Auth State Change] No return path found, staying on current page");
               }
               
               justSignedInRef.current = false;
@@ -621,7 +621,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }, 300);
         } else {
-          console.log("[Auth State Change] On callback page, letting callback handler manage redirect");
+          console.warn("[Auth State Change] On callback page, letting callback handler manage redirect");
         }
       }
     });
@@ -672,7 +672,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ? `${callbackUrl}?next=${encodeURIComponent(returnPath)}`
       : callbackUrl;
     
-    console.log("[signInWithGoogle] Prepared redirect:", {
+    console.warn("[signInWithGoogle] Prepared redirect:", {
       returnPath,
       callbackUrl,
       redirectTo,
@@ -680,7 +680,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // CRITICAL DEBUG: Log what we're sending to Supabase
-    console.log("[OAuth] Starting Google sign-in with:", {
+    console.warn("[OAuth] Starting Google sign-in with:", {
       currentOrigin,
       callbackUrl,
       redirectTo,
@@ -719,7 +719,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Log the response
     if (data?.url) {
-      console.log("[OAuth] Supabase returned URL:", data.url);
+      console.warn("[OAuth] Supabase returned URL:", data.url);
       // Check if Supabase is trying to redirect to wrong domain
       if (currentOrigin.includes("localhost") && data.url.includes("edgaze.ai")) {
         console.error("[OAuth] ERROR: Supabase is redirecting to production!", {

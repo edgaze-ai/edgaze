@@ -228,7 +228,7 @@ export default function RunCountDiagnosticModal({
                         <div className="flex-1">
                           <div className="text-sm font-semibold text-yellow-300 mb-1">Warning: Stuck Run</div>
                           <div className="text-xs text-yellow-200/80">
-                            Your last run is still marked as "running". This might prevent the count from updating correctly.
+                            Your last run is still marked as &quot;running&quot;. This might prevent the count from updating correctly.
                             The run may have completed but failed to update its status in the database.
                           </div>
                         </div>

@@ -387,30 +387,35 @@ async function uploadFileToBucket(opts: {
 }
 
 function ConfettiSides({ active }: { active: boolean }) {
+  const [pieceStyles, setPieceStyles] = useState<Array<Record<string, string>>>([]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setPieceStyles(
+        new Array(18).fill(null).map((_, i) => {
+          const left = i % 2 === 0;
+          const x = left ? Math.random() * 18 : 82 + Math.random() * 18;
+          const delay = Math.random() * 0.2;
+          const size = 8 + Math.random() * 10;
+          return {
+            left: `${x}%`,
+            top: "-10%",
+            width: `${size}px`,
+            height: `${size * 1.55}px`,
+            animationDelay: `${delay}s`,
+          };
+        })
+      );
+    });
+  }, []);
+
   if (!active) return null;
-  const pieces = new Array(18).fill(null).map((_, i) => i);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-      {pieces.map((i) => {
-        const left = i % 2 === 0;
-        const x = left ? Math.random() * 18 : 82 + Math.random() * 18;
-        const delay = Math.random() * 0.2;
-        const size = 8 + Math.random() * 10;
-        return (
-          <div
-            key={i}
-            className="confetti"
-            style={{
-              left: `${x}%`,
-              top: `-10%`,
-              width: `${size}px`,
-              height: `${size * 1.55}px`,
-              animationDelay: `${delay}s`,
-            }}
-          />
-        );
-      })}
+      {pieceStyles.length > 0 && pieceStyles.map((style, i) => (
+        <div key={i} className="confetti" style={style} />
+      ))}
       <style jsx>{`
         .confetti {
           position: absolute;

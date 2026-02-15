@@ -30,7 +30,7 @@ export default function TurnstileWidget({
   useEffect(() => {
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
     if (!siteKey) {
-      setStatus("missing_key");
+      queueMicrotask(() => setStatus("missing_key"));
       return;
     }
 
@@ -38,7 +38,7 @@ export default function TurnstileWidget({
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
 
     if (existing) {
-      setStatus("ready");
+      queueMicrotask(() => setStatus("ready"));
       return;
     }
 

@@ -89,3 +89,10 @@ export type RuntimeResult = {
   nodeStatus: Record<string, NodeStatus>;
   workflowStatus?: WorkflowStatus;
 };
+
+/** Progress events for live streaming of workflow execution */
+export type FlowProgressEvent =
+  | { type: "node_start"; nodeId: string; specId: string; nodeTitle?: string; timestamp: number }
+  | { type: "node_done"; nodeId: string; specId: string; nodeTitle?: string; timestamp: number }
+  | { type: "node_failed"; nodeId: string; specId: string; nodeTitle?: string; error?: string; timestamp: number }
+  | { type: "node_ready"; nodeId: string; specId: string; nodeTitle?: string; timestamp: number };

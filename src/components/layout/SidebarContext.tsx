@@ -36,8 +36,10 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   // - collapse desktop sidebar (max space)
   // - close mobile drawer (prevent stale open drawer after navigation)
   useEffect(() => {
-    setCollapsed(true);
-    setMobileOpen(false);
+    queueMicrotask(() => {
+      setCollapsed(true);
+      setMobileOpen(false);
+    });
   }, [pathname]);
 
   const value = useMemo(

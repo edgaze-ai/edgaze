@@ -12,6 +12,19 @@ type Phase =
 
 type Tab = "output" | "logs" | "raw";
 
+function RunModalStatusIcon({ phase }: { phase: Phase }) {
+  if (phase.phase === "starting") {
+    return <Loader2 size={18} className="animate-spin text-white/80" />;
+  }
+  if (phase.phase === "finished") {
+    return <CheckCircle2 size={18} className="text-emerald-400" />;
+  }
+  if (phase.phase === "error") {
+    return <AlertTriangle size={18} className="text-red-400" />;
+  }
+  return null;
+}
+
 export default function RunModal() {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>({ phase: "idle" });
@@ -63,107 +76,6 @@ export default function RunModal() {
   }, [phase]);
 
   /* -----------------------------------------------
-   * TopBar Icon
-   * --------------------------------------------- */
-  const StatusIcon = () => {
-    if (phase.phase === "starting") {
-      return <Loader2 size={18} className="animate-spin text-white/80" />;
-    }
-    if (phase.phase === "finished") {
-      return <CheckCircle2 size={18} className="text-emerald-400" />;
-    }
-    if (phase.phase === "error") {
-      return <AlertTriangle size={18} className="text-red-400" />;
-    }
-    return null;
-  };
-
-  /* -----------------------------------------------
-   * Content Renderer
-   * --------------------------------------------- */
-  const renderBody = () => {
-    if (phase.phase === "starting") {
-      return (
-        <div className="p-6 text-sm text-white/70">
-          <div className="flex items-center gap-2">
-            <Loader2 size={16} className="animate-spin text-white/70" />
-            <span>Starting workflow…</span>
-          </div>
-        </div>
-      );
-    }
-
-    if (phase.phase === "error") {
-      return (
-        <div className="p-6">
-          <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm leading-relaxed text-red-300">
-            {phase.message || "Unknown error occurred."}
-            <div className="mt-3 text-xs text-white/60">
-              • Ensure required connections exist
-              <br />
-              • Check nodes that need inputs
-              <br />
-              • Restart your server if necessary
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (phase.phase === "finished") {
-      return (
-        <div className="px-4 pt-3 pb-4 text-[11px] text-white/85">
-          {/* Output */}
-          {tab === "output" && (
-            <div className="max-h-[60vh] space-y-3 overflow-auto pr-2">
-              {safeOutput ? (
-                <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-white/[0.03] p-4 text-[11px] leading-5">
-                  {JSON.stringify(safeOutput, null, 2)}
-                </pre>
-              ) : (
-                <div className="text-sm text-white/60">
-                  No output returned from workflow.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Logs */}
-          {tab === "logs" && (
-            <div className="max-h-[60vh] space-y-2 overflow-auto pr-2">
-              {safeLogs.length === 0 && (
-                <div className="text-sm text-white/60">
-                  No logs recorded for this execution.
-                </div>
-              )}
-              {safeLogs.map((l: any, i: number) => (
-                <div
-                  key={i}
-                  className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
-                >
-                  <div className="text-[11px] text-white/70">{l?.time}</div>
-                  <div className="text-[11px] leading-5">{l?.message}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Raw JSON */}
-          {tab === "raw" && (
-            <div className="max-h-[60vh] overflow-auto pr-2">
-              <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-white/[0.03] p-4 text-[11px] leading-5">
-                {prettyJSON}
-              </pre>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  /* -----------------------------------------------
    * Guard AFTER hooks – safe for React
    * --------------------------------------------- */
   if (!open) return null;
@@ -183,7 +95,7 @@ export default function RunModal() {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3 text-[13px]">
           <div className="flex items-center gap-2">
-            <StatusIcon />
+            <RunModalStatusIcon phase={phase} />
             <span className="font-semibold">
               {phase.phase === "starting" && "Running Workflow…"}
               {phase.phase === "finished" && "Run Complete"}
@@ -224,7 +136,70 @@ export default function RunModal() {
         )}
 
         {/* Body */}
-        {renderBody()}
+        {phase.phase === "starting" && (
+          <div className="p-6 text-sm text-white/70">
+            <div className="flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin text-white/70" />
+              <span>Starting workflow…</span>
+            </div>
+          </div>
+        )}
+        {phase.phase === "error" && (
+          <div className="p-6">
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm leading-relaxed text-red-300">
+              {phase.message || "Unknown error occurred."}
+              <div className="mt-3 text-xs text-white/60">
+                • Ensure required connections exist
+                <br />
+                • Check nodes that need inputs
+                <br />
+                • Restart your server if necessary
+              </div>
+            </div>
+          </div>
+        )}
+        {phase.phase === "finished" && (
+          <div className="px-4 pt-3 pb-4 text-[11px] text-white/85">
+            {tab === "output" && (
+              <div className="max-h-[60vh] space-y-3 overflow-auto pr-2">
+                {safeOutput ? (
+                  <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-white/[0.03] p-4 text-[11px] leading-5">
+                    {JSON.stringify(safeOutput, null, 2)}
+                  </pre>
+                ) : (
+                  <div className="text-sm text-white/60">
+                    No output returned from workflow.
+                  </div>
+                )}
+              </div>
+            )}
+            {tab === "logs" && (
+              <div className="max-h-[60vh] space-y-2 overflow-auto pr-2">
+                {safeLogs.length === 0 && (
+                  <div className="text-sm text-white/60">
+                    No logs recorded for this execution.
+                  </div>
+                )}
+                {safeLogs.map((l: any, i: number) => (
+                  <div
+                    key={i}
+                    className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+                  >
+                    <div className="text-[11px] text-white/70">{l?.time}</div>
+                    <div className="text-[11px] leading-5">{l?.message}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {tab === "raw" && (
+              <div className="max-h-[60vh] overflow-auto pr-2">
+                <pre className="whitespace-pre-wrap rounded-lg border border-white/10 bg-white/[0.03] p-4 text-[11px] leading-5">
+                  {prettyJSON}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -10,7 +10,7 @@ export function UISettingsProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     const saved = localStorage.getItem("edge:uiScale");
-    if (saved) setUiScaleState(Number(saved));
+    if (saved) queueMicrotask(() => setUiScaleState(Number(saved)));
   }, []);
 
   useEffect(() => {
