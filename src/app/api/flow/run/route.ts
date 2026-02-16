@@ -27,19 +27,37 @@ export async function POST(req: Request) {
       openaiApiKey?: string;
       deviceFingerprint?: string;
       stream?: boolean;
+      adminDemoToken?: string;
     };
 
-    const { nodes = [], edges = [], inputs = {}, workflowId, userApiKeys = {}, isDemo = false, isBuilderTest = false, openaiApiKey: modalOpenaiKey, deviceFingerprint, stream: useStream = false } = body;
+    const { nodes = [], edges = [], inputs = {}, workflowId, userApiKeys = {}, isDemo = false, isBuilderTest = false, openaiApiKey: modalOpenaiKey, deviceFingerprint, stream: useStream = false, adminDemoToken } = body;
 
     if (!workflowId) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
     }
 
-    // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>). Demo runs allowed without auth.
+    // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>). Demo runs and admin demo link allowed without auth.
     const { user, error: authError } = await getUserFromRequest(req);
     let userId: string;
     if (user) {
       userId = user.id;
+    } else if (adminDemoToken && typeof adminDemoToken === "string" && adminDemoToken.length >= 16) {
+      // Admin demo link: verify token matches workflow, bypass device limit
+      const supabase = createSupabaseAdminClient();
+      const { data: wf, error: wfError } = await supabase
+        .from("workflows")
+        .select("id")
+        .eq("id", workflowId)
+        .eq("demo_mode_enabled", true)
+        .eq("demo_token", adminDemoToken.trim())
+        .maybeSingle();
+      if (wfError || !wf) {
+        return NextResponse.json(
+          { ok: false, error: "Invalid or expired demo link. Please use the link from the admin panel." },
+          { status: 403 }
+        );
+      }
+      userId = "admin_demo_user";
     } else if (isDemo) {
       // For anonymous demo runs, check server-side tracking (device fingerprint + IP)
       if (!deviceFingerprint || deviceFingerprint.length < 10) {

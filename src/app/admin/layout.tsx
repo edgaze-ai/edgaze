@@ -41,6 +41,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 >
                   Moderation
                 </Link>
+                <Link
+                  href="/admin/demo"
+                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
+                >
+                  Demo mode
+                </Link>
               </nav>
             </div>
             <div className="flex items-center gap-2">

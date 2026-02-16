@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -58,6 +58,9 @@ type CodeSuggestion = {
   created_at?: string | null;
   thumbnail_url?: string | null;
 };
+
+/** Row shape when selecting like count columns (workflows: likes_count; prompts: likes_count, like_count) */
+type LikeCountRow = { likes_count?: number | null; like_count?: number | null };
 
 type ProfileMini = {
   handle: string;
@@ -641,15 +644,17 @@ function PromptCard({
       try {
         const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
         
-        // Refresh count from database first
+        // Refresh count from database first (workflows has likes_count only; prompts has both)
+        const likeCountCols = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
         const { data: itemData } = await supabase
           .from(itemsTable)
-          .select("likes_count, like_count")
+          .select(likeCountCols)
           .eq("id", prompt.id)
           .single();
         
         if (itemData) {
-          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          const raw = itemData as LikeCountRow;
+          const actualCount = raw.likes_count ?? raw.like_count ?? 0;
           setLikeCount(actualCount);
         }
         
@@ -783,14 +788,16 @@ function PromptCard({
         await new Promise(resolve => setTimeout(resolve, 100));
         
         // Refresh count from database (triggers update it)
+        const likeCountCols = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
         const { data: itemData } = await supabase
           .from(itemsTable)
-          .select("likes_count, like_count")
+          .select(likeCountCols)
           .eq("id", prompt.id)
           .single();
         
         if (itemData) {
-          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          const raw = itemData as LikeCountRow;
+          const actualCount = raw.likes_count ?? raw.like_count ?? 0;
           setLikeCount(actualCount);
         } else {
           // Fallback: decrement optimistically
@@ -815,14 +822,16 @@ function PromptCard({
             await new Promise(resolve => setTimeout(resolve, 100));
             
             // Refresh count from database
-            const { data: itemData } = await supabase
+            const likeCountColsDup = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
+            const { data: itemDataDup } = await supabase
               .from(itemsTable)
-              .select("likes_count, like_count")
+              .select(likeCountColsDup)
               .eq("id", prompt.id)
               .single();
             
-            if (itemData) {
-              const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+            if (itemDataDup) {
+              const raw = itemDataDup as LikeCountRow;
+              const actualCount = raw.likes_count ?? raw.like_count ?? 0;
               setLikeCount(actualCount);
             } else {
               // Fallback: increment optimistically
@@ -839,14 +848,16 @@ function PromptCard({
         await new Promise(resolve => setTimeout(resolve, 100));
         
         // Refresh count from database (triggers update it)
-        const { data: itemData } = await supabase
+        const likeCountCols2 = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
+        const { data: itemData2 } = await supabase
           .from(itemsTable)
-          .select("likes_count, like_count")
+          .select(likeCountCols2)
           .eq("id", prompt.id)
           .single();
         
-        if (itemData) {
-          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+        if (itemData2) {
+          const raw = itemData2 as LikeCountRow;
+          const actualCount = raw.likes_count ?? raw.like_count ?? 0;
           setLikeCount(actualCount);
         } else {
           // Fallback: increment optimistically
@@ -1898,6 +1909,7 @@ const [codeQuery, setCodeQuery] = useState("");
     return () => {
       cancelled = true;
     };
+    // Intentionally run only when search query changes; resetAndLoad/loadPage omitted to avoid re-running on every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [committedDebouncedQuery]);
 
@@ -1923,6 +1935,8 @@ const [codeQuery, setCodeQuery] = useState("");
 
     obs.observe(el);
     return () => obs.disconnect();
+    // loadPage intentionally omitted to avoid recreating observer every render (loadPage not memoized)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor, hasMore, loadingFirst, loadingMore]);
 
   // Prefetch next page as soon as first load finishes so bottom content is ready when user scrolls
@@ -2138,7 +2152,7 @@ const [codeQuery, setCodeQuery] = useState("");
     router.push(path as any);
   };
 
-  const fetchCodeSuggestions = async (q: string) => {
+  const fetchCodeSuggestions = useCallback(async (q: string) => {
     const qLower = q.trim().toLowerCase();
     if (!qLower) return [];
 
@@ -2223,7 +2237,7 @@ const [codeQuery, setCodeQuery] = useState("");
     }
 
     return deduped;
-  };
+  }, [supabase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2248,7 +2262,7 @@ const [codeQuery, setCodeQuery] = useState("");
     return () => {
       cancelled = true;
     };
-  }, [codeQuery, supabase]);
+  }, [codeQuery, fetchCodeSuggestions]);
 
   const findListingByCode = async (handlePart: string | null, codePart: string) => {
     if (handlePart) {

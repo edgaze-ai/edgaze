@@ -177,11 +177,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 ) {
   const isPreview = mode === "preview";
 
-  // nodeTypes is defined outside component and frozen, so it's stable
-  // Using it directly should work, but React Flow may still warn in dev mode
-  // Using useMemo ensures the reference is stable across renders
-  const stableNodeTypes = useMemo(() => nodeTypes, []);
-
+  // nodeTypes is defined outside component and frozen — pass it directly to avoid "new nodeTypes" warning
   const [nodes, setNodes, baseOnNodesChange] = useNodesState<EdgazeNodeData>([]);
 
   const [edges, setEdges] = useEdgesState<Edge>([]);
@@ -1248,7 +1244,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         onEdgesChange={onEdgesChange}
         onConnect={locked || isPreview ? undefined : onConnect}
         isValidConnection={isValidConnection}
-        nodeTypes={stableNodeTypes}
+        nodeTypes={nodeTypes}
         fitView
         snapToGrid
         snapGrid={[16, 16]}

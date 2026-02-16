@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   ArrowLeft,
@@ -80,6 +80,8 @@ type PromptListing = {
   removed_at?: string | null;
   removed_reason?: string | null;
   removed_by?: string | null;
+  demo_mode_enabled?: boolean | null;
+  demo_token?: string | null;
 };
 
 type PurchaseRow = {
@@ -1181,6 +1183,7 @@ function RunModal({
 export default function PromptProductPage() {
   const params = useParams<{ ownerHandle: string; edgazeCode: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { requireAuth, userId, profile } = useAuth();
 
@@ -1219,6 +1222,23 @@ export default function PromptProductPage() {
 
   const CLOSED_BETA = true;
 
+  // Demo mode: when visiting with ?demo=TOKEN and it matches, skip sign-in for Run
+  const demoTokenFromUrl = searchParams?.get("demo") ?? null;
+  const isDemoModeActive = Boolean(
+    listing?.demo_mode_enabled &&
+      listing?.demo_token &&
+      demoTokenFromUrl &&
+      String(demoTokenFromUrl).trim() === String(listing.demo_token).trim()
+  );
+
+  // When demo mode is off but URL has ?demo=, redirect to clean URL
+  useEffect(() => {
+    if (!listing || !demoTokenFromUrl) return;
+    if (isDemoModeActive) return;
+    const cleanPath = `/p/${ownerHandle}/${edgazeCode}`;
+    router.replace(cleanPath);
+  }, [listing, demoTokenFromUrl, isDemoModeActive, ownerHandle, edgazeCode, router]);
+
   useEffect(() => {
     if (!ownerHandle || !edgazeCode) return;
     let cancelled = false;
@@ -1250,6 +1270,8 @@ export default function PromptProductPage() {
             "price_usd",
             "view_count",
             "like_count",
+            "demo_mode_enabled",
+            "demo_token",
           ].join(",")
         )
         .eq("owner_handle", ownerHandle)
@@ -1544,6 +1566,24 @@ export default function PromptProductPage() {
     const relativePath = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "") + window.location.hash;
     window.history.replaceState({}, "", relativePath);
 
+    // Demo mode: admin-enabled demo link — skip sign-in, allow direct run
+    if (isDemoModeActive) {
+      if (listing.type === "workflow") {
+        safeTrack("Workflow Demo Run Initiated", {
+          surface: "product_page",
+          listing_id: listing.id,
+          listing_type: listing.type,
+          edgaze_code: listing.edgaze_code,
+          demo_mode: true,
+        });
+        handleWorkflowRun();
+        return;
+      }
+      // Prompt: open run modal (copy prompt)
+      setRunOpen(true);
+      return;
+    }
+
     // For workflows: allow demo runs even when not authenticated (if free)
     if (listing.type === "workflow" && isNaturallyFree && !userId) {
       // Check if demo run is allowed (server-side check)
@@ -1809,9 +1849,9 @@ export default function PromptProductPage() {
     });
 
     try {
-      // Get device fingerprint for server-side tracking (for non-authenticated users)
-      const deviceFingerprint = !userId ? getDeviceFingerprintHash() : undefined;
-      
+      // Admin demo link: pass token to bypass auth and device limit. Otherwise use device fingerprint for anonymous demo.
+      const deviceFingerprint = !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
+
       const response = await fetch("/api/flow/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1821,8 +1861,9 @@ export default function PromptProductPage() {
           edges: workflowGraph.edges || [],
           inputs: processedInputs,
           userApiKeys,
-          isDemo: !userId, // Demo run for non-authenticated users
-          deviceFingerprint, // Required for server-side tracking
+          isDemo: !userId && !isDemoModeActive,
+          deviceFingerprint,
+          adminDemoToken: isDemoModeActive && listing?.demo_token ? listing.demo_token : undefined,
         }),
       });
 

@@ -582,7 +582,7 @@ export default function BuilderPage() {
     setTimeout(() => {
       isUndoRedoRef.current = false;
     }, 0);
-  }, [activeDraftId, undoStack.length]);
+  }, [activeDraftId, undoStack]);
 
   const redo = useCallback(() => {
     if (redoStack.length === 0 || !activeDraftId) return;
@@ -598,7 +598,7 @@ export default function BuilderPage() {
     setTimeout(() => {
       isUndoRedoRef.current = false;
     }, 0);
-  }, [activeDraftId, redoStack.length]);
+  }, [activeDraftId, redoStack]);
 
   // Edit mode: Ctrl+Z undo, Ctrl+Shift+Z / Ctrl+Y redo
   useEffect(() => {
@@ -784,7 +784,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows]
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory]
   );
 
   const openPublishedAsDraft = useCallback(
@@ -853,7 +853,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows]
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory]
   );
 
   const openMarketplaceWorkflowAsDraft = useCallback(
@@ -929,7 +929,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows]
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory]
   );
 
   const openMarketplaceWorkflowPreview = useCallback(
@@ -1005,7 +1005,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase]
+    [requireAuth, userId, supabase, loadGraphAndResetHistory]
   );
 
   // Auto-open from URL param once auth is ready (preview works on mobile, edit is desktop-only)
@@ -1089,7 +1089,7 @@ export default function BuilderPage() {
     } finally {
       setCreating(false);
     }
-  }, [requireAuth, userId, supabase, newTitle, refreshWorkflows]);
+  }, [requireAuth, userId, supabase, newTitle, refreshWorkflows, loadGraphAndResetHistory]);
 
   const createDraftFromQuickStart = useCallback(
     async (templateId: string) => {
@@ -1155,7 +1155,7 @@ export default function BuilderPage() {
         setCreating(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows]
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory]
   );
 
   const ensureDraftSavedNow = useCallback(async () => {

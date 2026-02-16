@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   ArrowLeft,
@@ -78,6 +78,8 @@ type WorkflowListing = {
   removed_at?: string | null;
   removed_reason?: string | null;
   removed_by?: string | null;
+  demo_mode_enabled?: boolean | null;
+  demo_token?: string | null;
 };
 
 type PurchaseRow = {
@@ -886,6 +888,7 @@ function PurchaseSuccessModal({
 export default function WorkflowProductPage() {
   const params = useParams<{ ownerHandle: string; edgazeCode: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { requireAuth, userId, profile } = useAuth();
@@ -930,6 +933,23 @@ export default function WorkflowProductPage() {
   // Keep this behavior consistent with your prompts page: paid becomes free during beta.
   const CLOSED_BETA = true;
 
+  // Demo mode: when visiting with ?demo=TOKEN and it matches, skip sign-in and Turnstile for Run
+  const demoTokenFromUrl = searchParams?.get("demo") ?? null;
+  const isDemoModeActive = Boolean(
+    listing?.demo_mode_enabled &&
+      listing?.demo_token &&
+      demoTokenFromUrl &&
+      String(demoTokenFromUrl).trim() === String(listing.demo_token).trim()
+  );
+
+  // When demo mode is off but URL has ?demo=, redirect to clean URL
+  useEffect(() => {
+    if (!listing || !demoTokenFromUrl) return;
+    if (isDemoModeActive) return;
+    const cleanPath = `/${ownerHandle}/${edgazeCode}`;
+    router.replace(cleanPath);
+  }, [listing, demoTokenFromUrl, isDemoModeActive, ownerHandle, edgazeCode, router]);
+
   useEffect(() => {
     if (!ownerHandle || !edgazeCode) return;
     let cancelled = false;
@@ -962,6 +982,8 @@ export default function WorkflowProductPage() {
             "output_demo_urls",
             "graph_json",
             "graph",
+            "demo_mode_enabled",
+            "demo_token",
           ].join(",")
         )
         .eq("owner_handle", ownerHandle)
@@ -1318,15 +1340,17 @@ export default function WorkflowProductPage() {
     }
   }
 
-  // Start demo run after Turnstile verification
+  // Start demo run (after Turnstile verification, or directly when admin demo link)
   async function startDemoRun() {
     if (!listing) return;
 
-    // Strict one-time check
-    const canRun = await canRunDemo(listing.id, true); // strict one-time
-    if (!canRun) {
-      setPurchaseError("You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.");
-      return;
+    // Skip one-time check when using admin demo link
+    if (!isDemoModeActive) {
+      const canRun = await canRunDemo(listing.id, true);
+      if (!canRun) {
+        setPurchaseError("You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.");
+        return;
+      }
     }
 
     try {
@@ -1358,8 +1382,8 @@ export default function WorkflowProductPage() {
       // Extract inputs
       const inputs = extractWorkflowInputs(graph.nodes || []);
 
-      // Track demo run (strict one-time)
-      trackDemoRun(listing.id);
+      // Track demo run (strict one-time) — skip when admin demo link
+      if (!isDemoModeActive) trackDemoRun(listing.id);
 
       // Initialize run state
       const initialState: WorkflowRunState = {
@@ -1379,21 +1403,25 @@ export default function WorkflowProductPage() {
     }
   }
 
-  // Handle demo button click - opens Turnstile modal first
+  // Handle demo button click - skip Turnstile when admin demo link, else open Turnstile first
   async function handleDemoButtonClick() {
     if (!listing) return;
-    
-    // Check if demo is available
+    setPurchaseError(null);
+
+    // Admin demo link: skip Turnstile and device limit
+    if (isDemoModeActive) {
+      await startDemoRun();
+      return;
+    }
+
     const canRun = await canRunDemo(listing.id, true);
     if (!canRun) {
       setPurchaseError("You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.");
       return;
     }
     
-    // Open Turnstile verification modal
     setTurnstileModalOpen(true);
     setTurnstileToken(null);
-    setPurchaseError(null);
   }
 
   // Handle demo input submission
@@ -1449,7 +1477,8 @@ export default function WorkflowProductPage() {
           edges: graph.edges || [],
           inputs: processedInputs,
           userApiKeys: {},
-          isDemo: true, // Strict one-time demo
+          isDemo: !isDemoModeActive,
+          adminDemoToken: isDemoModeActive && listing?.demo_token ? listing.demo_token : undefined,
         }),
       });
 
@@ -2129,12 +2158,12 @@ export default function WorkflowProductPage() {
                   <button
                     type="button"
                     onClick={handleDemoButtonClick}
-                    disabled={demoRunning || turnstileVerifying || !canRunDemoSync(listing.id, true)}
+                    disabled={demoRunning || turnstileVerifying || (!isDemoModeActive && !canRunDemoSync(listing.id, true))}
                     className={cn(
                       "w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 text-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.3)] transition-all",
-                      (demoRunning || turnstileVerifying || !canRunDemoSync(listing.id, true)) && "opacity-50 cursor-not-allowed"
+                      (demoRunning || turnstileVerifying || (!isDemoModeActive && !canRunDemoSync(listing.id, true))) && "opacity-50 cursor-not-allowed"
                     )}
-                    title={!canRunDemoSync(listing.id, true) ? "You've already used your one-time demo. Purchase for unlimited runs." : "Try a one-time demo"}
+                    title={!isDemoModeActive && !canRunDemoSync(listing.id, true) ? "You've already used your one-time demo. Purchase for unlimited runs." : isDemoModeActive ? "Run demo (no sign-in required)" : "Try a one-time demo"}
                   >
                     {(demoRunning || turnstileVerifying) ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -2425,12 +2454,12 @@ export default function WorkflowProductPage() {
                       <button
                         type="button"
                         onClick={handleDemoButtonClick}
-                        disabled={demoRunning || turnstileVerifying || !canRunDemoSync(listing.id, true)}
+                        disabled={demoRunning || turnstileVerifying || (!isDemoModeActive && !canRunDemoSync(listing.id, true))}
                         className={cn(
                           "flex w-full items-center justify-center gap-2 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 px-4 py-2.5 text-sm font-semibold text-amber-200 shadow-[0_4px_20px_rgba(251,191,36,0.3)] transition-all hover:shadow-[0_6px_24px_rgba(251,191,36,0.4)]",
-                          (demoRunning || turnstileVerifying || !canRunDemoSync(listing.id, true)) && "opacity-50 cursor-not-allowed"
+                          (demoRunning || turnstileVerifying || (!isDemoModeActive && !canRunDemoSync(listing.id, true))) && "opacity-50 cursor-not-allowed"
                         )}
-                        title={!canRunDemoSync(listing.id, true) ? "You've already used your one-time demo. Purchase for unlimited runs." : "Try a one-time demo"}
+                        title={!isDemoModeActive && !canRunDemoSync(listing.id, true) ? "You've already used your one-time demo. Purchase for unlimited runs." : isDemoModeActive ? "Run demo (no sign-in required)" : "Try a one-time demo"}
                       >
                         {(demoRunning || turnstileVerifying) ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

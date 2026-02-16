@@ -63,6 +63,9 @@ type CreatorListing = {
   popularityLabel?: string;
 };
 
+/** Row shape when selecting like count columns (workflows: likes_count; prompts: likes_count, like_count) */
+type LikeCountRow = { likes_count?: number | null; like_count?: number | null };
+
 function initialsFromName(name: string | null | undefined): string {
   const n = (name || "").trim();
   if (!n) return "EG";
@@ -276,16 +279,18 @@ function PromptCard({
     const checkLikeStatus = async () => {
       try {
         const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
+        const likeCountCols = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
         
         // Refresh count from database first
         const { data: itemData } = await supabase
           .from(itemsTable)
-          .select("likes_count, like_count")
+          .select(likeCountCols)
           .eq("id", prompt.id)
           .single();
         
         if (itemData) {
-          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          const raw = itemData as LikeCountRow;
+          const actualCount = raw.likes_count ?? raw.like_count ?? 0;
           setLikeCount(actualCount);
         }
         
@@ -381,14 +386,16 @@ function PromptCard({
         await new Promise(resolve => setTimeout(resolve, 100));
         
         // Refresh count from database (triggers update it)
+        const likeCountColsRefresh = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
         const { data: itemData } = await supabase
           .from(itemsTable)
-          .select("likes_count, like_count")
+          .select(likeCountColsRefresh)
           .eq("id", prompt.id)
           .single();
         
         if (itemData) {
-          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+          const raw = itemData as LikeCountRow;
+          const actualCount = raw.likes_count ?? raw.like_count ?? 0;
           setLikeCount(actualCount);
         } else {
           setLikeCount((prev) => Math.max(0, prev - 1));
@@ -409,14 +416,16 @@ function PromptCard({
             
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            const { data: itemData } = await supabase
+            const likeCountColsDup = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
+            const { data: itemDataDup } = await supabase
               .from(itemsTable)
-              .select("likes_count, like_count")
+              .select(likeCountColsDup)
               .eq("id", prompt.id)
               .single();
             
-            if (itemData) {
-              const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+            if (itemDataDup) {
+              const raw = itemDataDup as LikeCountRow;
+              const actualCount = raw.likes_count ?? raw.like_count ?? 0;
               setLikeCount(actualCount);
             } else {
               setLikeCount((prev) => prev + 1);
@@ -430,14 +439,16 @@ function PromptCard({
         
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        const { data: itemData } = await supabase
+        const likeCountColsAfter = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
+        const { data: itemDataAfter } = await supabase
           .from(itemsTable)
-          .select("likes_count, like_count")
+          .select(likeCountColsAfter)
           .eq("id", prompt.id)
           .single();
         
-        if (itemData) {
-          const actualCount = itemData.likes_count ?? itemData.like_count ?? 0;
+        if (itemDataAfter) {
+          const raw = itemDataAfter as LikeCountRow;
+          const actualCount = raw.likes_count ?? raw.like_count ?? 0;
           setLikeCount(actualCount);
         } else {
           setLikeCount((prev) => prev + 1);

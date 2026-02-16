@@ -1,7 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+let publicBrowserClient: SupabaseClient | null = null;
 
 export function createSupabasePublicBrowserClient() {
-  return createClient(
+  if (publicBrowserClient) return publicBrowserClient;
+
+  publicBrowserClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -13,4 +17,6 @@ export function createSupabasePublicBrowserClient() {
       },
     }
   );
+
+  return publicBrowserClient;
 }
