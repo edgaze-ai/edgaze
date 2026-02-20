@@ -426,35 +426,64 @@ export default function SignInModal({
                   className="space-y-3"
                 >
                   {mode === "signup" && (
-                    <input
-                      placeholder="Full name"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="input"
-                      required
-                    />
+                    <div>
+                      <label
+                        htmlFor="signup-fullname"
+                        className="mb-1.5 block text-xs font-medium text-white/70"
+                      >
+                        Full name
+                      </label>
+                      <input
+                        id="signup-fullname"
+                        placeholder="Jane Doe"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="input"
+                        required
+                        autoComplete="name"
+                      />
+                    </div>
                   )}
 
-                  <input
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="input"
-                    required
-                    autoComplete="email"
-                  />
+                  <div>
+                    <label
+                      htmlFor="signup-email"
+                      className="mb-1.5 block text-xs font-medium text-white/70"
+                    >
+                      Email
+                    </label>
+                    <input
+                      id="signup-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="input"
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
 
-                  <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input"
-                    required
-                    autoComplete={
-                      mode === "signup" ? "new-password" : "current-password"
-                    }
-                  />
+                  <div>
+                    <label
+                      htmlFor="signup-password"
+                      className="mb-1.5 block text-xs font-medium text-white/70"
+                    >
+                      Password
+                    </label>
+                    <input
+                      id="signup-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="input"
+                      required
+                      autoComplete={
+                        mode === "signup" ? "new-password" : "current-password"
+                      }
+                    />
+                  </div>
 
                   {mode === "signin" && (
                     <div className="flex justify-end">
@@ -473,15 +502,24 @@ export default function SignInModal({
 
                   {mode === "signup" && (
                     <>
-                      <input
-                        type="password"
-                        placeholder="Confirm password"
-                        value={confirm}
-                        onChange={(e) => setConfirm(e.target.value)}
-                        className="input"
-                        required
-                        autoComplete="new-password"
-                      />
+                      <div>
+                        <label
+                          htmlFor="signup-confirm"
+                          className="mb-1.5 block text-xs font-medium text-white/70"
+                        >
+                          Confirm password
+                        </label>
+                        <input
+                          id="signup-confirm"
+                          type="password"
+                          placeholder="••••••••"
+                          value={confirm}
+                          onChange={(e) => setConfirm(e.target.value)}
+                          className="input"
+                          required
+                          autoComplete="new-password"
+                        />
+                      </div>
 
                       <div className="mt-2">
                         <div className="flex items-center justify-between">
