@@ -91,20 +91,21 @@ function SmoothLink({
 
 function Nav({ onTop }: { onTop: boolean }) {
   return (
-    <div
+    <header
       className={cn(
         "fixed left-0 right-0 top-0 z-50",
         "transition-all duration-300",
         onTop ? "bg-transparent" : "bg-[#07080b]/70 backdrop-blur-md ring-1 ring-white/10"
       )}
+      role="banner"
     >
       <Container className="flex items-center justify-between px-5 py-4">
-        <SmoothLink href="#top" className="flex items-center gap-2">
+        <SmoothLink href="#top" className="flex items-center gap-2" aria-label="Edgaze home">
           <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-11 w-11" />
           <span className="text-sm font-semibold tracking-wide">Edgaze</span>
         </SmoothLink>
 
-        <div className="hidden items-center gap-7 text-sm text-white/75 md:flex">
+        <nav aria-label="Primary navigation" className="hidden items-center gap-7 text-sm text-white/75 md:flex">
           <SmoothLink className="hover:text-white" href="#prompt">
             Prompt Studio
           </SmoothLink>
@@ -123,7 +124,7 @@ function Nav({ onTop }: { onTop: boolean }) {
           <SmoothLink className="hover:text-white" href="#beta">
             Beta
           </SmoothLink>
-        </div>
+        </nav>
 
         <div className="flex items-center gap-2">
           <SmoothLink
@@ -134,7 +135,7 @@ function Nav({ onTop }: { onTop: boolean }) {
           </SmoothLink>
         </div>
       </Container>
-    </div>
+    </header>
   );
 }
 
@@ -1791,9 +1792,92 @@ export default function EdgazeLandingPage() {
     return <div className="min-h-screen bg-[#07080b]" aria-hidden="true" />;
   }
 
+  const siteNavigationJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://edgaze.ai/#website",
+        "url": "https://edgaze.ai",
+        "name": "Edgaze",
+        "description": "Create, sell, and distribute AI products.",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://edgaze.ai/marketplace?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "SiteLinksSearchBox",
+        "target": "https://edgaze.ai/marketplace?q={search_term_string}",
+        "potentialAction": [
+          {
+            "@type": "SearchAction",
+            "target": "https://edgaze.ai/marketplace?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        ]
+      },
+      {
+        "@type": "ItemList",
+        "name": "Edgaze Site Navigation",
+        "itemListElement": [
+          {
+            "@type": "SiteLinksSearchBox",
+            "name": "Marketplace",
+            "url": "https://edgaze.ai/marketplace"
+          },
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Marketplace",
+            "url": "https://edgaze.ai/marketplace"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Prompt Studio",
+            "url": "https://edgaze.ai/prompt-studio"
+          },
+          {
+            "@type": "ListItem",
+            "position": 3,
+            "name": "Docs",
+            "url": "https://edgaze.ai/docs"
+          },
+          {
+            "@type": "ListItem",
+            "position": 4,
+            "name": "Apply",
+            "url": "https://edgaze.ai/apply"
+          },
+          {
+            "@type": "ListItem",
+            "position": 5,
+            "name": "Help",
+            "url": "https://edgaze.ai/help"
+          },
+          {
+            "@type": "ListItem",
+            "position": 6,
+            "name": "Feedback",
+            "url": "https://edgaze.ai/feedback"
+          }
+        ]
+      }
+    ]
+  };
+
   return (
     <ScrollContext.Provider value={{ scrollerRef }}>
       <div className="relative text-white">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationJsonLd) }}
+        />
         <Gradients />
         <Nav onTop={onTop} />
 
@@ -2024,11 +2108,11 @@ export default function EdgazeLandingPage() {
                     </a>
                     <a
                       className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white/80 hover:bg-white/8 transition-colors"
-                      href="/marketplace"
+                      href="/apply"
                     >
                       <span className="inline-flex items-center gap-2">
                         <BadgeCheck className="h-4 w-4 text-white/75" />
-                        Explore creators
+                        Become a creator
                       </span>
                       <ArrowRight className="h-4 w-4 text-white/55" />
                     </a>
@@ -2061,17 +2145,29 @@ export default function EdgazeLandingPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-6 text-sm text-white/70">
+                  <nav aria-label="Footer navigation" className="flex flex-wrap items-center gap-6 text-sm text-white/70">
+                    <a className="hover:text-white" href="/marketplace">
+                      Marketplace
+                    </a>
+                    <a className="hover:text-white" href="/docs">
+                      Docs
+                    </a>
+                    <a className="hover:text-white" href="/help">
+                      Help
+                    </a>
+                    <a className="hover:text-white" href="/apply">
+                      Apply
+                    </a>
+                    <a className="hover:text-white" href="/feedback">
+                      Feedback
+                    </a>
                     <a className="hover:text-white" href="/docs/privacy-policy">
                       Privacy
                     </a>
                     <a className="hover:text-white" href="/docs/terms-of-service">
                       Terms
                     </a>
-                    <a className="hover:text-white" href="/contact">
-                      Contact
-                    </a>
-                  </div>
+                  </nav>
                 </div>
 
                 <div className="mt-6 text-xs text-white/50">© Edgaze 2026. All rights reserved.</div>

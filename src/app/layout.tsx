@@ -56,6 +56,41 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const siteNavigationJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://edgaze.ai/#organization",
+      "name": "Edgaze",
+      "url": "https://edgaze.ai",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://edgaze.ai/brand/edgaze-mark.png"
+      },
+      "sameAs": []
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://edgaze.ai/#website",
+      "url": "https://edgaze.ai",
+      "name": "Edgaze",
+      "description": "Create, sell, and distribute AI products.",
+      "publisher": {
+        "@id": "https://edgaze.ai/#organization"
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://edgaze.ai/marketplace?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+  ]
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -64,6 +99,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="h-full bg-[#0b0b0b] text-white antialiased">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationJsonLd) }}
+        />
         <AppProviders>
           <Suspense fallback={null}>
             <LazyAnalyticsWrapper />

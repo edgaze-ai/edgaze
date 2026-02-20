@@ -29,23 +29,8 @@ function ConditionNodeImpl(props: NodeProps) {
 
   const [hoveredOutput, setHoveredOutput] = useState<"true" | "false" | null>(null);
 
-  // Build condition preview text (escape compareValue to prevent XSS from user-editable config)
-  const escapeHtml = (s: string) =>
-    s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  const conditionText = (() => {
-    if (operator === "truthy") return "is truthy";
-    if (operator === "falsy") return "is falsy";
-    if (operator === "equals") return `equals "${escapeHtml(String(compareValue))}"`;
-    if (operator === "notEquals") return `does not equal "${escapeHtml(String(compareValue))}"`;
-    if (operator === "gt") return `&gt; ${escapeHtml(String(compareValue))}`;
-    if (operator === "lt") return `&lt; ${escapeHtml(String(compareValue))}`;
-    return escapeHtml(String(operator));
-  })();
+  // Safe display value (truncate user input, React will escape)
+  const safeCompare = String(compareValue ?? "").slice(0, 30);
 
   // Triangle dimensions
   const triangleSize = 120;
@@ -85,11 +70,19 @@ function ConditionNodeImpl(props: NodeProps) {
         />
       </svg>
 
-      {/* Condition text in center */}
+      {/* Condition text in center - plain text only, no dangerouslySetInnerHTML */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="text-center px-2">
           <div className="text-[10px] font-semibold text-white/90 mb-0.5">If value</div>
-          <div className="text-[9px] text-white/70" dangerouslySetInnerHTML={{ __html: conditionText }} />
+          <div className="text-[9px] text-white/70">
+            {operator === "truthy" && "is truthy"}
+            {operator === "falsy" && "is falsy"}
+            {operator === "equals" && <>equals &quot;{safeCompare}&quot;</>}
+            {operator === "notEquals" && <>does not equal &quot;{safeCompare}&quot;</>}
+            {operator === "gt" && <>{">"} {safeCompare}</>}
+            {operator === "lt" && <>{"<"} {safeCompare}</>}
+            {!["truthy", "falsy", "equals", "notEquals", "gt", "lt"].includes(operator) && safeCompare}
+          </div>
         </div>
       </div>
 

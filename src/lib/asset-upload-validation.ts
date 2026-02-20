@@ -5,14 +5,12 @@
 
 export const MAX_ASSET_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
-/** Allowed MIME types for asset uploads (images and common safe types). */
+/** Allowed MIME types for asset uploads. SVG/ICO excluded: SVG can contain scripts (XSS), ICO rarely needed. */
 export const ALLOWED_ASSET_MIME_TYPES = new Set([
   "image/png",
   "image/jpeg",
   "image/gif",
   "image/webp",
-  "image/svg+xml",
-  "image/x-icon",
 ]);
 
 /** Magic bytes for image types (first few bytes). */
@@ -70,7 +68,7 @@ export function validateAssetFile(
   const clientMime = (file.type || "").toLowerCase().trim();
   if (!clientMime) return "File type is required";
   if (!ALLOWED_ASSET_MIME_TYPES.has(clientMime)) {
-    return "File type not allowed. Allowed: images (PNG, JPEG, GIF, WebP, SVG, ICO)";
+    return "File type not allowed. Allowed: PNG, JPEG, GIF, WebP";
   }
   const { requireMagicMatchForImages = true } = options;
   if (requireMagicMatchForImages && clientMime.startsWith("image/")) {

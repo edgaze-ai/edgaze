@@ -657,19 +657,39 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     throw new Error("URL required for HTTP request");
   }
 
-  // Security: validate host
+  // Security: validate host - block SSRF (cloud metadata, private IPs, localhost)
   try {
     const urlObj = new URL(url);
     const host = urlObj.hostname.toLowerCase();
 
-    // Check deny list
-    const denyHosts = (config.denyHosts || "localhost,127.0.0.1").split(",").map((h: string) => h.trim().toLowerCase());
-    if (denyHosts.includes(host)) {
-      throw new Error(`Access denied: ${host} is in the deny list`);
+    // Default deny: localhost, cloud metadata, private ranges
+    const DEFAULT_DENY = [
+      "localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]",
+      "169.254.169.254", "metadata.google.internal", "metadata",
+    ];
+    const denyHosts = (config.denyHosts || "").split(",")
+      .map((h: string) => h.trim().toLowerCase())
+      .filter(Boolean);
+    const allDeny = [...DEFAULT_DENY, ...denyHosts];
+    if (allDeny.includes(host)) {
+      throw new Error(`Access denied: ${host} is not allowed`);
+    }
+
+    // Block private IP ranges
+    const ipMatch = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (ipMatch) {
+      const a = Number(ipMatch[1]);
+      const b = Number(ipMatch[2]);
+      if (a === 10) throw new Error(`Access denied: private IP range`);
+      if (a === 172 && b >= 16 && b <= 31) throw new Error(`Access denied: private IP range`);
+      if (a === 192 && b === 168) throw new Error(`Access denied: private IP range`);
+    }
+    if (host.endsWith(".local") || host.endsWith(".internal")) {
+      throw new Error(`Access denied: ${host} is not allowed`);
     }
 
     // Check allow list if set
-    const allowOnly = config.allowOnly ? (config.allowOnly as string).split(",").map((h: string) => h.trim().toLowerCase()) : [];
+    const allowOnly = config.allowOnly ? (config.allowOnly as string).split(",").map((h: string) => h.trim().toLowerCase()).filter(Boolean) : [];
     if (allowOnly.length > 0 && !allowOnly.includes(host)) {
       throw new Error(`Access denied: ${host} is not in the allow list`);
     }

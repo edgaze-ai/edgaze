@@ -20,13 +20,18 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const handleRaw = (url.searchParams.get("handle") || "").trim().toLowerCase();
-    const excludeUserId = url.searchParams.get("exclude_user_id")?.trim() || null;
+    let excludeUserId = url.searchParams.get("exclude_user_id")?.trim() || null;
 
     if (!handleRaw) return json(400, { available: false, reason: "missing_handle" });
 
     // basic rules: 3-24, a-z 0-9 _
     if (!/^[a-z0-9_]{3,24}$/.test(handleRaw)) {
       return json(200, { available: false, reason: "invalid" });
+    }
+
+    // Validate exclude_user_id is a valid UUID (security: prevent injection/abuse)
+    if (excludeUserId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(excludeUserId)) {
+      excludeUserId = null;
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;

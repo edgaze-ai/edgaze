@@ -841,8 +841,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Token is expired or about to expire, try to refresh
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
           if (refreshError) {
+            // Invalid/missing refresh token (e.g. session revoked, storage cleared)
+            // Clear the bad session and treat as signed out
+            const isRefreshTokenError =
+              refreshError.message?.includes("Refresh Token") ||
+              refreshError.message?.includes("refresh_token") ||
+              refreshError.message?.includes("refresh token");
+            if (isRefreshTokenError) {
+              await supabase.auth.signOut();
+              applyNoUser();
+              return null;
+            }
+            // Other refresh errors: return existing token (may still work for short grace period)
             console.warn("Error refreshing session:", refreshError);
-            // If refresh fails but we have a token, return it anyway (might still work)
             return session.access_token;
           }
           return refreshData?.session?.access_token ?? session.access_token;
@@ -855,7 +866,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Unexpected error in getAccessToken:", error);
       return null;
     }
-  }, [supabase]);
+  }, [supabase, applyNoUser]);
 
   const user: AuthUser | null =
     userId && profile

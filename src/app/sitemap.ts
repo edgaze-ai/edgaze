@@ -1,15 +1,28 @@
 import type { MetadataRoute } from "next";
 
+// Priority map: higher priority = stronger signal to Google for sitelinks
+const STATIC_ROUTE_PRIORITIES: Record<string, number> = {
+  "/": 1.0,
+  "/marketplace": 0.95,
+  "/prompt-studio": 0.9,
+  "/docs": 0.85,
+  "/apply": 0.8,
+  "/help": 0.75,
+  "/feedback": 0.7,
+  "/profile": 0.65,
+  "/bugs": 0.5,
+};
+
 const STATIC_ROUTES = [
   "/",
-  "/apply",
-  "/bugs",
-  "/docs",
-  "/feedback",
-  "/help",
   "/marketplace",
-  "/profile",
   "/prompt-studio",
+  "/docs",
+  "/apply",
+  "/help",
+  "/feedback",
+  "/profile",
+  "/bugs",
 ] as const;
 
 function getBaseUrl() {
@@ -50,8 +63,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
     url: `${base}${path}`,
     lastModified: now,
-    changeFrequency: "weekly",
-    priority: path === "/" ? 1 : 0.7,
+    changeFrequency: path === "/" || path === "/marketplace" ? "daily" : "weekly",
+    priority: STATIC_ROUTE_PRIORITIES[path] ?? 0.6,
   }));
 
   const dynamic = await safeFetchJson<{ urls: string[] }>(`${base}/api/sitemap`);
