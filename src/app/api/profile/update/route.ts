@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     // If handle is being changed, enforce 60-day cooldown
     if (handle !== undefined) {
       const admin = createSupabaseAdminClient();
-      
+
       // Get current profile to compare handles
       const { data: currentProfile } = await admin
         .from("profiles")

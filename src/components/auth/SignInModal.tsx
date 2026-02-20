@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthContext";
 
-type Mode = "signin" | "signup" | "verify";
+type Mode = "signin" | "signup" | "verify" | "forgot";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -207,7 +207,7 @@ export default function SignInModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPasswordForEmail } = useAuth();
 
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -215,6 +215,7 @@ export default function SignInModal({
   const [confirm, setConfirm] = useState("");
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [forgotSent, setForgotSent] = useState(false);
 
   // reset state when opened (called from multiple places)
   useEffect(() => {
@@ -226,6 +227,7 @@ export default function SignInModal({
       setConfirm("");
       setFullName("");
       setError(null);
+      setForgotSent(false);
     });
   }, [open]);
 
@@ -257,6 +259,12 @@ export default function SignInModal({
     
     // The redirect will be handled by AuthContext's auth state change listener
     // No need to manually redirect here to avoid race conditions
+  }
+
+  async function doForgotPassword() {
+    setError(null);
+    await resetPasswordForEmail(email);
+    setForgotSent(true);
   }
 
   async function doSignup() {
@@ -297,11 +305,15 @@ export default function SignInModal({
                     ? "Sign in"
                     : mode === "signup"
                     ? "Create your account"
+                    : mode === "forgot"
+                    ? "Forgot password"
                     : "Verify your email"}
                 </div>
                 <div className="mt-1 text-sm text-white/60">
                   {mode === "verify"
                     ? "Check your inbox and verify your email to continue."
+                    : mode === "forgot"
+                    ? "Enter your email and we'll send you a reset link."
                     : "Publish prompts and workflows under your handle."}
                 </div>
               </div>
@@ -314,7 +326,70 @@ export default function SignInModal({
               </button>
             </div>
 
-            {mode !== "verify" && (
+            {mode === "forgot" && (
+              <div className="mt-6 space-y-4">
+                {forgotSent ? (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
+                    <div className="text-sm font-semibold text-emerald-300">
+                      Check your email
+                    </div>
+                    <div className="mt-2 text-sm text-white/70">
+                      We sent a password reset link to{" "}
+                      <span className="text-white">{email}</span>. Click the link
+                      to set a new password.
+                    </div>
+                    <button
+                      onClick={() => {
+                        setMode("signin");
+                        setForgotSent(false);
+                      }}
+                      className="mt-4 text-sm font-semibold text-cyan-300 hover:text-cyan-200 underline underline-offset-4"
+                    >
+                      Back to sign in
+                    </button>
+                  </div>
+                ) : (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      doForgotPassword().catch((e) => setError(e.message));
+                    }}
+                    className="space-y-3"
+                  >
+                    <input
+                      placeholder="Email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="input"
+                      required
+                      autoComplete="email"
+                    />
+                    <button
+                      type="submit"
+                      className="w-full rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 py-3 text-black font-semibold hover:opacity-95 active:opacity-90"
+                    >
+                      Send reset link
+                    </button>
+                    {error && (
+                      <p className="text-sm text-red-400">{error}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setError(null);
+                        setMode("signin");
+                      }}
+                      className="w-full text-sm text-white/70 hover:text-white"
+                    >
+                      Back to sign in
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {mode !== "verify" && mode !== "forgot" && (
               <>
                 <button
                   onClick={() => {
@@ -380,6 +455,21 @@ export default function SignInModal({
                       mode === "signup" ? "new-password" : "current-password"
                     }
                   />
+
+                  {mode === "signin" && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError(null);
+                          setMode("forgot");
+                        }}
+                        className="text-xs text-white/60 hover:text-cyan-300"
+                      >
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
 
                   {mode === "signup" && (
                     <>

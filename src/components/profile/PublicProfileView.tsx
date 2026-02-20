@@ -181,7 +181,7 @@ function formatRelativeTime(iso: string | null | undefined) {
     return `${n} ${u}${n === 1 ? "" : "s"} ${suffix}`;
   }
 
- 
+
   return rtf.format(v, u as Intl.RelativeTimeFormatUnit);
 
 }
@@ -280,20 +280,20 @@ function PromptCard({
       try {
         const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
         const likeCountCols = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
-        
+
         // Refresh count from database first
         const { data: itemData } = await supabase
           .from(itemsTable)
           .select(likeCountCols)
           .eq("id", prompt.id)
           .single();
-        
+
         if (itemData) {
           const raw = itemData as LikeCountRow;
           const actualCount = raw.likes_count ?? raw.like_count ?? 0;
           setLikeCount(actualCount);
         }
-        
+
         // Check if user has liked
         if (!currentUserId) {
           setIsLiked(false);
@@ -302,18 +302,18 @@ function PromptCard({
 
         const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
         const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
-        
+
         const { data, error } = await supabase
           .from(likesTable)
           .select("id")
           .eq("user_id", currentUserId)
           .eq(itemIdColumn, prompt.id)
           .maybeSingle();
-        
+
         if (error && !error.message.includes("permission") && !error.message.includes("JWT")) {
           console.error("Error checking like status:", error);
         }
-        
+
         setIsLiked(!!data);
       } catch (error) {
         console.error("Error checking like status:", error);
@@ -356,18 +356,18 @@ function PromptCard({
     if (!currentUserId) return;
 
     const wasLiked = isLiked;
-    
+
     // Optimistic update
     setIsLiked(!wasLiked);
     setLikeCount((prev) => wasLiked ? Math.max(0, prev - 1) : prev + 1);
 
     try {
       setLikeLoading(true);
-      
+
       const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
       const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
       const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
-      
+
       if (wasLiked) {
         // Remove like
         const { error: deleteError } = await supabase
@@ -375,16 +375,16 @@ function PromptCard({
           .delete()
           .eq("user_id", currentUserId)
           .eq(itemIdColumn, prompt.id);
-        
+
         if (deleteError) {
           throw deleteError;
         }
-        
+
         setIsLiked(false);
-        
+
         // Small delay to ensure triggers have updated the count
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         // Refresh count from database (triggers update it)
         const likeCountColsRefresh = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
         const { data: itemData } = await supabase
@@ -392,7 +392,7 @@ function PromptCard({
           .select(likeCountColsRefresh)
           .eq("id", prompt.id)
           .single();
-        
+
         if (itemData) {
           const raw = itemData as LikeCountRow;
           const actualCount = raw.likes_count ?? raw.like_count ?? 0;
@@ -405,24 +405,24 @@ function PromptCard({
         const insertData = prompt.type === "workflow"
           ? { user_id: currentUserId, workflow_id: prompt.id }
           : { user_id: currentUserId, prompt_id: prompt.id };
-        
+
         const { error: insertError } = await supabase
           .from(likesTable)
           .insert(insertData);
-        
+
         if (insertError) {
           if (insertError.message.includes("unique") || insertError.message.includes("duplicate")) {
             setIsLiked(true);
-            
+
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
             const likeCountColsDup = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
             const { data: itemDataDup } = await supabase
               .from(itemsTable)
               .select(likeCountColsDup)
               .eq("id", prompt.id)
               .single();
-            
+
             if (itemDataDup) {
               const raw = itemDataDup as LikeCountRow;
               const actualCount = raw.likes_count ?? raw.like_count ?? 0;
@@ -434,18 +434,18 @@ function PromptCard({
           }
           throw insertError;
         }
-        
+
         setIsLiked(true);
-        
+
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         const likeCountColsAfter = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
         const { data: itemDataAfter } = await supabase
           .from(itemsTable)
           .select(likeCountColsAfter)
           .eq("id", prompt.id)
           .single();
-        
+
         if (itemDataAfter) {
           const raw = itemDataAfter as LikeCountRow;
           const actualCount = raw.likes_count ?? raw.like_count ?? 0;
@@ -454,14 +454,14 @@ function PromptCard({
           setLikeCount((prev) => prev + 1);
         }
       }
-      
+
     } catch (error) {
       console.error("Error toggling like:", error);
       setIsLiked(wasLiked);
       setLikeCount((prev) => wasLiked ? prev + 1 : Math.max(0, prev - 1));
-      
+
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       if (errorMessage.includes("JWT") || errorMessage.includes("session") || errorMessage.includes("auth") || errorMessage.includes("permission") || errorMessage.includes("row-level security")) {
         setErrorModal({
           open: true,
@@ -609,7 +609,7 @@ function PromptCard({
           </div>
         </div>
       </div>
-      
+
       <ErrorModal
         open={errorModal.open}
         onClose={() => setErrorModal({ ...errorModal, open: false })}
@@ -676,7 +676,7 @@ export default function PublicProfileView({
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
-    
+
     // Save original values
     const originalHtmlHeight = html.style.height;
     const originalHtmlOverflowY = html.style.overflowY;
@@ -684,18 +684,18 @@ export default function PublicProfileView({
     const originalBodyHeight = body.style.height;
     const originalBodyOverflowY = body.style.overflowY;
     const originalBodyOverflowX = body.style.overflowX;
-    
+
     // Force enable scrolling - override everything
     html.style.setProperty("height", "auto", "important");
     html.style.setProperty("overflow-y", "auto", "important");
     html.style.setProperty("overflow-x", "hidden", "important");
     html.style.setProperty("min-height", "100%", "important");
-    
+
     body.style.setProperty("height", "auto", "important");
     body.style.setProperty("overflow-y", "auto", "important");
     body.style.setProperty("overflow-x", "hidden", "important");
     body.style.setProperty("min-height", "100%", "important");
-    
+
     // Also override any parent containers
     const rootElement = document.getElementById("__next");
     if (rootElement) {
@@ -703,7 +703,7 @@ export default function PublicProfileView({
       rootElement.style.setProperty("overflow-y", "auto", "important");
       rootElement.style.setProperty("min-height", "100%", "important");
     }
-    
+
     return () => {
       html.style.height = originalHtmlHeight;
       html.style.overflowY = originalHtmlOverflowY;
@@ -1094,7 +1094,7 @@ export default function PublicProfileView({
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/8 via-transparent to-pink-500/8 pointer-events-none" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(56,189,248,0.12),transparent_50%)] pointer-events-none" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.08),transparent_50%)] pointer-events-none" />
-            
+
             <div className="relative flex flex-col gap-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4 min-w-0 flex-1">

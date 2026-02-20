@@ -79,6 +79,7 @@ type AuthContextValue = {
   signInWithGoogle: (redirectPath?: string) => Promise<void>;
 
   signInWithEmail: (email: string, password: string) => Promise<void>;
+  resetPasswordForEmail: (email: string) => Promise<void>;
   signUpWithEmail: (args: {
     email: string;
     password: string;
@@ -739,6 +740,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resetPasswordForEmail = async (email: string) => {
+    const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    const redirectTo = `${currentOrigin}/auth/reset-password`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+
+    if (error) {
+      safeTrack("Password Reset Failed", {
+        surface: "auth_context",
+        message: error.message,
+      });
+      throw error;
+    }
+
+    safeTrack("Password Reset Email Sent", {
+      surface: "auth_context",
+    });
+  };
+
   const signInWithEmail = async (email: string, password: string) => {
     safeTrack("Sign In Started", {
       surface: "auth_context",
@@ -907,6 +929,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     signInWithGoogle,
     signInWithEmail,
+    resetPasswordForEmail,
     signUpWithEmail,
 
     getAccessToken,
