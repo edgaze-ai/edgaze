@@ -130,19 +130,27 @@ export default function CallbackClient() {
       })();
 
       // Determine where to redirect after OAuth callback
-      // Priority: apply flow / storage / query param / referrer / default to marketplace
+      // Priority: password recovery > apply flow > storage > query param > referrer > default marketplace
       let returnTo: string | null = null;
       let redirectReason = "";
       let fromStorage: string | null = null;
 
+      // Highest priority: Password reset flow — send to reset-password page to set new password
+      const isRecoveryFlow = params.get("flow") === "recovery";
+      if (isRecoveryFlow) {
+        returnTo = "/auth/reset-password";
+        redirectReason = "password recovery flow";
+        console.warn("[Auth Callback] Recovery flow detected, will redirect to /auth/reset-password after exchanging code");
+      }
+
       // If user came from apply flow (e.g. sign-in from apply page), send them to marketplace.
-      if (isApplyFlow) {
+      if (!returnTo && isApplyFlow) {
         returnTo = "/marketplace";
         redirectReason = "apply flow (sessionStorage flags)";
         console.warn("[Auth Callback] Apply flow detected, will redirect to /marketplace after exchanging code");
       }
 
-      // Priority 1: Check query parameter (passed in redirectTo URL) — unless already set by apply flow
+      // Priority 1: Check query parameter (passed in redirectTo URL) — unless already set by recovery or apply flow
       const nextParam = params.get("next");
       if (!returnTo && nextParam) {
         try {
