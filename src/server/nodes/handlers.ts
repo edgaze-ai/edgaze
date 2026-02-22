@@ -5,6 +5,19 @@ import {
   countImageTokens,
   validateNodeTokenLimit,
 } from "../../lib/workflow/token-counting";
+import {
+  stripSensitiveHeaders,
+  validateUrlForWorkflow,
+  MAX_HTTP_RESPONSE_BYTES,
+  MAX_JSON_DEPTH,
+  exceedsJsonDepth,
+} from "@lib/workflow/domain-allowlist";
+import { nodeHasSideEffects } from "@lib/workflow/node-contracts";
+import {
+  checkProviderRateLimit,
+  recordProviderUsage,
+  record429Cooldown,
+} from "@lib/workflow/provider-rate-limits";
 import { getTokenLimits } from "../../lib/workflow/token-limits";
 import {
   checkImageGenerationAllowed,
@@ -176,6 +189,17 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   const apiKey = getApiKey(node, ctx);
   if (!apiKey) {
     throw new Error("OpenAI API key required. Please provide your API key in the run modal.");
+  }
+
+  const rateCheck = await checkProviderRateLimit({
+    provider: "openai",
+    userId: ctx.requestMetadata?.userId ?? null,
+    isPlatformKey: !isUserProvidedApiKey(node, ctx),
+  });
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`
+    );
   }
 
   const config = node.data?.config ?? {};
@@ -383,9 +407,22 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (response.status === 429) {
+        record429Cooldown({
+          provider: "openai",
+          userId: ctx.requestMetadata?.userId ?? null,
+          isPlatformKey: !isUserProvidedApiKey(node, ctx),
+        });
+      }
       const error = await response.text();
       throw new Error(`OpenAI API error: ${response.status} ${error}`);
     }
+
+    await recordProviderUsage({
+      provider: "openai",
+      userId: ctx.requestMetadata?.userId ?? null,
+      isPlatformKey: !isUserProvidedApiKey(node, ctx),
+    });
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content ?? "";
@@ -417,6 +454,17 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (node: GraphNode, ctx:
   const apiKey = getApiKey(node, ctx);
   if (!apiKey) {
     throw new Error("OpenAI API key required");
+  }
+
+  const rateCheck = await checkProviderRateLimit({
+    provider: "openai",
+    userId: ctx.requestMetadata?.userId ?? null,
+    isPlatformKey: !isUserProvidedApiKey(node, ctx),
+  });
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`
+    );
   }
 
   const config = node.data?.config ?? {};
@@ -468,9 +516,22 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (node: GraphNode, ctx:
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (response.status === 429) {
+        record429Cooldown({
+          provider: "openai",
+          userId: ctx.requestMetadata?.userId ?? null,
+          isPlatformKey: !isUserProvidedApiKey(node, ctx),
+        });
+      }
       const error = await response.text();
       throw new Error(`OpenAI API error: ${response.status} ${error}`);
     }
+
+    await recordProviderUsage({
+      provider: "openai",
+      userId: ctx.requestMetadata?.userId ?? null,
+      isPlatformKey: !isUserProvidedApiKey(node, ctx),
+    });
 
     const data = await response.json();
     const embedding = data.data?.[0]?.embedding ?? [];
@@ -533,6 +594,17 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   // If no API key at this point, it's an error (should have been caught above)
   if (!apiKey) {
     throw new Error("OpenAI API key required. Please provide your API key in the run modal.");
+  }
+
+  const rateCheck = await checkProviderRateLimit({
+    provider: "openai",
+    userId: ctx.requestMetadata?.userId ?? null,
+    isPlatformKey: !isUserProvidedApiKey(node, ctx),
+  });
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`
+    );
   }
 
   const config = node.data?.config ?? {};
@@ -602,9 +674,22 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      if (response.status === 429) {
+        record429Cooldown({
+          provider: "openai",
+          userId: ctx.requestMetadata?.userId ?? null,
+          isPlatformKey: !isUserProvidedApiKey(node, ctx),
+        });
+      }
       const error = await response.text();
       throw new Error(`OpenAI API error: ${response.status} ${error}`);
     }
+
+    await recordProviderUsage({
+      provider: "openai",
+      userId: ctx.requestMetadata?.userId ?? null,
+      isPlatformKey: !isUserProvidedApiKey(node, ctx),
+    });
 
     const data = await response.json();
     const imageUrl = data.data?.[0]?.url ?? "";
@@ -657,50 +742,42 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     throw new Error("URL required for HTTP request");
   }
 
-  // Security: validate host - block SSRF (cloud metadata, private IPs, localhost)
-  try {
-    const urlObj = new URL(url);
-    const host = urlObj.hostname.toLowerCase();
+  const allowOnlyRaw = config.allowOnly;
+  const allowOnly = Array.isArray(allowOnlyRaw)
+    ? allowOnlyRaw.map((h) => String(h).trim().toLowerCase()).filter(Boolean)
+    : (typeof allowOnlyRaw === "string" ? allowOnlyRaw.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean) : []);
+  const denyHosts = (config.denyHosts || "").split(",").map((h: string) => h.trim().toLowerCase()).filter(Boolean);
 
-    // Default deny: localhost, cloud metadata, private ranges
-    const DEFAULT_DENY = [
-      "localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]",
-      "169.254.169.254", "metadata.google.internal", "metadata",
-    ];
-    const denyHosts = (config.denyHosts || "").split(",")
-      .map((h: string) => h.trim().toLowerCase())
-      .filter(Boolean);
-    const allDeny = [...DEFAULT_DENY, ...denyHosts];
-    if (allDeny.includes(host)) {
-      throw new Error(`Access denied: ${host} is not allowed`);
-    }
-
-    // Block private IP ranges
-    const ipMatch = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-    if (ipMatch) {
-      const a = Number(ipMatch[1]);
-      const b = Number(ipMatch[2]);
-      if (a === 10) throw new Error(`Access denied: private IP range`);
-      if (a === 172 && b >= 16 && b <= 31) throw new Error(`Access denied: private IP range`);
-      if (a === 192 && b === 168) throw new Error(`Access denied: private IP range`);
-    }
-    if (host.endsWith(".local") || host.endsWith(".internal")) {
-      throw new Error(`Access denied: ${host} is not allowed`);
-    }
-
-    // Check allow list if set
-    const allowOnly = config.allowOnly ? (config.allowOnly as string).split(",").map((h: string) => h.trim().toLowerCase()).filter(Boolean) : [];
-    if (allowOnly.length > 0 && !allowOnly.includes(host)) {
-      throw new Error(`Access denied: ${host} is not in the allow list`);
-    }
-  } catch (err: any) {
-    if (err.message.includes("Access denied")) throw err;
-    throw new Error(`Invalid URL: ${err.message}`);
+  const urlCheck = validateUrlForWorkflow(url, {
+    allowOnly: allowOnly.length > 0 ? allowOnly : undefined,
+    denyHosts: denyHosts.length > 0 ? denyHosts : undefined,
+  });
+  if (!urlCheck.allowed) {
+    throw new Error(urlCheck.error ?? "URL validation failed");
   }
 
   const method = (config.method || "GET").toUpperCase();
+  const hasSideEffects = nodeHasSideEffects("http-request", config);
+  if (hasSideEffects && ["POST", "PUT", "PATCH"].includes(method)) {
+    const idempotencyKey = config.idempotencyKey ?? (inbound0 && typeof inbound0 === "object" && (inbound0 as any).idempotencyKey);
+    if (!idempotencyKey || typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
+      throw new Error("Side-effect HTTP requests (POST/PUT/PATCH) require idempotencyKey in config or input");
+    }
+  }
+
   const timeout = config.timeout ?? 30000;
-  const followRedirects = config.followRedirects ?? true;
+  const hasAllowlist = allowOnly.length > 0;
+  const followRedirects = !hasAllowlist && (config.followRedirects !== false);
+
+  const sanitizedHeaders = stripSensitiveHeaders((headers && typeof headers === "object" ? headers : {}) as Record<string, string>);
+  const idempotencyKey = config.idempotencyKey ?? (inbound0 && typeof inbound0 === "object" ? (inbound0 as any).idempotencyKey : undefined);
+  const requestHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...sanitizedHeaders,
+  };
+  if (idempotencyKey && typeof idempotencyKey === "string" && idempotencyKey.trim()) {
+    requestHeaders["Idempotency-Key"] = idempotencyKey.trim();
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -708,12 +785,9 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   try {
     const fetchOptions: RequestInit = {
       method,
-      headers: {
-        "Content-Type": "application/json",
-        ...(headers || {}),
-      },
+      headers: requestHeaders,
       signal: controller.signal,
-      redirect: followRedirects ? "follow" : "manual",
+      redirect: hasAllowlist ? "manual" : (followRedirects ? "follow" : "manual"),
     };
 
     if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
@@ -723,13 +797,55 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     const response = await fetch(url, fetchOptions);
     clearTimeout(timeoutId);
 
-    const contentType = response.headers.get("content-type") || "";
-    let responseData: any;
+    const contentLength = response.headers.get("content-length");
+    if (contentLength) {
+      const len = parseInt(contentLength, 10);
+      if (!Number.isNaN(len) && len > MAX_HTTP_RESPONSE_BYTES) {
+        throw new Error(`Response too large: ${len} bytes (max ${MAX_HTTP_RESPONSE_BYTES})`);
+      }
+    }
 
+    const contentType = response.headers.get("content-type") || "";
+    let responseData: unknown;
+
+    const readLimited = async (): Promise<ArrayBuffer> => {
+      if (!response.body) return new ArrayBuffer(0);
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.length;
+        if (total > MAX_HTTP_RESPONSE_BYTES) {
+          reader.cancel();
+          throw new Error(`Response too large: exceeds ${MAX_HTTP_RESPONSE_BYTES} bytes`);
+        }
+        chunks.push(value);
+      }
+      const combined = new Uint8Array(total);
+      let offset = 0;
+      for (const c of chunks) {
+        combined.set(c, offset);
+        offset += c.length;
+      }
+      return combined.buffer;
+    };
+
+    const buf = await readLimited();
+    const text = new TextDecoder().decode(buf);
     if (contentType.includes("application/json")) {
-      responseData = await response.json();
+      try {
+        responseData = JSON.parse(text);
+        if (exceedsJsonDepth(responseData, MAX_JSON_DEPTH)) {
+          throw new Error(`JSON depth exceeds ${MAX_JSON_DEPTH}`);
+        }
+      } catch (e: any) {
+        if (e.message?.includes("depth") || e.message?.includes("bytes")) throw e;
+        throw new Error(`Invalid JSON: ${e.message}`);
+      }
     } else {
-      responseData = await response.text();
+      responseData = text;
     }
 
     const result = {
@@ -857,9 +973,90 @@ const loopHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCont
   return array;
 };
 
+/** merge-json: Merges JSON objects into one. Input: array of json objects. */
+const mergeJsonHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
+  const config = node.data?.config ?? {};
+  const inbound = ctx.getInboundValues(node.id);
+  const deep = config.deep === true;
+  const valid = inbound.filter((v) => v !== null && v !== undefined && typeof v === "object" && !Array.isArray(v));
+  if (valid.length === 0) {
+    ctx.setNodeOutput(node.id, {});
+    return {};
+  }
+  if (deep) {
+    const deepMerge = (target: any, ...sources: any[]): any => {
+      for (const src of sources) {
+        if (src && typeof src === "object" && !Array.isArray(src)) {
+          for (const k of Object.keys(src)) {
+            if (src[k] && typeof src[k] === "object" && !Array.isArray(src[k]) && target[k] && typeof target[k] === "object" && !Array.isArray(target[k])) {
+              target[k] = deepMerge({ ...target[k] }, src[k]);
+            } else {
+              target[k] = src[k];
+            }
+          }
+        }
+      }
+      return target;
+    };
+    const result = deepMerge({}, ...valid);
+    ctx.setNodeOutput(node.id, result);
+    return result;
+  }
+  const result = Object.assign({}, ...valid);
+  ctx.setNodeOutput(node.id, result);
+  return result;
+};
+
+/** template: String interpolation with {{fieldName}} placeholders. No eval. */
+const templateHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
+  const config = node.data?.config ?? {};
+  const inbound = ctx.getInboundValues(node.id);
+  const template = config.template ?? "";
+  let data: Record<string, unknown> = {};
+  for (const v of inbound) {
+    if (v !== null && v !== undefined && typeof v === "object" && !Array.isArray(v)) {
+      data = { ...data, ...(v as Record<string, unknown>) };
+    }
+  }
+  const result = String(template).replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    const val = data[key];
+    return val === undefined || val === null ? "" : String(val);
+  });
+  ctx.setNodeOutput(node.id, result);
+  return result;
+};
+
+/** map: Template-only over arrays. For each item, render template with item, index, length. No eval. */
+const mapHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
+  const config = node.data?.config ?? {};
+  const inbound = ctx.getInboundValues(node.id);
+  const array = inbound[0];
+  if (!Array.isArray(array)) {
+    throw new Error("Map input must be an array");
+  }
+  const template = config.template ?? "{{item}}";
+  const result = array.map((item, index) => {
+    const data: Record<string, unknown> = {
+      item,
+      index,
+      length: array.length,
+      ...(item && typeof item === "object" && !Array.isArray(item) ? (item as Record<string, unknown>) : { value: item }),
+    };
+    return String(template).replace(/\{\{(\w+)\}\}/g, (_, key) => {
+      const val = data[key];
+      return val === undefined || val === null ? "" : String(val);
+    });
+  });
+  ctx.setNodeOutput(node.id, result);
+  return result;
+};
+
 export const runtimeRegistry: Record<string, NodeRuntimeHandler> = {
   input: inputHandler,
   merge: mergeHandler,
+  "merge-json": mergeJsonHandler,
+  template: templateHandler,
+  map: mapHandler,
   output: outputHandler,
   "openai-chat": openaiChatHandler,
   "openai-embeddings": openaiEmbeddingsHandler,

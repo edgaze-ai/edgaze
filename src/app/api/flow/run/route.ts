@@ -9,6 +9,8 @@ import {
   workflowExists,
   getWorkflowDraftId,
 } from "@lib/supabase/executions";
+import { insertWorkflowRunNodes } from "@lib/supabase/workflow-run-nodes";
+import { getWorkflowActiveVersionId, getWorkflowVersionById } from "@lib/supabase/workflow-versions";
 import { getEdgazeApiKey } from "@lib/workflow/edgaze-api-key";
 import type { GraphPayload } from "src/server/flow/types";
 import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
@@ -230,9 +232,19 @@ export async function POST(req: Request) {
         }
 
         if (workflowExistsInDb || draftId) {
+          let workflowVersionId: string | null = null;
+          let workflowVersionHash: string | null = null;
+          if (workflowExistsInDb && !isBuilderTest && workflowId) {
+            workflowVersionId = await getWorkflowActiveVersionId(workflowId);
+            if (workflowVersionId) {
+              const versionRow = await getWorkflowVersionById(workflowVersionId);
+              workflowVersionHash = versionRow?.version_hash ?? null;
+            }
+          }
           const run = await createWorkflowRun({
             workflowId: workflowExistsInDb ? workflowId : null,
             draftId: draftId,
+            workflowVersionId: workflowVersionId ?? undefined,
             userId,
             metadata: {
               nodeCount: nodes.length,
@@ -240,6 +252,7 @@ export async function POST(req: Request) {
               freeRunsRemaining: enforcement.freeRunsRemaining,
               isDemo: isDemo,
               isBuilderTest: isBuilderTest,
+              workflow_version_hash: workflowVersionHash ?? undefined,
             },
           });
           runId = run.id;
@@ -293,9 +306,13 @@ export async function POST(req: Request) {
           try {
             result = await runFlow(flowPayload, {
               onProgress: (event) => write(event),
+              runMode: isBuilderTest ? "dev" : "marketplace",
             });
             const duration = Date.now() - startTime;
-            const finalStatus = result.workflowStatus === "completed" ? "completed" : "failed";
+            const finalStatus =
+              result.workflowStatus === "completed" || result.workflowStatus === "completed_with_skips"
+                ? "completed"
+                : "failed";
             let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
 
             if (runId) {
@@ -309,6 +326,22 @@ export async function POST(req: Request) {
                     outputsByNode: redactSecrets(result.outputsByNode),
                   },
                 });
+                if (result.nodeTraces?.length) {
+                  await insertWorkflowRunNodes(
+                    runId,
+                    result.nodeTraces.map((t) => ({
+                      nodeId: t.nodeId,
+                      specId: t.specId,
+                      status: t.status,
+                      startMs: t.startMs,
+                      endMs: t.endMs,
+                      error: t.error,
+                      retries: t.retries,
+                      tokens: t.tokens,
+                      model: t.model,
+                    }))
+                  );
+                }
               } catch (updateErr: any) {
                 console.error("[Flow Stream] Run update failed:", updateErr?.message);
               }
@@ -374,13 +407,18 @@ export async function POST(req: Request) {
 
     // Non-streaming: execute and return JSON
     try {
-      result = await runFlow(flowPayload);
+      result = await runFlow(flowPayload, {
+        runMode: isBuilderTest ? "dev" : "marketplace",
+      });
 
       const duration = Date.now() - startTime;
 
       // Update run record on completion - ALWAYS update to track usage
       let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
-      const finalStatus = result.workflowStatus === "completed" ? "completed" : "failed";
+      const finalStatus =
+        result.workflowStatus === "completed" || result.workflowStatus === "completed_with_skips"
+          ? "completed"
+          : "failed";
 
       // CRITICAL: Update run status - retry up to 3 times if it fails
       let updateSuccess = false;
@@ -396,6 +434,22 @@ export async function POST(req: Request) {
                 outputsByNode: redactSecrets(result.outputsByNode),
               },
             });
+            if (result.nodeTraces?.length) {
+              await insertWorkflowRunNodes(
+                runId,
+                result.nodeTraces.map((t) => ({
+                  nodeId: t.nodeId,
+                  specId: t.specId,
+                  status: t.status,
+                  startMs: t.startMs,
+                  endMs: t.endMs,
+                  error: t.error,
+                  retries: t.retries,
+                  tokens: t.tokens,
+                  model: t.model,
+                }))
+              );
+            }
             updateSuccess = true;
             console.warn(`[Run Tracking] Successfully updated run ${runId} to ${finalStatus} (attempt ${attempt})`);
             break;

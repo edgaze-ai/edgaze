@@ -89,6 +89,7 @@ type WorkflowRowRaw = {
   removed_at?: string | null;
   removed_reason?: string | null;
   removed_by?: string | null;
+  active_version_id?: string | null;
 };
 
 type PurchasePromptRow = {
@@ -105,6 +106,7 @@ type PurchaseWorkflowRow = {
   workflow_id: string;
   buyer_id: string;
   status?: string | null;
+  workflow_version_id?: string | null;
 };
 
 type LibraryItem = {
@@ -134,6 +136,7 @@ type LibraryItem = {
   removed_at?: string | null;
   removed_reason?: string | null;
   removed_by?: string | null;
+  updateAvailable?: boolean;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -277,6 +280,12 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
           <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
             <EyeOff className="h-4 w-4 shrink-0" />
             <span>{removedBannerText}</span>
+          </div>
+        )}
+        {item.updateAvailable && context === "purchased" && (
+          <div className="mb-3 flex items-center gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200">
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <span>Update available – new version from creator</span>
           </div>
         )}
         {removeConfirmOpen && (
@@ -749,7 +758,7 @@ export default function LibraryPage() {
 
           supabase
             .from("workflow_purchases")
-            .select("id, created_at, workflow_id, buyer_id, status, provider, currency, price_usd, external_ref")
+            .select("id, created_at, workflow_id, buyer_id, status, provider, currency, price_usd, external_ref, workflow_version_id")
             .eq("buyer_id", userId)
             .order("created_at", { ascending: false }),
         ]);
@@ -825,6 +834,7 @@ export default function LibraryPage() {
                     "removed_at",
                     "removed_reason",
                     "removed_by",
+                    "active_version_id",
                   ].join(",")
                 )
                 .in("id", workflowIds)
@@ -864,9 +874,19 @@ export default function LibraryPage() {
           })),
         ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         
+        const purchaseByWorkflowId = new Map(workflowPurchases.map((w) => [w.workflow_id, w]));
         const ordered: LibraryItem[] = [];
         for (const p of combinedPurchases) {
-          const item = p.kind === "prompt" ? promptMap.get(p.id) : workflowMap.get(p.id);
+          let item = p.kind === "prompt" ? promptMap.get(p.id) : workflowMap.get(p.id);
+          if (item && p.kind === "workflow") {
+            const purchase = purchaseByWorkflowId.get(p.id);
+            const workflowRow = (workflowsDataRes.data ?? []).find((r: any) => r.id === p.id) as WorkflowRowRaw | undefined;
+            const updateAvailable =
+              !!purchase?.workflow_version_id &&
+              !!workflowRow?.active_version_id &&
+              purchase.workflow_version_id !== workflowRow.active_version_id;
+            item = { ...item, updateAvailable };
+          }
           if (item) ordered.push(item);
         }
 

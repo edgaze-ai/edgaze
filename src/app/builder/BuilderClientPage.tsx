@@ -3,11 +3,11 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ArrowLeft, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2, Sparkles, Loader2, BookOpen, Undo2, Redo2 } from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "../../components/auth/AuthContext";
+import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 
 import ReactFlowCanvas, { CanvasRef as BECanvasRef } from "../../components/builder/ReactFlowCanvas";
@@ -124,7 +124,7 @@ export default function BuilderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { userId, authReady, requireAuth, openSignIn, getAccessToken } = useAuth();
+  const { userId, authReady, requireAuth, openSignIn, getAccessToken, profile } = useAuth();
 
   const beRef = useRef<BECanvasRef>(null);
 
@@ -193,7 +193,7 @@ export default function BuilderPage() {
   // In preview mode, windows start hidden
   const [windows, setWindows] = useState<Record<WindowKind, WindowState>>({
     blocks: { id: "blocks", x: 0, y: 0, width: 280, height: 600, visible: !previewParam, minimized: false },
-    inspector: { id: "inspector", x: 0, y: 0, width: 300, height: 600, visible: !previewParam, minimized: false },
+    inspector: { id: "inspector", x: 0, y: 0, width: 320, height: 600, visible: !previewParam, minimized: false },
   });
   const [windowsInitialized, setWindowsInitialized] = useState(false);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -282,7 +282,7 @@ export default function BuilderPage() {
       const panelTopY = Math.round(headerBottom + gapBelowTopbar);
 
       const blocksW = 280;
-      const inspectorW = 300;
+      const inspectorW = 320;
 
       const edgeInset = 0;
       const blocksX = Math.round(innerLeft + edgeInset);
@@ -2007,8 +2007,14 @@ export default function BuilderPage() {
                   <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-white/80" />
                 </button>
               )}
-              <div className="h-8 w-8 md:h-9 md:w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden shrink-0">
-                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={20} height={20} className="md:w-6 md:h-6" style={{ width: "auto", height: "auto" }} />
+              <div className="shrink-0">
+                <ProfileAvatar
+                  name={profile?.full_name}
+                  avatarUrl={profile?.avatar_url}
+                  size={36}
+                  handle={profile?.handle}
+                  showFallback
+                />
               </div>
               <div className="min-w-0">
                 <div className="text-[14px] md:text-[18px] font-semibold text-white truncate">{name || "Untitled Workflow"}</div>
@@ -2062,8 +2068,14 @@ export default function BuilderPage() {
             className="w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden">
-                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={24} height={24} style={{ width: "auto", height: "auto" }} />
+              <div className="shrink-0">
+                <ProfileAvatar
+                  name={profile?.full_name}
+                  avatarUrl={profile?.avatar_url}
+                  size={36}
+                  handle={profile?.handle}
+                  showFallback
+                />
               </div>
 
               <div className="min-w-0">
