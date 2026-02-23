@@ -164,7 +164,7 @@ export default function MergeNode(props: NodeProps) {
       {/* Input handles — absolute on left edge, percentage positions */}
       {Array.from({ length: handleCount }, (_, i) => {
         const handleId = `in-${i + 1}`;
-        const topPercent = positions[i] ?? 50;
+        const topPercent = positions?.[i] ?? 50;
         const connected = isHandleConnected(handleId, false);
         return (
           <Handle

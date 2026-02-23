@@ -72,11 +72,12 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
     return "";
   }
 
-  // Helper: convert one value to string for merging (handles input node { value, question })
+  // Helper: convert one value to string for merging (handles condition passthrough, input node { value, question }, etc.)
   const toMergeString = (v: unknown): string => {
-    if (typeof v === "string") return v;
-    if (v !== null && typeof v === "object" && !Array.isArray(v)) {
-      const obj = v as any;
+    const content = extractPipelineContent(v);
+    if (typeof content === "string") return content;
+    if (content !== null && typeof content === "object" && !Array.isArray(content)) {
+      const obj = content as any;
       if (typeof obj.question === "string" && "value" in obj) {
         const answer = obj.value === undefined || obj.value === null ? "" : typeof obj.value === "string" ? obj.value : JSON.stringify(obj.value);
         return answer;
@@ -86,13 +87,13 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
       if (typeof obj.message === "string") return obj.message;
       if (typeof obj.value === "string") return obj.value;
       try {
-        return JSON.stringify(v);
+        return JSON.stringify(content);
       } catch {
-        return String(v);
+        return String(content);
       }
     }
-    if (Array.isArray(v)) return v.map((item) => (typeof item === "string" ? item : JSON.stringify(item))).join(" ");
-    return String(v);
+    if (Array.isArray(content)) return content.map((item) => (typeof item === "string" ? item : JSON.stringify(item))).join(" ");
+    return String(content);
   };
 
   // If only one input, pass it through directly (no merging needed)
@@ -116,15 +117,17 @@ const outputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCo
   // Output node: combines all connected inputs into final result
   const inbound = ctx.getInboundValues(node.id);
 
-  // Filter out undefined/null
-  const valid = inbound.filter((v) => v !== undefined && v !== null);
+  // Filter out undefined/null and unwrap condition passthrough for pipeline flow
+  const valid = inbound
+    .filter((v) => v !== undefined && v !== null)
+    .map((v) => extractPipelineContent(v));
 
   if (valid.length === 0) {
     ctx.setNodeOutput(node.id, null);
     return null;
   }
 
-  // If single input, return as-is
+  // If single input, return unwrapped content
   if (valid.length === 1) {
     ctx.setNodeOutput(node.id, valid[0]);
     return valid[0];
@@ -211,20 +214,21 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   // Extract prompt/messages from inbound - BE LENIENT, convert ANYTHING to usable format
   let inboundMessages: any[] | undefined = undefined;
 
-  // First: look for messages array (highest priority)
+  // First: look for messages array (highest priority); unwrap condition passthrough
   for (const val of inbound) {
     if (val === null || val === undefined) continue;
+    const content = extractPipelineContent(val);
 
-    if (Array.isArray(val) && val.length > 0) {
+    if (Array.isArray(content) && content.length > 0) {
       // Check if it's OpenAI messages format
-      if (val.every((item: any) => item && typeof item === "object" && ("role" in item || "content" in item))) {
-        inboundMessages = val;
+      if (content.every((item: any) => item && typeof item === "object" && ("role" in item || "content" in item))) {
+        inboundMessages = content;
         break;
       }
     }
 
-    if (typeof val === "object" && !Array.isArray(val) && Array.isArray((val as any).messages)) {
-      inboundMessages = (val as any).messages;
+    if (typeof content === "object" && !Array.isArray(content) && Array.isArray((content as any).messages)) {
+      inboundMessages = (content as any).messages;
       break;
     }
   }
@@ -232,12 +236,13 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   // Build prompt from ALL inbound values (no dropping): format as "## Inputs" section so OpenAI receives every connected input
   const configPrompt = typeof config.prompt === "string" ? config.prompt.trim() || undefined : undefined;
 
-  /** Convert one inbound value to a string for the Inputs section (handles input node { value, question }) */
+  /** Convert one inbound value to a string for the Inputs section (handles condition passthrough, input node { value, question }) */
   const oneInboundToInputSegment = (val: unknown): string => {
-    if (val === null || val === undefined) return "";
-    if (typeof val === "string") return val;
-    if (typeof val === "object" && !Array.isArray(val)) {
-      const obj = val as any;
+    const content = extractPipelineContent(val);
+    if (content === null || content === undefined) return "";
+    if (typeof content === "string") return content;
+    if (typeof content === "object" && !Array.isArray(content)) {
+      const obj = content as any;
       if (typeof obj.question === "string" && "value" in obj) {
         const answer = obj.value === undefined || obj.value === null ? "" : typeof obj.value === "string" ? obj.value : JSON.stringify(obj.value);
         return answer;
@@ -248,15 +253,15 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       if (typeof obj.message === "string") return obj.message;
       if (typeof obj.value === "string") return obj.value;
       try {
-        return JSON.stringify(val);
+        return JSON.stringify(content);
       } catch {
-        return String(val);
+        return String(content);
       }
     }
-    if (Array.isArray(val)) {
-      return val.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(" ");
+    if (Array.isArray(content)) {
+      return content.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(" ");
     }
-    return String(val);
+    return String(content);
   };
 
   let prompt: string | undefined;
@@ -469,8 +474,10 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (node: GraphNode, ctx:
 
   const config = node.data?.config ?? {};
   const inbound = ctx.getInboundValues(node.id);
+  const raw = inbound[0];
+  const content = extractPipelineContent(raw);
   const text =
-    (typeof inbound[0] === "string" ? (inbound[0] as string) : undefined) ||
+    (typeof content === "string" ? content : undefined) ||
     (typeof config.text === "string" ? config.text : undefined);
 
   if (!text) {
@@ -609,8 +616,10 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
 
   const config = node.data?.config ?? {};
   const inbound = ctx.getInboundValues(node.id);
+  const raw = inbound[0];
+  const content = extractPipelineContent(raw);
   const prompt =
-    (typeof inbound[0] === "string" ? (inbound[0] as string) : undefined) ||
+    (typeof content === "string" ? content : undefined) ||
     (typeof config.prompt === "string" ? config.prompt : undefined);
 
   if (!prompt) {
@@ -726,7 +735,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
 const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const config = node.data?.config ?? {};
   const inbound = ctx.getInboundValues(node.id);
-  const inbound0 = inbound[0];
+  const inbound0 = extractPipelineContent(inbound[0]);
   const url =
     (typeof inbound0 === "string" ? (inbound0 as string) : undefined) ||
     (typeof (inbound0 as any)?.url === "string" ? (inbound0 as any).url : undefined) ||
@@ -868,7 +877,7 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
 
 const jsonParseHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const inbound = ctx.getInboundValues(node.id);
-  const input = inbound[0];
+  const input = extractPipelineContent(inbound[0]);
 
   if (typeof input !== "string") {
     ctx.setNodeOutput(node.id, input);
@@ -883,6 +892,29 @@ const jsonParseHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtim
     throw new Error(`Invalid JSON: ${err.message}`);
   }
 };
+
+/** Condition node passthrough shape: routes boolean result but passes input through for downstream. */
+export const CONDITION_PASSTHROUGH_KEY = "__passthrough" as const;
+export const CONDITION_RESULT_KEY = "__conditionResult" as const;
+
+/**
+ * Extract the actual content from an inbound value for pipeline flow.
+ * Unwraps condition passthrough, input node { value, question }, OpenAI { content }, etc.
+ * Used by merge, openai-chat, and other nodes that need the original input to flow through.
+ */
+export function extractPipelineContent(v: unknown): unknown {
+  if (v === null || v === undefined) return v;
+  // Condition node: pass through the evaluated input for downstream use
+  if (typeof v === "object" && !Array.isArray(v)) {
+    const obj = v as Record<string, unknown>;
+    if (CONDITION_RESULT_KEY in obj && CONDITION_PASSTHROUGH_KEY in obj) {
+      return obj[CONDITION_PASSTHROUGH_KEY];
+    }
+    // Input node format - return as-is; consumers can extract value
+    if ("value" in obj && "question" in obj) return v;
+  }
+  return v;
+}
 
 const conditionHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const config = node.data?.config ?? {};
@@ -937,8 +969,13 @@ const conditionHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtim
     }
   }
 
-  ctx.setNodeOutput(node.id, result);
-  return result;
+  // Output: { __conditionResult, __passthrough } so routing uses boolean and downstream gets original input
+  const output = {
+    [CONDITION_RESULT_KEY]: result,
+    [CONDITION_PASSTHROUGH_KEY]: value,
+  };
+  ctx.setNodeOutput(node.id, output);
+  return output;
 };
 
 const delayHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
@@ -948,7 +985,7 @@ const delayHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
 
   await new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(duration, 600000))));
 
-  const value = inbound.length > 0 ? inbound[0] : null;
+  const value = inbound.length > 0 ? extractPipelineContent(inbound[0]) : null;
   ctx.setNodeOutput(node.id, value);
   return value;
 };
@@ -956,7 +993,7 @@ const delayHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
 const loopHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const config = node.data?.config ?? {};
   const inbound = ctx.getInboundValues(node.id);
-  const array = inbound[0];
+  const array = extractPipelineContent(inbound[0]);
 
   if (!Array.isArray(array)) {
     throw new Error("Loop input must be an array");
@@ -978,7 +1015,9 @@ const mergeJsonHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtim
   const config = node.data?.config ?? {};
   const inbound = ctx.getInboundValues(node.id);
   const deep = config.deep === true;
-  const valid = inbound.filter((v) => v !== null && v !== undefined && typeof v === "object" && !Array.isArray(v));
+  const valid = inbound
+    .map((v) => extractPipelineContent(v))
+    .filter((v) => v !== null && v !== undefined && typeof v === "object" && !Array.isArray(v));
   if (valid.length === 0) {
     ctx.setNodeOutput(node.id, {});
     return {};
@@ -1014,8 +1053,9 @@ const templateHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtime
   const template = config.template ?? "";
   let data: Record<string, unknown> = {};
   for (const v of inbound) {
-    if (v !== null && v !== undefined && typeof v === "object" && !Array.isArray(v)) {
-      data = { ...data, ...(v as Record<string, unknown>) };
+    const content = extractPipelineContent(v);
+    if (content !== null && content !== undefined && typeof content === "object" && !Array.isArray(content)) {
+      data = { ...data, ...(content as Record<string, unknown>) };
     }
   }
   const result = String(template).replace(/\{\{(\w+)\}\}/g, (_, key) => {
@@ -1030,7 +1070,7 @@ const templateHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtime
 const mapHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const config = node.data?.config ?? {};
   const inbound = ctx.getInboundValues(node.id);
-  const array = inbound[0];
+  const array = extractPipelineContent(inbound[0]);
   if (!Array.isArray(array)) {
     throw new Error("Map input must be an array");
   }

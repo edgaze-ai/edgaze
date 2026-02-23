@@ -117,6 +117,7 @@ const edgeTypes = Object.freeze({
 export type CanvasRef = {
   addNodeAtCenter: (specId: string) => void;
   updateNodeConfig: (nodeId: string, patch: any) => void;
+  selectAndFocusNode: (nodeId: string) => void;
   getGraph: () => { nodes: Node<EdgazeNodeData>[]; edges: Edge[] };
   loadGraph: (graph: { nodes: Node<EdgazeNodeData>[]; edges: Edge[] } | any) => void;
   zoomIn: () => void;
@@ -163,7 +164,10 @@ function normalizeGraph(
       : g0;
 
   const nodes = Array.isArray(g?.nodes) ? (g.nodes as Node<EdgazeNodeData>[]) : [];
-  const edges = Array.isArray(g?.edges) ? (g.edges as Edge[]) : [];
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const edges = (Array.isArray(g?.edges) ? (g.edges as Edge[]) : []).filter(
+    (e: Edge) => nodeIds.has(e.source) && nodeIds.has(e.target)
+  );
 
   return { nodes, edges };
 }
@@ -626,6 +630,25 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
   useImperativeHandle(ref, () => ({
     addNodeAtCenter,
+    selectAndFocusNode: (nodeId: string) => {
+      if (isPreview) return;
+      setNodes((nds) => {
+        const node = nds.find((n) => n.id === nodeId);
+        if (!node) return nds;
+        const updated = nds.map((n) => ({ ...n, selected: n.id === nodeId }));
+        setTimeout(() => {
+          onSelectionChange?.({
+            nodeId: node.id,
+            specId: node.data?.specId,
+            config: node.data?.config,
+          });
+          requestAnimationFrame(() => {
+            rfRef.current?.fitView?.({ padding: 0.25, duration: 280 });
+          });
+        }, 0);
+        return updated;
+      });
+    },
     updateNodeConfig: (nodeId: string, patch: any) => {
       if (isPreview) return;
       setNodes((nds) => {
@@ -782,9 +805,12 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           });
         }
 
+        const removedNodeIds = new Set(selectedNodeIds);
         setNodes((nds) => nds.filter((n) => n.selected !== true));
         setEdges((eds) => {
-          const next = eds.filter((ed) => ed.selected !== true);
+          const next = eds.filter(
+            (ed) => ed.selected !== true && !removedNodeIds.has(ed.source) && !removedNodeIds.has(ed.target)
+          );
           edgesRef.current = next;
           return next;
         });
@@ -920,14 +946,20 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const onDeleteNode = () => {
     if (isPreview) return;
     if (!bubble || bubble.kind !== "node" || locked) return;
-    const specId = rfRef.current?.getNode(bubble.id)?.data?.specId;
+    const nodeId = bubble.id;
+    const specId = rfRef.current?.getNode(nodeId)?.data?.specId;
     safeTrack("Builder Node Deleted", {
       surface: "canvas",
       count: 1,
       spec_ids: specId ? [specId] : undefined,
       via: "ui",
     });
-    setNodes((nds) => nds.filter((n) => n.id !== bubble.id));
+    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+    setEdges((eds) => {
+      const next = eds.filter((e) => e.source !== nodeId && e.target !== nodeId);
+      edgesRef.current = next;
+      return next;
+    });
     lastSelectionKeyRef.current = "none";
     setBubble(null);
     onSelectionChange?.({ nodeId: null });
@@ -960,11 +992,25 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const selectionDangerClass =
     "inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium text-white/85 hover:text-white hover:bg-white/10 active:scale-[0.98] transition";
 
-  // Preview allows only position/selection/dimensions changes
+  // Preview allows only position/selection/dimensions changes.
+  // In edit mode: when nodes are removed, also remove any edges connected to them.
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       if (!isPreview) {
+        const removeIds = new Set<string>();
+        for (const c of changes as Array<{ type?: string; id?: string }>) {
+          if (c?.type === "remove" && c?.id) removeIds.add(c.id);
+        }
         baseOnNodesChange(changes);
+        if (removeIds.size > 0) {
+          setEdges((eds) => {
+            const next = eds.filter(
+              (e) => !removeIds.has(e.source) && !removeIds.has(e.target)
+            );
+            edgesRef.current = next;
+            return next;
+          });
+        }
         return;
       }
 
@@ -980,7 +1026,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       if (allowed.length > 0) baseOnNodesChange(allowed);
     },
-    [baseOnNodesChange, isPreview]
+    [baseOnNodesChange, isPreview, setEdges]
   );
 
   // Apply edge changes and sync edgesRef immediately so reconnection after
@@ -1185,8 +1231,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           <Background
             id="workflow-grid"
             gap={20}
-            size={1.5}
-            color="rgba(148,163,184,0.25)"
+            size={1.75}
+            color="rgba(148,163,184,0.35)"
             variant={BackgroundVariant.Dots}
           />
         )}

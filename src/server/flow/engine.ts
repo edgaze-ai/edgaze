@@ -19,6 +19,7 @@ import {
   type EdgeGating,
 } from "@lib/workflow/workflow-policy";
 import { coerceInbound, nodeHasSideEffects } from "@lib/workflow/node-contracts";
+import { CONDITION_RESULT_KEY } from "../nodes/handlers";
 import { getResourceClass, createResourcePoolManager } from "@lib/workflow/resource-pools";
 import { shouldRetry, RunCircuitBreaker } from "@lib/workflow/retry-classification";
 
@@ -192,6 +193,29 @@ export async function runFlow(
     return s === "success" ? "success" : "failed";
   }
 
+  /** Condition node: True path runs only when output is true; False path only when false. */
+  function satisfiesConditionEdge(
+    sourceOutput: unknown,
+    sourceStatus: string | undefined,
+    sourceHandle: string | undefined
+  ): boolean {
+    if (sourceStatus !== "success") return false;
+    // Condition outputs { __conditionResult, __passthrough } for pipeline passthrough
+    let result: boolean;
+    if (
+      sourceOutput !== null &&
+      typeof sourceOutput === "object" &&
+      CONDITION_RESULT_KEY in (sourceOutput as Record<string, unknown>)
+    ) {
+      result = Boolean((sourceOutput as Record<string, unknown>)[CONDITION_RESULT_KEY]);
+    } else {
+      result = Boolean(sourceOutput);
+    }
+    if (sourceHandle === "true") return result === true;
+    if (sourceHandle === "false") return result === false;
+    return true; // no handle: legacy, treat as pass
+  }
+
   function tryMarkReady(
     targetId: string,
     ready: string[],
@@ -204,9 +228,21 @@ export async function runFlow(
       for (const { sourceId, edge } of targetEdges) {
         const sourceOutput = snapshot.outputsByNode[sourceId];
         const sourceStatus = snapshot.nodeStatus[sourceId];
-        const gating = getEdgeGating(edge) as EdgeGating;
-        if (!satisfiesEdgeGating(sourceOutput, toSourceStatus(sourceStatus ?? "failed"), gating)) {
-          const reason = `Edge gating not satisfied: source ${sourceId} (${sourceStatus}) -> ${gating}`;
+        const sourceNode = nodeById.get(sourceId);
+        const sourceSpecId = sourceNode?.data?.specId;
+
+        let satisfied: boolean;
+        if (sourceSpecId === "condition") {
+          satisfied = satisfiesConditionEdge(sourceOutput, sourceStatus, edge.sourceHandle);
+        } else {
+          const gating = getEdgeGating(edge) as EdgeGating;
+          satisfied = satisfiesEdgeGating(sourceOutput, toSourceStatus(sourceStatus ?? "failed"), gating);
+        }
+
+        if (!satisfied) {
+          const reason = sourceSpecId === "condition"
+            ? `Condition branch not taken (source ${sourceId} ${edge.sourceHandle ?? "?"} -> ${sourceStatus})`
+            : `Edge gating not satisfied: source ${sourceId} (${sourceStatus})`;
           blockedNodes.push(targetId);
           blockedReasons[targetId] = reason;
           state.setNodeStatus(targetId, "blocked");

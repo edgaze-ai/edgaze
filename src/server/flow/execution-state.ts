@@ -1,6 +1,19 @@
 import { initializeSnapshot, transitionNode, transitionWorkflow, withUpdatedSnapshot } from "./state-machine";
 import type { ExecutionSnapshot, NodeStatus, WorkflowStatus } from "./types";
 
+/** Valid node state transitions. Terminal states (failed, success, blocked, skipped) allow no transitions. */
+const VALID_NODE_TRANSITIONS: Record<NodeStatus, NodeStatus[]> = {
+  idle: ["ready", "running", "skipped", "blocked", "failed"],
+  ready: ["running", "skipped", "blocked", "failed"],
+  running: ["success", "failed", "timeout", "retrying"],
+  retrying: ["running", "failed", "timeout"],
+  success: [],
+  failed: [],
+  skipped: [],
+  blocked: [],
+  timeout: [],
+};
+
 type PersistHook = (snapshot: ExecutionSnapshot) => void | Promise<void>;
 
 export class ExecutionStateManager {
@@ -40,6 +53,24 @@ export class ExecutionStateManager {
 
   setNodeStatus(nodeId: string, next: NodeStatus) {
     const current = this.snapshot.nodeStatus[nodeId] ?? "idle";
+
+    // Ignore duplicate transitions (e.g. failed -> failed from retry/edge gating)
+    if (current === next) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(`[engine] Ignoring duplicate transition: ${nodeId} ${current} -> ${next}`);
+      }
+      return current;
+    }
+
+    // Block invalid transitions instead of throwing (prevents workflow crash)
+    const allowed = VALID_NODE_TRANSITIONS[current] ?? [];
+    if (!allowed.includes(next)) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(`[engine] Invalid transition blocked: ${nodeId} ${current} -> ${next}`);
+      }
+      return current;
+    }
+
     const updated = transitionNode(current, next);
     this.snapshot = withUpdatedSnapshot(this.snapshot, {
       nodeStatus: { ...this.snapshot.nodeStatus, [nodeId]: updated },

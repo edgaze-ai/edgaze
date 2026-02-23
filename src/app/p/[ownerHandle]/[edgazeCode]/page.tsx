@@ -1749,13 +1749,13 @@ export default function PromptProductPage() {
       const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
       
       if (!validation.valid) {
-        const errorMessage = validation.errors.join("\n\n");
+        const errorMessage = validation.errors.map((e) => e.message).join("\n\n");
         setPurchaseError(errorMessage);
         safeTrack("Workflow Run Blocked", {
           surface: "product_page",
           listing_id: listing.id,
           reason: "validation_failed",
-          errors: validation.errors,
+          errors: validation.errors.map((e) => e.message),
         });
         return;
       }
@@ -1775,7 +1775,7 @@ export default function PromptProductPage() {
         logs: [],
         inputs: inputs.length > 0 ? inputs : undefined,
         summary: validation.warnings.length > 0 
-          ? `${validation.warnings.length} warning(s): ${validation.warnings[0]}`
+          ? `${validation.warnings.length} warning(s): ${validation.warnings[0]?.message ?? ""}`
           : undefined,
       };
 

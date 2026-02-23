@@ -17,7 +17,8 @@ import WorkflowPublishModal from "../../components/builder/WorkflowPublishModal"
 import PremiumWorkflowRunModal, { type WorkflowRunState, type WorkflowRunStep, type BuilderRunLimit } from "../../components/builder/PremiumWorkflowRunModal";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
 import { canRunDemo, canRunDemoSync, trackDemoRun, getRemainingDemoRuns, getRemainingDemoRunsSync } from "../../lib/workflow/device-tracking";
-import { validateWorkflowGraph } from "../../lib/workflow/validation";
+import { validateWorkflowGraph, type ValidationResult } from "../../lib/workflow/validation";
+import CanvasValidationBanner from "../../components/builder/CanvasValidationBanner";
 import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
 
 import { cx } from "../../lib/cx";
@@ -160,6 +161,8 @@ export default function BuilderPage() {
   const [showLauncher, setShowLauncher] = useState(true);
   const [wfLoading, setWfLoading] = useState(false);
   const [wfError, setWfError] = useState<string | null>(null);
+  const [canvasValidation, setCanvasValidation] = useState<ValidationResult | null>(null);
+  const [inspectorFieldHint, setInspectorFieldHint] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [published, setPublished] = useState<DraftRow[]>([]);
 
@@ -564,6 +567,7 @@ export default function BuilderPage() {
     isUndoRedoRef.current = true;
     previousGraphRef.current = cloneGraph(normalized);
     latestGraphRef.current = normalized;
+    setCanvasValidation(validateWorkflowGraph(normalized.nodes ?? [], normalized.edges ?? []));
     beRef.current?.loadGraph?.(normalized);
     setTimeout(() => {
       isUndoRedoRef.current = false;
@@ -670,6 +674,12 @@ export default function BuilderPage() {
   const onGraphChange = useCallback(
     (graph: { nodes: any[]; edges: any[] }) => {
       setStats({ nodes: graph.nodes?.length ?? 0, edges: graph.edges?.length ?? 0 });
+      // Run validation on every graph change - surfaces errors at canvas before run
+      const validation = validateWorkflowGraph(graph.nodes ?? [], graph.edges ?? []);
+      setCanvasValidation(validation);
+      if (validation.valid) {
+        setWfError(null); // Clear previous run error when user fixes issues at canvas
+      }
       if (isPreview) return;
       latestGraphRef.current = graph;
 
@@ -697,9 +707,20 @@ export default function BuilderPage() {
     [activeDraftId, doAutosave, isPreview]
   );
 
+  const onFocusValidationNode = useCallback(
+    (nodeId: string, fieldHint?: string) => {
+      if (isPreview) return;
+      beRef.current?.selectAndFocusNode?.(nodeId);
+      setInspectorFieldHint(fieldHint ?? null);
+      setWindows((prev) => ({ ...prev, inspector: { ...prev.inspector, visible: true, minimized: false } }));
+    },
+    [isPreview]
+  );
+
   const onSelectionChange = useCallback(
     (sel: any) => {
       if (isPreview) return;
+      setInspectorFieldHint(null);
       // Always get the latest config from the graph to ensure we have the most up-to-date values
       const nodeId = typeof sel?.nodeId === "string" ? sel.nodeId : null;
       if (nodeId) {
@@ -1312,13 +1333,13 @@ export default function BuilderPage() {
     const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
 
     if (!validation.valid) {
-      const errorMessage = validation.errors.join("\n\n");
+      const errorMessage = validation.errors.map((e) => e.message).join("\n\n");
       setWfError(errorMessage);
       safeTrack("Workflow Run Blocked", {
         surface: "builder",
         workflow_id: activeDraftId,
         reason: "validation_failed",
-        errors: validation.errors,
+        errors: validation.errors.map((e) => e.message),
       });
       return;
     }
@@ -1390,7 +1411,7 @@ export default function BuilderPage() {
       logs: [],
       inputs: showInputPhase ? (inputs.length > 0 ? inputs : []) : undefined,
       summary: validation.warnings.length > 0
-        ? `${validation.warnings.length} warning(s): ${validation.warnings[0]}`
+        ? `${validation.warnings.length} warning(s): ${validation.warnings[0]?.message ?? ""}`
         : undefined,
     };
 
@@ -2077,13 +2098,17 @@ export default function BuilderPage() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={runWorkflow}
-                disabled={!activeDraftId}
+                disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
                   "relative inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 backdrop-blur-sm px-4 py-2.5 md:px-6 md:py-3 text-[13px] md:text-[14px] font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] hover:from-cyan-500/30 hover:to-purple-500/30 transition-all duration-200",
                   "min-w-[100px] md:min-w-[140px]",
-                  !activeDraftId && "opacity-50 cursor-not-allowed"
+                  (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) && "opacity-50 cursor-not-allowed"
                 )}
-                title="Run Workflow"
+                title={
+                  canvasValidation && !canvasValidation.valid
+                    ? canvasValidation.errors[0]?.message ?? "Fix issues before running"
+                    : "Run Workflow"
+                }
               >
                 <Play className="h-4 w-4 md:h-5 md:w-5" />
                 <span className="hidden sm:inline">Run</span>
@@ -2188,12 +2213,16 @@ export default function BuilderPage() {
 
               <button
                 onClick={runWorkflow}
-                disabled={!activeDraftId}
+                disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
                   "relative inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors",
-                  !activeDraftId && "opacity-60 cursor-not-allowed"
+                  (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) && "opacity-60 cursor-not-allowed"
                 )}
-                title="Run (Coming soon)"
+                title={
+                  canvasValidation && !canvasValidation.valid
+                    ? canvasValidation.errors[0]?.message ?? "Fix issues before running"
+                    : "Run Workflow"
+                }
               >
                 <Play className="h-4 w-4" />
                 <span>Run</span>
@@ -2387,6 +2416,7 @@ export default function BuilderPage() {
               <div className="h-full">
                 <InspectorPanel
                   selection={selection}
+                  fieldHint={inspectorFieldHint}
                   workflowId={activeDraftId ?? undefined}
                   getLatestGraph={() => beRef.current?.getGraph?.() ?? null}
                   onUpdate={(nodeId, patch) => {
@@ -2406,6 +2436,16 @@ export default function BuilderPage() {
         )}
 
       </div>
+
+      {/* Validation banner - bottom, compact and expandable */}
+      {canvasValidation && (canvasValidation.errors.length > 0 || canvasValidation.warnings.length > 0) && (
+        <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pb-4 flex justify-center">
+          <CanvasValidationBanner
+            validation={canvasValidation}
+            onFocusNode={onFocusValidationNode}
+          />
+        </div>
+      )}
 
       {/* Premium Run Modal */}
       <PremiumWorkflowRunModal

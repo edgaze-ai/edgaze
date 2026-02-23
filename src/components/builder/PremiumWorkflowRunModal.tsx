@@ -349,6 +349,19 @@ function CinematicRunView({
   return (
     <div className={cx("flex flex-col items-center px-6 py-12 max-w-xl mx-auto", isStopping && "cinematic-reduce-motion")}>
       <div className="text-center mb-14">
+        {!isStopping && (
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <div
+                className="absolute inset-0 rounded-full opacity-40 blur-xl"
+                style={{
+                  background: "radial-gradient(circle, rgba(56,189,248,0.2) 0%, rgba(99,102,241,0.15) 50%, transparent 70%)",
+                }}
+              />
+              <div className="relative w-10 h-10 rounded-full border-2 border-white/10 border-t-white/40 cinematic-spinner" />
+            </div>
+          </div>
+        )}
         <div className="text-2xl font-medium text-white/95 mb-3 transition-opacity duration-300">
           {isStopping ? "Stopping…" : verbLine}
         </div>
@@ -1202,7 +1215,6 @@ export default function PremiumWorkflowRunModal({
   isBuilderTest?: boolean;
   builderRunLimit?: BuilderRunLimit;
   requiresApiKeys?: string[];
-  requiresApiKeys?: string[];
 }) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const logEndRef = useRef<HTMLDivElement | null>(null);
@@ -1660,7 +1672,7 @@ export default function PremiumWorkflowRunModal({
                         <WorkflowInputField
                           input={input}
                           value={inputValues[input.nodeId]}
-                          onChange={(value) => setInputValues({ ...inputValues, [input.nodeId]: value })}
+                          onChange={(value) => setInputValues((prev) => ({ ...prev, [input.nodeId]: value }))}
                         />
                       </div>
                     ))}
@@ -1676,7 +1688,7 @@ export default function PremiumWorkflowRunModal({
                       }
                       className={cx(
                         "inline-flex items-center gap-2 rounded-xl border border-white/15 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] transition-all duration-200",
-                        (state.inputs.some((i) => i.required && !inputValues[i.nodeId] && !i.defaultValue) ||
+                        ((state.inputs ?? []).some((i) => i.required && !inputValues[i.nodeId] && !i.defaultValue) ||
                           !onSubmitInputs ||
                           (isBuilderTest && !canSubmitBuilder)) &&
                           "opacity-50 cursor-not-allowed"

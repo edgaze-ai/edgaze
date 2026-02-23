@@ -621,13 +621,26 @@ function TabPill({
   );
 }
 
+const FIELD_HINT_LABELS: Record<string, string> = {
+  prompt: "Prompt",
+  url: "URL",
+  text: "Text",
+  model: "Model",
+  size: "Size",
+  quality: "Quality",
+  question: "Question / Input Name",
+  connection: "Invalid connection",
+};
+
 export default function InspectorPanel({
   selection,
+  fieldHint,
   workflowId,
   onUpdate,
   getLatestGraph,
 }: {
   selection?: Selection; // <-- keep optional + foolproof
+  fieldHint?: string | null;
   workflowId?: string;
   onUpdate?: (nodeId: string, patch: any) => void;
   getLatestGraph?: () => { nodes: any[]; edges: any[] } | null;
@@ -694,6 +707,23 @@ export default function InspectorPanel({
           <Eye size={16} className="text-white/60" />
           <span className="text-[13px] font-semibold text-white/95 tracking-tight">Inspector</span>
         </div>
+        {selected && fieldHint && (
+          <div
+            className="mt-2 rounded-lg px-3 py-2 text-[11px] font-medium"
+            style={{
+              background: "rgba(239,68,68,0.12)",
+              border: "1px solid rgba(239,68,68,0.25)",
+              color: "#f0a0a0",
+            }}
+          >
+            Fix: <span className="font-semibold">{FIELD_HINT_LABELS[fieldHint] ?? fieldHint}</span>
+            {fieldHint === "connection" && (
+              <div className="mt-1 text-[10px] opacity-90">
+                On the canvas: select and delete the invalid connection, or add the missing node.
+              </div>
+            )}
+          </div>
+        )}
         {selected && (
           <div className="mt-2 flex gap-2">
             <TabPill active={tab === "general"} onClick={() => setTab("general")}>

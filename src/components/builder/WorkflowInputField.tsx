@@ -67,27 +67,37 @@ export function WorkflowInputField({
     );
   }
 
+  const inputBaseClass =
+    "w-full rounded-[7px] px-3 py-2.5 text-[13px] outline-none transition-all " +
+    "bg-[rgba(0,0,0,0.3)] border border-[rgba(255,255,255,0.08)] " +
+    "text-[#e0e0e0] placeholder-[#666] " +
+    "focus:border-[rgba(6,182,212,0.4)] focus:shadow-[0_0_0_3px_rgba(6,182,212,0.08)]";
+
   if (input.type === "textarea") {
     return (
       <textarea
-        value={value || input.defaultValue || ""}
+        name={`wf-input-${input.nodeId}`}
+        autoComplete="off"
+        value={value ?? input.defaultValue ?? ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder={input.placeholder}
         required={input.required}
         rows={4}
-        className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+        className={inputBaseClass}
       />
     );
   }
 
   return (
     <input
+      name={`wf-input-${input.nodeId}`}
+      autoComplete="off"
       type={input.type === "number" ? "number" : input.type === "url" ? "url" : "text"}
-      value={value || input.defaultValue || ""}
+      value={value ?? input.defaultValue ?? ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={input.placeholder}
       required={input.required}
-      className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/20 transition-all"
+      className={inputBaseClass}
     />
   );
 }
