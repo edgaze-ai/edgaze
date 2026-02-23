@@ -34,7 +34,8 @@ import "reactflow/dist/style.css";
 import { getNodeSpec } from "src/nodes/registry";
 import type { NodeSpec } from "src/nodes/types";
 import { isValidConnection as checkAllowedConnection } from "src/canvas/CanvasConfig";
-import { GradientEdge } from "src/edges/GradientEdge";
+import { CustomEdge } from "src/edges/CustomEdge";
+import { EdgeGradientDefs } from "src/edges/EdgeGradientDefs";
 import { BaseNode } from "src/nodes/BaseNode";
 import MergeNode from "./nodes/MergeNode";
 import ConditionNode from "./nodes/ConditionNode";
@@ -107,9 +108,9 @@ const nodeTypes = Object.freeze({
 
 /* ---------- Edge types ---------- */
 const edgeTypes = Object.freeze({
-  default: GradientEdge,
-  gradient: GradientEdge,
-  simplebezier: GradientEdge, // backward compat for loaded graphs
+  default: CustomEdge,
+  gradient: CustomEdge,
+  simplebezier: CustomEdge,
 });
 
 /* ---------- Public ref API ---------- */
@@ -1014,6 +1015,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
+      <EdgeGradientDefs />
       {/* Control panel removed - now integrated into top bar */}
 
       {/* Connection error toast — shown when invalid connection attempted */}

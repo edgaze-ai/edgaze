@@ -83,12 +83,18 @@ export function NodePreviewCard({
   const previewText = getPreviewText(spec.id, spec);
   const IconComponent = getIconComponent(registry?.icon ?? "MessageSquare");
 
+  const cardWrapperStyle: React.CSSProperties = {
+    width: 200,
+    overflow: "hidden",
+    flexShrink: 0,
+  };
+
   if (spec.nodeType === "edgCondition") {
     const nodeColor = "#f59e0b";
     return (
       <div
         className="node-preview-card cursor-grab active:cursor-grabbing relative shrink-0"
-        style={{ width: 200 }}
+        style={cardWrapperStyle}
         draggable
         onDragStart={onDragStart}
         title="Drag to canvas"
@@ -97,15 +103,23 @@ export function NodePreviewCard({
       >
         <div
           style={{
-            width: 200,
-            background: "#1a1a1c",
-            border: "1px solid #2a2a2a",
-            borderRadius: 8,
-            boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+            pointerEvents: "none",
             overflow: "hidden",
-            position: "relative",
+            width: "100%",
+            padding: "6px 12px",
           }}
         >
+          <div
+            style={{
+              width: "100%",
+              padding: "9px 11px",
+              background: "#111111",
+              border: "1px solid #1c1c1c",
+              borderRadius: 7,
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
           {/* Left accent bar */}
           <div
             style={{
@@ -122,11 +136,6 @@ export function NodePreviewCard({
           />
           <div
             style={{
-              height: 30,
-              background: "#1e1e1e",
-              borderBottom: "1px solid #242424",
-              borderRadius: "8px 8px 0 0",
-              padding: "0 8px 0 10px",
               display: "flex",
               alignItems: "center",
               gap: 6,
@@ -134,8 +143,8 @@ export function NodePreviewCard({
           >
             <div
               style={{
-                width: 18,
-                height: 18,
+                width: 20,
+                height: 20,
                 background: "rgba(245,158,11,0.12)",
                 border: "1px solid rgba(245,158,11,0.22)",
                 borderRadius: 4,
@@ -145,16 +154,28 @@ export function NodePreviewCard({
                 flexShrink: 0,
               }}
             >
-              <IconComponent size={10} style={{ color: nodeColor }} />
+              <IconComponent size={12} style={{ color: nodeColor }} />
             </div>
-            <span style={{ fontSize: 11, fontWeight: 500, color: "#e2e2e2", flex: 1 }}>Condition</span>
-            <span style={{ fontSize: 8, color: "#333", background: "#111", border: "1px solid #1e1e1e", borderRadius: 999, padding: "1px 4px" }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1 }}>Condition</span>
+            <span style={{ fontSize: 9, color: "#333" }}>
               v{spec.version ?? "1.0.0"}
             </span>
           </div>
-          <div style={{ padding: "6px 8px 6px 10px", background: "#1a1a1c" }}>
-            <div style={{ fontSize: 8, fontWeight: 700, letterSpacing: "0.06em", color: nodeColor }}>IF</div>
-            <div style={{ fontSize: 10, color: "#71717a", marginTop: 1 }}>{previewText}</div>
+          <div style={{ marginTop: 5 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: nodeColor }}>IF</div>
+            <div
+              style={{
+                fontSize: 11,
+                color: "#505050",
+                fontStyle: "italic",
+                marginTop: 5,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {previewText}
+            </div>
             <div style={{ height: 1, background: "#1e1e1e", margin: "4px 0" }} />
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -169,18 +190,9 @@ export function NodePreviewCard({
               </div>
             </div>
           </div>
-          <div
-            style={{
-              height: 18,
-              background: "#111",
-              borderTop: "1px solid #1c1c1c",
-              borderRadius: "0 0 8px 8px",
-              padding: "0 8px 0 10px",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <span style={{ fontFamily: "monospace", fontSize: 8, color: "#3f3f46" }}>1 in · 2 out</span>
+          <div style={{ marginTop: 6, display: "flex", alignItems: "center" }}>
+            <span style={{ fontFamily: "monospace", fontSize: 9, color: "#3f3f46" }}>1 in · 2 out</span>
+          </div>
           </div>
         </div>
       </div>
@@ -190,8 +202,8 @@ export function NodePreviewCard({
   if (spec.nodeType === "edgMerge") {
     return (
       <div
-        className="node-preview-card cursor-grab active:cursor-grabbing"
-        style={{ width: 220 }}
+        className="node-preview-card cursor-grab active:cursor-grabbing shrink-0"
+        style={cardWrapperStyle}
         draggable
         onDragStart={onDragStart}
         title="Drag to canvas"
@@ -200,33 +212,30 @@ export function NodePreviewCard({
       >
         <div
           style={{
-            width: 220,
-            background: "#18181b",
-            border: "1px solid #27272a",
-            borderRadius: 8,
-            boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+            pointerEvents: "none",
             overflow: "hidden",
+            width: "100%",
+            padding: "6px 12px",
           }}
         >
           <div
             style={{
-              height: 36,
-              background: "#1c1c1c",
-              borderBottom: "1px solid #222",
-              borderRadius: "8px 8px 0 0",
-              padding: "0 10px 0 12px",
-              display: "flex",
-              alignItems: "center",
-              gap: 7,
+              width: "100%",
+              padding: "9px 11px",
+              background: "#111111",
+              border: "1px solid #1c1c1c",
+              borderRadius: 7,
+              overflow: "hidden",
             }}
           >
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div
               style={{
-                width: 22,
-                height: 22,
+                width: 20,
+                height: 20,
                 background: `${nodeColor}15`,
                 border: `1px solid ${nodeColor}28`,
-                borderRadius: 5,
+                borderRadius: 4,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -235,53 +244,27 @@ export function NodePreviewCard({
             >
               <IconComponent size={12} style={{ color: nodeColor }} />
             </div>
-            <span
-              style={{
-                fontSize: 12,
-                fontWeight: 500,
-                color: "#e4e4e7",
-                flex: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
+            <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {spec.label}
             </span>
-            <span style={{ fontSize: 9, color: "#333", background: "#111", border: "1px solid #1e1e1e", borderRadius: 99, padding: "1px 5px" }}>
-              v{spec.version ?? "1.0.0"}
-            </span>
-          </div>
-          <div style={{ padding: "8px 10px 8px 12px", background: "#18181b", minHeight: 0 }}>
-            <div
-              style={{
-                fontSize: 11,
-                color: "#71717a",
-                fontStyle: "italic",
-                lineHeight: 1.45,
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-                margin: 0,
-                padding: 0,
-              }}
-            >
-              {previewText}
-            </div>
+            <span style={{ fontSize: 9, color: "#333" }}>v{spec.version ?? "1.0.0"}</span>
           </div>
           <div
             style={{
-              height: 22,
-              background: "#111",
-              borderTop: "1px solid #27272a",
-              borderRadius: "0 0 8px 8px",
-              padding: "0 10px 0 12px",
-              display: "flex",
-              alignItems: "center",
+              fontSize: 11,
+              color: "#505050",
+              fontStyle: "italic",
+              marginTop: 5,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
+            {previewText}
+          </div>
+          <div style={{ marginTop: 6 }}>
             <span style={{ fontFamily: "monospace", fontSize: 9, color: "#3f3f46" }}>#preview</span>
+          </div>
           </div>
         </div>
       </div>
@@ -290,8 +273,8 @@ export function NodePreviewCard({
 
   return (
     <div
-      className="node-preview-card cursor-grab active:cursor-grabbing relative"
-      style={{ width: 220 }}
+      className="node-preview-card cursor-grab active:cursor-grabbing relative shrink-0"
+      style={cardWrapperStyle}
       draggable
       onDragStart={onDragStart}
       title="Drag to canvas"
@@ -300,34 +283,31 @@ export function NodePreviewCard({
     >
       <div
         style={{
-          width: 220,
-          background: "#18181b",
-          border: "1px solid #27272a",
-          borderRadius: 8,
-          boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+          pointerEvents: "none",
           overflow: "hidden",
-          position: "relative",
+          width: "100%",
+          padding: "6px 12px",
         }}
       >
         <div
           style={{
-            height: 36,
-            background: "#1f1f23",
-            borderBottom: "1px solid #27272a",
-            borderRadius: "8px 8px 0 0",
-            padding: "0 10px 0 12px",
-            display: "flex",
-            alignItems: "center",
-            gap: 7,
+            width: "100%",
+            padding: "9px 11px",
+            background: "#111111",
+            border: "1px solid #1c1c1c",
+            borderRadius: 7,
+            overflow: "hidden",
+            position: "relative",
           }}
         >
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <div
             style={{
-              width: 22,
-              height: 22,
+              width: 20,
+              height: 20,
               background: `${nodeColor}15`,
               border: `1px solid ${nodeColor}28`,
-              borderRadius: 5,
+              borderRadius: 4,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -336,84 +316,34 @@ export function NodePreviewCard({
             }}
           >
             {registry?.iconImage ? (
-              <img
-                src={registry.iconImage}
-                alt=""
-                style={{ width: 14, height: 14, objectFit: "contain" }}
-              />
+              <img src={registry.iconImage} alt="" style={{ width: 12, height: 12, objectFit: "contain" }} />
             ) : (
               <IconComponent size={12} style={{ color: nodeColor }} />
             )}
           </div>
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 500,
-              color: "#e4e4e7",
-              flex: 1,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
+          <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {spec.label}
           </span>
-          <span
-            style={{
-              fontSize: 9,
-              color: "#333",
-              background: "#111",
-              border: "1px solid #1e1e1e",
-              borderRadius: 99,
-              padding: "1px 5px",
-              flexShrink: 0,
-            }}
-          >
-            v{spec.version ?? "1.0.0"}
-          </span>
-          <div
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "#252525",
-              border: "1px solid #2e2e2e",
-              flexShrink: 0,
-            }}
-          />
-        </div>
-        <div style={{ padding: "8px 10px 8px 12px", background: "#18181b", minHeight: 0 }}>
-          <div
-            style={{
-              fontSize: 11,
-              color: "#71717a",
-              fontStyle: "italic",
-              lineHeight: 1.45,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              margin: 0,
-              padding: 0,
-            }}
-          >
-            {previewText}
-          </div>
+          <span style={{ fontSize: 9, color: "#333" }}>v{spec.version ?? "1.0.0"}</span>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#252525", flexShrink: 0 }} />
         </div>
         <div
           style={{
-            height: 22,
-            background: "#111",
-            borderTop: "1px solid #27272a",
-            borderRadius: "0 0 8px 8px",
-            padding: "0 10px 0 12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            fontSize: 11,
+            color: "#505050",
+            fontStyle: "italic",
+            marginTop: 5,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
           }}
         >
+          {previewText}
+        </div>
+        <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontFamily: "monospace", fontSize: 9, color: "#3f3f46" }}>#preview</span>
           <span style={{ fontSize: 9, color: "#3f3f46" }}>—</span>
+        </div>
         </div>
       </div>
     </div>

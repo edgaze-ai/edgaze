@@ -34,7 +34,12 @@ export async function enforceRuntimeLimits(params: {
   isBuilderTest?: boolean; // Builder “Test run”: 10 free runs, then BYO key
 }): Promise<RuntimeEnforcementResult> {
   const { userId, workflowId, nodes, userApiKeys = {}, isDemo = false, isBuilderTest = false } = params;
-  const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : FREE_BETA_RUNS;
+  // Builder test: 10 runs. Purchased workflow preview (isDemo + authenticated): 10 runs per purchase. Else: 5.
+  const freeRunLimit = isBuilderTest
+    ? FREE_BUILDER_RUNS
+    : isDemo && userId !== "anonymous_demo_user"
+      ? FREE_RUNS_PER_PURCHASE
+      : FREE_BETA_RUNS;
 
   try {
     // For anonymous demo users, allow the run and use Edgaze key

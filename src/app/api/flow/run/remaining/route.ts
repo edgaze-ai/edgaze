@@ -14,6 +14,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const workflowId = searchParams.get("workflowId");
     const isBuilderTest = searchParams.get("isBuilderTest") === "1" || searchParams.get("isBuilderTest") === "true";
+    const isPreview = searchParams.get("isPreview") === "1" || searchParams.get("isPreview") === "true";
 
     if (!workflowId) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
@@ -38,7 +39,8 @@ export async function GET(req: Request) {
         draftId = await getWorkflowDraftId(workflowId, userId);
       }
     }
-    const limit = isBuilderTest ? BUILDER_TEST_RUN_LIMIT : 5;
+    // Builder test: 10 runs. Purchased workflow preview: 10 runs. Else: 5.
+    const limit = isBuilderTest || isPreview ? BUILDER_TEST_RUN_LIMIT : 5;
     const used = await getUserWorkflowRunCount(userId, workflowId, draftId);
     const freeRunsRemaining = Math.max(0, limit - used);
 

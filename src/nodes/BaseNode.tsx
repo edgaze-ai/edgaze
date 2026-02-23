@@ -122,13 +122,13 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
     <div
       className="base-node"
       style={{
-        width: 220,
-        background: "#141414",
-        border: `1px solid ${selected ? nodeColor : status === "error" ? "#ef444460" : "#272727"}`,
+        width: 240,
+        background: "#161616",
+        border: `1px solid ${selected ? nodeColor : status === "error" ? "#ef444460" : "#2a2a2a"}`,
         borderRadius: 8,
         boxShadow: selected
           ? `0 0 0 1px ${nodeColor}33, 0 8px 32px rgba(0,0,0,0.65), 0 0 40px ${nodeColor}08`
-          : "0 4px 16px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.35)",
+          : "0 4px 20px rgba(0,0,0,0.55), 0 1px 4px rgba(0,0,0,0.4)",
         overflow: "visible",
         position: "relative",
         transition: "border-color 150ms, box-shadow 150ms",
@@ -143,7 +143,7 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
           left: 0,
           top: 0,
           bottom: 0,
-          width: 2,
+          width: 3,
           background: nodeColor,
           borderRadius: "8px 0 0 8px",
           zIndex: 2,
@@ -173,20 +173,20 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
       {/* Header */}
       <div
         style={{
-          height: 36,
-          background: "#1c1c1c",
-          borderBottom: "1px solid #222",
+          height: 42,
+          background: "#1e1e1e",
+          borderBottom: "1px solid #242424",
           borderRadius: "8px 8px 0 0",
-          padding: "0 10px 0 12px",
+          padding: "0 12px 0 14px",
           display: "flex",
           alignItems: "center",
-          gap: 7,
+          gap: 9,
         }}
       >
         <div
           style={{
-            width: 22,
-            height: 22,
+            width: 26,
+            height: 26,
             background: `${nodeColor}18`,
             border: `1px solid ${nodeColor}35`,
             borderRadius: 5,
@@ -203,20 +203,20 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
               src={registry.iconImage}
               alt=""
               style={{
-                width: 13,
-                height: 13,
+                width: 14,
+                height: 14,
                 objectFit: "contain",
               }}
             />
           ) : (
-            <IconComponent size={12} style={{ color: nodeColor }} />
+            <IconComponent size={14} style={{ color: nodeColor }} />
           )}
         </div>
         <span
           style={{
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 500,
-            color: "#d8d8d8",
+            color: "#e8e8e8",
             flex: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -229,7 +229,7 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
           style={{
             fontSize: 9,
             color: "#333",
-            background: "#111",
+            background: "#121212",
             border: "1px solid #1e1e1e",
             borderRadius: 99,
             padding: "1px 5px",
@@ -260,17 +260,17 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
       {/* Body — min-height 0, no padding for handles */}
       <div
         style={{
-          padding: "8px 10px 8px 12px",
-          background: "#141414",
+          padding: "10px 12px 10px 14px",
+          background: "#161616",
           minHeight: 0,
         }}
       >
         <div
           style={{
-            fontSize: 11,
-            color: "#525252",
+            fontSize: 12,
+            color: "#606060",
             fontStyle: "italic",
-            lineHeight: 1.45,
+            lineHeight: 1.5,
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
@@ -306,11 +306,11 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
       {/* Footer */}
       <div
         style={{
-          height: 22,
-          background: "#111",
+          height: 24,
+          background: "#121212",
           borderTop: "1px solid #1c1c1c",
           borderRadius: "0 0 8px 8px",
-          padding: "0 10px 0 12px",
+          padding: "0 12px 0 14px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",

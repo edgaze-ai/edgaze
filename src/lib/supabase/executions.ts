@@ -209,3 +209,31 @@ export async function getWorkflowDraftId(workflowId: string, userId: string): Pr
   
   return null;
 }
+
+/**
+ * Get creator (owner) user ID for a workflow run.
+ * Used for unified runs analytics.
+ */
+export async function getCreatorUserIdForWorkflowRun(
+  workflowId: string | null,
+  draftId: string | null
+): Promise<string | null> {
+  const supabase = createSupabaseAdminClient();
+  if (workflowId) {
+    const { data } = await supabase
+      .from("workflows")
+      .select("owner_id")
+      .eq("id", workflowId)
+      .maybeSingle();
+    return (data as { owner_id?: string } | null)?.owner_id ?? null;
+  }
+  if (draftId) {
+    const { data } = await supabase
+      .from("workflow_drafts")
+      .select("owner_id")
+      .eq("id", draftId)
+      .maybeSingle();
+    return (data as { owner_id?: string } | null)?.owner_id ?? null;
+  }
+  return null;
+}

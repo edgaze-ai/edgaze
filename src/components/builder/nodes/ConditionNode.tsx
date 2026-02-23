@@ -50,13 +50,13 @@ function ConditionNodeImpl(props: NodeProps) {
       className="relative"
       data-nodeid={id}
       style={{
-        width: 260,
+        width: 300,
         background: "#161616",
         border: `1px solid ${selected ? AMBER : "#2a2a2a"}`,
         borderRadius: 8,
         boxShadow: selected
           ? "0 0 0 1px rgba(245,158,11,0.25), 0 6px 28px rgba(0,0,0,0.6)"
-          : "0 4px 20px rgba(0,0,0,0.55)",
+          : "0 4px 20px rgba(0,0,0,0.55), 0 1px 4px rgba(0,0,0,0.4)",
         overflow: "visible",
         position: "relative",
         transition: "border-color 150ms, box-shadow 150ms",
@@ -131,7 +131,7 @@ function ConditionNodeImpl(props: NodeProps) {
       </div>
 
       {/* Node body — extra right padding to avoid overlap with handle labels */}
-      <div style={{ padding: "10px 40px 10px 14px", background: "#161616" }}>
+      <div style={{ padding: "10px 44px 10px 14px", background: "#161616" }}>
         {/* Condition preview */}
         <div>
           <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: AMBER }}>IF</div>
@@ -157,7 +157,7 @@ function ConditionNodeImpl(props: NodeProps) {
 
         {/* Output preview rows */}
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
             <div
               style={{
                 width: 6,
@@ -167,10 +167,21 @@ function ConditionNodeImpl(props: NodeProps) {
                 flexShrink: 0,
               }}
             />
-            <span style={{ fontSize: 10, fontWeight: 500, color: TRUE_COLOR }}>True →</span>
-            <span style={{ fontSize: 10, color: "#444" }}>continue if condition passes</span>
+            <span style={{ fontSize: 10, fontWeight: 500, color: TRUE_COLOR, flexShrink: 0 }}>True →</span>
+            <span
+              style={{
+                fontSize: 10,
+                color: "#444",
+                flex: 1,
+                minWidth: 0,
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+              }}
+            >
+              continue if condition passes
+            </span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
             <div
               style={{
                 width: 6,
@@ -180,8 +191,19 @@ function ConditionNodeImpl(props: NodeProps) {
                 flexShrink: 0,
               }}
             />
-            <span style={{ fontSize: 10, fontWeight: 500, color: FALSE_COLOR }}>False →</span>
-            <span style={{ fontSize: 10, color: "#444" }}>continue if condition fails</span>
+            <span style={{ fontSize: 10, fontWeight: 500, color: FALSE_COLOR, flexShrink: 0 }}>False →</span>
+            <span
+              style={{
+                fontSize: 10,
+                color: "#444",
+                flex: 1,
+                minWidth: 0,
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+              }}
+            >
+              continue if condition fails
+            </span>
           </div>
         </div>
       </div>
@@ -190,7 +212,7 @@ function ConditionNodeImpl(props: NodeProps) {
       <div
         style={{
           height: 24,
-          background: "#111",
+          background: "#121212",
           borderTop: "1px solid #1c1c1c",
           borderRadius: "0 0 8px 8px",
           padding: "0 12px 0 14px",
@@ -199,7 +221,20 @@ function ConditionNodeImpl(props: NodeProps) {
           justifyContent: "space-between",
         }}
       >
-        <span style={{ fontFamily: "monospace", fontSize: 9, color: "#282828" }}>#{id.slice(0, 8)}</span>
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontSize: 9,
+            color: "#282828",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
+          #{id.slice(0, 10)}
+        </span>
         <span style={{ fontSize: 9, color: "#333" }}>—</span>
       </div>
 

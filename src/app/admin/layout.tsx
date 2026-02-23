@@ -42,6 +42,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   Moderation
                 </Link>
                 <Link
+                  href="/admin/runs"
+                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
+                >
+                  Runs
+                </Link>
+                <Link
                   href="/admin/demo"
                   className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
                 >

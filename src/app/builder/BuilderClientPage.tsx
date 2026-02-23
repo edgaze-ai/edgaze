@@ -221,9 +221,11 @@ export default function BuilderPage() {
   const [runModalOpen, setRunModalOpen] = useState(false);
   const [runState, setRunState] = useState<WorkflowRunState | null>(null);
   const [builderRunLimit, setBuilderRunLimit] = useState<BuilderRunLimit | null>(null);
+  const [requiresApiKeys, setRequiresApiKeys] = useState<string[] | null>(null);
   const [running, setRunning] = useState(false);
   const [showPreparingToast, setShowPreparingToast] = useState(false);
   const runAbortRef = useRef<AbortController | null>(null);
+  const autoExecuteTriggeredRef = useRef(false);
 
   // deep-link guard (prevents repeated opening)
   const openedWorkflowIdRef = useRef<string | null>(null);
@@ -1280,18 +1282,20 @@ export default function BuilderPage() {
     // Show instant toast notification
     setShowPreparingToast(true);
 
-    // Check device-based demo limit (for preview mode) - allow 5 runs
+    // Device-based limit only for unauthenticated preview (product page demo). Purchased workflows use server-side 10-run limit.
     if (isPreview) {
-      const canRun = await canRunDemo(activeDraftId);
-      const remaining = await getRemainingDemoRuns(activeDraftId);
-      if (!canRun) {
-        safeTrack("Workflow Demo Run Blocked", {
-          surface: "builder",
-          workflow_id: activeDraftId,
-          reason: "device_limit_reached",
-        });
-        setWfError(`You've used all 5 free demo runs for this workflow. Please add your own API keys or purchase this workflow to continue.`);
-        return;
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        const canRun = await canRunDemo(activeDraftId);
+        if (!canRun) {
+          safeTrack("Workflow Demo Run Blocked", {
+            surface: "builder",
+            workflow_id: activeDraftId,
+            reason: "device_limit_reached",
+          });
+          setWfError(`You've used your free demo runs for this workflow. Sign in or add your own API keys to continue.`);
+          return;
+        }
       }
     }
 
@@ -1334,14 +1338,14 @@ export default function BuilderPage() {
       }
     }
 
-    // Builder test: fetch remaining runs (used/limit) before opening modal
-    if (isBuilderTest && hasAiNodes) {
+    // Fetch remaining runs for builder test or purchased preview (both get 10 runs)
+    if (hasAiNodes && (isBuilderTest || (isPreview && (await getAccessToken())))) {
       try {
         const accessToken = await getAccessToken();
         const headers: HeadersInit = { "Content-Type": "application/json" };
         if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
         const remRes = await fetch(
-          `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=1`,
+          `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=${isBuilderTest ? "1" : "0"}&isPreview=${isPreview ? "1" : "0"}`,
           { method: "GET", headers, credentials: "include" }
         );
         if (remRes.ok) {
@@ -1392,6 +1396,8 @@ export default function BuilderPage() {
 
     setRunState(initialState);
     setRunModalOpen(true);
+    setRequiresApiKeys(null);
+    autoExecuteTriggeredRef.current = false;
     // Hide toast when modal opens
     setShowPreparingToast(false);
     setRunning(true);
@@ -1423,9 +1429,12 @@ export default function BuilderPage() {
       }
     }
 
-    // Track demo run for preview mode (increments count, allows up to 5)
+    // Track demo run only for unauthenticated preview (product page one-time demo). Purchased workflows use server-side workflow_runs.
     if (isPreview) {
-      trackDemoRun(activeDraftId);
+      const token = await getAccessToken();
+      if (!token) {
+        trackDemoRun(activeDraftId);
+      }
     }
 
     const openaiApiKeyFromModal = typeof inputValues.__openaiApiKey === "string" ? inputValues.__openaiApiKey.trim() : "";
@@ -1462,8 +1471,9 @@ export default function BuilderPage() {
       }
     }
 
-    // Collect API keys from node configs
+    // Collect API keys from node configs and from modal (when BYOK required after free runs exhausted)
     const userApiKeys: Record<string, Record<string, string>> = {};
+    const modalApiKey = openaiApiKeyFromModal;
     for (const node of graph.nodes || []) {
       const specId = node.data?.specId;
       const apiKey = node.data?.config?.apiKey;
@@ -1472,6 +1482,8 @@ export default function BuilderPage() {
       if (specId && ["openai-chat", "openai-embeddings", "openai-image"].includes(specId)) {
         if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
           userApiKeys[node.id] = { apiKey: apiKey.trim() };
+        } else if (modalApiKey && requiresApiKeys?.includes(node.id)) {
+          userApiKeys[node.id] = { apiKey: modalApiKey };
         }
       }
     }
@@ -1523,13 +1535,31 @@ export default function BuilderPage() {
         }
         const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
 
-        // Update run counter from error response if available (failed runs also count)
-        if (!isPreview && activeDraftId && hasAiNodes && errorData.freeRunsRemaining != null) {
-          const FREE_BUILDER_RUNS = 10;
+        // Update run counter from error response if available
+        if (activeDraftId && hasAiNodes && errorData.freeRunsRemaining != null) {
+          const limit = isPreview ? 10 : 10;
           const freeRunsRemaining = errorData.freeRunsRemaining;
-          const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
-          setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
-          console.warn(`[Run Counter] Updated from error response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+          const used = Math.max(0, limit - freeRunsRemaining);
+          setBuilderRunLimit({ used, limit, isAdmin: false });
+        }
+
+        // BYOK required: switch to input phase and show API key prompt
+        if (response.status === 403 && Array.isArray(errorData.requiresApiKeys) && errorData.requiresApiKeys.length > 0) {
+          setRequiresApiKeys(errorData.requiresApiKeys);
+          const inputs = extractWorkflowInputs(graph.nodes || []);
+          setRunState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: "input",
+                  status: "idle",
+                  inputs: inputs.length > 0 ? inputs : [],
+                  error: undefined,
+                }
+              : prev
+          );
+          setRunning(false);
+          return;
         }
 
         throw new Error(errorMessage);
@@ -1620,13 +1650,11 @@ export default function BuilderPage() {
       }
 
       // Update run counter immediately from API response (before processing result)
-      // The API calculates freeRunsRemaining AFTER updating the database, so it's accurate
-      if (!isPreview && activeDraftId && hasAiNodes && result.freeRunsRemaining != null) {
-        const FREE_BUILDER_RUNS = 10;
+      if (activeDraftId && hasAiNodes && result.freeRunsRemaining != null) {
+        const limit = 10;
         const freeRunsRemaining = result.freeRunsRemaining;
-        const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
-        setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
-        console.warn(`[Run Counter] Updated immediately from API response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+        const used = Math.max(0, limit - freeRunsRemaining);
+        setBuilderRunLimit({ used, limit, isAdmin: false });
       }
 
       const executionResult = result.result;
@@ -1915,9 +1943,27 @@ export default function BuilderPage() {
   const handleRerun = () => {
     setRunState(null);
     setRunModalOpen(false);
+    setRequiresApiKeys(null);
     setShowPreparingToast(false);
+    autoExecuteTriggeredRef.current = false;
     setTimeout(() => runWorkflow(), 100);
   };
+
+  // Auto-execute when modal opens with no inputs (phase "executing" from start) - otherwise it would prepare forever
+  useEffect(() => {
+    if (
+      !runModalOpen ||
+      !runState ||
+      runState.phase !== "executing" ||
+      runState.status !== "idle" ||
+      autoExecuteTriggeredRef.current
+    )
+      return;
+    const hasInputs = runState.inputs && runState.inputs.length > 0;
+    if (hasInputs) return;
+    autoExecuteTriggeredRef.current = true;
+    handleSubmitInputs({});
+  }, [runModalOpen, runState?.phase, runState?.status, runState?.inputs?.length]);
 
   // If user is on small viewport, keep builder unavailable (except in preview mode).
   useEffect(() => {
@@ -2368,6 +2414,8 @@ export default function BuilderPage() {
           if (runState?.status !== "running" && runState?.phase !== "executing") {
             setRunModalOpen(false);
             setRunState(null);
+            setRequiresApiKeys(null);
+            autoExecuteTriggeredRef.current = false;
           }
         }}
         state={runState}
@@ -2381,6 +2429,7 @@ export default function BuilderPage() {
         workflowId={activeDraftId || undefined}
         isBuilderTest={!isPreview}
         builderRunLimit={builderRunLimit ?? undefined}
+        requiresApiKeys={requiresApiKeys ?? undefined}
       />
 
       {/* Publish modal (disabled in preview) */}

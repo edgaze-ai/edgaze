@@ -8,7 +8,9 @@ import {
   getUserWorkflowRunCount,
   workflowExists,
   getWorkflowDraftId,
+  getCreatorUserIdForWorkflowRun,
 } from "@lib/supabase/executions";
+import { createRun, updateRun } from "@lib/supabase/runs";
 import { insertWorkflowRunNodes } from "@lib/supabase/workflow-run-nodes";
 import { getWorkflowActiveVersionId, getWorkflowVersionById } from "@lib/supabase/workflow-versions";
 import { getEdgazeApiKey } from "@lib/workflow/edgaze-api-key";
@@ -17,6 +19,28 @@ import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 
 const FREE_BUILDER_RUNS = 10;
+
+function finishUnifiedRun(
+  unifiedRunId: string | null,
+  status: "success" | "error",
+  duration: number,
+  errorMessage?: string,
+  nodeTraces?: Array<{ tokens?: number; model?: string }>
+) {
+  if (!unifiedRunId) return;
+  const traces = nodeTraces ?? [];
+  const totalTokens = traces.reduce((s, t) => s + (t.tokens ?? 0), 0);
+  const model = traces.find((t) => t.model)?.model ?? null;
+  updateRun(unifiedRunId, {
+    status,
+    endedAt: new Date().toISOString(),
+    durationMs: duration,
+    errorMessage: status === "error" ? (errorMessage ?? null) : null,
+    tokensIn: totalTokens > 0 ? totalTokens : null,
+    tokensOut: null, // Node traces don't separate in/out
+    model,
+  }).catch((e) => console.warn("[Runs] Update unified run failed:", e));
+}
 
 export async function POST(req: Request) {
   try {
@@ -216,8 +240,10 @@ export async function POST(req: Request) {
     // Create run record for authenticated users only (demo user_id is not a valid UUID for FK)
     // Check workflow_drafts if workflow doesn't exist (builder test runs)
     let runId: string | null = null;
+    let unifiedRunId: string | null = null; // For runs table (analytics)
     let draftId: string | null = null; // Store for count recalculation
     const isTrackedUser = userId !== "anonymous_demo_user";
+    const isValidRunnerUuid = /^[0-9a-f-]{36}$/i.test(userId ?? "");
     if (isTrackedUser) {
       try {
         // Check if workflow exists in workflows table
@@ -257,6 +283,29 @@ export async function POST(req: Request) {
           });
           runId = run.id;
           await updateWorkflowRun(runId, { status: "running" });
+          // Unified runs table (analytics)
+          try {
+            const creatorUserId = await getCreatorUserIdForWorkflowRun(
+              workflowExistsInDb ? workflowId : null,
+              draftId
+            );
+            const unifiedRun = await createRun({
+              kind: "workflow",
+              workflowId: workflowExistsInDb ? workflowId : null,
+              versionId: workflowVersionId ?? undefined,
+              runnerUserId: isValidRunnerUuid ? userId : null,
+              creatorUserId,
+              workflowRunId: run.id,
+              metadata: {
+                nodeCount: nodes.length,
+                isBuilderTest,
+                isDemo,
+              },
+            });
+            unifiedRunId = unifiedRun.id;
+          } catch (runErr: unknown) {
+            console.warn("[Runs] Failed to create unified run record:", runErr);
+          }
           console.warn(
             `[Run Tracking] Created run ${runId} for user ${userId}, ${draftId ? `draft ${draftId}` : `workflow ${workflowId}`}, status: running`
           );
@@ -346,6 +395,7 @@ export async function POST(req: Request) {
                 console.error("[Flow Stream] Run update failed:", updateErr?.message);
               }
             }
+            finishUnifiedRun(unifiedRunId, finalStatus === "completed" ? "success" : "error", duration, undefined, result.nodeTraces);
             if (runId && isTrackedUser) {
               try {
                 await new Promise((r) => setTimeout(r, 300));
@@ -379,6 +429,7 @@ export async function POST(req: Request) {
                 // ignore
               }
             }
+            finishUnifiedRun(unifiedRunId, "error", duration, err?.message);
             let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
             if (runId && isTrackedUser) {
               try {
@@ -477,6 +528,7 @@ export async function POST(req: Request) {
       } else {
         console.warn(`[Run Tracking] No runId available - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
       }
+      finishUnifiedRun(unifiedRunId, finalStatus === "completed" ? "success" : "error", duration, undefined, result.nodeTraces);
 
       // ALWAYS recalculate count after completion - retry up to 3 times
       let countSuccess = false;
@@ -578,6 +630,7 @@ export async function POST(req: Request) {
       } else {
         console.warn(`[Run Tracking] No runId available on error - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
       }
+      finishUnifiedRun(unifiedRunId, "error", duration, errorMessage);
 
       // ALWAYS recalculate count after error - retry up to 3 times
       let countSuccess = false;

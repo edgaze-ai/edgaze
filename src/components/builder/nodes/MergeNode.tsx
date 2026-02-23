@@ -5,10 +5,19 @@ import { Handle, Position, NodeProps, useStore } from "reactflow";
 
 const MERGE_COLOR = "#f59e0b";
 
-const NODE_HEADER = 36;
-const NODE_BODY = 44;
-const NODE_FOOTER = 22;
+const NODE_HEADER = 42;
+const NODE_BODY = 50;
+const NODE_FOOTER = 24;
 const NODE_TOTAL = NODE_HEADER + NODE_BODY + NODE_FOOTER;
+
+// Handle Y positions as percentage (handles are absolute, don't affect layout)
+const HANDLE_POSITIONS: Record<number, number[]> = {
+  2: [38, 62],
+  3: [28, 50, 72],
+  4: [22, 38, 62, 78],
+  5: [20, 35, 50, 65, 80],
+  6: [18, 32, 46, 60, 74, 88],
+};
 
 export default function MergeNode(props: NodeProps) {
   const { selected, data, id } = props as any;
@@ -16,6 +25,7 @@ export default function MergeNode(props: NodeProps) {
   const { edges } = useStore((s) => ({ edges: s.edges }));
   const inputCount = edges.filter((e) => e.target === id).length;
   const handleCount = 3;
+  const positions = HANDLE_POSITIONS[handleCount];
 
   const isHandleConnected = (handleId: string, isSource: boolean) =>
     isSource
@@ -27,13 +37,13 @@ export default function MergeNode(props: NodeProps) {
       className="relative"
       data-nodeid={id}
       style={{
-        width: 220,
-        background: "#141414",
-        border: `1px solid ${selected ? MERGE_COLOR : "#272727"}`,
+        width: 240,
+        background: "#161616",
+        border: `1px solid ${selected ? MERGE_COLOR : "#2a2a2a"}`,
         borderRadius: 8,
         boxShadow: selected
           ? `0 0 0 1px ${MERGE_COLOR}33, 0 8px 32px rgba(0,0,0,0.65), 0 0 40px ${MERGE_COLOR}08`
-          : "0 4px 16px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.35)",
+          : "0 4px 20px rgba(0,0,0,0.55), 0 1px 4px rgba(0,0,0,0.4)",
         overflow: "visible",
         position: "relative",
         transition: "border-color 150ms, box-shadow 150ms",
@@ -46,7 +56,7 @@ export default function MergeNode(props: NodeProps) {
           left: 0,
           top: 0,
           bottom: 0,
-          width: 2,
+          width: 3,
           background: MERGE_COLOR,
           borderRadius: "8px 0 0 8px",
           zIndex: 2,
@@ -58,19 +68,19 @@ export default function MergeNode(props: NodeProps) {
       <div
         style={{
           height: NODE_HEADER,
-          background: "#1c1c1c",
-          borderBottom: "1px solid #222",
+          background: "#1e1e1e",
+          borderBottom: "1px solid #242424",
           borderRadius: "8px 8px 0 0",
-          padding: "0 10px 0 12px",
+          padding: "0 12px 0 14px",
           display: "flex",
           alignItems: "center",
-          gap: 7,
+          gap: 9,
         }}
       >
         <div
           style={{
-            width: 22,
-            height: 22,
+            width: 26,
+            height: 26,
             background: `${MERGE_COLOR}15`,
             border: `1px solid ${MERGE_COLOR}28`,
             borderRadius: 5,
@@ -81,8 +91,8 @@ export default function MergeNode(props: NodeProps) {
           }}
         >
           <svg
-            width={12}
-            height={12}
+            width={14}
+            height={14}
             viewBox="0 0 24 24"
             fill="none"
             stroke={MERGE_COLOR}
@@ -95,9 +105,9 @@ export default function MergeNode(props: NodeProps) {
         </div>
         <span
           style={{
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 500,
-            color: "#d8d8d8",
+            color: "#e8e8e8",
             flex: 1,
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -111,17 +121,17 @@ export default function MergeNode(props: NodeProps) {
       {/* Body — NO padding for handles, min-height 0 */}
       <div
         style={{
-          padding: "8px 10px 8px 12px",
-          background: "#141414",
+          padding: "10px 12px 10px 14px",
+          background: "#161616",
           minHeight: 0,
         }}
       >
         <div
           style={{
-            fontSize: 11,
-            color: "#525252",
+            fontSize: 12,
+            color: "#606060",
             fontStyle: "italic",
-            lineHeight: 1.45,
+            lineHeight: 1.5,
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
@@ -138,10 +148,10 @@ export default function MergeNode(props: NodeProps) {
       <div
         style={{
           height: NODE_FOOTER,
-          background: "#111",
+          background: "#121212",
           borderTop: "1px solid #1c1c1c",
           borderRadius: "0 0 8px 8px",
-          padding: "0 10px 0 12px",
+          padding: "0 12px 0 14px",
           display: "flex",
           alignItems: "center",
         }}
@@ -151,10 +161,10 @@ export default function MergeNode(props: NodeProps) {
         </span>
       </div>
 
-      {/* Input handles — absolute on left edge, evenly spaced */}
+      {/* Input handles — absolute on left edge, percentage positions */}
       {Array.from({ length: handleCount }, (_, i) => {
         const handleId = `in-${i + 1}`;
-        const topPx = (NODE_TOTAL / (handleCount + 1)) * (i + 1);
+        const topPercent = positions[i] ?? 50;
         const connected = isHandleConnected(handleId, false);
         return (
           <Handle
@@ -167,14 +177,14 @@ export default function MergeNode(props: NodeProps) {
             style={{
               position: "absolute",
               left: -5,
-              top: topPx,
+              top: `${topPercent}%`,
               transform: "translateY(-50%)",
               width: 10,
               height: 10,
               minWidth: 10,
               minHeight: 10,
               borderRadius: "50%",
-              background: connected ? MERGE_COLOR : "#141414",
+              background: connected ? MERGE_COLOR : "#161616",
               border: `2px solid ${connected ? MERGE_COLOR : "#383838"}`,
               boxShadow: connected ? `0 0 5px ${MERGE_COLOR}44` : "none",
               padding: 0,
@@ -204,7 +214,7 @@ export default function MergeNode(props: NodeProps) {
           minWidth: 10,
           minHeight: 10,
           borderRadius: "50%",
-          background: isHandleConnected("out", true) ? MERGE_COLOR : "#141414",
+          background: isHandleConnected("out", true) ? MERGE_COLOR : "#161616",
           border: `2px solid ${isHandleConnected("out", true) ? MERGE_COLOR : "#383838"}`,
           boxShadow: isHandleConnected("out", true) ? `0 0 5px ${MERGE_COLOR}44` : "none",
           padding: 0,

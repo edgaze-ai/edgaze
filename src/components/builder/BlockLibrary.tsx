@@ -298,7 +298,7 @@ function BlockLibrary({
                   </span>
                 </div>
 
-                <div className="mt-2 preview-stage rounded-lg py-4 px-3">
+                <div className="mt-2 preview-stage rounded-lg py-4 px-4">
                   <NodePreviewCard spec={spec} onDragStart={onDragStart} />
                 </div>
 
@@ -331,18 +331,24 @@ function BlockLibrary({
         }
 
         .preview-stage {
-          width: 100%;
           display: flex;
           justify-content: center;
           align-items: center;
-          border-radius: 10px;
+          min-height: 120px;
           overflow: hidden;
+          width: 100%;
+          border-radius: 10px;
           background-color: #2a2a2e;
           background-image: radial-gradient(
             rgba(255, 255, 255, 0.06) 1px,
             transparent 1px
           );
           background-size: 12px 12px;
+        }
+
+        .preview-stage .node-preview-card {
+          flex-shrink: 0;
+          box-sizing: border-box;
         }
 
         .preview-card {
