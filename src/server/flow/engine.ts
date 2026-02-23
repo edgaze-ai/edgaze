@@ -4,12 +4,24 @@ import type {
   GraphNode,
   GraphPayload,
   NodeRuntimeHandler,
+  NodeTrace,
   RuntimeContext,
   RuntimeResult,
   RunLogEntry,
 } from "./types";
 import { ExecutionStateManager } from "./execution-state";
 import { runtimeRegistry } from "../nodes/handlers";
+import {
+  getFailurePolicy,
+  getFallbackValue,
+  getEdgeGating,
+  satisfiesEdgeGating,
+  type EdgeGating,
+} from "@lib/workflow/workflow-policy";
+import { coerceInbound, nodeHasSideEffects } from "@lib/workflow/node-contracts";
+import { CONDITION_RESULT_KEY } from "../nodes/handlers";
+import { getResourceClass, createResourcePoolManager } from "@lib/workflow/resource-pools";
+import { shouldRetry, RunCircuitBreaker } from "@lib/workflow/retry-classification";
 
 /** Kahn’s topological sort (simple) */
 function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
@@ -42,9 +54,13 @@ function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
 import { validateWorkflowTokenLimit, countChatTokens, countEmbeddingTokens, countImageTokens } from "@lib/workflow/token-counting";
 import { getTokenLimits } from "@lib/workflow/token-limits";
 
+export type RunMode = "dev" | "marketplace";
+
 export type RunFlowOptions = {
   /** Called whenever a node's execution status changes (for live streaming) */
   onProgress?: (event: FlowProgressEvent) => void;
+  /** dev = allow unknown specId passthrough; marketplace = hard-fail on unknown specId */
+  runMode?: RunMode;
 };
 
 export async function runFlow(
@@ -53,6 +69,7 @@ export async function runFlow(
 ): Promise<RuntimeResult> {
   const { nodes, edges, inputs = {}, workflowId, requestMetadata } = payload;
   const onProgress = options?.onProgress;
+  const runMode: RunMode = options?.runMode ?? "marketplace";
 
   // Validate graph integrity: filter out edges that reference non-existent nodes
   const nodeIds = new Set(nodes.map((n) => n.id));
@@ -121,6 +138,7 @@ export async function runFlow(
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
   const inboundByNode = new Map<string, string[]>();
   const outboundByNode = new Map<string, string[]>();
+  const edgesByTarget = new Map<string, Array<{ sourceId: string; edge: GraphEdge }>>();
   nodes.forEach((n) => inboundByNode.set(n.id, []));
   validEdges.forEach((e) => {
     const arr = inboundByNode.get(e.target);
@@ -128,6 +146,9 @@ export async function runFlow(
     const outArr = outboundByNode.get(e.source) ?? [];
     outArr.push(e.target);
     outboundByNode.set(e.source, outArr);
+    const targetEdges = edgesByTarget.get(e.target) ?? [];
+    targetEdges.push({ sourceId: e.source, edge: e });
+    edgesByTarget.set(e.target, targetEdges);
   });
 
   const state = new ExecutionStateManager({
@@ -137,23 +158,139 @@ export async function runFlow(
   state.setWorkflowStatus("running");
 
   const logs: RunLogEntry[] = [];
+  const nodeTraces: NodeTrace[] = [];
+  const nodeTraceData = new Map<string, { startMs: number; retries: number }>();
+  const blockedNodes: string[] = [];
+  const blockedReasons: Record<string, string> = {};
 
+  function recordNodeTrace(
+    nodeId: string,
+    specId: string,
+    status: string,
+    endMs: number,
+    error?: string,
+    retries = 0,
+    tokens?: number,
+    model?: string
+  ): void {
+    const data = nodeTraceData.get(nodeId);
+    const startMs = data?.startMs ?? endMs;
+    nodeTraces.push({
+      nodeId,
+      specId,
+      status,
+      startMs,
+      endMs,
+      error,
+      retries: data?.retries ?? retries,
+      tokens,
+      model,
+    });
+    nodeTraceData.delete(nodeId);
+  }
+
+  function toSourceStatus(s: string): "success" | "failed" {
+    return s === "success" ? "success" : "failed";
+  }
+
+  /** Condition node: True path runs only when output is true; False path only when false. */
+  function satisfiesConditionEdge(
+    sourceOutput: unknown,
+    sourceStatus: string | undefined,
+    sourceHandle: string | undefined
+  ): boolean {
+    if (sourceStatus !== "success") return false;
+    // Condition outputs { __conditionResult, __passthrough } for pipeline passthrough
+    let result: boolean;
+    if (
+      sourceOutput !== null &&
+      typeof sourceOutput === "object" &&
+      CONDITION_RESULT_KEY in (sourceOutput as Record<string, unknown>)
+    ) {
+      result = Boolean((sourceOutput as Record<string, unknown>)[CONDITION_RESULT_KEY]);
+    } else {
+      result = Boolean(sourceOutput);
+    }
+    if (sourceHandle === "true") return result === true;
+    if (sourceHandle === "false") return result === false;
+    return true; // no handle: legacy, treat as pass
+  }
+
+  function tryMarkReady(
+    targetId: string,
+    ready: string[],
+    indeg: Map<string, number>
+  ): void {
+    if ((indeg.get(targetId) ?? 0) !== 0) return;
+    const targetEdges = edgesByTarget.get(targetId);
+    const snapshot = state.getSnapshot();
+    if (targetEdges && targetEdges.length > 0) {
+      for (const { sourceId, edge } of targetEdges) {
+        const sourceOutput = snapshot.outputsByNode[sourceId];
+        const sourceStatus = snapshot.nodeStatus[sourceId];
+        const sourceNode = nodeById.get(sourceId);
+        const sourceSpecId = sourceNode?.data?.specId;
+
+        let satisfied: boolean;
+        if (sourceSpecId === "condition") {
+          satisfied = satisfiesConditionEdge(sourceOutput, sourceStatus, edge.sourceHandle);
+        } else {
+          const gating = getEdgeGating(edge) as EdgeGating;
+          satisfied = satisfiesEdgeGating(sourceOutput, toSourceStatus(sourceStatus ?? "failed"), gating);
+        }
+
+        if (!satisfied) {
+          const reason = sourceSpecId === "condition"
+            ? `Condition branch not taken (source ${sourceId} ${edge.sourceHandle ?? "?"} -> ${sourceStatus})`
+            : `Edge gating not satisfied: source ${sourceId} (${sourceStatus})`;
+          blockedNodes.push(targetId);
+          blockedReasons[targetId] = reason;
+          state.setNodeStatus(targetId, "blocked");
+          nodeTraces.push({
+            nodeId: targetId,
+            specId: nodeById.get(targetId)?.data?.specId ?? "unknown",
+            status: "blocked",
+            startMs: Date.now(),
+            endMs: Date.now(),
+            error: reason,
+            retries: 0,
+          });
+          return;
+        }
+      }
+    }
+    state.setNodeStatus(targetId, "ready");
+    ready.push(targetId);
+    const n = nodeById.get(targetId);
+    if (onProgress && n) {
+      onProgress({
+        type: "node_ready",
+        nodeId: targetId,
+        specId: n.data?.specId ?? "unknown",
+        nodeTitle: n.data?.title,
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  const coerceValues = runMode === "marketplace";
   const ctx: RuntimeContext = {
     inputs,
     requestMetadata,
     getInboundValues: (nodeId: string) => {
       const srcs = inboundByNode.get(nodeId) ?? [];
       const snapshot = state.getSnapshot();
-      // Map source node IDs to their outputs
-      // Note: outputsByNode may not have the key if node hasn't executed, but topological sort ensures order
-      return srcs.map((sid) => {
+      const node = nodeById.get(nodeId);
+      const specId = node?.data?.specId ?? "unknown";
+      const raw = srcs.map((sid) => {
         const output = snapshot.outputsByNode[sid];
-        // If output is explicitly undefined (key doesn't exist), that's an error - node should have executed
         if (!(sid in snapshot.outputsByNode)) {
           console.warn(`Node ${sid} output not found when ${nodeId} requested it - possible execution order issue`);
         }
         return output;
       });
+      if (!coerceValues) return raw;
+      return raw.map((v, i) => coerceInbound(specId, i, v));
     },
     setNodeOutput: (nodeId: string, value: unknown) => {
       state.setNodeOutput(nodeId, value);
@@ -172,22 +309,12 @@ export async function runFlow(
   const ready: string[] = [];
   indeg.forEach((d, id) => {
     if (d === 0) {
-      state.setNodeStatus(id, "ready");
-      ready.push(id);
-      const n = nodeById.get(id);
-      if (onProgress && n) {
-        onProgress({
-          type: "node_ready",
-          nodeId: id,
-          specId: n.data?.specId ?? "unknown",
-          nodeTitle: n.data?.title,
-          timestamp: Date.now(),
-        });
-      }
+      tryMarkReady(id, ready, indeg);
     }
   });
 
-  const CONCURRENCY = 4;
+  const poolManager = createResourcePoolManager();
+  const circuitBreaker = new RunCircuitBreaker(5);
 
   const runNode = async (nodeId: string) => {
     const node = nodeById.get(nodeId);
@@ -195,19 +322,42 @@ export async function runFlow(
       throw new Error(`Node ${nodeId} not found in graph`);
     }
     const specId = node.data?.specId ?? "unknown";
+    const resourceClass = getResourceClass(specId);
+    await poolManager.acquire(resourceClass);
+    try {
+      return await runNodeInner(nodeId, node, specId, circuitBreaker);
+    } finally {
+      poolManager.release(resourceClass);
+    }
+  };
+
+  const runNodeInner = async (
+    nodeId: string,
+    node: GraphNode,
+    specId: string,
+    circuitBreaker: RunCircuitBreaker
+  ) => {
     const nodeTitle = node.data?.title;
     const ts = Date.now();
+    nodeTraceData.set(nodeId, { startMs: ts, retries: 0 });
 
     state.setNodeStatus(nodeId, "running");
     onProgress?.({ type: "node_start", nodeId, specId, nodeTitle, timestamp: ts });
     logs.push({ type: "start", nodeId, specId, timestamp: ts, message: `Starting "${specId}"` });
 
     const handler: NodeRuntimeHandler | undefined = runtimeRegistry[specId];
-    const timeoutMs = Number(node.data?.config?.timeout ?? 0);
-    const retries = Math.max(0, Number(node.data?.config?.retries ?? 0));
+    const config = node.data?.config ?? {};
+    const timeoutMs = Number(config.timeout ?? 0);
+    const hasSideEffects = nodeHasSideEffects(specId, config);
+    const retries = hasSideEffects
+      ? (typeof config.retries === "number" ? Math.max(0, config.retries) : 0)
+      : Math.max(0, Number(config.retries ?? 0));
 
-    const runOnce = async () => {
+    const runOnce = async (): Promise<void> => {
       if (!handler) {
+        if (runMode === "marketplace") {
+          throw new Error(`Unknown specId "${specId}" is not allowed in marketplace runs`);
+        }
         const inbound = ctx.getInboundValues(nodeId);
         state.setNodeOutput(nodeId, inbound.length <= 1 ? inbound[0] : inbound);
         return;
@@ -215,17 +365,19 @@ export async function runFlow(
       await handler(node, ctx);
     };
 
-    const execWithTimeout = async () => {
+    const execWithTimeout = async (): Promise<void> => {
       if (!timeoutMs || Number.isNaN(timeoutMs) || timeoutMs <= 0) {
         return runOnce();
       }
       return Promise.race([
         runOnce(),
-        new Promise((_r, rej) => {
+        new Promise<void>((_r, rej) => {
           setTimeout(() => rej(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs);
         }),
       ]);
     };
+
+    const failurePolicy = getFailurePolicy(node);
 
     let attempt = 0;
     while (true) {
@@ -234,8 +386,27 @@ export async function runFlow(
         await execWithTimeout();
         break;
       } catch (err) {
+        if (failurePolicy === "use_fallback_value") {
+          const fallback = getFallbackValue(node);
+          state.setNodeOutput(nodeId, fallback);
+          state.setNodeStatus(nodeId, "success");
+          const doneTs = Date.now();
+          recordNodeTrace(nodeId, specId, "success", doneTs, undefined, attempt);
+          onProgress?.({ type: "node_done", nodeId, specId, nodeTitle: node.data?.title, timestamp: doneTs });
+          logs.push({
+            type: "success",
+            nodeId,
+            specId,
+            timestamp: doneTs,
+            message: `Finished "${specId}" (used fallback after error)`,
+          });
+          return;
+        }
+        circuitBreaker.recordFailure();
         attempt += 1;
-        if (attempt > retries) {
+        nodeTraceData.get(nodeId)!.retries = attempt;
+        const decision = shouldRetry(err, attempt, retries, undefined);
+        if (!decision.retry || circuitBreaker.isOpen()) {
           throw err;
         }
         logs.push({
@@ -245,14 +416,14 @@ export async function runFlow(
           timestamp: Date.now(),
           message: `Retrying "${specId}" (attempt ${attempt}/${retries})`,
         });
-        // Exponential backoff: 250ms, 500ms, 1000ms, 2000ms max
         // eslint-disable-next-line no-await-in-loop
-        await new Promise((r) => setTimeout(r, Math.min(2000, 250 * 2 ** (attempt - 1))));
+        await new Promise((r) => setTimeout(r, decision.delayMs));
       }
     }
 
     state.setNodeStatus(nodeId, "success");
     const doneTs = Date.now();
+    recordNodeTrace(nodeId, specId, "success", doneTs, undefined, attempt);
     onProgress?.({ type: "node_done", nodeId, specId, nodeTitle: node.data?.title, timestamp: doneTs });
     logs.push({
       type: "success",
@@ -263,21 +434,30 @@ export async function runFlow(
     });
   };
 
-  while (ready.length > 0) {
-    const batch = ready.splice(0, CONCURRENCY);
+  let shouldStop = false;
+  while (ready.length > 0 && !shouldStop) {
+    const batch = ready.splice(0, ready.length);
     // eslint-disable-next-line no-await-in-loop
     await Promise.all(
       batch.map(async (nodeId) => {
         try {
           await runNode(nodeId);
         } catch (err: any) {
-          // Set node to failed state (now allowed from ready state)
-          state.setNodeStatus(nodeId, "failed");
-
-          // Safely get node info for logging
           const failedNode = nodeById.get(nodeId);
           const failedSpecId = failedNode?.data?.specId ?? "unknown";
           const errorMessage = err?.message ?? "Unknown error";
+          const policy = getFailurePolicy(failedNode ?? { data: {} });
+          const traceData = nodeTraceData.get(nodeId);
+          recordNodeTrace(
+            nodeId,
+            failedSpecId,
+            "failed",
+            Date.now(),
+            errorMessage,
+            traceData?.retries ?? 0
+          );
+
+          state.setNodeStatus(nodeId, "failed");
 
           onProgress?.({
             type: "node_failed",
@@ -295,25 +475,23 @@ export async function runFlow(
             timestamp: Date.now(),
             message: `Failed "${failedSpecId}": ${errorMessage}`,
           });
+
+          if (policy === "fail_fast") {
+            state.setWorkflowStatus("failed");
+            shouldStop = true;
+          }
         } finally {
+          const policy = getFailurePolicy(nodeById.get(nodeId) ?? { data: {} });
+          const skipDownstream = policy === "skip_downstream" || policy === "fail_fast";
           const downstream = outboundByNode.get(nodeId) ?? [];
-          downstream.forEach((v) => {
-            indeg.set(v, (indeg.get(v) ?? 0) - 1);
-            if ((indeg.get(v) ?? 0) === 0) {
-              state.setNodeStatus(v, "ready");
-              ready.push(v);
-              const n = nodeById.get(v);
-              if (onProgress && n) {
-                onProgress({
-                  type: "node_ready",
-                  nodeId: v,
-                  specId: n.data?.specId ?? "unknown",
-                  nodeTitle: n.data?.title,
-                  timestamp: Date.now(),
-                });
-              }
-            }
-          });
+          const nodeFailed = state.getSnapshot().nodeStatus[nodeId] === "failed";
+
+          if (!skipDownstream || !nodeFailed) {
+            downstream.forEach((v) => {
+              indeg.set(v, (indeg.get(v) ?? 0) - 1);
+              tryMarkReady(v, ready, indeg);
+            });
+          }
         }
       })
     );
@@ -343,13 +521,23 @@ export async function runFlow(
   const meaningfulFinals = outputNodes.filter((n) => hasProcessingUpstream(n.id));
 
   const hasFailure = Object.values(snapshot.nodeStatus).some((s) => s === "failed" || s === "timeout");
-  state.setWorkflowStatus(hasFailure ? "failed" : "completed");
+  const hasBlocked = blockedNodes.length > 0;
+  if (hasFailure) {
+    state.setWorkflowStatus("failed");
+  } else if (hasBlocked) {
+    state.setWorkflowStatus("completed_with_skips");
+  } else {
+    state.setWorkflowStatus("completed");
+  }
 
   return {
     outputsByNode: snapshot.outputsByNode,
     finalOutputs: meaningfulFinals.map((n) => ({ nodeId: n.id, value: snapshot.outputsByNode[n.id] })),
     logs,
     nodeStatus: snapshot.nodeStatus,
-    workflowStatus: snapshot.workflowStatus,
+    workflowStatus: state.getSnapshot().workflowStatus,
+    blockedNodes: hasBlocked ? blockedNodes : undefined,
+    blockedReasons: hasBlocked ? blockedReasons : undefined,
+    nodeTraces,
   };
 }

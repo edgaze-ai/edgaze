@@ -26,6 +26,7 @@ export type WorkflowRunRow = {
   id: string;
   workflow_id: string | null;
   draft_id: string | null;
+  workflow_version_id?: string | null;
   user_id: string;
   status: "pending" | "running" | "completed" | "failed" | "cancelled" | "timeout";
   started_at: string;
@@ -42,6 +43,7 @@ export type WorkflowRunRow = {
 export async function createWorkflowRun(params: {
   workflowId?: string | null;
   draftId?: string | null;
+  workflowVersionId?: string | null;
   userId: string;
   metadata?: Record<string, unknown>;
 }) {
@@ -59,6 +61,10 @@ export async function createWorkflowRun(params: {
     insertData.draft_id = params.draftId;
   } else {
     throw new Error("Either workflowId or draftId must be provided");
+  }
+
+  if (params.workflowVersionId) {
+    insertData.workflow_version_id = params.workflowVersionId;
   }
 
   const { data, error } = await supabase
@@ -201,5 +207,33 @@ export async function getWorkflowDraftId(workflowId: string, userId: string): Pr
     return draftById.id;
   }
   
+  return null;
+}
+
+/**
+ * Get creator (owner) user ID for a workflow run.
+ * Used for unified runs analytics.
+ */
+export async function getCreatorUserIdForWorkflowRun(
+  workflowId: string | null,
+  draftId: string | null
+): Promise<string | null> {
+  const supabase = createSupabaseAdminClient();
+  if (workflowId) {
+    const { data } = await supabase
+      .from("workflows")
+      .select("owner_id")
+      .eq("id", workflowId)
+      .maybeSingle();
+    return (data as { owner_id?: string } | null)?.owner_id ?? null;
+  }
+  if (draftId) {
+    const { data } = await supabase
+      .from("workflow_drafts")
+      .select("owner_id")
+      .eq("id", draftId)
+      .maybeSingle();
+    return (data as { owner_id?: string } | null)?.owner_id ?? null;
+  }
   return null;
 }

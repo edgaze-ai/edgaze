@@ -3,11 +3,11 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ArrowLeft, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2, Sparkles, Loader2, BookOpen, Undo2, Redo2 } from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "../../components/auth/AuthContext";
+import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 
 import ReactFlowCanvas, { CanvasRef as BECanvasRef } from "../../components/builder/ReactFlowCanvas";
@@ -17,7 +17,8 @@ import WorkflowPublishModal from "../../components/builder/WorkflowPublishModal"
 import PremiumWorkflowRunModal, { type WorkflowRunState, type WorkflowRunStep, type BuilderRunLimit } from "../../components/builder/PremiumWorkflowRunModal";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
 import { canRunDemo, canRunDemoSync, trackDemoRun, getRemainingDemoRuns, getRemainingDemoRunsSync } from "../../lib/workflow/device-tracking";
-import { validateWorkflowGraph } from "../../lib/workflow/validation";
+import { validateWorkflowGraph, type ValidationResult } from "../../lib/workflow/validation";
+import CanvasValidationBanner from "../../components/builder/CanvasValidationBanner";
 import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
 
 import { cx } from "../../lib/cx";
@@ -124,7 +125,7 @@ export default function BuilderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { userId, authReady, requireAuth, openSignIn, getAccessToken } = useAuth();
+  const { userId, authReady, requireAuth, openSignIn, getAccessToken, profile } = useAuth();
 
   const beRef = useRef<BECanvasRef>(null);
 
@@ -160,6 +161,8 @@ export default function BuilderPage() {
   const [showLauncher, setShowLauncher] = useState(true);
   const [wfLoading, setWfLoading] = useState(false);
   const [wfError, setWfError] = useState<string | null>(null);
+  const [canvasValidation, setCanvasValidation] = useState<ValidationResult | null>(null);
+  const [inspectorFieldHint, setInspectorFieldHint] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [published, setPublished] = useState<DraftRow[]>([]);
 
@@ -193,7 +196,7 @@ export default function BuilderPage() {
   // In preview mode, windows start hidden
   const [windows, setWindows] = useState<Record<WindowKind, WindowState>>({
     blocks: { id: "blocks", x: 0, y: 0, width: 280, height: 600, visible: !previewParam, minimized: false },
-    inspector: { id: "inspector", x: 0, y: 0, width: 300, height: 600, visible: !previewParam, minimized: false },
+    inspector: { id: "inspector", x: 0, y: 0, width: 320, height: 600, visible: !previewParam, minimized: false },
   });
   const [windowsInitialized, setWindowsInitialized] = useState(false);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -221,9 +224,11 @@ export default function BuilderPage() {
   const [runModalOpen, setRunModalOpen] = useState(false);
   const [runState, setRunState] = useState<WorkflowRunState | null>(null);
   const [builderRunLimit, setBuilderRunLimit] = useState<BuilderRunLimit | null>(null);
+  const [requiresApiKeys, setRequiresApiKeys] = useState<string[] | null>(null);
   const [running, setRunning] = useState(false);
   const [showPreparingToast, setShowPreparingToast] = useState(false);
   const runAbortRef = useRef<AbortController | null>(null);
+  const autoExecuteTriggeredRef = useRef(false);
 
   // deep-link guard (prevents repeated opening)
   const openedWorkflowIdRef = useRef<string | null>(null);
@@ -282,7 +287,7 @@ export default function BuilderPage() {
       const panelTopY = Math.round(headerBottom + gapBelowTopbar);
 
       const blocksW = 280;
-      const inspectorW = 300;
+      const inspectorW = 320;
 
       const edgeInset = 0;
       const blocksX = Math.round(innerLeft + edgeInset);
@@ -562,6 +567,7 @@ export default function BuilderPage() {
     isUndoRedoRef.current = true;
     previousGraphRef.current = cloneGraph(normalized);
     latestGraphRef.current = normalized;
+    setCanvasValidation(validateWorkflowGraph(normalized.nodes ?? [], normalized.edges ?? []));
     beRef.current?.loadGraph?.(normalized);
     setTimeout(() => {
       isUndoRedoRef.current = false;
@@ -667,6 +673,13 @@ export default function BuilderPage() {
 
   const onGraphChange = useCallback(
     (graph: { nodes: any[]; edges: any[] }) => {
+      setStats({ nodes: graph.nodes?.length ?? 0, edges: graph.edges?.length ?? 0 });
+      // Run validation on every graph change - surfaces errors at canvas before run
+      const validation = validateWorkflowGraph(graph.nodes ?? [], graph.edges ?? []);
+      setCanvasValidation(validation);
+      if (validation.valid) {
+        setWfError(null); // Clear previous run error when user fixes issues at canvas
+      }
       if (isPreview) return;
       latestGraphRef.current = graph;
 
@@ -694,9 +707,20 @@ export default function BuilderPage() {
     [activeDraftId, doAutosave, isPreview]
   );
 
+  const onFocusValidationNode = useCallback(
+    (nodeId: string, fieldHint?: string) => {
+      if (isPreview) return;
+      beRef.current?.selectAndFocusNode?.(nodeId);
+      setInspectorFieldHint(fieldHint ?? null);
+      setWindows((prev) => ({ ...prev, inspector: { ...prev.inspector, visible: true, minimized: false } }));
+    },
+    [isPreview]
+  );
+
   const onSelectionChange = useCallback(
     (sel: any) => {
       if (isPreview) return;
+      setInspectorFieldHint(null);
       // Always get the latest config from the graph to ensure we have the most up-to-date values
       const nodeId = typeof sel?.nodeId === "string" ? sel.nodeId : null;
       if (nodeId) {
@@ -1279,18 +1303,20 @@ export default function BuilderPage() {
     // Show instant toast notification
     setShowPreparingToast(true);
 
-    // Check device-based demo limit (for preview mode) - allow 5 runs
+    // Device-based limit only for unauthenticated preview (product page demo). Purchased workflows use server-side 10-run limit.
     if (isPreview) {
-      const canRun = await canRunDemo(activeDraftId);
-      const remaining = await getRemainingDemoRuns(activeDraftId);
-      if (!canRun) {
-        safeTrack("Workflow Demo Run Blocked", {
-          surface: "builder",
-          workflow_id: activeDraftId,
-          reason: "device_limit_reached",
-        });
-        setWfError(`You've used all 5 free demo runs for this workflow. Please add your own API keys or purchase this workflow to continue.`);
-        return;
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        const canRun = await canRunDemo(activeDraftId);
+        if (!canRun) {
+          safeTrack("Workflow Demo Run Blocked", {
+            surface: "builder",
+            workflow_id: activeDraftId,
+            reason: "device_limit_reached",
+          });
+          setWfError(`You've used your free demo runs for this workflow. Sign in or add your own API keys to continue.`);
+          return;
+        }
       }
     }
 
@@ -1307,13 +1333,13 @@ export default function BuilderPage() {
     const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
 
     if (!validation.valid) {
-      const errorMessage = validation.errors.join("\n\n");
+      const errorMessage = validation.errors.map((e) => e.message).join("\n\n");
       setWfError(errorMessage);
       safeTrack("Workflow Run Blocked", {
         surface: "builder",
         workflow_id: activeDraftId,
         reason: "validation_failed",
-        errors: validation.errors,
+        errors: validation.errors.map((e) => e.message),
       });
       return;
     }
@@ -1333,14 +1359,14 @@ export default function BuilderPage() {
       }
     }
 
-    // Builder test: fetch remaining runs (used/limit) before opening modal
-    if (isBuilderTest && hasAiNodes) {
+    // Fetch remaining runs for builder test or purchased preview (both get 10 runs)
+    if (hasAiNodes && (isBuilderTest || (isPreview && (await getAccessToken())))) {
       try {
         const accessToken = await getAccessToken();
         const headers: HeadersInit = { "Content-Type": "application/json" };
         if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
         const remRes = await fetch(
-          `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=1`,
+          `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=${isBuilderTest ? "1" : "0"}&isPreview=${isPreview ? "1" : "0"}`,
           { method: "GET", headers, credentials: "include" }
         );
         if (remRes.ok) {
@@ -1385,12 +1411,14 @@ export default function BuilderPage() {
       logs: [],
       inputs: showInputPhase ? (inputs.length > 0 ? inputs : []) : undefined,
       summary: validation.warnings.length > 0
-        ? `${validation.warnings.length} warning(s): ${validation.warnings[0]}`
+        ? `${validation.warnings.length} warning(s): ${validation.warnings[0]?.message ?? ""}`
         : undefined,
     };
 
     setRunState(initialState);
     setRunModalOpen(true);
+    setRequiresApiKeys(null);
+    autoExecuteTriggeredRef.current = false;
     // Hide toast when modal opens
     setShowPreparingToast(false);
     setRunning(true);
@@ -1422,9 +1450,12 @@ export default function BuilderPage() {
       }
     }
 
-    // Track demo run for preview mode (increments count, allows up to 5)
+    // Track demo run only for unauthenticated preview (product page one-time demo). Purchased workflows use server-side workflow_runs.
     if (isPreview) {
-      trackDemoRun(activeDraftId);
+      const token = await getAccessToken();
+      if (!token) {
+        trackDemoRun(activeDraftId);
+      }
     }
 
     const openaiApiKeyFromModal = typeof inputValues.__openaiApiKey === "string" ? inputValues.__openaiApiKey.trim() : "";
@@ -1461,8 +1492,9 @@ export default function BuilderPage() {
       }
     }
 
-    // Collect API keys from node configs
+    // Collect API keys from node configs and from modal (when BYOK required after free runs exhausted)
     const userApiKeys: Record<string, Record<string, string>> = {};
+    const modalApiKey = openaiApiKeyFromModal;
     for (const node of graph.nodes || []) {
       const specId = node.data?.specId;
       const apiKey = node.data?.config?.apiKey;
@@ -1471,6 +1503,8 @@ export default function BuilderPage() {
       if (specId && ["openai-chat", "openai-embeddings", "openai-image"].includes(specId)) {
         if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
           userApiKeys[node.id] = { apiKey: apiKey.trim() };
+        } else if (modalApiKey && requiresApiKeys?.includes(node.id)) {
+          userApiKeys[node.id] = { apiKey: modalApiKey };
         }
       }
     }
@@ -1522,13 +1556,31 @@ export default function BuilderPage() {
         }
         const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
 
-        // Update run counter from error response if available (failed runs also count)
-        if (!isPreview && activeDraftId && hasAiNodes && errorData.freeRunsRemaining != null) {
-          const FREE_BUILDER_RUNS = 10;
+        // Update run counter from error response if available
+        if (activeDraftId && hasAiNodes && errorData.freeRunsRemaining != null) {
+          const limit = isPreview ? 10 : 10;
           const freeRunsRemaining = errorData.freeRunsRemaining;
-          const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
-          setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
-          console.warn(`[Run Counter] Updated from error response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+          const used = Math.max(0, limit - freeRunsRemaining);
+          setBuilderRunLimit({ used, limit, isAdmin: false });
+        }
+
+        // BYOK required: switch to input phase and show API key prompt
+        if (response.status === 403 && Array.isArray(errorData.requiresApiKeys) && errorData.requiresApiKeys.length > 0) {
+          setRequiresApiKeys(errorData.requiresApiKeys);
+          const inputs = extractWorkflowInputs(graph.nodes || []);
+          setRunState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: "input",
+                  status: "idle",
+                  inputs: inputs.length > 0 ? inputs : [],
+                  error: undefined,
+                }
+              : prev
+          );
+          setRunning(false);
+          return;
         }
 
         throw new Error(errorMessage);
@@ -1619,13 +1671,11 @@ export default function BuilderPage() {
       }
 
       // Update run counter immediately from API response (before processing result)
-      // The API calculates freeRunsRemaining AFTER updating the database, so it's accurate
-      if (!isPreview && activeDraftId && hasAiNodes && result.freeRunsRemaining != null) {
-        const FREE_BUILDER_RUNS = 10;
+      if (activeDraftId && hasAiNodes && result.freeRunsRemaining != null) {
+        const limit = 10;
         const freeRunsRemaining = result.freeRunsRemaining;
-        const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
-        setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
-        console.warn(`[Run Counter] Updated immediately from API response: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+        const used = Math.max(0, limit - freeRunsRemaining);
+        setBuilderRunLimit({ used, limit, isAdmin: false });
       }
 
       const executionResult = result.result;
@@ -1914,9 +1964,27 @@ export default function BuilderPage() {
   const handleRerun = () => {
     setRunState(null);
     setRunModalOpen(false);
+    setRequiresApiKeys(null);
     setShowPreparingToast(false);
+    autoExecuteTriggeredRef.current = false;
     setTimeout(() => runWorkflow(), 100);
   };
+
+  // Auto-execute when modal opens with no inputs (phase "executing" from start) - otherwise it would prepare forever
+  useEffect(() => {
+    if (
+      !runModalOpen ||
+      !runState ||
+      runState.phase !== "executing" ||
+      runState.status !== "idle" ||
+      autoExecuteTriggeredRef.current
+    )
+      return;
+    const hasInputs = runState.inputs && runState.inputs.length > 0;
+    if (hasInputs) return;
+    autoExecuteTriggeredRef.current = true;
+    handleSubmitInputs({});
+  }, [runModalOpen, runState?.phase, runState?.status, runState?.inputs?.length]);
 
   // If user is on small viewport, keep builder unavailable (except in preview mode).
   useEffect(() => {
@@ -2007,8 +2075,14 @@ export default function BuilderPage() {
                   <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-white/80" />
                 </button>
               )}
-              <div className="h-8 w-8 md:h-9 md:w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden shrink-0">
-                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={20} height={20} className="md:w-6 md:h-6" style={{ width: "auto", height: "auto" }} />
+              <div className="shrink-0">
+                <ProfileAvatar
+                  name={profile?.full_name}
+                  avatarUrl={profile?.avatar_url}
+                  size={36}
+                  handle={profile?.handle}
+                  showFallback
+                />
               </div>
               <div className="min-w-0">
                 <div className="text-[14px] md:text-[18px] font-semibold text-white truncate">{name || "Untitled Workflow"}</div>
@@ -2024,13 +2098,17 @@ export default function BuilderPage() {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={runWorkflow}
-                disabled={!activeDraftId}
+                disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
                   "relative inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 backdrop-blur-sm px-4 py-2.5 md:px-6 md:py-3 text-[13px] md:text-[14px] font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] hover:from-cyan-500/30 hover:to-purple-500/30 transition-all duration-200",
                   "min-w-[100px] md:min-w-[140px]",
-                  !activeDraftId && "opacity-50 cursor-not-allowed"
+                  (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) && "opacity-50 cursor-not-allowed"
                 )}
-                title="Run Workflow"
+                title={
+                  canvasValidation && !canvasValidation.valid
+                    ? canvasValidation.errors[0]?.message ?? "Fix issues before running"
+                    : "Run Workflow"
+                }
               >
                 <Play className="h-4 w-4 md:h-5 md:w-5" />
                 <span className="hidden sm:inline">Run</span>
@@ -2062,8 +2140,14 @@ export default function BuilderPage() {
             className="w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 grid place-items-center overflow-hidden">
-                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={24} height={24} style={{ width: "auto", height: "auto" }} />
+              <div className="shrink-0">
+                <ProfileAvatar
+                  name={profile?.full_name}
+                  avatarUrl={profile?.avatar_url}
+                  size={36}
+                  handle={profile?.handle}
+                  showFallback
+                />
               </div>
 
               <div className="min-w-0">
@@ -2129,12 +2213,16 @@ export default function BuilderPage() {
 
               <button
                 onClick={runWorkflow}
-                disabled={!activeDraftId}
+                disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
                   "relative inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors",
-                  !activeDraftId && "opacity-60 cursor-not-allowed"
+                  (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) && "opacity-60 cursor-not-allowed"
                 )}
-                title="Run (Coming soon)"
+                title={
+                  canvasValidation && !canvasValidation.valid
+                    ? canvasValidation.errors[0]?.message ?? "Fix issues before running"
+                    : "Run Workflow"
+                }
               >
                 <Play className="h-4 w-4" />
                 <span>Run</span>
@@ -2328,6 +2416,7 @@ export default function BuilderPage() {
               <div className="h-full">
                 <InspectorPanel
                   selection={selection}
+                  fieldHint={inspectorFieldHint}
                   workflowId={activeDraftId ?? undefined}
                   getLatestGraph={() => beRef.current?.getGraph?.() ?? null}
                   onUpdate={(nodeId, patch) => {
@@ -2348,6 +2437,16 @@ export default function BuilderPage() {
 
       </div>
 
+      {/* Validation banner - bottom, compact and expandable */}
+      {canvasValidation && (canvasValidation.errors.length > 0 || canvasValidation.warnings.length > 0) && (
+        <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pb-4 flex justify-center">
+          <CanvasValidationBanner
+            validation={canvasValidation}
+            onFocusNode={onFocusValidationNode}
+          />
+        </div>
+      )}
+
       {/* Premium Run Modal */}
       <PremiumWorkflowRunModal
         open={runModalOpen}
@@ -2355,6 +2454,8 @@ export default function BuilderPage() {
           if (runState?.status !== "running" && runState?.phase !== "executing") {
             setRunModalOpen(false);
             setRunState(null);
+            setRequiresApiKeys(null);
+            autoExecuteTriggeredRef.current = false;
           }
         }}
         state={runState}
@@ -2368,6 +2469,7 @@ export default function BuilderPage() {
         workflowId={activeDraftId || undefined}
         isBuilderTest={!isPreview}
         builderRunLimit={builderRunLimit ?? undefined}
+        requiresApiKeys={requiresApiKeys ?? undefined}
       />
 
       {/* Publish modal (disabled in preview) */}

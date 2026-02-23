@@ -16,15 +16,24 @@ export type GraphNode = {
 
 export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
   const inputs: WorkflowInput[] = [];
-  
+  let index = 0;
+
   for (const node of nodes) {
     const specId = node.data?.specId;
     if (specId !== "input") continue;
-    
+
     const config = node.data?.config || {};
     const title = node.data?.title || config.name || config.nickname || "Input";
-    const question = config.question || title; // Use question if available, fallback to title
-    
+    const question = config.question || title;
+
+    // Field label: prefer config.label, inputKey, then question/title, fallback to "Input N"
+    const name =
+      config.label || config.inputKey || question || `Input ${index + 1}`;
+
+    // Placeholder: prefer config.placeholder, description, inputKey, fallback to generic
+    const placeholder =
+      config.placeholder || config.description || config.inputKey || "Enter a value...";
+
     // Determine input type from config
     let inputType: WorkflowInput["type"] = "text";
     if (config.inputType) {
@@ -38,19 +47,20 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
       };
       inputType = typeMap[config.inputType] || "text";
     }
-    
+
     inputs.push({
       nodeId: node.id,
       specId: specId,
-      name: question, // Use question as the display name
+      name,
       description: config.description || config.helpText || undefined,
       type: inputType,
-      required: config.required !== false, // default to true
-      placeholder: config.placeholder || undefined,
+      required: config.required !== false,
+      placeholder,
       defaultValue: config.defaultValue || undefined,
     });
+    index += 1;
   }
-  
+
   return inputs;
 }
 

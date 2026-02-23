@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import { Eye, TrendingUp, Users, Settings, Sliders, Code2 } from "lucide-react";
+import { Eye, TrendingUp, Users, Sliders, Code2 } from "lucide-react";
 import { getNodeSpec } from "src/nodes/registry";
 
 /* -------------------- Types -------------------- */
@@ -154,7 +154,7 @@ function useCommunity(workflowId?: string) {
   return { data, state };
 }
 
-/* -------------------- UI Helpers -------------------- */
+/* -------------------- UI Helpers (Vercel premium style) -------------------- */
 function Card({
   title,
   icon,
@@ -165,10 +165,10 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-[#0f1115]/75 border border-white/10 px-4 py-3 backdrop-blur-sm">
-      <div className="mb-2.5 flex items-center gap-2 opacity-90">
-        {icon}
-        <div className="text-[13px] font-semibold tracking-[0.01em]">
+    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+      <div className="mb-2 flex items-center gap-2">
+        {icon && <span className="text-white/40">{icon}</span>}
+        <div className="text-[11px] font-medium uppercase tracking-wider text-white/50">
           {title}
         </div>
       </div>
@@ -180,18 +180,35 @@ function Card({
 const Input = (props: any) => (
   <input
     {...props}
-    className={`w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10
-    focus:outline-none focus:ring-2 focus:ring-white/10 ${props.className ?? ""}`}
+    className={`w-full min-w-0 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px]
+    text-white/95 placeholder:text-white/30
+    focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10
+    transition-colors ${props.className ?? ""}`}
   />
 );
 
 const TextArea = (props: any) => (
   <textarea
     {...props}
-    className={`w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10
-    focus:outline-none focus:ring-2 focus:ring-white/10 ${props.className ?? ""}`}
+    className={`w-full min-w-0 resize-y rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px]
+    text-white/95 placeholder:text-white/30
+    focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10
+    transition-colors ${props.className ?? ""}`}
   />
 );
+
+function ReadOnlyMeta({ items }: { items: { label: string; value: string }[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px]">
+      {items.map(({ label, value }) => (
+        <span key={label} className="flex items-center gap-1.5">
+          <span className="text-white/35">{label}</span>
+          <span className="text-white/55 font-mono truncate max-w-[120px]">{value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
 
 /* ============================================================
    PANEL IMPLEMENTATIONS
@@ -229,6 +246,12 @@ function GeneralPanel({
     if (Object.keys(updates).length > 0) onUpdate(updates);
   }, [spec?.id, selection.nodeId, cfg.model, cfg.size, cfg.quality, onUpdate]);
 
+  const fieldLabel = (label: string, helpText?: string) => (
+    <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1" title={helpText}>
+      {label}
+    </label>
+  );
+
   const renderField = (field: any) => {
     const value = cfg[field.key] ?? (spec.defaultConfig?.[field.key] ?? "");
 
@@ -236,14 +259,7 @@ function GeneralPanel({
       case "text":
         return (
           <div key={field.key}>
-            <label className="text-[11px] text-white/60 flex items-center gap-1">
-              {field.label}
-              {field.helpText && (
-                <span className="text-white/40" title={field.helpText}>
-                  (?)
-                </span>
-              )}
-            </label>
+            {fieldLabel(field.label, field.helpText)}
             <Input
               placeholder={field.placeholder}
               defaultValue={value}
@@ -251,48 +267,28 @@ function GeneralPanel({
                 onUpdate({ [field.key]: e.currentTarget.value })
               }
             />
-            {field.helpText && (
-              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
-            )}
           </div>
         );
 
       case "textarea":
         return (
           <div key={field.key}>
-            <label className="text-[11px] text-white/60 flex items-center gap-1">
-              {field.label}
-              {field.helpText && (
-                <span className="text-white/40" title={field.helpText}>
-                  (?)
-                </span>
-              )}
-            </label>
+            {fieldLabel(field.label, field.helpText)}
             <TextArea
-              rows={field.rows ?? 3}
+              rows={field.rows ?? 2}
               placeholder={field.placeholder}
               defaultValue={value}
               onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
                 onUpdate({ [field.key]: e.currentTarget.value })
               }
             />
-            {field.helpText && (
-              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
-            )}
           </div>
         );
 
       case "number":
         return (
           <div key={field.key}>
-            <label className="text-[11px] text-white/60 flex items-center gap-1">
-              {field.label}
-              {field.helpText && (
-                <span className="text-white/40" title={field.helpText}>
-                  (?)
-                </span>
-              )}
-            </label>
+            {fieldLabel(field.label, field.helpText)}
             <Input
               type="number"
               min={field.min}
@@ -303,25 +299,15 @@ function GeneralPanel({
                 onUpdate({ [field.key]: Number(e.currentTarget.value) })
               }
             />
-            {field.helpText && (
-              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
-            )}
           </div>
         );
 
       case "slider":
         return (
           <div key={field.key}>
-            <label className="text-[11px] text-white/60 flex items-center justify-between">
-              <span className="flex items-center gap-1">
-                {field.label}
-                {field.helpText && (
-                  <span className="text-white/40" title={field.helpText}>
-                    (?)
-                  </span>
-                )}
-              </span>
-              <span className="text-white/70 font-mono text-[11px]">{value}</span>
+            <label className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-white/45" title={field.helpText}>{field.label}</span>
+              <span className="text-[10px] text-white/60 font-mono">{value}</span>
             </label>
             <input
               type="range"
@@ -330,35 +316,27 @@ function GeneralPanel({
               step={field.step ?? (field.max - field.min) / 100}
               defaultValue={value}
               onChange={(e) => onUpdate({ [field.key]: Number(e.target.value) })}
-              className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white/30"
+              className="w-full h-1.5 bg-white/[0.06] rounded-full appearance-none cursor-pointer accent-white/40"
             />
-            {field.helpText && (
-              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
-            )}
           </div>
         );
 
       case "switch":
         return (
-          <div key={field.key} className="flex items-center justify-between">
-            <label className="text-[11px] text-white/60 flex items-center gap-1">
+          <div key={field.key} className="flex items-center justify-between py-0.5">
+            <label className="text-[10px] font-medium uppercase tracking-wider text-white/45" title={field.helpText}>
               {field.label}
-              {field.helpText && (
-                <span className="text-white/40" title={field.helpText}>
-                  (?)
-                </span>
-              )}
             </label>
             <button
               type="button"
               onClick={() => onUpdate({ [field.key]: !value })}
-              className={`relative w-11 h-6 rounded-full transition-colors ${
-                value ? "bg-white/20" : "bg-white/10"
+              className={`relative w-9 h-5 rounded-full transition-colors ${
+                value ? "bg-white/25" : "bg-white/[0.08]"
               }`}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
-                  value ? "translate-x-5" : "translate-x-0"
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+                  value ? "translate-x-4" : "translate-x-0"
                 }`}
               />
             </button>
@@ -366,7 +344,6 @@ function GeneralPanel({
         );
 
       case "select": {
-        // OpenAI Image: Quality is only for DALL-E 3; Size options depend on model
         const isOpenAIImage = spec?.id === "openai-image";
         const imageModel = cfg.model || "dall-e-2";
         const qualityDisabled = isOpenAIImage && field.key === "quality" && imageModel === "dall-e-2";
@@ -392,19 +369,14 @@ function GeneralPanel({
         }
         return (
           <div key={field.key}>
-            <label className="text-[11px] text-white/60 flex items-center gap-1">
-              {field.label}
-              {(field.helpText || (qualityDisabled && "Only for DALL-E 3")) && (
-                <span className="text-white/40" title={qualityDisabled ? "Only for DALL-E 3" : field.helpText}>
-                  (?)
-                </span>
-              )}
-            </label>
+            {fieldLabel(field.label, qualityDisabled ? "Only for DALL-E 3" : field.helpText)}
             <select
               value={effectiveValue}
               disabled={qualityDisabled}
               onChange={(e) => onUpdate({ [field.key]: e.target.value })}
-              className="w-full rounded-xl px-3 py-2 text-[13px] bg-[#0d0f12] border border-white/10 focus:outline-none focus:ring-2 focus:ring-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full min-w-0 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px] text-white/95
+                focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10
+                disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {selectOptions.map((opt: any) => (
                 <option key={opt.value} value={opt.value}>
@@ -413,12 +385,7 @@ function GeneralPanel({
               ))}
             </select>
             {qualityDisabled && (
-              <div className="mt-1 text-[10px] text-amber-400/90">
-                Only available for DALL-E 3. Set Model to DALL-E 3 to use HD quality.
-              </div>
-            )}
-            {field.helpText && !qualityDisabled && (
-              <div className="mt-1 text-[10px] text-white/45">{field.helpText}</div>
+              <div className="mt-1 text-[9px] text-amber-400/80">Set Model to DALL-E 3 for HD.</div>
             )}
           </div>
         );
@@ -438,100 +405,84 @@ function GeneralPanel({
   const requiresApiKey = spec?.requiresUserKeys === true;
 
   return (
-    <div className="space-y-4 pt-3">
-      <Card title="Basic Info" icon={<Settings size={16} />}>
-        <div className="space-y-3">
-          <div>
-            <label className="text-[11px] text-white/60">Display Name</label>
-            <Input
-              defaultValue={cfg.name ?? spec.label}
-              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-                onUpdate({ name: e.currentTarget.value })
-              }
-            />
-          </div>
+    <div className="space-y-3 pt-2 w-full min-w-0">
+      {/* Basic details: small, read-only, no input boxes */}
+      <ReadOnlyMeta items={[
+        { label: "Type", value: spec?.label ?? "Block" },
+        { label: "ID", value: selection.specId ?? "—" },
+      ]} />
 
-          <div>
-            <label className="text-[11px] text-white/60">Description</label>
-            <TextArea
-              rows={3}
-              defaultValue={cfg.description ?? spec.summary}
-              onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
-                onUpdate({ description: e.currentTarget.value })
-              }
-            />
-          </div>
-
-          {/* API Key field for nodes that require it */}
-          {requiresApiKey && (
-            <div>
-              <label className="text-[11px] text-white/60 flex items-center gap-1">
-                API Key
-                <span className="text-white/40" title="Your OpenAI API key. This is stored locally and only used for your runs.">
-                  (?)
-                </span>
-              </label>
-              <Input
-                type="password"
-                placeholder="sk-..."
-                defaultValue={cfg.apiKey || ""}
-                onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-                  onUpdate({ apiKey: e.currentTarget.value })
-                }
-              />
-              <div className="mt-1 text-[10px] text-white/45">
-                Your API key is stored locally and only used when running this workflow. After 10 free runs, you&apos;ll need to provide your own API key.
-              </div>
-            </div>
-          )}
+      {/* Editable fields - premium inputs only */}
+      <div className="space-y-2.5">
+        <div>
+          <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">Display Name</label>
+          <Input
+            defaultValue={cfg.name ?? spec.label}
+            onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+              onUpdate({ name: e.currentTarget.value })
+            }
+          />
         </div>
-      </Card>
+        <div>
+          <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">Description</label>
+          <TextArea
+            rows={2}
+            defaultValue={cfg.description ?? spec.summary}
+            onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
+              onUpdate({ description: e.currentTarget.value })
+            }
+          />
+        </div>
+        {requiresApiKey && (
+          <div>
+            <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1" title="Stored locally, used for your runs">
+              API Key
+            </label>
+            <Input
+              type="password"
+              placeholder="sk-..."
+              defaultValue={cfg.apiKey || ""}
+              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                onUpdate({ apiKey: e.currentTarget.value })
+              }
+            />
+          </div>
+        )}
+      </div>
 
-      {/* Condition Builder - Human-friendly */}
       {isCondition && (
-        <Card title="Condition" icon={<Code2 size={16} />}>
-          <div className="space-y-4">
-            <div className="rounded-xl bg-white/5 border border-white/10 p-3">
-              <div className="text-[12px] font-semibold text-white/90 mb-3">
-                If value{" "}
-                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/10 border border-white/20">
-                  <select
-                    value={conditionOperator}
-                    onChange={(e) => onUpdate({ operator: e.target.value, compareValue: conditionOperator === "equals" || conditionOperator === "notEquals" ? conditionCompareValue : "" })}
-                    className="bg-transparent border-none text-white/90 text-[12px] font-medium focus:outline-none cursor-pointer"
-                  >
-                    <option value="truthy">is truthy</option>
-                    <option value="falsy">is falsy</option>
-                    <option value="equals">equals</option>
-                    <option value="notEquals">does not equal</option>
-                    <option value="gt">is greater than</option>
-                    <option value="lt">is less than</option>
-                  </select>
-                </span>
-                {(conditionOperator === "equals" || conditionOperator === "notEquals" || conditionOperator === "gt" || conditionOperator === "lt") && (
-                  <span className="ml-2">
-                    <Input
-                      placeholder="value"
-                      defaultValue={conditionCompareValue}
-                      onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-                        onUpdate({ compareValue: e.currentTarget.value })
-                      }
-                      className="inline-block w-32"
-                    />
-                  </span>
-                )}
-              </div>
-              <div className="mt-2 text-[10px] text-white/50">
-                Examples: &quot;If age &gt; 18&quot;, &quot;If status equals &apos;active&apos;&quot;, &quot;If count is truthy&quot;
-              </div>
-            </div>
+        <Card title="Condition" icon={<Code2 size={14} />}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-white/60">If value</span>
+            <select
+              value={conditionOperator}
+              onChange={(e) => onUpdate({ operator: e.target.value, compareValue: conditionOperator === "equals" || conditionOperator === "notEquals" ? conditionCompareValue : "" })}
+              className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[11px] text-white/90 focus:outline-none focus:ring-1 focus:ring-white/10"
+            >
+              <option value="truthy">is truthy</option>
+              <option value="falsy">is falsy</option>
+              <option value="equals">equals</option>
+              <option value="notEquals">does not equal</option>
+              <option value="gt">is greater than</option>
+              <option value="lt">is less than</option>
+            </select>
+            {(conditionOperator === "equals" || conditionOperator === "notEquals" || conditionOperator === "gt" || conditionOperator === "lt") && (
+              <Input
+                placeholder="value"
+                defaultValue={conditionCompareValue}
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                  onUpdate({ compareValue: e.currentTarget.value })
+                }
+                className="flex-1 min-w-[80px] max-w-[120px]"
+              />
+            )}
           </div>
         </Card>
       )}
 
       {inspectorFields.length > 0 && (
-        <Card title="Configuration" icon={<Sliders size={16} />}>
-          <div className="space-y-3">
+        <Card title="Configuration" icon={<Sliders size={14} />}>
+          <div className="space-y-2.5">
             {inspectorFields.filter((f: any) => !advancedKeys.has(f.key)).map(renderField)}
           </div>
         </Card>
@@ -541,16 +492,16 @@ function GeneralPanel({
         cfg.retries !== undefined ||
         inspectorFields.some((f: any) => advancedKeys.has(f.key)) ||
         !inspectorFields.find((f: any) => f.key === "timeout")) && (
-        <Card title="Advanced" icon={<Sliders size={16} />}>
+        <Card title="Advanced" icon={<Sliders size={14} />}>
           <details className="group">
-            <summary className="cursor-pointer select-none rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-2 text-[12px] font-semibold text-white/85 transition-colors">
-              Show advanced settings
+            <summary className="cursor-pointer select-none text-[10px] font-medium text-white/50 hover:text-white/70 transition-colors">
+              Show advanced
             </summary>
-            <div className="mt-3 space-y-3">
+            <div className="mt-2.5 space-y-2.5">
               {inspectorFields.filter((f: any) => advancedKeys.has(f.key)).map(renderField)}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[11px] text-white/60">Timeout (ms)</label>
+                  {fieldLabel("Timeout (ms)")}
                   <Input
                     type="number"
                     defaultValue={cfg.timeout ?? 8000}
@@ -560,7 +511,7 @@ function GeneralPanel({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-white/60">Retry Attempts</label>
+                  {fieldLabel("Retries")}
                   <Input
                     type="number"
                     defaultValue={cfg.retries ?? 0}
@@ -591,42 +542,30 @@ function InputsPanel({
   const cfg = selection.config ?? {};
 
   return (
-    <div className="space-y-4 pt-3">
+    <div className="space-y-3 pt-2 w-full min-w-0">
       <Card title="Input Parameters">
-        {spec.ports
-          ?.filter((p: any) => p.kind === "input")
-          ?.map((port: any) => (
-            <div
-              key={port.id}
-              className="border-b border-white/5 pb-4 mb-4 last:mb-0 last:pb-0 last:border-b-0"
-            >
-              <div className="font-medium text-white/90 text-[13px]">
-                {port.id}
-              </div>
-              <div className="text-[11px] text-white/60 mt-0.5">
-                {port.label ?? ""}
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] text-white/60">Default</label>
-                  <Input
-                    defaultValue={cfg?.inputs?.[port.id] ?? ""}
-                    onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-                      onUpdate({
-                        inputs: { ...(cfg.inputs ?? {}), [port.id]: e.currentTarget.value },
-                      })
-                    }
-
-                  />
+        <div className="space-y-3">
+          {spec.ports
+            ?.filter((p: any) => p.kind === "input")
+            ?.map((port: any) => (
+              <div key={port.id} className="border-b border-white/[0.04] pb-3 last:border-0 last:pb-0">
+                <div className="flex items-baseline justify-between gap-2 mb-1">
+                  <span className="text-[12px] font-medium text-white/90">{port.id}</span>
+                  <span className="text-[9px] text-white/40 font-mono truncate">{port.type ?? "any"}</span>
                 </div>
-                <div>
-                  <label className="text-[11px] text-white/60">Type</label>
-                  <Input value={port.type ?? "any"} readOnly />
-                </div>
+                {port.label && <div className="text-[10px] text-white/45 mb-1.5">{port.label}</div>}
+                <Input
+                  placeholder="Default value"
+                  defaultValue={cfg?.inputs?.[port.id] ?? ""}
+                  onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                    onUpdate({
+                      inputs: { ...(cfg.inputs ?? {}), [port.id]: e.currentTarget.value },
+                    })
+                  }
+                />
               </div>
-            </div>
-          ))}
+            ))}
+        </div>
       </Card>
     </div>
   );
@@ -638,15 +577,14 @@ function CodePanel({ selection, spec }: { selection: Selection; spec: any }) {
   const code = cfg.code ?? spec?.code ?? "";
 
   return (
-    <div className="space-y-4 pt-3">
-      <Card title="Node Config" icon={<Code2 size={16} />}>
-        <pre className="text-[12px] text-white/70 bg-[#0b0d10] border border-white/10 rounded-xl p-3 overflow-auto">
+    <div className="space-y-3 pt-2 w-full min-w-0">
+      <Card title="Config" icon={<Code2 size={14} />}>
+        <pre className="text-[10px] text-white/60 bg-black/20 border border-white/[0.04] rounded-md p-2.5 overflow-auto max-h-[140px]">
           {JSON.stringify(cfg, null, 2)}
         </pre>
       </Card>
-
-      <Card title="Implementation (read-only)" icon={<Code2 size={16} />}>
-        <pre className="text-[12px] text-white/70 bg-[#0b0d10] border border-white/10 rounded-xl p-3 overflow-auto">
+      <Card title="Implementation" icon={<Code2 size={14} />}>
+        <pre className="text-[10px] text-white/60 bg-black/20 border border-white/[0.04] rounded-md p-2.5 overflow-auto max-h-[200px]">
           {String(code)}
         </pre>
       </Card>
@@ -671,10 +609,10 @@ function TabPill({
     <button
       onClick={onClick}
       className={[
-        "px-3 py-1.5 rounded-full border text-[12px]",
+        "px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
         active
-          ? "bg-white/10 border-white/12 text-white"
-          : "bg-transparent border-white/10 text-white/70 hover:bg-white/5",
+          ? "bg-white/10 text-white"
+          : "text-white/50 hover:text-white/70 hover:bg-white/[0.04]",
       ].join(" ")}
       type="button"
     >
@@ -683,13 +621,26 @@ function TabPill({
   );
 }
 
+const FIELD_HINT_LABELS: Record<string, string> = {
+  prompt: "Prompt",
+  url: "URL",
+  text: "Text",
+  model: "Model",
+  size: "Size",
+  quality: "Quality",
+  question: "Question / Input Name",
+  connection: "Invalid connection",
+};
+
 export default function InspectorPanel({
   selection,
+  fieldHint,
   workflowId,
   onUpdate,
   getLatestGraph,
 }: {
   selection?: Selection; // <-- keep optional + foolproof
+  fieldHint?: string | null;
   workflowId?: string;
   onUpdate?: (nodeId: string, patch: any) => void;
   getLatestGraph?: () => { nodes: any[]; edges: any[] } | null;
@@ -749,29 +700,32 @@ export default function InspectorPanel({
     onUpdate(safeSelection.nodeId, patch);
   };
 
-  // Creator-friendly: hide advanced execution knobs by default
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
   return (
-    // IMPORTANT: make the panel actually scroll inside the floating window
-    <div className="h-full w-full text-white flex flex-col min-h-0">
-      {/* Header (fixed) */}
-      <div className="px-5 pt-5 pb-3 shrink-0">
-        <div className="flex items-center gap-2 opacity-90">
-          <Eye size={18} />
-          <div className="text-[16px] font-semibold tracking-[0.01em]">
-            Inspector
-          </div>
+    <div className="h-full w-full min-w-0 text-white flex flex-col">
+      <div className="px-4 pt-4 pb-2 shrink-0">
+        <div className="flex items-center gap-2">
+          <Eye size={16} className="text-white/60" />
+          <span className="text-[13px] font-semibold text-white/95 tracking-tight">Inspector</span>
         </div>
-
-        {selected && (
-          <div className="mt-2 text-[11px] text-white/55 truncate">
-            {spec?.label ?? "Block"} · {safeSelection.specId ?? "unknown"}
+        {selected && fieldHint && (
+          <div
+            className="mt-2 rounded-lg px-3 py-2 text-[11px] font-medium"
+            style={{
+              background: "rgba(239,68,68,0.12)",
+              border: "1px solid rgba(239,68,68,0.25)",
+              color: "#f0a0a0",
+            }}
+          >
+            Fix: <span className="font-semibold">{FIELD_HINT_LABELS[fieldHint] ?? fieldHint}</span>
+            {fieldHint === "connection" && (
+              <div className="mt-1 text-[10px] opacity-90">
+                On the canvas: select and delete the invalid connection, or add the missing node.
+              </div>
+            )}
           </div>
         )}
-
         {selected && (
-          <div className="mt-3 flex gap-2">
+          <div className="mt-2 flex gap-2">
             <TabPill active={tab === "general"} onClick={() => setTab("general")}>
               General
             </TabPill>
@@ -786,40 +740,32 @@ export default function InspectorPanel({
       </div>
 
       {/* Scroll area (this fixes the “scrolling not working inside inspector” bug) */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 overscroll-contain">
+      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden px-4 pb-4 overscroll-contain">
         {!selected && (
-          <div className="pt-8 text-center">
-            <div className="mx-auto h-14 w-14 rounded-full bg-white/5 border border-white/10 grid place-items-center">
-              <Eye className="opacity-70" />
+          <div className="pt-6 text-center">
+            <div className="mx-auto h-12 w-12 rounded-full bg-white/[0.04] border border-white/[0.06] grid place-items-center">
+              <Eye size={20} className="text-white/40" />
             </div>
-            <div className="mt-4 text-white/85 text-[13px]">
-              Select a block to edit its properties
+            <div className="mt-3 text-[12px] text-white/70">
+              Select a block to edit
             </div>
-            <div className="mt-2 text-[11px] text-white/50">
-              Drag blocks from the left, then click them to edit.
+            <div className="mt-1 text-[10px] text-white/40">
+              Drag blocks from the left, then click to configure.
             </div>
-
-            <div className="mt-6 space-y-3 text-left">
-              <div className="rounded-2xl bg-[#0f1115]/75 border border-white/10 px-4 py-3 backdrop-blur-sm">
+            <div className="mt-4 space-y-2 text-left">
+              <div className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <TrendingUp size={16} className="opacity-80" />
-                  <div className="font-semibold text-[13px]">
-                    Workflow Analytics
-                  </div>
+                  <TrendingUp size={14} className="text-white/40" />
+                  <span className="text-[11px] font-medium text-white/50">Analytics</span>
                 </div>
-                <div className="mt-2 text-[11px] text-white/55">
-                  Analytics not available
-                </div>
+                <div className="mt-1 text-[10px] text-white/40">Not available</div>
               </div>
-
-              <div className="rounded-2xl bg-[#0f1115]/75 border border-white/10 px-4 py-3 backdrop-blur-sm">
+              <div className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <Users size={16} className="opacity-80" />
-                  <div className="font-semibold text-[13px]">Community</div>
+                  <Users size={14} className="text-white/40" />
+                  <span className="text-[11px] font-medium text-white/50">Community</span>
                 </div>
-                <div className="mt-2 text-[11px] text-white/55">
-                  Community stats unavailable
-                </div>
+                <div className="mt-1 text-[10px] text-white/40">Not available</div>
               </div>
             </div>
           </div>
@@ -847,62 +793,44 @@ export default function InspectorPanel({
                 {tab === "code" && <CodePanel selection={safeSelection} spec={spec} />}
               </>
             ) : (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-[13px] text-white/70">
-                Spec not found for this node. (The canvas sent an unknown specId.)
+              <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] text-white/50">
+                Spec not found for this node.
               </div>
             )}
 
-            {/* Optional cards */}
-            <div className="mt-5 grid grid-cols-1 gap-3">
-              <Card title="Workflow Analytics" icon={<TrendingUp size={16} />}>
+            <div className="mt-4 space-y-2">
+              <Card title="Analytics" icon={<TrendingUp size={14} />}>
                 {aState !== "ready" || !analytics ? (
-                  <div className="text-[11px] text-white/55">
-                    Analytics not available
-                  </div>
+                  <div className="text-[10px] text-white/40">Not available</div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
-                      <div className="text-[11px] text-white/50">Runs</div>
-                      <div className="mt-1 text-[16px] font-semibold">
-                        {analytics.totalRuns}
-                      </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                      <div className="text-[9px] text-white/40">Runs</div>
+                      <div className="text-[12px] font-semibold text-white/90">{analytics.totalRuns}</div>
                     </div>
-                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
-                      <div className="text-[11px] text-white/50">Success</div>
-                      <div className="mt-1 text-[16px] font-semibold">
-                        {analytics.successRate}%
-                      </div>
+                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                      <div className="text-[9px] text-white/40">Success</div>
+                      <div className="text-[12px] font-semibold text-white/90">{analytics.successRate}%</div>
                     </div>
-                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
-                      <div className="text-[11px] text-white/50">Avg</div>
-                      <div className="mt-1 text-[16px] font-semibold">
-                        {analytics.avgResponseMs}ms
-                      </div>
+                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                      <div className="text-[9px] text-white/40">Avg</div>
+                      <div className="text-[12px] font-semibold text-white/90">{analytics.avgResponseMs}ms</div>
                     </div>
                   </div>
                 )}
               </Card>
-
-              <Card title="Community" icon={<Users size={16} />}>
+              <Card title="Community" icon={<Users size={14} />}>
                 {cState !== "ready" || !community ? (
-                  <div className="text-[11px] text-white/55">
-                    Community stats unavailable
-                  </div>
+                  <div className="text-[10px] text-white/40">Not available</div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
-                      <div className="text-[11px] text-white/50">Today</div>
-                      <div className="mt-1 text-[16px] font-semibold">
-                        {community.todayUsers}
-                      </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                      <div className="text-[9px] text-white/40">Today</div>
+                      <div className="text-[12px] font-semibold text-white/90">{community.todayUsers}</div>
                     </div>
-                    <div className="rounded-xl bg-black/30 border border-white/10 p-3">
-                      <div className="text-[11px] text-white/50">
-                        Weekly remixes
-                      </div>
-                      <div className="mt-1 text-[16px] font-semibold">
-                        {community.weeklyRemixes}
-                      </div>
+                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                      <div className="text-[9px] text-white/40">Remixes</div>
+                      <div className="text-[12px] font-semibold text-white/90">{community.weeklyRemixes}</div>
                     </div>
                   </div>
                 )}

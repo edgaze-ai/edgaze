@@ -34,7 +34,12 @@ export async function enforceRuntimeLimits(params: {
   isBuilderTest?: boolean; // Builder “Test run”: 10 free runs, then BYO key
 }): Promise<RuntimeEnforcementResult> {
   const { userId, workflowId, nodes, userApiKeys = {}, isDemo = false, isBuilderTest = false } = params;
-  const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : FREE_BETA_RUNS;
+  // Builder test: 10 runs. Purchased workflow preview (isDemo + authenticated): 10 runs per purchase. Else: 5.
+  const freeRunLimit = isBuilderTest
+    ? FREE_BUILDER_RUNS
+    : isDemo && userId !== "anonymous_demo_user"
+      ? FREE_RUNS_PER_PURCHASE
+      : FREE_BETA_RUNS;
 
   try {
     // For anonymous demo users, allow the run and use Edgaze key
@@ -187,14 +192,28 @@ export async function enforceRuntimeLimits(params: {
 }
 
 /**
+ * Returns true if the string is a URL (http(s), blob, or known image host).
+ * URLs should never be redacted - they are not secrets and redaction breaks image display.
+ */
+function looksLikeUrl(s: string): boolean {
+  const t = s.trim();
+  if (/^https?:\/\//i.test(t)) return true;
+  if (t.startsWith("data:image/")) return true;
+  if (/oaidalleapiprodscus\.blob\.core\.windows\.net|blob\.core\.windows\.net/i.test(t)) return true;
+  return false;
+}
+
+/**
  * Redacts API keys from logs and error messages to prevent leakage.
+ * Never redacts URLs (image URLs, blob storage, etc.) - those are not secrets and must stay intact.
  */
 export function redactSecrets(value: unknown): unknown {
   if (typeof value === "string") {
-    // Redact potential API keys (long alphanumeric strings, sk- prefixes, etc.)
+    // Never redact URLs - they contain long hex strings (e.g. Azure blob sig) that are not secrets
+    if (looksLikeUrl(value)) return value;
+    // Redact API keys only in non-URL strings
     return value
       .replace(/\bsk-[a-zA-Z0-9]{20,}\b/g, "sk-***REDACTED***")
-      .replace(/\b[A-Za-z0-9]{32,}\b/g, (m) => `${m.slice(0, 8)}***REDACTED***`)
       .replace(/api[_-]?key["\s:=]+([a-zA-Z0-9_-]{20,})/gi, 'api_key="***REDACTED***"');
   }
   if (Array.isArray(value)) {

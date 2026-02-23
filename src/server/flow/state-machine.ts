@@ -4,22 +4,24 @@ type TransitionHook<T> = (current: T, next: T, context?: Record<string, unknown>
 
 const WORKFLOW_TRANSITIONS: Record<WorkflowStatus, WorkflowStatus[]> = {
   pending: ["running", "cancelled"],
-  running: ["paused", "completed", "failed", "cancelled", "timeout"],
+  running: ["paused", "completed", "completed_with_skips", "failed", "cancelled", "timeout"],
   paused: ["running", "cancelled"],
   completed: [],
+  completed_with_skips: [],
   failed: [],
   cancelled: [],
   timeout: [],
 };
 
 const NODE_TRANSITIONS: Record<NodeStatus, NodeStatus[]> = {
-  idle: ["ready", "running", "skipped", "failed"],
-  ready: ["running", "skipped", "failed"], // Allow ready -> failed for setup/pre-execution errors
+  idle: ["ready", "running", "skipped", "blocked", "failed"],
+  ready: ["running", "skipped", "blocked", "failed"], // Allow ready -> failed for setup/pre-execution errors
   running: ["success", "failed", "timeout", "retrying"],
   retrying: ["running", "failed", "timeout"],
   success: [],
   failed: [],
   skipped: [],
+  blocked: [],
   timeout: [],
 };
 

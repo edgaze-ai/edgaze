@@ -146,6 +146,38 @@ button {
   transform: scale(1.15);
 }
 
+/* Base node hover — premium feel */
+.base-node:hover {
+  border-color: #333 !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Node mount animation */
+@keyframes baseNodeMount {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Edge selected dot pulse */
+@keyframes edgeDotPulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.edge-dot-selected {
+  animation: edgeDotPulse 1.2s ease-in-out infinite;
+}
+
 /* Smooth connection creation */
 .react-flow__edge {
   transition: opacity 0.2s ease-out;
@@ -213,7 +245,7 @@ button {
   left: auto !important;
 }
 
-/* Ports */
+/* Ports - legacy (BlockLibrary preview cards) */
 .edge-port {
   background: #ffffff !important;
   border: 1px solid rgba(255, 255, 255, 0.85) !important;
@@ -224,6 +256,41 @@ button {
 .edge-port--edg {
   background: radial-gradient(circle at 30% 30%, #22d3ee, #ec4899) !important;
   border: 1px solid rgba(255, 255, 255, 0.95) !important;
+}
+
+/* NodeHandle - workflow builder handles (10px, visible) */
+.node-handle-wrapper .react-flow__handle,
+.node-handle-custom {
+  width: 10px !important;
+  height: 10px !important;
+  min-width: 10px !important;
+  min-height: 10px !important;
+  background: #141414 !important;
+  border: 2px solid #383838 !important;
+  border-radius: 50% !important;
+  transition: all 120ms !important;
+}
+/* Handle hover: expand in place (scale from center, no layout shift) */
+.node-handle-wrapper .react-flow__handle:hover,
+.node-handle-custom:hover {
+  transform-origin: center center !important;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.4) !important;
+}
+.node-handle-wrapper .react-flow__handle:hover {
+  transform: translateY(-50%) scale(1.35) !important;
+}
+.node-handle-custom:hover {
+  transform: translateY(-50%) scale(1.35) !important;
+}
+
+/* Condition node handle hover — true (green) / false (red) */
+.condition-handle-true.node-handle-custom:hover {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.4) !important;
+}
+.condition-handle-false.node-handle-custom:hover {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4) !important;
 }
 
 /* ---------- Node cards (dark theme) ---------- */

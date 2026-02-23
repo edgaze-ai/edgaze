@@ -40,7 +40,7 @@ function edge(source: string, target: string, sourceHandle?: string, targetHandl
   const e: any = { id, source, target };
   if (sourceHandle) e.sourceHandle = sourceHandle;
   if (targetHandle) e.targetHandle = targetHandle;
-  e.type = "simplebezier";
+  e.type = "default";
   return e;
 }
 

@@ -26,7 +26,7 @@ import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
 import WorkflowCommentsSection from "../../../components/marketplace/WorkflowCommentsSection";
 import PremiumWorkflowRunModal, { type WorkflowRunState } from "../../../components/builder/PremiumWorkflowRunModal";
-import { canRunDemo, canRunDemoSync, getRemainingDemoRunsSync, trackDemoRun } from "../../../lib/workflow/device-tracking";
+import { canRunDemo, canRunDemoSync, getDeviceFingerprintHash, getRemainingDemoRunsSync, trackDemoRun } from "../../../lib/workflow/device-tracking";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
 import { track } from "../../../lib/mixpanel";
@@ -1376,7 +1376,7 @@ export default function WorkflowProductPage() {
       // Validate workflow
       const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
       if (!validation.valid) {
-        throw new Error(validation.errors.join("\n"));
+        throw new Error(validation.errors.map((e) => e.message).join("\n"));
       }
 
       // Extract inputs
@@ -1467,6 +1467,9 @@ export default function WorkflowProductPage() {
     setDemoRunning(true);
 
     try {
+      // Admin demo link: pass token to bypass auth and device limit. Otherwise use device fingerprint for anonymous demo.
+      const deviceFingerprint = !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
+
       const response = await fetch("/api/flow/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1477,7 +1480,8 @@ export default function WorkflowProductPage() {
           edges: graph.edges || [],
           inputs: processedInputs,
           userApiKeys: {},
-          isDemo: !isDemoModeActive,
+          isDemo: !userId && !isDemoModeActive,
+          deviceFingerprint,
           adminDemoToken: isDemoModeActive && listing?.demo_token ? listing.demo_token : undefined,
         }),
       });
@@ -2152,9 +2156,9 @@ export default function WorkflowProductPage() {
                 )}
               </div>
 
-              {/* Mobile: Try demo only after purchase; Report */}
+              {/* Mobile: Try demo - available to anyone (anonymous + logged in) */}
               <div className="sm:hidden mt-4 flex flex-col gap-2">
-                {listing && isOwned && (
+                {listing && (
                   <button
                     type="button"
                     onClick={handleDemoButtonClick}
@@ -2449,8 +2453,8 @@ export default function WorkflowProductPage() {
                         : primaryCtaLabel}
                     </button>
 
-                    {/* Try a one-time demo - only after purchase */}
-                    {listing && isOwned && (
+                    {/* Try demo - available to anyone (anonymous + logged in) */}
+                    {listing && (
                       <button
                         type="button"
                         onClick={handleDemoButtonClick}

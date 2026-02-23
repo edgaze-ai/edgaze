@@ -349,6 +349,19 @@ function CinematicRunView({
   return (
     <div className={cx("flex flex-col items-center px-6 py-12 max-w-xl mx-auto", isStopping && "cinematic-reduce-motion")}>
       <div className="text-center mb-14">
+        {!isStopping && (
+          <div className="flex justify-center mb-6">
+            <div className="relative">
+              <div
+                className="absolute inset-0 rounded-full opacity-40 blur-xl"
+                style={{
+                  background: "radial-gradient(circle, rgba(56,189,248,0.2) 0%, rgba(99,102,241,0.15) 50%, transparent 70%)",
+                }}
+              />
+              <div className="relative w-10 h-10 rounded-full border-2 border-white/10 border-t-white/40 cinematic-spinner" />
+            </div>
+          </div>
+        )}
         <div className="text-2xl font-medium text-white/95 mb-3 transition-opacity duration-300">
           {isStopping ? "Stopping…" : verbLine}
         </div>
@@ -1188,6 +1201,7 @@ export default function PremiumWorkflowRunModal({
   workflowId,
   isBuilderTest,
   builderRunLimit,
+  requiresApiKeys,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1200,6 +1214,7 @@ export default function PremiumWorkflowRunModal({
   workflowId?: string;
   isBuilderTest?: boolean;
   builderRunLimit?: BuilderRunLimit;
+  requiresApiKeys?: string[];
 }) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const logEndRef = useRef<HTMLDivElement | null>(null);
@@ -1295,13 +1310,13 @@ export default function PremiumWorkflowRunModal({
   const handleInputSubmit = () => {
     if (!onSubmitInputs) return;
     const payload = { ...inputValues };
-    if (isBuilderTest && openaiApiKey.trim()) {
+    if (openaiApiKey.trim() && (isBuilderTest || requiresApiKeys?.length)) {
       payload.__openaiApiKey = openaiApiKey.trim();
     }
     onSubmitInputs(payload);
   };
 
-  const needsApiKey = isBuilderTest && (builderRunLimit?.used ?? 0) >= (builderRunLimit?.limit ?? 10);
+  const needsApiKey = (isBuilderTest && (builderRunLimit?.used ?? 0) >= (builderRunLimit?.limit ?? 10)) || (requiresApiKeys && requiresApiKeys.length > 0);
   const canSubmitBuilder = !needsApiKey || (needsApiKey && openaiApiKey.trim().length > 0);
 
   const handleCopyOutput = (value: any, index: number) => {
@@ -1575,7 +1590,7 @@ export default function PremiumWorkflowRunModal({
 
           {/* Body - Phase-based content */}
           <div className="flex-1 overflow-hidden">
-            {!isLoading && state?.phase === "input" && state?.inputs && (
+            {!isLoading && state?.phase === "input" && (state?.inputs?.length ? true : requiresApiKeys?.length) && (
               <div className="h-full overflow-auto px-6 py-8">
                 <div className="max-w-2xl mx-auto space-y-7">
                   <div className="text-center mb-8">
@@ -1586,21 +1601,25 @@ export default function PremiumWorkflowRunModal({
                     <p className="text-sm text-white/60 leading-relaxed">Provide the required information to run this workflow</p>
                   </div>
 
-                  {isBuilderTest && builderRunLimit != null && needsApiKey && (
+                  {((isBuilderTest && builderRunLimit != null) || requiresApiKeys?.length) && needsApiKey && (
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm">
                       <div className="flex items-center justify-between mb-3">
                         <label className="block text-sm font-semibold text-white/90">
                           OpenAI API key
                           <span className="text-red-400 ml-1.5">*</span>
                         </label>
-                        {builderRunLimit.isAdmin ? (
+                        {builderRunLimit?.isAdmin ? (
                           <span className="text-xs text-amber-300 font-medium">Admin</span>
-                        ) : (
+                        ) : builderRunLimit ? (
                           <span className="text-xs text-white/50">Runs {builderRunLimit.used}/{builderRunLimit.limit}</span>
+                        ) : (
+                          <span className="text-xs text-white/50">Free runs used</span>
                         )}
                       </div>
                       <p className="text-xs text-white/50 mb-4 leading-relaxed">
-                        Free runs use gpt-4o-mini (5k tokens). With your key, the model you chose in the inspector is used (Premium). Stored locally.
+                        {requiresApiKeys?.length
+                          ? "You've used your 10 free runs for this workflow. Add your OpenAI API key to continue running."
+                          : "Free runs use gpt-4o-mini (5k tokens). With your key, the model you chose in the inspector is used (Premium). Stored locally."}
                       </p>
                       <input
                         type="password"
@@ -1613,7 +1632,7 @@ export default function PremiumWorkflowRunModal({
                     </div>
                   )}
 
-                  {isBuilderTest && builderRunLimit != null && !needsApiKey && (
+                  {isBuilderTest && builderRunLimit != null && !needsApiKey && !requiresApiKeys?.length && (
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-white/90">Free Runs Remaining</span>
@@ -1640,7 +1659,7 @@ export default function PremiumWorkflowRunModal({
                   )}
 
                   <div className="space-y-5">
-                    {state.inputs.map((input) => (
+                    {(state.inputs ?? []).map((input) => (
                       <div key={input.nodeId} className="rounded-xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm">
                         <label className="block text-sm font-semibold text-white/90 mb-2">
                           {input.name}
@@ -1653,7 +1672,7 @@ export default function PremiumWorkflowRunModal({
                         <WorkflowInputField
                           input={input}
                           value={inputValues[input.nodeId]}
-                          onChange={(value) => setInputValues({ ...inputValues, [input.nodeId]: value })}
+                          onChange={(value) => setInputValues((prev) => ({ ...prev, [input.nodeId]: value }))}
                         />
                       </div>
                     ))}
@@ -1663,13 +1682,13 @@ export default function PremiumWorkflowRunModal({
                     <button
                       onClick={handleInputSubmit}
                       disabled={
-                        state.inputs.some((i) => i.required && !inputValues[i.nodeId] && !i.defaultValue) ||
+                        (state.inputs ?? []).some((i) => i.required && !inputValues[i.nodeId] && !i.defaultValue) ||
                         !onSubmitInputs ||
-                        (isBuilderTest && !canSubmitBuilder)
+                        !canSubmitBuilder
                       }
                       className={cx(
                         "inline-flex items-center gap-2 rounded-xl border border-white/15 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] transition-all duration-200",
-                        (state.inputs.some((i) => i.required && !inputValues[i.nodeId] && !i.defaultValue) ||
+                        ((state.inputs ?? []).some((i) => i.required && !inputValues[i.nodeId] && !i.defaultValue) ||
                           !onSubmitInputs ||
                           (isBuilderTest && !canSubmitBuilder)) &&
                           "opacity-50 cursor-not-allowed"

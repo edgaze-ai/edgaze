@@ -1,155 +1,370 @@
 "use client";
 
-import { memo, useState } from "react";
-import { Handle, Position, type NodeProps } from "reactflow";
-import { getNodeSpec } from "src/nodes/registry";
+import { memo } from "react";
+import { Handle, Position, type NodeProps, useStore } from "reactflow";
+import { GitBranch } from "lucide-react";
 
-function SelectionRing() {
-  return (
-    <div
-      className="pointer-events-none absolute -inset-[7px] rounded-[18px]"
-      style={{
-        background: "linear-gradient(120deg, rgba(56,189,248,0.95), rgba(244,114,182,0.95))",
-        padding: 2.5,
-        WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
-        WebkitMaskComposite: "xor",
-        maskComposite: "exclude",
-        boxShadow: "0 0 26px rgba(56,189,248,0.33), 0 0 26px rgba(244,114,182,0.33)",
-      }}
-    />
-  );
+function getConditionLabel(config: { operator?: string; compareValue?: string; humanCondition?: string }): string {
+  const operator = config?.operator || "truthy";
+  const compareValue = String(config?.compareValue ?? "").slice(0, 30);
+  if (String(config?.humanCondition ?? "").trim()) {
+    return String(config.humanCondition).trim().slice(0, 40) + (String(config.humanCondition).length > 40 ? "…" : "");
+  }
+  switch (operator) {
+    case "truthy":
+      return "is truthy";
+    case "falsy":
+      return "is falsy";
+    case "equals":
+      return `equals "${compareValue}"`;
+    case "notEquals":
+      return `does not equal "${compareValue}"`;
+    case "gt":
+      return `> ${compareValue}`;
+    case "lt":
+      return `< ${compareValue}`;
+    default:
+      return compareValue || "No condition set";
+  }
 }
 
 function ConditionNodeImpl(props: NodeProps) {
   const { id, selected, data } = props as any;
-  const spec = getNodeSpec(data?.specId);
   const config = data?.config ?? {};
-  const operator = config.operator || "truthy";
-  const compareValue = config.compareValue ?? "";
+  const conditionLabel = getConditionLabel(config);
 
-  const [hoveredOutput, setHoveredOutput] = useState<"true" | "false" | null>(null);
+  const edges = useStore((s) => s.edges);
+  const isHandleConnected = (handleId: string, isSource: boolean) =>
+    isSource
+      ? edges.some((e) => e.source === id && (e.sourceHandle == null || e.sourceHandle === handleId))
+      : edges.some((e) => e.target === id && (e.targetHandle == null || e.targetHandle === handleId));
 
-  // Safe display value (truncate user input, React will escape)
-  const safeCompare = String(compareValue ?? "").slice(0, 30);
-
-  // Triangle dimensions
-  const triangleSize = 120;
-  const triangleHeight = triangleSize * 0.866; // Equilateral triangle height
+  const trueConnected = isHandleConnected("true", true);
+  const falseConnected = isHandleConnected("false", true);
+  const TRUE_COLOR = "#22c55e";
+  const FALSE_COLOR = "#ef4444";
+  const AMBER = "#f59e0b";
 
   return (
-    <div className="relative" data-nodeid={id} style={{ width: `${triangleSize}px`, height: `${triangleHeight}px` }}>
-      {selected && <SelectionRing />}
+    <div
+      className="relative"
+      data-nodeid={id}
+      style={{
+        width: 300,
+        background: "#161616",
+        border: `1px solid ${selected ? AMBER : "#2a2a2a"}`,
+        borderRadius: 8,
+        boxShadow: selected
+          ? "0 0 0 1px rgba(245,158,11,0.25), 0 6px 28px rgba(0,0,0,0.6)"
+          : "0 4px 20px rgba(0,0,0,0.55), 0 1px 4px rgba(0,0,0,0.4)",
+        overflow: "visible",
+        position: "relative",
+        transition: "border-color 150ms, box-shadow 150ms",
+      }}
+    >
+      {/* Left accent bar — gradient amber to red */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          background: "linear-gradient(180deg, #f59e0b 0%, #ef4444 100%)",
+          borderRadius: "8px 0 0 8px",
+          zIndex: 2,
+          pointerEvents: "none",
+        }}
+      />
 
-      {/* Triangle shape - pointing right */}
-      <svg
-        className="absolute inset-0 pointer-events-none"
-        width={triangleSize}
-        height={triangleHeight}
-        viewBox={`0 0 ${triangleSize} ${triangleHeight}`}
-        style={{ overflow: "visible" }}
+      {/* Node header */}
+      <div
+        style={{
+          height: 42,
+          background: "#1e1e1e",
+          borderBottom: "1px solid #242424",
+          borderRadius: "8px 8px 0 0",
+          padding: "0 12px 0 14px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+        }}
       >
-        {/* Triangle path: left corner (input), top-right (true), bottom-right (false) */}
-        <polygon
-          points={`0,${triangleHeight / 2} ${triangleSize},0 ${triangleSize},${triangleHeight}`}
-          fill="rgba(20, 20, 24, 0.95)"
-          stroke="rgba(255, 255, 255, 0.15)"
-          strokeWidth="1.5"
+        <div
+          style={{
+            width: 26,
+            height: 26,
+            background: "rgba(245,158,11,0.12)",
+            border: "1px solid rgba(245,158,11,0.22)",
+            borderRadius: 5,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <GitBranch size={14} color={AMBER} />
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 500, color: "#e2e2e2", flex: 1 }}>Condition</span>
+        <span
+          style={{
+            fontSize: 9,
+            color: "#333",
+            background: "#111",
+            border: "1px solid #1e1e1e",
+            borderRadius: 999,
+            padding: "2px 6px",
+          }}
+        >
+          v1.0.0
+        </span>
+        <div
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: "#252525",
+            border: "1px solid #2e2e2e",
+            flexShrink: 0,
+          }}
         />
-        {/* Gradient overlay */}
-        <defs>
-          <linearGradient id={`condition-triangle-${id}`} x1="0%" y1="0%" x2="100%" y2="50%">
-            <stop offset="0%" stopColor="rgba(34, 211, 238, 0.15)" />
-            <stop offset="50%" stopColor="rgba(168, 85, 247, 0.15)" />
-            <stop offset="100%" stopColor="rgba(236, 72, 153, 0.15)" />
-          </linearGradient>
-        </defs>
-        <polygon
-          points={`0,${triangleHeight / 2} ${triangleSize},0 ${triangleSize},${triangleHeight}`}
-          fill={`url(#condition-triangle-${id})`}
-          opacity="0.6"
-        />
-      </svg>
+      </div>
 
-      {/* Condition text in center - plain text only, no dangerouslySetInnerHTML */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="text-center px-2">
-          <div className="text-[10px] font-semibold text-white/90 mb-0.5">If value</div>
-          <div className="text-[9px] text-white/70">
-            {operator === "truthy" && "is truthy"}
-            {operator === "falsy" && "is falsy"}
-            {operator === "equals" && <>equals &quot;{safeCompare}&quot;</>}
-            {operator === "notEquals" && <>does not equal &quot;{safeCompare}&quot;</>}
-            {operator === "gt" && <>{">"} {safeCompare}</>}
-            {operator === "lt" && <>{"<"} {safeCompare}</>}
-            {!["truthy", "falsy", "equals", "notEquals", "gt", "lt"].includes(operator) && safeCompare}
+      {/* Node body — extra right padding to avoid overlap with handle labels */}
+      <div style={{ padding: "10px 44px 10px 14px", background: "#161616" }}>
+        {/* Condition preview */}
+        <div>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: AMBER }}>IF</div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 500,
+              color: conditionLabel === "No condition set" ? "#444" : "#e0e0e0",
+              fontStyle: conditionLabel === "No condition set" ? "italic" : "normal",
+              marginTop: 2,
+            }}
+          >
+            {conditionLabel === "No condition set" ? (
+              <span style={{ fontSize: 11 }}>No condition set</span>
+            ) : (
+              conditionLabel
+            )}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, background: "#1e1e1e", margin: "8px 0" }} />
+
+        {/* Output preview rows */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+            <div
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: TRUE_COLOR,
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontSize: 10, fontWeight: 500, color: TRUE_COLOR, flexShrink: 0 }}>True →</span>
+            <span
+              style={{
+                fontSize: 10,
+                color: "#444",
+                flex: 1,
+                minWidth: 0,
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+              }}
+            >
+              continue if condition passes
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+            <div
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: FALSE_COLOR,
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontSize: 10, fontWeight: 500, color: FALSE_COLOR, flexShrink: 0 }}>False →</span>
+            <span
+              style={{
+                fontSize: 10,
+                color: "#444",
+                flex: 1,
+                minWidth: 0,
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+              }}
+            >
+              continue if condition fails
+            </span>
           </div>
         </div>
       </div>
 
-      {/* True output (top-right corner) - Green */}
+      {/* Node footer */}
       <div
-        className="absolute"
         style={{
-          top: "0px",
-          right: "0px",
-          transform: "translate(50%, -50%)",
+          height: 24,
+          background: "#121212",
+          borderTop: "1px solid #1c1c1c",
+          borderRadius: "0 0 8px 8px",
+          padding: "0 12px 0 14px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
-        onMouseEnter={() => setHoveredOutput("true")}
-        onMouseLeave={() => setHoveredOutput(null)}
       >
-        <Handle
-          id="true"
-          type="source"
-          position={Position.Right}
-          className="edge-port edge-port--edg !h-4 !w-4 !bg-emerald-500 !border-emerald-400"
-          style={{ right: "-8px", top: "0px" }}
-        />
-        {hoveredOutput === "true" && (
-          <div className="absolute top-6 right-0 whitespace-nowrap bg-emerald-500/90 text-white text-[10px] px-2 py-1 rounded shadow-lg z-50 pointer-events-none">
-            True
-          </div>
-        )}
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontSize: 9,
+            color: "#282828",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
+          #{id.slice(0, 10)}
+        </span>
+        <span style={{ fontSize: 9, color: "#333" }}>—</span>
       </div>
 
-      {/* False output (bottom-right corner) - Red */}
-      <div
-        className="absolute"
-        style={{
-          bottom: "0px",
-          right: "0px",
-          transform: "translate(50%, 50%)",
-        }}
-        onMouseEnter={() => setHoveredOutput("false")}
-        onMouseLeave={() => setHoveredOutput(null)}
-      >
-        <Handle
-          id="false"
-          type="source"
-          position={Position.Right}
-          className="edge-port edge-port--edg !h-4 !w-4 !bg-rose-500 !border-rose-400"
-          style={{ right: "-8px", bottom: "0px" }}
-        />
-        {hoveredOutput === "false" && (
-          <div className="absolute bottom-6 right-0 whitespace-nowrap bg-rose-500/90 text-white text-[10px] px-2 py-1 rounded shadow-lg z-50 pointer-events-none">
-            False
-          </div>
-        )}
-      </div>
-
-      {/* Input handle (left corner, centered) */}
+      {/* Input handle (left, centered) — direct child for React Flow connection detection */}
       <Handle
         id="input"
         type="target"
         position={Position.Left}
-        className="edge-port edge-port--edg !h-4 !w-4"
+        isConnectable
+        className="node-handle-custom"
         style={{
-          left: "-8px",
+          position: "absolute",
+          left: -5,
           top: "50%",
           transform: "translateY(-50%)",
-          padding: '8px',
-          margin: '-8px',
+          width: 10,
+          height: 10,
+          minWidth: 10,
+          minHeight: 10,
+          borderRadius: "50%",
+          background: isHandleConnected("input", false) ? AMBER : "#161616",
+          border: `2px solid ${isHandleConnected("input", false) ? AMBER : "#383838"}`,
+          boxShadow: isHandleConnected("input", false) ? `0 0 5px ${AMBER}44` : "none",
+          padding: 0,
+          margin: 0,
+          cursor: "crosshair",
+          transition: "all 120ms",
+          zIndex: 10,
         }}
       />
+
+      {/* True output handle */}
+      <div
+        style={{
+          position: "absolute",
+          right: 0,
+          top: "62%",
+          transform: "translateY(-50%)",
+          width: 36,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+        }}
+      >
+        <span
+          style={{
+            position: "absolute",
+            right: 14,
+            fontSize: 9,
+            color: TRUE_COLOR,
+            fontWeight: 600,
+            pointerEvents: "none",
+          }}
+        >
+          true
+        </span>
+        <Handle
+          id="true"
+          type="source"
+          position={Position.Right}
+          isConnectable
+          className="node-handle-custom condition-handle-true"
+          style={{
+            right: -5,
+            width: 10,
+            height: 10,
+            minWidth: 10,
+            minHeight: 10,
+            borderRadius: "50%",
+            background: trueConnected ? TRUE_COLOR : "#161616",
+            border: `2px solid ${trueConnected ? TRUE_COLOR : "#22c55e66"}`,
+            boxShadow: trueConnected ? `0 0 5px ${TRUE_COLOR}44` : "none",
+            padding: 0,
+            margin: 0,
+            cursor: "crosshair",
+            transition: "all 120ms",
+            zIndex: 10,
+          }}
+        />
+      </div>
+
+      {/* False output handle */}
+      <div
+        style={{
+          position: "absolute",
+          right: 0,
+          top: "78%",
+          transform: "translateY(-50%)",
+          width: 36,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+        }}
+      >
+        <span
+          style={{
+            position: "absolute",
+            right: 14,
+            fontSize: 9,
+            color: FALSE_COLOR,
+            fontWeight: 600,
+            pointerEvents: "none",
+          }}
+        >
+          false
+        </span>
+        <Handle
+          id="false"
+          type="source"
+          position={Position.Right}
+          isConnectable
+          className="node-handle-custom condition-handle-false"
+          style={{
+            right: -5,
+            width: 10,
+            height: 10,
+            minWidth: 10,
+            minHeight: 10,
+            borderRadius: "50%",
+            background: falseConnected ? FALSE_COLOR : "#161616",
+            border: `2px solid ${falseConnected ? FALSE_COLOR : "#ef444466"}`,
+            boxShadow: falseConnected ? `0 0 5px ${FALSE_COLOR}44` : "none",
+            padding: 0,
+            margin: 0,
+            cursor: "crosshair",
+            transition: "all 120ms",
+            zIndex: 10,
+          }}
+        />
+      </div>
     </div>
   );
 }

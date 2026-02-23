@@ -108,6 +108,6 @@ GRANT EXECUTE ON FUNCTION public.get_user_workflow_run_count(UUID, UUID) TO auth
 GRANT EXECUTE ON FUNCTION public.complete_workflow_run(UUID, TEXT, INTEGER, JSONB, JSONB) TO authenticated;
 GRANT SELECT ON public.workflow_run_counts TO authenticated;
 
--- Step 7: Add comment for documentation
-COMMENT ON FUNCTION public.get_user_workflow_run_count IS 'Returns the count of completed/failed runs for a user and workflow';
-COMMENT ON FUNCTION public.complete_workflow_run IS 'Atomically updates a workflow run to completed or failed status';
+-- Step 7: Add comment for documentation (full signature required when overloads exist)
+COMMENT ON FUNCTION public.get_user_workflow_run_count(UUID, UUID) IS 'Returns the count of completed/failed runs for a user and workflow';
+COMMENT ON FUNCTION public.complete_workflow_run(UUID, TEXT, INTEGER, JSONB, JSONB) IS 'Atomically updates a workflow run to completed or failed status';

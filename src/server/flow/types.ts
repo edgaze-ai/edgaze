@@ -13,6 +13,7 @@ export type GraphEdge = {
   target: string;
   sourceHandle?: string;
   targetHandle?: string;
+  data?: { gating?: string };
 };
 
 export type GraphPayload = {
@@ -34,6 +35,7 @@ export type NodeStatus =
   | "success"
   | "failed"
   | "skipped"
+  | "blocked"
   | "timeout"
   | "retrying";
 
@@ -42,6 +44,7 @@ export type WorkflowStatus =
   | "running"
   | "paused"
   | "completed"
+  | "completed_with_skips"
   | "failed"
   | "cancelled"
   | "timeout";
@@ -82,12 +85,27 @@ export type RunLogEntry = {
   timestamp: number; // ms epoch
 };
 
+export type NodeTrace = {
+  nodeId: string;
+  specId: string;
+  status: string;
+  startMs: number;
+  endMs: number;
+  error?: string;
+  retries: number;
+  tokens?: number;
+  model?: string;
+};
+
 export type RuntimeResult = {
   outputsByNode: Record<string, unknown>;
   finalOutputs: { nodeId: string; value: unknown }[];
   logs: RunLogEntry[];
   nodeStatus: Record<string, NodeStatus>;
   workflowStatus?: WorkflowStatus;
+  blockedNodes?: string[];
+  blockedReasons?: Record<string, string>;
+  nodeTraces?: NodeTrace[];
 };
 
 /** Progress events for live streaming of workflow execution */
