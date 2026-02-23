@@ -3,95 +3,216 @@
 import React from "react";
 import { Handle, Position, NodeProps, useStore } from "reactflow";
 
-/** Edgaze selection ring */
-function SelectionRing() {
-  return (
-    <div
-      className="pointer-events-none absolute -inset-[6px] rounded-[16px]"
-      style={{
-        background:
-          "linear-gradient(90deg, rgba(34,211,238,.95), rgba(232,121,249,.95))",
-        padding: 2.5,
-        WebkitMask:
-          "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
-        WebkitMaskComposite: "xor",
-        maskComposite: "exclude",
-        boxShadow:
-          "0 0 24px rgba(34,211,238,.25), 0 0 24px rgba(232,121,249,.25)",
-      }}
-    />
-  );
-}
+const MERGE_COLOR = "#f59e0b";
+
+const NODE_HEADER = 36;
+const NODE_BODY = 44;
+const NODE_FOOTER = 22;
+const NODE_TOTAL = NODE_HEADER + NODE_BODY + NODE_FOOTER;
 
 export default function MergeNode(props: NodeProps) {
   const { selected, data, id } = props as any;
 
-  // Build "connected to" list from store
-  const { nodeInternals, edges } = useStore((s) => ({
-    nodeInternals: s.nodeInternals,
-    edges: s.edges,
-  }));
+  const { edges } = useStore((s) => ({ edges: s.edges }));
+  const inputCount = edges.filter((e) => e.target === id).length;
+  const handleCount = 3;
 
-  const connectedTo = React.useMemo(() => {
-    const list = edges
-      .filter((e) => e.source === id)
-      .map((e) => {
-        const n = nodeInternals.get(e.target);
-        return (n?.data as any)?.title || n?.id || e.target;
-      });
-    const names = list.slice(0, 4).join(", ");
-    return names + (list.length > 4 ? "…" : "");
-  }, [edges, id, nodeInternals]);
+  const isHandleConnected = (handleId: string, isSource: boolean) =>
+    isSource
+      ? edges.some((e) => e.source === id && (e.sourceHandle == null || e.sourceHandle === handleId))
+      : edges.some((e) => e.target === id && (e.targetHandle == null || e.targetHandle === handleId));
 
   return (
-    <div className="relative min-w-[380px]" data-nodeid={id}>
-      {selected && <SelectionRing />}
+    <div
+      className="relative"
+      data-nodeid={id}
+      style={{
+        width: 220,
+        background: "#141414",
+        border: `1px solid ${selected ? MERGE_COLOR : "#272727"}`,
+        borderRadius: 8,
+        boxShadow: selected
+          ? `0 0 0 1px ${MERGE_COLOR}33, 0 8px 32px rgba(0,0,0,0.65), 0 0 40px ${MERGE_COLOR}08`
+          : "0 4px 16px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.35)",
+        overflow: "visible",
+        position: "relative",
+        transition: "border-color 150ms, box-shadow 150ms",
+      }}
+    >
+      {/* Left accent bar */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 2,
+          background: MERGE_COLOR,
+          borderRadius: "8px 0 0 8px",
+          zIndex: 2,
+          pointerEvents: "none",
+        }}
+      />
 
-      <div className="edge-card rounded-2xl relative">
-        <div className="edge-card-header">
-          <span className="truncate">Merge</span>
-          <span className="text-[10px] opacity-70">{data?.version ?? "1.0.0"}</span>
+      {/* Header */}
+      <div
+        style={{
+          height: NODE_HEADER,
+          background: "#1c1c1c",
+          borderBottom: "1px solid #222",
+          borderRadius: "8px 8px 0 0",
+          padding: "0 10px 0 12px",
+          display: "flex",
+          alignItems: "center",
+          gap: 7,
+        }}
+      >
+        <div
+          style={{
+            width: 22,
+            height: 22,
+            background: `${MERGE_COLOR}15`,
+            border: `1px solid ${MERGE_COLOR}28`,
+            borderRadius: 5,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <svg
+            width={12}
+            height={12}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={MERGE_COLOR}
+            strokeWidth="2"
+          >
+            <path d="M8 6h8v12H8z" />
+            <path d="M4 12h4" />
+            <path d="M16 12h4" />
+          </svg>
         </div>
-        <div className="edge-card-body">
-          <div className="text-[12px] opacity-85">
-            Combines multiple data streams into one unified output.
-          </div>
-          <div className="mt-2 text-[11px] opacity-70">
-            {connectedTo && connectedTo.trim().length > 0
-              ? `Connected to: ${connectedTo}`
-              : "No outgoing connections yet"}
-          </div>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 500,
+            color: "#d8d8d8",
+            flex: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          Merge
+        </span>
+      </div>
+
+      {/* Body — NO padding for handles, min-height 0 */}
+      <div
+        style={{
+          padding: "8px 10px 8px 12px",
+          background: "#141414",
+          minHeight: 0,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            color: "#525252",
+            fontStyle: "italic",
+            lineHeight: 1.45,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            margin: 0,
+            padding: 0,
+          }}
+        >
+          Merging {inputCount} inputs
         </div>
       </div>
 
-      {/* Four fixed handles with Edgaze accents - positioned using React Flow's built-in positioning */}
+      {/* Footer */}
+      <div
+        style={{
+          height: NODE_FOOTER,
+          background: "#111",
+          borderTop: "1px solid #1c1c1c",
+          borderRadius: "0 0 8px 8px",
+          padding: "0 10px 0 12px",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <span style={{ fontFamily: "monospace", fontSize: 9, color: "#282828" }}>
+          #{id.slice(0, 6)}
+        </span>
+      </div>
+
+      {/* Input handles — absolute on left edge, evenly spaced */}
+      {Array.from({ length: handleCount }, (_, i) => {
+        const handleId = `in-${i + 1}`;
+        const topPx = (NODE_TOTAL / (handleCount + 1)) * (i + 1);
+        const connected = isHandleConnected(handleId, false);
+        return (
+          <Handle
+            key={handleId}
+            id={handleId}
+            type="target"
+            position={Position.Left}
+            isConnectable
+            className="node-handle-custom"
+            style={{
+              position: "absolute",
+              left: -5,
+              top: topPx,
+              transform: "translateY(-50%)",
+              width: 10,
+              height: 10,
+              minWidth: 10,
+              minHeight: 10,
+              borderRadius: "50%",
+              background: connected ? MERGE_COLOR : "#141414",
+              border: `2px solid ${connected ? MERGE_COLOR : "#383838"}`,
+              boxShadow: connected ? `0 0 5px ${MERGE_COLOR}44` : "none",
+              padding: 0,
+              margin: 0,
+              cursor: "crosshair",
+              transition: "all 120ms",
+              zIndex: 10,
+            }}
+          />
+        );
+      })}
+
+      {/* Output handle */}
       <Handle
-        id="in-left"
-        type="target"
-        position={Position.Left}
-        className="edge-port"
-        isConnectable={true}
-      />
-      <Handle
-        id="in-top"
-        type="target"
-        position={Position.Top}
-        className="edge-port"
-        isConnectable={true}
-      />
-      <Handle
-        id="in-bottom"
-        type="target"
-        position={Position.Bottom}
-        className="edge-port"
-        isConnectable={true}
-      />
-      <Handle
-        id="out-right"
+        id="out"
         type="source"
         position={Position.Right}
-        className="edge-port edge-port--edg"
-        isConnectable={true}
+        isConnectable
+        className="node-handle-custom"
+        style={{
+          position: "absolute",
+          right: -5,
+          top: "50%",
+          transform: "translateY(-50%)",
+          width: 10,
+          height: 10,
+          minWidth: 10,
+          minHeight: 10,
+          borderRadius: "50%",
+          background: isHandleConnected("out", true) ? MERGE_COLOR : "#141414",
+          border: `2px solid ${isHandleConnected("out", true) ? MERGE_COLOR : "#383838"}`,
+          boxShadow: isHandleConnected("out", true) ? `0 0 5px ${MERGE_COLOR}44` : "none",
+          padding: 0,
+          margin: 0,
+          cursor: "crosshair",
+          transition: "all 120ms",
+          zIndex: 10,
+        }}
       />
     </div>
   );

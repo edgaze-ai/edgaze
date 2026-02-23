@@ -114,14 +114,13 @@ const CORE_SPECS: NodeSpec[] = [
     version: "1.0.0",
     category: "core",
     summary: "Combines multiple data streams into one unified output.",
-    // Use the dedicated Merge node with four fixed handles (one per side)
     nodeType: "edgMerge",
     icon: "Merge",
     ports: [
-      makePort("in-left", "input"),
-      makePort("in-top", "input"),
-      makePort("in-bottom", "input"),
-      makePort("out-right", "output"),
+      makePort("in-1", "input", "in 1"),
+      makePort("in-2", "input", "in 2"),
+      makePort("in-3", "input", "in 3"),
+      makePort("out", "output", "Data"),
     ],
     defaultConfig: {},
     inspector: [],

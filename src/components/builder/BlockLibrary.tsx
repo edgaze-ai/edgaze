@@ -6,40 +6,7 @@ import { matchNodesFromNaturalLanguage } from "src/nodes/nodeSearch";
 import type { NodeSpec } from "src/nodes/types";
 import { Search, Sparkles, Plus, ExternalLink, X } from "lucide-react";
 
-/* ---------- Compact preview card shown inside each block ---------- */
-const PREVIEW_CARD_WIDTH = 322;
-
-function PreviewCard({
-  spec,
-  onDragStart,
-}: {
-  spec: NodeSpec;
-  onDragStart: (e: React.DragEvent) => void;
-}) {
-  return (
-    <div className="preview-stage edgaze-no-select">
-      <div
-        className="edge-card preview-card overflow-hidden rounded-xl text-[11px] leading-snug"
-        style={{ width: `${PREVIEW_CARD_WIDTH}px` }}
-        draggable
-        onDragStart={onDragStart}
-        title="Drag to canvas"
-        role="button"
-        tabIndex={0}
-      >
-        <div className="edge-card-header px-3 py-1.5 text-[11px]">
-          <span className="truncate">{spec.label}</span>
-          <span className="text-[10px] opacity-70">
-            {spec.version ?? "1.0.0"}
-          </span>
-        </div>
-        <div className="edge-card-body px-3 py-1.5 text-[10px]">
-          <div className="line-clamp-1 opacity-80">{spec.summary}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
+import { NodePreviewCard } from "./NodePreviewCard";
 
 /* ---------- Quick-start pill ---------- */
 function QuickStartItem({
@@ -331,8 +298,8 @@ function BlockLibrary({
                   </span>
                 </div>
 
-                <div className="mt-2">
-                  <PreviewCard spec={spec} onDragStart={onDragStart} />
+                <div className="mt-2 preview-stage rounded-lg py-4 px-3">
+                  <NodePreviewCard spec={spec} onDragStart={onDragStart} />
                 </div>
 
                 <div className="mt-2.5 flex items-center justify-between text-[11px]">
@@ -365,16 +332,17 @@ function BlockLibrary({
 
         .preview-stage {
           width: 100%;
-          padding: 8px;
-          display: grid;
-          place-items: center;
+          display: flex;
+          justify-content: center;
+          align-items: center;
           border-radius: 10px;
           overflow: hidden;
-          background: radial-gradient(
-            transparent 1px,
-            rgba(255, 255, 255, 0.018) 1px
+          background-color: #2a2a2e;
+          background-image: radial-gradient(
+            rgba(255, 255, 255, 0.06) 1px,
+            transparent 1px
           );
-          background-size: 10px 10px;
+          background-size: 12px 12px;
         }
 
         .preview-card {

@@ -667,6 +667,7 @@ export default function BuilderPage() {
 
   const onGraphChange = useCallback(
     (graph: { nodes: any[]; edges: any[] }) => {
+      setStats({ nodes: graph.nodes?.length ?? 0, edges: graph.edges?.length ?? 0 });
       if (isPreview) return;
       latestGraphRef.current = graph;
 
