@@ -1,6 +1,6 @@
 # Architecture
 
-This document provides a comprehensive overview of Edgaze's technical architecture, design patterns, and system components.
+This document provides a comprehensive overview of Edge Platforms, Inc.'s technical architecture, design patterns, and system components.
 
 ---
 

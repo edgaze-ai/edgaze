@@ -25,7 +25,7 @@ All features listed below are experimental and subject to change.
 - Released the initial version of the Edgaze Marketplace for testing and feedback.
 - All marketplace content is **free to access** during beta.
 - Payments, monetization, and financial transactions are **disabled** at this stage.
-- Marketplace listings are user-generated and not verified by Edgaze.
+- Marketplace listings are user-generated and not verified by Edge Platforms.
 - Added basic metadata support for listings (title, description, creator attribution).
 
 ---
@@ -62,7 +62,7 @@ All features listed below are experimental and subject to change.
 ### AI and Automation Disclaimer
 
 - The platform may surface or host AI-generated or AI-assisted content.
-- Edgaze does not validate, endorse, or guarantee the accuracy or safety of AI outputs.
+- Edge Platforms does not validate, endorse, or guarantee the accuracy or safety of AI outputs.
 - Users are responsible for evaluating suitability before use or deployment.
 
 ---

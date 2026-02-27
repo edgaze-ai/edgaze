@@ -1,3 +1,5 @@
+<!-- Edgaze is proprietary software owned and operated by Edge Platforms, Inc., a Delaware C Corporation -->
+
 ## Description
 
 <!-- Provide a clear description of what this PR does and why it's needed -->

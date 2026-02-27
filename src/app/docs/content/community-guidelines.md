@@ -5,11 +5,13 @@ description = "Legally framed standards governing conduct, content, comments, an
 
 1. Purpose and Legal Effect
 
-These Community Guidelines constitute a binding component of Edgaze’s Terms of Service.
+These Community Guidelines constitute a binding component of the Terms of Service for the Edgaze platform (the “Platform”).
+
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
 
 They set forth minimum standards of acceptable conduct, content, and interaction across the Platform.
 
-Failure to comply may result in removal of content, suspension, or termination of access, at Edgaze’s sole discretion.
+Failure to comply may result in removal of content, suspension, or termination of access, at Edge Platforms’ sole discretion.
 
 Participation on Edgaze is conditioned upon compliance with these Guidelines.
 
@@ -50,7 +52,7 @@ You must not create, upload, distribute, promote, or facilitate:
 - Illegal activities or tools that meaningfully facilitate wrongdoing  
 - Content that violates applicable laws or regulations  
 
-Edgaze reserves the right to determine, in its sole discretion, whether content violates this section.
+Edge Platforms reserves the right to determine, in its sole discretion, whether content violates this section.
 
 ---
 
@@ -66,7 +68,7 @@ You must not:
 - Fabricate or manipulate metrics, ratings, or testimonials  
 - Engage in clickbait, bait-and-switch, or misleading monetization practices  
 
-Edgaze may remove misleading or deceptive content without notice.
+Edge Platforms may remove misleading or deceptive content without notice.
 
 ---
 
@@ -80,7 +82,7 @@ You must not:
 - Scrape, harvest, or misuse user data without authorization  
 - Interfere with, disrupt, or degrade Platform operations  
 
-Edgaze reserves the right to take technical and legal action against abuse.
+Edge Platforms reserves the right to take technical and legal action against abuse.
 
 ---
 
@@ -100,7 +102,7 @@ You must not post comments that are:
 
 Constructive criticism is permitted. Harassment is not.
 
-Edgaze may:
+Edge Platforms may:
 - Remove comments at its discretion  
 - Disable commenting on specific workflows or profiles  
 - Suspend or ban users for repeated violations  
@@ -131,13 +133,13 @@ You must ensure:
 - Your workflows do not infringe third-party rights  
 - Your outputs do not facilitate illegal or harmful activity  
 
-Edgaze does not assume liability for creator misconduct.
+Edge Platforms does not assume liability for creator misconduct.
 
 ---
 
 9. Moderation and Enforcement
 
-Edgaze reserves the right, at its sole discretion, to:
+Edge Platforms reserves the right, at its sole discretion, to:
 - Remove any content for any reason  
 - Suspend or terminate accounts  
 - Restrict access to features or monetization  
@@ -173,7 +175,7 @@ In the event of conflict, the Terms of Service shall prevail.
 
 12. Amendments
 
-Edgaze may update these Guidelines at any time.
+Edge Platforms may update these Guidelines at any time.
 
 Changes take effect immediately upon publication. Continued use of the Platform constitutes acceptance.
 

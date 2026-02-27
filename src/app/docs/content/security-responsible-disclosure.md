@@ -7,6 +7,9 @@ description = "Guidelines for reporting security vulnerabilities and bugs affect
 
 This Security and Responsible Disclosure Policy (“Policy”) outlines how security vulnerabilities, potential security issues, or bugs related to the Edgaze platform (the “Platform”) may be reported.
 
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
+
 This Policy is intended to:
 - Encourage responsible disclosure of issues
 - Centralize reporting through approved channels
@@ -21,10 +24,10 @@ Edgaze is not obligated to implement, maintain, or operate a formal security or 
 
 This Policy applies to:
 - The Edgaze platform and associated services
-- Infrastructure, APIs, and interfaces operated by Edgaze
+- Infrastructure, APIs, and interfaces operated by Edge Platforms
 - Bugs, errors, vulnerabilities, or unexpected behavior discovered during normal, lawful use of the Platform
 
-This Policy does not apply to third-party services or dependencies not controlled by Edgaze.
+This Policy does not apply to third-party services or dependencies not controlled by Edge Platforms.
 
 ---
 
@@ -51,15 +54,15 @@ When reporting an issue, you agree to:
 - Avoid exploiting the issue
 - Avoid accessing, modifying, or extracting data beyond what is necessary to demonstrate the issue
 - Avoid disrupting the Platform or other users
-- Avoid public disclosure of the issue prior to Edgaze addressing it, if at all
+- Avoid public disclosure of the issue prior to Edge Platforms, Inc. addressing it, if at all
 
-Edgaze does not consent to testing or reporting methods that violate applicable law, the Terms of Service, or other platform policies.
+Edge Platforms does not consent to testing or reporting methods that violate applicable law, the Terms of Service, or other platform policies.
 
 ---
 
 5. No Bug Bounty or Compensation
 
-Edgaze does not offer:
+Edge Platforms does not offer:
 - Bug bounties
 - Monetary rewards
 - Credits, discounts, or benefits
@@ -71,7 +74,7 @@ Submission of a report does not create any entitlement, contract, or obligation.
 
 6. No Guarantee of Response or Remediation
 
-Edgaze makes no guarantees regarding:
+Edge Platforms makes no guarantees regarding:
 - Acknowledgment of reports
 - Response time
 - Investigation, validation, or prioritization
@@ -95,7 +98,7 @@ Unauthorized testing or probing may violate applicable law and platform policies
 
 8. Limitation of Liability
 
-To the maximum extent permitted by law, Edgaze shall not be liable for:
+To the maximum extent permitted by law, Edge Platforms shall not be liable for:
 - Actions taken or not taken in response to reports
 - Delays or failures in addressing reported issues
 - Any damages arising from disclosure, non-disclosure, or reliance on communications
@@ -107,7 +110,7 @@ Your sole remedy is to discontinue use of the Platform.
 
 9. Reservation of Rights
 
-Edgaze reserves the right to:
+Edge Platforms reserves the right to:
 - Investigate or decline to investigate reported issues
 - Remove content or restrict accounts where necessary
 - Take legal or technical action to protect the Platform

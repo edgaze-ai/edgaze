@@ -1,5 +1,8 @@
 # Supabase Setup for Builder Test Run Tracking
 
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
+
 ## Run this SQL in Supabase SQL Editor
 
 ```sql

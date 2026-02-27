@@ -32,7 +32,7 @@ function safeTrack(event: string, props?: Record<string, any>) {
   } catch {}
 }
 
-type Selection = { nodeId: string | null; specId?: string; config?: any };
+type Selection = { nodeId: string | null; nodeIds?: string[]; specId?: string; config?: any };
 
 type WindowKind = "blocks" | "inspector";
 type WindowState = {
@@ -611,6 +611,7 @@ export default function BuilderPage() {
     if (!mounted || isPreview) return;
 
     const handler = (e: KeyboardEvent) => {
+      if (!e.key) return;
       const key = e.key.toLowerCase();
       const meta = e.metaKey || e.ctrlKey;
       const shift = e.shiftKey;
@@ -721,7 +722,13 @@ export default function BuilderPage() {
     (sel: any) => {
       if (isPreview) return;
       setInspectorFieldHint(null);
-      // Always get the latest config from the graph to ensure we have the most up-to-date values
+      // Multi-select (marquee): show "select one at a time" in inspector
+      const nodeIds = Array.isArray(sel?.nodeIds) ? sel.nodeIds : undefined;
+      if (nodeIds?.length > 1) {
+        setSelection({ nodeId: null, nodeIds });
+        return;
+      }
+      // Single node or edge: use nodeId as before
       const nodeId = typeof sel?.nodeId === "string" ? sel.nodeId : null;
       if (nodeId) {
         const graph = beRef.current?.getGraph?.();
@@ -734,6 +741,7 @@ export default function BuilderPage() {
       } else {
         setSelection({
           nodeId: null,
+          nodeIds: undefined,
           specId: undefined,
           config: undefined,
         });

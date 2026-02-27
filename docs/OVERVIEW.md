@@ -2,6 +2,8 @@
 
 This document outlines the technical posture and standards behind Edgaze. It is intended for engineers and maintainers.
 
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
 ---
 
 ## Principles

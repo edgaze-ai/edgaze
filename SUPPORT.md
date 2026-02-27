@@ -1,6 +1,6 @@
 # Support
 
-Edgaze is a **closed-source, proprietary platform**. Support is provided through **internal channels only**.
+Edgaze is a **closed-source, proprietary platform** owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation. Support is provided through **internal channels only**.
 
 ---
 

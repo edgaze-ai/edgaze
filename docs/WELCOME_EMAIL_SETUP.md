@@ -1,5 +1,8 @@
 # Welcome Email Setup
 
+
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
 Edgaze automatically sends a premium welcome email to new users—**only after they’ve completed sign-up**. For **email/password** users, the email is sent after they confirm their email (click the confirm link). For **Google OAuth** users, it’s sent on first sign-in when the account is created. The email is sent via Resend from a Supabase Edge Function.
 
 ## How it works

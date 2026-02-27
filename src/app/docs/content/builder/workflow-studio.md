@@ -3,6 +3,9 @@ description = "Complete guide to building AI workflows with Workflow Studio"
 
 # Workflow Studio Guide
 
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
+
 Workflow Studio is a powerful visual tool for building sophisticated AI workflows. You connect different blocks (called "nodes") together to create complex AI processes that can handle multiple steps, conditions, data transformations, API calls, and much more. This comprehensive guide will teach you everything you need to know to become a master workflow builder.
 
 ## What is a Workflow?

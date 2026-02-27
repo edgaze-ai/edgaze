@@ -7,7 +7,10 @@ description = "Procedure for reporting copyright and intellectual property infri
 
 This DMCA and Intellectual Property Takedown Policy (“Policy”) outlines the process for submitting notices of alleged copyright or intellectual property infringement in connection with content hosted on the Edgaze platform (the “Platform”).
 
-Edgaze operates as a neutral intermediary and hosting provider and does not actively monitor or pre-screen user-generated content.
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
+
+Edge Platforms operates as a neutral intermediary and hosting provider and does not actively monitor or pre-screen user-generated content.
 
 ---
 
@@ -28,7 +31,7 @@ This Policy supplements the Terms of Service and Acceptable Use Policy.
 
 Users are solely responsible for ensuring that content they upload, publish, or distribute does not infringe the intellectual property rights of any third party.
 
-Edgaze does not guarantee the accuracy, legality, or ownership status of user-generated content.
+Edge Platforms does not guarantee the accuracy, legality, or ownership status of user-generated content.
 
 ---
 
@@ -54,19 +57,19 @@ Takedown notices must be submitted via email to:
 
 support@edgaze.ai
 
-Edgaze does not accept notices submitted through other channels.
+Edge Platforms does not accept notices submitted through other channels.
 
 ---
 
 6. Review and Action
 
-Upon receipt of a valid notice, Edgaze may, at its sole discretion:
+Upon receipt of a valid notice, Edge Platforms may, at its sole discretion:
 - Remove or disable access to the allegedly infringing content
 - Restrict or suspend the associated user account
 - Request additional information
 - Take no action if the notice is invalid or legally insufficient
 
-Edgaze makes no guarantees regarding timing, outcome, or specific actions taken.
+Edge Platforms makes no guarantees regarding timing, outcome, or specific actions taken.
 
 ---
 
@@ -74,13 +77,13 @@ Edgaze makes no guarantees regarding timing, outcome, or specific actions taken.
 
 Where applicable, a user whose content has been removed may submit a counter-notification in accordance with applicable law.
 
-Edgaze reserves the right to determine whether a counter-notification is legally sufficient and whether to restore content.
+Edge Platforms reserves the right to determine whether a counter-notification is legally sufficient and whether to restore content.
 
 ---
 
 8. Repeat Infringers
 
-Edgaze may, at its sole discretion:
+Edge Platforms may, at its sole discretion:
 - Terminate accounts of users deemed to be repeat infringers
 - Restrict future access or publishing privileges
 
@@ -92,13 +95,13 @@ No specific threshold or enforcement timeline is guaranteed.
 
 Submitting false or misleading takedown notices or counter-notifications may result in liability under applicable law.
 
-Edgaze reserves the right to take action against parties who abuse the takedown process.
+Edge Platforms reserves the right to take action against parties who abuse the takedown process.
 
 ---
 
 10. No Obligation to Monitor
 
-Edgaze:
+Edge Platforms:
 - Does not actively monitor content for infringement
 - Does not guarantee detection of infringing material
 - Is not obligated to proactively enforce intellectual property rights
@@ -107,7 +110,7 @@ Edgaze:
 
 11. Limitation of Liability
 
-To the maximum extent permitted by law, Edgaze shall not be liable for:
+To the maximum extent permitted by law, Edge Platforms shall not be liable for:
 - Removal or non-removal of content
 - Delays in processing notices
 - Actions taken in response to takedown requests

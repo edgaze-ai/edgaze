@@ -8,6 +8,7 @@ import { getNodeSpec } from "src/nodes/registry";
 /* -------------------- Types -------------------- */
 type Selection = {
   nodeId: string | null;
+  nodeIds?: string[];
   specId?: string;
   config?: any;
 };
@@ -650,6 +651,7 @@ export default function InspectorPanel({
   const safeSelection: Selection = useMemo(() => {
     const base = {
       nodeId: selection?.nodeId ?? null,
+      nodeIds: selection?.nodeIds,
       specId: selection?.specId,
       config: selection?.config,
     };
@@ -667,9 +669,10 @@ export default function InspectorPanel({
     }
 
     return base;
-  }, [selection?.nodeId, selection?.specId, selection?.config, getLatestGraph]);
+  }, [selection?.nodeId, selection?.nodeIds, selection?.specId, selection?.config, getLatestGraph]);
 
   const selected = Boolean(safeSelection.nodeId);
+  const multiSelected = Array.isArray(safeSelection.nodeIds) && safeSelection.nodeIds.length > 1;
   const [tab, setTab] = useState<TabKey>("general");
 
   // When selection changes, keep UX predictable
@@ -741,7 +744,20 @@ export default function InspectorPanel({
 
       {/* Scroll area (this fixes the “scrolling not working inside inspector” bug) */}
       <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden px-4 pb-4 overscroll-contain">
-        {!selected && (
+        {multiSelected && (
+          <div className="pt-6 text-center">
+            <div className="mx-auto h-12 w-12 rounded-full bg-white/[0.04] border border-white/[0.06] grid place-items-center">
+              <Eye size={20} className="text-white/40" />
+            </div>
+            <div className="mt-3 text-[12px] text-white/70">
+              Select one at a time
+            </div>
+            <div className="mt-1 text-[10px] text-white/40">
+              {safeSelection.nodeIds?.length ?? 0} blocks selected. Click a single block to inspect it.
+            </div>
+          </div>
+        )}
+        {!selected && !multiSelected && (
           <div className="pt-6 text-center">
             <div className="mx-auto h-12 w-12 rounded-full bg-white/[0.04] border border-white/[0.06] grid place-items-center">
               <Eye size={20} className="text-white/40" />

@@ -2,6 +2,8 @@
 
 Get Edgaze running locally in under 10 minutes. This guide walks you through the essential steps to set up your development environment.
 
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
 ---
 
 ## Prerequisites checklist

@@ -6,6 +6,9 @@ labels: bug
 assignees: ''
 ---
 
+
+<!-- Edgaze is proprietary software owned and operated by Edge Platforms, Inc., a Delaware C Corporation -->
+
 ## Bug description
 
 <!-- Provide a clear and concise description of the bug -->
