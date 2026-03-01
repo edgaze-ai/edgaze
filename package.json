@@ -31,9 +31,12 @@
         "db:reset": "npx supabase db reset"
     },
     "dependencies": {
+        "@stripe/stripe-js": "^8.8.0",
         "@supabase/ssr": "^0.8.0",
         "@supabase/supabase-js": "^2.84.0",
+        "@types/canvas-confetti": "^1.9.0",
         "@vercel/analytics": "^1.6.1",
+        "canvas-confetti": "^1.9.4",
         "clsx": "^2.1.1",
         "framer-motion": "^12.23.24",
         "lucide-react": "^0.452.0",
@@ -44,7 +47,8 @@
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
         "react-resizable-panels": "^3.0.6",
-        "reactflow": "^11.11.4"
+        "reactflow": "^11.11.4",
+        "stripe": "^20.4.0"
     },
     "devDependencies": {
         "@types/node": "^20.14.12",
