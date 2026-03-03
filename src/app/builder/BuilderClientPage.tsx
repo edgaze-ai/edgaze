@@ -25,6 +25,7 @@ import { cx } from "../../lib/cx";
 import { emit, on } from "../../lib/bus";
 import { track } from "../../lib/mixpanel";
 import { getQuickStartTemplate } from "../../lib/quickStartTemplates";
+import { getDocsLink } from "../../lib/docs-link";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -75,9 +76,16 @@ function normalizeGraph(raw: any): { nodes: any[]; edges: any[] } {
       return { nodes: [], edges: [] };
     }
   }
+  // Backwards compat: unwrap nested graph (e.g. { graph: { nodes, edges } })
+  const g =
+    raw?.graph && (Array.isArray(raw.graph.nodes) || Array.isArray(raw.graph.edges) || Array.isArray(raw.graph.connections))
+      ? raw.graph
+      : raw;
+  // Support both "edges" and "connections" (legacy alias)
+  const edges = Array.isArray(g.edges) ? g.edges : Array.isArray(g.connections) ? g.connections : [];
   return {
-    nodes: Array.isArray(raw.nodes) ? raw.nodes : [],
-    edges: Array.isArray(raw.edges) ? raw.edges : [],
+    nodes: Array.isArray(g.nodes) ? g.nodes : [],
+    edges,
   };
 }
 
@@ -2195,7 +2203,7 @@ export default function BuilderPage() {
 
             <div className="flex items-center gap-2 flex-shrink-0">
               <Link
-                href="/docs/builder/workflow-studio"
+                href={getDocsLink("/docs/builder/workflow-studio")}
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors"
                 title="Documentation"
               >

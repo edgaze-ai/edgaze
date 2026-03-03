@@ -163,12 +163,43 @@ function normalizeGraph(
       ? g0.graph
       : g0;
 
-  const nodes = Array.isArray(g?.nodes) ? (g.nodes as Node<EdgazeNodeData>[]) : [];
-  const nodeIds = new Set(nodes.map((n) => n.id));
-  const edges = (Array.isArray(g?.edges) ? (g.edges as Edge[]) : []).filter(
-    (e: Edge) => nodeIds.has(e.source) && nodeIds.has(e.target)
-  );
+  const rawNodes = Array.isArray(g?.nodes) ? (g.nodes as Node<EdgazeNodeData>[]) : [];
+  // Normalize node IDs to strings for backwards compat (legacy data may have numeric IDs)
+  const nodes = rawNodes.map((n) => {
+    if (n?.id != null && typeof n.id !== "string") {
+      return { ...n, id: String(n.id) };
+    }
+    return n;
+  });
 
+  // Support both "edges" and "connections" (legacy alias)
+  const rawEdges = Array.isArray(g?.edges)
+    ? (g.edges as Edge[])
+    : Array.isArray(g?.connections)
+      ? (g.connections as Edge[])
+      : [];
+  // Normalize edges: support source/target, sourceId/targetId, sourceNode/targetNode; coerce IDs to strings
+  const edges = rawEdges
+    .map((e: any) => {
+      const src = e?.source ?? e?.sourceId ?? e?.sourceNode?.id ?? e?.sourceNode;
+      const tgt = e?.target ?? e?.targetId ?? e?.targetNode?.id ?? e?.targetNode;
+      const srcId = src != null ? (typeof src === "string" ? src : (src as any)?.id ?? String(src)) : null;
+      const tgtId = tgt != null ? (typeof tgt === "string" ? tgt : (tgt as any)?.id ?? String(tgt)) : null;
+      if (srcId == null || tgtId == null) return null;
+      const sh = e?.sourceHandle ?? "";
+      const th = e?.targetHandle ?? "";
+      const suffix = sh || th ? `-${sh}-${th}` : "";
+      return {
+        ...e,
+        id: e?.id ?? `e-${String(srcId)}-${String(tgtId)}${suffix}`,
+        source: String(srcId),
+        target: String(tgtId),
+      };
+    })
+    .filter((e): e is Edge => e != null);
+  // Do NOT filter by nodeIds - pass all edges through. React Flow renders only edges whose
+  // source/target nodes exist; orphan edges are ignored. Filtering here caused valid connections
+  // to disappear (e.g. type coercion 1 vs "1", or different graph shapes).
   return { nodes, edges };
 }
 

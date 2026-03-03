@@ -906,12 +906,12 @@ export default function WorkflowProductPage() {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const [purchaseSuccessOpen, setPurchaseSuccessOpen] = useState(false);
-  
+
   // Demo run state
   const [demoRunModalOpen, setDemoRunModalOpen] = useState(false);
   const [demoRunState, setDemoRunState] = useState<WorkflowRunState | null>(null);
   const [demoRunning, setDemoRunning] = useState(false);
-  
+
   // Turnstile verification for demo
   const [turnstileModalOpen, setTurnstileModalOpen] = useState(false);
   const [turnstileVerifying, setTurnstileVerifying] = useState(false);
@@ -1191,23 +1191,23 @@ export default function WorkflowProductPage() {
   useEffect(() => {
     if (!userId || !listing) return;
     if (autoActionTriggeredRef.current) return;
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const action = urlParams.get("action");
-    
+
     if (action === "purchase") {
       autoActionTriggeredRef.current = true;
-      
+
       // Remove action param from URL immediately to prevent duplicate triggers
       urlParams.delete("action");
       const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "");
       window.history.replaceState({}, "", newUrl);
-      
+
       // Wait a bit for purchase state to load, then trigger
       const timer = setTimeout(() => {
         grantAccessOrOpen();
       }, 300);
-      
+
       return () => clearTimeout(timer);
     }
     return;
@@ -1239,7 +1239,7 @@ export default function WorkflowProductPage() {
       setPurchaseLoading(true);
       try {
         const uid = userId!;
-        
+
         // Check if purchase already exists (might have been created during redirect)
         const existing = await loadPurchaseRow(listing.id, uid);
         if (existing) {
@@ -1248,7 +1248,7 @@ export default function WorkflowProductPage() {
           setPurchaseLoading(false);
           return;
         }
-        
+
         const { data, error } = await supabase
           .from("workflow_purchases")
           .insert({
@@ -1261,7 +1261,7 @@ export default function WorkflowProductPage() {
 
         if (error) {
           console.error("workflow beta access insert error", error);
-          
+
           // If it's a duplicate key error, try to load the existing purchase
           if (error.code === "23505" || error.message?.includes("duplicate") || error.message?.includes("unique")) {
             const existingAfterError = await loadPurchaseRow(listing.id, uid);
@@ -1272,7 +1272,7 @@ export default function WorkflowProductPage() {
               return;
             }
           }
-          
+
           setPurchaseError(
             "Could not grant access. Please try again."
           );
@@ -1305,10 +1305,10 @@ export default function WorkflowProductPage() {
       setTurnstileToken(null);
       return;
     }
-    
+
     setTurnstileToken(token);
     setTurnstileVerifying(true);
-    
+
     try {
       // Verify token with server
       const response = await fetch("/api/turnstile/verify", {
@@ -1317,9 +1317,9 @@ export default function WorkflowProductPage() {
         credentials: "include",
         body: JSON.stringify({ token }),
       });
-      
+
       const result = await response.json();
-      
+
       if (result.ok) {
         // Verification successful, proceed with demo
         setTurnstileModalOpen(false);
@@ -1419,7 +1419,7 @@ export default function WorkflowProductPage() {
       setPurchaseError("You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.");
       return;
     }
-    
+
     setTurnstileModalOpen(true);
     setTurnstileToken(null);
   }
@@ -1778,11 +1778,11 @@ export default function WorkflowProductPage() {
                   <div className="text-[12px] text-white/70 mb-4">
                     Complete the security verification below to access a one-time demo run of this workflow.
                   </div>
-                  
+
                   <div className="flex justify-center">
                     <TurnstileWidget onToken={handleTurnstileToken} />
                   </div>
-                  
+
                   {turnstileVerifying && (
                     <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
                       <Loader2 className="h-4 w-4 animate-spin" />

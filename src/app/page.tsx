@@ -40,8 +40,26 @@ function Gradients() {
   );
 }
 
-function Container({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("mx-auto w-full max-w-7xl", className)}>{children}</div>;
+function Container({
+  children,
+  className,
+  wide,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  wide?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "mx-auto w-full",
+        wide ? "max-w-[1400px]" : "max-w-7xl",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 function useSmoothAnchorScroll(offsetPx?: number) {
@@ -99,7 +117,7 @@ function Nav({ onTop }: { onTop: boolean }) {
       )}
       role="banner"
     >
-      <Container className="flex items-center justify-between px-5 py-4">
+      <Container wide className="flex items-center justify-between px-5 py-4">
         <SmoothLink href="#top" className="flex items-center gap-2" aria-label="Edgaze home">
           <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-11 w-11" />
           <span className="text-sm font-semibold tracking-wide">Edgaze</span>
@@ -1167,7 +1185,7 @@ const LazyIllustration = dynamic<{ kind: IllustrationKind }>(
 
 function FeatureSplit({ kind, children }: { kind: IllustrationKind; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
+    <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:gap-16 md:items-start">
       <div>{children}</div>
       <div className="md:pt-2">
         <Reveal delay={0.08}>
@@ -1594,6 +1612,7 @@ function Section({
   desc,
   children,
   className,
+  wide,
 }: {
   id: string;
   eyebrow?: string;
@@ -1601,6 +1620,7 @@ function Section({
   desc?: string;
   children: React.ReactNode;
   className?: string;
+  wide?: boolean;
 }) {
   return (
     <section
@@ -1608,7 +1628,7 @@ function Section({
       className={cn("px-5 py-20 sm:py-24 md:py-28 md:snap-start", className)}
       style={{ scrollMarginTop: 92 }}
     >
-      <Container>
+      <Container wide={wide}>
         {(eyebrow || title || desc) && (
           <div className="max-w-2xl">
             {eyebrow ? <div className="text-xs font-semibold tracking-widest text-white/55">{eyebrow}</div> : null}
@@ -1898,10 +1918,10 @@ export default function EdgazeLandingPage() {
         >
           <div id="top" className="pt-24 md:snap-start" />
 
-          {/* ✅ FIX: snap-start only on md+ */}
+          {/* ✅ FIX: snap-start only on md+; wide container so workflow diagram has room to shine */}
           <section className="px-5 pt-12 pb-16 sm:pt-16 sm:pb-20 md:snap-start" style={{ scrollMarginTop: 92 }}>
-            <Container>
-              <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:items-start">
+            <Container wide>
+              <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:gap-16 md:items-start">
                 <div className="max-w-xl">
                   <Reveal>
                     <div className="max-w-xl">
@@ -1935,6 +1955,7 @@ export default function EdgazeLandingPage() {
 
           <Section
             id="prompt"
+            wide
             eyebrow="Prompt Studio"
             title="Stop losing prompts."
             desc="A prompt should not live inside a screenshot or a private document. Treat it like a product."
@@ -1957,6 +1978,7 @@ export default function EdgazeLandingPage() {
 
           <Section
             id="workflows"
+            wide
             eyebrow="Workflows"
             title="Turn a prompt into a tool."
             desc="When a prompt is not enough, add steps. Workflows are repeatable and easy to run."
@@ -1977,7 +1999,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="marketplace" eyebrow="Marketplace" title="Discovery built in." desc="A huge marketplace, fast search, and pages that convert.">
+          <Section id="marketplace" wide eyebrow="Marketplace" title="Discovery built in." desc="A huge marketplace, fast search, and pages that convert.">
             <FeatureSplit kind="market">
               <div className="space-y-5">
                 <Reveal>
@@ -1994,7 +2016,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="features" eyebrow="Everything" title="Everything in one product." desc="Prompt Studio is the base. Workflows add power. Marketplace adds reach.">
+          <Section id="features" wide eyebrow="Everything" title="Everything in one product." desc="Prompt Studio is the base. Workflows add power. Marketplace adds reach.">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <Reveal>
                 <TextCard title="Prompt Studio">
@@ -2014,7 +2036,7 @@ export default function EdgazeLandingPage() {
             </div>
           </Section>
 
-          <Section id="better" eyebrow="Why it’s better" title="Built for clarity." desc="A marketplace that feels clean. A product page that feels trustworthy.">
+          <Section id="better" wide eyebrow="Why it’s better" title="Built for clarity." desc="A marketplace that feels clean. A product page that feels trustworthy.">
             <FeatureSplit kind="clarity">
               <div className="space-y-5">
                 <Reveal>
@@ -2036,7 +2058,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="anyone" eyebrow="Creators" title="Anyone can become an Edgaze creator." desc="If you can write something useful, you can publish.">
+          <Section id="anyone" wide eyebrow="Creators" title="Anyone can become an Edgaze creator." desc="If you can write something useful, you can publish.">
             <FeatureSplit kind="crowd">
               <div className="space-y-5">
                 <Reveal>
@@ -2058,7 +2080,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="creators" eyebrow="Storefront" title="Your work becomes a storefront." desc="Publish products. Track performance. Get paid later.">
+          <Section id="creators" wide eyebrow="Storefront" title="Your work becomes a storefront." desc="Publish products. Track performance. Get paid later.">
             <FeatureSplit kind="storefront">
               <div className="space-y-5">
                 <Reveal>
@@ -2075,7 +2097,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="beta" eyebrow="Beta" title="Join the beta." desc="Creators can set prices now. Users run for free in beta. Payments activate later.">
+          <Section id="beta" wide eyebrow="Beta" title="Join the beta." desc="Creators can set prices now. Users run for free in beta. Payments activate later.">
             <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
               <Reveal>
                 <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
@@ -2134,7 +2156,7 @@ export default function EdgazeLandingPage() {
 
           {/* ✅ FIX: snap-start only on md+; extra bottom padding so footer is reachable on iOS */}
           <footer className="px-5 pb-16 md:snap-start">
-            <Container>
+            <Container wide>
               <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                   <div className="flex items-center gap-3">

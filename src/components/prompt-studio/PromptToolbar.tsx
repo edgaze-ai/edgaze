@@ -2,6 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
+
+import { getDocsLink } from "../../lib/docs-link";
 import { Plus, Code2, Play, Save, Upload, Type, Hash, BookOpen } from "lucide-react";
 
 type Props = {
@@ -41,7 +43,7 @@ export default function PromptToolbar({
 
         <div className="flex items-center gap-2">
           <Link
-            href="/docs/builder/prompt-studio"
+            href={getDocsLink("/docs/builder/prompt-studio")}
             className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/10 transition-colors"
             title="Documentation"
           >

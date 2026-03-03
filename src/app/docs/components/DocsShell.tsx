@@ -25,9 +25,7 @@ export default function DocsShell({
     }
   }, []);
 
-  const handleBackClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    
+  const handleBackClick = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
