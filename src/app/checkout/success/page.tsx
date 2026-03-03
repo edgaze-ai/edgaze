@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Loader2, Download, ExternalLink, Share2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-export default function CheckoutSuccessPage() {
+function CheckoutSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -16,6 +16,19 @@ export default function CheckoutSuccessPage() {
   const sessionId = searchParams.get('session_id');
   const resourceId = searchParams.get('resource_id');
   const type = searchParams.get('type');
+
+  useEffect(() => {
+    const main = document.querySelector('main');
+    if (main) {
+      main.style.overflowY = 'auto';
+      main.style.overflowX = 'hidden';
+      return () => {
+        main.style.overflowY = '';
+        main.style.overflowX = '';
+      };
+    }
+    return;
+  }, []);
 
   useEffect(() => {
     if (!sessionId || !resourceId || !type) {
@@ -115,7 +128,7 @@ export default function CheckoutSuccessPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
+        <div className="max-w-md w-full bg-white/5 border border-white/10 rounded-2xl p-8 text-center my-8">
           <div className="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">⚠️</span>
           </div>
@@ -134,7 +147,7 @@ export default function CheckoutSuccessPage() {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full">
+      <div className="max-w-2xl w-full my-8">
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
@@ -244,5 +257,20 @@ export default function CheckoutSuccessPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="w-16 h-16 text-cyan-500 animate-spin mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Loading...</h2>
+        </div>
+      </div>
+    }>
+      <CheckoutSuccessContent />
+    </Suspense>
   );
 }

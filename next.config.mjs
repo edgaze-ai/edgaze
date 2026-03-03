@@ -43,6 +43,21 @@ const nextConfig = (() => {
     experimental: {
       optimizePackageImports: ['lucide-react', 'framer-motion'],
     },
+    // Redirects for moved pages
+    async redirects() {
+      return [
+        {
+          source: '/legal/seller-terms',
+          destination: '/docs/seller-terms',
+          permanent: true,
+        },
+        {
+          source: '/legal/refund-policy',
+          destination: '/docs/refund-policy',
+          permanent: true,
+        },
+      ];
+    },
     // Headers for performance
     async headers() {
       return [

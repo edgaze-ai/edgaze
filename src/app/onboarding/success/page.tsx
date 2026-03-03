@@ -11,6 +11,19 @@ export default function OnboardingSuccessPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    const main = document.querySelector('main');
+    if (main) {
+      main.style.overflowY = 'auto';
+      main.style.overflowX = 'hidden';
+      return () => {
+        main.style.overflowY = '';
+        main.style.overflowX = '';
+      };
+    }
+    return;
+  }, []);
+
+  useEffect(() => {
     setMounted(true);
     
     const duration = 3000;
@@ -49,7 +62,7 @@ export default function OnboardingSuccessPage() {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full">
+      <div className="max-w-2xl w-full my-8">
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}

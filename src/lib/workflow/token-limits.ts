@@ -4,7 +4,7 @@
  * Managed from admin/moderation panel
  */
 
-import { createSupabaseServerClient } from "../supabase/server";
+import { createServerClient } from "../supabase/server";
 
 const DEFAULT_MAX_TOKENS_PER_WORKFLOW = 200_000;
 const DEFAULT_MAX_TOKENS_PER_NODE = 50_000;
@@ -21,7 +21,7 @@ export type TokenLimits = {
  */
 export async function getTokenLimits(workflowId?: string): Promise<TokenLimits> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createServerClient();
     
     // Try to fetch custom limits from database
     // First check workflow-specific limits
@@ -79,7 +79,7 @@ export async function updateTokenLimits(
   workflowId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createServerClient();
     
     if (workflowId) {
       // Update workflow-specific limits

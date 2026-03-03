@@ -1,11 +1,34 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "../styles/globals.css";
 
 import { AppProviders } from "./providers";
 import LayoutGate from "./LayoutGate";
 import LazyAnalyticsWrapper from "../components/layout/LazyAnalytics";
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  variable: "--font-instrument-serif",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://edgaze.ai"),
@@ -97,7 +120,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}>
       <body className="h-full bg-[#0b0b0b] text-white antialiased">
         <script
           type="application/ld+json"

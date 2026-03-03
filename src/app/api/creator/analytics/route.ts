@@ -38,17 +38,21 @@ export async function GET(req: Request) {
 
     earnings?.forEach(earning => {
       const date = new Date(earning.created_at).toISOString().split('T')[0];
-      const current = dateMap.get(date) || 0;
-      dateMap.set(date, current + earning.net_amount_cents);
+      if (date) {
+        const current = dateMap.get(date) || 0;
+        dateMap.set(date, current + earning.net_amount_cents);
+      }
     });
 
     for (let i = 0; i < daysBack; i++) {
       const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
       const dateStr = date.toISOString().split('T')[0];
-      chartData.unshift({
-        date: dateStr,
-        amount: dateMap.get(dateStr) || 0
-      });
+      if (dateStr) {
+        chartData.unshift({
+          date: dateStr,
+          amount: dateMap.get(dateStr) || 0
+        });
+      }
     }
 
     const { data: topProducts } = await supabase

@@ -1,16 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { DollarSign, TrendingUp, Calendar, Shield, CheckCircle2, Loader2 } from 'lucide-react';
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accountStatus, setAccountStatus] = useState<any>(null);
+
+  useEffect(() => {
+    const main = document.querySelector('main');
+    if (main) {
+      main.style.overflowY = 'auto';
+      main.style.overflowX = 'hidden';
+      return () => {
+        main.style.overflowY = '';
+        main.style.overflowX = '';
+      };
+    }
+    return;
+  }, []);
 
   useEffect(() => {
     checkAccountStatus();
@@ -110,7 +123,7 @@ export default function OnboardingPage() {
   if (searchParams.get('error')) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
+        <div className="max-w-md w-full bg-white/5 border border-white/10 rounded-2xl p-8 text-center my-8">
           <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">⚠️</span>
           </div>
@@ -257,7 +270,7 @@ export default function OnboardingPage() {
                 Connected Account Agreement
               </a>
               {' '}and Edgaze's{' '}
-              <a href="/legal/seller-terms" className="text-cyan-400 hover:underline">
+              <a href="/docs/seller-terms" className="text-cyan-400 hover:underline">
                 Seller Terms
               </a>
             </p>
@@ -265,5 +278,20 @@ export default function OnboardingPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="text-center">
+          <Loader2 className="w-16 h-16 text-cyan-500 animate-spin mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Loading...</h2>
+        </div>
+      </div>
+    }>
+      <OnboardingContent />
+    </Suspense>
   );
 }

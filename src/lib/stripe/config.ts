@@ -1,5 +1,5 @@
 export const stripeConfig = {
-  apiVersion: '2024-11-20.acacia' as const,
+  apiVersion: '2026-02-25.clover' as const,
   secretKey: process.env.STRIPE_SECRET_KEY!,
   publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
@@ -12,6 +12,11 @@ export const stripeConfig = {
 } as const;
 
 export function validateStripeConfig() {
+  // Skip validation during build time
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return;
+  }
+
   const required = [
     'STRIPE_SECRET_KEY',
     'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',

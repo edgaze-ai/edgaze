@@ -25,7 +25,14 @@ export function getStripeClient(): Stripe {
   return stripeInstance;
 }
 
-export const stripe = getStripeClient();
+// Lazy initialization - only create when accessed
+export const stripe = new Proxy({} as Stripe, {
+  get(target, prop) {
+    const client = getStripeClient();
+    const value = (client as any)[prop];
+    return typeof value === 'function' ? value.bind(client) : value;
+  }
+});
 
 export async function retryStripeOperation<T>(
   operation: () => Promise<T>,
