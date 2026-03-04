@@ -819,16 +819,38 @@ function BlurredPreview({ text, kind }: { text: string; kind: "prompt" | "workfl
 function RunModal({
   open,
   onClose,
+  promptId,
   title,
   template,
   placeholders,
 }: {
   open: boolean;
   onClose: () => void;
+  promptId: string;
   title: string;
   template: string;
   placeholders: PromptPlaceholder[];
 }) {
+  const { getAccessToken } = useAuth();
+
+  async function trackPromptRun(provider?: string) {
+    try {
+      const token = await getAccessToken();
+      const res = await fetch("/api/runs/track-prompt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({ promptId, provider }),
+      });
+      if (!res.ok) console.warn("[trackPromptRun] Failed:", await res.text());
+    } catch (e) {
+      console.warn("[trackPromptRun] Error:", e);
+    }
+  }
+
   const [values, setValues] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
   const [providerHint, setProviderHint] = useState<Provider>("chatgpt");
@@ -851,6 +873,7 @@ function RunModal({
       template_length: template.length,
       has_required_fields: placeholders.some((p) => Boolean(p.required)),
     });
+    trackPromptRun();
     
     const init: Record<string, string> = {};
     placeholders.forEach((p) => {
@@ -1185,7 +1208,7 @@ export default function PromptProductPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { requireAuth, userId, profile } = useAuth();
+  const { requireAuth, userId, profile, getAccessToken } = useAuth();
 
   const [listing, setListing] = useState<PromptListing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1316,13 +1339,16 @@ export default function PromptProductPage() {
           is_owner: currentUserId ? String(record.owner_id) === String(currentUserId) : false,
         });
 
-        // best-effort view count bump
+        // best-effort view count (6hr cooldown per user, server-side)
         (async () => {
           try {
-            await supabase
-              .from("prompts")
-              .update({ view_count: (record.view_count ?? 0) + 1 })
-              .eq("id", record.id);
+            const token = await getAccessToken();
+            await fetch("/api/views/track", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+              credentials: "include",
+              body: JSON.stringify({ listingId: record.id }),
+            });
           } catch {}
         })();
       }
@@ -1332,7 +1358,7 @@ export default function PromptProductPage() {
     return () => {
       cancelled = true;
     };
-  }, [ownerHandle, edgazeCode, supabase]);
+  }, [ownerHandle, edgazeCode, supabase, getAccessToken]);
 
   // Load creator avatar/name from profiles (handle-based, avoids uuid/text mismatch)
   useEffect(() => {
@@ -2119,10 +2145,11 @@ export default function PromptProductPage() {
       )}
 
       {/* Prompt Run Modal */}
-      {listing?.type !== "workflow" && (
+      {listing?.type !== "workflow" && listing && (
         <RunModal
           open={runOpen}
           onClose={() => setRunOpen(false)}
+          promptId={listing.id}
           title={listing.title || "Untitled listing"}
           template={templatePrompt}
           placeholders={placeholders}

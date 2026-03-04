@@ -1,11 +1,14 @@
 // src/app/docs/components/DocRenderer.tsx
+"use client";
+
 import React from "react";
 import Link from "next/link";
 
 type Block =
-  | { type: "h"; level: 2 | 3; text: string; id: string }
+  | { type: "h"; level: 1 | 2 | 3; text: string; id: string }
   | { type: "p"; text: string }
   | { type: "ul"; items: string[] }
+  | { type: "ol"; items: string[] }
   | { type: "code"; lang?: string; code: string }
   | { type: "hr" };
 
@@ -30,8 +33,12 @@ function parse(md: string): Block[] {
       continue;
     }
 
+    // Treat leading or repeated --- more gently to avoid double lines at top
     if (line.trim() === "---") {
-      blocks.push({ type: "hr" });
+      // Skip a horizontal rule if it's the very first block
+      if (blocks.length > 0) {
+        blocks.push({ type: "hr" });
+      }
       i++;
       continue;
     }
@@ -56,6 +63,14 @@ function parse(md: string): Block[] {
       continue;
     }
 
+    // Headings
+    if (line.startsWith("# ")) {
+      const text = line.slice(2).trim();
+      blocks.push({ type: "h", level: 1, text, id: slugify(text) });
+      i++;
+      continue;
+    }
+
     if (line.startsWith("## ")) {
       const text = line.slice(3).trim();
       blocks.push({ type: "h", level: 2, text, id: slugify(text) });
@@ -68,6 +83,33 @@ function parse(md: string): Block[] {
       blocks.push({ type: "h", level: 3, text, id: slugify(text) });
       i++;
       continue;
+    }
+
+    // Numbered section heading (e.g. "1. Purpose of This Policy") when standalone; skip "4.1" style
+    const numMatch = line.match(/^\d+\.\s+(.+)$/);
+    if (numMatch) {
+      const text = numMatch[1].trim();
+      const nextLine = lines[i + 1]?.trim() ?? "";
+      const nextIsNumbered = /^\d+\.\s+/.test(nextLine);
+      const isSubNumber = /^\d/.test(text);
+      if (!nextIsNumbered && !isSubNumber && text.length > 0) {
+        blocks.push({ type: "h", level: 2, text, id: slugify(text) });
+        i++;
+        continue;
+      }
+      // Otherwise treat as ordered list: collect all consecutive numbered lines
+      const olItems: string[] = [];
+      while (i < lines.length) {
+        const cur = lines[i] ?? "";
+        const m = cur.match(/^\d+\.\s+(.+)$/);
+        if (!m) break;
+        olItems.push(m[1].trim());
+        i++;
+      }
+      if (olItems.length > 0) {
+        blocks.push({ type: "ol", items: olItems });
+        continue;
+      }
     }
 
     if (line.startsWith("- ")) {
@@ -92,6 +134,7 @@ function parse(md: string): Block[] {
       if (cur.startsWith("## ")) break;
       if (cur.startsWith("### ")) break;
       if (cur.startsWith("- ")) break;
+      if (/^\d+\.\s+/.test(cur)) break;
       if (cur.startsWith("```")) break;
       if (cur.trim() === "---") break;
 
@@ -113,11 +156,18 @@ export default function DocRenderer({ content }: { content: string }) {
       {blocks.map((b, idx) => {
         if (b.type === "h") {
           const cls =
-            b.level === 2
-              ? "mt-12 text-xl sm:text-2xl font-semibold tracking-tight text-white/95 scroll-mt-24"
+            b.level === 1
+              ? "mt-12 text-2xl sm:text-3xl font-semibold tracking-tight text-white/95 scroll-mt-28"
+              : b.level === 2
+              ? "mt-10 text-xl sm:text-2xl font-semibold tracking-tight text-white/95 scroll-mt-24"
               : "mt-8 text-lg sm:text-xl font-semibold tracking-tight text-white/95 scroll-mt-24";
 
-          const Tag = (b.level === 2 ? "h2" : "h3") as keyof React.JSX.IntrinsicElements;
+          const Tag =
+            (b.level === 1
+              ? "h1"
+              : b.level === 2
+              ? "h2"
+              : "h3") as keyof React.JSX.IntrinsicElements;
 
           return (
             <Tag key={idx} id={b.id} className={cls}>
@@ -356,6 +406,67 @@ export default function DocRenderer({ content }: { content: string }) {
                 );
               })}
             </ul>
+          );
+        }
+
+        if (b.type === "ol") {
+          return (
+            <ol key={idx} className="mt-3 list-decimal pl-6 text-white/75 max-w-3xl space-y-1">
+              {b.items.map((it, j) => {
+                const parts: (string | React.JSX.Element)[] = [];
+                let lastIndex = 0;
+                const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                const boldRegex = /\*\*(.+?)\*\*/g;
+                const matches: Array<{ type: "link" | "bold"; start: number; end: number; text: string; url?: string }> = [];
+                let match: RegExpExecArray | null;
+                linkRegex.lastIndex = 0;
+                while ((match = linkRegex.exec(it)) !== null) {
+                  const linkText = match[1];
+                  const linkUrl = match[2];
+                  const matchIndex = match.index;
+                  const matchLength = match[0]?.length;
+                  if (linkText && linkUrl && matchIndex !== undefined && matchLength !== undefined) {
+                    matches.push({ type: "link", start: matchIndex, end: matchIndex + matchLength, text: linkText, url: linkUrl });
+                  }
+                }
+                boldRegex.lastIndex = 0;
+                while ((match = boldRegex.exec(it)) !== null) {
+                  const boldText = match[1];
+                  const matchIndex = match.index;
+                  const matchLength = match[0]?.length;
+                  if (boldText && matchIndex !== undefined && matchLength !== undefined) {
+                    matches.push({ type: "bold", start: matchIndex, end: matchIndex + matchLength, text: boldText });
+                  }
+                }
+                matches.sort((a, b) => a.start - b.start);
+                const filteredMatches: typeof matches = [];
+                for (const m of matches) {
+                  const overlaps = filteredMatches.some((f) => !(m.end <= f.start || m.start >= f.end));
+                  if (!overlaps) filteredMatches.push(m);
+                }
+                for (const m of filteredMatches) {
+                  if (m.start > lastIndex) parts.push(it.slice(lastIndex, m.start));
+                  if (m.type === "link") {
+                    const href = m.url || "#";
+                    const isExternal = href.startsWith("http");
+                    if (isExternal) {
+                      parts.push(<a key={m.start} href={href} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline transition-colors">{m.text}</a>);
+                    } else {
+                      parts.push(<Link key={m.start} href={href} className="text-cyan-400 hover:text-cyan-300 underline transition-colors">{m.text}</Link>);
+                    }
+                  } else {
+                    parts.push(<strong key={m.start} className="font-semibold text-white/90">{m.text}</strong>);
+                  }
+                  lastIndex = m.end;
+                }
+                if (lastIndex < it.length) parts.push(it.slice(lastIndex));
+                return (
+                  <li key={j} className="text-[15px] leading-7 pl-1">
+                    {parts.length > 0 ? parts : it}
+                  </li>
+                );
+              })}
+            </ol>
           );
         }
 

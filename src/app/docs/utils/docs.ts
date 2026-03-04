@@ -28,7 +28,10 @@ const CANONICAL_TO_FILE: Record<string, string> = {
   "privacy-policy": "privacy-policy.md",
   "terms-of-service": "terms.md",
   "seller-terms": "seller-terms.md",
+  "creator-terms": "seller-terms.md",
   "refund-policy": "refund-policy.md",
+  "acceptable-use-policy": "acceptable-use-policy.md",
+  dmca: "dmca-ip-takedown.md",
   // Builder docs
   builder: "builder/index.md",
   "builder/workflow-studio": "builder/workflow-studio.md",
@@ -46,7 +49,9 @@ const ORDER: string[] = [
   "changelog",
   "privacy-policy",
   "terms-of-service",
-  "seller-terms",
+  "creator-terms",
+  "acceptable-use-policy",
+  "dmca",
   "refund-policy",
 ];
 

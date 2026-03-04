@@ -400,7 +400,7 @@ export default function HelpPage() {
 
         <div className="mt-8 border-t border-white/10 pt-6">
           <p className="text-xs text-white/45">
-            © {new Date().getFullYear()} Edgaze. All rights reserved.
+            © 2026 Edge Platforms, Inc. All rights reserved.
           </p>
         </div>
       </div>

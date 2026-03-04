@@ -60,7 +60,7 @@ export default function DocsShell({
               </svg>
             </button>
 
-            <Link href="/docs/changelog" className="flex items-center gap-2">
+            <Link href="/docs" className="flex items-center gap-2">
               <Image
                 src="/brand/edgaze-mark.png"
                 alt="Edgaze"
@@ -136,11 +136,11 @@ export default function DocsShell({
         ) : null}
 
         {/* Content container: wide like OpenAI */}
-        <div className="w-full">
+        <div className="w-full [scroll-behavior:smooth]">
           <div className="mx-auto w-full max-w-[1200px] px-4 py-8">
             {children}
-            <div className="mt-10 text-xs text-white/35">
-              © {new Date().getFullYear()} Edgaze
+            <div className="mt-10 text-[11px] text-white/35">
+              © 2026 Edge Platforms, Inc. All rights reserved.
             </div>
           </div>
         </div>

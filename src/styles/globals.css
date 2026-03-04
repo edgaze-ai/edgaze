@@ -465,3 +465,48 @@ button {
   background-clip: text;
   color: transparent;
 }
+
+/* Hide scrollbar while keeping scroll */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Infinite carousel - seamless loop */
+@keyframes infinite-carousel {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-33.333%);
+  }
+}
+.infinite-carousel-track {
+  animation: infinite-carousel 60s linear infinite;
+}
+.infinite-carousel-track:hover {
+  animation-play-state: paused;
+}
+@keyframes infinite-carousel-reverse {
+  0% {
+    transform: translateX(-33.333%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+.infinite-carousel-track-reverse {
+  animation: infinite-carousel-reverse 60s linear infinite;
+}
+.infinite-carousel-track-reverse:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .infinite-carousel-track,
+  .infinite-carousel-track-reverse {
+    animation: none;
+  }
+}

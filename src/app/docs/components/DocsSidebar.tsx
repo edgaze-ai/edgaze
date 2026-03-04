@@ -31,6 +31,8 @@ export default function DocsSidebar({ docs }: { docs: DocMeta[] }) {
     [filtered]
   );
 
+  const isHome = pathname === "/docs";
+
   return (
     <div className="w-full">
       <div className="rounded-xl bg-white/[0.04] ring-1 ring-white/10">
@@ -51,6 +53,22 @@ export default function DocsSidebar({ docs }: { docs: DocMeta[] }) {
                 Builder
               </div>
               <nav className="flex flex-col gap-1 mb-4">
+                <Link
+                  href="/docs"
+                  className={[
+                    "rounded-lg px-3 py-2 transition",
+                    isHome
+                      ? "bg-white/10 ring-1 ring-white/10"
+                      : "hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  <div className="text-sm font-medium text-white/90">
+                    Home
+                  </div>
+                  <div className="mt-0.5 text-xs text-white/45">
+                    Overview of all Edgaze documentation.
+                  </div>
+                </Link>
                 {builderDocs.map((d) => {
                   const href = d.slug === "builder" ? "/docs/builder" : `/docs/builder/${d.slug.split("/")[1]}`;
                   const active = pathname === href || (d.slug === "builder" && pathname.startsWith("/docs/builder") && !pathname.includes("/builder/"));

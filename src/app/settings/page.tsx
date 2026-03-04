@@ -190,7 +190,7 @@ export default function SettingsPage() {
               ← Back to home
             </Link>
           </div>
-          <p className="mt-8 text-[12px] text-white/35">© {new Date().getFullYear()} Edgaze</p>
+          <p className="mt-8 text-[12px] text-white/35">© 2026 Edge Platforms, Inc. All rights reserved.</p>
         </div>
       </div>
     );
@@ -568,7 +568,7 @@ export default function SettingsPage() {
         </div>
 
         <footer className="border-t border-white/[0.08] py-6 px-6 sm:px-8 lg:px-12">
-          <p className="text-[12px] text-white/30">© {new Date().getFullYear()} Edgaze</p>
+          <p className="text-[12px] text-white/30">© 2026 Edge Platforms, Inc. All rights reserved.</p>
         </footer>
       </main>
 

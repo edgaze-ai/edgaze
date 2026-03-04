@@ -7,6 +7,8 @@ import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, BadgeCheck, Compass, Link2, Search, Sparkles } from "lucide-react";
 import FoundingCreatorBadge from "src/components/ui/FoundingCreatorBadge";
+import Footer from "src/components/layout/Footer";
+import TrendingThisWeekSection from "src/components/home/TrendingThisWeekSection";
 import dynamic from "next/dynamic";
 
 function clamp(n: number, a: number, b: number) {
@@ -33,9 +35,9 @@ function Gradients() {
   return (
     <>
       <div className="fixed inset-0 -z-10 bg-[#07080b]" />
-      <div className="fixed inset-0 -z-10 opacity-70 [background-image:radial-gradient(circle_at_18%_10%,rgba(34,211,238,0.22),transparent_46%),radial-gradient(circle_at_82%_18%,rgba(236,72,153,0.18),transparent_46%),radial-gradient(circle_at_55%_90%,rgba(34,211,238,0.08),transparent_52%)]" />
-      <div className="fixed inset-0 -z-10 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:92px_92px]" />
-      <div className="fixed inset-0 -z-10 opacity-35 [background-image:radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.05),transparent_55%)]" />
+      <div className="fixed inset-0 -z-10 opacity-50 [background-image:radial-gradient(circle_at_18%_10%,rgba(34,211,238,0.14),transparent_46%),radial-gradient(circle_at_82%_18%,rgba(236,72,153,0.11),transparent_46%),radial-gradient(circle_at_55%_90%,rgba(34,211,238,0.05),transparent_52%)]" />
+      <div className="fixed inset-0 -z-10 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:92px_92px]" />
+      <div className="fixed inset-0 -z-10 opacity-20 [background-image:radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.04),transparent_55%)]" />
     </>
   );
 }
@@ -763,11 +765,14 @@ function IlluWorkflowGraph() {
             animate={reduce ? undefined : { opacity: 1, scale: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, scale: 0.98, y: -8 }}
             transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
-            className="absolute rounded-3xl bg-black/35 backdrop-blur-xl ring-1 ring-white/15 shadow-[0_18px_70px_rgba(0,0,0,0.55)] px-5 py-4"
+            className="absolute flex h-24 w-48 select-none items-center rounded-2xl bg-black/70 backdrop-blur-xl shadow-[0_18px_70px_rgba(0,0,0,0.85)]"
             style={{ left: x, top: y, width: w }}
           >
-            <div className="text-xs font-semibold tracking-widest text-white/55">NODE</div>
-            <div className="mt-1 text-sm font-semibold text-white">{label}</div>
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-cyan-400/70 via-cyan-400/20 to-transparent opacity-90" />
+            <div className="relative px-5 py-3">
+              <div className="text-[10px] font-semibold tracking-[0.26em] text-white/40">NODE</div>
+              <div className="mt-1 text-[13px] font-semibold text-white/95">{label}</div>
+            </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -803,38 +808,40 @@ function IlluWorkflowGraph() {
   const d = nodes[3]!;
   const e = nodes[4]!;
 
-  const centerRight = (n: { x: number; y: number; w: number }) => ({ x: n.x + n.w, y: n.y + 40 });
-  const centerLeft = (n: { x: number; y: number }) => ({ x: n.x, y: n.y + 40 });
+  const centerRight = (n: { x: number; y: number; w: number }) => ({ x: n.x + n.w - 14, y: n.y + 40 });
+  const centerLeft = (n: { x: number; y: number }) => ({ x: n.x + 14, y: n.y + 40 });
 
   return (
     <IlluShell>
       {/* eslint-disable react-hooks/static-components */}
-      <div className="absolute inset-0">
-        <Edge from={centerRight(a)} to={centerLeft(b)} show={visible.includes("a") && visible.includes("b")} />
-        <Edge from={centerRight(b)} to={centerLeft(c)} show={visible.includes("b") && visible.includes("c")} />
-        <Edge
-          from={{ x: b.x + 70, y: b.y + 80 }}
-          to={{ x: d.x + 20, y: d.y + 20 }}
-          show={visible.includes("b") && visible.includes("d")}
-        />
-        <Edge from={centerRight(d)} to={centerLeft(e)} show={visible.includes("d") && visible.includes("e")} />
-
-        <Node id="a" x={a.x} y={a.y} w={a.w} label={a.label} />
-        <Node id="b" x={b.x} y={b.y} w={b.w} label={b.label} />
-        <Node id="c" x={c.x} y={c.y} w={c.w} label={c.label} />
-        <Node id="d" x={d.x} y={d.y} w={d.w} label={d.label} />
-        <Node id="e" x={e.x} y={e.y} w={e.w} label={e.label} />
-
-        {!reduce ? (
-          <motion.div
-            className="absolute left-0 top-0 h-2 w-2 rounded-full bg-white/60"
-            animate={{
-              x: [a.x + a.w + 10, b.x + 10, c.x + 10, b.x + 40, d.x + 10, e.x + 10],
-              y: [a.y + 40, b.y + 40, c.y + 40, b.y + 80, d.y + 20, e.y + 40],
-            }}
-            transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+      <div className="absolute inset-0 flex items-center justify-start md:justify-center pl-6 sm:pl-14 -translate-x-4 sm:-translate-x-8">
+        <div className="relative h-[320px] w-[560px] max-w-full">
+          <Edge from={centerRight(a)} to={centerLeft(b)} show={visible.includes("a") && visible.includes("b")} />
+          <Edge from={centerRight(b)} to={centerLeft(c)} show={visible.includes("b") && visible.includes("c")} />
+          <Edge
+            from={{ x: b.x + 70, y: b.y + 80 }}
+            to={{ x: d.x + 20, y: d.y + 20 }}
+            show={visible.includes("b") && visible.includes("d")}
           />
-        ) : null}
+          <Edge from={centerRight(d)} to={centerLeft(e)} show={visible.includes("d") && visible.includes("e")} />
+
+          <Node id="a" x={a.x} y={a.y} w={a.w} label={a.label} />
+          <Node id="b" x={b.x} y={b.y} w={b.w} label={b.label} />
+          <Node id="c" x={c.x} y={c.y} w={c.w} label={c.label} />
+          <Node id="d" x={d.x} y={d.y} w={d.w} label={d.label} />
+          <Node id="e" x={e.x} y={e.y} w={e.w} label={e.label} />
+
+          {!reduce ? (
+            <motion.div
+              className="absolute left-0 top-0 h-2 w-2 rounded-full bg-white/60"
+              animate={{
+                x: [a.x + a.w + 10, b.x + 10, c.x + 10, b.x + 40, d.x + 10, e.x + 10],
+                y: [a.y + 40, b.y + 40, c.y + 40, b.y + 80, d.y + 20, e.y + 40],
+              }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+            />
+          ) : null}
+        </div>
       </div>
       {/* eslint-enable react-hooks/static-components */}
     </IlluShell>
@@ -1649,7 +1656,6 @@ export default function EdgazeLandingPage() {
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [onTop, setOnTop] = useState(true);
-  const [scrollProgress, setScrollProgress] = useState(0);
 
   const sectionIds = useMemo(
     () => ["top", "prompt", "workflows", "marketplace", "features", "better", "anyone", "creators", "beta"],
@@ -1671,9 +1677,6 @@ export default function EdgazeLandingPage() {
     if (!el) return;
 
     const onScroll = () => {
-      const max = el.scrollHeight - el.clientHeight;
-      const p = max > 0 ? el.scrollTop / max : 0;
-      setScrollProgress(p);
       setOnTop(el.scrollTop < 12);
     };
 
@@ -1901,13 +1904,6 @@ export default function EdgazeLandingPage() {
         <Gradients />
         <Nav onTop={onTop} />
 
-        <motion.div
-          className="fixed top-0 left-0 z-[60] h-[2px] bg-[linear-gradient(90deg,rgba(34,211,238,0.95),rgba(236,72,153,0.9))]"
-          animate={{ width: `${Math.round(scrollProgress * 1000) / 10}%` }}
-          transition={{ type: "spring", stiffness: 220, damping: 30, mass: 0.4 }}
-          aria-hidden
-        />
-
         {/* ✅ FIX: No snap on mobile. Snap only from md+.
             ✅ FIX: Use 100dvh so iOS address bar doesn’t break bottom reach.
             ✅ FIX: Extra bottom spacer at the end for mobile reach. */}
@@ -1952,6 +1948,8 @@ export default function EdgazeLandingPage() {
               </div>
             </Container>
           </section>
+
+          <TrendingThisWeekSection />
 
           <Section
             id="prompt"
@@ -2157,43 +2155,7 @@ export default function EdgazeLandingPage() {
           {/* ✅ FIX: snap-start only on md+; extra bottom padding so footer is reachable on iOS */}
           <footer className="px-5 pb-16 md:snap-start">
             <Container wide>
-              <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
-                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-3">
-                    <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-11 w-11" />
-                    <div>
-                      <div className="text-sm font-semibold text-white">Edgaze</div>
-                      <div className="mt-1 text-sm text-white/60">Create, sell, and distribute AI products.</div>
-                    </div>
-                  </div>
-
-                  <nav aria-label="Footer navigation" className="flex flex-wrap items-center gap-6 text-sm text-white/70">
-                    <a className="hover:text-white" href="/marketplace">
-                      Marketplace
-                    </a>
-                    <a className="hover:text-white" href="/docs">
-                      Docs
-                    </a>
-                    <a className="hover:text-white" href="/help">
-                      Help
-                    </a>
-                    <a className="hover:text-white" href="/apply">
-                      Apply
-                    </a>
-                    <a className="hover:text-white" href="/feedback">
-                      Feedback
-                    </a>
-                    <a className="hover:text-white" href="/docs/privacy-policy">
-                      Privacy
-                    </a>
-                    <a className="hover:text-white" href="/docs/terms-of-service">
-                      Terms
-                    </a>
-                  </nav>
-                </div>
-
-                <div className="mt-6 text-xs text-white/50">© Edgaze 2026. All rights reserved.</div>
-              </div>
+              <Footer />
             </Container>
           </footer>
 
