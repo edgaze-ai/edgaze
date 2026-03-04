@@ -7,6 +7,8 @@ description = "Important disclosures regarding the beta status of the Edgaze pla
 
 Edgaze is currently operating in a beta stage.
 
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
 The Platform is under active development and is made available solely for testing, evaluation, and feedback purposes.
 
 The Platform is not a finalized or production-grade service.
@@ -28,7 +30,7 @@ You acknowledge and accept that the Platform is experimental.
 
 3. No Guarantees or Commitments
 
-Edgaze makes no guarantees regarding:
+Edge Platforms makes no guarantees regarding:
 - Platform availability or uptime
 - Feature completeness or stability
 - Data retention or persistence
@@ -43,7 +45,7 @@ All features are provided on an “as is” and “as available” basis.
 
 You use the Platform entirely at your own risk.
 
-Edgaze is not responsible for:
+Edge Platforms is not responsible for:
 - Loss of data, content, or configurations
 - Loss of revenue, profits, or business opportunities
 - Service interruptions or system failures
@@ -56,7 +58,7 @@ Your sole remedy for dissatisfaction is to discontinue use of the Platform.
 
 5. No Liability for Loss or Damage
 
-To the maximum extent permitted by law, Edgaze shall not be liable for:
+To the maximum extent permitted by law, Edge Platforms shall not be liable for:
 - Direct or indirect losses arising from use of the Platform
 - Incidental, consequential, special, or punitive damages
 - Damages resulting from reliance on beta features
@@ -68,7 +70,7 @@ This limitation applies regardless of the theory of liability.
 
 6. No Support or Service Level Commitments
 
-Edgaze does not provide:
+Edge Platforms does not provide:
 - Guaranteed support
 - Service level agreements (SLAs)
 - Response time commitments
@@ -91,7 +93,7 @@ Users are responsible for maintaining independent backups of any important data.
 
 8. Changes and Termination
 
-Edgaze reserves the right to:
+Edge Platforms reserves the right to:
 - Modify or discontinue the Platform or any feature
 - Suspend or terminate access to the Platform
 - End the beta at any time

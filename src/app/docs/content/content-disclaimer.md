@@ -7,7 +7,10 @@ description = "Important disclosures regarding content available on the Edgaze p
 
 All content made available on the Edgaze platform (the “Platform”), including but not limited to prompts, workflows, tools, documentation, examples, templates, text, code, and other materials (collectively, “Content”), is provided for informational, testing, and experimental purposes only.
 
-Edgaze makes no representations or warranties regarding the Content.
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
+
+Edge Platforms makes no representations or warranties regarding the Content.
 
 ---
 
@@ -15,7 +18,7 @@ Edgaze makes no representations or warranties regarding the Content.
 
 The Platform hosts content that is created, uploaded, and published by users.
 
-Edgaze:
+Edge Platforms:
 - Does not create user-generated content
 - Does not verify, validate, or review content for accuracy, legality, or suitability
 - Does not endorse or recommend any specific content, creator, or workflow
@@ -42,7 +45,7 @@ You are solely responsible for seeking independent professional advice where app
 
 Some Content may involve or rely on artificial intelligence, automation, or third-party systems.
 
-Edgaze makes no guarantees regarding:
+Edge Platforms makes no guarantees regarding:
 - Accuracy, reliability, or completeness of AI-generated outputs
 - Bias, errors, or hallucinations produced by AI systems
 - Suitability of outputs for any specific purpose
@@ -53,7 +56,7 @@ Use of AI-related Content is at your own risk.
 
 5. No Guarantees of Results
 
-Edgaze does not guarantee:
+Edge Platforms does not guarantee:
 - Any specific outcomes, performance, or results
 - That Content will function as described
 - That Content will be error-free, safe, or effective
@@ -78,7 +81,7 @@ You acknowledge and accept the risks of using experimental software and content.
 
 Some Content may reference or depend on third-party tools, APIs, models, platforms, or services.
 
-Edgaze:
+Edge Platforms:
 - Does not control third-party services
 - Is not responsible for their availability, behavior, or compliance
 - Does not guarantee compatibility or continued access
@@ -89,7 +92,7 @@ Your use of third-party services is governed by their respective terms.
 
 8. Limitation of Liability
 
-To the maximum extent permitted by law, Edgaze shall not be liable for:
+To the maximum extent permitted by law, Edge Platforms shall not be liable for:
 - Any loss or damage arising from reliance on Content
 - Errors, omissions, or inaccuracies in Content
 - Actions taken or decisions made based on Content
@@ -111,7 +114,7 @@ You are solely responsible for:
 
 10. No Monitoring Obligation
 
-Edgaze does not actively monitor or review all Content and makes no guarantees regarding detection of harmful, misleading, or prohibited material.
+Edge Platforms does not actively monitor or review all Content and makes no guarantees regarding detection of harmful, misleading, or prohibited material.
 
 ---
 

@@ -416,17 +416,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      // Load profile immediately (critical for UI)
+      // Load profile immediately (critical for UI) - but don't block on it
       loadProfile(user.id).catch(() => setProfile(null));
       
       // Defer non-critical checks to improve initial load time
-      // Admin check can wait a bit
-      setTimeout(() => {
+      // Use requestIdleCallback for better performance, fallback to setTimeout
+      const scheduleTask = (fn: () => void, delay: number) => {
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(fn, { timeout: delay });
+        } else {
+          setTimeout(fn, delay);
+        }
+      };
+
+      // Admin check can wait until browser is idle
+      scheduleTask(() => {
         loadAdmin(user.id).catch(() => setIsAdmin(false));
-      }, 50);
+      }, 100);
 
       // Moderation check is important but can be slightly deferred
-      setTimeout(() => {
+      scheduleTask(() => {
         loadModeration(user.id)
           .then((stillBanned) => {
             if (stillBanned) {
@@ -444,7 +453,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setBanReason(null);
             setBanExpiresAt(null);
           });
-      }, 100);
+      }, 200);
     },
     [applyNoUser, loadAdmin, loadModeration, loadProfile]
   );

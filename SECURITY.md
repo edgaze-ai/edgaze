@@ -1,6 +1,6 @@
 # Security policy
 
-Edgaze takes security seriously. This document describes our supported versions and how to report vulnerabilities.
+Edgaze, owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation, takes security seriously. This document describes our supported versions and how to report vulnerabilities.
 
 ---
 

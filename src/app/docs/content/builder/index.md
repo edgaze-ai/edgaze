@@ -5,6 +5,8 @@ description = "Learn how to use Workflow Studio and Prompt Studio to create AI p
 
 Welcome to the Builder documentation! This comprehensive guide will help you master Edgaze's powerful builder tools and create professional AI products without writing code.
 
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
 ## What is the Builder?
 
 The Builder is a collection of sophisticated visual tools that let you create AI products without writing code. There are two main builders, each designed for different use cases:

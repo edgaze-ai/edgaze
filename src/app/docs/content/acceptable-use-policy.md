@@ -7,12 +7,15 @@ description = "Rules governing permitted and prohibited use of the Edgaze platfo
 
 This Acceptable Use Policy (“AUP”) defines prohibited uses of the Edgaze platform (the “Platform”) and supplements the Terms of Service.
 
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
+
 This Policy exists to:
 - Protect the Platform, its users, and third parties
 - Limit legal, regulatory, and operational risk
-- Preserve Edgaze’s status as a neutral intermediary
+- Preserve Edge Platforms’ status as a neutral intermediary
 
-Violation of this AUP may result in content removal, account suspension, or termination, at Edgaze’s sole discretion.
+Violation of this AUP may result in content removal, account suspension, or termination, at Edge Platforms’ sole discretion.
 
 ---
 
@@ -97,7 +100,7 @@ You may not use the Platform to create, upload, publish, share, or distribute co
 - Generation of deceptive, harmful, or misleading content
 - Use of automation to violate laws, platform rules, or third-party terms
 
-Edgaze does not validate or approve AI outputs. Responsibility rests entirely with the user.
+Edge Platforms does not validate or approve AI outputs. Responsibility rests entirely with the user.
 
 ---
 
@@ -111,7 +114,7 @@ Edgaze does not validate or approve AI outputs. Responsibility rests entirely wi
 
 5. No Obligation to Monitor
 
-Edgaze:
+Edge Platforms:
 - Does not actively monitor all content
 - Does not guarantee detection of prohibited activity
 - Is under no obligation to investigate or act on every report
@@ -122,13 +125,13 @@ Users acknowledge that enforcement may be discretionary, delayed, or limited.
 
 6. Enforcement and Remedies
 
-Edgaze reserves the right, but not the obligation, to:
+Edge Platforms reserves the right, but not the obligation, to:
 - Remove or restrict access to content
 - Suspend or terminate accounts
 - Take action without prior notice
 - Cooperate with law enforcement or regulators where required
 
-All enforcement decisions are made at Edgaze’s sole discretion.
+All enforcement decisions are made at Edge Platforms’ sole discretion.
 
 ---
 
@@ -137,19 +140,22 @@ All enforcement decisions are made at Edgaze’s sole discretion.
 Suspected violations may be reported to:
 support@edgaze.ai
 
-Edgaze makes no guarantees regarding response time, investigation, or outcome.
+Edge Platforms makes no guarantees regarding response time, investigation, or outcome.
 
 ---
 
 8. No Waiver
 
-Failure by Edgaze to enforce this Policy in any instance does not constitute a waiver of the right to enforce it in the future.
+Failure by Edge Platforms to enforce this Policy in any instance does not constitute a waiver of the right to enforce it in the future.
 
 ---
 
 9. Changes to This Policy
 
 This Acceptable Use Policy may be updated at any time.
+
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
 
 Changes become effective upon publication. Continued use of the Platform constitutes acceptance of the updated Policy.
 
@@ -160,7 +166,7 @@ Changes become effective upon publication. Continued use of the Platform constit
 This Policy operates in conjunction with:
 - Terms of Service
 - Privacy Policy
-- Any additional guidelines or notices published by Edgaze
+- Any additional guidelines or notices published by Edge Platforms
 
 In the event of conflict, the Terms of Service control.
 

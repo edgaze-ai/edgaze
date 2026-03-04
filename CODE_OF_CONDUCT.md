@@ -2,7 +2,7 @@
 
 ## Our commitment
 
-Edgaze is a **closed-source, proprietary platform** developed and maintained by authorized team members only. We are committed to fostering a professional, inclusive, and collaborative environment for all contributors.
+Edgaze is a **closed-source, proprietary platform** owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation. The Platform is developed and maintained by authorized team members only. We are committed to fostering a professional, inclusive, and collaborative environment for all contributors.
 
 ---
 
@@ -142,7 +142,7 @@ All contributors must:
 
 All contributors acknowledge that:
 
-- All work produced belongs to Edgaze
+- All work produced belongs to Edge Platforms, Inc.
 - Contributions are made under the terms of your employment or contributor agreement
 - You will not reuse proprietary code elsewhere without authorization
 - You respect the intellectual property rights of others

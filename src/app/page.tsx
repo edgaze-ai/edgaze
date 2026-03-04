@@ -2,12 +2,24 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "src/components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, BadgeCheck, Compass, Link2, Search, Sparkles } from "lucide-react";
-import FoundingCreatorBadge from "src/components/ui/FoundingCreatorBadge";
 import dynamic from "next/dynamic";
+
+// Lazy load icons to reduce initial bundle size
+const ArrowRight = dynamic(() => import("lucide-react").then(mod => ({ default: mod.ArrowRight })), { ssr: false });
+const BadgeCheck = dynamic(() => import("lucide-react").then(mod => ({ default: mod.BadgeCheck })), { ssr: false });
+const Compass = dynamic(() => import("lucide-react").then(mod => ({ default: mod.Compass })), { ssr: false });
+const Link2 = dynamic(() => import("lucide-react").then(mod => ({ default: mod.Link2 })), { ssr: false });
+const Search = dynamic(() => import("lucide-react").then(mod => ({ default: mod.Search })), { ssr: false });
+const Sparkles = dynamic(() => import("lucide-react").then(mod => ({ default: mod.Sparkles })), { ssr: false });
+
+const FoundingCreatorBadge = dynamic(() => import("src/components/ui/FoundingCreatorBadge"), { 
+  ssr: false,
+  loading: () => <span className="inline-block w-4 h-4" />
+});
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
@@ -101,7 +113,7 @@ function Nav({ onTop }: { onTop: boolean }) {
     >
       <Container className="flex items-center justify-between px-5 py-4">
         <SmoothLink href="#top" className="flex items-center gap-2" aria-label="Edgaze home">
-          <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-11 w-11" />
+          <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={44} height={44} className="h-11 w-11" priority />
           <span className="text-sm font-semibold tracking-wide">Edgaze</span>
         </SmoothLink>
 
@@ -533,9 +545,8 @@ function IlluHeroCollectToBox() {
               <div className="relative">
                 <div className="absolute -inset-5 rounded-full blur-2xl opacity-70 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.26),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.22),transparent_62%)]" />
                 <div className="relative">
-  <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-12 w-12" />
-</div>
-
+                  <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={48} height={48} className="h-12 w-12" />
+                </div>
               </div>
 
               <div className="mt-3 text-lg font-semibold tracking-tight text-white/95">Edgaze</div>
@@ -1157,11 +1168,25 @@ function Illustration({ kind }: { kind: IllustrationKind }) {
 }
 
 // Lazy load illustrations to improve initial page load
+// Using dynamic import with no SSR for better performance
 const LazyIllustration = dynamic<{ kind: IllustrationKind }>(
   () => Promise.resolve({ default: Illustration }),
   { 
     ssr: false,
-    loading: () => <div className="h-[320px] sm:h-[360px] w-full rounded-3xl bg-white/4 ring-1 ring-white/10 animate-pulse" />
+    loading: () => (
+      <div className="h-[320px] sm:h-[360px] w-full rounded-3xl bg-white/4 ring-1 ring-white/10 overflow-hidden">
+        <div className="relative h-full w-full">
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-pink-500/5 animate-pulse" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex gap-2">
+              <div className="h-2 w-2 rounded-full bg-cyan-400/50 animate-[pulse_1.4s_ease-in-out_infinite]" />
+              <div className="h-2 w-2 rounded-full bg-purple-400/50 animate-[pulse_1.4s_ease-in-out_0.2s_infinite]" />
+              <div className="h-2 w-2 rounded-full bg-pink-400/50 animate-[pulse_1.4s_ease-in-out_0.4s_infinite]" />
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 );
 
@@ -1789,7 +1814,33 @@ export default function EdgazeLandingPage() {
   const redirecting = authReady && !loading && !!userId && pathname !== "/marketplace";
 
   if (showLoading || redirecting) {
-    return <div className="min-h-screen bg-[#07080b]" aria-hidden="true" />;
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#07080b]">
+        <div className="flex flex-col items-center justify-center gap-6">
+          <div className="relative">
+            <div className="absolute -inset-8 rounded-full blur-3xl opacity-60 animate-pulse [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.35),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.28),transparent_62%)]" />
+            <div className="relative h-16 w-16 sm:h-20 sm:w-20">
+              <Image 
+                src="/brand/edgaze-mark.png" 
+                alt="Edgaze" 
+                width={80}
+                height={80}
+                className="h-full w-full"
+                priority
+              />
+            </div>
+          </div>
+          <div className="text-xl sm:text-2xl font-semibold tracking-tight text-white/95">
+            Edgaze
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 rounded-full bg-cyan-400 animate-[pulse_1.4s_ease-in-out_infinite]" />
+            <div className="h-2 w-2 rounded-full bg-purple-400 animate-[pulse_1.4s_ease-in-out_0.2s_infinite]" />
+            <div className="h-2 w-2 rounded-full bg-pink-400 animate-[pulse_1.4s_ease-in-out_0.4s_infinite]" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const siteNavigationJsonLd = {
@@ -2137,13 +2188,13 @@ export default function EdgazeLandingPage() {
             <Container>
               <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                  <div className="flex items-center gap-3">
-                    <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-11 w-11" />
-                    <div>
-                      <div className="text-sm font-semibold text-white">Edgaze</div>
-                      <div className="mt-1 text-sm text-white/60">Create, sell, and distribute AI products.</div>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={44} height={44} className="h-11 w-11" />
+                  <div>
+                    <div className="text-sm font-semibold text-white">Edgaze</div>
+                    <div className="mt-1 text-sm text-white/60">Create, sell, and distribute AI products.</div>
                   </div>
+                </div>
 
                   <nav aria-label="Footer navigation" className="flex flex-wrap items-center gap-6 text-sm text-white/70">
                     <a className="hover:text-white" href="/marketplace">

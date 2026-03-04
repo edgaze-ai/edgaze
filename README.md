@@ -217,7 +217,7 @@ Proprietary. All rights reserved. See [LICENSE](LICENSE).
 
 **Proprietary software.** All rights reserved.
 
-This is a closed-source, commercial platform. See [LICENSE](LICENSE) for full terms.
+This is a closed-source, commercial platform owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation. See [LICENSE](LICENSE) for full terms.
 
 Unauthorized copying, modification, distribution, or use is strictly prohibited.
 
@@ -226,6 +226,8 @@ Unauthorized copying, modification, distribution, or use is strictly prohibited.
 <div align="center">
 
 **Edgaze** — *Create → Sell → Distribute*
+
+Owned and operated by Edge Platforms, Inc.
 
 Built with Next.js, TypeScript, and Supabase
 

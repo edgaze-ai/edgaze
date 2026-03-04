@@ -39,11 +39,25 @@ const nextConfig = (() => {
     reactStrictMode: true,
     // Optimize production builds
     productionBrowserSourceMaps: false,
-    // Optimize bundle size
+    // Optimize bundle size and loading performance
     experimental: {
-      optimizePackageImports: ['lucide-react', 'framer-motion'],
+      optimizePackageImports: ['lucide-react', 'framer-motion', '@supabase/supabase-js'],
+      // Enable optimized CSS loading
+      optimizeCss: true,
     },
-    // Headers for performance
+    // Compiler optimizations
+    compiler: {
+      removeConsole: process.env.NODE_ENV === 'production' ? {
+        exclude: ['error', 'warn'],
+      } : false,
+    },
+    // Optimize module resolution
+    modularizeImports: {
+      'lucide-react': {
+        transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
+      },
+    },
+    // Headers for performance and caching
     async headers() {
       return [
         {
@@ -65,6 +79,24 @@ const nextConfig = (() => {
         },
         {
           source: '/:path*\\.(jpg|jpeg|png|gif|ico|svg|webp|avif)',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        },
+        {
+          source: '/:path*\\.(js|css|woff|woff2|ttf|otf)',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        },
+        {
+          source: '/brand/:path*',
           headers: [
             {
               key: 'Cache-Control',

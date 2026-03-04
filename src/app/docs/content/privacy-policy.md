@@ -3,7 +3,7 @@ description = "How Edgaze collects, uses, and handles information."
 
 ## 1. Introduction
 
-This Privacy Policy explains how Edgaze (“Edgaze”, “we”, “us”, or “our”) collects, uses, stores, and processes information in connection with your access to and use of the Edgaze platform (the “Platform”).
+This Privacy Policy explains how Edge Platforms, Inc., a Delaware C Corporation (“Edge Platforms”, “Edgaze”, “we”, “us”, or “our”) collects, uses, stores, and processes information in connection with your access to and use of the Edgaze platform (the “Platform”).
 
 By using the Platform, you acknowledge and agree to the practices described in this Privacy Policy. If you do not agree, you must not use the Platform.
 
@@ -24,7 +24,7 @@ This Privacy Policy reflects current intentions and practices but does **not** c
 
 ## 3. Information We May Collect
 
-Depending on how you use the Platform, Edgaze may collect the following categories of information.
+Depending on how you use the Platform, Edge Platforms may collect the following categories of information.
 
 ### 3.1 Information You Provide Directly
 This may include:
@@ -49,7 +49,7 @@ This information is generally used to operate, maintain, and improve the Platfor
 
 ### 3.3 Cookies and Similar Technologies
 
-Edgaze may use cookies or similar technologies that are **strictly necessary** for:
+Edge Platforms may use cookies or similar technologies that are **strictly necessary** for:
 - Authentication
 - Session management
 - Security
@@ -70,7 +70,7 @@ We may use collected information for purposes including, but not limited to:
 - Responding to inquiries or support requests
 - Conducting internal analysis, research, or testing
 
-Edgaze does **not** guarantee that information will be used solely for a single purpose.
+Edge Platforms does **not** guarantee that information will be used solely for a single purpose.
 
 ---
 
@@ -81,7 +81,7 @@ Content you submit or publish on the Platform may be:
 - Viewable by other users
 - Indexed, cached, or stored for operational purposes
 
-Edgaze is **not responsible** for how other users access, use, copy, or redistribute publicly available content.
+Edge Platforms is **not responsible** for how other users access, use, copy, or redistribute publicly available content.
 
 You should not submit information you consider confidential or sensitive.
 
@@ -104,7 +104,7 @@ Use of such features is at your own discretion and risk.
 
 ## 7. Data Sharing and Disclosure
 
-Edgaze may share or disclose information in the following circumstances:
+Edge Platforms may share or disclose information in the following circumstances:
 
 - With service providers or infrastructure partners necessary to operate the Platform
 - To comply with legal obligations, lawful requests, or regulatory requirements
@@ -117,7 +117,7 @@ We do not guarantee that data will never be shared.
 
 ## 8. Data Retention
 
-Edgaze may retain information:
+Edge Platforms may retain information:
 - For as long as necessary to operate the Platform
 - For legitimate business, legal, or compliance purposes
 - Even after account termination, where required or reasonable
@@ -184,7 +184,7 @@ Changes become effective upon publication. Continued use of the Platform constit
 
 ## 15. Limitation of Liability
 
-To the maximum extent permitted by law, Edgaze shall not be liable for:
+To the maximum extent permitted by law, Edge Platforms shall not be liable for:
 - Loss, misuse, or unauthorized access to information
 - Decisions made based on information obtained from the Platform
 - Indirect, incidental, or consequential damages related to data handling
@@ -195,7 +195,7 @@ Your sole remedy is to discontinue use of the Platform.
 
 ## 16. Governing Law
 
-This Privacy Policy is governed by applicable laws of the operating jurisdiction of Edgaze, without regard to conflict of law principles.
+This Privacy Policy is governed by the laws of the State of Delaware, without regard to conflict of law principles.
 
 ---
 

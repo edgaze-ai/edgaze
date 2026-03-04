@@ -3,6 +3,9 @@ description = "Complete guide to creating reusable AI prompts with Prompt Studio
 
 # Prompt Studio Guide
 
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
+
 Prompt Studio is a powerful tool for creating reusable prompts with customizable placeholders. Write your prompt once, define what information users need to provide, and publish it as a shareable product that others can use. This comprehensive guide will teach you everything you need to know to master Prompt Studio and create professional, reusable prompts.
 
 ## What is Prompt Studio?

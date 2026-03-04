@@ -2,6 +2,8 @@
 
 Welcome to the Edgaze documentation. This directory contains comprehensive guides, references, and resources for **authorized developers** working on the platform.
 
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
 ⚠️ **Note:** Edgaze is a **closed-source, proprietary platform**. This documentation is confidential and for internal use only.
 
 ---

@@ -7,6 +7,9 @@ description = "Standards and rules for creators publishing content on the Edgaze
 
 These Creator Guidelines (“Guidelines”) define expectations and requirements for users who create, upload, publish, or manage content on the Edgaze platform (the “Platform”).
 
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
+
 These Guidelines are intended to:
 - Maintain platform integrity and safety
 - Reduce legal, regulatory, and reputational risk
@@ -33,7 +36,7 @@ Creators are solely responsible for:
 - Ensuring content does not violate third-party rights
 - Understanding risks associated with AI, automation, and external tools
 
-Edgaze does not assume responsibility for creator content.
+Edge Platforms does not assume responsibility for creator content.
 
 ---
 
@@ -102,18 +105,18 @@ Creators must not publish content that includes or relates to any of the followi
 
 5. Quality and Accuracy Expectations
 
-While Edgaze does not guarantee quality or accuracy, creators are expected to:
+While Edge Platforms does not guarantee quality or accuracy, creators are expected to:
 - Avoid intentionally misleading or deceptive content
 - Clearly describe limitations and assumptions where applicable
 - Avoid presenting experimental or speculative content as fact
 
-Edgaze does not verify or endorse creator content.
+Edge Platforms does not verify or endorse creator content.
 
 ---
 
 6. Enforcement Framework
 
-Edgaze reserves the right, but not the obligation, to enforce these Guidelines.
+Edge Platforms reserves the right, but not the obligation, to enforce these Guidelines.
 
 Enforcement actions may include, at Edgaze’s sole discretion:
 - Content removal or restriction
@@ -140,7 +143,7 @@ Edgaze is not required to issue warnings prior to enforcement where immediate ac
 
 8. No Obligation to Monitor
 
-Edgaze:
+Edge Platforms:
 - Does not actively monitor all creator content
 - Does not guarantee detection of violations
 - Is not obligated to review or investigate every report
@@ -151,7 +154,7 @@ Enforcement may be discretionary, delayed, or limited.
 
 9. Appeals and Reinstatement
 
-Edgaze may, but is not required to, review appeals or reinstatement requests.
+Edge Platforms may, but is not required to, review appeals or reinstatement requests.
 
 No guarantee is made regarding review timelines or outcomes.
 

@@ -1,6 +1,9 @@
 # Run Counter Fix - Complete Solution
 
 ## Problem
+
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+
 Workflow runs were succeeding but the counter wasn't incrementing. This was due to:
 1. Runs not being updated to "completed" status properly
 2. Race conditions in database updates

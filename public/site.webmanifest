@@ -1,21 +1,31 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySite",
+  "name": "Edgaze",
+  "short_name": "Edgaze",
+  "description": "Create, sell, and distribute AI products",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07080b",
+  "theme_color": "#07080b",
   "icons": [
+    {
+      "src": "/brand/icons/icon-48x48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
     {
       "src": "/web-app-manifest-192x192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/web-app-manifest-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "type": "image/png"
     }
-  ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
-  "display": "standalone"
+  ]
 }

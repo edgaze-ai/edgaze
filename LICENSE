@@ -1,17 +1,78 @@
-EDGAZE — PROPRIETARY SOFTWARE LICENSE
+EDGAZE PROPRIETARY SOFTWARE LICENSE
 
-Copyright (c) Edgaze. All rights reserved.
+Copyright (c) 2026 Edge Platforms, Inc.
+All Rights Reserved.
 
-This software and associated documentation (the "Software") are the exclusive
-property of Edgaze. No right, title, or interest is granted to any person or
-entity except pursuant to a separate written agreement signed by Edgaze.
+This software and associated documentation (the "Software") are proprietary
+and confidential and are owned exclusively by Edge Platforms, Inc., a
+Delaware corporation ("Company").
 
-You may not copy, modify, distribute, sublicense, or use the Software, in whole
-or in part, for any purpose without prior written authorization. The Software
-is confidential. Disclosure to third parties is prohibited.
+1. NO OPEN SOURCE LICENSE
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED. IN NO EVENT SHALL EDGAZE BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
-LIABILITY ARISING FROM OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+This Software is NOT licensed under any open source license.
+No rights are granted except as expressly set forth herein.
 
-All rights reserved.
+2. LICENSE GRANT
+
+Subject to a separate written agreement executed by Company, Company grants
+a limited, non-exclusive, non-transferable, non-sublicensable, revocable
+license to use the Software solely for internal purposes and only as
+expressly authorized by Company.
+
+Absent such written agreement, you have no right to use the Software
+for any purpose.
+
+3. RESTRICTIONS
+
+You may not, directly or indirectly:
+
+- Copy, reproduce, distribute, or publicly display the Software
+- Modify, adapt, translate, or create derivative works
+- Reverse engineer, decompile, disassemble, or attempt to extract source code
+- Sell, sublicense, lease, rent, or commercially exploit the Software
+- Use the Software to build a competing product or service
+- Remove or alter any proprietary notices
+
+All rights not expressly granted are reserved by Company.
+
+4. OWNERSHIP
+
+The Software, including all intellectual property rights, trade secrets,
+algorithms, workflows, designs, and documentation, remains the sole and
+exclusive property of Edge Platforms, Inc.
+
+Nothing in this License transfers ownership rights.
+
+5. CONFIDENTIALITY
+
+The Software contains confidential and proprietary information.
+You agree not to disclose or make available the Software or any part thereof
+to any third party without prior written consent from Company.
+
+6. TERMINATION
+
+This License is effective until terminated.
+Company may terminate this License at any time upon breach.
+Upon termination, all rights granted herein immediately cease, and you must
+cease all use of the Software.
+
+7. DISCLAIMER OF WARRANTIES
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+8. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, EDGE PLATFORMS, INC. SHALL NOT BE
+LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE
+DAMAGES ARISING OUT OF OR RELATING TO THE SOFTWARE OR ITS USE.
+
+9. GOVERNING LAW
+
+This License shall be governed by and construed in accordance with the laws
+of the State of Delaware, without regard to conflict of law principles.
+Any disputes shall be resolved exclusively in the state or federal courts
+located in Delaware.
+
+For licensing inquiries, contact: legal@edgaze.ai

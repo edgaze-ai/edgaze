@@ -136,6 +136,7 @@ type Props = {
   mode?: BuilderMode; // "preview" enables read-only mode
   onSelectionChange?: (s: {
     nodeId: string | null;
+    nodeIds?: string[];
     specId?: string;
     config?: any;
   }) => void;
@@ -686,7 +687,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       lastSelectionKeyRef.current = "none";
       setBubble(null);
-      onSelectionChange?.({ nodeId: null });
+      onSelectionChange?.({ nodeId: null, nodeIds: undefined });
 
       setNodes(nextNodes);
       setEdges(nextEdges);
@@ -816,7 +817,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         });
         lastSelectionKeyRef.current = "none";
         setBubble(null);
-        onSelectionChange?.({ nodeId: null });
+        onSelectionChange?.({ nodeId: null, nodeIds: undefined });
         return;
       }
 
@@ -962,7 +963,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     });
     lastSelectionKeyRef.current = "none";
     setBubble(null);
-    onSelectionChange?.({ nodeId: null });
+    onSelectionChange?.({ nodeId: null, nodeIds: undefined });
   };
 
   const onDeleteEdge = () => {
@@ -1162,7 +1163,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           paneClickJustHappenedRef.current = true;
           lastSelectionKeyRef.current = "none";
           setBubble(null);
-          onSelectionChange?.({ nodeId: null });
+          onSelectionChange?.({ nodeId: null, nodeIds: undefined });
           // Reset flag after a brief moment to allow normal selection to work
           setTimeout(() => {
             paneClickJustHappenedRef.current = false;
@@ -1181,13 +1182,14 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         zoomOnScroll
         zoomOnPinch
         zoomOnDoubleClick
+        selectionOnDrag
         minZoom={minZoom}
         maxZoom={2}
         onSelectionChange={(sel) => {
           // In preview mode, disable all selection - only allow pan/zoom
           if (isPreview) {
             setBubble(null);
-            onSelectionChange?.({ nodeId: null });
+            onSelectionChange?.({ nodeId: null, nodeIds: undefined });
             return;
           }
 
@@ -1201,9 +1203,21 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             return;
           }
 
-          const selectedNode = sel?.nodes?.[0] as Node<EdgazeNodeData> | undefined;
+          const selectedNodes = (sel?.nodes ?? []) as Node<EdgazeNodeData>[];
           const selectedEdge = sel?.edges?.[0];
 
+          // Multiple nodes selected (marquee / multi-select): tell inspector "select one at a time"
+          if (selectedNodes.length > 1) {
+            lastSelectionKeyRef.current = `multi:${selectedNodes.map((n) => n.id).join(",")}`;
+            setBubble(null);
+            onSelectionChange?.({
+              nodeId: null,
+              nodeIds: selectedNodes.map((n) => n.id),
+            });
+            return;
+          }
+
+          const selectedNode = selectedNodes[0];
           const nextKey = selectedNode
             ? `n:${selectedNode.id}`
             : selectedEdge
@@ -1224,7 +1238,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           }
 
           setBubble(null);
-          onSelectionChange?.({ nodeId: null });
+          onSelectionChange?.({ nodeId: null, nodeIds: undefined });
         }}
       >
         {showGrid && (
