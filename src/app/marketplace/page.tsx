@@ -2534,8 +2534,8 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
         </header>
 
         <main ref={mainRef} className="flex-1 overflow-y-auto px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
-{/* Code box (unchanged from your current file) */}
-          <section className="mb-6">
+{/* Code box - z-[60] so dropdown appears above marketplace cards */}
+          <section className="relative z-[60] mb-6">
             <form
               onSubmit={handleCodeSubmit}
               className="relative w-full overflow-visible rounded-3xl border border-white/15 bg-slate-950/95 backdrop-blur-sm px-5 py-5 sm:px-6 sm:py-5 shadow-[0_0_50px_rgba(15,23,42,0.8)]"
@@ -2580,16 +2580,16 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                     </div>
 
                     {(codeSugLoading || codeSuggestions.length > 0) && (
-                      <div className="absolute left-0 right-0 top-full z-[120] mt-2 overflow-hidden rounded-2xl border border-white/15 bg-[#0b0b10] shadow-[0_20px_60px_rgba(0,0,0,0.7)] backdrop-blur-md">
+                      <div className="absolute left-0 right-0 top-full z-[200] mt-2 overflow-hidden rounded-2xl border border-white/20 bg-[#0b0b10] shadow-[0_0_0_1px_rgba(34,211,238,0.15),0_24px_80px_rgba(0,0,0,0.75),0_0_40px_rgba(34,211,238,0.06)] backdrop-blur-md">
                         {codeSugLoading ? (
                           <div className="flex items-center gap-2 px-4 py-3 text-sm text-white/70">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Searching…
                           </div>
                         ) : (
-                          <ul className="max-h-64 overflow-y-auto text-sm">
+                          <ul className="max-h-64 overflow-y-auto text-sm divide-y divide-white/[0.06]">
                             {codeSuggestions.map((p) => (
-                              <li key={`${p.id}-${p.type ?? ""}`}>
+                              <li key={`${p.id}-${p.type ?? ""}`} className="first:rounded-t-2xl">
                                 <button
                                   type="button"
                                   onClick={async () => {
@@ -2604,7 +2604,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                                       type: p.type,
                                     });
                                   }}
-                                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-white/85 hover:bg-white/5 transition-colors"
+                                  className="flex w-full items-center justify-between gap-2 px-4 py-3.5 text-left text-white/90 hover:bg-white/[0.08] hover:text-white transition-colors duration-150"
                                 >
                                   <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2 text-xs text-white/55 min-w-0">

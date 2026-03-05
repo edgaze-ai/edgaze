@@ -84,12 +84,13 @@ export async function updateWorkflowRun(
   const supabase = createSupabaseAdminClient();
 
   // Always use direct update so usage tracking works with service_role (no RPC permission dependency).
-  // For completed/failed, ensure completed_at is set so the run is counted.
+  // For terminal statuses, ensure completed_at is set so the run is counted.
+  const terminalStatuses = ["completed", "failed", "timeout", "cancelled"];
   const payload: Record<string, unknown> = {
     ...updates,
     updated_at: new Date().toISOString(),
   };
-  if (updates.status === "completed" || updates.status === "failed") {
+  if (updates.status && terminalStatuses.includes(updates.status)) {
     payload.completed_at = payload.completed_at ?? new Date().toISOString();
   }
 
@@ -102,6 +103,43 @@ export async function updateWorkflowRun(
 
   if (error) throw error;
   return data as WorkflowRunRow;
+}
+
+/** Terminal statuses that consume a run slot (counted toward limit) */
+const TERMINAL_STATUSES = ["completed", "failed", "timeout", "cancelled"] as const;
+
+/**
+ * Atomically complete a workflow run and return the new run count.
+ * Use this instead of updateWorkflowRun + getUserWorkflowRunCount for reliable counting.
+ * Eliminates race conditions and removes need for delayed reads.
+ */
+export async function completeWorkflowRunAndGetCount(params: {
+  runId: string;
+  status: "completed" | "failed" | "timeout" | "cancelled";
+  durationMs?: number | null;
+  errorDetails?: Record<string, unknown> | null;
+  stateSnapshot?: Record<string, unknown> | null;
+}): Promise<{ newCount: number } | null> {
+  const supabase = createSupabaseAdminClient();
+  try {
+    const { data, error } = await supabase.rpc("complete_workflow_run_and_get_count", {
+      p_run_id: params.runId,
+      p_status: params.status,
+      p_duration_ms: params.durationMs ?? null,
+      p_error_details: params.errorDetails ?? null,
+      p_state_snapshot: params.stateSnapshot ?? null,
+    });
+    if (error) {
+      console.warn("[completeWorkflowRunAndGetCount] RPC failed, falling back to updateWorkflowRun:", error.message);
+      return null;
+    }
+    const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
+    if (!row || typeof row.new_count !== "number") return null;
+    return { newCount: row.new_count };
+  } catch (err: unknown) {
+    console.warn("[completeWorkflowRunAndGetCount] Error:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 export async function getUserWorkflowRunCount(
@@ -133,12 +171,12 @@ export async function getUserWorkflowRunCount(
     console.warn("[getUserWorkflowRunCount] RPC call error, using fallback:", err?.message);
   }
   
-  // Fallback: direct query
+  // Fallback: direct query (count all terminal states)
   let query = supabase
     .from("workflow_runs")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId)
-    .in("status", ["completed", "failed"])
+    .in("status", [...TERMINAL_STATUSES])
     .not("completed_at", "is", null);
   
   if (draftId) {

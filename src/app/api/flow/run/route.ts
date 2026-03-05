@@ -5,6 +5,7 @@ import { enforceRuntimeLimits, redactSecrets } from "src/server/flow/runtime-enf
 import {
   createWorkflowRun,
   updateWorkflowRun,
+  completeWorkflowRunAndGetCount,
   getUserWorkflowRunCount,
   workflowExists,
   getWorkflowDraftId,
@@ -368,7 +369,38 @@ export async function POST(req: Request) {
                 : "failed";
             let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
 
-            if (runId) {
+            if (runId && isTrackedUser) {
+              const countResult = await completeWorkflowRunAndGetCount({
+                runId,
+                status: finalStatus,
+                durationMs: duration,
+                stateSnapshot: {
+                  nodeStatus: result.nodeStatus,
+                  outputsByNode: redactSecrets(result.outputsByNode),
+                },
+              });
+              if (countResult) {
+                const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
+              } else {
+                try {
+                  await updateWorkflowRun(runId, {
+                    status: finalStatus,
+                    completed_at: new Date().toISOString(),
+                    duration_ms: duration,
+                    state_snapshot: {
+                      nodeStatus: result.nodeStatus,
+                      outputsByNode: redactSecrets(result.outputsByNode),
+                    },
+                  });
+                  const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
+                  const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                  updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
+                } catch (e) {
+                  console.error("[Flow Stream] Run update failed:", (e as Error)?.message);
+                }
+              }
+            } else if (runId) {
               try {
                 await updateWorkflowRun(runId, {
                   status: finalStatus,
@@ -379,37 +411,31 @@ export async function POST(req: Request) {
                     outputsByNode: redactSecrets(result.outputsByNode),
                   },
                 });
-                if (result.nodeTraces?.length) {
-                  await insertWorkflowRunNodes(
-                    runId,
-                    result.nodeTraces.map((t) => ({
-                      nodeId: t.nodeId,
-                      specId: t.specId,
-                      status: t.status,
-                      startMs: t.startMs,
-                      endMs: t.endMs,
-                      error: t.error,
-                      retries: t.retries,
-                      tokens: t.tokens,
-                      model: t.model,
-                    }))
-                  );
-                }
-              } catch (updateErr: any) {
-                console.error("[Flow Stream] Run update failed:", updateErr?.message);
-              }
-            }
-            await finishUnifiedRun(unifiedRunId, finalStatus === "completed" ? "success" : "error", duration, undefined, result.nodeTraces);
-            if (runId && isTrackedUser) {
-              try {
-                await new Promise((r) => setTimeout(r, 300));
-                const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
-                const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
-                updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
               } catch {
                 // ignore
               }
             }
+            if (result.nodeTraces?.length && runId) {
+              try {
+                await insertWorkflowRunNodes(
+                  runId,
+                  result.nodeTraces.map((t) => ({
+                    nodeId: t.nodeId,
+                    specId: t.specId,
+                    status: t.status,
+                    startMs: t.startMs,
+                    endMs: t.endMs,
+                    error: t.error,
+                    retries: t.retries,
+                    tokens: t.tokens,
+                    model: t.model,
+                  }))
+                );
+              } catch {
+                // ignore
+              }
+            }
+            await finishUnifiedRun(unifiedRunId, finalStatus === "completed" ? "success" : "error", duration, undefined, result.nodeTraces);
             const safeResult = {
               ...result,
               outputsByNode: redactSecrets(result.outputsByNode) as Record<string, unknown>,
@@ -421,7 +447,33 @@ export async function POST(req: Request) {
             write({ type: "complete", ok: true, result: safeResult, freeRunsRemaining: updatedFreeRunsRemaining, runId });
           } catch (err: any) {
             const duration = Date.now() - startTime;
-            if (runId) {
+            let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
+            if (runId && isTrackedUser) {
+              const countResult = await completeWorkflowRunAndGetCount({
+                runId,
+                status: "failed",
+                durationMs: duration,
+                errorDetails: redactSecrets({ message: err?.message, stack: err?.stack }),
+              });
+              if (countResult) {
+                const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
+              } else {
+                try {
+                  await updateWorkflowRun(runId, {
+                    status: "failed",
+                    completed_at: new Date().toISOString(),
+                    duration_ms: duration,
+                    error_details: redactSecrets({ message: err?.message, stack: err?.stack }),
+                  });
+                  const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
+                  const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                  updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
+                } catch {
+                  // ignore
+                }
+              }
+            } else if (runId) {
               try {
                 await updateWorkflowRun(runId, {
                   status: "failed",
@@ -434,17 +486,6 @@ export async function POST(req: Request) {
               }
             }
             await finishUnifiedRun(unifiedRunId, "error", duration, err?.message);
-            let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
-            if (runId && isTrackedUser) {
-              try {
-                await new Promise((r) => setTimeout(r, 300));
-                const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
-                const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
-                updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
-              } catch {
-                // ignore
-              }
-            }
             write({ type: "complete", ok: false, error: err?.message || "Unknown error", freeRunsRemaining: updatedFreeRunsRemaining, runId });
           } finally {
             controller.close();
@@ -475,9 +516,27 @@ export async function POST(req: Request) {
           ? "completed"
           : "failed";
 
-      // CRITICAL: Update run status - retry up to 3 times if it fails
+      // CRITICAL: Atomic completion (update + get count in one DB round-trip)
       let updateSuccess = false;
-      if (runId) {
+      if (runId && isTrackedUser) {
+        const countResult = await completeWorkflowRunAndGetCount({
+          runId,
+          status: finalStatus,
+          durationMs: duration,
+          stateSnapshot: {
+            nodeStatus: result.nodeStatus,
+            outputsByNode: redactSecrets(result.outputsByNode),
+          },
+        });
+        if (countResult) {
+          updateSuccess = true;
+          const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+          updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
+          console.warn(`[Run Tracking] Atomic complete: run ${runId} → ${finalStatus}, count=${countResult.newCount}/${freeRunLimit}`);
+        }
+      }
+      if (!updateSuccess && runId) {
+        // Fallback: RPC not available, use update + count
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             await updateWorkflowRun(runId, {
@@ -489,93 +548,43 @@ export async function POST(req: Request) {
                 outputsByNode: redactSecrets(result.outputsByNode),
               },
             });
-            if (result.nodeTraces?.length) {
-              await insertWorkflowRunNodes(
-                runId,
-                result.nodeTraces.map((t) => ({
-                  nodeId: t.nodeId,
-                  specId: t.specId,
-                  status: t.status,
-                  startMs: t.startMs,
-                  endMs: t.endMs,
-                  error: t.error,
-                  retries: t.retries,
-                  tokens: t.tokens,
-                  model: t.model,
-                }))
-              );
-            }
             updateSuccess = true;
-            console.warn(`[Run Tracking] Successfully updated run ${runId} to ${finalStatus} (attempt ${attempt})`);
             break;
           } catch (updateErr: any) {
-            console.error(`[Run Tracking] Update attempt ${attempt} failed:`, {
-              error: updateErr?.message,
-              code: updateErr?.code,
-              details: updateErr?.details,
-              hint: updateErr?.hint,
-              runId,
-              userId,
-              workflowId,
-              finalStatus,
-            });
-
-            if (attempt < 3) {
-              // Wait before retry (exponential backoff)
-              await new Promise(resolve => setTimeout(resolve, 100 * attempt));
-            } else {
-              // Last attempt failed - log critical error
-              console.error("[Run Tracking] CRITICAL: All update attempts failed for run:", runId);
-            }
+            console.error(`[Run Tracking] Fallback update attempt ${attempt} failed:`, updateErr?.message);
+            if (attempt < 3) await new Promise((r) => setTimeout(r, 100 * attempt));
           }
         }
-      } else {
-        console.warn(`[Run Tracking] No runId available - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
-      }
-      await finishUnifiedRun(unifiedRunId, finalStatus === "completed" ? "success" : "error", duration, undefined, result.nodeTraces);
-
-      // ALWAYS recalculate count after completion - retry up to 3 times
-      let countSuccess = false;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          // Add a delay to ensure DB consistency (longer delay for first attempt)
-          await new Promise(resolve => setTimeout(resolve, attempt === 1 ? 300 : 100));
-
+        if (updateSuccess && isTrackedUser) {
           const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
           const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
-          countSuccess = true;
-
-          console.warn(`[Run Tracking] Recalculated count: ${updatedRunCount}/${freeRunLimit}, remaining: ${updatedFreeRunsRemaining} (attempt ${attempt})`);
-
-          // Verify the update worked
-          if (updateSuccess && updatedRunCount <= enforcement.freeRunsRemaining && enforcement.freeRunsRemaining < freeRunLimit && updatedRunCount < freeRunLimit) {
-            console.warn(`[Run Tracking] WARNING: Count may not have updated correctly. Expected increase but got: ${updatedRunCount} (was ${enforcement.freeRunsRemaining}). RunId: ${runId}, Status: ${finalStatus}`);
-          }
-          break;
-        } catch (countErr: any) {
-          console.error(`[Run Tracking] Count attempt ${attempt} failed:`, {
-            error: countErr?.message,
-            code: countErr?.code,
-            details: countErr?.details,
-            hint: countErr?.hint,
-            userId,
-            workflowId,
-            runId,
-          });
-
-          if (attempt < 3) {
-            await new Promise(resolve => setTimeout(resolve, 100 * attempt));
-          } else {
-            console.error("[Run Tracking] CRITICAL: All count attempts failed");
-          }
         }
       }
-
-      // Final verification: if update succeeded but count didn't increase, log warning
-      if (updateSuccess && !countSuccess) {
-        console.error("[Run Tracking] CRITICAL: Run was updated but count query failed. RunId:", runId);
+      if (result.nodeTraces?.length && runId) {
+        try {
+          await insertWorkflowRunNodes(
+            runId,
+            result.nodeTraces.map((t) => ({
+              nodeId: t.nodeId,
+              specId: t.specId,
+              status: t.status,
+              startMs: t.startMs,
+              endMs: t.endMs,
+              error: t.error,
+              retries: t.retries,
+              tokens: t.tokens,
+              model: t.model,
+            }))
+          );
+        } catch (e) {
+          console.warn("[Run Tracking] insertWorkflowRunNodes failed:", e);
+        }
       }
+      if (!runId) {
+        console.warn(`[Run Tracking] No runId - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
+      }
+      await finishUnifiedRun(unifiedRunId, finalStatus === "completed" ? "success" : "error", duration, undefined, result.nodeTraces);
 
       // Redact secrets from response
       const safeResult = {
@@ -597,11 +606,24 @@ export async function POST(req: Request) {
       const duration = Date.now() - startTime;
       const errorMessage = err?.message || "Unknown error";
 
-      // Update run record on error - ALWAYS update to track usage with retries
+      // Atomic completion for failed runs
       let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
       let updateSuccess = false;
-
-      if (runId) {
+      if (runId && isTrackedUser) {
+        const countResult = await completeWorkflowRunAndGetCount({
+          runId,
+          status: "failed",
+          durationMs: duration,
+          errorDetails: redactSecrets({ message: errorMessage, stack: err?.stack }),
+        });
+        if (countResult) {
+          updateSuccess = true;
+          const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+          updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
+          console.warn(`[Run Tracking] Atomic complete (error): run ${runId} → failed, count=${countResult.newCount}/${freeRunLimit}`);
+        }
+      }
+      if (!updateSuccess && runId) {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
             await updateWorkflowRun(runId, {
@@ -611,70 +633,22 @@ export async function POST(req: Request) {
               error_details: redactSecrets({ message: errorMessage, stack: err?.stack }),
             });
             updateSuccess = true;
-            console.warn(`[Run Tracking] Successfully updated run ${runId} to failed (attempt ${attempt})`);
+            if (isTrackedUser) {
+              const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
+              const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+              updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
+            }
             break;
           } catch (updateErr: any) {
-            console.error(`[Run Tracking] Update attempt ${attempt} failed:`, {
-              error: updateErr?.message,
-              code: updateErr?.code,
-              details: updateErr?.details,
-              hint: updateErr?.hint,
-              runId,
-              userId,
-              workflowId,
-            });
-
-            if (attempt < 3) {
-              await new Promise(resolve => setTimeout(resolve, 100 * attempt));
-            } else {
-              console.error("[Run Tracking] CRITICAL: All update attempts failed for failed run:", runId);
-            }
+            console.error(`[Run Tracking] Fallback update (error) attempt ${attempt} failed:`, updateErr?.message);
+            if (attempt < 3) await new Promise((r) => setTimeout(r, 100 * attempt));
           }
         }
-      } else {
-        console.warn(`[Run Tracking] No runId available on error - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
+      }
+      if (!runId) {
+        console.warn(`[Run Tracking] No runId on error - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
       }
       await finishUnifiedRun(unifiedRunId, "error", duration, errorMessage);
-
-      // ALWAYS recalculate count after error - retry up to 3 times
-      let countSuccess = false;
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          await new Promise(resolve => setTimeout(resolve, attempt === 1 ? 300 : 100));
-
-          const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
-          const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
-          updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
-          countSuccess = true;
-
-          console.warn(`[Run Tracking] Recalculated count after error: ${updatedRunCount}/${freeRunLimit}, remaining: ${updatedFreeRunsRemaining} (attempt ${attempt})`);
-
-          if (updateSuccess && updatedRunCount <= enforcement.freeRunsRemaining && enforcement.freeRunsRemaining < freeRunLimit && updatedRunCount < freeRunLimit) {
-            console.warn(`[Run Tracking] WARNING: Count may not have updated correctly after error. Expected increase but got: ${updatedRunCount} (was ${enforcement.freeRunsRemaining}). RunId: ${runId}`);
-          }
-          break;
-        } catch (countErr: any) {
-          console.error(`[Run Tracking] Count attempt ${attempt} failed after error:`, {
-            error: countErr?.message,
-            code: countErr?.code,
-            details: countErr?.details,
-            hint: countErr?.hint,
-            userId,
-            workflowId,
-            runId,
-          });
-
-          if (attempt < 3) {
-            await new Promise(resolve => setTimeout(resolve, 100 * attempt));
-          } else {
-            console.error("[Run Tracking] CRITICAL: All count attempts failed after error");
-          }
-        }
-      }
-
-      if (updateSuccess && !countSuccess) {
-        console.error("[Run Tracking] CRITICAL: Failed run was updated but count query failed. RunId:", runId);
-      }
 
       return NextResponse.json(
         {
