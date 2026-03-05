@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { X, Home, Files, User, HelpCircle, Settings } from "lucide-react";
+import { X, Home, BookOpen, User, HelpCircle, Settings } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -20,7 +20,7 @@ type NavItem = {
 // MOBILE: intentionally exclude Workflow Studio + Prompt Studio
 const MOBILE_ITEMS_TOP: NavItem[] = [
   { href: "/marketplace", label: "Marketplace", icon: Home },
-  { href: "/library", label: "Library", icon: Files },
+  { href: "/library", label: "Library", icon: BookOpen },
 ];
 
 // Include a query param so /profile can show a sign-in CTA only when opened from sidebar.

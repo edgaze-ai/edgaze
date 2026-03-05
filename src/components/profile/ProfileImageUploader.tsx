@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../auth/AuthContext";
+import { compressImageToMaxSize } from "../../lib/compressImage";
 
 function extFromName(name: string) {
   const p = name.split(".").pop();
@@ -37,26 +38,20 @@ export default function ProfileImageUploader({
       return;
     }
 
-    // Hard limits
-    const maxBytes = kind === "avatar" ? 4 * 1024 * 1024 : 8 * 1024 * 1024;
-    if (file.size > maxBytes) {
-      setErr(`File too large. Max ${Math.round(maxBytes / 1024 / 1024)}MB.`);
-      return;
-    }
+    const maxBytes = kind === "avatar" ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
 
     setBusy(true);
     try {
-      const bucket = "profile-media";
-      const ext = extFromName(file.name);
-      const path =
-        kind === "avatar"
-          ? `avatars/${userId}/${crypto.randomUUID()}.${ext}`
-          : `banners/${userId}/${crypto.randomUUID()}.${ext}`;
+      const toUpload = await compressImageToMaxSize(file, maxBytes);
 
-      const { error: upErr } = await supabase.storage.from(bucket).upload(path, file, {
+      const bucket = kind === "avatar" ? "avatars" : "banners";
+      const ext = extFromName(file.name);
+      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+
+      const { error: upErr } = await supabase.storage.from(bucket).upload(path, toUpload, {
         cacheControl: "3600",
         upsert: false,
-        contentType: file.type,
+        contentType: toUpload.type || file.type,
       });
       if (upErr) throw upErr;
 

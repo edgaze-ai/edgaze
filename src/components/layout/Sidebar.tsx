@@ -7,16 +7,15 @@ import { usePathname } from "next/navigation";
 
 import {
   Home,
-  PanelsTopLeft,
+  Workflow,
   User,
   HelpCircle,
   Settings,
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Files,
+  BookOpen,
   DollarSign,
-  Package,
 } from "lucide-react";
 
 import { useSidebar } from "./SidebarContext";
@@ -40,17 +39,16 @@ type NavItem = {
 
 const WORKSPACE_ITEMS: NavItem[] = [
   { href: "/marketplace", label: "Marketplace", icon: Home },
-  { href: "/library", label: "Library", icon: Files },
+  { href: "/library", label: "Library", icon: BookOpen },
 ];
 
 const BUILD_ITEMS: NavItem[] = [
-  { href: "/builder", label: "Workflow Studio", icon: PanelsTopLeft },
+  { href: "/builder", label: "Workflow Studio", icon: Workflow },
   { href: "/prompt-studio", label: "Prompt Studio", icon: Sparkles },
 ];
 
 const CREATOR_ITEMS: NavItem[] = [
   { href: "/dashboard/earnings", label: "Earnings", icon: DollarSign },
-  { href: "/dashboard/products", label: "Products", icon: Package },
 ];
 
 // Include a query param so /profile can show a sign-in CTA only when opened from sidebar.
