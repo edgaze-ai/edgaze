@@ -31,7 +31,7 @@ function OnboardingContent() {
 
   async function checkAccountStatus() {
     try {
-      const res = await fetch('/api/stripe/connect/status');
+      const res = await fetch('/api/stripe/v2/connect/status');
       if (res.ok) {
         const data = await res.json();
         setAccountStatus(data);
@@ -50,7 +50,7 @@ function OnboardingContent() {
     setError(null);
 
     try {
-      const res = await fetch('/api/stripe/connect/onboard', {
+      const res = await fetch('/api/stripe/v2/connect/onboard', {
         method: 'POST'
       });
 
@@ -76,7 +76,7 @@ function OnboardingContent() {
     setError(null);
 
     try {
-      const res = await fetch('/api/stripe/connect/refresh', {
+      const res = await fetch('/api/stripe/v2/connect/refresh', {
         method: 'POST'
       });
 
@@ -191,7 +191,7 @@ function OnboardingContent() {
           className="max-w-2xl mx-auto"
         >
           <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-            {accountStatus?.hasAccount && accountStatus?.status === 'pending' ? (
+            {accountStatus?.hasAccount && !accountStatus?.readyToProcessPayments ? (
               <>
                 <div className="text-center mb-6">
                   <div className="w-16 h-16 bg-yellow-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -223,7 +223,7 @@ function OnboardingContent() {
                   <div className="w-16 h-16 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
                     <DollarSign className="w-8 h-8 text-white" />
                   </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">Connect Your Bank Account</h2>
+                  <h2 className="text-2xl font-bold text-white mb-2">Onboard to Collect Payments</h2>
                   <p className="text-white/60">
                     Securely connect your bank account via Stripe to receive payments
                   </p>
@@ -248,10 +248,19 @@ function OnboardingContent() {
                   ) : (
                     <>
                       <CheckCircle2 className="w-5 h-5" />
-                      Start Onboarding
+                      Onboard to Collect Payments
                     </>
                   )}
                 </button>
+
+                {accountStatus?.hasAccount && (
+                  <div className="mt-4 p-3 bg-white/5 rounded-lg text-sm">
+                    <span className="text-white/60">Status: </span>
+                    <span className={accountStatus.readyToProcessPayments ? 'text-green-400' : 'text-yellow-400'}>
+                      {accountStatus.readyToProcessPayments ? 'Ready to process payments' : `Onboarding ${accountStatus.requirementsStatus || 'in progress'}`}
+                    </span>
+                  </div>
+                )}
 
                 <div className="mt-6 pt-6 border-t border-white/10">
                   <div className="flex items-center justify-center gap-2 text-sm text-white/40">

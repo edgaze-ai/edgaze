@@ -131,6 +131,27 @@ async function processWebhookEvent(event: Stripe.Event, supabase: any) {
     case 'payout.failed':
       await handlePayoutFailed(event.data.object as Stripe.Payout, supabase);
       break;
+
+    case 'customer.subscription.created':
+    case 'customer.subscription.updated':
+      await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, supabase);
+      break;
+
+    case 'customer.subscription.deleted':
+      await handleSubscriptionDeleted(event.data.object as Stripe.Subscription, supabase);
+      break;
+
+    case 'payment_method.attached':
+    case 'payment_method.detached':
+    case 'customer.updated':
+    case 'customer.tax_id.created':
+    case 'customer.tax_id.updated':
+    case 'customer.tax_id.deleted':
+    case 'billing_portal.configuration.created':
+    case 'billing_portal.configuration.updated':
+    case 'billing_portal.session.created':
+      console.log(`[WEBHOOK] ${event.type} - no DB action`);
+      break;
     
     default:
       console.log(`[WEBHOOK] Unhandled event type: ${event.type}`);
@@ -141,6 +162,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session, supabas
   if (session.payment_status !== 'paid') {
     console.error(`[WEBHOOK] Checkout completed but payment not paid: ${session.id}`);
     throw new Error('Payment not completed');
+  }
+
+  if (session.mode === 'subscription') {
+    return;
   }
   
   const workflowId = session.metadata?.workflow_id;
@@ -476,4 +501,61 @@ async function handlePayoutFailed(payout: Stripe.Payout, supabase: any) {
     failure_message: payout.failure_message,
     created_at: new Date(payout.created * 1000).toISOString()
   });
+}
+
+/**
+ * Subscription handlers - use customer_account for V2 (acct_xxx), not customer
+ */
+async function handleSubscriptionUpdated(sub: Stripe.Subscription, supabase: any) {
+  const accountId = (sub as any).customer_account || sub.customer;
+  if (!accountId || typeof accountId !== 'string') return;
+
+  const { data: connectAccount } = await supabase
+    .from('stripe_connect_accounts')
+    .select('user_id')
+    .eq('stripe_account_id', accountId)
+    .single();
+
+  if (!connectAccount) return;
+
+  const item = sub.items?.data?.[0];
+  const priceId = item?.price?.id;
+  const quantity = item?.quantity ?? 1;
+  const subAny = sub as { current_period_end?: number };
+  const currentPeriodEnd = subAny.current_period_end;
+
+  await supabase
+    .from('connect_account_subscriptions')
+    .upsert(
+      {
+        stripe_account_id: accountId,
+        user_id: connectAccount.user_id,
+        stripe_subscription_id: sub.id,
+        stripe_customer_id: typeof sub.customer === 'string' ? sub.customer : (sub.customer as { id?: string })?.id,
+        status: sub.status as string,
+        cancel_at_period_end: sub.cancel_at_period_end ?? false,
+        current_period_end: currentPeriodEnd
+          ? new Date(currentPeriodEnd * 1000).toISOString()
+          : null,
+        price_id: priceId,
+        quantity,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'stripe_account_id',
+      }
+    );
+}
+
+async function handleSubscriptionDeleted(sub: Stripe.Subscription, supabase: any) {
+  const accountId = (sub as any).customer_account || sub.customer;
+  if (!accountId || typeof accountId !== 'string') return;
+
+  await supabase
+    .from('connect_account_subscriptions')
+    .update({
+      status: 'canceled',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('stripe_account_id', accountId);
 }

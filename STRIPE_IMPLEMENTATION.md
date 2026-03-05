@@ -52,13 +52,13 @@ Automatic Weekly Payout to Creator
 Required variables (add to `.env`):
 
 ```bash
-# Stripe API Keys
-STRIPE_SECRET_KEY=sk_test_...
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+# Stripe API Keys – set from https://dashboard.stripe.com/apikeys (use test keys for dev)
+STRIPE_SECRET_KEY=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
 
 # Stripe Connect
-STRIPE_CONNECT_CLIENT_ID=ca_...
+STRIPE_CONNECT_CLIENT_ID=
 STRIPE_PLATFORM_FEE_PERCENTAGE=20
 STRIPE_MINIMUM_PAYOUT_CENTS=1000
 

@@ -27,7 +27,8 @@ export function validateStripeConfig() {
 
   if (missing.length > 0) {
     throw new Error(
-      `Missing required Stripe environment variables: ${missing.join(', ')}`
+      `Missing required Stripe environment variables: ${missing.join(', ')}. ` +
+        `Add them to .env.local. Get keys at https://dashboard.stripe.com/apikeys`
     );
   }
 

@@ -419,6 +419,12 @@ export default function BuilderPage() {
     if (!isPreview) return;
 
     const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditable = tag === "input" || tag === "textarea" || !!target?.isContentEditable;
+      if (isEditable) return;
+      if (target?.closest?.("[data-workflow-run-modal]") ?? target?.closest?.("[role=\"dialog\"]")) return;
+
       const key = e.key.toLowerCase();
       const meta = e.metaKey || e.ctrlKey;
 
@@ -1352,7 +1358,7 @@ export default function BuilderPage() {
       return;
     }
 
-    // Extract inputs from workflow
+    // Extract inputs from workflow (use current graph - inputs/steps must match live canvas)
     const inputs = extractWorkflowInputs(graph.nodes || []);
     const aiSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
     const hasAiNodes = (graph.nodes || []).some((n: any) => aiSpecs.includes(n.data?.specId ?? ""));
@@ -1394,15 +1400,16 @@ export default function BuilderPage() {
       setBuilderRunLimit(null);
     }
 
-    // Initialize run state
+    // Initialize run state (re-fetch graph to ensure we have latest after any async work above)
     const workflowGraph = beRef.current?.getGraph?.();
+    if (!workflowGraph) return;
     const initialState: WorkflowRunState = {
       workflowId: activeDraftId,
       workflowName: name || "Untitled Workflow",
       phase: showInputPhase ? "input" : "executing",
       status: "idle",
       steps: [],
-      graph: workflowGraph ? {
+      graph: {
         nodes: (workflowGraph.nodes || []).map((n: any) => ({
           id: n.id,
           data: {
@@ -1415,7 +1422,7 @@ export default function BuilderPage() {
           source: e.source,
           target: e.target,
         })),
-      } : undefined,
+      },
       logs: [],
       inputs: showInputPhase ? (inputs.length > 0 ? inputs : []) : undefined,
       summary: validation.warnings.length > 0
@@ -2024,7 +2031,7 @@ export default function BuilderPage() {
 
   return (
     <div ref={rootRef} className="relative h-[100dvh] w-full overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(1200px_600px_at_50%_-10%,rgba(255,255,255,0.08),transparent_60%),linear-gradient(180deg,rgba(0,0,0,0.9),rgba(0,0,0,0.75)_35%,rgba(0,0,0,0.92))]" />
+      <div className="absolute inset-0 bg-[#0a0a0a]" />
 
       {/* Canvas - Full height, extends to top */}
       <div className="absolute inset-0 z-0">
@@ -2067,7 +2074,7 @@ export default function BuilderPage() {
           /* Premium Preview Mode Topbar - Mobile Optimized */
           <div
             ref={topbarInnerRef}
-            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between transition-all duration-200"
+            className="w-full rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between transition-all duration-200"
           >
             {/* Left: Back Button (mobile) + Logo + Title */}
             <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
@@ -2145,7 +2152,7 @@ export default function BuilderPage() {
           /* Edit Mode Topbar (existing) */
           <div
             ref={topbarInnerRef}
-            className="w-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200"
+            className="w-full rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="shrink-0">
@@ -2445,8 +2452,8 @@ export default function BuilderPage() {
 
       </div>
 
-      {/* Validation banner - bottom, compact and expandable */}
-      {canvasValidation && (canvasValidation.errors.length > 0 || canvasValidation.warnings.length > 0) && (
+      {/* Validation banner - bottom, compact and expandable (hidden in preview mode) */}
+      {!isPreview && canvasValidation && (canvasValidation.errors.length > 0 || canvasValidation.warnings.length > 0) && (
         <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pb-4 flex justify-center">
           <CanvasValidationBanner
             validation={canvasValidation}
@@ -2506,7 +2513,7 @@ export default function BuilderPage() {
           <div className="absolute inset-0 z-[80]">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
             <div className="absolute inset-0 flex items-center justify-center p-6">
-              <div className="w-[min(560px,92vw)] rounded-3xl border border-white/12 bg-white/[0.05] backdrop-blur-xl shadow-[0_30px_140px_rgba(0,0,0,0.75)] p-6">
+              <div className="w-[min(560px,92vw)] rounded-3xl border border-white/12 bg-[#0c0c0c] shadow-[0_30px_140px_rgba(0,0,0,0.75)] p-6">
                 <div className="text-white text-lg font-semibold">Builder is desktop-only</div>
                 <div className="mt-2 text-sm text-white/60 leading-relaxed">
                   Open the workflow builder on a larger screen (min {DESKTOP_MIN_W}px wide and {DESKTOP_MIN_H}px tall).
@@ -2945,7 +2952,7 @@ function FloatingWindow({
       className="absolute z-30 pointer-events-auto"
       style={{ left: state.x, top: state.y, width: state.width, height: state.minimized ? 56 : state.height }}
     >
-      <div className="h-full rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_24px_120px_rgba(0,0,0,0.65)] overflow-hidden">
+      <div className="h-full rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] overflow-hidden">
         <div
           className="h-14 px-4 flex items-center justify-between border-b border-white/10 bg-black/20 cursor-grab active:cursor-grabbing"
           onMouseDown={onMove}

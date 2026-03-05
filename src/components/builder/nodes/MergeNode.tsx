@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { memo } from "react";
 import { Handle, Position, NodeProps, useStore } from "reactflow";
 
 const MERGE_COLOR = "#f59e0b";
@@ -19,7 +19,7 @@ const HANDLE_POSITIONS: Record<number, number[]> = {
   6: [18, 32, 46, 60, 74, 88],
 };
 
-export default function MergeNode(props: NodeProps) {
+function MergeNodeImpl(props: NodeProps) {
   const { selected, data, id } = props as any;
 
   const { edges } = useStore((s) => ({ edges: s.edges }));
@@ -227,3 +227,5 @@ export default function MergeNode(props: NodeProps) {
     </div>
   );
 }
+
+export default memo(MergeNodeImpl);

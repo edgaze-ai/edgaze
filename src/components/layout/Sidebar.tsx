@@ -15,6 +15,8 @@ import {
   ChevronRight,
   Sparkles,
   Files,
+  DollarSign,
+  Package,
 } from "lucide-react";
 
 import { useSidebar } from "./SidebarContext";
@@ -44,6 +46,11 @@ const WORKSPACE_ITEMS: NavItem[] = [
 const BUILD_ITEMS: NavItem[] = [
   { href: "/builder", label: "Workflow Studio", icon: PanelsTopLeft },
   { href: "/prompt-studio", label: "Prompt Studio", icon: Sparkles },
+];
+
+const CREATOR_ITEMS: NavItem[] = [
+  { href: "/dashboard/earnings", label: "Earnings", icon: DollarSign },
+  { href: "/dashboard/products", label: "Products", icon: Package },
 ];
 
 // Include a query param so /profile can show a sign-in CTA only when opened from sidebar.
@@ -205,6 +212,12 @@ export default function Sidebar() {
             <NavGroup
               title={collapsed ? "" : "Build"}
               items={BUILD_ITEMS}
+              collapsed={collapsed}
+              isActive={isActive}
+            />
+            <NavGroup
+              title={collapsed ? "" : "Creator"}
+              items={CREATOR_ITEMS}
               collapsed={collapsed}
               isActive={isActive}
             />

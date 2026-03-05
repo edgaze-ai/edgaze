@@ -775,8 +775,9 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       const isEditable =
-        tag === "input" || tag === "textarea" || target?.isContentEditable;
+        tag === "input" || tag === "textarea" || !!target?.isContentEditable;
       if (isEditable) return;
+      if (target?.closest?.("[data-workflow-run-modal]") ?? target?.closest?.('[role="dialog"]')) return;
 
       // Preview: block ALL destructive/edit shortcuts
       if (isPreview) {
@@ -1015,7 +1016,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
 
   const selectionShellClass =
-    "rounded-full border border-white/10 bg-black/85 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.75)]";
+    "rounded-full border border-white/10 bg-[#0c0c0c] shadow-[0_18px_60px_rgba(0,0,0,0.75)]";
 
   const selectionBtnClass =
     "inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium text-white/85 hover:text-white hover:bg-white/10 active:scale-[0.98] transition";
@@ -1204,6 +1205,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         className="!bg-[#0c0c0c]"
         proOptions={{ hideAttribution: true }}
         onMove={(_, vp) => setViewport(vp)}
+        nodeDragThreshold={1}
         nodesDraggable={!locked && !isPreview}
         nodesConnectable={!locked && !isPreview}
         edgesUpdatable={!locked && !isPreview}
