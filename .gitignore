@@ -23,3 +23,10 @@ dist
 tsconfig.tsbuildinfo
 .claude/
 supabase/.temp/
+
+.env
+.env.*
+*.bak
+*.backup
+node_modules/
+.next/
