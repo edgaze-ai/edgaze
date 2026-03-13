@@ -1,9 +1,80 @@
 // src/components/builder/InspectorPanel.tsx
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
-import { Eye, TrendingUp, Users, Sliders, Code2 } from "lucide-react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import { Eye, TrendingUp, Users, Sliders, Code2, ChevronDown } from "lucide-react";
 import { getNodeSpec } from "src/nodes/registry";
+
+/* -------------------- Custom dark dropdown (avoids white native select popover on Windows) -------------------- */
+function DarkSelect({
+  value,
+  options,
+  onChange,
+  disabled,
+  className = "",
+  placeholder,
+}: {
+  value: string;
+  options: { label: string; value: string }[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  className?: string;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const label = options.find((o) => o.value === value)?.label ?? placeholder ?? value;
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => !disabled && setOpen((o) => !o)}
+        className="w-full min-w-0 rounded-md border border-white/[0.12] bg-[#141414] px-2.5 py-1.5 text-[12px] text-white text-left flex items-center justify-between gap-2
+          focus:border-white/25 focus:outline-none focus:ring-1 focus:ring-white/10
+          disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        <span className="truncate">{label}</span>
+        <ChevronDown size={14} className={`shrink-0 opacity-70 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div
+          className="absolute z-[100] mt-1 w-full min-w-[140px] rounded-md border border-white/[0.12] bg-[#141414] shadow-[0_8px_24px_rgba(0,0,0,0.6)] py-1 max-h-[220px] overflow-auto"
+          role="listbox"
+        >
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="option"
+              aria-selected={opt.value === value}
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+              className={`w-full px-2.5 py-1.5 text-[12px] text-left transition-colors ${
+                opt.value === value ? "bg-white/10 text-white" : "text-white/90 hover:bg-white/[0.08]"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* -------------------- Types -------------------- */
 type Selection = {
@@ -166,7 +237,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+    <div className="rounded-lg border border-white/[0.08] bg-[#0c0c0c] px-3 py-2.5">
       <div className="mb-2 flex items-center gap-2">
         {icon && <span className="text-white/40">{icon}</span>}
         <div className="text-[11px] font-medium uppercase tracking-wider text-white/50">
@@ -181,9 +252,9 @@ function Card({
 const Input = (props: any) => (
   <input
     {...props}
-    className={`w-full min-w-0 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px]
-    text-white/95 placeholder:text-white/30
-    focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10
+    className={`w-full min-w-0 rounded-md border border-white/[0.12] px-2.5 py-1.5 text-[12px]
+    text-white placeholder:text-white/35
+    focus:border-white/25 focus:outline-none focus:ring-1 focus:ring-white/10
     transition-colors ${props.className ?? ""}`}
   />
 );
@@ -191,9 +262,9 @@ const Input = (props: any) => (
 const TextArea = (props: any) => (
   <textarea
     {...props}
-    className={`w-full min-w-0 resize-y rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px]
-    text-white/95 placeholder:text-white/30
-    focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10
+    className={`w-full min-w-0 resize-y rounded-md border border-white/[0.12] px-2.5 py-1.5 text-[12px]
+    text-white placeholder:text-white/35
+    focus:border-white/25 focus:outline-none focus:ring-1 focus:ring-white/10
     transition-colors ${props.className ?? ""}`}
   />
 );
@@ -371,20 +442,13 @@ function GeneralPanel({
         return (
           <div key={field.key}>
             {fieldLabel(field.label, qualityDisabled ? "Only for DALL-E 3" : field.helpText)}
-            <select
+            <DarkSelect
               value={effectiveValue}
+              options={selectOptions}
+              onChange={(v) => onUpdate({ [field.key]: v })}
               disabled={qualityDisabled}
-              onChange={(e) => onUpdate({ [field.key]: e.target.value })}
-              className="w-full min-w-0 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[12px] text-white/95
-                focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10
-                disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {selectOptions.map((opt: any) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              className="w-full min-w-0"
+            />
             {qualityDisabled && (
               <div className="mt-1 text-[9px] text-amber-400/80">Set Model to DALL-E 3 for HD.</div>
             )}
@@ -455,18 +519,19 @@ function GeneralPanel({
         <Card title="Condition" icon={<Code2 size={14} />}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] text-white/60">If value</span>
-            <select
+            <DarkSelect
               value={conditionOperator}
-              onChange={(e) => onUpdate({ operator: e.target.value, compareValue: conditionOperator === "equals" || conditionOperator === "notEquals" ? conditionCompareValue : "" })}
-              className="rounded-md border border-white/[0.08] bg-white/[0.03] px-2 py-1 text-[11px] text-white/90 focus:outline-none focus:ring-1 focus:ring-white/10"
-            >
-              <option value="truthy">is truthy</option>
-              <option value="falsy">is falsy</option>
-              <option value="equals">equals</option>
-              <option value="notEquals">does not equal</option>
-              <option value="gt">is greater than</option>
-              <option value="lt">is less than</option>
-            </select>
+              options={[
+                { label: "is truthy", value: "truthy" },
+                { label: "is falsy", value: "falsy" },
+                { label: "equals", value: "equals" },
+                { label: "does not equal", value: "notEquals" },
+                { label: "is greater than", value: "gt" },
+                { label: "is less than", value: "lt" },
+              ]}
+              onChange={(v) => onUpdate({ operator: v, compareValue: conditionOperator === "equals" || conditionOperator === "notEquals" ? conditionCompareValue : "" })}
+              className="min-w-[120px]"
+            />
             {(conditionOperator === "equals" || conditionOperator === "notEquals" || conditionOperator === "gt" || conditionOperator === "lt") && (
               <Input
                 placeholder="value"
@@ -613,7 +678,7 @@ function TabPill({
         "px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
         active
           ? "bg-white/10 text-white"
-          : "text-white/50 hover:text-white/70 hover:bg-white/[0.04]",
+          : "text-white/50 hover:text-white/70 hover:bg-[#141414]",
       ].join(" ")}
       type="button"
     >
@@ -759,7 +824,7 @@ export default function InspectorPanel({
         )}
         {!selected && !multiSelected && (
           <div className="pt-6 text-center">
-            <div className="mx-auto h-12 w-12 rounded-full bg-white/[0.04] border border-white/[0.06] grid place-items-center">
+            <div className="mx-auto h-12 w-12 rounded-full bg-[#0c0c0c] border border-white/[0.08] grid place-items-center">
               <Eye size={20} className="text-white/40" />
             </div>
             <div className="mt-3 text-[12px] text-white/70">
@@ -769,14 +834,14 @@ export default function InspectorPanel({
               Drag blocks from the left, then click to configure.
             </div>
             <div className="mt-4 space-y-2 text-left">
-              <div className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-3 py-2">
+              <div className="rounded-lg border border-white/[0.08] bg-[#0c0c0c] px-3 py-2">
                 <div className="flex items-center gap-2">
                   <TrendingUp size={14} className="text-white/40" />
                   <span className="text-[11px] font-medium text-white/50">Analytics</span>
                 </div>
                 <div className="mt-1 text-[10px] text-white/40">Not available</div>
               </div>
-              <div className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-3 py-2">
+              <div className="rounded-lg border border-white/[0.08] bg-[#0c0c0c] px-3 py-2">
                 <div className="flex items-center gap-2">
                   <Users size={14} className="text-white/40" />
                   <span className="text-[11px] font-medium text-white/50">Community</span>
@@ -809,7 +874,7 @@ export default function InspectorPanel({
                 {tab === "code" && <CodePanel selection={safeSelection} spec={spec} />}
               </>
             ) : (
-              <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] text-white/50">
+              <div className="mt-3 rounded-lg border border-white/[0.08] bg-[#0c0c0c] px-3 py-2 text-[11px] text-white/50">
                 Spec not found for this node.
               </div>
             )}
@@ -820,15 +885,15 @@ export default function InspectorPanel({
                   <div className="text-[10px] text-white/40">Not available</div>
                 ) : (
                   <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                    <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Runs</div>
                       <div className="text-[12px] font-semibold text-white/90">{analytics.totalRuns}</div>
                     </div>
-                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                    <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Success</div>
                       <div className="text-[12px] font-semibold text-white/90">{analytics.successRate}%</div>
                     </div>
-                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                    <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Avg</div>
                       <div className="text-[12px] font-semibold text-white/90">{analytics.avgResponseMs}ms</div>
                     </div>
@@ -840,11 +905,11 @@ export default function InspectorPanel({
                   <div className="text-[10px] text-white/40">Not available</div>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                    <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Today</div>
                       <div className="text-[12px] font-semibold text-white/90">{community.todayUsers}</div>
                     </div>
-                    <div className="rounded-md bg-white/[0.03] border border-white/[0.04] px-2 py-1.5">
+                    <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Remixes</div>
                       <div className="text-[12px] font-semibold text-white/90">{community.weeklyRemixes}</div>
                     </div>

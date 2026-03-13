@@ -164,12 +164,43 @@ function normalizeGraph(
       ? g0.graph
       : g0;
 
-  const nodes = Array.isArray(g?.nodes) ? (g.nodes as Node<EdgazeNodeData>[]) : [];
-  const nodeIds = new Set(nodes.map((n) => n.id));
-  const edges = (Array.isArray(g?.edges) ? (g.edges as Edge[]) : []).filter(
-    (e: Edge) => nodeIds.has(e.source) && nodeIds.has(e.target)
-  );
+  const rawNodes = Array.isArray(g?.nodes) ? (g.nodes as Node<EdgazeNodeData>[]) : [];
+  // Normalize node IDs to strings for backwards compat (legacy data may have numeric IDs)
+  const nodes = rawNodes.map((n) => {
+    if (n?.id != null && typeof n.id !== "string") {
+      return { ...n, id: String(n.id) };
+    }
+    return n;
+  });
 
+  // Support both "edges" and "connections" (legacy alias)
+  const rawEdges = Array.isArray(g?.edges)
+    ? (g.edges as Edge[])
+    : Array.isArray(g?.connections)
+      ? (g.connections as Edge[])
+      : [];
+  // Normalize edges: support source/target, sourceId/targetId, sourceNode/targetNode; coerce IDs to strings
+  const edges = rawEdges
+    .map((e: any) => {
+      const src = e?.source ?? e?.sourceId ?? e?.sourceNode?.id ?? e?.sourceNode;
+      const tgt = e?.target ?? e?.targetId ?? e?.targetNode?.id ?? e?.targetNode;
+      const srcId = src != null ? (typeof src === "string" ? src : (src as any)?.id ?? String(src)) : null;
+      const tgtId = tgt != null ? (typeof tgt === "string" ? tgt : (tgt as any)?.id ?? String(tgt)) : null;
+      if (srcId == null || tgtId == null) return null;
+      const sh = e?.sourceHandle ?? "";
+      const th = e?.targetHandle ?? "";
+      const suffix = sh || th ? `-${sh}-${th}` : "";
+      return {
+        ...e,
+        id: e?.id ?? `e-${String(srcId)}-${String(tgtId)}${suffix}`,
+        source: String(srcId),
+        target: String(tgtId),
+      };
+    })
+    .filter((e): e is Edge => e != null);
+  // Do NOT filter by nodeIds - pass all edges through. React Flow renders only edges whose
+  // source/target nodes exist; orphan edges are ignored. Filtering here caused valid connections
+  // to disappear (e.g. type coercion 1 vs "1", or different graph shapes).
   return { nodes, edges };
 }
 
@@ -745,8 +776,9 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       const isEditable =
-        tag === "input" || tag === "textarea" || target?.isContentEditable;
+        tag === "input" || tag === "textarea" || !!target?.isContentEditable;
       if (isEditable) return;
+      if (target?.closest?.("[data-workflow-run-modal]") ?? target?.closest?.('[role="dialog"]')) return;
 
       // Preview: block ALL destructive/edit shortcuts
       if (isPreview) {
@@ -985,7 +1017,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
 
   const selectionShellClass =
-    "rounded-full border border-white/10 bg-black/85 backdrop-blur-xl shadow-[0_18px_60px_rgba(0,0,0,0.75)]";
+    "rounded-full border border-white/10 bg-[#0c0c0c] shadow-[0_18px_60px_rgba(0,0,0,0.75)]";
 
   const selectionBtnClass =
     "inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium text-white/85 hover:text-white hover:bg-white/10 active:scale-[0.98] transition";
@@ -1174,6 +1206,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         className="!bg-[#0c0c0c]"
         proOptions={{ hideAttribution: true }}
         onMove={(_, vp) => setViewport(vp)}
+        nodeDragThreshold={1}
         nodesDraggable={!locked && !isPreview}
         nodesConnectable={!locked && !isPreview}
         edgesUpdatable={!locked && !isPreview}

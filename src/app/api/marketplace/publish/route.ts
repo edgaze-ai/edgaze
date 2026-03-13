@@ -1,6 +1,7 @@
 // src/app/api/marketplace/publish/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getUserAndClient } from "@lib/auth/server";
+import { validatePromptPrice, validateWorkflowPrice } from "@/lib/marketplace/pricing";
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription" | "paywall+subscription";
@@ -121,7 +122,7 @@ export async function POST(req: NextRequest) {
 
     const { data: profileRow } = await supabase
       .from("profiles")
-      .select("full_name,handle,plan,email,email_verified")
+      .select("full_name,handle,plan,email,email_verified,can_receive_payments")
       .eq("id", userId)
       .maybeSingle();
 
@@ -155,11 +156,30 @@ export async function POST(req: NextRequest) {
     }
 
     const priceNumber = monetisationMode === "free" ? 0 : meta.priceUsd ? Number(meta.priceUsd) : 0;
-
     const isPaid =
       monetisationMode === "paywall" ||
       monetisationMode === "subscription" ||
       monetisationMode === "paywall+subscription";
+
+    if (isPaid) {
+      const canReceive = Boolean((profileRow as any)?.can_receive_payments);
+      if (!canReceive) {
+        return NextResponse.json(
+          { error: "Connect your payout account in the Edgaze Creator Program to enable paid listings." },
+          { status: 400 }
+        );
+      }
+      const productType = type === "workflow" ? "workflow" : "prompt";
+      const validation = productType === "prompt"
+        ? validatePromptPrice(priceNumber)
+        : validateWorkflowPrice(priceNumber);
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: validation.error },
+          { status: 400 }
+        );
+      }
+    }
 
     const { data, error } = await supabase
       .from("prompts")

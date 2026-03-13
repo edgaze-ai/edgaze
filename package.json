@@ -31,11 +31,18 @@
         "db:reset": "npx supabase db reset"
     },
     "dependencies": {
+        "@stripe/connect-js": "^3.3.34",
+        "@stripe/react-connect-js": "^3.3.33",
+        "@stripe/stripe-js": "^8.9.0",
         "@supabase/ssr": "^0.8.0",
         "@supabase/supabase-js": "^2.84.0",
+        "@types/canvas-confetti": "^1.9.0",
+        "@types/lodash.debounce": "^4.0.9",
         "@vercel/analytics": "^1.6.1",
+        "canvas-confetti": "^1.9.4",
         "clsx": "^2.1.1",
         "framer-motion": "^12.23.24",
+        "lodash.debounce": "^4.0.8",
         "lucide-react": "^0.452.0",
         "mixpanel-browser": "^2.73.0",
         "next": "^16.0.1",
@@ -44,12 +51,14 @@
         "react": "^19.2.4",
         "react-dom": "^19.2.4",
         "react-resizable-panels": "^3.0.6",
-        "reactflow": "^11.11.4"
+        "reactflow": "^11.11.4",
+        "stripe": "^20.4.0"
     },
     "devDependencies": {
         "@types/node": "^20.14.12",
         "@types/qrcode": "^1.5.6",
         "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.2.3",
         "autoprefixer": "^10.4.20",
         "eslint": "^9.39.2",
         "eslint-config-next": "^16.1.1",

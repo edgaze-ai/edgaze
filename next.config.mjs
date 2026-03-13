@@ -57,7 +57,22 @@ const nextConfig = (() => {
         transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
       },
     },
-    // Headers for performance and caching
+    // Redirects for moved pages
+    async redirects() {
+      return [
+        {
+          source: '/legal/seller-terms',
+          destination: '/docs/seller-terms',
+          permanent: true,
+        },
+        {
+          source: '/legal/refund-policy',
+          destination: '/docs/refund-policy',
+          permanent: true,
+        },
+      ];
+    },
+    // Headers for performance
     async headers() {
       return [
         {

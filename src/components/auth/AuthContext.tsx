@@ -25,10 +25,12 @@ export type Profile = {
   banner_url?: string | null;
   bio?: string | null;
   socials?: Record<string, string> | null;
+  country?: string | null;
   plan: UserPlan;
   email_verified?: boolean | null;
   is_founding_creator?: boolean | null;
   handle_last_changed_at?: string | null;
+  can_receive_payments?: boolean | null;
 };
 
 export type HandleChangeStatus = {
@@ -320,7 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,plan,email_verified,is_founding_creator"
+          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,country,plan,email_verified,is_founding_creator,can_receive_payments"
         )
         .eq("id", uid)
         .maybeSingle();

@@ -692,7 +692,7 @@ export default function FeedbackPage() {
           </div>
         </Frame>
 
-        <div className="mt-10 text-center text-xs text-white/45">© Edgaze 2026. All rights reserved.</div>
+        <div className="mt-10 text-center text-xs text-white/45">© 2026 Edge Platforms, Inc. All rights reserved.</div>
       </div>
     </div>
   );

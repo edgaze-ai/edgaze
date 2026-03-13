@@ -26,9 +26,9 @@ function QuickStartItem({
     <button
       type="button"
       onClick={() => onLoad(templateId)}
-      className="flex w-full items-center gap-3 rounded-xl bg-black/25 px-3 py-2 edge-glass edge-border text-[12px] hover:bg-white/5 transition-colors overflow-hidden text-left"
+      className="flex w-full items-center gap-3 rounded-xl bg-[#0c0c0c] edge-border text-[12px] hover:bg-white/5 transition-colors overflow-hidden text-left"
     >
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.04]">
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#141414]">
         {icon}
       </div>
       <div className="min-w-0">
@@ -105,7 +105,7 @@ function BlockLibrary({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search blocks..."
-            className="w-full rounded-lg bg-[#111111]/60 edge-border py-1.5 pl-8 pr-3 text-[12px] focus:outline-none"
+            className="w-full rounded-lg bg-[#0c0c0c] border border-white/[0.12] py-1.5 pl-8 pr-3 text-[12px] text-white placeholder:text-white/40 focus:outline-none focus:border-white/20"
           />
         </div>
 

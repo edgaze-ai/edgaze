@@ -49,6 +49,7 @@ export async function GET(req: Request) {
 
     const userId = user.id;
     const supabase = createSupabaseAdminClient();
+    const terminalStatuses = ["completed", "failed", "timeout", "cancelled"] as const;
 
     // Check if it's a draft (for builder test runs)
     let draftId: string | null = null;
@@ -89,7 +90,7 @@ export async function GET(req: Request) {
         .from("workflow_runs")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
-        .in("status", ["completed", "failed"])
+        .in("status", terminalStatuses)
         .not("completed_at", "is", null);
       
       if (draftId) {
@@ -212,17 +213,17 @@ export async function GET(req: Request) {
     }
     const rows = recentRuns.rows;
     const stuck = rows.filter((r) => r.status === "running" || r.status === "pending");
-    const counted = rows.filter((r) => (r.status === "completed" || r.status === "failed") && r.completed_at);
+    const counted = rows.filter((r) => (terminalStatuses as readonly string[]).includes(r.status) && r.completed_at);
     if (recentRuns.error) {
       summary.push(`Fetching recent runs failed: ${recentRuns.error}. This may be RLS blocking SELECT.`);
     } else if (rows.length === 0) {
       summary.push("No runs in the database for this user/workflow. Inserts are likely failing (e.g. RLS on INSERT, or missing service role key).");
     } else if (stuck.length > 0 && counted.length === 0) {
-      summary.push(`${stuck.length} run(s) are stuck in "running" or "pending". Updates to "completed"/"failed" are likely failing (e.g. RLS on UPDATE, or updateWorkflowRun error). Only completed/failed runs with completed_at are counted.`);
+      summary.push(`${stuck.length} run(s) are stuck in "running" or "pending". Updates to terminal status (completed/failed/timeout/cancelled) are likely failing. Only terminal runs with completed_at are counted.`);
     } else if (counted.length > 0 && (countRpc.value ?? 0) === 0 && (countDirect.value ?? 0) === 0) {
-      summary.push("There are completed/failed runs in the table but count is 0. Count query or RPC may be wrong (e.g. wrong status filter or completed_at check).");
+      summary.push("There are terminal runs (completed/failed/timeout/cancelled) in the table but count is 0. Count query or RPC may be wrong (e.g. wrong status filter or completed_at check).");
     } else if (counted.length > 0 && (countRpc.value ?? countDirect.value ?? 0) !== counted.length) {
-      summary.push(`Count (${countRpc.value ?? countDirect.value}) does not match number of completed/failed rows with completed_at (${counted.length}). Check get_user_workflow_run_count logic.`);
+      summary.push(`Count (${countRpc.value ?? countDirect.value}) does not match number of terminal rows with completed_at (${counted.length}). Check get_user_workflow_run_count logic.`);
     }
     if (testInsertResult && !testInsertResult.createOk) {
       summary.push(`Test insert failed: ${testInsertResult.createError || "Unknown error"}. This is why new runs are not being recorded (e.g. RLS INSERT policy, FK violation, or missing table).`);

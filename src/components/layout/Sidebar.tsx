@@ -7,14 +7,15 @@ import { usePathname } from "next/navigation";
 
 import {
   Home,
-  PanelsTopLeft,
+  Workflow,
   User,
   HelpCircle,
   Settings,
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Files,
+  BookOpen,
+  DollarSign,
 } from "lucide-react";
 
 import { useSidebar } from "./SidebarContext";
@@ -38,13 +39,22 @@ type NavItem = {
 
 const WORKSPACE_ITEMS: NavItem[] = [
   { href: "/marketplace", label: "Marketplace", icon: Home },
-  { href: "/library", label: "Library", icon: Files },
+  { href: "/library", label: "Library", icon: BookOpen },
 ];
 
 const BUILD_ITEMS: NavItem[] = [
-  { href: "/builder", label: "Workflow Studio", icon: PanelsTopLeft },
+  { href: "/builder", label: "Workflow Studio", icon: Workflow },
   { href: "/prompt-studio", label: "Prompt Studio", icon: Sparkles },
 ];
+
+// Monetisation → Creator Program (/creators) until Stripe onboarding done, then → Earnings
+function getCreatorItems(canReceivePayments: boolean | null | undefined): NavItem[] {
+  return [
+    canReceivePayments
+      ? { href: "/dashboard/earnings", label: "Earnings", icon: DollarSign }
+      : { href: "/creators", label: "Monetisation", icon: DollarSign },
+  ];
+}
 
 // Include a query param so /profile can show a sign-in CTA only when opened from sidebar.
 const ACCOUNT_ITEMS: NavItem[] = [
@@ -205,6 +215,12 @@ export default function Sidebar() {
             <NavGroup
               title={collapsed ? "" : "Build"}
               items={BUILD_ITEMS}
+              collapsed={collapsed}
+              isActive={isActive}
+            />
+            <NavGroup
+              title={collapsed ? "" : "Creator"}
+              items={getCreatorItems(profile?.can_receive_payments)}
               collapsed={collapsed}
               isActive={isActive}
             />

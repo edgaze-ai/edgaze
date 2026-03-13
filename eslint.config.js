@@ -15,7 +15,14 @@ const config = [
   },
 
   {
-    ignores: [".next/**", "dist/**", "build/**", "out/**"],
+    ignores: [
+      ".next/**",
+      "dist/**",
+      "build/**",
+      "out/**",
+      "node_modules/**",
+      ".claude/**",
+    ],
   },
 ];
 

@@ -107,7 +107,7 @@ export default function CanvasValidationBanner({
   };
 
   return (
-    <div className="relative flex flex-col items-end">
+    <div className="relative flex flex-col items-center">
       {/* Expanded panel - grows upward */}
       <AnimatePresence>
         {expanded && (

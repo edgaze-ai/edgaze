@@ -6,20 +6,12 @@ import Image from "next/image";
 import { useAuth } from "src/components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowRight, BadgeCheck, ChevronDown, Compass, Link2, Search, Sparkles } from "lucide-react";
+import FoundingCreatorBadge from "src/components/ui/FoundingCreatorBadge";
+import Footer from "src/components/layout/Footer";
+import TrendingThisWeekSection from "src/components/home/TrendingThisWeekSection";
 import dynamic from "next/dynamic";
-
-// Lazy load icons to reduce initial bundle size
-const ArrowRight = dynamic(() => import("lucide-react").then(mod => ({ default: mod.ArrowRight })), { ssr: false });
-const BadgeCheck = dynamic(() => import("lucide-react").then(mod => ({ default: mod.BadgeCheck })), { ssr: false });
-const Compass = dynamic(() => import("lucide-react").then(mod => ({ default: mod.Compass })), { ssr: false });
-const Link2 = dynamic(() => import("lucide-react").then(mod => ({ default: mod.Link2 })), { ssr: false });
-const Search = dynamic(() => import("lucide-react").then(mod => ({ default: mod.Search })), { ssr: false });
-const Sparkles = dynamic(() => import("lucide-react").then(mod => ({ default: mod.Sparkles })), { ssr: false });
-
-const FoundingCreatorBadge = dynamic(() => import("src/components/ui/FoundingCreatorBadge"), { 
-  ssr: false,
-  loading: () => <span className="inline-block w-4 h-4" />
-});
+import { HeroCollectToBox } from "src/components/home/HeroCollectToBox";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
@@ -45,15 +37,33 @@ function Gradients() {
   return (
     <>
       <div className="fixed inset-0 -z-10 bg-[#07080b]" />
-      <div className="fixed inset-0 -z-10 opacity-70 [background-image:radial-gradient(circle_at_18%_10%,rgba(34,211,238,0.22),transparent_46%),radial-gradient(circle_at_82%_18%,rgba(236,72,153,0.18),transparent_46%),radial-gradient(circle_at_55%_90%,rgba(34,211,238,0.08),transparent_52%)]" />
-      <div className="fixed inset-0 -z-10 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:92px_92px]" />
-      <div className="fixed inset-0 -z-10 opacity-35 [background-image:radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.05),transparent_55%)]" />
+      <div className="fixed inset-0 -z-10 opacity-50 [background-image:radial-gradient(circle_at_18%_10%,rgba(34,211,238,0.14),transparent_46%),radial-gradient(circle_at_82%_18%,rgba(236,72,153,0.11),transparent_46%),radial-gradient(circle_at_55%_90%,rgba(34,211,238,0.05),transparent_52%)]" />
+      <div className="fixed inset-0 -z-10 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:92px_92px]" />
+      <div className="fixed inset-0 -z-10 opacity-20 [background-image:radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.04),transparent_55%)]" />
     </>
   );
 }
 
-function Container({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("mx-auto w-full max-w-7xl", className)}>{children}</div>;
+function Container({
+  children,
+  className,
+  wide,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  wide?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "mx-auto w-full",
+        wide ? "max-w-[1400px]" : "max-w-7xl",
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
 }
 
 function useSmoothAnchorScroll(offsetPx?: number) {
@@ -87,63 +97,225 @@ function SmoothLink({
   href,
   className,
   children,
+  onClick,
 }: {
   href: string;
   className?: string;
   children: React.ReactNode;
+  onClick?: () => void;
 }) {
   const { onAnchorClick } = useSmoothAnchorScroll(92);
   const isHash = href.startsWith("#");
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isHash) onAnchorClick(e);
+    onClick?.();
+  };
   return (
-    <a href={href} className={className} onClick={isHash ? onAnchorClick : undefined}>
+    <a href={href} className={className} onClick={handleClick}>
       {children}
     </a>
   );
 }
 
+const NAV_DROPDOWNS = [
+  {
+    label: "Product",
+    links: [
+      { href: "#prompt", label: "Prompt Studio" },
+      { href: "#workflows", label: "Workflows" },
+      { href: "#marketplace", label: "Marketplace" },
+      { href: "#features", label: "Features" },
+    ],
+  },
+  {
+    label: "Builders",
+    links: [
+      { href: "/prompt-studio", label: "Prompt Studio" },
+      { href: "/builder", label: "Workflow Studio" },
+    ],
+  },
+  {
+    label: "Resources",
+    links: [
+      { href: "/blogs", label: "Blog" },
+      { href: "/docs", label: "Documentation" },
+      { href: "/pricing", label: "Pricing" },
+      { href: "/docs/changelog", label: "Changelog" },
+      { href: "/help", label: "Help" },
+    ],
+  },
+  {
+    label: "Company",
+    links: [
+      { href: "/about", label: "About" },
+      { href: "/careers", label: "Careers" },
+      { href: "/press", label: "Press" },
+      { href: "/contact", label: "Contact" },
+    ],
+  },
+  {
+    label: "Creators",
+    links: [
+      { href: "#anyone", label: "Meet creators" },
+      { href: "/creators", label: "Creator Program" },
+    ],
+  },
+] as const;
+
+function NavDropdown({
+  label,
+  links,
+  isOpen,
+  onOpen,
+  onClose,
+  onLinkClick,
+}: {
+  label: string;
+  links: ReadonlyArray<{ href: string; label: string }>;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onLinkClick: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current?.contains(e.target as Node)) return;
+      onClose();
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [isOpen, onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="relative"
+      onMouseEnter={onOpen}
+      onMouseLeave={onClose}
+    >
+      <button
+        type="button"
+        onClick={() => (isOpen ? onClose() : onOpen())}
+        className={cn(
+          "flex items-center gap-0.5 py-2 text-[13px] text-white/75 hover:text-white",
+          "transition-colors duration-200"
+        )}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+      >
+        {label}
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 text-white/50 transition-transform duration-200", isOpen && "rotate-180")}
+        />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
+            className="absolute left-1/2 top-full -translate-x-1/2 pt-4"
+          >
+            <div
+              className={cn(
+                "min-w-[200px] rounded-2xl py-2",
+                "bg-white/[0.04] backdrop-blur-2xl",
+                "border border-white/[0.06]",
+                "shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset,0_0_0_1px_rgba(255,255,255,0.02),0_24px_48px_-12px_rgba(0,0,0,0.5),0_8px_24px_-8px_rgba(0,0,0,0.3)]"
+              )}
+            >
+              {links.map(({ href, label: linkLabel }) => (
+                <SmoothLink
+                  key={href}
+                  href={href}
+                  onClick={onLinkClick}
+                  className="block px-5 py-3 text-[13px] text-white/70 hover:text-white hover:bg-white/[0.04] transition-colors first:rounded-t-xl last:rounded-b-xl"
+                >
+                  {linkLabel}
+                </SmoothLink>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function Nav({ onTop }: { onTop: boolean }) {
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
   return (
     <header
       className={cn(
-        "fixed left-0 right-0 top-0 z-50",
-        "transition-all duration-300",
-        onTop ? "bg-transparent" : "bg-[#07080b]/70 backdrop-blur-md ring-1 ring-white/10"
+        "fixed left-0 right-0 top-0 z-50 pt-4 md:pt-5",
+        "transition-all duration-300"
       )}
       role="banner"
     >
-      <Container className="flex items-center justify-between px-5 py-4">
-        <SmoothLink href="#top" className="flex items-center gap-2" aria-label="Edgaze home">
-          <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={44} height={44} className="h-11 w-11" priority />
-          <span className="text-sm font-semibold tracking-wide">Edgaze</span>
-        </SmoothLink>
+      <Container wide className="px-5 md:max-w-[1500px]">
+        <div
+          className={cn(
+            "flex items-center rounded-full",
+            "pl-4 pr-[10px] py-2 md:pl-6 md:pr-[10px] md:py-2.5",
+            "gap-4 md:gap-8",
+            "bg-white/[0.06] backdrop-blur-2xl border border-white/[0.06]",
+            "shadow-[0_0_0_1px_rgba(255,255,255,0.05)_inset,0_0_0_1px_rgba(255,255,255,0.03),0_4px_24px_-4px_rgba(0,0,0,0.25)]",
+            "transition-all duration-300 ease-out",
+            !onTop && "bg-white/[0.08] border-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.07)_inset,0_0_0_1px_rgba(255,255,255,0.04),0_8px_32px_-4px_rgba(0,0,0,0.35)]"
+          )}
+        >
+          {/* Logo */}
+          <SmoothLink
+            href="#top"
+            className="flex items-center gap-2 shrink-0 text-white hover:opacity-90 transition-opacity"
+            aria-label="Edgaze home"
+          >
+            <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8 md:h-9 md:w-9" />
+            <span className="text-[14px] font-semibold tracking-tight md:text-[15px]">Edgaze</span>
+          </SmoothLink>
 
-        <nav aria-label="Primary navigation" className="hidden items-center gap-7 text-sm text-white/75 md:flex">
-          <SmoothLink className="hover:text-white" href="#prompt">
-            Prompt Studio
-          </SmoothLink>
-          <SmoothLink className="hover:text-white" href="#workflows">
-            Workflows
-          </SmoothLink>
-          <SmoothLink className="hover:text-white" href="#marketplace">
-            Marketplace
-          </SmoothLink>
-          <SmoothLink className="hover:text-white" href="#features">
-            Features
-          </SmoothLink>
-          <SmoothLink className="hover:text-white" href="#anyone">
-            Creators
-          </SmoothLink>
-          <SmoothLink className="hover:text-white" href="#beta">
-            Beta
-          </SmoothLink>
-        </nav>
+          {/* Nav dropdowns */}
+          <nav
+            aria-label="Primary navigation"
+            className="hidden md:flex flex-1 justify-center items-center gap-6"
+          >
+            {NAV_DROPDOWNS.map(({ label, links }) => (
+              <NavDropdown
+                key={label}
+                label={label}
+                links={links}
+                isOpen={openDropdown === label}
+                onOpen={() => setOpenDropdown(label)}
+                onClose={() => setOpenDropdown(null)}
+                onLinkClick={() => setOpenDropdown(null)}
+              />
+            ))}
+            <SmoothLink
+              href="#beta"
+              className="py-2 text-[13px] text-white/75 hover:text-white transition-colors"
+            >
+              Beta
+            </SmoothLink>
+          </nav>
 
-        <div className="flex items-center gap-2">
+          {/* CTA */}
           <SmoothLink
             href="/marketplace"
-            className="rounded-full px-4 py-2 text-sm font-medium text-white bg-[#11131a] ring-1 ring-white/10 hover:bg-[#141722] transition-colors"
+            className={cn(
+              "shrink-0 ml-auto inline-flex items-center justify-center",
+              "rounded-full px-5 py-2 text-[13px] font-medium text-white",
+              "bg-white/10 hover:bg-white/15",
+              "border border-white/10",
+              "active:scale-[0.98] transition-all duration-200"
+            )}
           >
-            Enter marketplace
+            Open marketplace
           </SmoothLink>
         </div>
       </Container>
@@ -309,7 +481,7 @@ function useElementSize<T extends HTMLElement>() {
   - Glaze shimmer, then reset
 */
 
-function IlluHeroCollectToBox() {
+function IlluHeroCollectToBox_Legacy() {
   const reduce = useReducedMotion();
   const { ref, size } = useElementSize<HTMLDivElement>();
 
@@ -756,11 +928,14 @@ function IlluWorkflowGraph() {
             animate={reduce ? undefined : { opacity: 1, scale: 1, y: 0 }}
             exit={reduce ? undefined : { opacity: 0, scale: 0.98, y: -8 }}
             transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
-            className="absolute rounded-3xl bg-black/35 backdrop-blur-xl ring-1 ring-white/15 shadow-[0_18px_70px_rgba(0,0,0,0.55)] px-5 py-4"
+            className="absolute flex h-24 w-48 select-none items-center rounded-2xl bg-black/70 backdrop-blur-xl shadow-[0_18px_70px_rgba(0,0,0,0.85)]"
             style={{ left: x, top: y, width: w }}
           >
-            <div className="text-xs font-semibold tracking-widest text-white/55">NODE</div>
-            <div className="mt-1 text-sm font-semibold text-white">{label}</div>
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-cyan-400/70 via-cyan-400/20 to-transparent opacity-90" />
+            <div className="relative px-5 py-3">
+              <div className="text-[10px] font-semibold tracking-[0.26em] text-white/40">NODE</div>
+              <div className="mt-1 text-[13px] font-semibold text-white/95">{label}</div>
+            </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -796,38 +971,40 @@ function IlluWorkflowGraph() {
   const d = nodes[3]!;
   const e = nodes[4]!;
 
-  const centerRight = (n: { x: number; y: number; w: number }) => ({ x: n.x + n.w, y: n.y + 40 });
-  const centerLeft = (n: { x: number; y: number }) => ({ x: n.x, y: n.y + 40 });
+  const centerRight = (n: { x: number; y: number; w: number }) => ({ x: n.x + n.w - 14, y: n.y + 40 });
+  const centerLeft = (n: { x: number; y: number }) => ({ x: n.x + 14, y: n.y + 40 });
 
   return (
     <IlluShell>
       {/* eslint-disable react-hooks/static-components */}
-      <div className="absolute inset-0">
-        <Edge from={centerRight(a)} to={centerLeft(b)} show={visible.includes("a") && visible.includes("b")} />
-        <Edge from={centerRight(b)} to={centerLeft(c)} show={visible.includes("b") && visible.includes("c")} />
-        <Edge
-          from={{ x: b.x + 70, y: b.y + 80 }}
-          to={{ x: d.x + 20, y: d.y + 20 }}
-          show={visible.includes("b") && visible.includes("d")}
-        />
-        <Edge from={centerRight(d)} to={centerLeft(e)} show={visible.includes("d") && visible.includes("e")} />
-
-        <Node id="a" x={a.x} y={a.y} w={a.w} label={a.label} />
-        <Node id="b" x={b.x} y={b.y} w={b.w} label={b.label} />
-        <Node id="c" x={c.x} y={c.y} w={c.w} label={c.label} />
-        <Node id="d" x={d.x} y={d.y} w={d.w} label={d.label} />
-        <Node id="e" x={e.x} y={e.y} w={e.w} label={e.label} />
-
-        {!reduce ? (
-          <motion.div
-            className="absolute left-0 top-0 h-2 w-2 rounded-full bg-white/60"
-            animate={{
-              x: [a.x + a.w + 10, b.x + 10, c.x + 10, b.x + 40, d.x + 10, e.x + 10],
-              y: [a.y + 40, b.y + 40, c.y + 40, b.y + 80, d.y + 20, e.y + 40],
-            }}
-            transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+      <div className="absolute inset-0 flex items-center justify-start md:justify-center pl-6 sm:pl-14 -translate-x-4 sm:-translate-x-8">
+        <div className="relative h-[320px] w-[560px] max-w-full">
+          <Edge from={centerRight(a)} to={centerLeft(b)} show={visible.includes("a") && visible.includes("b")} />
+          <Edge from={centerRight(b)} to={centerLeft(c)} show={visible.includes("b") && visible.includes("c")} />
+          <Edge
+            from={{ x: b.x + 70, y: b.y + 80 }}
+            to={{ x: d.x + 20, y: d.y + 20 }}
+            show={visible.includes("b") && visible.includes("d")}
           />
-        ) : null}
+          <Edge from={centerRight(d)} to={centerLeft(e)} show={visible.includes("d") && visible.includes("e")} />
+
+          <Node id="a" x={a.x} y={a.y} w={a.w} label={a.label} />
+          <Node id="b" x={b.x} y={b.y} w={b.w} label={b.label} />
+          <Node id="c" x={c.x} y={c.y} w={c.w} label={c.label} />
+          <Node id="d" x={d.x} y={d.y} w={d.w} label={d.label} />
+          <Node id="e" x={e.x} y={e.y} w={e.w} label={e.label} />
+
+          {!reduce ? (
+            <motion.div
+              className="absolute left-0 top-0 h-2 w-2 rounded-full bg-white/60"
+              animate={{
+                x: [a.x + a.w + 10, b.x + 10, c.x + 10, b.x + 40, d.x + 10, e.x + 10],
+                y: [a.y + 40, b.y + 40, c.y + 40, b.y + 80, d.y + 20, e.y + 40],
+              }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
+            />
+          ) : null}
+        </div>
       </div>
       {/* eslint-enable react-hooks/static-components */}
     </IlluShell>
@@ -1158,7 +1335,7 @@ function IlluStorefrontRevenue() {
 type IllustrationKind = "hero" | "prompt" | "workflow" | "market" | "clarity" | "crowd" | "storefront";
 
 function Illustration({ kind }: { kind: IllustrationKind }) {
-  if (kind === "hero") return <IlluHeroCollectToBox />;
+  if (kind === "hero") return <HeroCollectToBox />;
   if (kind === "prompt") return <IlluCodeOpensProduct />;
   if (kind === "workflow") return <IlluWorkflowGraph />;
   if (kind === "market") return <IlluMarketplaceSearch />;
@@ -1192,7 +1369,7 @@ const LazyIllustration = dynamic<{ kind: IllustrationKind }>(
 
 function FeatureSplit({ kind, children }: { kind: IllustrationKind; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
+    <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:gap-16 md:items-start">
       <div>{children}</div>
       <div className="md:pt-2">
         <Reveal delay={0.08}>
@@ -1619,6 +1796,7 @@ function Section({
   desc,
   children,
   className,
+  wide,
 }: {
   id: string;
   eyebrow?: string;
@@ -1626,6 +1804,7 @@ function Section({
   desc?: string;
   children: React.ReactNode;
   className?: string;
+  wide?: boolean;
 }) {
   return (
     <section
@@ -1633,7 +1812,7 @@ function Section({
       className={cn("px-5 py-20 sm:py-24 md:py-28 md:snap-start", className)}
       style={{ scrollMarginTop: 92 }}
     >
-      <Container>
+      <Container wide={wide}>
         {(eyebrow || title || desc) && (
           <div className="max-w-2xl">
             {eyebrow ? <div className="text-xs font-semibold tracking-widest text-white/55">{eyebrow}</div> : null}
@@ -1654,7 +1833,6 @@ export default function EdgazeLandingPage() {
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [onTop, setOnTop] = useState(true);
-  const [scrollProgress, setScrollProgress] = useState(0);
 
   const sectionIds = useMemo(
     () => ["top", "prompt", "workflows", "marketplace", "features", "better", "anyone", "creators", "beta"],
@@ -1676,9 +1854,6 @@ export default function EdgazeLandingPage() {
     if (!el) return;
 
     const onScroll = () => {
-      const max = el.scrollHeight - el.clientHeight;
-      const p = max > 0 ? el.scrollTop / max : 0;
-      setScrollProgress(p);
       setOnTop(el.scrollTop < 12);
     };
 
@@ -1902,8 +2077,8 @@ export default function EdgazeLandingPage() {
           {
             "@type": "ListItem",
             "position": 4,
-            "name": "Apply",
-            "url": "https://edgaze.ai/apply"
+            "name": "Creator Program",
+            "url": "https://edgaze.ai/creators"
           },
           {
             "@type": "ListItem",
@@ -1932,13 +2107,6 @@ export default function EdgazeLandingPage() {
         <Gradients />
         <Nav onTop={onTop} />
 
-        <motion.div
-          className="fixed top-0 left-0 z-[60] h-[2px] bg-[linear-gradient(90deg,rgba(34,211,238,0.95),rgba(236,72,153,0.9))]"
-          animate={{ width: `${Math.round(scrollProgress * 1000) / 10}%` }}
-          transition={{ type: "spring", stiffness: 220, damping: 30, mass: 0.4 }}
-          aria-hidden
-        />
-
         {/* ✅ FIX: No snap on mobile. Snap only from md+.
             ✅ FIX: Use 100dvh so iOS address bar doesn’t break bottom reach.
             ✅ FIX: Extra bottom spacer at the end for mobile reach. */}
@@ -1947,12 +2115,12 @@ export default function EdgazeLandingPage() {
           className="h-[100dvh] overflow-y-auto md:snap-y md:snap-proximity"
           style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorY: "contain" }}
         >
-          <div id="top" className="pt-24 md:snap-start" />
+          <div id="top" className="pt-28 md:snap-start" />
 
-          {/* ✅ FIX: snap-start only on md+ */}
-          <section className="px-5 pt-12 pb-16 sm:pt-16 sm:pb-20 md:snap-start" style={{ scrollMarginTop: 92 }}>
-            <Container>
-              <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:items-start">
+          {/* ✅ FIX: snap-start only on md+; wide container so workflow diagram has room to shine */}
+          <section className="px-5 pt-14 sm:pt-20 pb-16 sm:pb-20 md:snap-start" style={{ scrollMarginTop: 92 }}>
+            <Container wide>
+              <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:gap-16 md:items-start">
                 <div className="max-w-xl">
                   <Reveal>
                     <div className="max-w-xl">
@@ -1984,8 +2152,11 @@ export default function EdgazeLandingPage() {
             </Container>
           </section>
 
+          <TrendingThisWeekSection />
+
           <Section
             id="prompt"
+            wide
             eyebrow="Prompt Studio"
             title="Stop losing prompts."
             desc="A prompt should not live inside a screenshot or a private document. Treat it like a product."
@@ -2008,6 +2179,7 @@ export default function EdgazeLandingPage() {
 
           <Section
             id="workflows"
+            wide
             eyebrow="Workflows"
             title="Turn a prompt into a tool."
             desc="When a prompt is not enough, add steps. Workflows are repeatable and easy to run."
@@ -2028,7 +2200,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="marketplace" eyebrow="Marketplace" title="Discovery built in." desc="A huge marketplace, fast search, and pages that convert.">
+          <Section id="marketplace" wide eyebrow="Marketplace" title="Discovery built in." desc="A huge marketplace, fast search, and pages that convert.">
             <FeatureSplit kind="market">
               <div className="space-y-5">
                 <Reveal>
@@ -2045,7 +2217,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="features" eyebrow="Everything" title="Everything in one product." desc="Prompt Studio is the base. Workflows add power. Marketplace adds reach.">
+          <Section id="features" wide eyebrow="Everything" title="Everything in one product." desc="Prompt Studio is the base. Workflows add power. Marketplace adds reach.">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <Reveal>
                 <TextCard title="Prompt Studio">
@@ -2065,7 +2237,7 @@ export default function EdgazeLandingPage() {
             </div>
           </Section>
 
-          <Section id="better" eyebrow="Why it’s better" title="Built for clarity." desc="A marketplace that feels clean. A product page that feels trustworthy.">
+          <Section id="better" wide eyebrow="Why it’s better" title="Built for clarity." desc="A marketplace that feels clean. A product page that feels trustworthy.">
             <FeatureSplit kind="clarity">
               <div className="space-y-5">
                 <Reveal>
@@ -2087,7 +2259,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="anyone" eyebrow="Creators" title="Anyone can become an Edgaze creator." desc="If you can write something useful, you can publish.">
+          <Section id="anyone" wide eyebrow="Creators" title="Anyone can become an Edgaze creator." desc="If you can write something useful, you can publish.">
             <FeatureSplit kind="crowd">
               <div className="space-y-5">
                 <Reveal>
@@ -2109,7 +2281,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="creators" eyebrow="Storefront" title="Your work becomes a storefront." desc="Publish products. Track performance. Get paid later.">
+          <Section id="creators" wide eyebrow="Storefront" title="Your work becomes a storefront." desc="Publish products. Track performance. Get paid later.">
             <FeatureSplit kind="storefront">
               <div className="space-y-5">
                 <Reveal>
@@ -2126,7 +2298,7 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="beta" eyebrow="Beta" title="Join the beta." desc="Creators can set prices now. Users run for free in beta. Payments activate later.">
+          <Section id="beta" wide eyebrow="Beta" title="Join the beta." desc="Creators can set prices now. Users run for free in beta. Payments activate later.">
             <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
               <Reveal>
                 <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
@@ -2159,7 +2331,7 @@ export default function EdgazeLandingPage() {
                     </a>
                     <a
                       className="flex items-center justify-between gap-3 rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white/80 hover:bg-white/8 transition-colors"
-                      href="/apply"
+                      href="/creators"
                     >
                       <span className="inline-flex items-center gap-2">
                         <BadgeCheck className="h-4 w-4 text-white/75" />
@@ -2185,44 +2357,8 @@ export default function EdgazeLandingPage() {
 
           {/* ✅ FIX: snap-start only on md+; extra bottom padding so footer is reachable on iOS */}
           <footer className="px-5 pb-16 md:snap-start">
-            <Container>
-              <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">
-                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-3">
-                  <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={44} height={44} className="h-11 w-11" />
-                  <div>
-                    <div className="text-sm font-semibold text-white">Edgaze</div>
-                    <div className="mt-1 text-sm text-white/60">Create, sell, and distribute AI products.</div>
-                  </div>
-                </div>
-
-                  <nav aria-label="Footer navigation" className="flex flex-wrap items-center gap-6 text-sm text-white/70">
-                    <a className="hover:text-white" href="/marketplace">
-                      Marketplace
-                    </a>
-                    <a className="hover:text-white" href="/docs">
-                      Docs
-                    </a>
-                    <a className="hover:text-white" href="/help">
-                      Help
-                    </a>
-                    <a className="hover:text-white" href="/apply">
-                      Apply
-                    </a>
-                    <a className="hover:text-white" href="/feedback">
-                      Feedback
-                    </a>
-                    <a className="hover:text-white" href="/docs/privacy-policy">
-                      Privacy
-                    </a>
-                    <a className="hover:text-white" href="/docs/terms-of-service">
-                      Terms
-                    </a>
-                  </nav>
-                </div>
-
-                <div className="mt-6 text-xs text-white/50">© Edgaze 2026. All rights reserved.</div>
-              </div>
+            <Container wide>
+              <Footer />
             </Container>
           </footer>
 

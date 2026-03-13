@@ -1337,57 +1337,11 @@ export default function PremiumWorkflowRunModal({
   const isRunExperience = isExecuting || isOutput || isErrorDuringRun;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-xl">
-      {/* Background - transparent, blurred, animated throughout */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden backdrop-blur-xl">
-        {/* Animated gradient shapes - visible for entire modal (input + executing + output) */}
-        <>
-        {/* Moving organic gradient shape - primary */}
-        <div
-          className="absolute opacity-60 animate-[edgazeShape1_20s_ease-in-out_infinite]"
-          style={{
-            width: '800px',
-            height: '800px',
-            borderRadius: '60% 40% 30% 70% / 60% 30% 70% 40%',
-            background: 'radial-gradient(circle at 30% 50%, rgba(34,211,238,0.4), rgba(168,85,247,0.3), transparent 70%)',
-            filter: 'blur(60px)',
-          }}
-        />
-        {/* Moving organic gradient shape - secondary */}
-        <div
-          className="absolute opacity-50 animate-[edgazeShape2_25s_ease-in-out_infinite]"
-          style={{
-            width: '600px',
-            height: '600px',
-            borderRadius: '30% 60% 70% 40% / 50% 60% 30% 60%',
-            background: 'radial-gradient(circle at 70% 30%, rgba(217,70,239,0.35), rgba(34,211,238,0.25), transparent 70%)',
-            filter: 'blur(50px)',
-          }}
-        />
-        {/* Moving organic gradient shape - tertiary */}
-        <div
-          className="absolute opacity-40 animate-[edgazeShape3_30s_ease-in-out_infinite]"
-          style={{
-            width: '700px',
-            height: '700px',
-            borderRadius: '50% 50% 50% 50% / 60% 40% 60% 40%',
-            background: 'radial-gradient(circle at 50% 50%, rgba(168,85,247,0.3), rgba(217,70,239,0.2), transparent 65%)',
-            filter: 'blur(55px)',
-          }}
-        />
-        {/* Rotating conic gradient overlay */}
-        <div className="absolute -inset-[50%] opacity-30 animate-[spin_15s_linear_infinite] [background:conic-gradient(from_0deg,rgba(34,211,238,0.2),rgba(168,85,247,0.15),rgba(217,70,239,0.18),rgba(34,211,238,0.2))]" />
-        {/* Subtle radial overlay during run - keeps animation visible */}
-        {isRunExperience && (
-          <div
-            className="absolute inset-0 opacity-100 pointer-events-none"
-            style={{
-              background: "radial-gradient(ellipse 100% 80% at 50% 0%, rgba(56,189,248,0.06) 0%, rgba(99,102,241,0.05) 30%, transparent 60%)",
-            }}
-          />
-        )}
-        </>
-      </div>
+    <div className="fixed inset-0 z-[9999] bg-black/70" data-workflow-run-modal>
+      {/* Static gradient background (no blur animations - reduces GPU load on low-end devices) */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden"
+        style={{ background: "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(56,189,248,0.08) 0%, rgba(99,102,241,0.05) 40%, transparent 70%)" }}
+      />
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes edgazeShape1 {
@@ -1511,11 +1465,11 @@ export default function PremiumWorkflowRunModal({
       <div className="absolute inset-0 flex items-center justify-center p-4 md:p-6">
         <div className={cx(
           "w-[min(900px,92vw)] h-[min(700px,88vh)] rounded-2xl overflow-hidden flex flex-col",
-          "border border-white/15 bg-black/50 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.4)]"
+          "border border-white/15 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.4)]"
         )}>
           {/* Instant Loading Screen - Shows immediately */}
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 rounded-2xl">
+            <div className="absolute inset-0 flex items-center justify-center bg-[#0a0a0a]/95 z-50 rounded-2xl">
               <div className="text-center">
                 <div className="relative inline-block mb-6">
                   {/* Animated gradient orb */}
@@ -1560,7 +1514,7 @@ export default function PremiumWorkflowRunModal({
                         onCancel?.();
                       }, 400);
                     }}
-                    className="rounded-lg border border-white/12 bg-white/5 hover:bg-white/10 px-4 py-2 text-sm font-medium text-white/85 transition-all duration-200"
+                    className="rounded-lg border border-transparent bg-white/[0.04] hover:bg-white/[0.08] px-4 py-2 text-sm font-medium text-white/50 hover:text-white/70 transition-all duration-200"
                   >
                     {isStopping ? "Stopping…" : "Cancel"}
                   </button>
@@ -1577,12 +1531,12 @@ export default function PremiumWorkflowRunModal({
                     onClose();
                   }}
                   className={cx(
-                    "h-9 w-9 rounded-lg border border-white/12 bg-white/5 hover:bg-white/10 grid place-items-center transition-all duration-200",
+                    "h-9 w-9 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] grid place-items-center transition-all duration-200 text-white/50 hover:text-white/70",
                     !canClose && "opacity-50 cursor-not-allowed"
                   )}
                   title={canClose ? "Close" : "Running…"}
                 >
-                  <X className="h-4 w-4 text-white/85" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -1602,7 +1556,7 @@ export default function PremiumWorkflowRunModal({
                   </div>
 
                   {((isBuilderTest && builderRunLimit != null) || requiresApiKeys?.length) && needsApiKey && (
-                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm">
+                    <div className="rounded-xl border border-white/10 bg-[#0c0c0c] p-5">
                       <div className="flex items-center justify-between mb-3">
                         <label className="block text-sm font-semibold text-white/90">
                           OpenAI API key
@@ -1633,7 +1587,7 @@ export default function PremiumWorkflowRunModal({
                   )}
 
                   {isBuilderTest && builderRunLimit != null && !needsApiKey && !requiresApiKeys?.length && (
-                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm">
+                    <div className="rounded-xl border border-white/10 bg-[#0c0c0c] p-4">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-white/90">Free Runs Remaining</span>
                         <div className="flex items-center gap-3">
@@ -1660,7 +1614,7 @@ export default function PremiumWorkflowRunModal({
 
                   <div className="space-y-5">
                     {(state.inputs ?? []).map((input) => (
-                      <div key={input.nodeId} className="rounded-xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm">
+                      <div key={input.nodeId} className="rounded-xl border border-white/10 bg-[#0c0c0c] p-5">
                         <label className="block text-sm font-semibold text-white/90 mb-2">
                           {input.name}
                           {input.required && <span className="text-red-400 ml-1.5">*</span>}
@@ -1678,7 +1632,7 @@ export default function PremiumWorkflowRunModal({
                     ))}
                   </div>
 
-                  <div className="flex justify-end pt-6">
+                  <div className="flex justify-center pt-10 pb-2">
                     <button
                       onClick={handleInputSubmit}
                       disabled={
@@ -1687,7 +1641,7 @@ export default function PremiumWorkflowRunModal({
                         !canSubmitBuilder
                       }
                       className={cx(
-                        "inline-flex items-center gap-2 rounded-xl border border-white/15 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 px-6 py-3 text-sm font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] transition-all duration-200",
+                        "inline-flex items-center gap-2 rounded-xl border border-white/15 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 px-8 py-3.5 text-sm font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] transition-all duration-200",
                         ((state.inputs ?? []).some((i) => i.required && !inputValues[i.nodeId] && !i.defaultValue) ||
                           !onSubmitInputs ||
                           (isBuilderTest && !canSubmitBuilder)) &&

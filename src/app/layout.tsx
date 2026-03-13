@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "../styles/globals.css";
 
 import { AppProviders } from "./providers";
@@ -8,6 +9,28 @@ import LayoutGate from "./LayoutGate";
 import LazyAnalyticsWrapper from "../components/layout/LazyAnalytics";
 import GlobalLoadingScreen from "../components/loading/GlobalLoadingScreen";
 import { WebVitals } from "./web-vitals";
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  variable: "--font-instrument-serif",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-jetbrains-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://edgaze.ai"),
@@ -100,59 +123,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <head>
-        {/* DNS prefetch for external services */}
-        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-        
-        {/* Preconnect to critical origins with crossorigin for CORS */}
-        <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ""} crossOrigin="anonymous" />
-        
-        {/* Preload critical assets for faster initial render */}
-        <link rel="preload" href="/brand/edgaze-mark.png" as="image" type="image/png" fetchPriority="high" />
-        <link rel="preload" href="/favicon.ico" as="image" type="image/x-icon" />
-        
-        {/* Prefetch likely navigation targets */}
-        <link rel="prefetch" href="/marketplace" />
-        <link rel="prefetch" href="/builder" />
-        
-        {/* Inline critical CSS to prevent FOUC (Flash of Unstyled Content) */}
-        <style dangerouslySetInnerHTML={{ __html: `
-          html, body { 
-            margin: 0;
-            padding: 0;
-            background: #07080b; 
-            color: #ffffff;
-            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-          }
-          body { 
-            overflow-x: hidden;
-          }
-          .loading-screen { 
-            position: fixed; 
-            inset: 0; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            background: #07080b;
-            z-index: 9999;
-          }
-          @keyframes pulse { 
-            0%, 100% { opacity: 1; } 
-            50% { opacity: 0.5; } 
-          }
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-          body { animation: fadeIn 0.15s ease-in; }
-          * { box-sizing: border-box; }
-        `}} />
-      </head>
-      <body className="h-full bg-[#07080b] text-white antialiased">
+    <html lang="en" className={`dark ${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+      <body className="h-full bg-[#0a0a0a] text-white antialiased">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationJsonLd) }}

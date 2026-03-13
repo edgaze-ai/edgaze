@@ -906,12 +906,12 @@ export default function WorkflowProductPage() {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const [purchaseSuccessOpen, setPurchaseSuccessOpen] = useState(false);
-  
+
   // Demo run state
   const [demoRunModalOpen, setDemoRunModalOpen] = useState(false);
   const [demoRunState, setDemoRunState] = useState<WorkflowRunState | null>(null);
   const [demoRunning, setDemoRunning] = useState(false);
-  
+
   // Turnstile verification for demo
   const [turnstileModalOpen, setTurnstileModalOpen] = useState(false);
   const [turnstileVerifying, setTurnstileVerifying] = useState(false);
@@ -931,7 +931,7 @@ export default function WorkflowProductPage() {
   const edgazeCode = params?.edgazeCode;
 
   // Keep this behavior consistent with your prompts page: paid becomes free during beta.
-  const CLOSED_BETA = true;
+  const CLOSED_BETA = false; // Set to true to grant free access to paid items during beta
 
   // Demo mode: when visiting with ?demo=TOKEN and it matches, skip sign-in and Turnstile for Run
   const demoTokenFromUrl = searchParams?.get("demo") ?? null;
@@ -1191,23 +1191,23 @@ export default function WorkflowProductPage() {
   useEffect(() => {
     if (!userId || !listing) return;
     if (autoActionTriggeredRef.current) return;
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const action = urlParams.get("action");
-    
+
     if (action === "purchase") {
       autoActionTriggeredRef.current = true;
-      
+
       // Remove action param from URL immediately to prevent duplicate triggers
       urlParams.delete("action");
       const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "");
       window.history.replaceState({}, "", newUrl);
-      
+
       // Wait a bit for purchase state to load, then trigger
       const timer = setTimeout(() => {
         grantAccessOrOpen();
       }, 300);
-      
+
       return () => clearTimeout(timer);
     }
     return;
@@ -1239,7 +1239,7 @@ export default function WorkflowProductPage() {
       setPurchaseLoading(true);
       try {
         const uid = userId!;
-        
+
         // Check if purchase already exists (might have been created during redirect)
         const existing = await loadPurchaseRow(listing.id, uid);
         if (existing) {
@@ -1248,7 +1248,7 @@ export default function WorkflowProductPage() {
           setPurchaseLoading(false);
           return;
         }
-        
+
         const { data, error } = await supabase
           .from("workflow_purchases")
           .insert({
@@ -1261,7 +1261,7 @@ export default function WorkflowProductPage() {
 
         if (error) {
           console.error("workflow beta access insert error", error);
-          
+
           // If it's a duplicate key error, try to load the existing purchase
           if (error.code === "23505" || error.message?.includes("duplicate") || error.message?.includes("unique")) {
             const existingAfterError = await loadPurchaseRow(listing.id, uid);
@@ -1272,7 +1272,7 @@ export default function WorkflowProductPage() {
               return;
             }
           }
-          
+
           setPurchaseError(
             "Could not grant access. Please try again."
           );
@@ -1287,11 +1287,34 @@ export default function WorkflowProductPage() {
       }
     }
 
-    // Real paid checkout (Stripe) not wired yet - for paid items outside beta.
+    // Real paid checkout (Stripe) - redirect to Stripe hosted checkout
     if (!isNaturallyFree && !showClosedBetaFree) {
-      setPurchaseError(
-        "Paid checkout not wired yet. Stripe should create workflow_purchases(status='paid') server-side."
-      );
+      setPurchaseLoading(true);
+      try {
+        const res = await fetch("/api/stripe/checkout/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            type: "workflow",
+            workflowId: listing.id,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setPurchaseError(data.error || "Could not start checkout.");
+          return;
+        }
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+        setPurchaseError("Checkout failed. Please try again.");
+      } catch (err) {
+        setPurchaseError("Could not start checkout. Please try again.");
+      } finally {
+        setPurchaseLoading(false);
+      }
       return;
     }
 
@@ -1305,10 +1328,10 @@ export default function WorkflowProductPage() {
       setTurnstileToken(null);
       return;
     }
-    
+
     setTurnstileToken(token);
     setTurnstileVerifying(true);
-    
+
     try {
       // Verify token with server
       const response = await fetch("/api/turnstile/verify", {
@@ -1317,9 +1340,9 @@ export default function WorkflowProductPage() {
         credentials: "include",
         body: JSON.stringify({ token }),
       });
-      
+
       const result = await response.json();
-      
+
       if (result.ok) {
         // Verification successful, proceed with demo
         setTurnstileModalOpen(false);
@@ -1419,7 +1442,7 @@ export default function WorkflowProductPage() {
       setPurchaseError("You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.");
       return;
     }
-    
+
     setTurnstileModalOpen(true);
     setTurnstileToken(null);
   }
@@ -1778,11 +1801,11 @@ export default function WorkflowProductPage() {
                   <div className="text-[12px] text-white/70 mb-4">
                     Complete the security verification below to access a one-time demo run of this workflow.
                   </div>
-                  
+
                   <div className="flex justify-center">
                     <TurnstileWidget onToken={handleTurnstileToken} />
                   </div>
-                  
+
                   {turnstileVerifying && (
                     <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -2452,6 +2475,22 @@ export default function WorkflowProductPage() {
                           : "Open in Workflow Studio (Preview)"
                         : primaryCtaLabel}
                     </button>
+
+                    {!isOwned && (
+                      <p className="mt-3 text-[11px] text-white/45">
+                        By {isNaturallyFree || showClosedBetaFree ? "getting access" : "purchasing"}, you agree to our{" "}
+                        <a href="/docs/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Terms of Service</a>
+                        ,{" "}
+                        <a href="/docs/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Privacy Policy</a>
+                        {!isNaturallyFree && !showClosedBetaFree && (
+                          <>
+                            , and{" "}
+                            <a href="/docs/refund-policy" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Refund Policy</a>
+                          </>
+                        )}
+                        .
+                      </p>
+                    )}
 
                     {/* Try demo - available to anyone (anonymous + logged in) */}
                     {listing && (

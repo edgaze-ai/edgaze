@@ -85,12 +85,12 @@ export async function createRun(params: CreateRunParams): Promise<RunRow> {
 
 export async function updateRun(runId: string, params: UpdateRunParams): Promise<RunRow> {
   const supabase = createSupabaseAdminClient();
+  // Only pass snake_case column names - spreading params would add camelCase keys that Postgres rejects
   const updates: Record<string, unknown> = {
-    ...params,
     updated_at: new Date().toISOString(),
   };
-  if (params.endedAt) updates.ended_at = params.endedAt;
-  if (params.status) updates.status = params.status;
+  if (params.endedAt !== undefined) updates.ended_at = params.endedAt;
+  if (params.status !== undefined) updates.status = params.status;
   if (params.errorCode !== undefined) updates.error_code = params.errorCode;
   if (params.errorMessage !== undefined) updates.error_message = params.errorMessage;
   if (params.durationMs !== undefined) updates.duration_ms = params.durationMs;
@@ -99,7 +99,7 @@ export async function updateRun(runId: string, params: UpdateRunParams): Promise
   if (params.tokensIn !== undefined) updates.tokens_in = params.tokensIn;
   if (params.tokensOut !== undefined) updates.tokens_out = params.tokensOut;
   if (params.model !== undefined) updates.model = params.model;
-  if (params.metadata) updates.metadata = params.metadata;
+  if (params.metadata !== undefined) updates.metadata = params.metadata;
 
   const { data, error } = await supabase
     .from("runs")

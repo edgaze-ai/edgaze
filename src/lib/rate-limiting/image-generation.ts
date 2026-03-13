@@ -1,5 +1,5 @@
 // Image generation rate limiting utilities
-import { createSupabaseServerClient } from "@lib/supabase/server";
+import { createServerClient } from "@lib/supabase/server";
 
 export type IdentifierType = "ip" | "device" | "user";
 
@@ -86,7 +86,7 @@ export async function checkImageGenerationAllowed(
       };
     }
 
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createServerClient();
     
     // Call the database function to check free tier limits
     const { data, error } = await supabase.rpc("can_generate_image_free", {
@@ -158,7 +158,7 @@ export async function recordImageGeneration(
   apiKeyProvided: boolean = false
 ): Promise<void> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createServerClient();
     
     const { error } = await supabase.rpc("record_image_generation", {
       p_identifier: identifier,

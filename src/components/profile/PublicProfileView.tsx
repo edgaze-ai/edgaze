@@ -17,6 +17,7 @@ import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { fetchCreatorListings } from "./creatorListingsAdapter";
 import ErrorModal from "../marketplace/ErrorModal";
 import { DEFAULT_AVATAR_SRC } from "../../config/branding";
+import { compressImageToMaxSize } from "../../lib/compressImage";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../lib/constants";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
@@ -905,16 +906,20 @@ export default function PublicProfileView({
     setUploadBusy(kind);
 
     try {
+      const maxBytes = kind === "avatar" ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+      const toUpload = await compressImageToMaxSize(file, maxBytes);
+
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `profiles/${creator.id}/${kind}.${ext}`;
+      const bucket = kind === "avatar" ? "avatars" : "banners";
+      const path = `${creator.id}/${kind}.${ext}`;
 
       const { error: upErr } = await supabase.storage
-        .from("profile-media")
-        .upload(path, file, { upsert: true });
+        .from(bucket)
+        .upload(path, toUpload, { upsert: true });
 
       if (upErr) throw upErr;
 
-      const { data: pub } = supabase.storage.from("profile-media").getPublicUrl(path);
+      const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
       const publicUrl = pub?.publicUrl || null;
       if (!publicUrl) throw new Error("Failed to get public URL");
 
