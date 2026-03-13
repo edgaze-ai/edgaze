@@ -35,6 +35,7 @@ const FOOTER_SECTIONS = [
       { label: "Terms of Service", href: "/docs/terms-of-service" },
       { label: "Privacy Policy", href: "/docs/privacy-policy" },
       { label: "Creator Terms", href: "/docs/creator-terms" },
+      { label: "Payment Policies", href: "/docs/payments-overview" },
       { label: "Acceptable Use Policy", href: "/docs/acceptable-use-policy" },
       { label: "DMCA", href: "/docs/dmca" },
     ],

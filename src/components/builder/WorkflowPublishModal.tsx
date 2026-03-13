@@ -24,7 +24,7 @@ import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
 import { WORKFLOW_MAX_USD, WORKFLOW_MIN_USD, validateWorkflowPrice } from "../../lib/marketplace/pricing";
 
-type MonetisationMode = "free" | "paywall" | "subscription";
+type MonetisationMode = "free" | "paywall";
 type Visibility = "public" | "unlisted" | "private";
 
 type DraftRow = {
@@ -413,7 +413,6 @@ export default function WorkflowPublishModal({
       const v = Number.isFinite(n) ? clamp(n, 0, 9999) : 0;
       return `$${v.toFixed(2)}`;
     }
-    if (monetisationMode === "subscription") return "Subscription";
     return "Free";
   }, [monetisationMode, priceUsd]);
 
@@ -1317,12 +1316,9 @@ export default function WorkflowPublishModal({
                               <div className="mt-1 text-[11px] text-white/70">
                                 Join the Edgaze Creator Program and connect your payout account to enable payments on your workflows.
                               </div>
-                              <Link
-                                href="/creators/onboarding?from=studio"
-                                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/90 to-purple-500/90 px-4 py-2 text-[12px] font-semibold text-white hover:opacity-90 transition"
-                              >
-                                Set up payouts →
-                              </Link>
+                              <span className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-[12px] font-semibold text-white/70 cursor-not-allowed">
+                                Coming soon
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -1335,8 +1331,8 @@ export default function WorkflowPublishModal({
                             : "Your workflow will be published as Free until you connect payments."}
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {(["free", "paywall", "subscription"] as MonetisationMode[]).map((m) => {
-                            const disabled = m === "subscription" || (m === "paywall" && !postingAs?.canReceivePayments);
+                          {(["free", "paywall"] as MonetisationMode[]).map((m) => {
+                            const disabled = m === "paywall" && !postingAs?.canReceivePayments;
                             return (
                               <button
                                 key={m}
@@ -1352,9 +1348,8 @@ export default function WorkflowPublishModal({
                                       : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]"
                                 )}
                               >
-                                {m === "free" ? "Free" : m === "paywall" ? "Paywall" : "Subscription"}
+                                {m === "free" ? "Free" : "Paywall"}
                                 {m === "paywall" && !postingAs?.canReceivePayments && " (connect payouts first)"}
-                                {m === "subscription" && " (coming soon)"}
                               </button>
                             );
                           })}
@@ -1493,7 +1488,14 @@ export default function WorkflowPublishModal({
                 </div>
 
                 <div className="mt-4 text-[11px] text-white/40">
-                  By publishing, you confirm you have rights to the content and agree to Edgaze Terms.
+                  By publishing, you confirm you have rights to the content and agree to our{" "}
+                  <a href="/docs/terms-of-service" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+                  ,{" "}
+                  <a href="/docs/creator-terms" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Creator Terms</a>
+                  ,{" "}
+                  <a href="/docs/acceptable-use-policy" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Acceptable Use Policy</a>
+                  , and{" "}
+                  <a href="/docs/refund-policy" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Refund Policy</a>.
                 </div>
               </div>
             </div>

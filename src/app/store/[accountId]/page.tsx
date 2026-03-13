@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Package, Loader2, ShoppingCart } from 'lucide-react';
 
@@ -108,6 +109,14 @@ export default function StorefrontPage() {
             </span>
           </h1>
           <p className="text-white/60">Browse and purchase products</p>
+          <p className="mt-2 text-sm text-white/45">
+            By purchasing, you agree to our{' '}
+            <Link href="/docs/terms-of-service" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4">Terms of Service</Link>
+            ,{' '}
+            <Link href="/docs/privacy-policy" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4">Privacy Policy</Link>
+            , and{' '}
+            <Link href="/docs/refund-policy" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4">Refund Policy</Link>.
+          </p>
         </motion.div>
 
         {products.length === 0 ? (

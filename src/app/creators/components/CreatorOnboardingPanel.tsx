@@ -71,7 +71,10 @@ export default function CreatorOnboardingPanel() {
     return "ready_stripe";
   })();
 
+  const joinDisabled = true; // temporary: Creator Program joining closed
+
   async function handleCta() {
+    if (joinDisabled && state !== "complete") return;
     switch (state) {
       case "logged_out":
         openSignIn();
@@ -167,35 +170,46 @@ export default function CreatorOnboardingPanel() {
             </AnimatePresence>
 
             {state === "no_avatar" && (
-              <div className="mt-6">
-                <div className="flex items-center gap-4">
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 flex items-center gap-5 rounded-2xl border border-white/10 bg-white/[0.02] p-5"
+              >
+                <div className="relative shrink-0">
                   <ProfileAvatar
                     name={profile?.full_name || profile?.handle || "Creator"}
                     avatarUrl={profile?.avatar_url || null}
-                    size={64}
+                    size={72}
                     handle={profile?.handle}
                     userId={userId || ""}
                   />
-                  <div>
-                    <p className="text-sm font-medium text-white/90">Add photo</p>
-                    <ProfileImageUploader
-                      kind="avatar"
-                      onDone={() => refreshProfile()}
-                    />
-                  </div>
                 </div>
-              </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-white/90 mb-2">Add a profile photo</p>
+                  <p className="text-xs text-white/50 mb-3">PNG, JPG, or WebP. Max 5MB.</p>
+                  <ProfileImageUploader
+                    kind="avatar"
+                    onDone={() => refreshProfile()}
+                  />
+                </div>
+              </motion.div>
             )}
 
             <div className="mt-6">
               <button
                 type="button"
                 onClick={handleCta}
-                disabled={state === "loading" || stripeLoading}
-                className="group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_0_24px_rgba(56,189,248,0.35)] transition-all hover:shadow-[0_0_32px_rgba(56,189,248,0.45)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+                disabled={state === "loading" || stripeLoading || (joinDisabled && state !== "complete")}
+                className={`group inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
+                  joinDisabled && state !== "complete"
+                    ? "bg-gradient-to-r from-cyan-400/60 via-sky-500/60 to-pink-500/60 text-white/90 opacity-90"
+                    : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_24px_rgba(56,189,248,0.35)] hover:shadow-[0_0_32px_rgba(56,189,248,0.45)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
+                }`}
               >
                 {state === "loading" || stripeLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
+                ) : joinDisabled && state !== "complete" ? (
+                  "Coming soon"
                 ) : (
                   <>
                     {c.cta}
@@ -208,10 +222,10 @@ export default function CreatorOnboardingPanel() {
 
           <div className="hidden sm:flex shrink-0">
             <div
-              className={`flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/5 ${
+              className={`flex h-16 w-16 items-center justify-center rounded-2xl border transition-colors ${
                 state === "complete"
                   ? "border-emerald-500/30 bg-emerald-500/10"
-                  : ""
+                  : "border-white/10 bg-gradient-to-br from-cyan-500/10 to-pink-500/10"
               }`}
             >
               {state === "loading" || stripeLoading ? (

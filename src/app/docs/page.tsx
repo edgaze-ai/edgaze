@@ -14,7 +14,18 @@ const LEGAL_SLUGS = [
   "creator-terms",
   "acceptable-use-policy",
   "dmca",
+];
+const PAYMENTS_SLUGS = [
+  "payments-overview",
+  "marketplace-fees",
+  "creator-earnings",
+  "workflow-run-policy",
+  "infrastructure-cost-estimation",
   "refund-policy",
+  "chargeback-policy",
+  "creator-subscription-policy",
+  "pricing-limits",
+  "fraud-abuse-policy",
 ];
 
 export default function DocsIndex() {
@@ -23,10 +34,12 @@ export default function DocsIndex() {
   const builderDocs = docs.filter((d) => d.slug.startsWith("builder"));
   const platformDocs = docs.filter((d) => PLATFORM_SLUGS.includes(d.slug));
   const legalDocs = docs.filter((d) => LEGAL_SLUGS.includes(d.slug));
+  const paymentsDocs = docs.filter((d) => PAYMENTS_SLUGS.includes(d.slug));
   const shownSlugs = new Set([
     ...builderDocs.map((d) => d.slug),
     ...platformDocs.map((d) => d.slug),
     ...legalDocs.map((d) => d.slug),
+    ...paymentsDocs.map((d) => d.slug),
   ]);
   const restDocs = docs.filter((d) => !shownSlugs.has(d.slug));
 
@@ -162,6 +175,43 @@ export default function DocsIndex() {
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
             <div className="flex flex-col gap-2">
               {platformDocs.map((doc) => (
+                <Link
+                  key={doc.slug}
+                  href={`/docs/${doc.slug}`}
+                  className="group flex items-start justify-between gap-4 rounded-xl px-4 py-3 hover:bg-white/[0.04] transition"
+                >
+                  <div>
+                    <p className="text-[14px] font-medium text-white/90">
+                      {doc.title}
+                    </p>
+                    {doc.description ? (
+                      <p className="mt-0.5 text-[12px] text-white/50 line-clamp-2">
+                        {doc.description}
+                      </p>
+                    ) : null}
+                  </div>
+                  <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-white/35 group-hover:text-white/65" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Payments & Monetization */}
+      {paymentsDocs.length > 0 && (
+        <section className="space-y-6">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight text-white/95">
+              Payments & Monetization
+            </h2>
+            <p className="mt-1.5 text-[13px] text-white/50">
+              Marketplace fees, creator earnings, runs, and payment policies.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
+            <div className="flex flex-col gap-2">
+              {paymentsDocs.map((doc) => (
                 <Link
                   key={doc.slug}
                   href={`/docs/${doc.slug}`}

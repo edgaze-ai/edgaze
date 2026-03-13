@@ -32,6 +32,17 @@ const CANONICAL_TO_FILE: Record<string, string> = {
   "refund-policy": "refund-policy.md",
   "acceptable-use-policy": "acceptable-use-policy.md",
   dmca: "dmca-ip-takedown.md",
+  "community-guidelines": "community-guidelines.md",
+  // Payments & monetization
+  "payments-overview": "payments-overview.md",
+  "marketplace-fees": "marketplace-fees.md",
+  "creator-earnings": "creator-earnings.md",
+  "workflow-run-policy": "workflow-run-policy.md",
+  "infrastructure-cost-estimation": "infrastructure-cost-estimation.md",
+  "chargeback-policy": "chargeback-policy.md",
+  "creator-subscription-policy": "creator-subscription-policy.md",
+  "pricing-limits": "pricing-limits.md",
+  "fraud-abuse-policy": "fraud-abuse-policy.md",
   // Builder docs
   builder: "builder/index.md",
   "builder/workflow-studio": "builder/workflow-studio.md",
@@ -52,7 +63,17 @@ const ORDER: string[] = [
   "creator-terms",
   "acceptable-use-policy",
   "dmca",
+  "community-guidelines",
+  "payments-overview",
+  "marketplace-fees",
+  "creator-earnings",
+  "workflow-run-policy",
+  "infrastructure-cost-estimation",
   "refund-policy",
+  "chargeback-policy",
+  "creator-subscription-policy",
+  "pricing-limits",
+  "fraud-abuse-policy",
 ];
 
 function safeRead(filePath: string) {

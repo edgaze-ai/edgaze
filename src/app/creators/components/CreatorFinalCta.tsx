@@ -1,33 +1,9 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { useAuth } from "src/components/auth/AuthContext";
 
 export default function CreatorFinalCta() {
-  const router = useRouter();
-  const { userId, profile, authReady, openSignIn } = useAuth();
-
-  const handleCta = () => {
-    if (!authReady) return;
-    if (!userId) {
-      openSignIn();
-      return;
-    }
-    if (!profile?.avatar_url || profile.avatar_url === "") {
-      router.push("/profile?from=creators");
-      return;
-    }
-    if (profile?.can_receive_payments) {
-      router.push("/dashboard/earnings");
-      return;
-    }
-    router.push("/creators/onboarding?from=creators");
-  };
-
   return (
     <section className="py-24 sm:py-32">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
@@ -49,11 +25,10 @@ export default function CreatorFinalCta() {
             </p>
             <button
               type="button"
-              onClick={handleCta}
-              className="mt-10 group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-12 py-5 text-lg font-semibold text-white shadow-[0_0_32px_rgba(56,189,248,0.4)] transition-all hover:shadow-[0_0_48px_rgba(56,189,248,0.5)] hover:scale-[1.02] active:scale-[0.98]"
+              disabled
+              className="mt-10 group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400/60 via-sky-500/60 to-pink-500/60 px-12 py-5 text-lg font-semibold text-white/90 shadow-[0_0_32px_rgba(56,189,248,0.2)] cursor-not-allowed opacity-90"
             >
-              Become an Edgaze creator
-              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+              Coming soon
             </button>
           </div>
         </motion.div>

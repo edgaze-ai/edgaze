@@ -1,8 +1,11 @@
+import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "../../../../lib/supabase/admin";
 
 const LIMIT = 15;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+/** Revalidate trending cache every 5 minutes so top workflows/prompts stay fresh */
+const REVALIDATE_SECONDS = 300;
 
 export type TrendingItem = {
   id: string;
@@ -30,9 +33,37 @@ export type TrendingThisWeekResponse = {
   topPromptsThisWeek: TrendingItem[];
 };
 
-export async function GET() {
-  try {
-    const supabase = createSupabaseAdminClient();
+function score(runs: number, views: number, likes: number): number {
+  return runs * 3 + likes * 2 + views * 1;
+}
+
+function toItem(row: Record<string, unknown>, type: "workflow" | "prompt"): TrendingItem {
+  return {
+    id: String(row.id ?? ""),
+    type,
+    edgaze_code: (row.edgaze_code as string) ?? null,
+    title: (row.title as string) ?? null,
+    description: (row.description as string) ?? null,
+    prompt_text: (row.prompt_text as string) ?? null,
+    thumbnail_url: (row.thumbnail_url as string) ?? null,
+    owner_id: row.owner_id != null ? String(row.owner_id) : null,
+    owner_name: (row.owner_name as string) ?? null,
+    owner_handle: (row.owner_handle as string) ?? null,
+    tags: (row.tags as string) ?? null,
+    monetisation_mode: (row.monetisation_mode as string) ?? null,
+    is_paid: (row.is_paid as boolean) ?? null,
+    price_usd: row.price_usd != null ? Number(row.price_usd) : null,
+    view_count:
+      row.views_count != null ? Number(row.views_count) : row.view_count != null ? Number(row.view_count) : null,
+    like_count:
+      row.likes_count != null ? Number(row.likes_count) : row.like_count != null ? Number(row.like_count) : null,
+    created_at: (row.created_at as string) ?? (row.published_at as string) ?? null,
+    published_at: (row.published_at as string) ?? null,
+  };
+}
+
+async function fetchTrendingData(): Promise<TrendingThisWeekResponse> {
+  const supabase = createSupabaseAdminClient();
     const since = new Date(Date.now() - WEEK_MS).toISOString();
 
     // 1. Get run counts for last 7 days (success/error/canceled only)
@@ -106,10 +137,6 @@ export async function GET() {
       console.error("[trending] Prompts fetch error:", pRes.error);
     }
 
-    function score(runs: number, views: number, likes: number): number {
-      return runs * 3 + likes * 2 + views * 1;
-    }
-
     // Filter to only prompts (type=prompt), workflows are type=workflow
     const promptOnly = promptsData.filter((p) => (p as { type?: string }).type !== "workflow");
     const workflowFromWorkflows = workflowsData.map((w: Record<string, unknown>) => ({
@@ -139,36 +166,25 @@ export async function GET() {
       .sort((a, b) => b.s - a.s)
       .slice(0, LIMIT);
 
-    const toItem = (row: Record<string, unknown>, type: "workflow" | "prompt"): TrendingItem => ({
-      id: String(row.id ?? ""),
-      type,
-      edgaze_code: (row.edgaze_code as string) ?? null,
-      title: (row.title as string) ?? null,
-      description: (row.description as string) ?? null,
-      prompt_text: (row.prompt_text as string) ?? null,
-      thumbnail_url: (row.thumbnail_url as string) ?? null,
-      owner_id: row.owner_id != null ? String(row.owner_id) : null,
-      owner_name: (row.owner_name as string) ?? null,
-      owner_handle: (row.owner_handle as string) ?? null,
-      tags: (row.tags as string) ?? null,
-      monetisation_mode: (row.monetisation_mode as string) ?? null,
-      is_paid: (row.is_paid as boolean) ?? null,
-      price_usd: row.price_usd != null ? Number(row.price_usd) : null,
-      view_count:
-        row.views_count != null ? Number(row.views_count) : row.view_count != null ? Number(row.view_count) : null,
-      like_count:
-        row.likes_count != null ? Number(row.likes_count) : row.like_count != null ? Number(row.like_count) : null,
-      created_at: (row.created_at as string) ?? (row.published_at as string) ?? null,
-      published_at: (row.published_at as string) ?? null,
-    });
-
     const topWorkflowsThisWeek = scoredWorkflows.map(({ w }) => toItem(w as Record<string, unknown>, "workflow"));
     const topPromptsThisWeek = scoredPrompts.map(({ p }) => toItem(p as Record<string, unknown>, "prompt"));
 
-    return NextResponse.json({
-      topWorkflowsThisWeek,
-      topPromptsThisWeek,
-    } satisfies TrendingThisWeekResponse);
+    return { topWorkflowsThisWeek, topPromptsThisWeek };
+}
+
+const getCachedTrending = unstable_cache(
+  fetchTrendingData,
+  ["trending-this-week"],
+  { revalidate: REVALIDATE_SECONDS }
+);
+
+export async function GET() {
+  try {
+    const data = await getCachedTrending();
+    const headers = {
+      "Cache-Control": `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=60`,
+    };
+    return NextResponse.json(data satisfies TrendingThisWeekResponse, { headers });
   } catch (err) {
     console.error("[trending] Error:", err);
     return NextResponse.json(

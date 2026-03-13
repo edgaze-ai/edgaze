@@ -16,6 +16,7 @@ import {
   createV2ConnectedAccount,
   createAccountSession,
 } from '@/lib/stripe/connect-v2';
+import { isAllowedPayoutCountry } from '@lib/creators/allowed-countries';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -35,16 +36,26 @@ export async function POST(req: Request) {
       .eq('id', user.id)
       .single();
 
+    const rawCountry = (profileRow?.country as string)?.trim()?.toUpperCase();
+    const country = rawCountry && isAllowedPayoutCountry(rawCountry) ? rawCountry : null;
+
     const profile = {
       email: profileRow?.email ?? user.email ?? '',
       full_name: profileRow?.full_name ?? (user.user_metadata?.full_name as string) ?? (user.user_metadata?.name as string) ?? user.email?.split('@')[0] ?? 'Creator',
       handle: profileRow?.handle ?? `user_${user.id.replace(/-/g, '').slice(0, 12)}`,
-      // Do NOT pass country - let Stripe collect it in the embedded form so users choose their own
+      country,
     };
 
     if (!profile.email) {
       return NextResponse.json(
         { error: 'Email required for Stripe onboarding' },
+        { status: 400 }
+      );
+    }
+
+    if (!profile.country) {
+      return NextResponse.json(
+        { error: 'Select your country first. Go back and choose your country before continuing.' },
         { status: 400 }
       );
     }
@@ -71,6 +82,7 @@ export async function POST(req: Request) {
       const account = await createV2ConnectedAccount({
         displayName: profile.full_name || profile.handle || 'Creator',
         contactEmail: profile.email,
+        country: profile.country,
         metadata: {
           edgaze_user_id: user.id,
           edgaze_handle: profile.handle || '',

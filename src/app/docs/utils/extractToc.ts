@@ -19,11 +19,11 @@ function slugify(text: string): string {
 }
 
 export function extractToc(md: string): TOCItem[] {
-  const lines = md.split("\n");
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
   const items: TOCItem[] = [];
 
   for (const raw of lines) {
-    const line = raw;
+    const line = raw.trim();
     let level = 0;
     let text: string | null = null;
 

@@ -257,9 +257,9 @@ export default function AuthStep({ creatorName, creatorPhotoUrl, inviteToken, on
           transition={{ delay: 0.8 }}
           className="mt-6 text-center text-xs text-white/30"
         >
-          By continuing, you agree to Edgaze's{' '}
+          By continuing, you agree to Edgaze&apos;s{' '}
           <a
-            href="/docs/terms"
+            href="/docs/terms-of-service"
             target="_blank"
             rel="noopener noreferrer"
             className="text-cyan-400 hover:text-cyan-300 transition-colors underline"
@@ -268,7 +268,7 @@ export default function AuthStep({ creatorName, creatorPhotoUrl, inviteToken, on
           </a>
           {' '}and{' '}
           <a
-            href="/docs/privacy"
+            href="/docs/privacy-policy"
             target="_blank"
             rel="noopener noreferrer"
             className="text-cyan-400 hover:text-cyan-300 transition-colors underline"

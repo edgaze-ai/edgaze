@@ -26,6 +26,25 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
 
   const supabase = createSupabaseBrowserClient();
 
+  // Load existing profile (avatar, banner, name, handle) if user already has one
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, handle, avatar_url, banner_url')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!error && data) {
+        if (data.full_name) setDisplayName(data.full_name);
+        if (data.handle) setHandle(data.handle);
+        if (data.avatar_url) setAvatarUrl(data.avatar_url);
+        if (data.banner_url) setBannerUrl(data.banner_url);
+      }
+    };
+    loadProfile();
+  }, [userId]);
+
   // Check handle availability
   const checkHandleAvailability = useCallback(
     debounce(async (handleValue: string) => {
@@ -40,6 +59,7 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
           .from('profiles')
           .select('handle')
           .ilike('handle', handleValue)
+          .neq('id', userId)
           .maybeSingle();
 
         setHandleAvailable(!data);
@@ -50,7 +70,7 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
         setHandleChecking(false);
       }
     }, 400),
-    []
+    [userId]
   );
 
   useEffect(() => {

@@ -6,7 +6,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
+import { getUserAndClient } from '@/lib/auth/server';
+import { isAllowedPayoutCountry } from '@lib/creators/allowed-countries';
 import { createV2ConnectedAccount, createV2AccountLink } from '@/lib/stripe/connect-v2';
 import { stripeConfig } from '@/lib/stripe/config';
 
@@ -15,18 +17,15 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createServerClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    // Support Bearer token + cookies (same as account-session) for invite flow and creators portal
+    const authResult = await getUserAndClient(req);
+    if (!authResult.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const { user } = authResult;
+    const admin = createSupabaseAdminClient();
 
-    const { data: profile } = await supabase
+    const { data: profile } = await admin
       .from('profiles')
       .select('handle, full_name, email, country')
       .eq('id', user.id)
@@ -43,7 +42,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data: existingAccount } = await supabase
+    const rawCountry = (profile.country as string)?.trim()?.toUpperCase();
+    const country = rawCountry && isAllowedPayoutCountry(rawCountry) ? rawCountry : null;
+    if (!country) {
+      return NextResponse.json(
+        { error: 'Select your country first. Complete the country step before continuing.' },
+        { status: 400 }
+      );
+    }
+
+    const { data: existingAccount } = await admin
       .from('stripe_connect_accounts')
       .select('stripe_account_id, account_status')
       .eq('user_id', user.id)
@@ -66,7 +74,7 @@ export async function POST(req: Request) {
       const account = await createV2ConnectedAccount({
         displayName: profile.full_name || profile.handle || 'Creator',
         contactEmail: profile.email,
-        country: profile.country || 'US',
+        country,
         metadata: {
           edgaze_user_id: user.id,
           edgaze_handle: profile.handle || '',
@@ -75,7 +83,7 @@ export async function POST(req: Request) {
 
       stripeAccountId = account.id;
 
-      await supabase.from('stripe_connect_accounts').insert({
+      await admin.from('stripe_connect_accounts').insert({
         user_id: user.id,
         stripe_account_id: account.id,
         account_status: 'pending',
@@ -86,7 +94,7 @@ export async function POST(req: Request) {
         currency: 'usd',
       });
 
-      await supabase
+      await admin
         .from('profiles')
         .update({ stripe_onboarding_status: 'pending' })
         .eq('id', user.id);

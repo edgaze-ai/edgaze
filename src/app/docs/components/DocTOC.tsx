@@ -81,7 +81,7 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
     let dispose: (() => void) | undefined;
     const t = setTimeout(() => {
       dispose = run();
-    }, 100);
+    }, 200);
     return () => {
       clearTimeout(t);
       dispose?.();
@@ -94,26 +94,41 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
   } | null>(null);
 
   useLayoutEffect(() => {
-    if (items.length === 0 || !trackRef.current) {
+    if (items.length === 0) {
       setTrackPath(null);
       return;
     }
-    const track = trackRef.current;
-    const trackRect = track.getBoundingClientRect();
-    const trackTop = trackRect.top;
-    const segments: { top: number; bottom: number; level: number }[] = [];
-    for (let i = 0; i < items.length; i++) {
-      const el = itemRefs.current[i];
-      const item = items[i];
-      if (!el || !item) continue;
-      const r = el.getBoundingClientRect();
-      segments.push({
-        top: r.top - trackTop,
-        bottom: r.bottom - trackTop,
-        level: item.level,
-      });
-    }
-    if (segments.length > 0) setTrackPath({ segments });
+    const compute = () => {
+      const track = trackRef.current;
+      if (!track) return;
+      const trackRect = track.getBoundingClientRect();
+      const trackTop = trackRect.top;
+      const segments: { top: number; bottom: number; level: number }[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const el = itemRefs.current[i];
+        const item = items[i];
+        if (!el || !item) continue;
+        const r = el.getBoundingClientRect();
+        segments.push({
+          top: r.top - trackTop,
+          bottom: r.bottom - trackTop,
+          level: item.level,
+        });
+      }
+      if (segments.length > 0) setTrackPath({ segments });
+    };
+    const run = () => {
+      compute();
+      requestAnimationFrame(compute);
+    };
+    run();
+    const ro = trackRef.current
+      ? new ResizeObserver(() => setScrollTick((t) => t + 1))
+      : null;
+    if (trackRef.current) ro?.observe(trackRef.current);
+    return () => {
+      ro?.disconnect();
+    };
   }, [items, scrollTick]);
 
   // Progress: firstIdx and lastIdx into trackPath (gradient flows ON the track via dash)
@@ -338,12 +353,15 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
 
                 const totalLen = lengthAtEnd[lengthAtEnd.length - 1] ?? 1;
                 let dashStart = 0;
-                let dashLen = 0;
-                if (progressRange && totalLen > 0) {
-                  const { firstIdx, lastIdx } = progressRange;
+                let dashLen = totalLen;
+                const range = progressRange ?? (segs.length > 0 ? { firstIdx: 0, lastIdx: segs.length - 1 } : null);
+                if (range && totalLen > 0) {
+                  const { firstIdx, lastIdx } = range;
+                  const safeLast = Math.min(Math.max(lastIdx, 0), lengthAtEnd.length - 1);
                   dashStart = firstIdx > 0 ? (lengthAtEnd[firstIdx - 1] ?? 0) : 0;
-                  dashLen = (lengthAtEnd[lastIdx] ?? totalLen) - dashStart;
+                  dashLen = (lengthAtEnd[safeLast] ?? totalLen) - dashStart;
                   dashLen = Math.max(0, Math.min(dashLen, totalLen - dashStart));
+                  if (dashLen <= 0) dashLen = totalLen;
                 }
 
                 return (

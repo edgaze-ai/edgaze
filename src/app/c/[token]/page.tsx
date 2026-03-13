@@ -153,34 +153,27 @@ function OnboardingContent() {
 
   if (loading) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-black">
-        {/* Premium animated background */}
-        <motion.div
-          className="absolute left-[20%] top-[30%] h-[400px] w-[400px] rounded-full bg-cyan-400/20 blur-[100px]"
-          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 4, repeat: Infinity }}
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#050505]">
+        <div className="absolute inset-0 bg-[#050505]" />
+        <div
+          className="absolute inset-0 opacity-60"
+          style={{
+            backgroundImage: `radial-gradient(circle at 20% 15%, rgba(34,211,238,0.08), transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(236,72,153,0.06), transparent 50%)`,
+          }}
         />
         <motion.div
-          className="absolute right-[20%] bottom-[30%] h-[500px] w-[500px] rounded-full bg-pink-500/20 blur-[120px]"
-          animate={{ scale: [1.2, 1, 1.2], opacity: [0.4, 0.6, 0.4] }}
-          transition={{ duration: 5, repeat: Infinity }}
+          className="relative h-10 w-10 animate-spin rounded-full border-2 border-white/[0.08] border-t-cyan-400"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
         />
-        
-        <motion.div
-          className="relative"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-        >
-          <div className="h-16 w-16 animate-spin rounded-full border-4 border-transparent bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500" style={{ WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', WebkitMaskComposite: 'xor', maskComposite: 'exclude', padding: '4px' }} />
-          <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-r from-cyan-400/20 via-sky-500/20 to-pink-500/20 blur-xl" />
-        </motion.div>
       </div>
     );
   }
 
   if (invalidReason) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-black">
+      <div className="relative min-h-screen overflow-hidden bg-[#050505]">
         <InvalidTokenScreen reason={invalidReason as any} />
       </div>
     );
@@ -188,7 +181,7 @@ function OnboardingContent() {
 
   if (!invite) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-black">
+      <div className="relative min-h-screen overflow-hidden bg-[#050505]">
         <InvalidTokenScreen reason="invalid" />
       </div>
     );
@@ -197,31 +190,32 @@ function OnboardingContent() {
   const progress = calculateProgress(currentStep);
 
   return (
-    <div className="relative min-h-screen w-full overflow-y-auto overflow-x-hidden bg-black">
-      {/* Premium Background with Edgaze Gradients */}
+    <div className="relative min-h-screen w-full overflow-y-auto overflow-x-hidden bg-[#050505] text-white">
+      {/* Same gradient treatment as /creators */}
       <div className="fixed inset-0 z-0">
-        {/* Animated gradient orbs */}
-        <motion.div
-          className="absolute left-[10%] top-[20%] h-[500px] w-[500px] rounded-full bg-cyan-400/20 blur-[120px]"
-          animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        <div className="absolute inset-0 bg-[#050505]" />
+        <div
+          className="absolute inset-0 opacity-60"
+          style={{
+            backgroundImage: `radial-gradient(circle at 20% 15%, rgba(34,211,238,0.12), transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(236,72,153,0.1), transparent 50%),
+              radial-gradient(circle at 50% 85%, rgba(34,211,238,0.06), transparent 50%)`,
+          }}
         />
-        <motion.div
-          className="absolute right-[10%] top-[40%] h-[600px] w-[600px] rounded-full bg-pink-500/20 blur-[120px]"
-          animate={{ scale: [1.2, 1, 1.2], opacity: [0.4, 0.6, 0.4] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)`,
+            backgroundSize: '72px 72px',
+          }}
         />
-        <motion.div
-          className="absolute left-[50%] bottom-[20%] h-[400px] w-[400px] rounded-full bg-sky-500/15 blur-[100px]"
-          animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.4, 0.2] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+        <div
+          className="absolute inset-0 opacity-30"
+          style={{
+            background: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03), transparent 50%)',
+          }}
         />
-        
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.15),transparent_50%),radial-gradient(circle_at_80%_80%,rgba(236,72,153,0.12),transparent_50%)]" />
-        
-        {/* Noise texture */}
-        <div className="absolute inset-0 opacity-[0.015] mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 400 400\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E")' }} />
       </div>
 
       {/* Progress bar */}

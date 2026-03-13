@@ -2,10 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { useAuth } from "src/components/auth/AuthContext";
 
 const CHIPS = [
   "Publish premium workflows",
@@ -15,26 +12,6 @@ const CHIPS = [
 ];
 
 export default function CreatorsHero() {
-  const router = useRouter();
-  const { userId, profile, authReady, openSignIn } = useAuth();
-
-  const handlePrimaryCta = () => {
-    if (!authReady) return;
-    if (!userId) {
-      openSignIn();
-      return;
-    }
-    if (!profile?.avatar_url || profile.avatar_url === "") {
-      router.push("/profile?from=creators");
-      return;
-    }
-    if (profile?.can_receive_payments) {
-      router.push("/dashboard/earnings");
-      return;
-    }
-    router.push("/creators/onboarding?from=creators");
-  };
-
   return (
     <section className="relative pt-24 sm:pt-32 pb-20 sm:pb-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -69,11 +46,10 @@ export default function CreatorsHero() {
             >
               <button
                 type="button"
-                onClick={handlePrimaryCta}
-                className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-8 py-4 text-base font-semibold text-white shadow-[0_0_32px_rgba(56,189,248,0.4)] transition-all hover:shadow-[0_0_48px_rgba(56,189,248,0.5)] hover:scale-[1.02] active:scale-[0.98]"
+                disabled
+                className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400/60 via-sky-500/60 to-pink-500/60 px-8 py-4 text-base font-semibold text-white/90 shadow-[0_0_32px_rgba(56,189,248,0.2)] cursor-not-allowed opacity-90"
               >
-                Join the Creator Program
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+                Coming soon
               </button>
               <Link
                 href="/marketplace"

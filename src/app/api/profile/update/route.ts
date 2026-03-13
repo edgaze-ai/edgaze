@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserAndClient } from "@lib/auth/server";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { sanitizeSocials, sanitizeUrl } from "@lib/sanitize-url";
+import { isAllowedPayoutCountry } from "@lib/creators/allowed-countries";
 
 /** Max lengths for profile fields (user data security) */
 const MAX_HANDLE = 24;
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    let { handle, full_name, avatar_url, banner_url, bio, socials } = body;
+    let { handle, full_name, avatar_url, banner_url, bio, socials, country } = body;
 
     // Sanitize all string inputs
     if (handle !== undefined) {
@@ -45,6 +46,16 @@ export async function POST(req: Request) {
     if (socials !== undefined) {
       const sanitized = sanitizeSocials(socials);
       socials = sanitized ?? {};
+    }
+    if (country !== undefined) {
+      const c = String(country ?? "").trim().toUpperCase().slice(0, 2);
+      if (!c || !isAllowedPayoutCountry(c)) {
+        return NextResponse.json(
+          { error: "Country must be a valid 2-letter code from the allowed list" },
+          { status: 400 }
+        );
+      }
+      country = c;
     }
 
     // If handle is being changed, enforce 60-day cooldown
@@ -95,6 +106,7 @@ export async function POST(req: Request) {
     if (banner_url !== undefined) updatePayload.banner_url = banner_url;
     if (bio !== undefined) updatePayload.bio = bio;
     if (socials !== undefined) updatePayload.socials = socials;
+    if (country !== undefined) updatePayload.country = country;
 
     // Update profile using admin client (bypasses RLS)
     const admin = createSupabaseAdminClient();

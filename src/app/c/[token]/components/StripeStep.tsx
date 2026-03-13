@@ -2,7 +2,8 @@
 
 import { motion } from 'framer-motion';
 import { useState } from 'react';
-import { Wallet, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { DollarSign, Settings } from 'lucide-react';
 
 interface StripeStepProps {
   userId: string;
@@ -10,50 +11,16 @@ interface StripeStepProps {
   onContinue: () => void;
 }
 
+const CHIPS = [
+  'Stripe-powered payouts',
+  '~3 minutes to connect',
+  'Start earning immediately',
+];
+
 export default function StripeStep({ userId, inviteToken, onContinue }: StripeStepProps) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSetupNow = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch('/api/stripe/connect/onboard', {
-        method: 'POST',
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create onboarding link');
-      }
-
-      // Update onboarding state
-      await fetch('/api/onboarding', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          step: 'stripe',
-          stripe_choice: 'now',
-          stripe_status: 'in_progress',
-        }),
-      });
-
-      // Redirect to Stripe
-      if (data.url) {
-        window.location.href = data.url;
-      } else if (data.status === 'active') {
-        // Already active, continue
-        await handleLater();
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to set up Stripe');
-      setLoading(false);
-    }
-  };
-
-  const handleLater = async () => {
+  const handleDoLater = async () => {
     try {
       await fetch('/api/onboarding', {
         method: 'PUT',
@@ -63,104 +30,141 @@ export default function StripeStep({ userId, inviteToken, onContinue }: StripeSt
           stripe_choice: 'later',
         }),
       });
-
-      onContinue();
-    } catch (err: any) {
-      setError(err.message || 'Failed to continue');
+    } catch {
+      // ignore
     }
+    onContinue();
   };
 
   return (
     <motion.div
-      initial="enter"
-      animate="center"
-      exit="exit"
-      variants={{
-        enter: { opacity: 0, y: 24 },
-        center: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] } },
-        exit: { opacity: 0, y: -16, transition: { duration: 0.3, ease: 'easeIn' } },
-      }}
-      className="flex min-h-[100dvh] items-center justify-center px-4"
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -16 }}
+      transition={{ duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className="flex min-h-[100dvh] items-center justify-center px-4 py-12 sm:py-16"
     >
-      <div className="w-full max-w-md text-center">
-        {/* Icon */}
+      <div className="w-full max-w-xl">
+        {/* Card — matches CreatorOnboardingPanel / CreatorsHero */}
         <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 20 }}
-          className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-500/15"
-        >
-          <Wallet className="h-8 w-8 text-cyan-400" />
-        </motion.div>
-
-        {/* Headline */}
-        <motion.h2
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mb-4 text-3xl font-bold text-white"
+          transition={{ delay: 0.1, duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-xl"
         >
-          Get paid for your workflows
-        </motion.h2>
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-pink-500/5" />
+          <div className="relative p-6 sm:p-10">
+            {/* Animated icon — DollarSign with cyan-pink gradient treatment */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 22 }}
+              className="mb-8 flex justify-center"
+            >
+              <div className="relative">
+                <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-cyan-500/10 to-pink-500/10 blur-2xl" />
+                <motion.div
+                  animate={{ scale: [1, 1.02, 1] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                  className="relative flex h-24 w-24 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] sm:h-28 sm:w-28"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 via-sky-500 to-pink-500 sm:h-16 sm:w-16">
+                    <DollarSign className="h-7 w-7 text-white sm:h-8 sm:w-8" strokeWidth={2} />
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
 
-        {/* Body */}
-        <motion.p
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="mb-8 text-sm opacity-60"
-        >
-          Connect Stripe to receive payouts when creators purchase your workflows. Takes about 3 minutes.
-        </motion.p>
+            {/* Headline — gradient text like CreatorsHero */}
+            <motion.h2
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.4 }}
+              className="mb-2 text-center text-2xl font-bold tracking-tight sm:text-3xl"
+            >
+              <span className="bg-gradient-to-r from-cyan-400 via-sky-400 to-pink-400 bg-clip-text text-transparent">
+                Join the Creator Program
+              </span>
+            </motion.h2>
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="mb-6 text-center text-lg font-medium text-white/90 sm:text-xl"
+            >
+              to receive payouts
+            </motion.p>
 
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 font-dm-sans text-sm text-red-400">
-            {error}
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="mb-8 text-center text-[15px] leading-relaxed text-white/55 sm:text-base"
+            >
+              Connect your payout account to get paid when people purchase your workflows.
+            </motion.p>
+
+            {/* Chips — like CreatorsHero */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.45 }}
+              className="mb-8 flex flex-wrap justify-center gap-2 sm:gap-3"
+            >
+              {CHIPS.map((chip, i) => (
+                <motion.span
+                  key={chip}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5 + i * 0.05 }}
+                  className="rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-white/70"
+                >
+                  {chip}
+                </motion.span>
+              ))}
+            </motion.div>
+
+            {/* Primary CTA — same as /creators portal: links to creators onboarding */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55 }}
+              className="space-y-3"
+            >
+              <button
+                type="button"
+                disabled
+                className="group relative flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400/60 via-sky-500/60 to-pink-500/60 px-6 py-4 text-base font-semibold text-white/90 shadow-[0_0_32px_rgba(56,189,248,0.2)] cursor-not-allowed opacity-90"
+              >
+                Coming soon
+              </button>
+
+              <button
+                onClick={handleDoLater}
+                disabled={loading}
+                className="group flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-6 py-3.5 text-sm font-medium text-white/80 transition-all hover:bg-white/10 hover:border-white/25 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Settings className="h-4 w-4 text-white/60" />
+                Do it later via Settings
+              </button>
+            </motion.div>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="mt-8 text-center text-[13px] text-white/40"
+            >
+              Connect anytime from{' '}
+              <Link
+                href="/settings"
+                className="font-medium text-cyan-400/90 underline-offset-2 transition-colors hover:text-cyan-400"
+              >
+                Settings
+              </Link>
+            </motion.p>
           </div>
-        )}
-
-        {/* Buttons */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="space-y-3"
-        >
-          <button
-            onClick={handleSetupNow}
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-500 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ minHeight: '52px' }}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Loading...
-              </>
-            ) : (
-              'Set up payouts now →'
-            )}
-          </button>
-
-          <button
-            onClick={handleLater}
-            disabled={loading}
-            className="w-full rounded-lg border border-white/[0.12] bg-transparent px-6 py-3 text-sm font-medium text-white opacity-60 transition-all hover:border-white/20 hover:bg-white/[0.05] hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30"
-            style={{ minHeight: '52px' }}
-          >
-            I'll do this later
-          </button>
         </motion.div>
-
-        {/* Fine print */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.35 }}
-          transition={{ delay: 0.6 }}
-          className="mt-4 text-xs"
-        >
-          You can connect anytime from Settings
-        </motion.p>
       </div>
     </motion.div>
   );

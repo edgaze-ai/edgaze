@@ -26,8 +26,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "src/components/auth/AuthContext";
 import { isAllowedOnboardingRef } from "src/lib/creators/onboarding-gate";
+import {
+  ALLOWED_PAYOUT_COUNTRIES,
+  isAllowedPayoutCountry,
+} from "src/lib/creators/allowed-countries";
 
 type PageState =
+  | "country_picker"
   | "loading"
   | "error"
   | "ready"
@@ -140,7 +145,7 @@ function EmbeddedOnboardingContent({
 export default function CreatorsOnboardingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { userId, profile, authReady, loading, openSignIn, refreshProfile, getAccessToken } = useAuth();
+  const { userId, profile, authReady, loading, openSignIn, refreshProfile, getAccessToken, updateProfile } = useAuth();
   const [pageState, setPageState] = useState<PageState>("loading");
   const [gateChecked, setGateChecked] = useState(false);
 
@@ -157,6 +162,8 @@ export default function CreatorsOnboardingPage() {
   }, [hasValidRef, router, gateChecked]);
   const [error, setError] = useState<string | null>(null);
   const [connectInstance, setConnectInstance] = useState<unknown>(null);
+  const [countrySaving, setCountrySaving] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState("");
 
   const publishableKey =
     typeof window !== "undefined"
@@ -186,6 +193,9 @@ export default function CreatorsOnboardingPage() {
     return { clientSecret: data.clientSecret };
   }, [getAccessToken]);
 
+  const profileCountry = (profile?.country as string)?.trim()?.toUpperCase();
+  const hasValidCountry = profileCountry && isAllowedPayoutCountry(profileCountry);
+
   useEffect(() => {
     if (!gateChecked || !hasValidRef) return;
     if (loading || !authReady) return;
@@ -198,13 +208,19 @@ export default function CreatorsOnboardingPage() {
       setPageState("error");
       return;
     }
+    if (!hasValidCountry) {
+      setPageState("country_picker");
+      return;
+    }
 
     setPageState("loading");
     setError(null);
 
+    let cancelled = false;
     const fetchSecret = async () => {
       try {
         const result = await fetchClientSecret();
+        if (cancelled) return;
         const { clientSecret, alreadyComplete } = result;
         if (alreadyComplete) {
           setPageState("complete");
@@ -226,16 +242,46 @@ export default function CreatorsOnboardingPage() {
             },
           },
         });
+        if (cancelled) return;
         setConnectInstance(instance);
         setPageState("ready");
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Something went wrong");
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "Something went wrong";
+        const needsCountry = /country|select your country/i.test(msg) || /identity\.country is required/i.test(msg);
+        if (needsCountry) {
+          setPageState("country_picker");
+          return;
+        }
+        setError(msg);
         setPageState("error");
       }
     };
 
     fetchSecret();
-  }, [loading, authReady, userId, publishableKey, fetchClientSecret]);
+    return () => {
+      cancelled = true;
+    };
+  }, [gateChecked, hasValidRef, loading, authReady, userId, publishableKey, hasValidCountry, fetchClientSecret]);
+
+  const handleCountrySubmit = useCallback(
+    async (countryCode: string) => {
+      if (!countryCode || !isAllowedPayoutCountry(countryCode)) return;
+      setCountrySaving(true);
+      setError(null);
+      try {
+        const res = await updateProfile({ country: countryCode });
+        if (!res.ok) throw new Error(res.error || "Failed to save country");
+        await refreshProfile();
+        setPageState("loading");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to save country");
+      } finally {
+        setCountrySaving(false);
+      }
+    },
+    [updateProfile, refreshProfile]
+  );
 
   const handleOnboardingExit = useCallback(async () => {
     try {
@@ -329,6 +375,99 @@ export default function CreatorsOnboardingPage() {
         <div className="flex items-center gap-3 text-white/50 text-[15px]">
           <Loader2 className="h-5 w-5 animate-spin shrink-0" />
           Loading…
+        </div>
+      </div>
+    );
+  }
+
+  if (pageState === "country_picker") {
+    return (
+      <div className="min-h-screen w-full bg-[#0d0d0d] text-white flex flex-col items-center justify-center px-6 py-16">
+        <div className="fixed inset-0 -z-10 pointer-events-none">
+          <div className="absolute inset-0 bg-[#0d0d0d]" />
+          <div
+            className="absolute inset-0 opacity-40"
+            style={{
+              backgroundImage:
+                "radial-gradient(ellipse 100% 60% at 50% 0%, rgba(120,119,198,0.12), transparent 60%), radial-gradient(ellipse 80% 50% at 80% 80%, rgba(34,211,238,0.06), transparent 50%)",
+            }}
+          />
+        </div>
+        <div className="w-full max-w-md mx-auto">
+          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 sm:p-10 shadow-2xl">
+            <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mb-2">
+              Select your country
+            </h1>
+            <p className="text-sm text-white/55 mb-6">
+              Payouts are available in the countries below. Choose yours to continue.
+            </p>
+            <select
+              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3.5 text-[15px] text-white font-medium appearance-none cursor-pointer
+                focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/40
+                hover:border-white/25 transition-colors
+                [&>option]:bg-[#1a1a1a] [&>option]:text-white"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 14px center",
+                paddingRight: "40px",
+              }}
+              value={selectedCountry}
+              onChange={(e) => setSelectedCountry(e.target.value)}
+              disabled={countrySaving}
+            >
+              <option value="">
+                Choose your country
+              </option>
+              {ALLOWED_PAYOUT_COUNTRIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => selectedCountry && handleCountrySubmit(selectedCountry)}
+              disabled={!selectedCountry || countrySaving}
+              className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-6 py-4 text-[15px] font-semibold text-white shadow-[0_0_24px_rgba(56,189,248,0.35)] transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {countrySaving ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  Continue
+                  <ArrowLeft className="h-5 w-5 rotate-180" />
+                </>
+              )}
+            </button>
+            {error && (
+              <p className="mt-4 text-sm text-red-400">{error}</p>
+            )}
+            {countrySaving && (
+              <p className="mt-4 text-sm text-white/55 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving…
+              </p>
+            )}
+            <p className="mt-6 text-xs text-white/45">
+              By continuing, you agree to Stripe&apos;s{' '}
+              <a href="https://stripe.com/legal/connect-account" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Connected Account Agreement</a>
+              {' '}and Edgaze&apos;s{' '}
+              <Link href="/docs/creator-terms" className="text-cyan-400 hover:underline">Creator Terms</Link>
+              , <Link href="/docs/terms-of-service" className="text-cyan-400 hover:underline">Terms of Service</Link>
+              , <Link href="/docs/privacy-policy" className="text-cyan-400 hover:underline">Privacy Policy</Link>
+              , and <Link href="/docs/payments-overview" className="text-cyan-400 hover:underline">Payment Policies</Link>.
+            </p>
+            <Link
+              href="/creators"
+              className="mt-8 inline-block text-sm text-white/50 hover:text-white/70 transition-colors"
+            >
+              ← Back to Creator Program
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -545,7 +684,13 @@ export default function CreatorsOnboardingPage() {
                   </div>
                   <p className="px-4 sm:px-6 pb-4 text-xs text-white/40 bg-[#14171D]">
                     Your information is processed securely by Stripe for identity
-                    and payout verification.
+                    and payout verification. By completing setup, you agree to Stripe&apos;s{' '}
+                    <a href="https://stripe.com/legal/connect-account" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Connected Account Agreement</a>
+                    {' '}and Edgaze&apos;s{' '}
+                    <Link href="/docs/creator-terms" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Creator Terms</Link>
+                    , <Link href="/docs/terms-of-service" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Terms of Service</Link>
+                    , <Link href="/docs/privacy-policy" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Privacy Policy</Link>
+                    , and <Link href="/docs/payments-overview" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Payment Policies</Link>.
                   </p>
                 </motion.div>
               )}

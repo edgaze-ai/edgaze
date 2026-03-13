@@ -1,90 +1,75 @@
 title = "Refund Policy"
 description = "Our refund policy for workflow and prompt purchases"
 
-# Refund Policy
+---
 
-*Last Updated: February 27, 2026*
+## 1. Overview
 
-## Our Commitment
+*Last Updated: March 13, 2026*
 
-At Edgaze, we want you to be satisfied with your purchases. This Refund Policy explains when and how you can request a refund for workflows and prompts purchased on our platform.
+Due to the nature of digital products, purchases on Edgaze are **generally non-refundable**. Refunds may be granted in specific circumstances. All requests are reviewed manually.
 
-## 7-Day Refund Window
+---
 
-You may request a refund within **7 days** of purchase if:
+## 2. When Refunds May Be Granted
 
-- The workflow or prompt does not function as described
-- You encounter technical issues that prevent usage
-- The content significantly differs from its description
-- The product contains errors that make it unusable
+Refunds may be granted if:
 
-## Non-Refundable Situations
+- **The workflow is broken** — It fails to execute or produces errors that prevent use
+- **The product description is misleading** — The product does not match what was advertised
+- **The workflow cannot execute** — Technical or platform issues prevent the workflow from running as intended
 
-Refunds will **not** be issued if:
+Each request is evaluated on its own merits.
 
-- More than 7 days have passed since purchase
-- You simply changed your mind after using the product
-- You did not read the product description before purchasing
-- You lack the technical knowledge to use the product (unless it was misrepresented as beginner-friendly)
-- You violate our Terms of Service
+---
 
-## How to Request a Refund
+## 3. Refund Process
 
 To request a refund:
 
-1. Contact our support team at [support@edgaze.ai](mailto:support@edgaze.ai)
-2. Include your purchase receipt or transaction ID
-3. Explain the reason for your refund request
-4. Provide screenshots or details of any technical issues
+1. Contact support at [support@edgaze.ai](mailto:support@edgaze.ai)
+2. Provide your purchase receipt or transaction ID
+3. Explain the issue and why you believe a refund is warranted
+4. Include any relevant screenshots or details
 
-We aim to respond to all refund requests within 2 business days.
+We review refund requests and respond within a few business days.
 
-## Refund Processing
+---
 
-If your refund is approved:
+## 4. If a Refund Is Approved
 
-- Full refunds are issued to your original payment method
-- Processing typically takes 5-10 business days
-- Your access to the purchased content will be revoked
-- The creator's earnings will be adjusted accordingly
+- The customer receives a refund to the original payment method
+- Creator revenue for that sale is reversed
+- Access to the purchased content is revoked
 
-## Partial Refunds
+Processing typically takes 5–10 business days after approval.
 
-In some cases, we may offer a partial refund:
+---
 
-- If you've used the product extensively but encountered issues
-- If only part of a bundle is defective
-- At our discretion for exceptional circumstances
+## 5. Non-Refundable Situations
 
-## Chargebacks
+Refunds will **not** be issued if:
 
-**Please contact us before initiating a chargeback.**
+- You simply changed your mind after using the product
+- You did not read the product description before purchasing
+- You lack the technical knowledge to use the product (unless it was misrepresented)
+- The product functions as described and you received what you paid for
+- You violate our Terms of Service
 
-Chargebacks should be a last resort. If you file a chargeback without contacting us first:
+---
 
-- Your account may be suspended pending investigation
-- You may be banned from future purchases
-- We will dispute fraudulent chargebacks
+## 6. Chargebacks
 
-## Creator Responsibilities
+**Please contact us before initiating a chargeback.** Chargebacks should be a last resort. See our [Chargeback Policy](/docs/chargeback-policy) for details.
 
-Creators are expected to:
+---
 
-- Accurately describe their products
-- Ensure products function as advertised
-- Provide reasonable support to buyers
-- Update products to fix critical bugs
+## 7. Creator Responsibilities
 
-Excessive refund rates may result in creator account review.
+Creators are expected to accurately describe products and ensure they function as advertised. Excessive refund rates may result in creator account review.
 
-## Exceptions
+---
 
-We reserve the right to:
+## 8. Contact
 
-- Issue refunds outside the 7-day window for exceptional cases
-- Deny refunds for abuse of the refund system
-- Update this policy with 30 days notice
-
-## Contact Us
-
-Questions about our refund policy? Contact us at [support@edgaze.ai](mailto:support@edgaze.ai)
+Questions? Contact us at [support@edgaze.ai](mailto:support@edgaze.ai)

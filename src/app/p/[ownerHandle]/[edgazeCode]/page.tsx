@@ -2908,6 +2908,22 @@ export default function PromptProductPage() {
                       </span>
                     </button>
 
+                    {!isOwned && (
+                      <p className="mt-3 text-[11px] text-white/45">
+                        By {isNaturallyFree || showClosedBetaFree ? "getting access" : "purchasing"}, you agree to our{" "}
+                        <a href="/docs/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Terms of Service</a>
+                        ,{" "}
+                        <a href="/docs/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Privacy Policy</a>
+                        {!isNaturallyFree && !showClosedBetaFree && (
+                          <>
+                            , and{" "}
+                            <a href="/docs/refund-policy" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Refund Policy</a>
+                          </>
+                        )}
+                        .
+                      </p>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => setShareOpen(true)}

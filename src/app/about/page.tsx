@@ -591,12 +591,9 @@ export default function AboutPage() {
                   Explore the marketplace
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </Link>
-                <Link
-                  href="/creators"
-                  className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white/90 bg-white/5 ring-1 ring-white/10 hover:bg-white/10 transition-colors"
-                >
-                  Join as a creator
-                </Link>
+                <span className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white/60 bg-white/5 ring-1 ring-white/10 cursor-not-allowed">
+                  Join as a creator — Coming soon
+                </span>
               </div>
             </SectionReveal>
           </section>

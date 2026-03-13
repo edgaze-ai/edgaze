@@ -34,10 +34,17 @@ export async function createV2ConnectedAccount(params: {
     );
   }
 
+  if (!params.country || params.country.length !== 2) {
+    throw new Error('country is required (ISO 3166-1 alpha-2, e.g. US, GB)');
+  }
+
   const account = await stripe.v2.core.accounts.create({
     display_name: params.displayName,
     contact_email: params.contactEmail,
-    // Omit identity.country so Stripe collects it in the embedded onboarding form
+    identity: {
+      country: params.country.toUpperCase(),
+      entity_type: 'individual',
+    },
     dashboard: 'none',
     defaults: {
       responsibilities: {

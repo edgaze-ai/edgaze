@@ -72,25 +72,42 @@ export default function ProfileImageUploader({
     }
   };
 
+  const inputId = `profile-upload-${kind}-${userId || "anon"}`;
+
   return (
     <div className="flex flex-col gap-2">
-      <input
-        type="file"
-        accept={accept}
-        disabled={busy}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) upload(f);
-          e.currentTarget.value = "";
-        }}
-        className="block w-full text-xs text-white/70 file:mr-3 file:rounded-full file:border-0 file:bg-white file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black hover:file:brightness-110"
-      />
+      <label
+        htmlFor={inputId}
+        className={`
+          inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/90
+          transition-all hover:border-cyan-500/40 hover:bg-white/10 hover:text-white
+          disabled:pointer-events-none disabled:opacity-50
+        `}
+      >
+        <input
+          id={inputId}
+          type="file"
+          accept={accept}
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) upload(f);
+            e.currentTarget.value = "";
+          }}
+          className="sr-only"
+        />
+        {busy ? (
+          <>
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            Uploading…
+          </>
+        ) : (
+          <>Choose photo</>
+        )}
+      </label>
 
-      {busy && (
-        <div className="text-[11px] text-white/55">Uploading…</div>
-      )}
       {err && (
-        <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-200">
+        <div className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
           {err}
         </div>
       )}

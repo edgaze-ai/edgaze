@@ -9,6 +9,7 @@ type Block =
   | { type: "p"; text: string }
   | { type: "ul"; items: string[] }
   | { type: "ol"; items: string[] }
+  | { type: "table"; rows: string[][] }
   | { type: "code"; lang?: string; code: string }
   | { type: "hr" };
 
@@ -63,37 +64,35 @@ function parse(md: string): Block[] {
       continue;
     }
 
-    // Headings
-    if (line.startsWith("# ")) {
-      const text = line.slice(2).trim();
+    // Headings — use trimmed line so leading spaces don't break parsing
+    const t = line.trim();
+    if (t.startsWith("# ")) {
+      const text = t.slice(2).trim();
       blocks.push({ type: "h", level: 1, text, id: slugify(text) });
       i++;
       continue;
     }
-
-    if (line.startsWith("## ")) {
-      const text = line.slice(3).trim();
+    if (t.startsWith("## ")) {
+      const text = t.slice(3).trim();
       blocks.push({ type: "h", level: 2, text, id: slugify(text) });
       i++;
       continue;
     }
-
-    if (line.startsWith("### ")) {
-      const text = line.slice(4).trim();
+    if (t.startsWith("### ")) {
+      const text = t.slice(4).trim();
       blocks.push({ type: "h", level: 3, text, id: slugify(text) });
       i++;
       continue;
     }
-
-    if (line.startsWith("#### ")) {
-      const text = line.slice(5).trim();
+    if (t.startsWith("#### ")) {
+      const text = t.slice(5).trim();
       blocks.push({ type: "h", level: 4, text, id: slugify(text) });
       i++;
       continue;
     }
 
     // Numbered section heading (e.g. "1. Purpose of This Policy") when standalone; skip "4.1" style
-    const numMatch = line.match(/^\d+\.\s+(.+)$/);
+    const numMatch = t.match(/^\d+\.\s+(.+)$/);
     if (numMatch) {
       const text = numMatch[1].trim();
       const nextLine = lines[i + 1]?.trim() ?? "";
@@ -131,6 +130,31 @@ function parse(md: string): Block[] {
       continue;
     }
 
+    // Markdown tables: | col | col | or |---|---|
+    if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
+      const tableRows: string[][] = [];
+      while (i < lines.length) {
+        const cur = lines[i] ?? "";
+        const t = cur.trim();
+        if (!t.startsWith("|") || !t.endsWith("|")) break;
+        // Skip separator row (only -, :, |, spaces)
+        if (/^[\|\s\-:]+$/.test(t)) {
+          i++;
+          continue;
+        }
+        const cells = t
+          .slice(1, -1)
+          .split("|")
+          .map((c) => c.trim());
+        if (cells.length > 0) tableRows.push(cells);
+        i++;
+      }
+      if (tableRows.length > 0) {
+        blocks.push({ type: "table", rows: tableRows });
+        continue;
+      }
+    }
+
     const p: string[] = [line.trim()];
     i++;
 
@@ -143,6 +167,7 @@ function parse(md: string): Block[] {
       if (cur.startsWith("#### ")) break;
       if (cur.startsWith("- ")) break;
       if (/^\d+\.\s+/.test(cur)) break;
+      if (cur.trim().startsWith("|") && cur.trim().endsWith("|")) break;
       if (cur.startsWith("```")) break;
       if (cur.trim() === "---") break;
 
@@ -479,6 +504,65 @@ export default function DocRenderer({ content }: { content: string }) {
                 );
               })}
             </ol>
+          );
+        }
+
+        if (b.type === "table") {
+          const renderCell = (text: string, isTh: boolean) => {
+            const parts: (string | React.JSX.Element)[] = [];
+            const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+            const boldRegex = /\*\*(.+?)\*\*/g;
+            const matches: Array<{ type: "link" | "bold"; start: number; end: number; text: string; url?: string }> = [];
+            let match: RegExpExecArray | null;
+            linkRegex.lastIndex = 0;
+            while ((match = linkRegex.exec(text)) !== null) {
+              if (match[1] && match[2]) matches.push({ type: "link", start: match.index, end: match.index + match[0].length, text: match[1], url: match[2] });
+            }
+            boldRegex.lastIndex = 0;
+            while ((match = boldRegex.exec(text)) !== null) {
+              if (match[1]) matches.push({ type: "bold", start: match.index, end: match.index + match[0].length, text: match[1] });
+            }
+            matches.sort((a, b) => a.start - b.start);
+            let lastIndex = 0;
+            for (const m of matches) {
+              if (m.start > lastIndex) parts.push(text.slice(lastIndex, m.start));
+              if (m.type === "link" && m.url) {
+                const isExt = m.url.startsWith("http");
+                parts.push(isExt ? <a key={m.start} href={m.url} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">{m.text}</a> : <Link key={m.start} href={m.url} className="text-cyan-400 hover:text-cyan-300 underline">{m.text}</Link>);
+              } else parts.push(<strong key={m.start} className="font-semibold text-white/90">{m.text}</strong>);
+              lastIndex = m.end;
+            }
+            if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+            return parts.length > 0 ? parts : text;
+          };
+          const [header, ...bodyRows] = b.rows;
+          return (
+            <div key={idx} className="mt-6 overflow-auto rounded-2xl border border-white/10">
+              <table className="w-full min-w-[280px] text-left text-[14px]">
+                {header && header.some((c) => c) && (
+                  <thead>
+                    <tr className="border-b border-white/15">
+                      {header.map((cell, j) => (
+                        <th key={j} className="px-4 py-3 font-semibold text-white/95 bg-white/[0.03]">
+                          {renderCell(cell, true)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                )}
+                <tbody>
+                  {bodyRows.map((row, ri) => (
+                    <tr key={ri} className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.02]">
+                      {row.map((cell, ci) => (
+                        <td key={ci} className="px-4 py-3 text-white/75">
+                          {renderCell(cell, false)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           );
         }
 

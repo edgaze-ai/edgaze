@@ -409,11 +409,11 @@ export default function ApplyAuthPanel({
 
             <div className="mt-5 text-xs text-white/45 leading-relaxed">
               By continuing, you agree to our{" "}
-              <Link href="/terms" className="text-white/70 hover:text-white underline underline-offset-4">
-                Terms
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="text-white/70 hover:text-white underline underline-offset-4">
+              <Link href="/docs/terms-of-service" className="text-white/70 hover:text-white underline underline-offset-4">
+                Terms of Service
+              </Link>
+              {" "}and{" "}
+              <Link href="/docs/privacy-policy" className="text-white/70 hover:text-white underline underline-offset-4">
                 Privacy Policy
               </Link>
               .
@@ -442,11 +442,11 @@ export default function ApplyAuthPanel({
 
             <div className="mt-5 text-xs text-white/45 leading-relaxed">
               By continuing, you agree to our{" "}
-              <Link href="/terms" className="text-white/70 hover:text-white underline underline-offset-4">
-                Terms
-              </Link>{" "}
-              and{" "}
-              <Link href="/privacy" className="text-white/70 hover:text-white underline underline-offset-4">
+              <Link href="/docs/terms-of-service" className="text-white/70 hover:text-white underline underline-offset-4">
+                Terms of Service
+              </Link>
+              {" "}and{" "}
+              <Link href="/docs/privacy-policy" className="text-white/70 hover:text-white underline underline-offset-4">
                 Privacy Policy
               </Link>
               .

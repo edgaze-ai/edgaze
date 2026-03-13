@@ -36,7 +36,7 @@ const AssetPickerModal = AssetPickerModalRaw as unknown as React.ComponentType<{
 }>;
 
 type Visibility = "public" | "unlisted" | "private";
-type MonetisationMode = "free" | "paywall" | "subscription";
+type MonetisationMode = "free" | "paywall";
 
 type PublishMeta = {
   name: string;
@@ -1451,12 +1451,9 @@ export default function PublishPromptModal({
                               <div className="mt-1 text-[11px] text-white/70">
                                 Join the Edgaze Creator Program and connect your payout account to enable payments.
                               </div>
-                              <Link
-                                href="/creators/onboarding?from=studio"
-                                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/90 to-purple-500/90 px-4 py-2 text-[12px] font-semibold text-white hover:opacity-90 transition"
-                              >
-                                Set up payouts →
-                              </Link>
+                              <span className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-[12px] font-semibold text-white/70 cursor-not-allowed">
+                                Coming soon
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -1513,23 +1510,6 @@ export default function PublishPromptModal({
                             <div className="text-[11px] text-white/55 mt-1">
                               {canReceivePayments ? "Charge $3–$50 per purchase." : "Connect payouts to enable."}
                             </div>
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled
-                            className={cx(
-                              "col-span-12 md:col-span-6 rounded-2xl border p-4 text-left",
-                              "border-white/10 bg-white/[0.02] opacity-70 cursor-not-allowed"
-                            )}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="text-[12px] font-semibold text-white">Subscription</div>
-                              <span className="text-[10px] rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-white/70">
-                                Coming soon
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-white/55 mt-1">Recurring billing will be available later.</div>
                           </button>
                         </div>
 
@@ -1824,18 +1804,15 @@ export default function PublishPromptModal({
                               <div className="text-[11px] font-semibold text-white/80">By publishing</div>
                               <div className="mt-1 text-[11px] text-white/50">
                                 You agree to our{" "}
-                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/terms-of-service">
-                                  Terms
-                                </a>
+                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a>
                                 ,{" "}
-                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/privacy-policy">
-                                  Privacy Policy
-                                </a>{" "}
-                                and{" "}
-                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/community">
-                                  Community Guidelines
-                                </a>
-                                .
+                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+                                ,{" "}
+                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/creator-terms" target="_blank" rel="noopener noreferrer">Creator Terms</a>
+                                ,{" "}
+                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/community-guidelines" target="_blank" rel="noopener noreferrer">Community Guidelines</a>
+                                , and{" "}
+                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/refund-policy" target="_blank" rel="noopener noreferrer">Refund Policy</a>.
                               </div>
                             </div>
                           </div>
@@ -1953,7 +1930,12 @@ export default function PublishPromptModal({
                     </div>
 
                     <div className="mt-4 text-[11px] text-white/45">
-                      You agreed to Terms, Privacy Policy, and Community Guidelines at publish time.
+                      You agreed to{" "}
+                      <a href="/docs/terms-of-service" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Terms</a>
+                      , <a href="/docs/privacy-policy" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+                      , <a href="/docs/creator-terms" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Creator Terms</a>
+                      , <a href="/docs/community-guidelines" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Community Guidelines</a>
+                      , and <a href="/docs/refund-policy" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Refund Policy</a> at publish time.
                     </div>
                   </div>
                 </div>

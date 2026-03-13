@@ -23,10 +23,9 @@ export default function MessageStep({ message, onContinue }: MessageStepProps) {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-black/40 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl sm:rounded-3xl sm:p-12"
+          className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-xl sm:p-12"
         >
-          {/* Ambient glow */}
-          <div className="absolute -inset-20 bg-gradient-to-r from-cyan-400/10 via-sky-500/10 to-pink-500/10 blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-pink-500/5" />
 
           {/* Content */}
           <div className="relative z-10">
@@ -37,7 +36,7 @@ export default function MessageStep({ message, onContinue }: MessageStepProps) {
               transition={{ delay: 0.3 }}
               className="mb-8 flex justify-center"
             >
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-cyan-400/20 to-pink-500/20">
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-cyan-500/20 via-sky-500/20 to-pink-500/20">
                 <Quote className="h-8 w-8 text-cyan-400" />
               </div>
             </motion.div>
@@ -76,7 +75,7 @@ export default function MessageStep({ message, onContinue }: MessageStepProps) {
             >
               <button
                 onClick={onContinue}
-                className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-6 py-3.5 text-base font-semibold text-black shadow-[0_0_20px_rgba(56,189,248,0.4)] transition-all hover:scale-[1.02] hover:shadow-[0_0_28px_rgba(56,189,248,0.6)] active:scale-[0.98] sm:w-auto sm:px-8 sm:py-4 sm:text-lg"
+                className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-6 py-3.5 text-base font-semibold text-white shadow-[0_0_32px_rgba(56,189,248,0.4)] transition-all hover:scale-[1.02] hover:shadow-[0_0_48px_rgba(56,189,248,0.5)] active:scale-[0.98] sm:w-auto sm:px-8 sm:py-4 sm:text-lg"
               >
                 <span className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
                 <span className="relative">Get Started</span>
