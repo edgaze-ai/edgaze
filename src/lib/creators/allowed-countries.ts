@@ -53,5 +53,5 @@ export const ALLOWED_COUNTRY_CODES = new Set(
 );
 
 export function isAllowedPayoutCountry(code: string): boolean {
-  return ALLOWED_COUNTRY_CODES.has(code.toUpperCase());
+  return (ALLOWED_COUNTRY_CODES as Set<string>).has(code.toUpperCase());
 }

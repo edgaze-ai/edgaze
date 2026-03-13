@@ -453,7 +453,7 @@ export async function POST(req: Request) {
                 runId,
                 status: "failed",
                 durationMs: duration,
-                errorDetails: redactSecrets({ message: err?.message, stack: err?.stack }),
+                errorDetails: redactSecrets({ message: err?.message, stack: err?.stack }) as Record<string, unknown>,
               });
               if (countResult) {
                 const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
@@ -464,7 +464,7 @@ export async function POST(req: Request) {
                     status: "failed",
                     completed_at: new Date().toISOString(),
                     duration_ms: duration,
-                    error_details: redactSecrets({ message: err?.message, stack: err?.stack }),
+                    error_details: redactSecrets({ message: err?.message, stack: err?.stack }) as Record<string, unknown>,
                   });
                   const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
                   const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
@@ -479,7 +479,7 @@ export async function POST(req: Request) {
                   status: "failed",
                   completed_at: new Date().toISOString(),
                   duration_ms: duration,
-                  error_details: redactSecrets({ message: err?.message, stack: err?.stack }),
+                  error_details: redactSecrets({ message: err?.message, stack: err?.stack }) as Record<string, unknown>,
                 });
               } catch {
                 // ignore
@@ -614,7 +614,7 @@ export async function POST(req: Request) {
           runId,
           status: "failed",
           durationMs: duration,
-          errorDetails: redactSecrets({ message: errorMessage, stack: err?.stack }),
+          errorDetails: redactSecrets({ message: errorMessage, stack: err?.stack }) as Record<string, unknown>,
         });
         if (countResult) {
           updateSuccess = true;
@@ -630,7 +630,7 @@ export async function POST(req: Request) {
               status: "failed",
               completed_at: new Date().toISOString(),
               duration_ms: duration,
-              error_details: redactSecrets({ message: errorMessage, stack: err?.stack }),
+              error_details: redactSecrets({ message: errorMessage, stack: err?.stack }) as Record<string, unknown>,
             });
             updateSuccess = true;
             if (isTrackedUser) {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -142,7 +142,7 @@ function EmbeddedOnboardingContent({
   );
 }
 
-export default function CreatorsOnboardingPage() {
+function CreatorsOnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userId, profile, authReady, loading, openSignIn, refreshProfile, getAccessToken, updateProfile } = useAuth();
@@ -780,5 +780,22 @@ export default function CreatorsOnboardingPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function CreatorsOnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center px-6 bg-[#0d0d0d]">
+          <div className="flex items-center gap-3 text-white/50 text-[15px]">
+            <Loader2 className="h-5 w-5 animate-spin shrink-0" />
+            Loading…
+          </div>
+        </div>
+      }
+    >
+      <CreatorsOnboardingPageContent />
+    </Suspense>
   );
 }

@@ -27,7 +27,7 @@ function fitTopics(availableWidth: number, topics: string[], gap: number, isMobi
   const buffer = 4;
   let used = 0;
   for (let i = 0; i < topics.length; i++) {
-    const w = estChipWidth(topics[i], isMobile);
+    const w = estChipWidth(topics[i] ?? "", isMobile);
     if (i > 0) used += gap;
     if (used + w > availableWidth - buffer) return i;
     used += w;
@@ -301,8 +301,8 @@ export default function MarketplaceFiltersBar({
                         transition={{ duration: 0.15, ease: "easeOut" }}
                         className="fixed z-[9999] min-w-[180px] sm:min-w-[200px] rounded-xl border border-white/15 bg-[#141418]/98 backdrop-blur-md shadow-xl overflow-hidden"
                         style={{
-                          top: topicDropdownPos.top,
-                          left: topicDropdownPos.left,
+                          top: topicDropdownPos!.top,
+                          left: topicDropdownPos!.left,
                         }}
                       >
                         <div className="max-h-[260px] overflow-y-auto p-2 scrollbar-hide">

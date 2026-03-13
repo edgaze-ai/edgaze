@@ -213,7 +213,7 @@ export async function GET(req: Request) {
     }
     const rows = recentRuns.rows;
     const stuck = rows.filter((r) => r.status === "running" || r.status === "pending");
-    const counted = rows.filter((r) => terminalStatuses.includes(r.status) && r.completed_at);
+    const counted = rows.filter((r) => (terminalStatuses as readonly string[]).includes(r.status) && r.completed_at);
     if (recentRuns.error) {
       summary.push(`Fetching recent runs failed: ${recentRuns.error}. This may be RLS blocking SELECT.`);
     } else if (rows.length === 0) {

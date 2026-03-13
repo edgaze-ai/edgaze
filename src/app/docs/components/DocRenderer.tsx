@@ -93,7 +93,7 @@ function parse(md: string): Block[] {
 
     // Numbered section heading (e.g. "1. Purpose of This Policy") when standalone; skip "4.1" style
     const numMatch = t.match(/^\d+\.\s+(.+)$/);
-    if (numMatch) {
+    if (numMatch?.[1] != null) {
       const text = numMatch[1].trim();
       const nextLine = lines[i + 1]?.trim() ?? "";
       const nextIsNumbered = /^\d+\.\s+/.test(nextLine);
@@ -108,7 +108,7 @@ function parse(md: string): Block[] {
       while (i < lines.length) {
         const cur = lines[i] ?? "";
         const m = cur.match(/^\d+\.\s+(.+)$/);
-        if (!m) break;
+        if (!m?.[1]) break;
         olItems.push(m[1].trim());
         i++;
       }
