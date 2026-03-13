@@ -6,19 +6,19 @@ Complete instructions to configure Stripe for Edgaze in production.
 
 ## 1. Environment Variables Overview
 
-| Variable | Required | Where to Get | Notes |
-|----------|----------|--------------|-------|
-| `STRIPE_SECRET_KEY` | Yes | Dashboard → API Keys | Use **live** key (`sk_live_`) for production |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes | Dashboard → API Keys | Use **live** key (`pk_live_`) for production |
-| `STRIPE_WEBHOOK_SECRET` | Yes | Webhooks → Endpoint | Main webhook signing secret |
-| `STRIPE_CONNECT_CLIENT_ID` | For Connect | Connect settings | OAuth client ID (optional if using V2 only) |
-| `STRIPE_THIN_WEBHOOK_SECRET` | For V2 account events | Event destination | Thin events secret (can reuse main) |
-| `STRIPE_PLATFORM_PRICE_ID` | For subscriptions | Products → Price | Platform plan price ID |
-| `STRIPE_PLATFORM_FEE_PERCENTAGE` | No | — | Default: 20 |
-| `STRIPE_MINIMUM_PAYOUT_CENTS` | No | — | Default: 1000 |
-| `NEXT_PUBLIC_APP_URL` | Yes | — | Production URL, e.g. `https://edgaze.ai` |
-| `ENABLE_PAYMENTS` | Yes | — | Set to `true` to enable payments |
-| `ENABLE_STRIPE_CONNECT` | Yes | — | Set to `true` to enable Connect |
+| Variable                             | Required              | Where to Get         | Notes                                        |
+| ------------------------------------ | --------------------- | -------------------- | -------------------------------------------- |
+| `STRIPE_SECRET_KEY`                  | Yes                   | Dashboard → API Keys | Use **live** key (`sk_live_`) for production |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes                   | Dashboard → API Keys | Use **live** key (`pk_live_`) for production |
+| `STRIPE_WEBHOOK_SECRET`              | Yes                   | Webhooks → Endpoint  | Main webhook signing secret                  |
+| `STRIPE_CONNECT_CLIENT_ID`           | For Connect           | Connect settings     | OAuth client ID (optional if using V2 only)  |
+| `STRIPE_THIN_WEBHOOK_SECRET`         | For V2 account events | Event destination    | Thin events secret (can reuse main)          |
+| `STRIPE_PLATFORM_PRICE_ID`           | For subscriptions     | Products → Price     | Platform plan price ID                       |
+| `STRIPE_PLATFORM_FEE_PERCENTAGE`     | No                    | —                    | Default: 20                                  |
+| `STRIPE_MINIMUM_PAYOUT_CENTS`        | No                    | —                    | Default: 1000                                |
+| `NEXT_PUBLIC_APP_URL`                | Yes                   | —                    | Production URL, e.g. `https://edgaze.ai`     |
+| `ENABLE_PAYMENTS`                    | Yes                   | —                    | Set to `true` to enable payments             |
+| `ENABLE_STRIPE_CONNECT`              | Yes                   | —                    | Set to `true` to enable Connect              |
 
 ---
 
@@ -165,7 +165,7 @@ ENABLE_STRIPE_CONNECT=true
 
 ## 10. Local Testing
 
-1. Install Stripe CLI: https://docs.stripe.com/stripe-cli  
+1. Install Stripe CLI: https://docs.stripe.com/stripe-cli
 2. Run:
    ```bash
    stripe login

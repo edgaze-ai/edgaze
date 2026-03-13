@@ -72,10 +72,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     rawDescription.length > 0
       ? rawDescription.slice(0, 160).replace(/\s+$/, "") // Trim trailing whitespace
       : "Discover and use this AI workflow on Edgaze. Build powerful automation with AI.";
-  
-  const imageUrl =
-    absoluteImageUrl(listing.thumbnail_url) ||
-    absoluteImageUrl(listing.banner_url);
+
+  const imageUrl = absoluteImageUrl(listing.thumbnail_url) || absoluteImageUrl(listing.banner_url);
   const pageUrl = `${METADATA_BASE}/${ownerHandle}/${edgazeCode}`;
 
   return {

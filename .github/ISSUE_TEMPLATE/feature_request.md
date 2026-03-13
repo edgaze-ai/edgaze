@@ -3,9 +3,8 @@ name: Feature request
 about: Suggest a new feature or improvement
 title: "[Feature] "
 labels: enhancement
-assignees: ''
+assignees: ""
 ---
-
 
 <!-- Edgaze is proprietary software owned and operated by Edge Platforms, Inc., a Delaware C Corporation -->
 
@@ -26,9 +25,11 @@ assignees: ''
 <!-- How should this feature work? -->
 
 **User experience:**
+
 <!-- Describe the user flow -->
 
 **Technical approach:**
+
 <!-- Optional: Suggest implementation approach -->
 
 ## Alternatives considered
@@ -65,6 +66,7 @@ assignees: ''
 ---
 
 **Checklist:**
+
 - [ ] I have searched for similar feature requests
 - [ ] I have provided clear use cases
 - [ ] I have considered alternatives

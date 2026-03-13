@@ -219,14 +219,14 @@ Now that you're set up:
 
 ## Development commands
 
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run start` | Run production server |
-| `npm run lint` | Check code quality |
-| `npm run typecheck` | Check TypeScript types |
-| `npm run format` | Format code with Prettier |
+| Command             | Purpose                   |
+| ------------------- | ------------------------- |
+| `npm run dev`       | Start development server  |
+| `npm run build`     | Build for production      |
+| `npm run start`     | Run production server     |
+| `npm run lint`      | Check code quality        |
+| `npm run typecheck` | Check TypeScript types    |
+| `npm run format`    | Format code with Prettier |
 
 ---
 
@@ -245,7 +245,7 @@ Now that you're set up:
 ✅ **Authentication** — Email/password + Google OAuth  
 ✅ **Database** — Pre-configured schema with migrations  
 ✅ **Dev tools** — TypeScript, ESLint, Prettier  
-✅ **CI/CD** — GitHub Actions workflow  
+✅ **CI/CD** — GitHub Actions workflow
 
 ---
 

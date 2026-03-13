@@ -12,30 +12,30 @@ Production-ready Stripe Connect integration using the V2 Accounts API.
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `STRIPE_SECRET_KEY` | Yes | Platform secret key (sk_...) |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes | Publishable key (pk_...) |
-| `STRIPE_WEBHOOK_SECRET` | Yes | Main webhook signing secret |
-| `STRIPE_THIN_WEBHOOK_SECRET` | For thin events | Secret for V2 account thin events (or use main secret) |
-| `STRIPE_PLATFORM_PRICE_ID` | For subscriptions | Create in Stripe Dashboard for platform plan (price_...) |
-| `STRIPE_PLATFORM_FEE_PERCENTAGE` | No | Default 20 |
+| Variable                             | Required          | Description                                               |
+| ------------------------------------ | ----------------- | --------------------------------------------------------- |
+| `STRIPE_SECRET_KEY`                  | Yes               | Platform secret key (sk\_...)                             |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes               | Publishable key (pk\_...)                                 |
+| `STRIPE_WEBHOOK_SECRET`              | Yes               | Main webhook signing secret                               |
+| `STRIPE_THIN_WEBHOOK_SECRET`         | For thin events   | Secret for V2 account thin events (or use main secret)    |
+| `STRIPE_PLATFORM_PRICE_ID`           | For subscriptions | Create in Stripe Dashboard for platform plan (price\_...) |
+| `STRIPE_PLATFORM_FEE_PERCENTAGE`     | No                | Default 20                                                |
 
 ## API Routes
 
-| Route | Method | Description |
-|-------|--------|-------------|
-| `/api/stripe/v2/connect/onboard` | POST | Create V2 account + onboarding link |
-| `/api/stripe/v2/connect/status` | GET | Account status from Stripe API |
-| `/api/stripe/v2/connect/refresh` | POST | New account link for existing account |
-| `/api/stripe/v2/products/create` | POST | Create product on connected account |
-| `/api/stripe/v2/products/list` | GET | List products (?accountId= or auth) |
-| `/api/stripe/v2/checkout/create` | POST | Direct charge checkout with app fee |
-| `/api/stripe/v2/subscription/checkout` | POST | Subscription checkout (customer_account) |
-| `/api/stripe/v2/subscription/portal` | POST | Billing portal session |
-| `/api/stripe/v2/subscription/status` | GET | Subscription status from DB |
-| `/api/stripe/webhooks` | POST | Main webhooks (snapshot events) |
-| `/api/stripe/webhooks/thin` | POST | Thin events for V2 account updates |
+| Route                                  | Method | Description                              |
+| -------------------------------------- | ------ | ---------------------------------------- |
+| `/api/stripe/v2/connect/onboard`       | POST   | Create V2 account + onboarding link      |
+| `/api/stripe/v2/connect/status`        | GET    | Account status from Stripe API           |
+| `/api/stripe/v2/connect/refresh`       | POST   | New account link for existing account    |
+| `/api/stripe/v2/products/create`       | POST   | Create product on connected account      |
+| `/api/stripe/v2/products/list`         | GET    | List products (?accountId= or auth)      |
+| `/api/stripe/v2/checkout/create`       | POST   | Direct charge checkout with app fee      |
+| `/api/stripe/v2/subscription/checkout` | POST   | Subscription checkout (customer_account) |
+| `/api/stripe/v2/subscription/portal`   | POST   | Billing portal session                   |
+| `/api/stripe/v2/subscription/status`   | GET    | Subscription status from DB              |
+| `/api/stripe/webhooks`                 | POST   | Main webhooks (snapshot events)          |
+| `/api/stripe/webhooks/thin`            | POST   | Thin events for V2 account updates       |
 
 ## UI Pages
 
@@ -64,6 +64,7 @@ Configure in Stripe: Developers → Webhooks → Add destination → Connected a
 - `v2.core.account[configuration.customer].capability_status_updated`
 
 Local test:
+
 ```bash
 stripe listen --thin-events 'v2.core.account[requirements].updated,...' --forward-thin-to http://localhost:3000/api/stripe/webhooks/thin
 ```

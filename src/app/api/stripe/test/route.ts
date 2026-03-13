@@ -1,4 +1,4 @@
-import { stripe } from "../../../../lib/stripe"
+import { stripe } from "@/lib/stripe/client"
 
 export async function GET() {
   const balance = await stripe.balance.retrieve()

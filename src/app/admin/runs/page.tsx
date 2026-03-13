@@ -141,14 +141,16 @@ export default function AdminRunsPage() {
       const newRuns = data.runs ?? [];
       setRuns((prev) => (page === 1 ? newRuns : [...prev, ...newRuns]));
       setTotal(data.total ?? 0);
-      setAggregates(data.aggregates ?? {
-        totalRuns: 0,
-        workflowRuns: 0,
-        promptRuns: 0,
-        successCount: 0,
-        errorCount: 0,
-        successRate: 0,
-      });
+      setAggregates(
+        data.aggregates ?? {
+          totalRuns: 0,
+          workflowRuns: 0,
+          promptRuns: 0,
+          successCount: 0,
+          errorCount: 0,
+          successRate: 0,
+        },
+      );
       setTimeSeries(data.timeSeries ?? { workflow: [], prompt: [], total: [] });
     } catch (e) {
       console.error(e);
@@ -180,7 +182,7 @@ export default function AdminRunsPage() {
         setDetailLoading(false);
       }
     },
-    [getAccessToken]
+    [getAccessToken],
   );
 
   const openDetail = (run: RunRow) => {
@@ -189,9 +191,12 @@ export default function AdminRunsPage() {
     loadDetail(run.id);
   };
 
-
   const maxCount = useMemo(() => {
-    const all = [...(timeSeries.total ?? []), ...(timeSeries.workflow ?? []), ...(timeSeries.prompt ?? [])];
+    const all = [
+      ...(timeSeries.total ?? []),
+      ...(timeSeries.workflow ?? []),
+      ...(timeSeries.prompt ?? []),
+    ];
     return Math.max(1, ...all.map((d) => d.count));
   }, [timeSeries]);
 
@@ -209,9 +214,7 @@ export default function AdminRunsPage() {
   return (
     <div className="space-y-8 pb-24">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
-          Run analytics
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-white">Run analytics</h1>
         <p className="mt-1 text-[13px] text-white/50">
           Track workflow and prompt runs, success rate, and performance
         </p>
@@ -245,7 +248,13 @@ export default function AdminRunsPage() {
                   : "text-white/55 hover:text-white/85 hover:bg-white/[0.05]"
               }`}
             >
-              {k === "" ? "All" : k === "workflow" ? <Workflow className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {k === "" ? (
+                "All"
+              ) : k === "workflow" ? (
+                <Workflow className="h-3.5 w-3.5" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
               {k === "" ? "All" : k.charAt(0).toUpperCase() + k.slice(1)}
             </button>
           ))}
@@ -273,7 +282,9 @@ export default function AdminRunsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className={`${cardClass} p-5`}>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/45">Total runs</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/45">
+              Total runs
+            </span>
             <Activity className="h-4 w-4 text-white/30" />
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-white">
@@ -283,7 +294,9 @@ export default function AdminRunsPage() {
         </div>
         <div className={`${cardClass} p-5`}>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/45">Workflow runs</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/45">
+              Workflow runs
+            </span>
             <Workflow className="h-4 w-4 text-cyan-400/60" />
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-cyan-300/95">
@@ -292,7 +305,9 @@ export default function AdminRunsPage() {
         </div>
         <div className={`${cardClass} p-5`}>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/45">Prompt runs</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/45">
+              Prompt runs
+            </span>
             <Sparkles className="h-4 w-4 text-amber-400/60" />
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-amber-300/95">
@@ -301,7 +316,9 @@ export default function AdminRunsPage() {
         </div>
         <div className={`${cardClass} p-5`}>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/45">Success rate</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-white/45">
+              Success rate
+            </span>
             <CheckCircle2 className="h-4 w-4 text-emerald-400/60" />
           </div>
           <p className="mt-2 text-2xl font-bold tabular-nums text-emerald-300/95">
@@ -336,7 +353,9 @@ export default function AdminRunsPage() {
           </div>
         </div>
         <div className={`${cardClass} p-6`}>
-          <h3 className="text-[13px] font-semibold uppercase tracking-wider text-white/55">By kind</h3>
+          <h3 className="text-[13px] font-semibold uppercase tracking-wider text-white/55">
+            By kind
+          </h3>
           <div className="mt-4 space-y-4">
             <div>
               <div className="flex items-center gap-2 text-[12px] text-cyan-400/90 mb-1">
@@ -345,7 +364,11 @@ export default function AdminRunsPage() {
               {loading ? (
                 <div className="h-8 bg-white/5 rounded" />
               ) : (
-                <MiniBarChart data={timeSeries.workflow} color="rgba(34,211,238,0.4)" max={maxCount} />
+                <MiniBarChart
+                  data={timeSeries.workflow}
+                  color="rgba(34,211,238,0.4)"
+                  max={maxCount}
+                />
               )}
             </div>
             <div>
@@ -355,7 +378,11 @@ export default function AdminRunsPage() {
               {loading ? (
                 <div className="h-8 bg-white/5 rounded" />
               ) : (
-                <MiniBarChart data={timeSeries.prompt} color="rgba(251,191,36,0.4)" max={maxCount} />
+                <MiniBarChart
+                  data={timeSeries.prompt}
+                  color="rgba(251,191,36,0.4)"
+                  max={maxCount}
+                />
               )}
             </div>
           </div>
@@ -402,7 +429,11 @@ export default function AdminRunsPage() {
                     className="w-full flex items-center gap-4 px-6 py-4 text-left"
                   >
                     <span className="text-white/40">
-                      {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
                     </span>
                     <span
                       className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -411,11 +442,17 @@ export default function AdminRunsPage() {
                           : "bg-amber-500/15 text-amber-400/90"
                       }`}
                     >
-                      {run.kind === "workflow" ? <Workflow className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+                      {run.kind === "workflow" ? (
+                        <Workflow className="h-4 w-4" />
+                      ) : (
+                        <Sparkles className="h-4 w-4" />
+                      )}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[13px] font-medium text-white/90 capitalize">{run.kind}</span>
+                        <span className="text-[13px] font-medium text-white/90 capitalize">
+                          {run.kind}
+                        </span>
                         <span
                           className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold uppercase ${
                             isSuccess
@@ -434,9 +471,7 @@ export default function AdminRunsPage() {
                       </div>
                       <div className="mt-0.5 text-[12px] text-white/45 flex items-center gap-3">
                         <span>{fmtDate(run.started_at)}</span>
-                        {run.duration_ms != null && (
-                          <span>{run.duration_ms}ms</span>
-                        )}
+                        {run.duration_ms != null && <span>{run.duration_ms}ms</span>}
                         {run.tokens_in != null && run.tokens_in > 0 && (
                           <span>{run.tokens_in} tok</span>
                         )}
@@ -455,7 +490,9 @@ export default function AdminRunsPage() {
                           {run.workflow_id && (
                             <div className="flex items-center gap-2">
                               <span className="text-white/45">Workflow:</span>
-                              <code className="text-white/75 font-mono truncate">{run.workflow_id}</code>
+                              <code className="text-white/75 font-mono truncate">
+                                {run.workflow_id}
+                              </code>
                             </div>
                           )}
                           {run.error_message && (
@@ -494,11 +531,12 @@ export default function AdminRunsPage() {
                                   {log.tokens_used != null && log.tokens_used > 0 && (
                                     <span className="text-white/45">{log.tokens_used} tok</span>
                                   )}
-                                  {log.model && (
-                                    <span className="text-white/45">{log.model}</span>
-                                  )}
+                                  {log.model && <span className="text-white/45">{log.model}</span>}
                                   {log.error_message && (
-                                    <span className="text-red-300/80 truncate max-w-[200px]" title={log.error_message}>
+                                    <span
+                                      className="text-red-300/80 truncate max-w-[200px]"
+                                      title={log.error_message}
+                                    >
                                       {log.error_message}
                                     </span>
                                   )}
@@ -527,7 +565,6 @@ export default function AdminRunsPage() {
           </div>
         )}
       </div>
-
     </div>
   );
 }

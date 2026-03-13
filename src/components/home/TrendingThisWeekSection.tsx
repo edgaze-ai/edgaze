@@ -323,8 +323,10 @@ export default function TrendingThisWeekSection() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(false);
+    queueMicrotask(() => {
+      setLoading(true);
+      setError(false);
+    });
 
     fetch("/api/trending/this-week")
       .then((res) => {

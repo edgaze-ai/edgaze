@@ -25,9 +25,20 @@ import {
 import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
 import WorkflowCommentsSection from "../../../components/marketplace/WorkflowCommentsSection";
-import PremiumWorkflowRunModal, { type WorkflowRunState } from "../../../components/builder/PremiumWorkflowRunModal";
-import { canRunDemo, canRunDemoSync, getDeviceFingerprintHash, getRemainingDemoRunsSync, trackDemoRun } from "../../../lib/workflow/device-tracking";
-import { extractWorkflowInputs, extractWorkflowOutputs } from "../../../lib/workflow/input-extraction";
+import PremiumWorkflowRunModal, {
+  type WorkflowRunState,
+} from "../../../components/builder/PremiumWorkflowRunModal";
+import {
+  canRunDemo,
+  canRunDemoSync,
+  getDeviceFingerprintHash,
+  getRemainingDemoRunsSync,
+  trackDemoRun,
+} from "../../../lib/workflow/device-tracking";
+import {
+  extractWorkflowInputs,
+  extractWorkflowOutputs,
+} from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
 import { track } from "../../../lib/mixpanel";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../lib/constants";
@@ -42,7 +53,6 @@ function safeTrack(event: string, props?: Record<string, any>) {
     track(event, props);
   } catch {}
 }
-
 
 type WorkflowListing = {
   id: string;
@@ -127,11 +137,7 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
 
 async function qrDataUrlLocal(text: string): Promise<string> {
   try {
-    const mod: any = await withTimeout(
-      import("qrcode") as any,
-      2500,
-      "QR module import"
-    );
+    const mod: any = await withTimeout(import("qrcode") as any, 2500, "QR module import");
     const QRCode = mod?.default ?? mod;
     const dataUrl = await withTimeout(
       QRCode.toDataURL(text, {
@@ -141,7 +147,7 @@ async function qrDataUrlLocal(text: string): Promise<string> {
         color: { dark: "#0b0c10", light: "#ffffff" },
       }),
       4500,
-      "QR generation"
+      "QR generation",
     );
     return String(dataUrl);
   } catch {
@@ -149,7 +155,7 @@ async function qrDataUrlLocal(text: string): Promise<string> {
     const kill = setTimeout(() => controller.abort(), 6000);
     try {
       const url = `https://api.qrserver.com/v1/create-qr-code/?size=900x900&data=${encodeURIComponent(
-        text
+        text,
       )}`;
       const res = await fetch(url, { signal: controller.signal });
       if (!res.ok) throw new Error("QR fetch failed");
@@ -189,20 +195,8 @@ async function qrWithCenteredLogoDataUrl(text: string) {
   const r = 36;
   ctx.beginPath();
   ctx.moveTo(badgeX + r, badgeY);
-  ctx.arcTo(
-    badgeX + badgeSize,
-    badgeY,
-    badgeX + badgeSize,
-    badgeY + badgeSize,
-    r
-  );
-  ctx.arcTo(
-    badgeX + badgeSize,
-    badgeY + badgeSize,
-    badgeX,
-    badgeY + badgeSize,
-    r
-  );
+  ctx.arcTo(badgeX + badgeSize, badgeY, badgeX + badgeSize, badgeY + badgeSize, r);
+  ctx.arcTo(badgeX + badgeSize, badgeY + badgeSize, badgeX, badgeY + badgeSize, r);
   ctx.arcTo(badgeX, badgeY + badgeSize, badgeX, badgeY, r);
   ctx.arcTo(badgeX, badgeY, badgeX + badgeSize, badgeY, r);
   ctx.closePath();
@@ -212,13 +206,7 @@ async function qrWithCenteredLogoDataUrl(text: string) {
   try {
     const logo = await withTimeout(loadImage("/brand/edgaze-mark.png"), 2500, "Logo load");
     const logoSize = 120;
-    ctx.drawImage(
-      logo,
-      (900 - logoSize) / 2,
-      (900 - logoSize) / 2,
-      logoSize,
-      logoSize
-    );
+    ctx.drawImage(logo, (900 - logoSize) / 2, (900 - logoSize) / 2, logoSize, logoSize);
   } catch {
     // ignore
   }
@@ -415,7 +403,7 @@ function AutoFitCircleIcon({
     <div
       className={cn(
         "relative grid place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30",
-        className
+        className,
       )}
       style={{ width: size, height: size }}
     >
@@ -441,15 +429,7 @@ function fireMiniConfetti() {
   document.body.appendChild(root);
 
   const pieces = 90;
-  const colors = [
-    "#22d3ee",
-    "#60a5fa",
-    "#ec4899",
-    "#a78bfa",
-    "#34d399",
-    "#fbbf24",
-    "#ffffff",
-  ];
+  const colors = ["#22d3ee", "#60a5fa", "#ec4899", "#a78bfa", "#34d399", "#fbbf24", "#ffffff"];
 
   for (let i = 0; i < pieces; i++) {
     const p = document.createElement("div");
@@ -485,7 +465,7 @@ function fireMiniConfetti() {
         delay,
         easing: "cubic-bezier(.2,.8,.2,1)",
         fill: "forwards",
-      }
+      },
     );
 
     root.appendChild(p);
@@ -526,11 +506,7 @@ function ShareModal({
     (async () => {
       setQrBusy(true);
       try {
-        const qr = await withTimeout(
-          qrWithCenteredLogoDataUrl(shareUrl),
-          9000,
-          "QR render"
-        );
+        const qr = await withTimeout(qrWithCenteredLogoDataUrl(shareUrl), 9000, "QR render");
         if (!alive) return;
         setQrDataUrl(qr);
       } catch {
@@ -574,7 +550,9 @@ function ShareModal({
               />
               <div>
                 <div className="text-[13px] sm:text-[14px] font-semibold text-white">Share</div>
-                <div className="hidden sm:block text-[11px] text-white/50">Link, QR, and quick-share</div>
+                <div className="hidden sm:block text-[11px] text-white/50">
+                  Link, QR, and quick-share
+                </div>
               </div>
             </div>
             <button
@@ -591,9 +569,7 @@ function ShareModal({
             <div className="grid grid-cols-12 gap-4 sm:gap-5">
               <div className="col-span-12 sm:col-span-7">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-                  <div className="text-[11px] font-semibold text-white/70">
-                    Edgaze code
-                  </div>
+                  <div className="text-[11px] font-semibold text-white/70">Edgaze code</div>
                   <div className="mt-2 flex items-end justify-between gap-3">
                     <div className="text-[34px] sm:text-[40px] font-semibold tracking-tight text-white leading-none">
                       {code || "—"}
@@ -606,9 +582,7 @@ function ShareModal({
                   </div>
 
                   <div className="mt-4">
-                    <div className="text-[11px] font-semibold text-white/70">
-                      Share link
-                    </div>
+                    <div className="text-[11px] font-semibold text-white/70">Share link</div>
                     <div className="mt-2 flex items-center gap-2">
                       <div className="flex-1 rounded-2xl border border-white/10 bg-black/35 px-3 py-2.5 text-[12px] text-white/85 overflow-hidden">
                         <span className="inline-flex items-center gap-2">
@@ -638,33 +612,41 @@ function ShareModal({
                   <div className="mt-4">
                     <div className="text-[11px] font-semibold text-white/70">Quick share</div>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {(["whatsapp", "x", "snapchat", "reddit", "facebook"] as ShareApp[]).map((app) => {
-                        const info = shareAppInfo(app);
-                        const busy = shareBusy === app;
-                        return (
-                          <button
-                            key={app}
-                            type="button"
-                            onClick={() => onShareApp(app)}
-                            className={cn(
-                              "group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/10",
-                              busy && "opacity-70"
-                            )}
-                            aria-label={`Share to ${info.name}`}
-                            title={info.name}
-                          >
-                            {busy ? (
-                              <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30">
-                                <Loader2 className="h-4 w-4 animate-spin text-white/70" />
-                              </span>
-                            ) : (
-                              <AutoFitCircleIcon src={info.icon} alt={info.name} size={28} pad={1} maxScale={3.6} />
-                            )}
+                      {(["whatsapp", "x", "snapchat", "reddit", "facebook"] as ShareApp[]).map(
+                        (app) => {
+                          const info = shareAppInfo(app);
+                          const busy = shareBusy === app;
+                          return (
+                            <button
+                              key={app}
+                              type="button"
+                              onClick={() => onShareApp(app)}
+                              className={cn(
+                                "group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/10",
+                                busy && "opacity-70",
+                              )}
+                              aria-label={`Share to ${info.name}`}
+                              title={info.name}
+                            >
+                              {busy ? (
+                                <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30">
+                                  <Loader2 className="h-4 w-4 animate-spin text-white/70" />
+                                </span>
+                              ) : (
+                                <AutoFitCircleIcon
+                                  src={info.icon}
+                                  alt={info.name}
+                                  size={28}
+                                  pad={1}
+                                  maxScale={3.6}
+                                />
+                              )}
 
-                            <span className="hidden sm:inline">{info.name}</span>
-                          </button>
-                        );
-                      })}
+                              <span className="hidden sm:inline">{info.name}</span>
+                            </button>
+                          );
+                        },
+                      )}
                     </div>
 
                     <div className="mt-2 text-[11px] text-white/45">
@@ -677,9 +659,7 @@ function ShareModal({
               <div className="col-span-12 sm:col-span-5">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
                   <div className="flex items-center justify-between">
-                    <div className="text-[11px] font-semibold text-white/70">
-                      QR code
-                    </div>
+                    <div className="text-[11px] font-semibold text-white/70">QR code</div>
                     <button
                       type="button"
                       onClick={async () => {
@@ -688,7 +668,7 @@ function ShareModal({
                           const qr = await withTimeout(
                             qrWithCenteredLogoDataUrl(shareUrl),
                             9000,
-                            "QR render"
+                            "QR render",
                           );
                           setQrDataUrl(qr);
                         } finally {
@@ -717,9 +697,7 @@ function ShareModal({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="text-[12px] text-white/55">
-                          QR unavailable
-                        </div>
+                        <div className="text-[12px] text-white/55">QR unavailable</div>
                       )}
                     </div>
                   </div>
@@ -730,15 +708,12 @@ function ShareModal({
                       disabled={!qrDataUrl}
                       onClick={() =>
                         qrDataUrl
-                          ? downloadDataUrl(
-                              qrDataUrl,
-                              `edgaze-qr-${code || "workflow"}.png`
-                            )
+                          ? downloadDataUrl(qrDataUrl, `edgaze-qr-${code || "workflow"}.png`)
                           : null
                       }
                       className={cn(
                         "h-10 sm:h-11 flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 sm:px-4 text-[12px] font-semibold text-white/90 hover:bg-white/10",
-                        !qrDataUrl && "opacity-60 cursor-not-allowed"
+                        !qrDataUrl && "opacity-60 cursor-not-allowed",
                       )}
                     >
                       <span className="inline-flex items-center gap-2 justify-center w-full">
@@ -765,12 +740,9 @@ function ShareModal({
                     <div className="flex items-start gap-2">
                       <ExternalLink className="h-4 w-4 mt-[1px] text-white/45" />
                       <div className="min-w-0">
-                        <div className="text-white/80 font-semibold">
-                          Share friction killer
-                        </div>
+                        <div className="text-white/80 font-semibold">Share friction killer</div>
                         <div className="mt-0.5 leading-snug">
-                          Copy link → paste anywhere. Edgaze code is short for
-                          shoutouts on video.
+                          Copy link → paste anywhere. Edgaze code is short for shoutouts on video.
                         </div>
                       </div>
                     </div>
@@ -823,9 +795,7 @@ function PurchaseSuccessModal({
                 <CheckCircle2 className="h-5 w-5 text-emerald-200" />
               </div>
               <div>
-                <div className="text-[14px] font-semibold text-white">
-                  Purchased
-                </div>
+                <div className="text-[14px] font-semibold text-white">Purchased</div>
                 <div className="text-[11px] text-white/55">
                   Access is now attached to your account
                 </div>
@@ -844,9 +814,7 @@ function PurchaseSuccessModal({
           <div className="p-5">
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[12px] text-white/70">You unlocked</div>
-              <div className="mt-1 text-[16px] font-semibold text-white leading-snug">
-                {title}
-              </div>
+              <div className="mt-1 text-[16px] font-semibold text-white leading-snug">{title}</div>
               <div className="mt-3 space-y-2 text-[12px] text-white/75">
                 <div>• Open in Workflow Studio (read-only)</div>
                 <div>• Run the workflow</div>
@@ -873,9 +841,8 @@ function PurchaseSuccessModal({
             </div>
 
             <div className="mt-3 text-[11px] text-white/45">
-              This opens in{" "}
-              <span className="text-white/70 font-semibold">preview mode</span>{" "}
-              (no editing). Owners still get full edit mode.
+              This opens in <span className="text-white/70 font-semibold">preview mode</span> (no
+              editing). Owners still get full edit mode.
             </div>
           </div>
         </div>
@@ -937,9 +904,9 @@ export default function WorkflowProductPage() {
   const demoTokenFromUrl = searchParams?.get("demo") ?? null;
   const isDemoModeActive = Boolean(
     listing?.demo_mode_enabled &&
-      listing?.demo_token &&
-      demoTokenFromUrl &&
-      String(demoTokenFromUrl).trim() === String(listing.demo_token).trim()
+    listing?.demo_token &&
+    demoTokenFromUrl &&
+    String(demoTokenFromUrl).trim() === String(listing.demo_token).trim(),
   );
 
   // When demo mode is off but URL has ?demo=, redirect to clean URL
@@ -984,7 +951,7 @@ export default function WorkflowProductPage() {
             "graph",
             "demo_mode_enabled",
             "demo_token",
-          ].join(",")
+          ].join(","),
         )
         .eq("owner_handle", ownerHandle)
         .eq("edgaze_code", edgazeCode)
@@ -1025,7 +992,7 @@ export default function WorkflowProductPage() {
         .eq("id", record.id)
         .then(
           () => {},
-          () => {}
+          () => {},
         );
     }
 
@@ -1039,10 +1006,7 @@ export default function WorkflowProductPage() {
     if (!listing) return [];
     if (Array.isArray(listing.demo_images) && listing.demo_images.length > 0)
       return listing.demo_images;
-    if (
-      Array.isArray(listing.output_demo_urls) &&
-      listing.output_demo_urls.length > 0
-    )
+    if (Array.isArray(listing.output_demo_urls) && listing.output_demo_urls.length > 0)
       return listing.output_demo_urls;
     if (listing.banner_url) return [listing.banner_url];
     if (listing.thumbnail_url) return [listing.thumbnail_url];
@@ -1086,7 +1050,8 @@ export default function WorkflowProductPage() {
   const creatorHandle = useMemo(() => {
     if (!listing) return ownerHandle || "";
     const isOwner = !!userId && String(listing.owner_id) === String(userId);
-    if (isOwner && (profile as { handle?: string } | null)?.handle) return (profile as { handle?: string }).handle!;
+    if (isOwner && (profile as { handle?: string } | null)?.handle)
+      return (profile as { handle?: string }).handle!;
     return listing.owner_handle || creatorProfile?.handle || ownerHandle || "creator";
   }, [listing, userId, profile, creatorProfile, ownerHandle]);
 
@@ -1114,9 +1079,7 @@ export default function WorkflowProductPage() {
   const paidLabel = useMemo(() => {
     if (!listing) return "Free";
     if (isNaturallyFree) return "Free";
-    return listing.price_usd != null
-      ? `$${Number(listing.price_usd).toFixed(2)}`
-      : "Paid";
+    return listing.price_usd != null ? `$${Number(listing.price_usd).toFixed(2)}` : "Paid";
   }, [listing, isNaturallyFree]);
 
   const primaryCtaLabel = useMemo(() => {
@@ -1134,9 +1097,7 @@ export default function WorkflowProductPage() {
     if (!listing) return false;
     if (isOwner) return true;
     // Require purchase row for everyone else (even free items need to be "purchased" to show in library)
-    return Boolean(
-      purchase && (purchase.status === "paid" || purchase.status === "beta")
-    );
+    return Boolean(purchase && (purchase.status === "paid" || purchase.status === "beta"));
   }, [listing, isOwner, purchase]);
 
   function openWorkflowStudio() {
@@ -1147,9 +1108,9 @@ export default function WorkflowProductPage() {
     const mode = isOwner ? "edit" : "preview";
 
     router.push(
-      (`/builder?workflowId=${encodeURIComponent(
-        wid
-      )}&mode=${encodeURIComponent(mode)}` as any) as any
+      `/builder?workflowId=${encodeURIComponent(
+        wid,
+      )}&mode=${encodeURIComponent(mode)}` as any as any,
     );
   }
 
@@ -1200,7 +1161,8 @@ export default function WorkflowProductPage() {
 
       // Remove action param from URL immediately to prevent duplicate triggers
       urlParams.delete("action");
-      const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "");
+      const newUrl =
+        window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "");
       window.history.replaceState({}, "", newUrl);
 
       // Wait a bit for purchase state to load, then trigger
@@ -1211,7 +1173,7 @@ export default function WorkflowProductPage() {
       return () => clearTimeout(timer);
     }
     return;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, listing]);
 
   async function grantAccessOrOpen() {
@@ -1222,7 +1184,10 @@ export default function WorkflowProductPage() {
     // Use relative path only (not absolute URL)
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set("action", "purchase");
-    const relativePath = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "") + window.location.hash;
+    const relativePath =
+      window.location.pathname +
+      (urlParams.toString() ? `?${urlParams.toString()}` : "") +
+      window.location.hash;
     window.history.replaceState({}, "", relativePath);
 
     if (!requireAuth()) {
@@ -1263,7 +1228,11 @@ export default function WorkflowProductPage() {
           console.error("workflow beta access insert error", error);
 
           // If it's a duplicate key error, try to load the existing purchase
-          if (error.code === "23505" || error.message?.includes("duplicate") || error.message?.includes("unique")) {
+          if (
+            error.code === "23505" ||
+            error.message?.includes("duplicate") ||
+            error.message?.includes("unique")
+          ) {
             const existingAfterError = await loadPurchaseRow(listing.id, uid);
             if (existingAfterError) {
               setPurchase(existingAfterError);
@@ -1273,9 +1242,7 @@ export default function WorkflowProductPage() {
             }
           }
 
-          setPurchaseError(
-            "Could not grant access. Please try again."
-          );
+          setPurchaseError("Could not grant access. Please try again.");
           return;
         }
 
@@ -1371,7 +1338,9 @@ export default function WorkflowProductPage() {
     if (!isDemoModeActive) {
       const canRun = await canRunDemo(listing.id, true);
       if (!canRun) {
-        setPurchaseError("You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.");
+        setPurchaseError(
+          "You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.",
+        );
         return;
       }
     }
@@ -1439,7 +1408,9 @@ export default function WorkflowProductPage() {
 
     const canRun = await canRunDemo(listing.id, true);
     if (!canRun) {
-      setPurchaseError("You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.");
+      setPurchaseError(
+        "You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.",
+      );
       return;
     }
 
@@ -1491,7 +1462,8 @@ export default function WorkflowProductPage() {
 
     try {
       // Admin demo link: pass token to bypass auth and device limit. Otherwise use device fingerprint for anonymous demo.
-      const deviceFingerprint = !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
+      const deviceFingerprint =
+        !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
 
       const response = await fetch("/api/flow/run", {
         method: "POST",
@@ -1529,7 +1501,9 @@ export default function WorkflowProductPage() {
       }));
 
       // Helper function to map node status
-      const mapNodeStatus = (status: string): "queued" | "running" | "done" | "error" | "skipped" => {
+      const mapNodeStatus = (
+        status: string,
+      ): "queued" | "running" | "done" | "error" | "skipped" => {
         const map: Record<string, "queued" | "running" | "done" | "error" | "skipped"> = {
           idle: "queued",
           ready: "queued",
@@ -1542,24 +1516,28 @@ export default function WorkflowProductPage() {
         return map[status] || "queued";
       };
 
-      const steps = Object.entries(executionResult.nodeStatus || {}).map(([nodeId, status]: [string, any]) => {
-        const node = (graph.nodes || []).find((n: any) => n.id === nodeId);
-        const specId = node?.data?.specId || "default";
-        const nodeTitle = node?.data?.title || node?.data?.config?.name || specId;
-        const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
-        return {
-          id: nodeId,
-          title: nodeTitle,
-          detail: errorLog ? errorLog.text : undefined,
-          status: mapNodeStatus(status) as "queued" | "running" | "done" | "error" | "skipped",
-          icon: <Play className="h-4 w-4" />,
-          timestamp: Date.now(),
-        };
-      });
+      const steps = Object.entries(executionResult.nodeStatus || {}).map(
+        ([nodeId, status]: [string, any]) => {
+          const node = (graph.nodes || []).find((n: any) => n.id === nodeId);
+          const specId = node?.data?.specId || "default";
+          const nodeTitle = node?.data?.title || node?.data?.config?.name || specId;
+          const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
+          return {
+            id: nodeId,
+            title: nodeTitle,
+            detail: errorLog ? errorLog.text : undefined,
+            status: mapNodeStatus(status) as "queued" | "running" | "done" | "error" | "skipped",
+            icon: <Play className="h-4 w-4" />,
+            timestamp: Date.now(),
+          };
+        },
+      );
 
       const outputs = extractWorkflowOutputs(graph.nodes || [])
         .map((output) => {
-          const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+          const finalOutput = executionResult.finalOutputs?.find(
+            (fo: any) => fo.nodeId === output.nodeId,
+          );
           if (!finalOutput) return null;
           return {
             ...output,
@@ -1664,7 +1642,7 @@ export default function WorkflowProductPage() {
         const first = entries[0];
         if (first?.isIntersecting) loadMoreUpNext(false);
       },
-      { root: null, rootMargin: "600px 0px", threshold: 0.01 }
+      { root: null, rootMargin: "600px 0px", threshold: 0.01 },
     );
 
     obs.observe(el);
@@ -1705,7 +1683,7 @@ export default function WorkflowProductPage() {
     const reasonText =
       listing.removed_by === "owner"
         ? "Removed by owner"
-        : (listing.removed_reason || "This item has been removed.");
+        : listing.removed_reason || "This item has been removed.";
     return (
       <div className="flex h-full flex-col bg-[#050505] text-white">
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
@@ -1758,12 +1736,15 @@ export default function WorkflowProductPage() {
       {/* Turnstile Verification Modal */}
       {turnstileModalOpen && (
         <div className="fixed inset-0 z-[130]">
-          <div className="absolute inset-0 bg-black/80" onClick={() => {
-            if (!turnstileVerifying) {
-              setTurnstileModalOpen(false);
-              setTurnstileToken(null);
-            }
-          }} />
+          <div
+            className="absolute inset-0 bg-black/80"
+            onClick={() => {
+              if (!turnstileVerifying) {
+                setTurnstileModalOpen(false);
+                setTurnstileToken(null);
+              }
+            }}
+          />
           <div className="absolute inset-0 flex items-center justify-center p-4">
             <div className="relative w-[min(480px,94vw)] overflow-hidden rounded-3xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.85)]">
               <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
@@ -1772,9 +1753,7 @@ export default function WorkflowProductPage() {
                     <Lock className="h-5 w-5 text-amber-200" />
                   </div>
                   <div>
-                    <div className="text-[14px] font-semibold text-white">
-                      Verify to Try Demo
-                    </div>
+                    <div className="text-[14px] font-semibold text-white">Verify to Try Demo</div>
                     <div className="text-[11px] text-white/55">
                       Complete verification to run this workflow
                     </div>
@@ -1799,7 +1778,8 @@ export default function WorkflowProductPage() {
               <div className="p-5">
                 <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
                   <div className="text-[12px] text-white/70 mb-4">
-                    Complete the security verification below to access a one-time demo run of this workflow.
+                    Complete the security verification below to access a one-time demo run of this
+                    workflow.
                   </div>
 
                   <div className="flex justify-center">
@@ -1818,11 +1798,10 @@ export default function WorkflowProductPage() {
                   <div className="flex items-start gap-2">
                     <Lock className="h-4 w-4 mt-[1px] text-white/45" />
                     <div className="min-w-0">
-                      <div className="text-white/80 font-semibold">
-                        Secure Demo Access
-                      </div>
+                      <div className="text-white/80 font-semibold">Secure Demo Access</div>
                       <div className="mt-0.5 leading-snug">
-                        This verification protects our API keys and ensures fair usage. Each device gets one demo run.
+                        This verification protects our API keys and ensures fair usage. Each device
+                        gets one demo run.
                       </div>
                     </div>
                   </div>
@@ -1844,7 +1823,9 @@ export default function WorkflowProductPage() {
         }}
         state={demoRunState}
         onCancel={() => {
-          setDemoRunState((prev) => (prev ? { ...prev, status: "error", error: "Cancelled by user" } : null));
+          setDemoRunState((prev) =>
+            prev ? { ...prev, status: "error", error: "Cancelled by user" } : null,
+          );
           setDemoRunning(false);
         }}
         onRerun={() => {
@@ -1957,7 +1938,7 @@ export default function WorkflowProductPage() {
               "flex-1 inline-flex items-center justify-center gap-1.5 rounded-full px-3 h-10 text-xs font-semibold",
               purchaseLoading
                 ? "bg-white/10 text-white/70 border border-white/10"
-                : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_16px_rgba(56,189,248,0.6)]"
+                : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_16px_rgba(56,189,248,0.6)]",
             )}
           >
             {purchaseLoading ? (
@@ -1987,9 +1968,8 @@ export default function WorkflowProductPage() {
               <div className="font-semibold">Access error</div>
               <div className="mt-1 text-rose-100/80">{purchaseError}</div>
               <div className="mt-2 text-rose-100/70">
-                Fix:{" "}
-                <span className="font-semibold">workflow_purchases</span> RLS
-                must allow <span className="font-semibold">INSERT</span> and{" "}
+                Fix: <span className="font-semibold">workflow_purchases</span> RLS must allow{" "}
+                <span className="font-semibold">INSERT</span> and{" "}
                 <span className="font-semibold">SELECT</span> for the buyer_id.
               </div>
             </div>
@@ -2006,9 +1986,7 @@ export default function WorkflowProductPage() {
                       src={activeDemo}
                       alt={listing.title || "Workflow demo image"}
                       className="h-full w-full cursor-pointer object-cover"
-                      onClick={() =>
-                        window.open(activeDemo, "_blank", "noopener,noreferrer")
-                      }
+                      onClick={() => window.open(activeDemo, "_blank", "noopener,noreferrer")}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-xs text-white/50">
@@ -2022,9 +2000,7 @@ export default function WorkflowProductPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        setMainDemoIndex((prev) =>
-                          prev === 0 ? demoImages.length - 1 : prev - 1
-                        )
+                        setMainDemoIndex((prev) => (prev === 0 ? demoImages.length - 1 : prev - 1))
                       }
                       className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
                       aria-label="Previous"
@@ -2034,9 +2010,7 @@ export default function WorkflowProductPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        setMainDemoIndex((prev) =>
-                          prev === demoImages.length - 1 ? 0 : prev + 1
-                        )
+                        setMainDemoIndex((prev) => (prev === demoImages.length - 1 ? 0 : prev + 1))
                       }
                       className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
                       aria-label="Next"
@@ -2057,7 +2031,7 @@ export default function WorkflowProductPage() {
                       className={cn(
                         "relative h-14 w-24 flex-none overflow-hidden rounded-xl border border-white/10 bg-black/60",
                         idx === mainDemoIndex &&
-                          "border-cyan-400 shadow-[0_0_14px_rgba(56,189,248,0.55)]"
+                          "border-cyan-400 shadow-[0_0_14px_rgba(56,189,248,0.55)]",
                       )}
                       aria-label={`Select demo ${idx + 1}`}
                     >
@@ -2147,11 +2121,7 @@ export default function WorkflowProductPage() {
                   onClick={grantAccessOrOpen}
                   className="hidden sm:inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white hover:border-cyan-400/70"
                 >
-                  {isOwned ? (
-                    <Sparkles className="h-4 w-4" />
-                  ) : (
-                    <Lock className="h-4 w-4" />
-                  )}
+                  {isOwned ? <Sparkles className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                   {isOwned ? "Open" : primaryCtaLabel}
                 </button>
               </div>
@@ -2168,10 +2138,7 @@ export default function WorkflowProductPage() {
                       .map((t) => t.trim())
                       .filter(Boolean)
                       .map((t) => (
-                        <span
-                          key={t}
-                          className="rounded-full bg-white/5 px-2 py-1"
-                        >
+                        <span key={t} className="rounded-full bg-white/5 px-2 py-1">
                           #{t}
                         </span>
                       ))}
@@ -2185,14 +2152,27 @@ export default function WorkflowProductPage() {
                   <button
                     type="button"
                     onClick={handleDemoButtonClick}
-                    disabled={demoRunning || turnstileVerifying || (!isDemoModeActive && !canRunDemoSync(listing.id, true))}
+                    disabled={
+                      demoRunning ||
+                      turnstileVerifying ||
+                      (!isDemoModeActive && !canRunDemoSync(listing.id, true))
+                    }
                     className={cn(
                       "w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 text-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.3)] transition-all",
-                      (demoRunning || turnstileVerifying || (!isDemoModeActive && !canRunDemoSync(listing.id, true))) && "opacity-50 cursor-not-allowed"
+                      (demoRunning ||
+                        turnstileVerifying ||
+                        (!isDemoModeActive && !canRunDemoSync(listing.id, true))) &&
+                        "opacity-50 cursor-not-allowed",
                     )}
-                    title={!isDemoModeActive && !canRunDemoSync(listing.id, true) ? "You've already used your one-time demo. Purchase for unlimited runs." : isDemoModeActive ? "Run demo (no sign-in required)" : "Try a one-time demo"}
+                    title={
+                      !isDemoModeActive && !canRunDemoSync(listing.id, true)
+                        ? "You've already used your one-time demo. Purchase for unlimited runs."
+                        : isDemoModeActive
+                          ? "Run demo (no sign-in required)"
+                          : "Try a one-time demo"
+                    }
                   >
-                    {(demoRunning || turnstileVerifying) ? (
+                    {demoRunning || turnstileVerifying ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Play className="h-4 w-4" />
@@ -2241,14 +2221,20 @@ export default function WorkflowProductPage() {
                   <div className="mt-3 max-h-[140px] overflow-hidden relative">
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#050505] to-transparent" />
                     <div className="pointer-events-none opacity-90">
-                      <WorkflowCommentsSection listingId={listing.id} listingOwnerId={listing.owner_id} />
+                      <WorkflowCommentsSection
+                        listingId={listing.id}
+                        listingOwnerId={listing.owner_id}
+                      />
                     </div>
                   </div>
                 </div>
 
                 {commentsOpen && (
                   <div className="fixed inset-0 z-[110]">
-                    <div className="absolute inset-0 bg-black/80" onClick={() => setCommentsOpen(false)} />
+                    <div
+                      className="absolute inset-0 bg-black/80"
+                      onClick={() => setCommentsOpen(false)}
+                    />
                     <div className="absolute inset-x-0 bottom-0 top-[10%] rounded-t-3xl border border-white/10 bg-[#050505] overflow-hidden">
                       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                         <div className="text-[14px] font-semibold text-white">Comments</div>
@@ -2263,7 +2249,10 @@ export default function WorkflowProductPage() {
                       </div>
 
                       <div className="h-[calc(100%-52px)] overflow-y-auto px-4 py-4">
-                        <WorkflowCommentsSection listingId={listing.id} listingOwnerId={listing.owner_id} />
+                        <WorkflowCommentsSection
+                          listingId={listing.id}
+                          listingOwnerId={listing.owner_id}
+                        />
                       </div>
                     </div>
                   </div>
@@ -2279,8 +2268,7 @@ export default function WorkflowProductPage() {
 
                 <div className="flex flex-col gap-3">
                   {upNext.map((s) => {
-                    const suggestionFree =
-                      s.monetisation_mode === "free" || s.is_paid === false;
+                    const suggestionFree = s.monetisation_mode === "free" || s.is_paid === false;
                     const href =
                       s.owner_handle && s.edgaze_code
                         ? `/${s.owner_handle}/${s.edgaze_code}`
@@ -2288,8 +2276,8 @@ export default function WorkflowProductPage() {
                     const suggestionPaidLabel = suggestionFree
                       ? "Free"
                       : s.price_usd != null
-                      ? `$${Number(s.price_usd).toFixed(2)}`
-                      : "Paid";
+                        ? `$${Number(s.price_usd).toFixed(2)}`
+                        : "Paid";
 
                     const thumb = s.thumbnail_url || s.banner_url || null;
 
@@ -2301,7 +2289,7 @@ export default function WorkflowProductPage() {
                         onClick={() => href && router.push(href as any)}
                         className={cn(
                           "group flex w-full items-start gap-3 text-left",
-                          !href && "cursor-not-allowed opacity-60"
+                          !href && "cursor-not-allowed opacity-60",
                         )}
                       >
                         <div className="relative h-20 w-36 flex-none overflow-hidden rounded-xl bg-black/60 border border-white/10">
@@ -2346,9 +2334,7 @@ export default function WorkflowProductPage() {
                               {CLOSED_BETA && !suggestionFree ? (
                                 <span className="inline-flex items-center gap-2">
                                   <span className="line-through decoration-white/40">
-                                    {suggestionPaidLabel === "Paid"
-                                      ? "$—"
-                                      : suggestionPaidLabel}
+                                    {suggestionPaidLabel === "Paid" ? "$—" : suggestionPaidLabel}
                                   </span>
                                   <span className="text-white/85">Free</span>
                                 </span>
@@ -2372,9 +2358,7 @@ export default function WorkflowProductPage() {
                   )}
 
                   {!upNextHasMore && upNext.length > 0 && (
-                    <p className="text-[12px] text-white/45">
-                      You reached the end.
-                    </p>
+                    <p className="text-[12px] text-white/45">You reached the end.</p>
                   )}
                 </div>
               </div>
@@ -2419,9 +2403,7 @@ export default function WorkflowProductPage() {
                           <div className="text-[11px] text-white/45">Price</div>
                           <div className="mt-1 flex items-baseline gap-2">
                             <div className="text-2xl font-semibold">$0.00</div>
-                            <div className="text-[12px] text-white/55">
-                              during beta
-                            </div>
+                            <div className="text-[12px] text-white/55">during beta</div>
                           </div>
                           <div className="mt-1 text-[12px] text-white/50">
                             <span className="line-through decoration-white/40">
@@ -2441,9 +2423,7 @@ export default function WorkflowProductPage() {
                             {paidLabel === "Free" ? "$0.00" : paidLabel}
                           </div>
                           {!isNaturallyFree && (
-                            <span className="text-[12px] text-white/55">
-                              one-time
-                            </span>
+                            <span className="text-[12px] text-white/55">one-time</span>
                           )}
                         </div>
                       </div>
@@ -2459,7 +2439,7 @@ export default function WorkflowProductPage() {
                         "flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold",
                         purchaseLoading
                           ? "bg-white/10 text-white/70 border border-white/10"
-                          : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
+                          : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]",
                       )}
                     >
                       {purchaseLoading ? (
@@ -2478,14 +2458,36 @@ export default function WorkflowProductPage() {
 
                     {!isOwned && (
                       <p className="mt-3 text-[11px] text-white/45">
-                        By {isNaturallyFree || showClosedBetaFree ? "getting access" : "purchasing"}, you agree to our{" "}
-                        <a href="/docs/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Terms of Service</a>
+                        By {isNaturallyFree || showClosedBetaFree ? "getting access" : "purchasing"}
+                        , you agree to our{" "}
+                        <a
+                          href="/docs/terms-of-service"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-white/60 hover:text-white underline underline-offset-4"
+                        >
+                          Terms of Service
+                        </a>
                         ,{" "}
-                        <a href="/docs/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Privacy Policy</a>
+                        <a
+                          href="/docs/privacy-policy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-white/60 hover:text-white underline underline-offset-4"
+                        >
+                          Privacy Policy
+                        </a>
                         {!isNaturallyFree && !showClosedBetaFree && (
                           <>
                             , and{" "}
-                            <a href="/docs/refund-policy" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Refund Policy</a>
+                            <a
+                              href="/docs/refund-policy"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-white/60 hover:text-white underline underline-offset-4"
+                            >
+                              Refund Policy
+                            </a>
                           </>
                         )}
                         .
@@ -2497,14 +2499,27 @@ export default function WorkflowProductPage() {
                       <button
                         type="button"
                         onClick={handleDemoButtonClick}
-                        disabled={demoRunning || turnstileVerifying || (!isDemoModeActive && !canRunDemoSync(listing.id, true))}
+                        disabled={
+                          demoRunning ||
+                          turnstileVerifying ||
+                          (!isDemoModeActive && !canRunDemoSync(listing.id, true))
+                        }
                         className={cn(
                           "flex w-full items-center justify-center gap-2 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 px-4 py-2.5 text-sm font-semibold text-amber-200 shadow-[0_4px_20px_rgba(251,191,36,0.3)] transition-all hover:shadow-[0_6px_24px_rgba(251,191,36,0.4)]",
-                          (demoRunning || turnstileVerifying || (!isDemoModeActive && !canRunDemoSync(listing.id, true))) && "opacity-50 cursor-not-allowed"
+                          (demoRunning ||
+                            turnstileVerifying ||
+                            (!isDemoModeActive && !canRunDemoSync(listing.id, true))) &&
+                            "opacity-50 cursor-not-allowed",
                         )}
-                        title={!isDemoModeActive && !canRunDemoSync(listing.id, true) ? "You've already used your one-time demo. Purchase for unlimited runs." : isDemoModeActive ? "Run demo (no sign-in required)" : "Try a one-time demo"}
+                        title={
+                          !isDemoModeActive && !canRunDemoSync(listing.id, true)
+                            ? "You've already used your one-time demo. Purchase for unlimited runs."
+                            : isDemoModeActive
+                              ? "Run demo (no sign-in required)"
+                              : "Try a one-time demo"
+                        }
                       >
-                        {(demoRunning || turnstileVerifying) ? (
+                        {demoRunning || turnstileVerifying ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Play className="h-4 w-4" />
@@ -2541,9 +2556,7 @@ export default function WorkflowProductPage() {
 
                   {!isOwned && (
                     <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
-                      <div className="font-semibold text-white/80">
-                        What you get
-                      </div>
+                      <div className="font-semibold text-white/80">What you get</div>
                       <div className="mt-2 space-y-1">
                         <div>• Open in Workflow Studio (read-only)</div>
                         <div>• Run the workflow</div>
@@ -2554,9 +2567,7 @@ export default function WorkflowProductPage() {
 
                   {isOwned && !isOwner && (
                     <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
-                      <div className="font-semibold text-white/80">
-                        Preview mode
-                      </div>
+                      <div className="font-semibold text-white/80">Preview mode</div>
                       <div className="mt-2 space-y-1">
                         <div>• No editing, no publish</div>
                         <div>• No block library / inspector</div>
@@ -2574,8 +2585,7 @@ export default function WorkflowProductPage() {
 
                   <div className="flex flex-col gap-3">
                     {upNext.map((s) => {
-                      const suggestionFree =
-                        s.monetisation_mode === "free" || s.is_paid === false;
+                      const suggestionFree = s.monetisation_mode === "free" || s.is_paid === false;
                       const href =
                         s.owner_handle && s.edgaze_code
                           ? `/${s.owner_handle}/${s.edgaze_code}`
@@ -2583,8 +2593,8 @@ export default function WorkflowProductPage() {
                       const suggestionPaidLabel = suggestionFree
                         ? "Free"
                         : s.price_usd != null
-                        ? `$${Number(s.price_usd).toFixed(2)}`
-                        : "Paid";
+                          ? `$${Number(s.price_usd).toFixed(2)}`
+                          : "Paid";
                       const thumb = s.thumbnail_url || s.banner_url || null;
 
                       return (
@@ -2595,7 +2605,7 @@ export default function WorkflowProductPage() {
                           onClick={() => href && router.push(href as any)}
                           className={cn(
                             "group flex w-full items-start gap-3 text-left",
-                            !href && "cursor-not-allowed opacity-60"
+                            !href && "cursor-not-allowed opacity-60",
                           )}
                         >
                           <div className="relative h-20 w-36 flex-none overflow-hidden rounded-xl bg-black/60 border border-white/10">
@@ -2640,9 +2650,7 @@ export default function WorkflowProductPage() {
                                 {CLOSED_BETA && !suggestionFree ? (
                                   <span className="inline-flex items-center gap-2">
                                     <span className="line-through decoration-white/40">
-                                      {suggestionPaidLabel === "Paid"
-                                        ? "$—"
-                                        : suggestionPaidLabel}
+                                      {suggestionPaidLabel === "Paid" ? "$—" : suggestionPaidLabel}
                                     </span>
                                     <span className="text-white/85">Free</span>
                                   </span>

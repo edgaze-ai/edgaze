@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable react-hooks/static-components -- WorkflowNode and PromptCard are intentional inner components for phase-dependent animation */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 

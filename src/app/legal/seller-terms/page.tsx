@@ -15,7 +15,7 @@ export default function SellerTermsPage() {
             <h2 className="text-2xl font-bold text-white mb-4">1. Agreement to Terms</h2>
             <p>
               By creating a Stripe Connect account and selling products on Edgaze, you agree to these Seller Terms, 
-              our general Terms of Service, Privacy Policy, and Stripe's Connected Account Agreement.
+              our general Terms of Service, Privacy Policy, and Stripe&apos;s Connected Account Agreement.
             </p>
           </section>
 
@@ -77,7 +77,7 @@ export default function SellerTermsPage() {
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>Buyers may request refunds within 7 days of purchase</li>
-              <li>Refunds are issued at Edgaze's discretion</li>
+              <li>Refunds are issued at Edgaze&apos;s discretion</li>
               <li>Your earnings will be adjusted for any refunds</li>
               <li>If a refund occurs after payout, it will be deducted from future earnings</li>
             </ul>

@@ -46,7 +46,7 @@ export default function AdminDemoPage() {
       const token = await getAccessToken();
       const res = await fetch(
         `/api/admin/demo${debouncedQuery ? `?q=${encodeURIComponent(debouncedQuery)}` : ""}`,
-        { credentials: "include", headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        { credentials: "include", headers: token ? { Authorization: `Bearer ${token}` } : {} },
       );
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
@@ -122,7 +122,8 @@ export default function AdminDemoPage() {
       <div>
         <h1 className="text-xl font-semibold text-white">Demo mode</h1>
         <p className="mt-1 text-[13px] text-white/50 max-w-xl">
-          Enable demo mode for any prompt or workflow. Users visiting the special link can run it without signing in.
+          Enable demo mode for any prompt or workflow. Users visiting the special link can run it
+          without signing in.
         </p>
       </div>
 

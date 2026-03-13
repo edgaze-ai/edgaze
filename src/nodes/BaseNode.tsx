@@ -35,10 +35,6 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: 
   FileText,
 };
 
-function getIconComponent(iconName: string) {
-  return ICON_MAP[iconName] ?? MessageSquare;
-}
-
 function buildPreview(specId: string, config: any, edges: any[], nodeId: string): string {
   if (!config || typeof config !== "object") return "Not configured";
 
@@ -116,7 +112,7 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
   const inputs = ports.filter((p) => p.kind === "input");
   const outputs = ports.filter((p) => p.kind === "output");
 
-  const IconComponent = getIconComponent(registry?.icon ?? "MessageSquare");
+  const iconComp = ICON_MAP[registry?.icon ?? "MessageSquare"] ?? MessageSquare;
 
   return (
     <div
@@ -209,7 +205,10 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
               }}
             />
           ) : (
-            <IconComponent size={14} style={{ color: nodeColor }} />
+            React.createElement(iconComp, {
+              size: 14,
+              style: { color: nodeColor },
+            })
           )}
         </div>
         <span

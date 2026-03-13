@@ -4,7 +4,7 @@
 
 # Edgaze
 
-### *Create, sell, and distribute AI products.*
+### _Create, sell, and distribute AI products._
 
 A curated marketplace for prompts and workflows. One link. One experience. Built for creators who ship.
 
@@ -28,17 +28,17 @@ A curated marketplace for prompts and workflows. One link. One experience. Built
 
 Edgaze is a **first-party platform** for building, publishing, and distributing AI products at scale. Prompts and workflows get a permanent home: a clean product page, a short **Edgaze code** (e.g. `@handle/essay`), and a single shareable link. No fragmentation—just one place to create, one place to discover, one place to run.
 
-*Built for reliability, designed for clarity.*
+_Built for reliability, designed for clarity._
 
 ---
 
 ## Product
 
-| Pillar | Description |
-|--------|-------------|
-| **Prompt Studio** | Structured prompts with placeholders. Version control, one-click publish, and a polished product page for every prompt. |
-| **Workflow Builder** | Visual flows: inputs, prompts, tools, outputs. One canvas. One link. Repeatable, shareable runs. |
-| **Marketplace** | Curated discovery and search. Creators get a storefront; users open and run in one tap. |
+| Pillar               | Description                                                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Prompt Studio**    | Structured prompts with placeholders. Version control, one-click publish, and a polished product page for every prompt. |
+| **Workflow Builder** | Visual flows: inputs, prompts, tools, outputs. One canvas. One link. Repeatable, shareable runs.                        |
+| **Marketplace**      | Curated discovery and search. Creators get a storefront; users open and run in one tap.                                 |
 
 Every asset gets a **canonical URL** and an **Edgaze code**. The platform is in **beta**; creators can set prices—payments will follow in a future release.
 
@@ -69,6 +69,7 @@ Every asset gets a **canonical URL** and an **Edgaze code**. The platform is in 
 <td>
 
 **Frontend**
+
 - Next.js 16 (App Router)
 - React 19
 - TypeScript 5.6
@@ -79,6 +80,7 @@ Every asset gets a **canonical URL** and an **Edgaze code**. The platform is in 
 <td>
 
 **Backend**
+
 - Supabase (Auth + PostgreSQL)
 - Next.js API Routes
 - Row Level Security (RLS)
@@ -88,6 +90,7 @@ Every asset gets a **canonical URL** and an **Edgaze code**. The platform is in 
 <td>
 
 **Infrastructure**
+
 - Node.js 20+
 - Vercel (deployment)
 - GitHub Actions (CI/CD)
@@ -126,8 +129,9 @@ Every asset gets a **canonical URL** and an **Edgaze code**. The platform is in 
    ```bash
    cp .env.example .env.local
    ```
-   
+
    Configure the following required variables in `.env.local`:
+
    ```env
    NEXT_PUBLIC_APP_URL=http://localhost:3000
    NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
@@ -152,13 +156,13 @@ Every asset gets a **canonical URL** and an **Edgaze code**. The platform is in 
 
 ### Available scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server with hot reload |
-| `npm run build` | Create optimized production build |
-| `npm run start` | Start production server (requires build) |
-| `npm run lint` | Run ESLint to check code quality |
-| `npm run typecheck` | Run TypeScript compiler checks |
+| Command             | Description                              |
+| ------------------- | ---------------------------------------- |
+| `npm run dev`       | Start development server with hot reload |
+| `npm run build`     | Create optimized production build        |
+| `npm run start`     | Start production server (requires build) |
+| `npm run lint`      | Run ESLint to check code quality         |
+| `npm run typecheck` | Run TypeScript compiler checks           |
 
 ### Development workflow
 
@@ -170,22 +174,22 @@ See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed setup instructions, archi
 
 ### Core documentation
 
-| Document | Description |
-|----------|-------------|
-| [**Quick Start**](#quick-start) | Get up and running in minutes |
+| Document                                     | Description                          |
+| -------------------------------------------- | ------------------------------------ |
+| [**Quick Start**](#quick-start)              | Get up and running in minutes        |
 | [**Development Guide**](docs/DEVELOPMENT.md) | Local setup and development workflow |
-| [**Architecture**](docs/OVERVIEW.md) | Technical architecture and standards |
-| [**Authentication**](AUTH.md) | Auth implementation and API patterns |
-| [**API Reference**](docs/API.md) | API routes and endpoints |
+| [**Architecture**](docs/OVERVIEW.md)         | Technical architecture and standards |
+| [**Authentication**](AUTH.md)                | Auth implementation and API patterns |
+| [**API Reference**](docs/API.md)             | API routes and endpoints             |
 
 ### Additional resources
 
-| Document | Description |
-|----------|-------------|
-| [**Changelog**](CHANGELOG.md) | Release history and notable changes |
+| Document                           | Description                                     |
+| ---------------------------------- | ----------------------------------------------- |
+| [**Changelog**](CHANGELOG.md)      | Release history and notable changes             |
 | [**Security Policy**](SECURITY.md) | Vulnerability disclosure and supported versions |
-| [**Support**](SUPPORT.md) | How to get help |
-| [**Roadmap**](docs/ROADMAP.md) | Planned features and future direction |
+| [**Support**](SUPPORT.md)          | How to get help                                 |
+| [**Roadmap**](docs/ROADMAP.md)     | Planned features and future direction           |
 
 ### Feature-specific guides
 
@@ -225,7 +229,7 @@ Unauthorized copying, modification, distribution, or use is strictly prohibited.
 
 <div align="center">
 
-**Edgaze** — *Create → Sell → Distribute*
+**Edgaze** — _Create → Sell → Distribute_
 
 Owned and operated by Edge Platforms, Inc.
 

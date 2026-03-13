@@ -95,7 +95,7 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
 
   useLayoutEffect(() => {
     if (items.length === 0) {
-      setTrackPath(null);
+      queueMicrotask(() => setTrackPath(null));
       return;
     }
     const compute = () => {
@@ -136,20 +136,22 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
 
   useLayoutEffect(() => {
     if (activeIds.length === 0) {
-      setProgressRange(null);
+      queueMicrotask(() => setProgressRange(null));
       return;
     }
     const indices = items
       .map((item, idx) => (activeIds.includes(item.id) ? idx : -1))
       .filter((i) => i >= 0);
     if (indices.length === 0) {
-      setProgressRange(null);
+      queueMicrotask(() => setProgressRange(null));
       return;
     }
-    setProgressRange({
-      firstIdx: Math.min(...indices),
-      lastIdx: Math.max(...indices),
-    });
+    queueMicrotask(() =>
+      setProgressRange({
+        firstIdx: Math.min(...indices),
+        lastIdx: Math.max(...indices),
+      })
+    );
   }, [activeIds, items]);
 
   // Recompute bar position when TOC nav scrolls (so line stays clamped)

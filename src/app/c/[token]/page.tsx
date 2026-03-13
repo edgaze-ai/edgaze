@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useCallback, useEffect, useState, Suspense } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
@@ -39,18 +39,7 @@ function OnboardingContent() {
 
   const supabase = createSupabaseBrowserClient();
 
-  useEffect(() => {
-    initializeOnboarding();
-  }, [token]);
-
-  // Handle Stripe return
-  useEffect(() => {
-    if (searchParams.get('stripe') === 'return') {
-      handleStripeReturn();
-    }
-  }, [searchParams]);
-
-  const initializeOnboarding = async () => {
+  const initializeOnboarding = useCallback(async () => {
     try {
       // Validate token
       console.log('[Onboarding] Raw token from URL:', token);
@@ -105,9 +94,9 @@ function OnboardingContent() {
       setInvalidReason('invalid');
       setLoading(false);
     }
-  };
+  }, [token, supabase]);
 
-  const handleStripeReturn = async () => {
+  const handleStripeReturn = useCallback(async () => {
     try {
       // Check Stripe account status
       const response = await fetch('/api/stripe/connect/status');
@@ -129,7 +118,17 @@ function OnboardingContent() {
     } catch (error) {
       console.error('Failed to handle Stripe return:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(() => initializeOnboarding());
+  }, [initializeOnboarding]);
+
+  useEffect(() => {
+    if (searchParams.get('stripe') === 'return') {
+      queueMicrotask(() => handleStripeReturn());
+    }
+  }, [searchParams, handleStripeReturn]);
 
   const handleStepComplete = (nextStep: OnboardingStep) => {
     setCurrentStep(nextStep);

@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { motion } from 'framer-motion';
-import WelcomeStep from '@/app/c/[token]/components/WelcomeStep';
-import MessageStep from '@/app/c/[token]/components/MessageStep';
-import { ArrowLeft, Eye } from 'lucide-react';
-import Link from 'next/link';
-import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { motion } from "framer-motion";
+import WelcomeStep from "@/app/c/[token]/components/WelcomeStep";
+import MessageStep from "@/app/c/[token]/components/MessageStep";
+import { ArrowLeft, Eye } from "lucide-react";
+import Link from "next/link";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 interface Invite {
   id: string;
@@ -23,7 +23,7 @@ export default function InvitePreviewPage() {
 
   const [invite, setInvite] = useState<Invite | null>(null);
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState<'welcome' | 'message'>('welcome');
+  const [step, setStep] = useState<"welcome" | "message">("welcome");
 
   useEffect(() => {
     fetchInvite();
@@ -33,18 +33,18 @@ export default function InvitePreviewPage() {
     try {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
-        .from('creator_invites')
-        .select('id, creator_name, creator_photo_url, custom_message, status')
-        .eq('id', inviteId)
+        .from("creator_invites")
+        .select("id, creator_name, creator_photo_url, custom_message, status")
+        .eq("id", inviteId)
         .single();
 
       if (error) {
-        console.error('Failed to fetch invite:', error);
+        console.error("Failed to fetch invite:", error);
       } else if (data) {
         setInvite(data);
       }
     } catch (err) {
-      console.error('Failed to fetch invite:', err);
+      console.error("Failed to fetch invite:", err);
     } finally {
       setLoading(false);
     }
@@ -104,21 +104,21 @@ export default function InvitePreviewPage() {
       {/* Step toggle */}
       <div className="fixed right-4 top-4 z-50 flex gap-2">
         <button
-          onClick={() => setStep('welcome')}
+          onClick={() => setStep("welcome")}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-            step === 'welcome'
-              ? 'bg-cyan-500 text-white'
-              : 'border border-white/[0.12] bg-white/[0.03] text-white/70 backdrop-blur-xl hover:bg-white/[0.06]'
+            step === "welcome"
+              ? "bg-cyan-500 text-white"
+              : "border border-white/[0.12] bg-white/[0.03] text-white/70 backdrop-blur-xl hover:bg-white/[0.06]"
           }`}
         >
           Welcome
         </button>
         <button
-          onClick={() => setStep('message')}
+          onClick={() => setStep("message")}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-            step === 'message'
-              ? 'bg-cyan-500 text-white'
-              : 'border border-white/[0.12] bg-white/[0.03] text-white/70 backdrop-blur-xl hover:bg-white/[0.06]'
+            step === "message"
+              ? "bg-cyan-500 text-white"
+              : "border border-white/[0.12] bg-white/[0.03] text-white/70 backdrop-blur-xl hover:bg-white/[0.06]"
           }`}
         >
           Message
@@ -126,20 +126,15 @@ export default function InvitePreviewPage() {
       </div>
 
       {/* Preview content */}
-      {step === 'welcome' && (
+      {step === "welcome" && (
         <WelcomeStep
           creatorName={invite.creator_name}
           creatorPhotoUrl={invite.creator_photo_url}
-          onContinue={() => setStep('message')}
+          onContinue={() => setStep("message")}
         />
       )}
 
-      {step === 'message' && (
-        <MessageStep
-          message={invite.custom_message}
-          onContinue={() => {}}
-        />
-      )}
+      {step === "message" && <MessageStep message={invite.custom_message} onContinue={() => {}} />}
     </div>
   );
 }

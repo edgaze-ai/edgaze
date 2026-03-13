@@ -18,13 +18,13 @@ Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporati
 
 ## Stack at a glance
 
-| Area | Choice | Rationale |
-|------|--------|-----------|
-| Framework | Next.js 16 (App Router) | SSR, API routes, and a single codebase for web. |
-| Language | TypeScript 5.6 | Type safety and maintainability. |
-| UI | React 18, Tailwind, Framer Motion | Component-driven UI with consistent styling and motion. |
-| Backend / data | Supabase | Auth, Postgres, and realtime where needed. |
-| Runtime | Node.js 20+ | LTS alignment and modern JS features. |
+| Area           | Choice                            | Rationale                                               |
+| -------------- | --------------------------------- | ------------------------------------------------------- |
+| Framework      | Next.js 16 (App Router)           | SSR, API routes, and a single codebase for web.         |
+| Language       | TypeScript 5.6                    | Type safety and maintainability.                        |
+| UI             | React 18, Tailwind, Framer Motion | Component-driven UI with consistent styling and motion. |
+| Backend / data | Supabase                          | Auth, Postgres, and realtime where needed.              |
+| Runtime        | Node.js 20+                       | LTS alignment and modern JS features.                   |
 
 ---
 
@@ -47,14 +47,14 @@ Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporati
 
 ## Document map
 
-| Document | Purpose |
-|----------|---------|
-| [README](../README.md) | Product overview, getting started, docs index |
-| [DEVELOPMENT](DEVELOPMENT.md) | Local setup and development workflow |
-| [AUTH](../AUTH.md) | Authentication flow and how to use it in API routes |
-| [API](API.md) | API routes and endpoints reference |
-| [CHANGELOG](../CHANGELOG.md) | Version history and release notes |
-| [SECURITY](../SECURITY.md) | Supported versions and vulnerability reporting |
-| [ROADMAP](ROADMAP.md) | Planned features and future direction |
+| Document                      | Purpose                                             |
+| ----------------------------- | --------------------------------------------------- |
+| [README](../README.md)        | Product overview, getting started, docs index       |
+| [DEVELOPMENT](DEVELOPMENT.md) | Local setup and development workflow                |
+| [AUTH](../AUTH.md)            | Authentication flow and how to use it in API routes |
+| [API](API.md)                 | API routes and endpoints reference                  |
+| [CHANGELOG](../CHANGELOG.md)  | Version history and release notes                   |
+| [SECURITY](../SECURITY.md)    | Supported versions and vulnerability reporting      |
+| [ROADMAP](ROADMAP.md)         | Planned features and future direction               |
 
 This overview is maintained as the project evolves. For implementation details, see the codebase and the docs above.

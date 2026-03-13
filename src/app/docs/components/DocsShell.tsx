@@ -21,7 +21,7 @@ export default function DocsShell({
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setCanGoBack(window.history.length > 1);
+      queueMicrotask(() => setCanGoBack(window.history.length > 1));
     }
   }, []);
 

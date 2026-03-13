@@ -11,6 +11,7 @@ Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporati
 **Status:** Production ready
 
 The platform is live with core functionality:
+
 - ✅ Prompt Studio with placeholders and versioning
 - ✅ Workflow Builder with visual canvas
 - ✅ Marketplace with curated discovery
@@ -27,6 +28,7 @@ The platform is live with core functionality:
 **Target:** Q1 2026
 
 **Features:**
+
 - [ ] **Workflow templates** — Pre-built templates for common use cases
 - [ ] **Draft management** — Save and restore draft workflows
 - [ ] **Bulk actions** — Archive/delete multiple items at once
@@ -34,6 +36,7 @@ The platform is live with core functionality:
 - [ ] **Export functionality** — Export workflows and prompts as JSON
 
 **Improvements:**
+
 - [ ] Faster builder performance
 - [ ] Improved mobile responsiveness
 - [ ] Better error messages and validation
@@ -46,6 +49,7 @@ The platform is live with core functionality:
 **Target:** Q2 2026
 
 **Features:**
+
 - [ ] **Payment integration** — Stripe integration for paid products
 - [ ] **Subscription plans** — Monthly/annual creator subscriptions
 - [ ] **Revenue dashboard** — Track earnings and payouts
@@ -53,6 +57,7 @@ The platform is live with core functionality:
 - [ ] **Promotional codes** — Discount and referral codes
 
 **Infrastructure:**
+
 - [ ] Payment webhooks handling
 - [ ] Automated payouts
 - [ ] Tax compliance (1099, VAT)
@@ -65,6 +70,7 @@ The platform is live with core functionality:
 **Target:** Q3 2026
 
 **Features:**
+
 - [ ] **Team workspaces** — Shared accounts for teams
 - [ ] **Collaboration permissions** — Viewer, editor, admin roles
 - [ ] **Comments and feedback** — In-app commenting on workflows
@@ -78,6 +84,7 @@ The platform is live with core functionality:
 **Target:** Q4 2026
 
 **Features:**
+
 - [ ] **Custom nodes** — Creator-defined node types
 - [ ] **API access** — RESTful API for workflow execution
 - [ ] **Webhooks** — Trigger workflows from external events
@@ -86,6 +93,7 @@ The platform is live with core functionality:
 - [ ] **Data connectors** — Integrate with external data sources
 
 **Platform:**
+
 - [ ] Enterprise features (SSO, audit logs)
 - [ ] White-label options
 - [ ] Self-hosted deployment option
@@ -137,9 +145,9 @@ None at this time. All features from version 1.0 remain supported.
 
 ## Version history
 
-| Version | Release date | Highlights |
-|---------|--------------|------------|
-| 1.0.0   | 2025-02-10  | Initial release: Prompt Studio, Workflow Builder, Marketplace |
+| Version | Release date | Highlights                                                    |
+| ------- | ------------ | ------------------------------------------------------------- |
+| 1.0.0   | 2025-02-10   | Initial release: Prompt Studio, Workflow Builder, Marketplace |
 
 See [CHANGELOG.md](../CHANGELOG.md) for detailed version history.
 
@@ -167,4 +175,4 @@ Features are prioritized based on:
 
 **Last updated:** February 11, 2026
 
-*This roadmap is subject to change based on priorities, feedback, and resource availability.*
+_This roadmap is subject to change based on priorities, feedback, and resource availability._

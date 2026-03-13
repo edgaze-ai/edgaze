@@ -30,7 +30,7 @@ export default function OnboardingSuccessPage() {
   }, []);
 
   useEffect(() => {
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
     
     const duration = 3000;
     const animationEnd = Date.now() + duration;
@@ -87,7 +87,7 @@ export default function OnboardingSuccessPage() {
             className="text-5xl font-bold mb-4"
           >
             <span className="bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-              You're All Set!
+              You&apos;re All Set!
             </span>
           </motion.h1>
           
@@ -107,7 +107,7 @@ export default function OnboardingSuccessPage() {
           transition={{ delay: 0.4 }}
           className="bg-white/5 border border-white/10 rounded-2xl p-8 mb-6"
         >
-          <h2 className="text-2xl font-bold text-white mb-6">What's Next?</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">What&apos;s Next?</h2>
           
           <div className="space-y-4">
             <div className="flex items-start gap-4">

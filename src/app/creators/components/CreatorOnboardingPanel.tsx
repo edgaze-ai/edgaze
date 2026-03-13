@@ -53,12 +53,16 @@ export default function CreatorOnboardingPanel() {
   useEffect(() => {
     if (!authReady) return;
     if (!userId) {
-      setLoading(false);
-      setConnectStatus(null);
+      queueMicrotask(() => {
+        setLoading(false);
+        setConnectStatus(null);
+      });
       return;
     }
-    setLoading(true);
-    fetchStatus().finally(() => setLoading(false));
+    queueMicrotask(() => {
+      setLoading(true);
+      fetchStatus().finally(() => setLoading(false));
+    });
   }, [authReady, userId, fetchStatus]);
 
   const state: State = (() => {

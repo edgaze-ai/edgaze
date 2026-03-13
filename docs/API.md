@@ -25,15 +25,15 @@ All authenticated endpoints require a Bearer token in the `Authorization` header
 
 ```typescript
 // Client-side (using AuthContext)
-import { useAuth } from '@/components/auth/AuthContext';
+import { useAuth } from "@/components/auth/AuthContext";
 
 const { getAccessToken } = useAuth();
 const token = await getAccessToken();
 
 // Include in requests
 const headers = {
-  'Authorization': `Bearer ${token}`,
-  'Content-Type': 'application/json'
+  Authorization: `Bearer ${token}`,
+  "Content-Type": "application/json",
 };
 ```
 
@@ -55,7 +55,7 @@ Execute a workflow with provided inputs.
 interface RunWorkflowRequest {
   workflowId: string;
   inputs: Record<string, any>;
-  isDemo?: boolean;  // Optional: run without auth
+  isDemo?: boolean; // Optional: run without auth
 }
 ```
 
@@ -86,6 +86,7 @@ interface RunWorkflowResponse {
 ```
 
 **Status codes:**
+
 - `200` — Success
 - `400` — Invalid input
 - `401` — Unauthorized (missing or invalid token)
@@ -158,7 +159,7 @@ interface CreatePromptRequest {
   placeholders?: Array<{
     key: string;
     label: string;
-    type: 'text' | 'number' | 'select';
+    type: "text" | "number" | "select";
     required: boolean;
   }>;
   isPublic?: boolean;
@@ -170,7 +171,7 @@ interface CreatePromptRequest {
 ```typescript
 interface CreatePromptResponse {
   id: string;
-  code: string;  // e.g., "@handle/prompt-name"
+  code: string; // e.g., "@handle/prompt-name"
   url: string;
 }
 ```
@@ -266,7 +267,7 @@ Check if a profile handle is available.
 ```typescript
 interface HandleCheckResponse {
   available: boolean;
-  reason?: string;  // If unavailable
+  reason?: string; // If unavailable
 }
 ```
 
@@ -292,11 +293,12 @@ interface ChangeHandleRequest {
 interface ChangeHandleResponse {
   success: boolean;
   newHandle: string;
-  nextChangeAllowed: string;  // ISO date
+  nextChangeAllowed: string; // ISO date
 }
 ```
 
 **Status codes:**
+
 - `200` — Success
 - `400` — Invalid handle or cooldown active
 - `409` — Handle already taken
@@ -335,9 +337,9 @@ Report a workflow or prompt for review.
 
 ```typescript
 interface SubmitReportRequest {
-  itemType: 'workflow' | 'prompt';
+  itemType: "workflow" | "prompt";
   itemId: string;
-  reason: 'spam' | 'inappropriate' | 'copyright' | 'other';
+  reason: "spam" | "inappropriate" | "copyright" | "other";
   details?: string;
 }
 ```
@@ -414,22 +416,22 @@ All endpoints follow a consistent error format:
 
 ```typescript
 interface ErrorResponse {
-  error: string;           // Human-readable message
-  code?: string;          // Machine-readable error code
-  details?: any;          // Additional error context
+  error: string; // Human-readable message
+  code?: string; // Machine-readable error code
+  details?: any; // Additional error context
 }
 ```
 
 ### Common error codes
 
-| Code | Description |
-|------|-------------|
-| `UNAUTHORIZED` | Missing or invalid authentication token |
-| `FORBIDDEN` | User lacks permission for this operation |
-| `NOT_FOUND` | Requested resource does not exist |
-| `RATE_LIMIT_EXCEEDED` | Too many requests |
-| `VALIDATION_ERROR` | Invalid input data |
-| `INTERNAL_ERROR` | Server error |
+| Code                  | Description                              |
+| --------------------- | ---------------------------------------- |
+| `UNAUTHORIZED`        | Missing or invalid authentication token  |
+| `FORBIDDEN`           | User lacks permission for this operation |
+| `NOT_FOUND`           | Requested resource does not exist        |
+| `RATE_LIMIT_EXCEEDED` | Too many requests                        |
+| `VALIDATION_ERROR`    | Invalid input data                       |
+| `INTERNAL_ERROR`      | Server error                             |
 
 ---
 
@@ -468,7 +470,7 @@ Webhook support is planned for version 2.0. This will allow external systems to:
 The Supabase JavaScript client is used for database operations:
 
 ```typescript
-import { createBrowserClient } from '@/lib/supabase/browser';
+import { createBrowserClient } from "@/lib/supabase/browser";
 
 const supabase = createBrowserClient();
 ```

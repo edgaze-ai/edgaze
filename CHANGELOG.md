@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+
 - Comprehensive documentation suite (DEVELOPMENT.md, API.md, ARCHITECTURE.md, ROADMAP.md)
 - Enhanced README with improved structure and visuals
 - Premium repository configuration (.editorconfig, .gitattributes, VS Code settings)
@@ -19,12 +20,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - CODEOWNERS file for review assignment
 
 ### Changed
+
 - Reorganized documentation into `docs/` folder
 - Enhanced environment variable configuration (.env.example)
 - Improved package.json with additional metadata and scripts
 - Updated CI workflow with better job organization and formatting checks
 
 ### Fixed
+
 - (Bug fixes will be documented here)
 
 ---
@@ -38,12 +41,12 @@ The first production-ready version of Edgaze, featuring a complete marketplace p
 ### Added
 
 #### Core features
+
 - **Prompt Studio** — Create structured prompts with dynamic placeholders
   - Visual placeholder editor
   - Version control and history
   - One-click publish to marketplace
   - Dedicated product pages with Edgaze codes (e.g., `@handle/prompt-name`)
-  
 - **Workflow Builder** — Visual AI workflow designer
   - Drag-and-drop node-based interface
   - Input, output, and prompt nodes
@@ -51,7 +54,6 @@ The first production-ready version of Edgaze, featuring a complete marketplace p
   - Real-time workflow execution
   - Run tracking and analytics
   - One-click publish with shareable links
-  
 - **Marketplace** — Curated discovery platform
   - Browse and search AI products
   - Featured builds and recommendations
@@ -61,6 +63,7 @@ The first production-ready version of Edgaze, featuring a complete marketplace p
   - Comments and community feedback
 
 #### Authentication & user management
+
 - Email/password authentication via Supabase Auth
 - Google OAuth integration
 - Profile management with custom handles
@@ -69,6 +72,7 @@ The first production-ready version of Edgaze, featuring a complete marketplace p
 - Founding Creator badge system
 
 #### Infrastructure
+
 - Next.js 16 App Router architecture
 - TypeScript 5.6 throughout
 - Supabase PostgreSQL with Row Level Security
@@ -77,6 +81,7 @@ The first production-ready version of Edgaze, featuring a complete marketplace p
 - Responsive design with Tailwind CSS
 
 #### Developer experience
+
 - Comprehensive authentication documentation (AUTH.md)
 - Architecture and standards guide (OVERVIEW.md)
 - Database migration system
@@ -87,6 +92,7 @@ The first production-ready version of Edgaze, featuring a complete marketplace p
 ### Technical details
 
 #### Database
+
 - 22 database migrations
 - Row Level Security policies for all tables
 - Handle redirect system for SEO
@@ -95,6 +101,7 @@ The first production-ready version of Edgaze, featuring a complete marketplace p
 - Marketplace owner handle synchronization
 
 #### Security
+
 - Bearer token authentication for API routes
 - Input validation and sanitization
 - Rate limiting (IP and user-based)
@@ -103,6 +110,7 @@ The first production-ready version of Edgaze, featuring a complete marketplace p
 - Vulnerability disclosure policy (SECURITY.md)
 
 #### Performance
+
 - Server-side rendering with Next.js
 - Optimized image loading
 - Code splitting and lazy loading
@@ -113,9 +121,9 @@ The first production-ready version of Edgaze, featuring a complete marketplace p
 
 ## Version history
 
-| Version | Date | Description |
-|---------|------|-------------|
-| 1.0.0 | 2025-02-10 | Initial release |
+| Version | Date       | Description     |
+| ------- | ---------- | --------------- |
+| 1.0.0   | 2025-02-10 | Initial release |
 
 ---
 

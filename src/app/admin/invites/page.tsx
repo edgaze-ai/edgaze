@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useState } from 'react';
-import { Copy, ExternalLink, X, AlertCircle, Upload, Loader2 } from 'lucide-react';
-import Link from 'next/link';
-import { useAuth } from '@/components/auth/AuthContext';
+import { useCallback, useEffect, useState } from "react";
+import { Copy, ExternalLink, X, AlertCircle, Upload, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useAuth } from "@/components/auth/AuthContext";
 
 interface Invite {
   id: string;
@@ -12,15 +12,17 @@ interface Invite {
   creator_name: string;
   creator_photo_url: string;
   custom_message: string;
-  status: 'active' | 'claimed' | 'completed' | 'revoked' | 'expired';
+  status: "active" | "claimed" | "completed" | "revoked" | "expired";
   expires_at: string;
   created_at: string;
   claimed_at?: string;
   completed_at?: string;
 }
 
-const cardClass = "rounded-2xl border border-white/[0.08] bg-white/[0.03] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]";
-const inputClass = "w-full rounded-lg border border-white/[0.12] bg-black/40 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/50";
+const cardClass =
+  "rounded-2xl border border-white/[0.08] bg-white/[0.03] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]";
+const inputClass =
+  "w-full rounded-lg border border-white/[0.12] bg-black/40 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/50";
 
 export default function AdminInvitesPage() {
   const { authReady, getAccessToken } = useAuth();
@@ -34,21 +36,21 @@ export default function AdminInvitesPage() {
   const [revokeConfirm, setRevokeConfirm] = useState<string | null>(null);
 
   // Form state
-  const [creatorName, setCreatorName] = useState('');
-  const [customMessage, setCustomMessage] = useState('');
+  const [creatorName, setCreatorName] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [expiresInDays, setExpiresInDays] = useState(14);
 
   // Enable scrolling like other admin pages
   useEffect(() => {
-    const main = document.querySelector('main');
+    const main = document.querySelector("main");
     if (!main) return;
-    main.style.overflowY = 'auto';
-    main.style.overflowX = 'hidden';
+    main.style.overflowY = "auto";
+    main.style.overflowX = "hidden";
     return () => {
-      main.style.overflowY = '';
-      main.style.overflowX = '';
+      main.style.overflowY = "";
+      main.style.overflowX = "";
     };
   }, []);
 
@@ -56,20 +58,20 @@ export default function AdminInvitesPage() {
     setLoading(true);
     try {
       const token = await getAccessToken();
-      const res = await fetch('/api/admin/invites', {
-        credentials: 'include',
+      const res = await fetch("/api/admin/invites", {
+        credentials: "include",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      
+
       if (!res.ok) {
         const errorText = await res.text();
         throw new Error(errorText);
       }
-      
+
       const data = await res.json();
       setInvites(data.invites || []);
     } catch (err: any) {
-      console.error('Failed to fetch invites:', err);
+      console.error("Failed to fetch invites:", err);
       setError(`Failed to load invites: ${err.message}`);
       setInvites([]);
     } finally {
@@ -88,7 +90,7 @@ export default function AdminInvitesPage() {
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          const canvas = document.createElement('canvas');
+          const canvas = document.createElement("canvas");
           let width = img.width;
           let height = img.height;
 
@@ -105,34 +107,34 @@ export default function AdminInvitesPage() {
 
           canvas.width = width;
           canvas.height = height;
-          const ctx = canvas.getContext('2d');
+          const ctx = canvas.getContext("2d");
           ctx?.drawImage(img, 0, 0, width, height);
 
           canvas.toBlob(
             (blob) => {
               if (!blob) {
-                reject(new Error('Failed to compress image'));
+                reject(new Error("Failed to compress image"));
                 return;
               }
-              
+
               if (blob.size > maxSizeMB * 1024 * 1024) {
                 canvas.toBlob(
                   (smallerBlob) => {
                     if (!smallerBlob) {
-                      reject(new Error('Failed to compress image'));
+                      reject(new Error("Failed to compress image"));
                       return;
                     }
-                    resolve(new File([smallerBlob], file.name, { type: 'image/jpeg' }));
+                    resolve(new File([smallerBlob], file.name, { type: "image/jpeg" }));
                   },
-                  'image/jpeg',
-                  0.7
+                  "image/jpeg",
+                  0.7,
                 );
               } else {
-                resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+                resolve(new File([blob], file.name, { type: "image/jpeg" }));
               }
             },
-            'image/jpeg',
-            0.85
+            "image/jpeg",
+            0.85,
           );
         };
         img.src = e.target?.result as string;
@@ -155,7 +157,7 @@ export default function AdminInvitesPage() {
   const handleCreateInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!photoFile) {
-      setError('Please upload a photo');
+      setError("Please upload a photo");
       return;
     }
 
@@ -164,32 +166,32 @@ export default function AdminInvitesPage() {
 
     try {
       const token = await getAccessToken();
-      
+
       // Upload photo to Supabase Storage
       const photoPath = `${Date.now()}-${photoFile.name}`;
       const formData = new FormData();
-      formData.append('file', photoFile);
-      formData.append('path', photoPath);
-      
-      const uploadRes = await fetch('/api/storage/upload', {
-        method: 'POST',
-        credentials: 'include',
+      formData.append("file", photoFile);
+      formData.append("path", photoPath);
+
+      const uploadRes = await fetch("/api/storage/upload", {
+        method: "POST",
+        credentials: "include",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
       if (!uploadRes.ok) {
-        throw new Error('Failed to upload photo');
+        throw new Error("Failed to upload photo");
       }
 
       const { url: photoUrl } = await uploadRes.json();
 
       // Create invite
-      const res = await fetch('/api/admin/invites', {
-        method: 'POST',
-        credentials: 'include',
+      const res = await fetch("/api/admin/invites", {
+        method: "POST",
+        credentials: "include",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
@@ -202,28 +204,28 @@ export default function AdminInvitesPage() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to create invite');
+        throw new Error(errorData.error || "Failed to create invite");
       }
 
       const data = await res.json();
-      
+
       setSuccess({
         url: `${window.location.origin}${data.url}`,
         id: data.invite.id,
       });
-      
+
       // Reset form
-      setCreatorName('');
-      setCustomMessage('');
+      setCreatorName("");
+      setCustomMessage("");
       setPhotoFile(null);
       setPhotoPreview(null);
       setExpiresInDays(14);
       setShowForm(false);
-      
+
       // Refresh list
       await fetchInvites();
     } catch (err: any) {
-      console.error('Failed to create invite:', err);
+      console.error("Failed to create invite:", err);
       setError(err.message);
     } finally {
       setCreating(false);
@@ -234,19 +236,19 @@ export default function AdminInvitesPage() {
     try {
       const token = await getAccessToken();
       const res = await fetch(`/api/admin/invites/${id}/revoke`, {
-        method: 'POST',
-        credentials: 'include',
+        method: "POST",
+        credentials: "include",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       if (!res.ok) {
-        throw new Error('Failed to revoke invite');
+        throw new Error("Failed to revoke invite");
       }
 
       setRevokeConfirm(null);
       await fetchInvites();
     } catch (err: any) {
-      console.error('Failed to revoke:', err);
+      console.error("Failed to revoke:", err);
       setError(err.message);
     }
   };
@@ -259,15 +261,17 @@ export default function AdminInvitesPage() {
 
   const getStatusPill = (status: string) => {
     const colors = {
-      active: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
-      claimed: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-      completed: 'bg-green-500/15 text-green-400 border-green-500/30',
-      revoked: 'bg-red-500/15 text-red-400 border-red-500/30',
-      expired: 'bg-white/10 text-white/40 border-white/20',
+      active: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
+      claimed: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+      completed: "bg-green-500/15 text-green-400 border-green-500/30",
+      revoked: "bg-red-500/15 text-red-400 border-red-500/30",
+      expired: "bg-white/10 text-white/40 border-white/20",
     };
 
     return (
-      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${colors[status as keyof typeof colors]}`}>
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${colors[status as keyof typeof colors]}`}
+      >
         <span className="h-1.5 w-1.5 rounded-full bg-current" />
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
@@ -286,7 +290,7 @@ export default function AdminInvitesPage() {
           onClick={() => setShowForm(!showForm)}
           className="rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-black transition-all hover:bg-cyan-400"
         >
-          {showForm ? 'Cancel' : 'Create Invite'}
+          {showForm ? "Cancel" : "Create Invite"}
         </button>
       </div>
 
@@ -345,9 +349,7 @@ export default function AdminInvitesPage() {
 
           <form onSubmit={handleCreateInvite} className="space-y-6">
             <div>
-              <label className="mb-2 block text-sm font-medium text-white/70">
-                Creator Name *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-white/70">Creator Name *</label>
               <input
                 type="text"
                 value={creatorName}
@@ -360,11 +362,12 @@ export default function AdminInvitesPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-white/70">
-                Profile Photo * <span className="text-xs text-white/40">(max 5MB, auto-compressed)</span>
+                Profile Photo *{" "}
+                <span className="text-xs text-white/40">(max 5MB, auto-compressed)</span>
               </label>
               <div
                 className="group relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-white/[0.12] bg-black/40 transition-all hover:border-cyan-400/50 hover:bg-black/60"
-                onClick={() => document.getElementById('photo-upload')?.click()}
+                onClick={() => document.getElementById("photo-upload")?.click()}
               >
                 {photoPreview ? (
                   <>
@@ -428,7 +431,7 @@ export default function AdminInvitesPage() {
                   Creating...
                 </span>
               ) : (
-                'Create Invite'
+                "Create Invite"
               )}
             </button>
           </form>
@@ -457,9 +460,7 @@ export default function AdminInvitesPage() {
           </div>
         ) : invites.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-sm text-white/40">
-              No invites yet. Create one above.
-            </p>
+            <p className="text-sm text-white/40">No invites yet. Create one above.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -514,13 +515,18 @@ export default function AdminInvitesPage() {
                     </td>
                     <td className="px-6 py-3">
                       <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                        {invite.status === 'active' && (
+                        {invite.status === "active" && (
                           <>
                             <button
-                              onClick={() => handleCopyLink(`${window.location.origin}/c/${invite.raw_token}`, invite.id)}
+                              onClick={() =>
+                                handleCopyLink(
+                                  `${window.location.origin}/c/${invite.raw_token}`,
+                                  invite.id,
+                                )
+                              }
                               className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white/70 transition-all hover:bg-white/[0.06]"
                             >
-                              {copiedId === invite.id ? 'Copied!' : 'Copy Link'}
+                              {copiedId === invite.id ? "Copied!" : "Copy Link"}
                             </button>
                             <button
                               onClick={() => setRevokeConfirm(invite.id)}
@@ -557,7 +563,8 @@ export default function AdminInvitesPage() {
               <h3 className="text-lg font-semibold text-white">Revoke Invite?</h3>
             </div>
             <p className="mb-6 text-sm text-white/60">
-              This will permanently deactivate the invite link. The creator will no longer be able to use it.
+              This will permanently deactivate the invite link. The creator will no longer be able
+              to use it.
             </p>
             <div className="flex gap-3">
               <button

@@ -1,6 +1,5 @@
 # Welcome Email Setup
 
-
 Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
 
 Edgaze automatically sends a premium welcome email to new users—**only after they’ve completed sign-up**. For **email/password** users, the email is sent after they confirm their email (click the confirm link). For **Google OAuth** users, it’s sent on first sign-in when the account is created. The email is sent via Resend from a Supabase Edge Function.
@@ -49,10 +48,10 @@ In Supabase Edge Function secrets, you can optionally set:
 
 ## Troubleshooting
 
-- **No email received**  
-  - Check Resend logs at [resend.com/emails](https://resend.com/emails)  
-  - Ensure `RESEND_API_KEY` is set in Supabase Edge Function secrets  
-  - Ensure your domain is verified in Resend  
+- **No email received**
+  - Check Resend logs at [resend.com/emails](https://resend.com/emails)
+  - Ensure `RESEND_API_KEY` is set in Supabase Edge Function secrets
+  - Ensure your domain is verified in Resend
 
 - **Check Edge Function logs**  
   Supabase Dashboard → Edge Functions → `send-welcome-email` → Logs

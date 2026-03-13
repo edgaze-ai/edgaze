@@ -38,6 +38,7 @@
 - [ ] Tested edge cases
 
 **Test Configuration:**
+
 - **Node version:**
 - **Browser:**
 - **OS:**
@@ -68,6 +69,7 @@ None / Describe breaking changes here
 ## Checklist
 
 ### Code quality
+
 - [ ] Code follows the project's style guidelines
 - [ ] `npm run lint` passes with no errors
 - [ ] `npm run typecheck` passes with no errors
@@ -76,12 +78,14 @@ None / Describe breaking changes here
 - [ ] Code is well-commented, particularly in complex areas
 
 ### Security
+
 - [ ] No secrets, API keys, or credentials committed
 - [ ] Sensitive data is properly sanitized
 - [ ] Authentication/authorization checks are in place (if applicable)
 - [ ] Input validation is implemented (if applicable)
 
 ### Documentation
+
 - [ ] Code-level documentation added/updated
 - [ ] README updated (if needed)
 - [ ] API documentation updated (if API changes)
@@ -89,6 +93,7 @@ None / Describe breaking changes here
 - [ ] Relevant docs updated ([AUTH.md](../AUTH.md), [OVERVIEW.md](../docs/OVERVIEW.md), etc.)
 
 ### Dependencies
+
 - [ ] New dependencies are justified and documented
 - [ ] No unnecessary dependencies added
 - [ ] Package versions are pinned appropriately
@@ -117,6 +122,7 @@ Relates to #(issue)
 ## For reviewers
 
 **Review focus areas:**
+
 - [ ] Code quality and maintainability
 - [ ] Security considerations
 - [ ] Performance implications
@@ -124,4 +130,5 @@ Relates to #(issue)
 - [ ] Documentation completeness
 
 **Deployment notes:**
+
 <!-- Any special considerations for deployment -->

@@ -3,9 +3,8 @@ name: Bug report
 about: Report a bug or unexpected behavior
 title: "[Bug] "
 labels: bug
-assignees: ''
+assignees: ""
 ---
-
 
 <!-- Edgaze is proprietary software owned and operated by Edge Platforms, Inc., a Delaware C Corporation -->
 
@@ -54,6 +53,7 @@ Paste logs here
 ---
 
 **Checklist:**
+
 - [ ] I have searched for similar issues
 - [ ] I have included all relevant information above
 - [ ] This is reproducible in the latest version

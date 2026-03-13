@@ -230,10 +230,10 @@ export default function AdminModerationPage() {
           }
         }
         return report;
-      })
+      }),
     );
     setRows(enrichedList);
-    setSelected((prev) => (prev ? enrichedList.find((x) => x.id === prev.id) ?? null : null));
+    setSelected((prev) => (prev ? (enrichedList.find((x) => x.id === prev.id) ?? null) : null));
     setLoading(false);
   }, [supabase, tab]);
 
@@ -249,8 +249,13 @@ export default function AdminModerationPage() {
       .channel("realtime:app_settings:applications_paused_admin")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "app_settings", filter: "key=eq.applications_paused" },
-        (payload: any) => setAppsPaused(Boolean(payload?.new?.value))
+        {
+          event: "*",
+          schema: "public",
+          table: "app_settings",
+          filter: "key=eq.applications_paused",
+        },
+        (payload: any) => setAppsPaused(Boolean(payload?.new?.value)),
       )
       .subscribe();
     const chMaint = supabase
@@ -258,7 +263,7 @@ export default function AdminModerationPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "app_settings", filter: "key=eq.maintenance_mode" },
-        (payload: any) => setMaintenanceMode(Boolean(payload?.new?.value))
+        (payload: any) => setMaintenanceMode(Boolean(payload?.new?.value)),
       )
       .subscribe();
     return () => {
@@ -303,7 +308,8 @@ export default function AdminModerationPage() {
       setActionMsg("Missing user id");
       return;
     }
-    const expires = banExpiresAt && banExpiresAt.trim() ? new Date(banExpiresAt).toISOString() : null;
+    const expires =
+      banExpiresAt && banExpiresAt.trim() ? new Date(banExpiresAt).toISOString() : null;
     const { error } = await supabase.rpc("admin_set_ban", {
       p_user_id: uid,
       p_is_banned: isBanned,
@@ -411,7 +417,8 @@ export default function AdminModerationPage() {
   }
 
   async function takeDownListing() {
-    if (!selected || (selected.target_type !== "prompt" && selected.target_type !== "workflow")) return;
+    if (!selected || (selected.target_type !== "prompt" && selected.target_type !== "workflow"))
+      return;
     const reason = takedownReason.trim();
     if (!reason) {
       setActionMsg("Enter a reason for the takedown.");
@@ -461,9 +468,7 @@ export default function AdminModerationPage() {
       {/* Section tabs */}
       <div className="flex flex-wrap items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">
-            Moderation
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Moderation</h1>
           <p className="mt-1 text-[13px] text-white/50">
             Review reports, control platform settings, and manage users
           </p>
@@ -505,7 +510,8 @@ export default function AdminModerationPage() {
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-[13px] text-white/50 max-w-xl">
-              Review and action user reports. Mark triaged, actioned, or rejected. Takedown prompts/workflows when needed.
+              Review and action user reports. Mark triaged, actioned, or rejected. Takedown
+              prompts/workflows when needed.
             </p>
             <div className="flex items-center gap-2">
               {(["open", "triaged", "all"] as const).map((t) => (
@@ -534,7 +540,9 @@ export default function AdminModerationPage() {
             <div className={`${cardClass} flex flex-col overflow-hidden lg:col-span-1`}>
               <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4">
                 <span className={cardHeaderClass}>Queue</span>
-                <span className="text-[13px] font-semibold tabular-nums text-white/55">{rows.length}</span>
+                <span className="text-[13px] font-semibold tabular-nums text-white/55">
+                  {rows.length}
+                </span>
               </div>
               {loading ? (
                 <div className="flex flex-col items-center justify-center px-6 py-12 gap-3">
@@ -544,7 +552,9 @@ export default function AdminModerationPage() {
               ) : rows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
                   <p className="text-[13px] text-white/45">No reports in this view</p>
-                  <p className="mt-1 text-[12px] text-white/35">Try another filter or check back later</p>
+                  <p className="mt-1 text-[12px] text-white/35">
+                    Try another filter or check back later
+                  </p>
                 </div>
               ) : (
                 <div className="max-h-[65vh] overflow-y-auto">
@@ -581,7 +591,9 @@ export default function AdminModerationPage() {
                         </div>
                         <div className="mt-1.5 text-[12px] text-white/40">{fmt(r.created_at)}</div>
                         {r.details ? (
-                          <div className="mt-1.5 line-clamp-2 text-[12px] text-white/50">{r.details}</div>
+                          <div className="mt-1.5 line-clamp-2 text-[12px] text-white/50">
+                            {r.details}
+                          </div>
                         ) : null}
                       </button>
                     );
@@ -598,8 +610,12 @@ export default function AdminModerationPage() {
                       →
                     </div>
                   </div>
-                  <p className="text-[14px] font-medium text-white/50">Select a report from the queue</p>
-                  <p className="mt-1 text-[12px] text-white/35">Details and actions will appear here</p>
+                  <p className="text-[14px] font-medium text-white/50">
+                    Select a report from the queue
+                  </p>
+                  <p className="mt-1 text-[12px] text-white/35">
+                    Details and actions will appear here
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -613,7 +629,11 @@ export default function AdminModerationPage() {
                       </p>
                     </div>
                     <a
-                      href={targetHref(selected, selected.target_owner_handle, selected.target_edgaze_code)}
+                      href={targetHref(
+                        selected,
+                        selected.target_owner_handle,
+                        selected.target_edgaze_code,
+                      )}
                       target="_blank"
                       rel="noreferrer"
                       className="rounded-xl border border-white/[0.1] bg-white/[0.04] px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.08] hover:border-white/[0.15] transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
@@ -627,7 +647,8 @@ export default function AdminModerationPage() {
                       <p className={cardHeaderClass}>Target</p>
                       <p className="mt-2 text-[13px] text-white/75">
                         {selected.target_type}
-                        {(selected.target_type === "prompt" || selected.target_type === "workflow") &&
+                        {(selected.target_type === "prompt" ||
+                          selected.target_type === "workflow") &&
                           selected.target_title && (
                             <span className="mt-1 block font-medium text-white/95">
                               {selected.target_title}
@@ -787,15 +808,20 @@ export default function AdminModerationPage() {
               </div>
             </div>
 
-            <div className={`${cardClass} border-amber-500/15 bg-gradient-to-b from-amber-500/[0.06] to-amber-500/[0.02] p-6`}>
+            <div
+              className={`${cardClass} border-amber-500/15 bg-gradient-to-b from-amber-500/[0.06] to-amber-500/[0.02] p-6`}
+            >
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h3 className="text-[15px] font-semibold text-white">Maintenance mode</h3>
                   <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed">
-                    Show &quot;Platform under maintenance&quot; on all pages except landing and admin.
+                    Show &quot;Platform under maintenance&quot; on all pages except landing and
+                    admin.
                   </p>
                   <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-[12px] text-amber-200/90 leading-relaxed shadow-[inset_0_1px_0_rgba(251,191,36,0.08)]">
-                    <strong className="font-semibold text-amber-200">Warning:</strong> Enabling blocks marketplace, builder, prompt studio, and profiles. Only homepage and admin stay accessible.
+                    <strong className="font-semibold text-amber-200">Warning:</strong> Enabling
+                    blocks marketplace, builder, prompt studio, and profiles. Only homepage and
+                    admin stay accessible.
                   </div>
                   {(maintenanceLoading || maintenanceSaving) && (
                     <p className="mt-2.5 text-[12px] text-white/40 flex items-center gap-2">
@@ -833,7 +859,8 @@ export default function AdminModerationPage() {
       {section === "tools" && (
         <div className="space-y-6">
           <p className="text-[13px] text-white/50 max-w-xl">
-            Replenish demo runs, refill workflow runs (free run count), and manage user bans. Use after reviewing reports when needed.
+            Replenish demo runs, refill workflow runs (free run count), and manage user bans. Use
+            after reviewing reports when needed.
           </p>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -867,7 +894,9 @@ export default function AdminModerationPage() {
                     className={inputClass}
                     placeholder="Leave blank for all workflows"
                   />
-                  <p className="mt-1.5 text-[12px] text-white/40">Leave blank to reset all demo runs for the user.</p>
+                  <p className="mt-1.5 text-[12px] text-white/40">
+                    Leave blank to reset all demo runs for the user.
+                  </p>
                 </div>
                 <button
                   onClick={replenishDemo}
@@ -882,7 +911,8 @@ export default function AdminModerationPage() {
             <div className={`${cardClass} p-6`}>
               <h3 className="text-[15px] font-semibold text-white">Refill workflow runs</h3>
               <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed">
-                Reset workflow run count (free runs) for a user by username. Deletes their workflow_runs so they get their free runs back.
+                Reset workflow run count (free runs) for a user by username. Deletes their
+                workflow_runs so they get their free runs back.
               </p>
               <div className="mt-6 space-y-4">
                 <div>
@@ -909,7 +939,9 @@ export default function AdminModerationPage() {
                     className={inputClass}
                     placeholder="Leave blank for all workflows"
                   />
-                  <p className="mt-1.5 text-[12px] text-white/40">Leave blank to reset run count for all workflows for this user.</p>
+                  <p className="mt-1.5 text-[12px] text-white/40">
+                    Leave blank to reset run count for all workflows for this user.
+                  </p>
                 </div>
                 <button
                   onClick={refillWorkflowRuns}
@@ -924,11 +956,17 @@ export default function AdminModerationPage() {
             <div className={`${cardClass} p-6`}>
               <h3 className="text-[15px] font-semibold text-white">Ban / unban user</h3>
               <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed">
-                Ban or unban by user ID (e.g. from a report). Uses <code className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[12px] font-mono text-white/70">admin_set_ban</code>.
+                Ban or unban by user ID (e.g. from a report). Uses{" "}
+                <code className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[12px] font-mono text-white/70">
+                  admin_set_ban
+                </code>
+                .
               </p>
               <div className="mt-6 space-y-4">
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">User ID</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">
+                    User ID
+                  </label>
                   <input
                     value={banUserId}
                     onChange={(e) => setBanUserId(e.target.value)}
@@ -949,7 +987,9 @@ export default function AdminModerationPage() {
                   <p className="mt-1.5 text-[12px] text-white/40">Leave blank for permanent ban.</p>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">Reason (optional)</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">
+                    Reason (optional)
+                  </label>
                   <input
                     value={banReason}
                     onChange={(e) => setBanReason(e.target.value)}

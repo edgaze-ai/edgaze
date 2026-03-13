@@ -108,7 +108,7 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
           transition={{ delay: 1.5 }}
           className="mb-4 text-4xl font-bold text-white md:text-5xl"
         >
-          You're officially a creator.
+          You&apos;re officially a creator.
         </motion.h1>
 
         {/* Subline */}
@@ -130,7 +130,7 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
             className="mb-6 rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-4"
           >
             <p className="mb-2 text-sm text-white/80">
-              Don't forget to connect payouts
+              Don&apos;t forget to connect payouts
             </p>
             <a
               href="/settings"

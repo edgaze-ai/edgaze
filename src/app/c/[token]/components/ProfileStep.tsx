@@ -180,7 +180,7 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
         <div>
           <h2 className="mb-2 text-3xl font-bold text-white">Set up your profile</h2>
           <p className="mb-8 text-sm opacity-50">
-            This is how you'll appear on the marketplace
+            This is how you&apos;ll appear on the marketplace
           </p>
 
           {error && (

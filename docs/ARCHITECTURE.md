@@ -57,33 +57,33 @@ Edgaze is a **server-side rendered (SSR) web application** built on Next.js 16 w
 
 ### Frontend
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| **React** | 19.2 | UI framework |
-| **Next.js** | 16.0 | React meta-framework with SSR |
-| **TypeScript** | 5.6 | Type-safe JavaScript |
-| **Tailwind CSS** | 3.4 | Utility-first CSS framework |
-| **Framer Motion** | 12.23 | Animation library |
-| **React Flow** | 11.11 | Workflow canvas visualization |
-| **Lucide React** | 0.452 | Icon library |
+| Technology        | Version | Purpose                       |
+| ----------------- | ------- | ----------------------------- |
+| **React**         | 19.2    | UI framework                  |
+| **Next.js**       | 16.0    | React meta-framework with SSR |
+| **TypeScript**    | 5.6     | Type-safe JavaScript          |
+| **Tailwind CSS**  | 3.4     | Utility-first CSS framework   |
+| **Framer Motion** | 12.23   | Animation library             |
+| **React Flow**    | 11.11   | Workflow canvas visualization |
+| **Lucide React**  | 0.452   | Icon library                  |
 
 ### Backend
 
-| Technology | Purpose |
-|------------|---------|
-| **Next.js API Routes** | RESTful API endpoints |
-| **Supabase** | Auth + PostgreSQL database |
-| **NextAuth** | Authentication middleware |
+| Technology                   | Purpose                      |
+| ---------------------------- | ---------------------------- |
+| **Next.js API Routes**       | RESTful API endpoints        |
+| **Supabase**                 | Auth + PostgreSQL database   |
+| **NextAuth**                 | Authentication middleware    |
 | **Row Level Security (RLS)** | Database-level authorization |
 
 ### Infrastructure
 
-| Service | Purpose |
-|---------|---------|
-| **Vercel** | Hosting and deployment |
-| **Supabase** | Database and auth infrastructure |
-| **GitHub Actions** | CI/CD pipeline |
-| **Mixpanel** | Analytics (optional) |
+| Service            | Purpose                          |
+| ------------------ | -------------------------------- |
+| **Vercel**         | Hosting and deployment           |
+| **Supabase**       | Database and auth infrastructure |
+| **GitHub Actions** | CI/CD pipeline                   |
+| **Mixpanel**       | Analytics (optional)             |
 
 ---
 
@@ -277,14 +277,14 @@ Edgaze uses **Supabase Auth** with **Bearer token authentication** for API route
 ```typescript
 // Client sends token
 const headers = {
-  'Authorization': `Bearer ${accessToken}`,
-  'Content-Type': 'application/json'
+  Authorization: `Bearer ${accessToken}`,
+  "Content-Type": "application/json",
 };
 
 // Server validates token
 const { user, error } = await getUserFromRequest(req);
 if (!user) {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 ```
 
@@ -321,14 +321,14 @@ CREATE POLICY "Users can update own workflows"
 
 All API routes follow REST principles:
 
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| `GET` | `/api/workflows` | List workflows |
-| `GET` | `/api/workflows/{id}` | Get specific workflow |
-| `POST` | `/api/workflows` | Create workflow |
-| `PATCH` | `/api/workflows/{id}` | Update workflow |
-| `DELETE` | `/api/workflows/{id}` | Delete workflow |
-| `POST` | `/api/workflows/{id}/publish` | Publish workflow |
+| Method   | Endpoint                      | Purpose               |
+| -------- | ----------------------------- | --------------------- |
+| `GET`    | `/api/workflows`              | List workflows        |
+| `GET`    | `/api/workflows/{id}`         | Get specific workflow |
+| `POST`   | `/api/workflows`              | Create workflow       |
+| `PATCH`  | `/api/workflows/{id}`         | Update workflow       |
+| `DELETE` | `/api/workflows/{id}`         | Delete workflow       |
+| `POST`   | `/api/workflows/{id}/publish` | Publish workflow      |
 
 ### Response format
 
@@ -403,14 +403,14 @@ Forms use **controlled components** with React state:
 
 ```typescript
 const [formData, setFormData] = useState({
-  title: '',
-  description: ''
+  title: "",
+  description: "",
 });
 
 const handleChange = (e) => {
-  setFormData(prev => ({
+  setFormData((prev) => ({
     ...prev,
-    [e.target.name]: e.target.value
+    [e.target.name]: e.target.value,
   }));
 };
 ```
@@ -494,11 +494,8 @@ try {
   const result = await performOperation();
   return NextResponse.json(result);
 } catch (error) {
-  console.error('Operation failed:', error);
-  return NextResponse.json(
-    { error: 'Operation failed' },
-    { status: 500 }
-  );
+  console.error("Operation failed:", error);
+  return NextResponse.json({ error: "Operation failed" }, { status: 500 });
 }
 ```
 

@@ -23,12 +23,12 @@ Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporati
 
 Ensure you have the following installed:
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| **Node.js** | 20+ | JavaScript runtime |
-| **npm** | 9+ | Package manager (bundled with Node.js) |
-| **Git** | Latest | Version control |
-| **Supabase CLI** | Latest | Database management (optional but recommended) |
+| Tool             | Version | Purpose                                        |
+| ---------------- | ------- | ---------------------------------------------- |
+| **Node.js**      | 20+     | JavaScript runtime                             |
+| **npm**          | 9+      | Package manager (bundled with Node.js)         |
+| **Git**          | Latest  | Version control                                |
+| **Supabase CLI** | Latest  | Database management (optional but recommended) |
 
 ### Optional tools
 
@@ -127,8 +127,8 @@ NEXT_PUBLIC_MIXPANEL_TOKEN=your-mixpanel-token
 Run this query in the SQL Editor to check that tables exist:
 
 ```sql
-SELECT table_name 
-FROM information_schema.tables 
+SELECT table_name
+FROM information_schema.tables
 WHERE table_schema = 'public'
 ORDER BY table_name;
 ```
@@ -148,6 +148,7 @@ npm run dev
 The app will be available at [http://localhost:3000](http://localhost:3000)
 
 **Features:**
+
 - ✅ Hot reload on file changes
 - ✅ Fast refresh for React components
 - ✅ TypeScript type checking in real-time
@@ -243,6 +244,7 @@ git commit -m "feat: add feature description"
 ```
 
 Use [conventional commit](https://www.conventionalcommits.org/) format:
+
 - `feat:` — New feature
 - `fix:` — Bug fix
 - `docs:` — Documentation changes

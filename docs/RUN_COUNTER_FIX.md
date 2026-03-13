@@ -1,7 +1,9 @@
 # Run Counter - Ultra-Reliable Solution
 
 ## Problem
+
 Workflow runs were succeeding but the counter wasn't incrementing reliably due to:
+
 1. Race conditions between update and count queries
 2. Delayed reads (300ms hack) for replication consistency
 3. Only counting completed/failed (timeout and cancelled consumed slots but weren't counted)
@@ -10,6 +12,7 @@ Workflow runs were succeeding but the counter wasn't incrementing reliably due t
 ## Solution (2025-03-06)
 
 ### Migration: `20250306000000_ultra_reliable_run_counting.sql`
+
 - **Atomic completion**: `complete_workflow_run_and_get_count()` RPC — update + return new count in one transaction
 - **All terminal states counted**: completed, failed, timeout, cancelled (every run that consumed a slot)
 - **Trigger safety net**: Auto-sets `completed_at` when status becomes terminal
@@ -25,6 +28,7 @@ Workflow runs were succeeding but the counter wasn't incrementing reliably due t
 4. **Fallback**: If RPC not available, falls back to `updateWorkflowRun` + `getUserWorkflowRunCount`
 
 ### Code Updates
+
 - `src/lib/supabase/executions.ts`: `completeWorkflowRunAndGetCount()`, terminal statuses in fallback
 - `src/app/api/flow/run/route.ts`: Uses atomic RPC for completion (streaming + non-streaming, success + error paths)
 - `src/app/api/flow/run/tracking-diagnostic/route.ts`: Includes timeout/cancelled in diagnostic counts
@@ -33,8 +37,8 @@ Workflow runs were succeeding but the counter wasn't incrementing reliably due t
 
 ```sql
 -- Check functions exist
-SELECT routine_name FROM information_schema.routines 
-WHERE routine_schema = 'public' 
+SELECT routine_name FROM information_schema.routines
+WHERE routine_schema = 'public'
 AND routine_name IN ('get_user_workflow_run_count', 'complete_workflow_run_and_get_count');
 
 -- Test count (replace with your ids)
@@ -46,6 +50,7 @@ FROM public.workflow_runs ORDER BY started_at DESC LIMIT 10;
 ```
 
 ### Migration
+
 - Fixes stuck runs automatically
 - Creates indexes for performance
 - Creates view for easy querying

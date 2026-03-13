@@ -113,7 +113,7 @@ export default function MarketplaceFiltersBar({
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
-    setIsMobile(mq.matches);
+    queueMicrotask(() => setIsMobile(mq.matches));
     const fn = () => setIsMobile(mq.matches);
     mq.addEventListener("change", fn);
     return () => mq.removeEventListener("change", fn);
@@ -132,7 +132,7 @@ export default function MarketplaceFiltersBar({
     if (topicDropdownOpen) {
       updateTopicDropdownPos();
     } else {
-      setTopicDropdownPos(null);
+      queueMicrotask(() => setTopicDropdownPos(null));
     }
   }, [topicDropdownOpen, updateTopicDropdownPos]);
 

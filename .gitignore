@@ -11,9 +11,11 @@ dist
 # Env
 .env
 .env.local
+.env.local.*
 .env.development
 .env.production
 .env.test
+*.bak
 
 # OS / Editors
 .DS_Store
@@ -24,9 +26,7 @@ tsconfig.tsbuildinfo
 .claude/
 supabase/.temp/
 
-.env
-.env.*
-*.bak
-*.backup
-node_modules/
-.next/
+.claude/
+.cursor/
+.DS_Store
+*.tsbuildinfo

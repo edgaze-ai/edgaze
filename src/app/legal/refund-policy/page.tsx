@@ -71,7 +71,7 @@ export default function RefundPolicyPage() {
               <li>Full refunds are issued to your original payment method</li>
               <li>Processing typically takes 5-10 business days</li>
               <li>Your access to the purchased content will be revoked</li>
-              <li>The creator's earnings will be adjusted accordingly</li>
+              <li>The creator&apos;s earnings will be adjusted accordingly</li>
             </ul>
           </section>
 
@@ -81,7 +81,7 @@ export default function RefundPolicyPage() {
               In some cases, we may offer a partial refund:
             </p>
             <ul className="list-disc pl-6 space-y-2">
-              <li>If you've used the product extensively but encountered issues</li>
+              <li>If you&apos;ve used the product extensively but encountered issues</li>
               <li>If only part of a bundle is defective</li>
               <li>At our discretion for exceptional circumstances</li>
             </ul>

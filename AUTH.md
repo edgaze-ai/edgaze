@@ -39,7 +39,7 @@ This gives a single, reliable way to get the current user in API routes.
 - **Usage:** Use this in any API route that needs to know the authenticated user.
 
 ```ts
-import { getUserFromRequest } from "../_auth";   // adjust path to _auth.ts
+import { getUserFromRequest } from "../_auth"; // adjust path to _auth.ts
 
 export async function GET(req: NextRequest) {
   const { user, error } = await getUserFromRequest(req);
@@ -51,8 +51,8 @@ export async function GET(req: NextRequest) {
 }
 ```
 
-- **Returns:**  
-  - Success: `{ user: User, error: null }`  
+- **Returns:**
+  - Success: `{ user: User, error: null }`
   - Failure: `{ user: null, error: string }`
 - **Requires:** Client sends `Authorization: Bearer <accessToken>`.
 - **Environment:** Uses `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` only (no service role). The token is validated by Supabase Auth.
@@ -126,15 +126,12 @@ Example skeleton:
 // src/app/api/your-route/route.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getUserFromRequest } from "../../flow/_auth";  // fix path
+import { getUserFromRequest } from "../../flow/_auth"; // fix path
 
 export async function POST(req: NextRequest) {
   const { user, error } = await getUserFromRequest(req);
   if (!user) {
-    return NextResponse.json(
-      { error: error ?? "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: error ?? "Unauthorized" }, { status: 401 });
   }
   const userId = user.id;
   // ... rest of handler
@@ -145,12 +142,12 @@ export async function POST(req: NextRequest) {
 
 ## Supabase Clients: When to Use Which
 
-| Client | File | Use case |
-|--------|------|----------|
-| **Browser** | `src/lib/supabase/browser.ts` | Client-side only. Has the session (localStorage), used for sign-in, profile, and getting the access token. |
-| **Server (cookie-based)** | `src/lib/supabase/server.ts` | Server Components / SSR where cookies are available and you want to read the session from cookies. **Not** used for API Route Handlers that need reliable auth (use Bearer + `getUserFromRequest` instead). |
-| **Admin (service role)** | `src/lib/supabase/admin.ts` | Server-only. Bypasses RLS. Use when the API route has already verified the user (e.g. via `getUserFromRequest`) and needs to perform privileged or RLS-exempt operations (e.g. run tracking, admin checks). |
-| **One-off with token** | Inside `getUserFromRequest` | Created in `_auth.ts` with the Bearer token and `persistSession: false`. Used only to validate the token and return the user. |
+| Client                    | File                          | Use case                                                                                                                                                                                                    |
+| ------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Browser**               | `src/lib/supabase/browser.ts` | Client-side only. Has the session (localStorage), used for sign-in, profile, and getting the access token.                                                                                                  |
+| **Server (cookie-based)** | `src/lib/supabase/server.ts`  | Server Components / SSR where cookies are available and you want to read the session from cookies. **Not** used for API Route Handlers that need reliable auth (use Bearer + `getUserFromRequest` instead). |
+| **Admin (service role)**  | `src/lib/supabase/admin.ts`   | Server-only. Bypasses RLS. Use when the API route has already verified the user (e.g. via `getUserFromRequest`) and needs to perform privileged or RLS-exempt operations (e.g. run tracking, admin checks). |
+| **One-off with token**    | Inside `getUserFromRequest`   | Created in `_auth.ts` with the Bearer token and `persistSession: false`. Used only to validate the token and return the user.                                                                               |
 
 - **Rule of thumb:** In API routes, **identify the user** with `getUserFromRequest(req)`. Then, if you need to hit tables protected by RLS or that require the service role (e.g. `workflow_runs`, `admin_roles`), use **admin client** from `src/lib/supabase/admin.ts` and pass the already-resolved `userId`. Do not rely on the server/cookie client for identity in API routes.
 

@@ -31,10 +31,6 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; style?: any 
   FileText,
 };
 
-function getIconComponent(iconName: string) {
-  return ICON_MAP[iconName] ?? MessageSquare;
-}
-
 function getPreviewText(specId: string, spec: NodeSpec): string {
   const c = spec.defaultConfig ?? {};
   switch (specId) {
@@ -81,7 +77,7 @@ export function NodePreviewCard({
   const registry = getNodeRegistryEntry(spec.id);
   const nodeColor = registry?.color ?? "#8b5cf6";
   const previewText = getPreviewText(spec.id, spec);
-  const IconComponent = getIconComponent(registry?.icon ?? "MessageSquare");
+  const iconComp = ICON_MAP[registry?.icon ?? "MessageSquare"] ?? MessageSquare;
 
   const cardWrapperStyle: React.CSSProperties = {
     width: 200,
@@ -154,7 +150,10 @@ export function NodePreviewCard({
                 flexShrink: 0,
               }}
             >
-              <IconComponent size={12} style={{ color: nodeColor }} />
+              {React.createElement(iconComp, {
+                size: 12,
+                style: { color: nodeColor },
+              })}
             </div>
             <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1 }}>Condition</span>
             <span style={{ fontSize: 9, color: "#333" }}>
@@ -242,7 +241,10 @@ export function NodePreviewCard({
                 flexShrink: 0,
               }}
             >
-              <IconComponent size={12} style={{ color: nodeColor }} />
+              {React.createElement(iconComp, {
+                size: 12,
+                style: { color: nodeColor },
+              })}
             </div>
             <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {spec.label}
@@ -318,7 +320,10 @@ export function NodePreviewCard({
             {registry?.iconImage ? (
               <img src={registry.iconImage} alt="" style={{ width: 12, height: 12, objectFit: "contain" }} />
             ) : (
-              <IconComponent size={12} style={{ color: nodeColor }} />
+              React.createElement(iconComp, {
+                size: 12,
+                style: { color: nodeColor },
+              })
             )}
           </div>
           <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
