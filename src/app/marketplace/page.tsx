@@ -10,6 +10,7 @@ import {
   LogOut,
   User,
   Heart,
+  RefreshCw,
 } from "lucide-react";
 
 import { useAuth } from "../../components/auth/AuthContext";
@@ -18,6 +19,10 @@ import { createSupabasePublicBrowserClient } from "../../lib/supabase/public";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import ErrorModal from "../../components/marketplace/ErrorModal";
 import FeaturedBuildCTA from "../../components/marketplace/FeaturedBuildCTA";
+import MarketplaceFiltersBar, {
+  type MarketplaceFilters,
+  type MarketplaceSort,
+} from "../../components/marketplace/MarketplaceFiltersBar";
 import FoundingCreatorBadge from "../../components/ui/FoundingCreatorBadge";
 import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import ProfileLink from "../../components/ui/ProfileLink";
@@ -1560,6 +1565,14 @@ const [codeQuery, setCodeQuery] = useState("");
   const [codeSuggestions, setCodeSuggestions] = useState<CodeSuggestion[]>([]);
   const [codeSugLoading, setCodeSugLoading] = useState(false);
 
+  const [filters, setFilters] = useState<MarketplaceFilters>({
+    sort: "newest",
+    topic: null,
+    contentType: "all",
+    priceRange: { min: null, max: null },
+    topics: [],
+  });
+
   const [ownerProfiles, setOwnerProfiles] = useState<
     Record<string, ProfileMini | undefined>
   >({});
@@ -1570,6 +1583,11 @@ const [codeQuery, setCodeQuery] = useState("");
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
+  const refreshSaltRef = useRef(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const pullStartY = useRef(0);
+  const pullDistanceRef = useRef(0);
+  const resetAndLoadRef = useRef<() => Promise<void>>(() => Promise.resolve());
 
   const [featuredCTAPosition, setFeaturedCTAPosition] = useState<number | null>(null);
   const showFeaturedCTA = !loadingFirst && items.length > 0;
@@ -1645,7 +1663,20 @@ const [codeQuery, setCodeQuery] = useState("");
     setOwnerProfiles((prev) => ({ ...prev, ...map }));
   };
 
-  const fetchPrompts = async (offset: number, q: string) => {
+  type FetchOpts = {
+    q: string;
+    sort: MarketplaceSort;
+    contentType: "all" | "prompt" | "workflow";
+    topic: string | null;
+    topics: string[];
+    priceMin: number | null;
+    priceMax: number | null;
+  };
+
+  const fetchPrompts = async (offset: number, opts: FetchOpts) => {
+    const { q, sort, contentType, topic, topics, priceMin, priceMax } = opts;
+    if (contentType === "workflow") return [];
+
     let builder = supabase
       .from("prompts")
       .select(
@@ -1672,10 +1703,18 @@ const [codeQuery, setCodeQuery] = useState("");
           "created_at",
         ].join(",")
       )
-      .in("type", ["prompt", "workflow"])
+      .in("type", contentType === "prompt" ? ["prompt"] : ["prompt", "workflow"])
       .in("visibility", ["public", "unlisted"])
-      .order("created_at", { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
+
+    if (sort === "popular") {
+      builder = builder
+        .order("views_count", { ascending: false, nullsFirst: false })
+        .order("likes_count", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
+    } else {
+      builder = builder.order("created_at", { ascending: false });
+    }
 
     if (q) {
       builder = builder.or(
@@ -1689,6 +1728,13 @@ const [codeQuery, setCodeQuery] = useState("");
         ].join(",")
       );
     }
+
+    if (topic) builder = builder.ilike("tags", `%${topic}%`);
+    if (topics.length > 0) {
+      builder = builder.or(topics.map((t) => `tags.ilike.%${t}%`).join(","));
+    }
+    if (priceMin != null) builder = builder.gte("price_usd", priceMin);
+    if (priceMax != null) builder = builder.lte("price_usd", priceMax);
 
     const { data, error } = await builder;
     if (error) throw error;
@@ -1719,7 +1765,10 @@ const [codeQuery, setCodeQuery] = useState("");
     return mapped;
   };
 
-  const fetchWorkflows = async (offset: number, q: string) => {
+  const fetchWorkflows = async (offset: number, opts: FetchOpts) => {
+    const { q, sort, contentType, topic, topics, priceMin, priceMax } = opts;
+    if (contentType === "prompt") return [];
+
     const baseSelect = [
       "id",
       "owner_id",
@@ -1749,9 +1798,19 @@ const [codeQuery, setCodeQuery] = useState("");
         .from("workflows")
         .select(baseSelect)
         .eq("is_published", true)
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
+
+      if (sort === "popular") {
+        builder = builder
+          .order("views_count", { ascending: false, nullsFirst: false })
+          .order("likes_count", { ascending: false, nullsFirst: false })
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false });
+      } else {
+        builder = builder
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false });
+      }
 
       if (mode === "visibility") builder = builder.in("visibility", ["public", "unlisted"]);
       else builder = builder.eq("is_public", true);
@@ -1768,6 +1827,13 @@ const [codeQuery, setCodeQuery] = useState("");
           ].join(",")
         );
       }
+
+      if (topic) builder = builder.ilike("tags", `%${topic}%`);
+      if (topics.length > 0) {
+        builder = builder.or(topics.map((t) => `tags.ilike.%${t}%`).join(","));
+      }
+      if (priceMin != null) builder = builder.gte("price_usd", priceMin);
+      if (priceMax != null) builder = builder.lte("price_usd", priceMax);
 
       return await builder;
     };
@@ -1816,9 +1882,79 @@ const [codeQuery, setCodeQuery] = useState("");
     try {
       const q = debouncedQuery;
 
+      if (filters.sort === "trending" && replace) {
+        const res = await fetch("/api/trending/this-week");
+        if (!res.ok) throw new Error("Trending fetch failed");
+        const json = await res.json();
+        const wf = (json.topWorkflowsThisWeek ?? []) as Array<Record<string, unknown>>;
+        const pr = (json.topPromptsThisWeek ?? []) as Array<Record<string, unknown>>;
+        const toMp = (r: Record<string, unknown>, type: "workflow" | "prompt"): MarketplacePrompt => ({
+          id: String(r.id ?? ""),
+          owner_id: r.owner_id != null ? String(r.owner_id) : null,
+          type,
+          edgaze_code: (r.edgaze_code as string) ?? null,
+          title: (r.title as string) ?? null,
+          description: (r.description as string) ?? null,
+          prompt_text: (r.prompt_text as string) ?? null,
+          thumbnail_url: (r.thumbnail_url as string) ?? null,
+          owner_name: (r.owner_name as string) ?? null,
+          owner_handle: (r.owner_handle as string) ?? null,
+          tags: (r.tags as string) ?? null,
+          visibility: null,
+          monetisation_mode: (r.monetisation_mode as MonetisationMode) ?? null,
+          is_paid: (r.is_paid as boolean) ?? null,
+          price_usd: r.price_usd != null ? Number(r.price_usd) : null,
+          view_count: r.views_count != null ? Number(r.views_count) : r.view_count != null ? Number(r.view_count) : null,
+          like_count: r.likes_count != null ? Number(r.likes_count) : r.like_count != null ? Number(r.like_count) : null,
+          created_at: (r.created_at as string) ?? (r.published_at as string) ?? null,
+          published_at: (r.published_at as string) ?? null,
+        });
+        let merged = [...wf.map((w) => toMp(w, "workflow")), ...pr.map((p) => toMp(p, "prompt"))];
+        if (q) {
+          const ql = q.toLowerCase();
+          merged = merged.filter(
+            (x) =>
+              (x.title ?? "").toLowerCase().includes(ql) ||
+              (x.description ?? "").toLowerCase().includes(ql) ||
+              (x.tags ?? "").toLowerCase().includes(ql) ||
+              (x.owner_handle ?? "").toLowerCase().includes(ql) ||
+              (x.edgaze_code ?? "").toLowerCase().includes(ql)
+          );
+        }
+        if (filters.contentType === "prompt") merged = merged.filter((x) => x.type === "prompt");
+        else if (filters.contentType === "workflow") merged = merged.filter((x) => x.type === "workflow");
+        if (filters.topic) {
+          const t = filters.topic.toLowerCase();
+          merged = merged.filter((x) => (x.tags ?? "").toLowerCase().includes(t));
+        }
+        for (const t of filters.topics) {
+          const tl = t.toLowerCase();
+          merged = merged.filter((x) => (x.tags ?? "").toLowerCase().includes(tl));
+        }
+        if (filters.priceRange.min != null) merged = merged.filter((x) => (x.price_usd ?? 0) >= filters.priceRange.min!);
+        if (filters.priceRange.max != null) merged = merged.filter((x) => (x.price_usd ?? 999) <= filters.priceRange.max!);
+        setItems(merged);
+        setPending([]);
+        setHasMore(false);
+        emitEvent({ name: "load_page", meta: { replace, q, sort: "trending" } });
+        const profileOpts = { userId, currentUserHandle: profile?.handle };
+        fetchOwnerProfiles(merged, profileOpts).catch(() => {});
+        return false;
+      }
+
+      const opts: FetchOpts = {
+        q,
+        sort: filters.sort,
+        contentType: filters.contentType,
+        topic: filters.topic,
+        topics: filters.topics,
+        priceMin: filters.priceRange.min,
+        priceMax: filters.priceRange.max,
+      };
+
       const [promptsRes, workflowsRes] = await Promise.allSettled([
-        fetchPrompts(cursorState.promptsOffset, q),
-        fetchWorkflows(cursorState.workflowsOffset, q),
+        fetchPrompts(cursorState.promptsOffset, opts),
+        fetchWorkflows(cursorState.workflowsOffset, opts),
       ]);
 
       const prompts =
@@ -1848,12 +1984,15 @@ const [codeQuery, setCodeQuery] = useState("");
 
       emitEvent({ name: "load_page", meta: { replace, q } });
 
-      const { page: nextPage, rest: nextPending } = pickDiversifiedPage(
-        mergedPool,
-        PAGE_SIZE,
-        userProfile,
-        sessionId
-      );
+      const sessionSalt = replace
+        ? `${sessionId}_r${refreshSaltRef.current}`
+        : sessionId;
+
+      // For "newest", preserve strict chronological order; otherwise use diversification
+      const { page: nextPage, rest: nextPending } =
+        filters.sort === "newest"
+          ? { page: mergedPool.slice(0, PAGE_SIZE), rest: mergedPool.slice(PAGE_SIZE) }
+          : pickDiversifiedPage(mergedPool, PAGE_SIZE, userProfile, sessionSalt);
 
       setItems((prev) => (replace ? nextPage : [...prev, ...nextPage]));
       setPending(nextPending);
@@ -1888,6 +2027,8 @@ const [codeQuery, setCodeQuery] = useState("");
     setPending([]);
     setCursor({ promptsOffset: 0, workflowsOffset: 0 });
     setLoadingFirst(true);
+    setPullDistance(0);
+    refreshSaltRef.current = Date.now();
 
     const ok = await loadPage({
       cursorState: { promptsOffset: 0, workflowsOffset: 0 },
@@ -1900,6 +2041,16 @@ const [codeQuery, setCodeQuery] = useState("");
     if (!ok) setHasMore(false);
   };
 
+  resetAndLoadRef.current = resetAndLoad;
+
+  const filtersKey = JSON.stringify({
+    sort: filters.sort,
+    topic: filters.topic,
+    contentType: filters.contentType,
+    priceRange: filters.priceRange,
+    topics: filters.topics,
+  });
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -1909,9 +2060,8 @@ const [codeQuery, setCodeQuery] = useState("");
     return () => {
       cancelled = true;
     };
-    // Intentionally run only when search query changes; resetAndLoad/loadPage omitted to avoid re-running on every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [committedDebouncedQuery]);
+  }, [committedDebouncedQuery, filtersKey]);
 
   // Start loading more well before user reaches the bottom so content is ready when they scroll
   useEffect(() => {
@@ -1967,6 +2117,21 @@ const [codeQuery, setCodeQuery] = useState("");
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "r" && e.key !== "R") return;
+      const target = e.target as HTMLElement;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || target?.isContentEditable)
+        return;
+      if (loadingFirst) return;
+      e.preventDefault();
+      resetAndLoadRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [loadingFirst]);
 
   // --- unified predictor: queries prompts + workflows + profiles concurrently ---
   useEffect(() => {
@@ -2462,8 +2627,8 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
 
   return (
     <>
-      <div className="flex h-screen flex-col bg-[#050505] text-white">
-      <header className="sticky top-0 z-[50] flex flex-col gap-2 bg-[#050505]/85 backdrop-blur px-4 py-2 sm:gap-3 sm:px-6 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex h-screen flex-col bg-[#050505] text-white min-h-[100dvh]">
+      <header className="sticky top-0 z-[70] flex flex-col gap-2 bg-[#050505]/90 backdrop-blur-md px-5 py-3 sm:gap-3 sm:px-6 sm:py-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.04]">
   <div className="flex items-center justify-between sm:justify-start">
     <div className="hidden sm:block leading-tight">
   <div className="flex items-center gap-2">
@@ -2529,16 +2694,61 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
           </div>
 
           <div className="flex items-center gap-3">
-  <div className="hidden sm:block">{topRightDesktop}</div>
-</div>
+            <button
+              type="button"
+              onClick={() => {
+                if (loadingFirst) return;
+                resetAndLoad();
+              }}
+              disabled={loadingFirst}
+              className={cn(
+                "hidden sm:flex rounded-full border border-white/15 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white transition-colors",
+                loadingFirst && "opacity-50 cursor-not-allowed"
+              )}
+              title="Refresh (personalized order)"
+              aria-label="Refresh marketplace"
+            >
+              <RefreshCw
+                className={cn("h-4 w-4", loadingFirst && "animate-spin")}
+              />
+            </button>
+            <div className="hidden sm:block">{topRightDesktop}</div>
+          </div>
         </header>
 
-        <main ref={mainRef} className="flex-1 overflow-y-auto px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
-{/* Code box - z-[60] so dropdown appears above marketplace cards */}
+        <main
+          ref={mainRef}
+          className="relative flex-1 overflow-y-auto overflow-x-hidden px-5 pb-12 pt-5 sm:px-6 sm:pt-6 sm:pb-10"
+          onTouchStart={(e) => {
+            const el = mainRef.current;
+            if (!el || el.scrollTop > 2) return;
+            pullStartY.current = e.touches[0]?.clientY ?? 0;
+          }}
+          onTouchMove={(e) => {
+            const el = mainRef.current;
+            if (!el || el.scrollTop > 2 || loadingFirst) return;
+            const y = e.touches[0]?.clientY ?? 0;
+            const dy = y - pullStartY.current;
+            if (dy <= 0) return;
+            const resist = 0.5;
+            const d = Math.min(dy * resist, 100);
+            pullDistanceRef.current = d;
+            setPullDistance(d);
+            if (d > 10) e.preventDefault();
+          }}
+          onTouchEnd={() => {
+            const d = pullDistanceRef.current;
+            if (d >= 60) resetAndLoadRef.current();
+            pullDistanceRef.current = 0;
+            setPullDistance(0);
+          }}
+        >
+          {/* Pull-to-refresh: gesture works on mobile, no visual overlay (premium minimal) */}
+          {/* Code box - z-[60] so dropdown appears above marketplace cards */}
           <section className="relative z-[60] mb-6">
             <form
               onSubmit={handleCodeSubmit}
-              className="relative w-full overflow-visible rounded-3xl border border-white/15 bg-slate-950/95 backdrop-blur-sm px-5 py-5 sm:px-6 sm:py-5 shadow-[0_0_50px_rgba(15,23,42,0.8)]"
+              className="relative w-full overflow-visible rounded-3xl border border-white/[0.12] sm:border-white/15 bg-slate-950/98 backdrop-blur-xl px-5 py-5 sm:px-6 sm:py-5 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.5)] sm:shadow-[0_0_50px_rgba(15,23,42,0.8)]"
             >
               <div className="pointer-events-none absolute inset-[1px] rounded-[23px] opacity-70 edgaze-gradient" />
               <div className="pointer-events-none absolute inset-[1px] rounded-[23px] opacity-55 edgaze-gradient-2" />
@@ -2664,6 +2874,17 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
             </form>
           </section>
 
+          <MarketplaceFiltersBar
+            filters={filters}
+            onFiltersChange={setFilters}
+            activeFilterCount={
+              (filters.topic ? 1 : 0) +
+              (filters.contentType !== "all" ? 1 : 0) +
+              (filters.priceRange.min != null || filters.priceRange.max != null ? 1 : 0) +
+              filters.topics.length
+            }
+          />
+
           {errorMsg && (
             <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
               {errorMsg}
@@ -2671,7 +2892,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
           )}
 
           {loadingFirst ? (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 2 }).map((_, i) => (
                 <div
                   key={i}
@@ -2723,7 +2944,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
             <div className="text-sm text-white/60">No listings found.</div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-6 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 {showFeaturedCTA
                   ? (() => {
                       const pos = featuredCTAPosition ?? 0;

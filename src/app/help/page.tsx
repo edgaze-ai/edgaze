@@ -316,19 +316,6 @@ function ResourceCard({ card, reducedMotion }: { card: Card; reducedMotion: bool
 export default function HelpPage() {
   const reducedMotion = useReducedMotion();
 
-  useEffect(() => {
-    const main = document.querySelector('main');
-    if (main) {
-      main.style.overflowY = 'auto';
-      main.style.overflowX = 'hidden';
-      return () => {
-        main.style.overflowY = '';
-        main.style.overflowX = '';
-      };
-    }
-    return;
-  }, []);
-
   const cards = useMemo<Card[]>(
     () => [
       {
@@ -368,7 +355,7 @@ export default function HelpPage() {
   );
 
   return (
-    <div className="min-h-screen w-full">
+    <div className="min-h-screen w-full overflow-y-auto">
       {/* background */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-black" />

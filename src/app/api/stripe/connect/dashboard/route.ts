@@ -1,23 +1,24 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { getUserAndClient } from '@/lib/auth/server';
+import { createSupabaseAdminClient } from '@/lib/supabase/admin';
 import { stripe } from '@/lib/stripe/client';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createServerClient();
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
+    const result = await getUserAndClient(req);
+    const user = result?.user ?? null;
+
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const { data: connectAccount } = await supabase
+    const admin = createSupabaseAdminClient();
+    const { data: connectAccount } = await admin
       .from('stripe_connect_accounts')
       .select('stripe_account_id, account_status')
       .eq('user_id', user.id)

@@ -4,49 +4,7 @@ import DocRenderer from "../components/DocRenderer";
 import DocTOC from "../components/DocTOC";
 import { CopyMarkdownButton } from "../components/CopyMarkdownButton";
 import { getAllDocs, getDoc } from "../utils/docs";
-
-function extractToc(md: string) {
-  const lines = md.split("\n");
-  const items: { id: string; text: string }[] = [];
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) continue;
-
-    let text: string | null = null;
-
-    // Only ## main headings for "On this page"
-    if (line.startsWith("## ")) {
-      text = line.slice(3).trim();
-    } else {
-      // Policy docs: "1. Purpose of This Policy" (short, no bold) — not list steps like "1. Click on..."
-      const numbered = line.match(/^(\d+)\.\s+(.*)$/);
-      if (numbered) {
-        const part = numbered[2]?.trim() || null;
-        const isListStep =
-          !part ||
-          /^\d/.test(part) ||
-          part.includes(" - ") ||
-          part.includes("**") ||
-          part.length > 72 ||
-          /^(Click|Type|Fill|Select|Look|Open|If you|You'll|Press|Enter|Add|Choose|Use|Switch|Drag|Release|Review|Save|Create|Edit|Delete|In the|When you|After |Before )/i.test(part);
-        if (part && !isListStep) text = part;
-      }
-    }
-
-    if (!text) continue;
-
-    const id = text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, "")
-      .trim()
-      .replace(/\s+/g, "-");
-
-    items.push({ id, text });
-  }
-
-  return items;
-}
+import { extractToc } from "../utils/extractToc";
 
 export function generateStaticParams() {
   return getAllDocs().map((d) => ({ slug: d.slug }));
@@ -116,7 +74,7 @@ export default async function DocPage({
             </p>
           ) : null}
           <div className="pt-1">
-            <CopyMarkdownButton title={doc.title} />
+            <CopyMarkdownButton title={doc.title} body={doc.body} />
           </div>
         </header>
 

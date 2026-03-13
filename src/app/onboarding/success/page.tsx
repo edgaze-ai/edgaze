@@ -3,12 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/components/auth/AuthContext';
 import { CheckCircle2, ArrowRight, DollarSign, TrendingUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function OnboardingSuccessPage() {
   const router = useRouter();
+  const { refreshProfile } = useAuth();
   const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    refreshProfile().catch(() => {});
+  }, [refreshProfile]);
 
   useEffect(() => {
     const main = document.querySelector('main');

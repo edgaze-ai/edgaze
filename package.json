@@ -31,6 +31,8 @@
         "db:reset": "npx supabase db reset"
     },
     "dependencies": {
+        "@stripe/connect-js": "^3.3.34",
+        "@stripe/react-connect-js": "^3.3.33",
         "@stripe/stripe-js": "^8.9.0",
         "@supabase/ssr": "^0.8.0",
         "@supabase/supabase-js": "^2.84.0",

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   X,
   Upload,
@@ -21,6 +22,7 @@ import { generateWorkflowThumbnailFile } from "./workflowThumbnailGenerator";
 import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
+import { WORKFLOW_MAX_USD, WORKFLOW_MIN_USD, validateWorkflowPrice } from "../../lib/marketplace/pricing";
 
 type MonetisationMode = "free" | "paywall" | "subscription";
 type Visibility = "public" | "unlisted" | "private";
@@ -350,6 +352,7 @@ export default function WorkflowPublishModal({
     handle: string;
     avatarUrl: string | null;
     userId: string;
+    canReceivePayments?: boolean;
   } | null>(null);
 
   const [tab, setTab] = useState<PublishTab>("details");
@@ -438,13 +441,14 @@ export default function WorkflowPublishModal({
             handle: owner?.handle || "you",
             avatarUrl: owner?.avatarUrl || null,
             userId: "",
+            canReceivePayments: false,
           });
           return;
         }
 
         const { data, error } = await supabase
           .from("profiles")
-          .select("id,full_name,handle,avatar_url")
+          .select("id,full_name,handle,avatar_url,can_receive_payments")
           .eq("id", user.id)
           .limit(1)
           .maybeSingle();
@@ -459,6 +463,7 @@ export default function WorkflowPublishModal({
           handle,
           avatarUrl: data?.avatar_url || owner?.avatarUrl || null,
           userId: user.id,
+          canReceivePayments: Boolean((data as any)?.can_receive_payments),
         });
       } catch {
         setPostingAs({
@@ -466,6 +471,7 @@ export default function WorkflowPublishModal({
           handle: owner?.handle || "you",
           avatarUrl: owner?.avatarUrl || null,
           userId: "",
+          canReceivePayments: false,
         });
       }
     })();
@@ -789,6 +795,17 @@ export default function WorkflowPublishModal({
         if (up.url) demoUrls.push(up.url);
       }
 
+      const effectiveMonetisation: MonetisationMode =
+        postingAs.canReceivePayments && monetisationMode === "paywall" ? "paywall" : "free";
+      const effectivePrice =
+        effectiveMonetisation === "paywall"
+          ? (() => {
+              const v = validateWorkflowPrice(Number(priceUsd) || 0);
+              if (!v.valid) throw new Error(v.error);
+              return Number(priceUsd) || WORKFLOW_MIN_USD;
+            })()
+          : 0;
+
       const row: any = {
         id: workflowId,
         owner_id: userId, // uuid column
@@ -805,9 +822,9 @@ export default function WorkflowPublishModal({
         visibility,
         is_public: visibility !== "private",
 
-        monetisation_mode: monetisationMode,
-        is_paid: monetisationMode === "paywall",
-        price_usd: monetisationMode === "paywall" ? Number(priceUsd || 0) : 0,
+        monetisation_mode: effectiveMonetisation,
+        is_paid: effectiveMonetisation === "paywall",
+        price_usd: effectivePrice,
 
         thumbnail_url: thumbnailUrl,
         demo_images: demoUrls.length ? demoUrls : null,
@@ -1291,14 +1308,35 @@ export default function WorkflowPublishModal({
 
                   {tab === "pricing" ? (
                     <div className="space-y-5">
+                      {postingAs && !postingAs.canReceivePayments && (
+                        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                            <div>
+                              <div className="text-[12px] font-semibold text-amber-200">You haven&apos;t connected payments</div>
+                              <div className="mt-1 text-[11px] text-white/70">
+                                Join the Edgaze Creator Program and connect your payout account to enable payments on your workflows.
+                              </div>
+                              <Link
+                                href="/creators/onboarding?from=studio"
+                                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/90 to-purple-500/90 px-4 py-2 text-[12px] font-semibold text-white hover:opacity-90 transition"
+                              >
+                                Set up payouts →
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <div className="text-[12px] font-semibold text-white/85">Monetisation</div>
                         <div className="text-[11px] text-white/50 mt-1">
-                          Payments unavailable during beta. Only Free is available.
+                          {postingAs?.canReceivePayments
+                            ? "Choose Free or set a price ($5–$150 for workflows)."
+                            : "Your workflow will be published as Free until you connect payments."}
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {(["free", "paywall", "subscription"] as MonetisationMode[]).map((m) => {
-                            const disabled = m !== "free";
+                            const disabled = m === "subscription" || (m === "paywall" && !postingAs?.canReceivePayments);
                             return (
                               <button
                                 key={m}
@@ -1310,15 +1348,36 @@ export default function WorkflowPublishModal({
                                   disabled
                                     ? "border-white/10 bg-white/[0.02] text-white/50 opacity-70 cursor-not-allowed"
                                     : monetisationMode === m
-                                      ? "border-white/18 bg-white/[0.08] text-white"
+                                      ? "border-cyan-400/25 bg-cyan-400/10 text-white"
                                       : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]"
                                 )}
                               >
                                 {m === "free" ? "Free" : m === "paywall" ? "Paywall" : "Subscription"}
+                                {m === "paywall" && !postingAs?.canReceivePayments && " (connect payouts first)"}
+                                {m === "subscription" && " (coming soon)"}
                               </button>
                             );
                           })}
                         </div>
+                        {postingAs?.canReceivePayments && monetisationMode === "paywall" && (
+                          <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4">
+                            <div className="text-[12px] font-semibold text-white/90 mb-2">Price (USD)</div>
+                            <input
+                              type="number"
+                              min={WORKFLOW_MIN_USD}
+                              max={WORKFLOW_MAX_USD}
+                              step="0.99"
+                              value={priceUsd}
+                              onChange={(e) => setPriceUsd(e.target.value)}
+                              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-[14px] text-white placeholder-white/40 focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/30 focus:outline-none"
+                              placeholder="5.99"
+                            />
+                            {validateWorkflowPrice(Number(priceUsd) || 0).error && (
+                              <p className="mt-2 text-[11px] text-amber-400">{validateWorkflowPrice(Number(priceUsd) || 0).error}</p>
+                            )}
+                            <p className="mt-2 text-[11px] text-white/45">Minimum $5, maximum $150 for workflows.</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ) : null}

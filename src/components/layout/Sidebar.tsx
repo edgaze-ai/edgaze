@@ -47,9 +47,14 @@ const BUILD_ITEMS: NavItem[] = [
   { href: "/prompt-studio", label: "Prompt Studio", icon: Sparkles },
 ];
 
-const CREATOR_ITEMS: NavItem[] = [
-  { href: "/dashboard/earnings", label: "Earnings", icon: DollarSign },
-];
+// Monetisation → Creator Program (/creators) until Stripe onboarding done, then → Earnings
+function getCreatorItems(canReceivePayments: boolean | null | undefined): NavItem[] {
+  return [
+    canReceivePayments
+      ? { href: "/dashboard/earnings", label: "Earnings", icon: DollarSign }
+      : { href: "/creators", label: "Monetisation", icon: DollarSign },
+  ];
+}
 
 // Include a query param so /profile can show a sign-in CTA only when opened from sidebar.
 const ACCOUNT_ITEMS: NavItem[] = [
@@ -215,7 +220,7 @@ export default function Sidebar() {
             />
             <NavGroup
               title={collapsed ? "" : "Creator"}
-              items={CREATOR_ITEMS}
+              items={getCreatorItems(profile?.can_receive_payments)}
               collapsed={collapsed}
               isActive={isActive}
             />

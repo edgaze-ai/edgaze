@@ -3,14 +3,12 @@
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
-export function CopyMarkdownButton({ title }: { title: string }) {
+export function CopyMarkdownButton({ body }: { title: string; body: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
     try {
-      const href =
-        typeof window !== "undefined" ? window.location.href : "";
-      const markdown = `[${title}](${href})`;
+      const markdown = body.trim();
       await navigator.clipboard.writeText(markdown);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);

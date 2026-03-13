@@ -7,31 +7,42 @@ import MobileTopbar from "../components/layout/MobileTopbar";
 import MobileSidebarDrawer from "../components/layout/MobileSidebarDrawer";
 
 const HIDE_SIDEBAR_ROUTES = new Set([
-  "/",      // landing
-  "/apply", // your apply flow
+  "/",       // landing
+  "/apply",  // legacy apply flow
+  "/careers", // careers portal - full-width, no sidebar
+  "/about",  // about page - full-width marketing
+  "/blogs",  // blog portal - own sidebar, full-width
+  "/pricing", // pricing page - full-width marketing
+  "/help",   // help page - full-width, scrollable
 ]);
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const hideSidebar = HIDE_SIDEBAR_ROUTES.has(pathname);
+  const hideSidebar =
+    HIDE_SIDEBAR_ROUTES.has(pathname) || pathname.startsWith("/blogs");
   const isLibraryPage = pathname === "/library";
+  const isCreatorsOnboarding = pathname === "/creators/onboarding";
+  const isDashboardEarnings = pathname === "/dashboard/earnings";
 
   if (hideSidebar) {
     return <main className="min-h-screen">{children}</main>;
   }
 
-  // On mobile, library page needs to scroll naturally - use CSS class for mobile override
-  const containerClasses = isLibraryPage 
+  // Creators onboarding + dashboard/earnings: scrollable main so content is fully visible
+  const mainClasses = isCreatorsOnboarding || isDashboardEarnings
+    ? "flex-1 min-h-0 overflow-y-auto"
+    : isLibraryPage
+    ? "flex-1 overflow-hidden library-page-main"
+    : "flex-1 overflow-hidden";
+
+  // On mobile, library page needs to scroll naturally
+  const containerClasses = isLibraryPage
     ? "flex h-screen overflow-hidden library-page-container"
     : "flex h-screen overflow-hidden";
-  
+
   const contentClasses = isLibraryPage
     ? "flex-1 flex flex-col overflow-hidden library-page-content"
     : "flex-1 flex flex-col overflow-hidden";
-  
-  const mainClasses = isLibraryPage
-    ? "flex-1 overflow-hidden library-page-main"
-    : "flex-1 overflow-hidden";
 
   return (
     <div className={containerClasses}>

@@ -5,7 +5,7 @@ import React from "react";
 import Link from "next/link";
 
 type Block =
-  | { type: "h"; level: 1 | 2 | 3; text: string; id: string }
+  | { type: "h"; level: 1 | 2 | 3 | 4; text: string; id: string }
   | { type: "p"; text: string }
   | { type: "ul"; items: string[] }
   | { type: "ol"; items: string[] }
@@ -85,6 +85,13 @@ function parse(md: string): Block[] {
       continue;
     }
 
+    if (line.startsWith("#### ")) {
+      const text = line.slice(5).trim();
+      blocks.push({ type: "h", level: 4, text, id: slugify(text) });
+      i++;
+      continue;
+    }
+
     // Numbered section heading (e.g. "1. Purpose of This Policy") when standalone; skip "4.1" style
     const numMatch = line.match(/^\d+\.\s+(.+)$/);
     if (numMatch) {
@@ -133,6 +140,7 @@ function parse(md: string): Block[] {
       if (!cur.trim()) break;
       if (cur.startsWith("## ")) break;
       if (cur.startsWith("### ")) break;
+      if (cur.startsWith("#### ")) break;
       if (cur.startsWith("- ")) break;
       if (/^\d+\.\s+/.test(cur)) break;
       if (cur.startsWith("```")) break;
@@ -160,14 +168,18 @@ export default function DocRenderer({ content }: { content: string }) {
               ? "mt-12 text-2xl sm:text-3xl font-semibold tracking-tight text-white/95 scroll-mt-28"
               : b.level === 2
               ? "mt-10 text-xl sm:text-2xl font-semibold tracking-tight text-white/95 scroll-mt-24"
-              : "mt-8 text-lg sm:text-xl font-semibold tracking-tight text-white/95 scroll-mt-24";
+              : b.level === 3
+              ? "mt-8 text-lg sm:text-xl font-semibold tracking-tight text-white/95 scroll-mt-24"
+              : "mt-6 text-base sm:text-lg font-semibold tracking-tight text-white/95 scroll-mt-24";
 
           const Tag =
             (b.level === 1
               ? "h1"
               : b.level === 2
               ? "h2"
-              : "h3") as keyof React.JSX.IntrinsicElements;
+              : b.level === 3
+              ? "h3"
+              : "h4") as keyof React.JSX.IntrinsicElements;
 
           return (
             <Tag key={idx} id={b.id} className={cls}>

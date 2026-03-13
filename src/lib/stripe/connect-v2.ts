@@ -37,10 +37,8 @@ export async function createV2ConnectedAccount(params: {
   const account = await stripe.v2.core.accounts.create({
     display_name: params.displayName,
     contact_email: params.contactEmail,
-    identity: {
-      country: (params.country || 'us').toLowerCase() as 'us',
-    },
-    dashboard: 'full',
+    // Omit identity.country so Stripe collects it in the embedded onboarding form
+    dashboard: 'none',
     defaults: {
       responsibilities: {
         fees_collector: 'stripe',
@@ -91,6 +89,73 @@ export async function createV2AccountLink(params: {
   });
 
   return accountLink;
+}
+
+/**
+ * Create an Account Session for embedded Connect onboarding.
+ * Returns a client_secret used by Connect.js to mount the embedded component.
+ * PLACEHOLDER: STRIPE_SECRET_KEY required. Add to .env.local
+ */
+export async function createAccountSession(accountId: string) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error(
+      'STRIPE_SECRET_KEY is required. Add it to .env.local. Get keys at https://dashboard.stripe.com/apikeys'
+    );
+  }
+
+  const accountSession = await stripe.accountSessions.create({
+    account: accountId,
+    components: {
+      account_onboarding: {
+        enabled: true,
+      },
+    },
+  });
+
+  return { clientSecret: accountSession.client_secret };
+}
+
+/**
+ * Create an Account Session for the earnings dashboard with multiple components.
+ * Returns a client_secret used by Connect.js to mount embedded components.
+ */
+export async function createDashboardAccountSession(accountId: string) {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error(
+      'STRIPE_SECRET_KEY is required. Add it to .env.local. Get keys at https://dashboard.stripe.com/apikeys'
+    );
+  }
+
+  const accountSession = await stripe.accountSessions.create({
+    account: accountId,
+    components: {
+      notification_banner: { enabled: true },
+      payments: {
+        enabled: true,
+        features: {
+          refund_management: true,
+          dispute_management: true,
+          capture_payments: true,
+        },
+      },
+      payouts: {
+        enabled: true,
+        features: {
+          standard_payouts: true,
+          external_account_collection: true,
+          edit_payout_schedule: true,
+        },
+      },
+      account_management: {
+        enabled: true,
+        features: { external_account_collection: true },
+      },
+      documents: { enabled: true },
+      balances: { enabled: true },
+    },
+  });
+
+  return { clientSecret: accountSession.client_secret };
 }
 
 /**

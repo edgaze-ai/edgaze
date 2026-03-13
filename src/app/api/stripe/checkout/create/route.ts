@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { stripe } from '@/lib/stripe/client';
 import { stripeConfig, calculatePaymentSplit } from '@/lib/stripe/config';
+import { MIN_TRANSACTION_USD, WORKFLOW_MIN_USD } from '@/lib/marketplace/pricing';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -54,6 +55,14 @@ export async function POST(req: Request) {
     if (!resource.is_paid || !resource.price_usd || resource.price_usd <= 0) {
       return NextResponse.json(
         { error: 'Resource is not for sale' },
+        { status: 400 }
+      );
+    }
+
+    const minAmount = type === 'workflow' ? WORKFLOW_MIN_USD : MIN_TRANSACTION_USD;
+    if (resource.price_usd < minAmount) {
+      return NextResponse.json(
+        { error: `Minimum transaction amount is $${minAmount}` },
         { status: 400 }
       );
     }
@@ -112,7 +121,6 @@ export async function POST(req: Request) {
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      ui_mode: 'embedded',
       payment_method_types: ['card', 'link'],
       line_items: [{
         price_data: {
@@ -148,7 +156,10 @@ export async function POST(req: Request) {
         statement_descriptor: 'EDGAZE',
         statement_descriptor_suffix: (resource.edgaze_code || '').slice(0, 10)
       },
-      return_url: `${stripeConfig.appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${stripeConfig.appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}&resource_id=${resourceId}&type=${type}`,
+      cancel_url: type === 'prompt'
+        ? `${stripeConfig.appUrl}/p/${creator?.handle || 'creator'}/${resource.edgaze_code || ''}`
+        : `${stripeConfig.appUrl}/${creator?.handle || 'creator'}/${resource.edgaze_code || ''}`,
       customer_email: buyer?.email,
       metadata: {
         workflow_id: type === 'workflow' ? resourceId : '',
@@ -166,7 +177,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      clientSecret: session.client_secret,
+      url: session.url,
       sessionId: session.id
     });
 

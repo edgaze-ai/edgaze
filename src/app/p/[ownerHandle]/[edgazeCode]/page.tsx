@@ -1243,7 +1243,7 @@ export default function PromptProductPage() {
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
 
-  const CLOSED_BETA = true;
+  const CLOSED_BETA = false; // Set to true to grant free access to paid items during beta
 
   // Demo mode: when visiting with ?demo=TOKEN and it matches, skip sign-in for Run
   const demoTokenFromUrl = searchParams?.get("demo") ?? null;
@@ -1723,9 +1723,35 @@ export default function PromptProductPage() {
       }
     }
 
-    // Real paid checkout (Stripe) not wired yet - for paid items outside beta.
+    // Real paid checkout (Stripe) - redirect to Stripe hosted checkout
     if (!isNaturallyFree && !showClosedBetaFree) {
-      setPurchaseError("Payments are not available during beta.");
+      setPurchaseLoading(true);
+      try {
+        const res = await fetch("/api/stripe/checkout/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            type: listing.type || "prompt",
+            promptId: listing.type === "prompt" ? listing.id : undefined,
+            workflowId: listing.type === "workflow" ? listing.id : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setPurchaseError(data.error || "Could not start checkout.");
+          return;
+        }
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+        setPurchaseError("Checkout failed. Please try again.");
+      } catch (err) {
+        setPurchaseError("Could not start checkout. Please try again.");
+      } finally {
+        setPurchaseLoading(false);
+      }
       return;
     }
 

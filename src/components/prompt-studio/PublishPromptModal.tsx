@@ -3,6 +3,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   X,
   Upload,
@@ -22,6 +23,7 @@ import { useAuth } from "../auth/AuthContext";
 import AssetPickerModalRaw from "../assets/AssetPickerModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
+import { PROMPT_MAX_USD, MIN_TRANSACTION_USD, validatePromptPrice } from "../../lib/marketplace/pricing";
 
 type PlaceholderDef = {
   name: string;
@@ -573,6 +575,7 @@ export default function PublishPromptModal({
 
   const [parentNotified, setParentNotified] = useState(false);
 
+  const canReceivePayments = Boolean((profile as any)?.can_receive_payments);
   const ownerName = (profile as any)?.full_name || "Creator";
   const ownerHandle = (profile as any)?.handle || "creator";
 
@@ -591,8 +594,9 @@ export default function PublishPromptModal({
     promptText.trim().length > 0 &&
     hasValidPlaceholders;
 
-  // Pricing is always "free" during beta (UI enforces)
-  const isPricingValid = true;
+  const priceNum = monetisationMode === "paywall" ? Number(priceUsd) || 0 : 0;
+  const priceValidation = monetisationMode === "paywall" ? validatePromptPrice(priceNum) : { valid: true };
+  const isPricingValid = monetisationMode === "free" || (monetisationMode === "paywall" && canReceivePayments && priceValidation.valid);
 
   // Media: demo images optional during beta
   const isMediaValid = true;
@@ -883,8 +887,14 @@ export default function PublishPromptModal({
 
     // Media: demo images are optional during beta
 
+    if (key === "pricing") {
+      if (monetisationMode === "paywall" && canReceivePayments && !priceValidation.valid) {
+        return setErr(priceValidation.error || "Invalid price.");
+      }
+    }
+
     if (key === "visibility") {
-      if (visibility !== "public") return setErr("Only Public is available during beta.");
+      if (visibility !== "public") return setErr("Only Public is available.");
     }
 
     // mark as completed if it is valid
@@ -942,8 +952,18 @@ export default function PublishPromptModal({
         finalCode = fixed;
       }
 
-      // Payments are unavailable during beta → always publish as free.
-      const forcedMonetisationMode: MonetisationMode = "free";
+      const effectiveMonetisation: MonetisationMode =
+        canReceivePayments && monetisationMode === "paywall"
+          ? "paywall"
+          : "free";
+      const effectivePrice =
+        effectiveMonetisation === "paywall"
+          ? (() => {
+              const v = validatePromptPrice(Number(priceUsd) || 0);
+              if (!v.valid) throw new Error(v.error);
+              return Number(priceUsd) || MIN_TRANSACTION_USD;
+            })()
+          : 0;
 
       const cleanTags = safeArr(tagsInput);
 
@@ -961,9 +981,9 @@ export default function PublishPromptModal({
 
           tags: cleanTags.join(","),
           visibility,
-          monetisation_mode: forcedMonetisationMode,
-          is_paid: false,
-          price_usd: 0,
+          monetisation_mode: effectiveMonetisation,
+          is_paid: effectiveMonetisation === "paywall",
+          price_usd: effectivePrice,
 
           edgaze_code: finalCode,
 
@@ -989,9 +1009,9 @@ export default function PublishPromptModal({
 
           tags: cleanTags.join(","),
           visibility,
-          monetisation_mode: forcedMonetisationMode,
-          is_paid: false,
-          price_usd: 0,
+          monetisation_mode: effectiveMonetisation,
+          is_paid: effectiveMonetisation === "paywall",
+          price_usd: effectivePrice,
 
           edgaze_code: finalCode,
 
@@ -1422,11 +1442,31 @@ export default function PublishPromptModal({
 
                   {stepKey === "pricing" ? (
                     <div className="space-y-4">
+                      {!canReceivePayments && (
+                        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                            <div>
+                              <div className="text-[12px] font-semibold text-amber-200">You haven&apos;t connected payments</div>
+                              <div className="mt-1 text-[11px] text-white/70">
+                                Join the Edgaze Creator Program and connect your payout account to enable payments.
+                              </div>
+                              <Link
+                                href="/creators/onboarding?from=studio"
+                                className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/90 to-purple-500/90 px-4 py-2 text-[12px] font-semibold text-white hover:opacity-90 transition"
+                              >
+                                Set up payouts →
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                         <div className="text-[12px] font-semibold text-white/85">Pricing</div>
                         <div className="text-[11px] text-white/50 mt-1">
-                          Payments are unavailable during beta. Your prompt will be published as{" "}
-                          <span className="text-white/80 font-semibold">Free</span>.
+                          {canReceivePayments
+                            ? "Choose Free or set a price ($3–$50 for prompts)."
+                            : "Your prompt will be published as Free until you connect payments."}
                         </div>
 
                         <div className="mt-4 grid grid-cols-12 gap-3">
@@ -1451,19 +1491,28 @@ export default function PublishPromptModal({
 
                           <button
                             type="button"
-                            disabled
+                            disabled={!canReceivePayments}
+                            onClick={() => canReceivePayments && setMonetisationMode("paywall")}
                             className={cx(
-                              "col-span-12 md:col-span-6 rounded-2xl border p-4 text-left",
-                              "border-white/10 bg-white/[0.02] opacity-70 cursor-not-allowed"
+                              "col-span-12 md:col-span-6 rounded-2xl border p-4 text-left transition-colors",
+                              !canReceivePayments && "border-white/10 bg-white/[0.02] opacity-70 cursor-not-allowed",
+                              canReceivePayments && monetisationMode === "paywall"
+                                ? "border-cyan-400/25 bg-cyan-400/10"
+                                : canReceivePayments && "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]"
                             )}
                           >
                             <div className="flex items-center justify-between">
                               <div className="text-[12px] font-semibold text-white">Paywall</div>
-                              <span className="text-[10px] rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-white/70">
-                                Unavailable
-                              </span>
+                              {monetisationMode === "paywall" ? <CheckCircle2 className="h-4 w-4 text-cyan-200" /> : null}
+                              {!canReceivePayments && (
+                                <span className="text-[10px] rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-white/70">
+                                  Connect payouts first
+                                </span>
+                              )}
                             </div>
-                            <div className="text-[11px] text-white/55 mt-1">Payments unavailable during beta.</div>
+                            <div className="text-[11px] text-white/55 mt-1">
+                              {canReceivePayments ? "Charge $3–$50 per purchase." : "Connect payouts to enable."}
+                            </div>
                           </button>
 
                           <button
@@ -1477,23 +1526,32 @@ export default function PublishPromptModal({
                             <div className="flex items-center justify-between">
                               <div className="text-[12px] font-semibold text-white">Subscription</div>
                               <span className="text-[10px] rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-white/70">
-                                Unavailable
+                                Coming soon
                               </span>
                             </div>
-                            <div className="text-[11px] text-white/55 mt-1">Payments unavailable during beta.</div>
+                            <div className="text-[11px] text-white/55 mt-1">Recurring billing will be available later.</div>
                           </button>
                         </div>
 
+                        {canReceivePayments && monetisationMode === "paywall" && (
                         <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4">
-                          <div className="flex items-center gap-2 text-white/80 text-[12px] font-semibold">
-                            <Lock className="h-4 w-4 text-white/55" />
-                            Beta note
-                          </div>
-                          <div className="mt-1 text-[11px] text-white/50">
-                            Your full prompt is saved to the database. When payments launch, we’ll enable paywalls without
-                            you rebuilding your prompt.
-                          </div>
+                          <div className="text-[12px] font-semibold text-white/90 mb-2">Price (USD)</div>
+                            <input
+                              type="number"
+                              min={MIN_TRANSACTION_USD}
+                              max={PROMPT_MAX_USD}
+                              step="0.99"
+                              value={priceUsd}
+                              onChange={(e) => setPriceUsd(e.target.value)}
+                              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-[14px] text-white placeholder-white/40 focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/30 focus:outline-none"
+                              placeholder="3.99"
+                            />
+                            {priceValidation.error && (
+                              <p className="mt-2 text-[11px] text-amber-400">{priceValidation.error}</p>
+                            )}
+                          <p className="mt-2 text-[11px] text-white/45">Minimum $3, maximum $50 for prompts.</p>
                         </div>
+                        )}
                       </div>
                     </div>
                   ) : null}

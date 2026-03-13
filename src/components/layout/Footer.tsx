@@ -9,14 +9,14 @@ const FOOTER_SECTIONS = [
       { label: "Builder", href: "/builder" },
       { label: "Explore Workflows", href: "/marketplace" },
       { label: "Pricing", href: "/pricing" },
-      { label: "Creator Program", href: "/apply" },
+      { label: "Creator Program", href: "/creators" },
     ],
   },
   {
     title: "Resources",
     links: [
       { label: "Documentation", href: "/docs" },
-      { label: "Blog", href: "/docs/changelog" },
+      { label: "Blog", href: "/blogs" },
       { label: "Changelog", href: "/docs/changelog" },
     ],
   },

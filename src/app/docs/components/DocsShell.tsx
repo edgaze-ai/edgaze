@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, X } from "lucide-react";
 import DocsSidebar from "./DocsSidebar";
 import type { DocMeta } from "../utils/docs";
 
@@ -35,7 +35,7 @@ export default function DocsShell({
 
   return (
     <div className="min-h-screen bg-[#0b0b0b] text-white">
-      {/* Top bar */}
+      {/* Top bar - original structure, logo design only */}
       <div className="sticky top-0 z-50 border-b border-white/10 bg-black/25 backdrop-blur">
         <div className="h-14 flex items-center justify-between px-4">
           <div className="flex items-center gap-3">
@@ -60,21 +60,22 @@ export default function DocsShell({
               </svg>
             </button>
 
-            <Link href="/docs" className="flex items-center gap-2">
+            <Link href="/docs" className="flex items-center gap-3">
               <Image
                 src="/brand/edgaze-mark.png"
                 alt="Edgaze"
-                width={22}
-                height={22}
+                width={28}
+                height={28}
                 priority
+                className="shrink-0 translate-y-[2px]"
               />
-              <span className="text-sm font-semibold tracking-tight text-white/90">
-                Docs
+              <span className="text-[15px] font-medium tracking-tight text-white/90 -translate-x-[5px]">
+                Edgaze <span className="text-white/50 font-normal">Docs</span>
               </span>
             </Link>
           </div>
 
-          <button 
+          <button
             onClick={handleBackClick}
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-white/60 hover:text-white/85 hover:bg-white/5 transition"
           >
@@ -104,24 +105,25 @@ export default function DocsShell({
             />
             <div className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] bg-[#0b0b0f] border-r border-white/10">
               <div className="h-14 flex items-center justify-between px-4 border-b border-white/10">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                   <Image
                     src="/brand/edgaze-mark.png"
                     alt="Edgaze"
-                    width={22}
-                    height={22}
+                    width={28}
+                    height={28}
                     priority
+                    className="shrink-0 translate-y-[2px]"
                   />
-                  <span className="text-sm font-semibold text-white/90">
-                    Docs
+                  <span className="text-[15px] font-medium tracking-tight text-white/90 -translate-x-[5px]">
+                    Edgaze <span className="text-white/50 font-normal">Docs</span>
                   </span>
                 </div>
                 <button
-                  className="rounded-lg px-2.5 py-2 hover:bg-white/5 ring-1 ring-white/10"
+                  className="group relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-white/10 backdrop-blur-xl transition-all duration-200 hover:bg-white/10 hover:ring-white/20 active:scale-95 active:bg-white/[0.08]"
                   onClick={() => setMobileOpen(false)}
                   aria-label="Close docs menu"
                 >
-                  ✕
+                  <X className="h-[18px] w-[18px] text-white/80 transition-colors group-hover:text-white" strokeWidth={2.25} />
                 </button>
               </div>
 
@@ -135,7 +137,7 @@ export default function DocsShell({
           </div>
         ) : null}
 
-        {/* Content container: wide like OpenAI */}
+        {/* Content container */}
         <div className="w-full [scroll-behavior:smooth]">
           <div className="mx-auto w-full max-w-[1200px] px-4 py-8">
             {children}

@@ -1,118 +1,150 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { List, X } from "lucide-react";
-
-type TOCItem = {
-  id: string;
-  text: string;
-};
+import type { TOCItem } from "../utils/extractToc";
 
 export default function DocTOC({ items }: { items: TOCItem[] }) {
+  const trackGradId = useId().replace(/:/g, "-");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeIds, setActiveIds] = useState<string[]>([]);
-  const [barStyle, setBarStyle] = useState<{ top: number; height: number } | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement | null>(null);
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
+  const [scrollTick, setScrollTick] = useState(0);
 
   // Reset refs when items change
   useEffect(() => {
     itemRefs.current = itemRefs.current.slice(0, items.length);
   }, [items.length]);
 
-  // IntersectionObserver: run after mount so headings exist
+  // All visible headings: span the full viewport, generous margins for ultra smooth feel
   useEffect(() => {
     if (items.length === 0) return;
 
     const headingIds = items.map((i) => i.id);
+    const inViewRef = { current: new Set<string>() };
 
     const run = () => {
-      const elements = headingIds
+      const els = headingIds
         .map((id) => document.getElementById(id))
         .filter((el): el is HTMLElement => Boolean(el));
+      const sorted = [...els].sort((a, b) => a.offsetTop - b.offsetTop);
 
-      if (elements.length === 0) return;
-
-      // Helpers: get all headings currently in viewport (any part visible), in document order
-      const getVisibleInViewport = () => {
-        const viewportTop = 0;
-        const viewportBottom = window.innerHeight;
-        const inView: string[] = [];
-        const sorted = [...elements].sort((a, b) => a.offsetTop - b.offsetTop);
+      const TRIGGER = 180;
+      const updateActive = () => {
+        const inView = inViewRef.current;
+        let lastPassed: string | null = null;
         for (const el of sorted) {
           const rect = el.getBoundingClientRect();
-          if (rect.bottom >= viewportTop && rect.top <= viewportBottom) {
-            if (el.id) inView.push(el.id);
-          }
+          if (rect.top < TRIGGER) lastPassed = el.id;
         }
-        return inView;
+        if (inView.size > 0) {
+          const inOrder = sorted.filter((el) => inView.has(el.id)).map((el) => el.id);
+          setActiveIds(inOrder.length > 0 ? inOrder : lastPassed ? [lastPassed] : []);
+        } else {
+          setActiveIds(lastPassed ? [lastPassed] : sorted.length ? [sorted[0]!.id] : []);
+        }
       };
 
-      // Initial: all sections visible on load
-      setActiveIds(getVisibleInViewport());
-
-      // Any heading that has any part visible in the viewport counts as "on screen"
       const observer = new IntersectionObserver(
-        () => {
-          const visible = getVisibleInViewport();
-          if (visible.length > 0) {
-            setActiveIds(visible);
-          } else {
-            // Fallback: last heading above the fold
-            const scrollY = window.scrollY;
-            const sorted = [...elements].sort((a, b) => a.offsetTop - b.offsetTop);
-            let current: string | null = null;
-            for (const el of sorted) {
-              if (el.offsetTop <= scrollY + 120) current = el.id;
-              else break;
-            }
-            setActiveIds(current ? [current] : []);
+        (entries) => {
+          for (const e of entries) {
+            const id = e.target.id;
+            if (e.isIntersecting) inViewRef.current.add(id);
+            else inViewRef.current.delete(id);
           }
+          updateActive();
         },
-        {
-          root: null,
-          rootMargin: "0px 0px 0px 0px",
-          threshold: 0,
-        }
+        { root: null, rootMargin: "120px 0px 80px 0px", threshold: 0 }
       );
 
-      elements.forEach((el) => observer.observe(el));
-      return () => observer.disconnect();
+      sorted.forEach((el) => observer.observe(el));
+      updateActive();
+
+      let raf: number | undefined;
+      const onScroll = () => {
+        if (raf != null) return;
+        raf = requestAnimationFrame(() => {
+          raf = undefined;
+          updateActive();
+        });
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
+      return () => {
+        window.removeEventListener("scroll", onScroll);
+        if (raf != null) cancelAnimationFrame(raf);
+        observer.disconnect();
+      };
     };
 
-    const t = setTimeout(run, 100);
-    return () => clearTimeout(t);
+    let dispose: (() => void) | undefined;
+    const t = setTimeout(() => {
+      dispose = run();
+    }, 100);
+    return () => {
+      clearTimeout(t);
+      dispose?.();
+    };
   }, [items.map((i) => i.id).join("|")]);
 
-  // Single progress bar: position relative to the track so it starts at the top of the first active link
+  // Grey default track: bent path for ALL items (spans full TOC)
+  const [trackPath, setTrackPath] = useState<{
+    segments: { top: number; bottom: number; level: number }[];
+  } | null>(null);
+
   useLayoutEffect(() => {
-    if (activeIds.length === 0 || !trackRef.current) {
-      setBarStyle(null);
+    if (items.length === 0 || !trackRef.current) {
+      setTrackPath(null);
       return;
     }
     const track = trackRef.current;
     const trackRect = track.getBoundingClientRect();
+    const trackTop = trackRect.top;
+    const segments: { top: number; bottom: number; level: number }[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const el = itemRefs.current[i];
+      const item = items[i];
+      if (!el || !item) continue;
+      const r = el.getBoundingClientRect();
+      segments.push({
+        top: r.top - trackTop,
+        bottom: r.bottom - trackTop,
+        level: item.level,
+      });
+    }
+    if (segments.length > 0) setTrackPath({ segments });
+  }, [items, scrollTick]);
+
+  // Progress: firstIdx and lastIdx into trackPath (gradient flows ON the track via dash)
+  const [progressRange, setProgressRange] = useState<{ firstIdx: number; lastIdx: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (activeIds.length === 0) {
+      setProgressRange(null);
+      return;
+    }
     const indices = items
       .map((item, idx) => (activeIds.includes(item.id) ? idx : -1))
       .filter((i) => i >= 0);
     if (indices.length === 0) {
-      setBarStyle(null);
+      setProgressRange(null);
       return;
     }
-    const firstIdx = Math.min(...indices);
-    const lastIdx = Math.max(...indices);
-    const firstEl = itemRefs.current[firstIdx];
-    const lastEl = itemRefs.current[lastIdx];
-    if (!firstEl || !lastEl) {
-      setBarStyle(null);
-      return;
-    }
-    const firstR = firstEl.getBoundingClientRect();
-    const lastR = lastEl.getBoundingClientRect();
-    const top = firstR.top - trackRect.top;
-    const height = lastR.bottom - firstR.top;
-    setBarStyle({ top, height });
+    setProgressRange({
+      firstIdx: Math.min(...indices),
+      lastIdx: Math.max(...indices),
+    });
   }, [activeIds, items]);
+
+  // Recompute bar position when TOC nav scrolls (so line stays clamped)
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const onScroll = () => setScrollTick((t) => t + 1);
+    nav.addEventListener("scroll", onScroll, { passive: true });
+    return () => nav.removeEventListener("scroll", onScroll);
+  }, []);
 
   const handleTocClick = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     const el = document.getElementById(id);
@@ -122,25 +154,32 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
     }
   };
 
+  // Auto-scroll TOC so the active item stays in a stable position (higher in view)
   const primaryId = activeIds.length > 0 ? activeIds[activeIds.length - 1] : null;
-
-  // Auto-scroll TOC so the active section stays visible when it changes
   const primaryIndex = primaryId != null ? items.findIndex((i) => i.id === primaryId) : -1;
+  const lastScrolledToRef = useRef<number>(-1);
 
   useLayoutEffect(() => {
     if (primaryIndex < 0) return;
     const el = itemRefs.current[primaryIndex];
-    if (el && trackRef.current) {
-      const track = trackRef.current;
-      const trackRect = track.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-      const isAbove = elRect.top < trackRect.top;
-      const isBelow = elRect.bottom > trackRect.bottom;
-      if (isAbove || isBelow) {
-        el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-      }
+    const nav = navRef.current;
+    if (!el || !nav) return;
+    const TARGET_OFFSET = 56;
+    const SLACK = 24;
+    const navRect = nav.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    const idealTop = navRect.top + TARGET_OFFSET;
+    const isAbove = elRect.top < idealTop - SLACK;
+    const isBelow = elRect.bottom > navRect.bottom - SLACK;
+    const needsScroll = isAbove || isBelow;
+    if (needsScroll && lastScrolledToRef.current !== primaryIndex) {
+      lastScrolledToRef.current = primaryIndex;
+      const targetScroll = Math.max(0, el.offsetTop - TARGET_OFFSET);
+      nav.scrollTo({ top: targetScroll, behavior: "smooth" });
+    } else if (!needsScroll) {
+      lastScrolledToRef.current = primaryIndex;
     }
-  }, [primaryIndex, activeIds.join(",")]);
+  }, [primaryIndex]);
 
   return (
     <>
@@ -177,24 +216,28 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
               </button>
             </div>
             <div className="h-[calc(100%-56px)] overflow-auto p-4">
-              <nav className="flex flex-col gap-2">
-                {items.map((t, idx) => (
-                  <a
-                    key={`${idx}-${t.id}`}
-                    href={`#${t.id}`}
-                    onClick={(e) => {
-                      handleTocClick(e, t.id);
-                      setMobileOpen(false);
-                    }}
-                    className={`text-sm py-2 px-3 rounded-lg transition ${
-                      activeIds.includes(t.id)
-                        ? "bg-white/10 text-white font-medium"
-                        : "text-white/55 hover:text-white/85 hover:bg-white/5"
-                    }`}
-                  >
-                    {t.text}
-                  </a>
-                ))}
+              <nav className="flex flex-col gap-0.5">
+                {items.map((t, idx) => {
+                  const indentClass =
+                    t.level === 2 ? "pl-3" : t.level === 3 ? "pl-5" : "pl-7";
+                  return (
+                    <a
+                      key={`${idx}-${t.id}`}
+                      href={`#${t.id}`}
+                      onClick={(e) => {
+                        handleTocClick(e, t.id);
+                        setMobileOpen(false);
+                      }}
+                      className={`text-sm py-2 px-3 rounded-lg transition-all duration-200 ${indentClass} ${
+                        activeIds.includes(t.id)
+                          ? "bg-white/10 text-white font-medium"
+                          : "text-white/55 hover:text-white/85 hover:bg-white/5"
+                      }`}
+                    >
+                      {t.text}
+                    </a>
+                  );
+                })}
               </nav>
             </div>
           </div>
@@ -208,22 +251,18 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
             On this page
           </div>
           {items.length > 0 ? (
-            <div className="relative border-l border-white/10 pl-0 min-h-[40px]" ref={trackRef}>
-              {/* Single continuous bar (Edgaze gradient) */}
-              {barStyle && (
-                <span
-                  className="absolute left-0 w-[2px] rounded-full bg-gradient-to-b from-cyan-400 via-sky-400 to-indigo-400"
-                  style={{
-                    top: barStyle.top,
-                    height: Math.max(barStyle.height, 4),
-                  }}
-                  aria-hidden
-                />
-              )}
-              <nav className="flex flex-col gap-1.5 relative max-h-[calc(100vh-8rem)] overflow-auto">
+            <div className="relative pl-0 min-h-[40px] overflow-hidden" ref={trackRef}>
+              <nav
+                ref={(el) => {
+                  navRef.current = el;
+                }}
+                className="flex flex-col gap-0.5 relative max-h-[calc(100vh-8rem)] overflow-auto z-0"
+              >
                 {items.map((t, idx) => {
                   const isActive = activeIds.includes(t.id);
                   const isPrimary = t.id === primaryId;
+                  const indentClass =
+                    t.level === 2 ? "pl-4" : t.level === 3 ? "pl-6" : "pl-8";
                   return (
                     <a
                       key={`${idx}-${t.id}`}
@@ -232,11 +271,11 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
                       }}
                       href={`#${t.id}`}
                       onClick={(e) => handleTocClick(e, t.id)}
-                      className={`relative block pl-4 pr-2 py-1.5 text-sm transition-colors ${
+                      className={`relative block ${indentClass} pr-2 py-1 text-sm leading-snug transition-all duration-200 ${
                         isActive
                           ? isPrimary
-                            ? "font-medium text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-sky-300 to-indigo-300"
-                            : "text-white/90 font-medium"
+                            ? "font-semibold text-white"
+                            : "font-medium text-white/95"
                           : "text-white/55 hover:text-white/85"
                       }`}
                     >
@@ -245,6 +284,102 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
                   );
                 })}
               </nav>
+              {/* Single track: grey base; gradient flows ON it via stroke-dash (no separate layer) */}
+              {trackPath && trackPath.segments.length > 0 && (() => {
+                const X_STEM = 1;
+                const X_INDENT = 10;
+                const STROKE = 2;
+                const segs = trackPath.segments;
+
+                const { path: fullPath, lengthAtEnd } = (() => {
+                  const parts: string[] = [];
+                  const lens: number[] = [];
+                  let x = X_STEM;
+                  let y = segs[0]!.top;
+                  let total = 0;
+
+                  const add = (nx: number, ny: number) => {
+                    const d = Math.hypot(nx - x, ny - y);
+                    total += d;
+                    parts.push(`L ${nx} ${ny}`);
+                    x = nx;
+                    y = ny;
+                  };
+
+                  parts.push(`M ${X_STEM} ${segs[0]!.top}`);
+                  let onStem = true;
+
+                  for (let i = 0; i < segs.length; i++) {
+                    const s = segs[i]!;
+                    if (s.level === 2) {
+                      if (onStem) add(X_STEM, s.bottom);
+                      else {
+                        add(X_STEM, s.top);
+                        add(X_STEM, s.bottom);
+                        onStem = true;
+                      }
+                    } else {
+                      if (onStem) {
+                        add(X_STEM, s.top);
+                        add(X_INDENT, s.top);
+                        add(X_INDENT, s.bottom);
+                        onStem = false;
+                      } else add(X_INDENT, s.bottom);
+                    }
+                    lens.push(total);
+                  }
+                  if (!onStem) {
+                    add(X_STEM, segs[segs.length - 1]!.bottom);
+                    lens.push(total);
+                  }
+
+                  return { path: parts.join(" "), lengthAtEnd: lens };
+                })();
+
+                const totalLen = lengthAtEnd[lengthAtEnd.length - 1] ?? 1;
+                let dashStart = 0;
+                let dashLen = 0;
+                if (progressRange && totalLen > 0) {
+                  const { firstIdx, lastIdx } = progressRange;
+                  dashStart = firstIdx > 0 ? (lengthAtEnd[firstIdx - 1] ?? 0) : 0;
+                  dashLen = (lengthAtEnd[lastIdx] ?? totalLen) - dashStart;
+                  dashLen = Math.max(0, Math.min(dashLen, totalLen - dashStart));
+                }
+
+                return (
+                  <svg
+                    className="absolute left-0 top-0 w-6 h-full pointer-events-none z-10 overflow-hidden"
+                    aria-hidden
+                  >
+                    <defs>
+                      <linearGradient id={trackGradId} x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="rgb(34, 211, 238)" />
+                        <stop offset="50%" stopColor="rgb(56, 189, 248)" />
+                        <stop offset="100%" stopColor="rgb(236, 72, 153)" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d={fullPath}
+                      fill="none"
+                      stroke="rgba(255,255,255,0.12)"
+                      strokeWidth={STROKE}
+                      strokeLinecap="butt"
+                      strokeLinejoin="miter"
+                    />
+                    <path
+                      d={fullPath}
+                      fill="none"
+                      stroke={`url(#${trackGradId})`}
+                      strokeWidth={STROKE}
+                      strokeLinecap="butt"
+                      strokeLinejoin="miter"
+                      strokeDasharray={dashLen > 0 ? `${dashLen} ${totalLen + 10}` : "0 9999"}
+                      strokeDashoffset={dashLen > 0 ? -dashStart : 0}
+                      style={{ transform: "translateZ(0)" }}
+                    />
+                  </svg>
+                );
+              })()}
             </div>
           ) : (
             <div className="text-sm text-white/35 italic">

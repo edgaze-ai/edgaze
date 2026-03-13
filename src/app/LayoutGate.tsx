@@ -13,8 +13,9 @@ export default function LayoutGate({
   const pathname = usePathname() || "";
   const isDocsRoute = pathname === "/docs" || pathname.startsWith("/docs/");
   const isInviteRoute = pathname.startsWith("/c/");
+  const isBlogsRoute = pathname === "/blogs" || pathname.startsWith("/blogs/");
 
-  if (isDocsRoute || isInviteRoute) {
+  if (isDocsRoute || isInviteRoute || isBlogsRoute) {
     // Docs and invite pages should not inherit the app sidebar shell or auth banners.
     return <>{children}</>;
   }
