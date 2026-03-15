@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen w-full">
+    <div className="min-h-screen w-full overflow-y-auto overflow-x-hidden bg-[#07080b] text-white font-dm-sans">
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-[#07080b]" />
         <div className="absolute inset-0 opacity-70 [background-image:radial-gradient(circle_at_18%_10%,rgba(34,211,238,0.22),transparent_46%),radial-gradient(circle_at_82%_18%,rgba(236,72,153,0.18),transparent_46%)]" />
@@ -21,7 +21,7 @@ export default function ContactPage() {
         </p>
 
         <div className="mt-12 space-y-8">
-          <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/10 p-6 sm:p-8">
+          <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/10 border border-pink-500/20 p-6 sm:p-8">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">
               General inquiries
             </h2>
@@ -36,7 +36,7 @@ export default function ContactPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/10 p-6 sm:p-8">
+          <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/10 border border-pink-500/20 p-6 sm:p-8">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">
               Creator & seller support
             </h2>
@@ -51,7 +51,7 @@ export default function ContactPage() {
             </p>
           </div>
 
-          <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/10 p-6 sm:p-8">
+          <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/10 border border-pink-500/20 p-6 sm:p-8">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">
               Press & partnerships
             </h2>

@@ -27,6 +27,7 @@ const HIDE_SIDEBAR_ROUTES = new Set([
   "/blogs", // blog portal - own sidebar, full-width
   "/pricing", // pricing page - full-width marketing
   "/help", // help page - full-width, scrollable
+  "/press", // press page - full-width, scrollable
   "/auth/sign-in-to-buy", // full-screen sign-in for purchase — no sidebar/topbar, scrollable
 ]);
 

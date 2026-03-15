@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ChevronRight, ChevronDown, Briefcase } from "lucide-react";
+import { Search, ChevronDown, Briefcase } from "lucide-react";
 
 const SORT_OPTIONS = ["Date added", "Relevance"] as const;
 const LEVEL_FILTERS = ["Senior", "Junior", "Internship"] as const;
@@ -87,7 +87,7 @@ export default function CareersPage() {
   const activeCount = [level, location, type].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen w-full bg-[#050608]">
+    <div className="min-h-screen w-full overflow-y-auto overflow-x-hidden bg-[#050608] text-white font-dm-sans">
       {/* Background — deep dark, subtle */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-[#050608]" />
@@ -251,38 +251,21 @@ export default function CareersPage() {
           <NoJobsAnimation />
         </section>
 
-        {/* About Edgaze */}
-        <section className="mb-16 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8">
-          <h2 className="text-[11px] font-semibold tracking-[0.2em] text-white/45 uppercase mb-4">
-            About Edgaze
-          </h2>
-          <p className="text-[15px] leading-relaxed text-white/65 max-w-2xl">
-            Edgaze is a marketplace for AI prompts and workflows. Creators build once, publish a
-            clean product page, and share one link. We&apos;re building the infrastructure for the
-            AI creator economy—making it easy to create, sell, and distribute AI products with
-            clarity and trust.
-          </p>
+        {/* About Edgaze — single proper button */}
+        <section className="mb-16">
           <Link
             href="/about"
-            className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-white/75 hover:text-white transition-colors"
+            className="inline-flex items-center justify-center rounded-full border-2 border-pink-500/50 bg-white/[0.04] px-6 py-3 text-sm font-medium text-white hover:bg-white/[0.08] hover:border-pink-400/60 transition-colors"
           >
-            <span>Learn more</span>
-            <ChevronRight className="h-4 w-4" />
+            About Edgaze
           </Link>
         </section>
 
-        {/* Footer */}
-        <footer className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pt-6 border-t border-white/[0.06]">
-          <Link
-            href="/about"
-            className="group inline-flex items-center gap-2 text-[13px] font-medium text-white/50 hover:text-white/80 transition-colors"
-          >
-            <span>About Edgaze</span>
-            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </Link>
+        {/* Footer — single email CTA */}
+        <footer className="pt-6 border-t border-white/[0.06]">
           <a
             href="mailto:support@edgaze.ai?subject=Careers%20inquiry"
-            className="inline-flex items-center rounded-full bg-white/[0.06] ring-1 ring-white/[0.08] px-4 py-2 text-[13px] font-medium text-white/90 hover:bg-white/[0.09] transition-colors"
+            className="inline-flex items-center rounded-full border border-pink-500/40 bg-white/[0.04] px-4 py-2 text-[13px] font-medium text-white/90 hover:bg-white/[0.08] hover:border-pink-400/50 transition-colors"
           >
             Get in touch
           </a>

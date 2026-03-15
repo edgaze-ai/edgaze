@@ -27,7 +27,7 @@ function HeroAnimation() {
   const reduce = useReducedMotion();
 
   return (
-    <div className="relative h-[420px] md:h-[520px] flex items-center justify-center lg:justify-end pr-0 lg:pr-12">
+    <div className="relative h-[320px] md:h-[400px] lg:h-[460px] flex items-center justify-center md:justify-center pr-0 md:px-2">
       {/* Central composition */}
       <div className="relative w-full max-w-[400px] aspect-square flex items-center justify-center">
         {/* Outer glow ring */}
@@ -153,7 +153,7 @@ function HeroAnimation() {
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen w-full bg-[#07080b] text-white">
+    <div className="min-h-screen w-full overflow-y-auto overflow-x-hidden bg-[#07080b] text-white font-dm-sans">
       {/* Background layers */}
       <div className="pointer-events-none fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-[#07080b]" />
@@ -188,7 +188,7 @@ export default function AboutPage() {
 
       {/* Simple header */}
       <header className="fixed left-0 right-0 top-0 z-50 pt-4 md:pt-5">
-        <div className="mx-auto max-w-[1200px] px-5 md:px-8">
+        <div className="mx-auto max-w-[1440px] px-5 md:px-8">
           <div className="flex items-center rounded-full pl-4 pr-4 py-2.5 md:pl-6 md:py-2.5 bg-white/[0.06] backdrop-blur-2xl border border-white/[0.06] shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset]">
             <Link
               href="/"
@@ -225,18 +225,18 @@ export default function AboutPage() {
       </header>
 
       <main className="pt-24 md:pt-28">
-        <div className="mx-auto max-w-[1200px] px-5 md:px-8 pb-20">
+        <div className="mx-auto max-w-[1440px] px-5 md:px-8 pb-20">
           {/* Hero */}
-          <section className="py-20 md:py-32">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr,1.2fr] gap-12 lg:gap-16 items-center">
+          <section className="py-16 md:py-24">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-center min-w-0 w-full md:max-w-6xl lg:max-w-7xl md:mx-auto">
               {/* Left: Premium animation — Edgaze logo + glass elements */}
-              <div className="order-2 lg:order-1">
+              <div className="order-2 md:order-1 min-w-0 mt-8 md:mt-0">
                 <HeroAnimation />
               </div>
               {/* Right: Copy */}
-              <div className="order-1 lg:order-2 relative">
+              <div className="order-1 md:order-2 relative min-w-0">
                 <motion.div
-                  className="absolute -left-8 -top-8 w-64 h-64 rounded-full opacity-30 blur-3xl pointer-events-none hidden lg:block"
+                  className="absolute -left-8 -top-8 w-64 h-64 rounded-full opacity-30 blur-3xl pointer-events-none hidden md:block"
                   style={{
                     background:
                       "radial-gradient(circle, rgba(34,211,238,0.12), transparent 60%), radial-gradient(circle, rgba(236,72,153,0.08), transparent 60%)",
@@ -245,7 +245,7 @@ export default function AboutPage() {
                   transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                 />
                 <motion.h1
-                  className="relative text-4xl font-semibold tracking-tight text-white sm:text-5xl md:text-6xl"
+                  className="relative text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
@@ -253,7 +253,7 @@ export default function AboutPage() {
                   About Edgaze
                 </motion.h1>
                 <motion.p
-                  className="relative mt-6 text-xl text-white/80 md:text-2xl max-w-2xl leading-relaxed"
+                  className="relative mt-4 md:mt-5 text-lg text-white/80 md:text-xl leading-relaxed"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.1, ease: [0.2, 0.8, 0.2, 1] }}
@@ -264,7 +264,7 @@ export default function AboutPage() {
                   idea they exist.
                 </motion.p>
                 <motion.div
-                  className="relative mt-10 max-w-2xl space-y-5 text-base text-white/65 leading-relaxed"
+                  className="relative mt-6 md:mt-8 space-y-4 text-sm md:text-base text-white/65 leading-relaxed"
                   initial={{ opacity: 0, y: 24 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
