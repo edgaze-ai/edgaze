@@ -16,10 +16,10 @@ const DEFAULT_DENY = [
 export function validateUrlForWorkflow(
   url: string,
   options: {
-    allowOnly?: string[];  // Comma-separated or array of allowed hosts
+    allowOnly?: string[]; // Comma-separated or array of allowed hosts
     denyHosts?: string[];
-    workflowAllowlist?: string[];  // From workflow-level policy
-  }
+    workflowAllowlist?: string[]; // From workflow-level policy
+  },
 ): { allowed: boolean; error?: string } {
   try {
     const urlObj = new URL(url);
@@ -27,7 +27,12 @@ export function validateUrlForWorkflow(
 
     const denyHosts = [
       ...DEFAULT_DENY,
-      ...(options.denyHosts ?? []).flatMap((h) => h.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean)),
+      ...(options.denyHosts ?? []).flatMap((h) =>
+        h
+          .split(",")
+          .map((x) => x.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     ];
     if (denyHosts.includes(host)) {
       return { allowed: false, error: `Access denied: ${host} is not allowed` };
@@ -39,15 +44,22 @@ export function validateUrlForWorkflow(
       const a = Number(ipMatch[1]);
       const b = Number(ipMatch[2]);
       if (a === 10) return { allowed: false, error: "Access denied: private IP range" };
-      if (a === 172 && b >= 16 && b <= 31) return { allowed: false, error: "Access denied: private IP range" };
-      if (a === 192 && b === 168) return { allowed: false, error: "Access denied: private IP range" };
+      if (a === 172 && b >= 16 && b <= 31)
+        return { allowed: false, error: "Access denied: private IP range" };
+      if (a === 192 && b === 168)
+        return { allowed: false, error: "Access denied: private IP range" };
     }
     if (host.endsWith(".local") || host.endsWith(".internal")) {
       return { allowed: false, error: `Access denied: ${host} is not allowed` };
     }
 
     const allowOnly = [
-      ...(options.allowOnly ?? []).flatMap((h) => h.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean)),
+      ...(options.allowOnly ?? []).flatMap((h) =>
+        h
+          .split(",")
+          .map((x) => x.trim().toLowerCase())
+          .filter(Boolean),
+      ),
       ...(options.workflowAllowlist ?? []).map((h) => h.trim().toLowerCase()).filter(Boolean),
     ];
     if (allowOnly.length > 0 && !allowOnly.includes(host)) {
@@ -61,7 +73,9 @@ export function validateUrlForWorkflow(
 }
 
 /** Extract allowed domains from workflow/node config for listing page display */
-export function getNetworkAccessFromWorkflow(nodes: { data?: { specId?: string; config?: Record<string, unknown> } }[]): {
+export function getNetworkAccessFromWorkflow(
+  nodes: { data?: { specId?: string; config?: Record<string, unknown> } }[],
+): {
   hasHttpRequest: boolean;
   allowedDomains: string[];
 } {
@@ -72,7 +86,12 @@ export function getNetworkAccessFromWorkflow(nodes: { data?: { specId?: string; 
       hasHttpRequest = true;
       const allowOnly = node.data?.config?.allowOnly;
       if (typeof allowOnly === "string") {
-        allowedDomains.push(...allowOnly.split(",").map((x) => x.trim()).filter(Boolean));
+        allowedDomains.push(
+          ...allowOnly
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean),
+        );
       } else if (Array.isArray(allowOnly)) {
         allowedDomains.push(...allowOnly.map((x) => String(x).trim()).filter(Boolean));
       }
@@ -115,7 +134,7 @@ export const MAX_STRING_LENGTH = 1024 * 1024; // 1MB for parsed string values
 /** Validate redirect Location URL against allowed hosts before following */
 export function validateRedirectUrl(
   url: string,
-  allowedHosts: string[]
+  allowedHosts: string[],
 ): { allowed: boolean; error?: string } {
   return validateUrlForWorkflow(url, {
     allowOnly: allowedHosts,

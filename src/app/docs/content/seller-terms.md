@@ -3,13 +3,15 @@ description = "Terms and conditions for creators selling on Edgaze"
 
 # Seller Terms of Service
 
-*Last Updated: February 27, 2026*
+_Last Updated: February 27, 2026_
 
-## 1. Agreement to Terms
+By creating a Stripe Connect account and selling products on Edgaze, you agree to these Seller Terms and our general Terms of Service, Privacy Policy, and Stripe's Connected Account Agreement.
+
+## Agreement to Terms
 
 By creating a Stripe Connect account and selling products on Edgaze, you agree to these Seller Terms, our general Terms of Service, Privacy Policy, and Stripe's Connected Account Agreement.
 
-## 2. Eligibility
+## Eligibility
 
 To sell on Edgaze, you must:
 
@@ -19,7 +21,9 @@ To sell on Edgaze, you must:
 - Comply with all applicable laws and regulations
 - Not be located in a country where Stripe is unavailable
 
-## 3. Revenue Share
+## Revenue Share
+
+### Split and Fees
 
 Edgaze operates on an 80/20 revenue split model:
 
@@ -28,7 +32,9 @@ Edgaze operates on an 80/20 revenue split model:
 - Stripe payment processing fees (2.9% + $0.30) are deducted before the split
 - All amounts are calculated and displayed in USD
 
-## 4. Payouts
+## Payouts
+
+### Schedule and Threshold
 
 Payouts are handled automatically by Stripe:
 
@@ -38,7 +44,9 @@ Payouts are handled automatically by Stripe:
 - You can view payout history in your Stripe Express Dashboard
 - Failed payouts will be automatically retried
 
-## 5. Content Requirements
+## Content Requirements
+
+### What Your Products Must Comply With
 
 All products you sell must:
 
@@ -48,7 +56,9 @@ All products you sell must:
 - Function as described
 - Not contain malicious code or harmful content
 
-## 6. Refunds and Chargebacks
+## Refunds and Chargebacks
+
+### Refunds
 
 **Refunds:**
 
@@ -57,13 +67,17 @@ All products you sell must:
 - Your earnings will be adjusted for any refunds
 - If a refund occurs after payout, it will be deducted from future earnings
 
+### Chargebacks
+
 **Chargebacks:**
 
 - You are responsible for chargebacks on your products
 - Chargeback amounts will be deducted from your balance
 - Excessive chargebacks may result in account suspension
 
-## 7. Taxes
+## Taxes
+
+### Your Tax Obligations
 
 You are responsible for all taxes related to your earnings:
 
@@ -72,7 +86,9 @@ You are responsible for all taxes related to your earnings:
 - You must report all earnings to relevant tax authorities
 - Edgaze is not responsible for your tax obligations
 
-## 8. Account Suspension
+## Account Suspension
+
+### When We May Suspend or Terminate
 
 We may suspend or terminate your seller account if:
 
@@ -82,7 +98,9 @@ We may suspend or terminate your seller account if:
 - Your Stripe account is restricted or closed
 - Required by law or payment processor
 
-## 9. Limitation of Liability
+## Limitation of Liability
+
+### What Edgaze Is Not Liable For
 
 Edgaze is not liable for:
 
@@ -91,10 +109,10 @@ Edgaze is not liable for:
 - Buyer disputes or chargebacks
 - Changes to revenue share or payout terms (with 30 days notice)
 
-## 10. Changes to Terms
+## Changes to Terms
 
 We may update these terms at any time. Continued selling after changes constitutes acceptance. Material changes will be communicated via email with 30 days notice.
 
-## 11. Contact
+## Contact
 
 For questions about these Seller Terms, contact us at [sellers@edgaze.ai](mailto:sellers@edgaze.ai)

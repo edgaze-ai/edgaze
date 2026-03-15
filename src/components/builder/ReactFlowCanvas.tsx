@@ -87,12 +87,10 @@ function SelectionRing() {
           background:
             "linear-gradient(120deg, rgba(94,240,255,0.9), rgba(168,85,247,0.95), rgba(255,111,216,0.9))",
           padding: 2.5,
-          WebkitMask:
-            "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+          WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
           WebkitMaskComposite: "xor",
           maskComposite: "exclude",
-          boxShadow:
-            "0 0 24px rgba(94,240,255,0.35), 0 0 36px rgba(168,85,247,0.45)",
+          boxShadow: "0 0 24px rgba(94,240,255,0.35), 0 0 36px rgba(168,85,247,0.45)",
         } as any
       }
     />
@@ -155,14 +153,10 @@ function safeParseGraph(input: any): any {
   return input;
 }
 
-function normalizeGraph(
-  graphLike: any
-): { nodes: Node<EdgazeNodeData>[]; edges: Edge[] } {
+function normalizeGraph(graphLike: any): { nodes: Node<EdgazeNodeData>[]; edges: Edge[] } {
   const g0 = safeParseGraph(graphLike);
   const g =
-    g0?.graph && (Array.isArray(g0.graph.nodes) || Array.isArray(g0.graph.edges))
-      ? g0.graph
-      : g0;
+    g0?.graph && (Array.isArray(g0.graph.nodes) || Array.isArray(g0.graph.edges)) ? g0.graph : g0;
 
   const rawNodes = Array.isArray(g?.nodes) ? (g.nodes as Node<EdgazeNodeData>[]) : [];
   // Normalize node IDs to strings for backwards compat (legacy data may have numeric IDs)
@@ -184,8 +178,10 @@ function normalizeGraph(
     .map((e: any) => {
       const src = e?.source ?? e?.sourceId ?? e?.sourceNode?.id ?? e?.sourceNode;
       const tgt = e?.target ?? e?.targetId ?? e?.targetNode?.id ?? e?.targetNode;
-      const srcId = src != null ? (typeof src === "string" ? src : (src as any)?.id ?? String(src)) : null;
-      const tgtId = tgt != null ? (typeof tgt === "string" ? tgt : (tgt as any)?.id ?? String(tgt)) : null;
+      const srcId =
+        src != null ? (typeof src === "string" ? src : ((src as any)?.id ?? String(src))) : null;
+      const tgtId =
+        tgt != null ? (typeof tgt === "string" ? tgt : ((tgt as any)?.id ?? String(tgt))) : null;
       if (srcId == null || tgtId == null) return null;
       const sh = e?.sourceHandle ?? "";
       const th = e?.targetHandle ?? "";
@@ -212,7 +208,7 @@ type BubbleState =
 
 const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   { mode = "edit", onSelectionChange, onGraphChange },
-  ref
+  ref,
 ) {
   const isPreview = mode === "preview";
 
@@ -269,8 +265,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         nds.map((n) =>
           n.id === payload.nodeId
             ? { ...n, data: { ...n.data, config: { ...(n.data?.config ?? {}), ...payload.patch } } }
-            : n
-        )
+            : n,
+        ),
       );
     });
     return () => {
@@ -303,14 +299,14 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         target: e.target,
         targetHandle: (e as any).targetHandle,
       })),
-    [edges]
+    [edges],
   );
 
   const isValidConnection = useCallback(
     (connection: Connection | Edge): boolean => {
       return checkAllowedConnection(connection, getNodes, getEdges);
     },
-    [getNodes, getEdges]
+    [getNodes, getEdges],
   );
 
   const getConnectionError = useCallback(
@@ -318,7 +314,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       const valid = checkAllowedConnection(connection, getNodes, getEdges);
       return valid ? null : "These nodes cannot connect";
     },
-    [getNodes, getEdges]
+    [getNodes, getEdges],
   );
 
   const onConnect: OnConnect = useCallback(
@@ -383,7 +379,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         target_spec_id: targetSpecId,
       });
     },
-    [setEdges, locked, isPreview, isValidConnection, getConnectionError]
+    [setEdges, locked, isPreview, isValidConnection, getConnectionError],
   );
 
   /* Maintain "Connected to" names (GUARDED: only updates if names actually change) */
@@ -410,7 +406,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       return changed ? next : nds;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [edges, setNodes]);
 
   const createNodeFromSpec = useCallback(
@@ -441,10 +436,10 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             icon: (spec as any).icon ?? spec.label?.charAt(0) ?? "N",
             connectedNames: [],
           },
-        })
+        }),
       );
     },
-    [setNodes]
+    [setNodes],
   );
 
   const addNodeAtCenter = useCallback(
@@ -459,7 +454,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       });
       createNodeFromSpec(spec, center);
     },
-    [createNodeFromSpec, isPreview]
+    [createNodeFromSpec, isPreview],
   );
 
   // Listen for add node events from block library
@@ -514,7 +509,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       createNodeFromSpec(spec, pos);
     },
-    [createNodeFromSpec, locked, isPreview]
+    [createNodeFromSpec, locked, isPreview],
   );
 
   const onDragOver = (evt: React.DragEvent) => {
@@ -558,7 +553,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         return next;
       });
     },
-    [toWrapperXY, viewport]
+    [toWrapperXY, viewport],
   );
 
   const placeBubbleForEdge = useCallback(
@@ -605,7 +600,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         return next;
       });
     },
-    [toWrapperXY, viewport]
+    [toWrapperXY, viewport],
   );
 
   const showSelectionFor = useCallback(
@@ -633,23 +628,24 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         config: node.data?.config,
       });
     },
-    [onSelectionChange, placeBubbleForNode, isPreview]
+    [onSelectionChange, placeBubbleForNode, isPreview],
   );
 
-  // Reposition bubble when viewport changes (GUARDED)
+  // Reposition bubble when viewport changes (GUARDED). Defer setState to avoid sync setState-in-effect.
   const bubbleKey = bubble ? `${bubble.kind}:${bubble.id}` : null;
   useEffect(() => {
     if (!bubbleKey) return;
 
     if (bubble?.kind === "node") {
       const n = rfRef.current?.getNode(bubble.id) as Node<EdgazeNodeData> | undefined;
-      if (n) placeBubbleForNode(n);
+      if (n) queueMicrotask(() => placeBubbleForNode(n));
       return;
     }
 
     if (bubble?.kind === "edge") {
-      placeBubbleForEdge(bubble.id);
+      queueMicrotask(() => placeBubbleForEdge(bubble!.id));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- bubbleKey derives from bubble.id and bubble.kind
   }, [bubbleKey, viewport, placeBubbleForNode, placeBubbleForEdge]);
 
   const fitSafely = useCallback(() => {
@@ -658,6 +654,33 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         rfRef.current?.fitView?.({ padding: 0.22, duration: 260 });
       });
     });
+  }, []);
+
+  /* Controls (declared before useImperativeHandle so ref API can use them) */
+  const zoomIn = useCallback(() => {
+    rfRef.current?.zoomIn?.();
+  }, []);
+  const zoomOut = useCallback(() => {
+    rfRef.current?.zoomOut?.();
+  }, []);
+  const fit = useCallback(() => {
+    rfRef.current?.fitView?.({ padding: 0.22, duration: 300 });
+  }, []);
+  const toggleLock = useCallback(() => {
+    setLocked((v) => !v);
+  }, []);
+  const toggleGrid = useCallback(() => {
+    setShowGrid((v) => !v);
+  }, []);
+  const fullscreen = useCallback(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+
+    if (!document.fullscreenElement) {
+      (el as any).requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
   }, []);
 
   useImperativeHandle(ref, () => ({
@@ -693,7 +716,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                   config: { ...(n.data?.config ?? {}), ...patch },
                 },
               }
-            : n
+            : n,
         );
 
         // Sync selection state if this node is currently selected - defer to avoid setState in render
@@ -736,33 +759,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     getIsFullscreen: () => isFullscreen,
   }));
 
-  /* Controls */
-  const zoomIn = useCallback(() => {
-    rfRef.current?.zoomIn?.();
-  }, []);
-  const zoomOut = useCallback(() => {
-    rfRef.current?.zoomOut?.();
-  }, []);
-  const fit = useCallback(() => {
-    rfRef.current?.fitView?.({ padding: 0.22, duration: 300 });
-  }, []);
-  const toggleLock = useCallback(() => {
-    setLocked((v) => !v);
-  }, []);
-  const toggleGrid = useCallback(() => {
-    setShowGrid((v) => !v);
-  }, []);
-  const fullscreen = useCallback(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-
-    if (!document.fullscreenElement) {
-      (el as any).requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-  }, []);
-
   useEffect(() => {
     const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
     handler();
@@ -775,10 +771,10 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
-      const isEditable =
-        tag === "input" || tag === "textarea" || !!target?.isContentEditable;
+      const isEditable = tag === "input" || tag === "textarea" || !!target?.isContentEditable;
       if (isEditable) return;
-      if (target?.closest?.("[data-workflow-run-modal]") ?? target?.closest?.('[role="dialog"]')) return;
+      if (target?.closest?.("[data-workflow-run-modal]") ?? target?.closest?.('[role="dialog"]'))
+        return;
 
       // Preview: block ALL destructive/edit shortcuts
       if (isPreview) {
@@ -842,7 +838,10 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         setNodes((nds) => nds.filter((n) => n.selected !== true));
         setEdges((eds) => {
           const next = eds.filter(
-            (ed) => ed.selected !== true && !removedNodeIds.has(ed.source) && !removedNodeIds.has(ed.target)
+            (ed) =>
+              ed.selected !== true &&
+              !removedNodeIds.has(ed.source) &&
+              !removedNodeIds.has(ed.target),
           );
           edgesRef.current = next;
           return next;
@@ -888,6 +887,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setNodes/setEdges from useState are stable
   }, [
     locked,
     isPreview,
@@ -909,11 +909,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     if (!src) return;
     lastCopiedNodeRef.current = src;
     navigator.clipboard.writeText(
-      JSON.stringify(
-        { type: src.type, data: src.data?.config ?? {} },
-        null,
-        2
-      )
+      JSON.stringify({ type: src.type, data: src.data?.config ?? {} }, null, 2),
     );
   };
 
@@ -942,7 +938,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         selected: false,
         // Clone data so pasted node has its own config; avoid shared refs between nodes
         data: JSON.parse(JSON.stringify(src.data ?? {})),
-      })
+      }),
     );
   };
 
@@ -972,7 +968,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         selected: false,
         // Clone data so duplicated node has its own config; avoid shared refs between nodes
         data: JSON.parse(JSON.stringify(src.data ?? {})),
-      })
+      }),
     );
   };
 
@@ -1015,7 +1011,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     setBubble(null);
   };
 
-
   const selectionShellClass =
     "rounded-full border border-white/10 bg-[#0c0c0c] shadow-[0_18px_60px_rgba(0,0,0,0.75)]";
 
@@ -1037,9 +1032,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         baseOnNodesChange(changes);
         if (removeIds.size > 0) {
           setEdges((eds) => {
-            const next = eds.filter(
-              (e) => !removeIds.has(e.source) && !removeIds.has(e.target)
-            );
+            const next = eds.filter((e) => !removeIds.has(e.source) && !removeIds.has(e.target));
             edgesRef.current = next;
             return next;
           });
@@ -1049,17 +1042,12 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       const allowed = changes.filter((c: any) => {
         const t = c?.type;
-        return (
-          t === "position" ||
-          t === "select" ||
-          t === "dimensions" ||
-          t === "positionExtent"
-        );
+        return t === "position" || t === "select" || t === "dimensions" || t === "positionExtent";
       });
 
       if (allowed.length > 0) baseOnNodesChange(allowed);
     },
-    [baseOnNodesChange, isPreview, setEdges]
+    [baseOnNodesChange, isPreview, setEdges],
   );
 
   // Apply edge changes and sync edgesRef immediately so reconnection after
@@ -1084,7 +1072,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         });
       }
     },
-    [setEdges, isPreview]
+    [setEdges, isPreview],
   );
 
   return (
@@ -1122,7 +1110,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                   disabled={locked}
                   className={cx(
                     selectionBtnClass,
-                    locked && "opacity-50 cursor-not-allowed hover:bg-transparent"
+                    locked && "opacity-50 cursor-not-allowed hover:bg-transparent",
                   )}
                 >
                   <ClipboardPaste size={14} className="text-white/80" />
@@ -1134,7 +1122,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                   disabled={locked}
                   className={cx(
                     selectionBtnClass,
-                    locked && "opacity-50 cursor-not-allowed hover:bg-transparent"
+                    locked && "opacity-50 cursor-not-allowed hover:bg-transparent",
                   )}
                 >
                   <CopyPlus size={14} className="text-white/80" />
@@ -1148,7 +1136,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                   disabled={locked}
                   className={cx(
                     selectionDangerClass,
-                    locked && "opacity-50 cursor-not-allowed hover:bg-transparent"
+                    locked && "opacity-50 cursor-not-allowed hover:bg-transparent",
                   )}
                   title="Delete"
                 >
@@ -1164,7 +1152,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                   className={cx(
                     selectionDangerClass,
                     "px-4",
-                    locked && "opacity-50 cursor-not-allowed hover:bg-transparent"
+                    locked && "opacity-50 cursor-not-allowed hover:bg-transparent",
                   )}
                   title="Delete connection"
                 >
@@ -1189,7 +1177,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         snapToGrid
         snapGrid={[16, 16]}
         onInit={onInit}
-        onNodeClick={isPreview ? undefined : ((_, n) => showSelectionFor(n as Node<EdgazeNodeData>))}
+        onNodeClick={isPreview ? undefined : (_, n) => showSelectionFor(n as Node<EdgazeNodeData>)}
         onPaneClick={(e) => {
           // Clear selection immediately on canvas click
           paneClickJustHappenedRef.current = true;
@@ -1254,8 +1242,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           const nextKey = selectedNode
             ? `n:${selectedNode.id}`
             : selectedEdge
-            ? `e:${selectedEdge.id}`
-            : "none";
+              ? `e:${selectedEdge.id}`
+              : "none";
 
           if (nextKey === lastSelectionKeyRef.current) return;
           lastSelectionKeyRef.current = nextKey;
@@ -1292,8 +1280,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             background: "#05060b",
             border: "1px solid rgba(148,163,184,0.6)",
             borderRadius: 12,
-            boxShadow:
-              "0 0 0 1px rgba(15,23,42,0.85) inset, 0 12px 40px rgba(0,0,0,0.7)",
+            boxShadow: "0 0 0 1px rgba(15,23,42,0.85) inset, 0 12px 40px rgba(0,0,0,0.7)",
             bottom: 12,
             right: 12,
             width: 180,

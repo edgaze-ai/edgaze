@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { Suspense, useEffect, useState } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { CheckCircle2, Loader2, ExternalLink, Share2 } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { Suspense, useCallback, useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
+import { CheckCircle2, Loader2, ExternalLink } from "lucide-react";
+import confetti from "canvas-confetti";
 
 function CheckoutSuccessContent() {
   const router = useRouter();
@@ -15,34 +15,24 @@ function CheckoutSuccessContent() {
   const [error, setError] = useState<string | null>(null);
   const [purchase, setPurchase] = useState<any>(null);
 
-  const sessionId = searchParams.get('session_id');
-  const resourceId = searchParams.get('resource_id');
-  const type = searchParams.get('type');
+  const sessionId = searchParams.get("session_id");
+  const resourceId = searchParams.get("resource_id");
+  const type = searchParams.get("type");
 
   useEffect(() => {
-    const main = document.querySelector('main');
+    const main = document.querySelector("main");
     if (main) {
-      main.style.overflowY = 'auto';
-      main.style.overflowX = 'hidden';
+      main.style.overflowY = "auto";
+      main.style.overflowX = "hidden";
       return () => {
-        main.style.overflowY = '';
-        main.style.overflowX = '';
+        main.style.overflowY = "";
+        main.style.overflowX = "";
       };
     }
     return;
   }, []);
 
-  useEffect(() => {
-    if (!sessionId || !resourceId || !type) {
-      setError('Invalid checkout session');
-      setLoading(false);
-      return;
-    }
-
-    pollForConfirmation();
-  }, [sessionId, resourceId, type]);
-
-  async function pollForConfirmation() {
+  const pollForConfirmation = useCallback(async () => {
     const maxAttempts = 30;
     let attempts = 0;
 
@@ -51,7 +41,7 @@ function CheckoutSuccessContent() {
 
       try {
         const res = await fetch(
-          `/api/stripe/checkout/confirm?session_id=${sessionId}&resource_id=${resourceId}&type=${type}`
+          `/api/stripe/checkout/confirm?session_id=${sessionId}&resource_id=${resourceId}&type=${type}`,
         );
 
         if (res.ok) {
@@ -64,25 +54,38 @@ function CheckoutSuccessContent() {
             triggerConfetti();
           } else if (attempts >= maxAttempts) {
             clearInterval(interval);
-            setError('Payment processing is taking longer than expected. Please contact support if you don\'t receive access within 5 minutes.');
+            setError(
+              "Payment processing is taking longer than expected. Please contact support if you don't receive access within 5 minutes.",
+            );
             setLoading(false);
           }
         } else if (attempts >= maxAttempts) {
           clearInterval(interval);
-          setError('Failed to confirm purchase. Please contact support.');
+          setError("Failed to confirm purchase. Please contact support.");
           setLoading(false);
         }
       } catch (err) {
         if (attempts >= maxAttempts) {
           clearInterval(interval);
-          setError('Network error. Please check your connection and contact support if the issue persists.');
+          setError(
+            "Network error. Please check your connection and contact support if the issue persists.",
+          );
           setLoading(false);
         }
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }
+  }, [sessionId, resourceId, type]);
+
+  useEffect(() => {
+    if (!sessionId || !resourceId || !type) {
+      setError("Invalid checkout session");
+      setLoading(false);
+      return;
+    }
+    pollForConfirmation();
+  }, [sessionId, resourceId, type, pollForConfirmation]);
 
   function triggerConfetti() {
     const duration = 3000;
@@ -93,7 +96,7 @@ function CheckoutSuccessContent() {
       return Math.random() * (max - min) + min;
     }
 
-    const interval = setInterval(function() {
+    const interval = setInterval(function () {
       const timeLeft = animationEnd - Date.now();
 
       if (timeLeft <= 0) {
@@ -106,13 +109,13 @@ function CheckoutSuccessContent() {
         ...defaults,
         particleCount,
         origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
-        colors: ['#22d3ee', '#e879f9', '#06b6d4', '#f472b6', '#ffffff'],
+        colors: ["#22d3ee", "#e879f9", "#06b6d4", "#f472b6", "#ffffff"],
       });
       confetti({
         ...defaults,
         particleCount,
         origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
-        colors: ['#22d3ee', '#e879f9', '#06b6d4', '#f472b6', '#ffffff'],
+        colors: ["#22d3ee", "#e879f9", "#06b6d4", "#f472b6", "#ffffff"],
       });
     }, 250);
   }
@@ -147,7 +150,7 @@ function CheckoutSuccessContent() {
             <h1 className="text-2xl font-bold text-white mb-2">Payment processing</h1>
             <p className="text-white/60 mb-8">{error}</p>
             <button
-              onClick={() => router.push('/library')}
+              onClick={() => router.push("/library")}
               className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold hover:opacity-90 transition"
             >
               Go to Library
@@ -168,7 +171,13 @@ function CheckoutSuccessContent() {
 
       <header className="relative z-10 w-full max-w-2xl flex items-center justify-between mb-12">
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={28} height={28} className="h-7 w-auto" />
+          <Image
+            src="/brand/edgaze-mark.png"
+            alt="Edgaze"
+            width={28}
+            height={28}
+            className="h-7 w-auto"
+          />
           <span className="font-semibold text-white">Edgaze</span>
         </Link>
         <span className="text-white/40 text-sm">Payment complete</span>
@@ -178,13 +187,19 @@ function CheckoutSuccessContent() {
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', duration: 0.7, bounce: 0.35 }}
+          transition={{ type: "spring", duration: 0.7, bounce: 0.35 }}
           className="relative mb-8"
         >
           <div className="relative w-28 h-28 rounded-full flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400 via-pink-400 to-cyan-400 opacity-90 blur-xl animate-pulse" style={{ animationDuration: '2s' }} />
+            <div
+              className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400 via-pink-400 to-cyan-400 opacity-90 blur-xl animate-pulse"
+              style={{ animationDuration: "2s" }}
+            />
             <div className="absolute inset-1 rounded-full bg-[#0d0d0d] flex items-center justify-center">
-              <CheckCircle2 className="w-14 h-14 text-cyan-400 drop-shadow-[0_0_24px_rgba(34,211,238,0.5)]" strokeWidth={2} />
+              <CheckCircle2
+                className="w-14 h-14 text-cyan-400 drop-shadow-[0_0_24px_rgba(34,211,238,0.5)]"
+                strokeWidth={2}
+              />
             </div>
           </div>
         </motion.div>
@@ -204,26 +219,60 @@ function CheckoutSuccessContent() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-xl text-white/60 text-center mb-12"
+          className="text-xl text-white/70 text-center mb-2"
         >
-          You now have access to this {type}
+          You have immediate access — use it anytime from your library.
         </motion.p>
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="text-white/50 text-center mb-10"
+        >
+          This {type} is ready to use right now.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="w-full mb-8"
+        >
+          <button
+            onClick={() => {
+              if (type === "workflow") router.push("/library?tab=workflows");
+              else router.push("/library?tab=prompts");
+            }}
+            className="w-full flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-cyan-500 via-cyan-400 to-pink-500 py-5 px-6 text-black font-bold text-lg shadow-[0_0_40px_rgba(34,211,238,0.3)] hover:shadow-[0_0_56px_rgba(34,211,238,0.4)] hover:opacity-95 transition-all"
+          >
+            <ExternalLink className="w-6 h-6" />
+            Open {type === "workflow" ? "workflow" : "prompt"} now
+          </button>
+          <button
+            onClick={() => router.push("/library")}
+            className="w-full mt-4 flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/[0.08] px-6 py-3.5 text-white font-semibold transition-colors"
+          >
+            View in Library
+          </button>
+        </motion.div>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.5 }}
           className="w-full rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 mb-8"
         >
-          <h2 className="text-lg font-semibold text-white mb-4">Purchase details</h2>
-          <div className="space-y-4 text-sm">
+          <h2 className="text-sm font-semibold text-white/70 mb-3">Purchase details</h2>
+          <div className="space-y-3 text-sm">
             <div className="flex justify-between items-center">
               <span className="text-white/50">Transaction</span>
               <span className="text-white/90 font-mono text-xs">{sessionId?.slice(0, 24)}...</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-white/50">Date</span>
-              <span className="text-white/90">{new Date().toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
+              <span className="text-white/90">
+                {new Date().toLocaleDateString(undefined, { dateStyle: "medium" })}
+              </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-white/50">Status</span>
@@ -232,30 +281,6 @@ function CheckoutSuccessContent() {
               </span>
             </div>
           </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="w-full grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8"
-        >
-          <button
-            onClick={() => {
-              if (type === 'workflow') router.push('/library?tab=workflows');
-              else router.push('/library?tab=prompts');
-            }}
-            className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500/90 to-purple-500/90 hover:from-cyan-400 hover:to-purple-400 px-6 py-4 text-white font-semibold shadow-[0_0_32px_rgba(34,211,238,0.2)] hover:shadow-[0_0_48px_rgba(34,211,238,0.3)] transition-all"
-          >
-            <ExternalLink className="w-5 h-5" />
-            Open {type === 'workflow' ? 'workflow' : 'prompt'}
-          </button>
-          <button
-            onClick={() => router.push('/library')}
-            className="flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/[0.08] px-6 py-4 text-white font-semibold transition-colors"
-          >
-            View in Library
-          </button>
         </motion.div>
 
         <motion.p

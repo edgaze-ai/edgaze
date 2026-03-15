@@ -93,7 +93,9 @@ export default function DocsIndex() {
                 >
                   <div>
                     <p className="text-[13px] font-medium text-white/95">Workflow Studio</p>
-                    <p className="mt-0.5 text-[11px] text-white/60">Build multi-step AI workflows.</p>
+                    <p className="mt-0.5 text-[11px] text-white/60">
+                      Build multi-step AI workflows.
+                    </p>
                   </div>
                   <ArrowUpRight className="h-4 w-4 text-white/60 group-hover:text-cyan-300" />
                 </Link>
@@ -103,7 +105,9 @@ export default function DocsIndex() {
                 >
                   <div>
                     <p className="text-[13px] font-medium text-white/95">Prompt Studio</p>
-                    <p className="mt-0.5 text-[11px] text-white/60">Create reusable prompt templates.</p>
+                    <p className="mt-0.5 text-[11px] text-white/60">
+                      Create reusable prompt templates.
+                    </p>
                   </div>
                   <ArrowUpRight className="h-4 w-4 text-white/60 group-hover:text-violet-300" />
                 </Link>
@@ -113,7 +117,9 @@ export default function DocsIndex() {
                 >
                   <div>
                     <p className="text-[13px] font-medium text-white/95">Changelog</p>
-                    <p className="mt-0.5 text-[11px] text-white/60">See what&apos;s new in Edgaze.</p>
+                    <p className="mt-0.5 text-[11px] text-white/60">
+                      See what&apos;s new in Edgaze.
+                    </p>
                   </div>
                   <ArrowUpRight className="h-4 w-4 text-white/60 group-hover:text-emerald-300" />
                 </Link>
@@ -126,26 +132,21 @@ export default function DocsIndex() {
       {/* Builder guides — no tags */}
       <section className="space-y-6">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight text-white/95">
-            Builder guides
-          </h2>
+          <h2 className="text-sm font-semibold tracking-tight text-white/95">Builder guides</h2>
           <p className="mt-1.5 text-[13px] text-white/50 max-w-md">
             Step-by-step guides for Workflow Studio and Prompt Studio.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {builderDocs.map((doc) => {
-            const href =
-              doc.slug === "builder" ? "/docs/builder" : `/docs/${doc.slug}`;
+            const href = doc.slug === "builder" ? "/docs/builder" : `/docs/${doc.slug}`;
             return (
               <Link
                 key={doc.slug}
                 href={href}
                 className="group flex flex-col rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-5 hover:border-white/10 hover:bg-white/[0.04] transition shadow-[0_0_0_1px_rgba(255,255,255,0.02)]"
               >
-                <p className="text-[15px] font-medium text-white/95">
-                  {doc.title}
-                </p>
+                <p className="text-[15px] font-medium text-white/95">{doc.title}</p>
                 {doc.description ? (
                   <p className="mt-2 text-[13px] text-white/55 leading-relaxed line-clamp-3">
                     {doc.description}
@@ -165,9 +166,7 @@ export default function DocsIndex() {
       {platformDocs.length > 0 && (
         <section className="space-y-6">
           <div>
-            <h2 className="text-sm font-semibold tracking-tight text-white/95">
-              Platform
-            </h2>
+            <h2 className="text-sm font-semibold tracking-tight text-white/95">Platform</h2>
             <p className="mt-1.5 text-[13px] text-white/50">
               Product updates and platform reference.
             </p>
@@ -181,9 +180,7 @@ export default function DocsIndex() {
                   className="group flex items-start justify-between gap-4 rounded-xl px-4 py-3 hover:bg-white/[0.04] transition"
                 >
                   <div>
-                    <p className="text-[14px] font-medium text-white/90">
-                      {doc.title}
-                    </p>
+                    <p className="text-[14px] font-medium text-white/90">{doc.title}</p>
                     {doc.description ? (
                       <p className="mt-0.5 text-[12px] text-white/50 line-clamp-2">
                         {doc.description}
@@ -218,9 +215,7 @@ export default function DocsIndex() {
                   className="group flex items-start justify-between gap-4 rounded-xl px-4 py-3 hover:bg-white/[0.04] transition"
                 >
                   <div>
-                    <p className="text-[14px] font-medium text-white/90">
-                      {doc.title}
-                    </p>
+                    <p className="text-[14px] font-medium text-white/90">{doc.title}</p>
                     {doc.description ? (
                       <p className="mt-0.5 text-[12px] text-white/50 line-clamp-2">
                         {doc.description}
@@ -239,12 +234,8 @@ export default function DocsIndex() {
       {legalDocs.length > 0 && (
         <section className="space-y-6">
           <div>
-            <h2 className="text-sm font-semibold tracking-tight text-white/95">
-              Legal
-            </h2>
-            <p className="mt-1.5 text-[13px] text-white/50">
-              Policies, terms, and compliance.
-            </p>
+            <h2 className="text-sm font-semibold tracking-tight text-white/95">Legal</h2>
+            <p className="mt-1.5 text-[13px] text-white/50">Policies, terms, and compliance.</p>
           </div>
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
             <div className="flex flex-col gap-2">
@@ -255,9 +246,7 @@ export default function DocsIndex() {
                   className="group flex items-start justify-between gap-4 rounded-xl px-4 py-3 hover:bg-white/[0.04] transition"
                 >
                   <div>
-                    <p className="text-[14px] font-medium text-white/90">
-                      {doc.title}
-                    </p>
+                    <p className="text-[14px] font-medium text-white/90">{doc.title}</p>
                     {doc.description ? (
                       <p className="mt-0.5 text-[12px] text-white/50 line-clamp-2">
                         {doc.description}
@@ -276,9 +265,7 @@ export default function DocsIndex() {
       {restDocs.length > 0 && (
         <section className="space-y-6">
           <div>
-            <h2 className="text-sm font-semibold tracking-tight text-white/95">
-              More
-            </h2>
+            <h2 className="text-sm font-semibold tracking-tight text-white/95">More</h2>
             <p className="mt-1.5 text-[13px] text-white/50">
               Guidelines, security, and other documentation.
             </p>
@@ -292,9 +279,7 @@ export default function DocsIndex() {
                   className="group flex items-start justify-between gap-4 rounded-xl px-4 py-3 hover:bg-white/[0.04] transition"
                 >
                   <div>
-                    <p className="text-[14px] font-medium text-white/90">
-                      {doc.title}
-                    </p>
+                    <p className="text-[14px] font-medium text-white/90">{doc.title}</p>
                     {doc.description ? (
                       <p className="mt-0.5 text-[12px] text-white/50 line-clamp-2">
                         {doc.description}

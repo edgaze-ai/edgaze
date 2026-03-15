@@ -55,7 +55,7 @@ export default function ProfileAvatar({
     <div
       className={cn(
         "shrink-0 overflow-hidden rounded-full border border-white/10 bg-gray-600 relative",
-        className
+        className,
       )}
       style={{ width: px, height: px }}
     >
@@ -67,7 +67,7 @@ export default function ProfileAvatar({
               <span className={cn("font-semibold", fontSize)}>{initials}</span>
             </div>
           )}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {}
           <img
             src={avatarUrl}
             alt={name || "Profile"}
@@ -104,11 +104,7 @@ export default function ProfileAvatar({
 
   if (profileHref) {
     return (
-      <Link
-        href={profileHref}
-        className="cursor-pointer"
-        aria-label={`View ${name || "profile"}`}
-      >
+      <Link href={profileHref} className="cursor-pointer" aria-label={`View ${name || "profile"}`}>
         {avatarContent}
       </Link>
     );

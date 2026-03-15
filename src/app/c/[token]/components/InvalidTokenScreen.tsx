@@ -1,33 +1,34 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { XCircle, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { motion } from "framer-motion";
+import { XCircle, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 interface InvalidTokenScreenProps {
-  reason: 'invalid' | 'expired' | 'revoked' | 'completed' | 'claimed_by_other';
+  reason: "invalid" | "expired" | "revoked" | "completed" | "claimed_by_other";
 }
 
 const messages = {
   invalid: {
-    title: 'Invalid invite',
-    description: 'This invite link is not valid. Please check the URL and try again.',
+    title: "Invalid invite",
+    description: "This invite link is not valid. Please check the URL and try again.",
   },
   expired: {
-    title: 'Invite expired',
-    description: 'This invite has expired. Please contact the person who invited you for a new link.',
+    title: "Invite expired",
+    description:
+      "This invite has expired. Please contact the person who invited you for a new link.",
   },
   revoked: {
-    title: 'Invite revoked',
-    description: 'This invite has been revoked and is no longer valid.',
+    title: "Invite revoked",
+    description: "This invite has been revoked and is no longer valid.",
   },
   completed: {
-    title: 'Already used',
-    description: 'This invite has already been used to create an account.',
+    title: "Already used",
+    description: "This invite has already been used to create an account.",
   },
   claimed_by_other: {
-    title: 'Already claimed',
-    description: 'This invite has been claimed by another user.',
+    title: "Already claimed",
+    description: "This invite has been claimed by another user.",
   },
 };
 

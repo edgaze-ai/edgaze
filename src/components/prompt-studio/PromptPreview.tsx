@@ -47,20 +47,16 @@ export default function PromptPreview({
   const versionsSorted = useMemo(
     () =>
       [...versions].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),
-    [versions]
+    [versions],
   );
 
   return (
     <div className="flex w-1/2 flex-col">
       <div className="flex border-b border-white/10 text-[11px] text-white/55">
-        <div className="flex-1 px-4 py-2 border-r border-white/10">
-          Preview
-        </div>
-        <div className="w-[38%] px-4 py-2 border-r border-white/10">
-          User answers
-        </div>
+        <div className="flex-1 px-4 py-2 border-r border-white/10">Preview</div>
+        <div className="w-[38%] px-4 py-2 border-r border-white/10">User answers</div>
         <div className="w-[24%] px-4 py-2">Versions</div>
       </div>
 
@@ -68,7 +64,9 @@ export default function PromptPreview({
         <div className="flex-1 border-r border-white/10">
           <div className="h-full overflow-y-auto px-4 py-3">
             {rawText.trim() ? (
-              <p className="whitespace-pre-wrap leading-relaxed">{highlightPlaceholders(rawText)}</p>
+              <p className="whitespace-pre-wrap leading-relaxed">
+                {highlightPlaceholders(rawText)}
+              </p>
             ) : (
               <p className="text-white/35">Start typing to see a preview.</p>
             )}
@@ -78,9 +76,7 @@ export default function PromptPreview({
         <div className="w-[38%] border-r border-white/10">
           <div className="h-full overflow-y-auto px-4 py-3 space-y-3">
             {!hasPlaceholders && (
-              <p className="text-white/40">
-                Add placeholders to generate the customer form.
-              </p>
+              <p className="text-white/40">Add placeholders to generate the customer form.</p>
             )}
 
             {placeholders.map((p) => (
@@ -89,12 +85,8 @@ export default function PromptPreview({
                 className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2"
               >
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-white/80">
-                    {p.question}
-                  </span>
-                  <span className="text-[10px] text-cyan-200 font-mono">
-                    {`{{${p.name}}}`}
-                  </span>
+                  <span className="text-[11px] font-semibold text-white/80">{p.question}</span>
+                  <span className="text-[10px] text-cyan-200 font-mono">{`{{${p.name}}}`}</span>
                 </div>
                 <textarea
                   value={answers[p.name] ?? ""}

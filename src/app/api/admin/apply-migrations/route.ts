@@ -1,21 +1,21 @@
 // Show migration SQL for manual application
-import { NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
+import { NextResponse } from "next/server";
+import { readFile } from "fs/promises";
+import { join } from "path";
 
 export async function GET() {
   try {
     const migrations = [
-      '20250301000003_fix_creator_invites.sql',
-      '20250301000004_fix_storage_buckets.sql',
+      "20250301000003_fix_creator_invites.sql",
+      "20250301000004_fix_storage_buckets.sql",
     ];
 
     const migrationContents = [];
 
     for (const migrationFile of migrations) {
       try {
-        const migrationPath = join(process.cwd(), 'supabase', 'migrations', migrationFile);
-        const sql = await readFile(migrationPath, 'utf-8');
+        const migrationPath = join(process.cwd(), "supabase", "migrations", migrationFile);
+        const sql = await readFile(migrationPath, "utf-8");
         migrationContents.push({
           file: migrationFile,
           sql,
@@ -31,12 +31,15 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       migrations: migrationContents,
-      instructions: 'Copy the SQL from each migration and run it in your Supabase SQL Editor',
+      instructions: "Copy the SQL from each migration and run it in your Supabase SQL Editor",
     });
   } catch (err: any) {
-    return NextResponse.json({ 
-      success: false, 
-      error: err.message 
-    }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: err.message,
+      },
+      { status: 500 },
+    );
   }
 }

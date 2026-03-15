@@ -2,7 +2,7 @@
 
 This guide walks you through setting up a local development environment for Edgaze and explains the development workflow.
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 ---
 

@@ -7,8 +7,8 @@ import { listNodeSpecs } from "./registry";
 
 const STOPWORDS = new Set(
   "i me my we our you your want need to the a an and or but for of in on at is are was were be been being have has had do does did will would could should can may might must shall".split(
-    " "
-  )
+    " ",
+  ),
 );
 
 /** Expand common phrases/words to extra search terms (no LLM). */
@@ -65,9 +65,7 @@ function searchableText(spec: NodeSpec): string {
     spec.id,
     spec.summary ?? "",
     spec.category,
-    ...(spec.inspector ?? []).flatMap((f) =>
-      "label" in f ? [f.label] : []
-    ),
+    ...(spec.inspector ?? []).flatMap((f) => ("label" in f ? [f.label] : [])),
   ]
     .join(" ")
     .toLowerCase();
@@ -86,13 +84,14 @@ const MAX_SUGGESTIONS = 8;
  */
 export function matchNodesFromNaturalLanguage(
   query: string,
-  specs: NodeSpec[] = listNodeSpecs()
+  specs: NodeSpec[] = listNodeSpecs(),
 ): NodeSearchResult {
   const trimmed = (query || "").trim();
   if (!trimmed) {
     return {
       suggestions: [],
-      message: "Enter a short instruction (e.g. “generate an image” or “call an API”) and I’ll suggest matching nodes.",
+      message:
+        "Enter a short instruction (e.g. “generate an image” or “call an API”) and I’ll suggest matching nodes.",
     };
   }
 

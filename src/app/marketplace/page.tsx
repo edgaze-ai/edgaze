@@ -96,8 +96,7 @@ function initialsFromName(name: string | null | undefined): string {
   if (!n) return "EG";
   const parts = n.split(/\s+/);
   const a = parts[0]?.[0]?.toUpperCase() || "E";
-  const b =
-    parts[1]?.[0]?.toUpperCase() || (parts[0]?.[1]?.toUpperCase() || "G");
+  const b = parts[1]?.[0]?.toUpperCase() || parts[0]?.[1]?.toUpperCase() || "G";
   return `${a}${b}`.slice(0, 2);
 }
 
@@ -159,20 +158,11 @@ function Avatar({
   const px = `${size}px`;
   return (
     <div
-      className={cn(
-        "shrink-0 overflow-hidden rounded-full border-0 bg-white/[0.06]",
-        className
-      )}
+      className={cn("shrink-0 overflow-hidden rounded-full border-0 bg-white/[0.06]", className)}
       style={{ width: px, height: px }}
     >
       {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={url}
-          alt={name}
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
+        <img src={url} alt={name} className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/10 to-white/0 text-[11px] font-semibold text-white/80">
           {initialsFromName(name)}
@@ -184,11 +174,7 @@ function Avatar({
 
 function BlurredPromptThumbnail({ text }: { text: string }) {
   const snippet =
-    (text || "EDGAZE")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 28)
-      .toUpperCase() || "EDGAZE";
+    (text || "EDGAZE").replace(/\s+/g, " ").trim().slice(0, 28).toUpperCase() || "EDGAZE";
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-slate-950/80">
@@ -253,9 +239,7 @@ function getOrCreateSessionId() {
   if (typeof window === "undefined") return "server";
   const existing = window.sessionStorage.getItem(LS_SESSION_KEY);
   if (existing) return existing;
-  const id = `ms_${Math.random().toString(16).slice(2)}_${Date.now().toString(
-    16
-  )}`;
+  const id = `ms_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
   window.sessionStorage.setItem(LS_SESSION_KEY, id);
   return id;
 }
@@ -267,8 +251,7 @@ function parseTags(raw: string | null | undefined): string[] {
   if (t.startsWith("[") && t.endsWith("]")) {
     try {
       const arr = JSON.parse(t);
-      if (Array.isArray(arr))
-        return arr.map((x) => String(x).trim()).filter(Boolean);
+      if (Array.isArray(arr)) return arr.map((x) => String(x).trim()).filter(Boolean);
     } catch {}
   }
   return t
@@ -295,10 +278,7 @@ function safeLoadProfile(): MarketplaceUserProfile {
     const p = JSON.parse(raw);
     return {
       tag_w: (p?.tag_w && typeof p.tag_w === "object" ? p.tag_w : {}) as any,
-      creator_w:
-        (p?.creator_w && typeof p.creator_w === "object"
-          ? p.creator_w
-          : {}) as any,
+      creator_w: (p?.creator_w && typeof p.creator_w === "object" ? p.creator_w : {}) as any,
       type_w: {
         prompt: Number(p?.type_w?.prompt ?? 0) || 0,
         workflow: Number(p?.type_w?.workflow ?? 0) || 0,
@@ -332,17 +312,14 @@ function pushLocalEvent(evt: MarketplaceEvent) {
     const raw = window.localStorage.getItem(LS_EVENTS_KEY);
     const arr = raw ? (JSON.parse(raw) as MarketplaceEvent[]) : [];
     arr.push(evt);
-    const trimmed =
-      arr.length > MAX_LOCAL_EVENTS
-        ? arr.slice(arr.length - MAX_LOCAL_EVENTS)
-        : arr;
+    const trimmed = arr.length > MAX_LOCAL_EVENTS ? arr.slice(arr.length - MAX_LOCAL_EVENTS) : arr;
     window.localStorage.setItem(LS_EVENTS_KEY, JSON.stringify(trimmed));
   } catch {}
 }
 
 function applyEventToProfile(
   p: MarketplaceUserProfile,
-  evt: MarketplaceEvent
+  evt: MarketplaceEvent,
 ): MarketplaceUserProfile {
   const out: MarketplaceUserProfile = {
     tag_w: { ...(p.tag_w || {}) },
@@ -357,51 +334,45 @@ function applyEventToProfile(
     evt.name === "like"
       ? 3.2
       : evt.name === "click_card"
-      ? 2.0
-      : evt.name === "open_code"
-      ? 2.5
-      : evt.name === "impression"
-      ? 0.25
-      : evt.name === "search"
-      ? 0.4
-      : 0.2;
+        ? 2.0
+        : evt.name === "open_code"
+          ? 2.5
+          : evt.name === "impression"
+            ? 0.25
+            : evt.name === "search"
+              ? 0.4
+              : 0.2;
 
   const type = (evt.item_type as any) === "workflow" ? "workflow" : "prompt";
   out.type_w[type] += weight * 0.15;
 
   const handle = (evt.owner_handle || "").toLowerCase();
-  if (handle)
-    out.creator_w[handle] = (out.creator_w[handle] || 0) + weight * 0.35;
+  if (handle) out.creator_w[handle] = (out.creator_w[handle] || 0) + weight * 0.35;
 
-  const tags = (evt.tags || [])
-    .map((t) => String(t).toLowerCase())
-    .filter(Boolean);
+  const tags = (evt.tags || []).map((t) => String(t).toLowerCase()).filter(Boolean);
   for (const tag of tags) {
     out.tag_w[tag] = (out.tag_w[tag] || 0) + weight * 0.22;
   }
 
   const isFree = (evt.meta as any)?.is_free;
-  if (typeof isFree === "boolean")
-    out.prefers_free += isFree ? weight * 0.12 : -weight * 0.12;
+  if (typeof isFree === "boolean") out.prefers_free += isFree ? weight * 0.12 : -weight * 0.12;
 
   const DECAY = 0.995;
-if (out.events_seen % 40 === 0) {
-  for (const k of Object.keys(out.tag_w)) {
-    out.tag_w[k] = (out.tag_w[k] ?? 0) * DECAY;
-    if (out.tag_w[k] < 1e-6) delete out.tag_w[k];
+  if (out.events_seen % 40 === 0) {
+    for (const k of Object.keys(out.tag_w)) {
+      out.tag_w[k] = (out.tag_w[k] ?? 0) * DECAY;
+      if (out.tag_w[k] < 1e-6) delete out.tag_w[k];
+    }
+
+    for (const k of Object.keys(out.creator_w)) {
+      out.creator_w[k] = (out.creator_w[k] ?? 0) * DECAY;
+      if (out.creator_w[k] < 1e-6) delete out.creator_w[k];
+    }
+
+    out.type_w.prompt = out.type_w.prompt * DECAY;
+    out.type_w.workflow = out.type_w.workflow * DECAY;
+    out.prefers_free = out.prefers_free * DECAY;
   }
-
-  for (const k of Object.keys(out.creator_w)) {
-    out.creator_w[k] = (out.creator_w[k] ?? 0) * DECAY;
-    if (out.creator_w[k] < 1e-6) delete out.creator_w[k];
-  }
-
-  out.type_w.prompt = out.type_w.prompt * DECAY;
-  out.type_w.workflow = out.type_w.workflow * DECAY;
-  out.prefers_free = out.prefers_free * DECAY;
-}
-
-
 
   return out;
 }
@@ -415,22 +386,18 @@ function log1pSafe(n: number) {
 function scoreItemForUser(
   item: MarketplacePrompt,
   profile: MarketplaceUserProfile,
-  sessionSalt: string
+  sessionSalt: string,
 ) {
   const tags = parseTags(item.tags).map((t) => t.toLowerCase());
   const owner = (item.owner_handle || "").toLowerCase();
   const isWorkflow = item.type === "workflow";
   const isFree = item.monetisation_mode === "free" || item.is_paid === false;
 
-  const ageDays = Math.max(
-    0,
-    (nowMs() - safeDateMs(item.created_at)) / (1000 * 60 * 60 * 24)
-  );
+  const ageDays = Math.max(0, (nowMs() - safeDateMs(item.created_at)) / (1000 * 60 * 60 * 24));
   const recency = 1 / (1 + ageDays / 2.5);
 
   const popularity =
-    0.12 * log1pSafe(item.view_count ?? 0) +
-    0.22 * log1pSafe(item.like_count ?? 0);
+    0.12 * log1pSafe(item.view_count ?? 0) + 0.22 * log1pSafe(item.like_count ?? 0);
 
   let affinity = 0;
   for (const t of tags) affinity += (profile.tag_w[t] || 0) * 0.035;
@@ -456,7 +423,7 @@ function pickDiversifiedPage(
   pool: MarketplacePrompt[],
   pageSize: number,
   profile: MarketplaceUserProfile,
-  sessionSalt: string
+  sessionSalt: string,
 ) {
   const scored = pool
     .map((it) => ({ it, s: scoreItemForUser(it, profile, sessionSalt) }))
@@ -475,34 +442,32 @@ function pickDiversifiedPage(
     profile.type_w.workflow - profile.type_w.prompt > 0.35
       ? 1
       : profile.type_w.prompt - profile.type_w.workflow > 0.35
-      ? 0
-      : 0.5;
+        ? 0
+        : 0.5;
 
   const hardPreferMix = true;
 
   for (let i = 0; i < scored.length && out.length < pageSize; i++) {
     const row = scored[i];
     if (!row) continue; // noUncheckedIndexedAccess safe-guard
-  
+
     const cand = row.it;
     const key = `${cand.type ?? "x"}:${cand.id}`;
     if (used.has(key)) continue;
-  
+
     const type = cand.type === "workflow" ? "workflow" : "prompt";
     const owner = (cand.owner_handle || "").toLowerCase();
-  
+
     if (owner && ownerRecent.includes(owner)) continue;
     if (hardPreferMix && lastType && lastType === type && streak >= 2) continue;
-  
+
     if (hardPreferMix && out.length >= 2) {
       const hasBothInPool =
-        pool.some((p) => p.type === "workflow") &&
-        pool.some((p) => p.type !== "workflow");
-  
+        pool.some((p) => p.type === "workflow") && pool.some((p) => p.type !== "workflow");
+
       if (hasBothInPool && wantWorkflow !== 0.5) {
-        const fracW =
-          out.filter((x) => x.type === "workflow").length / Math.max(1, out.length);
-  
+        const fracW = out.filter((x) => x.type === "workflow").length / Math.max(1, out.length);
+
         if (wantWorkflow === 1 && type !== "workflow" && fracW < 0.35) {
           if ((out.length + 1) % 3 !== 0) continue;
         }
@@ -511,22 +476,21 @@ function pickDiversifiedPage(
         }
       }
     }
-  
+
     out.push(cand);
     used.add(key);
-  
+
     if (type === lastType) streak += 1;
     else {
       streak = 1;
       lastType = type;
     }
-  
+
     if (owner) {
       ownerRecent.push(owner);
       while (ownerRecent.length > ownerWindow) ownerRecent.shift();
     }
   }
-  
 
   if (out.length < pageSize) {
     for (const row of scored) {
@@ -540,16 +504,14 @@ function pickDiversifiedPage(
   }
 
   const selectedKeys = new Set(out.map((x) => `${x.type ?? "x"}:${x.id}`));
-  const rest = scored
-    .map((x) => x.it)
-    .filter((x) => !selectedKeys.has(`${x.type ?? "x"}:${x.id}`));
+  const rest = scored.map((x) => x.it).filter((x) => !selectedKeys.has(`${x.type ?? "x"}:${x.id}`));
 
   return { page: out, rest };
 }
 
 async function safeInsertAnalyticsEvent(
   supabase: ReturnType<typeof createSupabasePublicBrowserClient>,
-  evt: MarketplaceEvent
+  evt: MarketplaceEvent,
 ) {
   try {
     const { error } = await supabase.from("marketplace_events").insert([
@@ -615,7 +577,7 @@ function PromptCard({
   });
 
   const isFree = prompt.monetisation_mode === "free" || prompt.is_paid === false;
-  const publishedLabel = formatRelativeTime((prompt.published_at ?? prompt.created_at) ?? null);
+  const publishedLabel = formatRelativeTime(prompt.published_at ?? prompt.created_at ?? null);
 
   useEffect(() => {
     const el = cardRef.current;
@@ -636,7 +598,7 @@ function PromptCard({
         });
         obs.disconnect();
       },
-      { root: null, rootMargin: "120px 0px", threshold: 0.2 }
+      { root: null, rootMargin: "120px 0px", threshold: 0.2 },
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -648,21 +610,22 @@ function PromptCard({
     const checkLikeStatus = async () => {
       try {
         const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
-        
+
         // Refresh count from database first (workflows has likes_count only; prompts has both)
-        const likeCountCols = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
+        const likeCountCols =
+          prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
         const { data: itemData } = await supabase
           .from(itemsTable)
           .select(likeCountCols)
           .eq("id", prompt.id)
           .single();
-        
+
         if (itemData) {
           const raw = itemData as LikeCountRow;
           const actualCount = raw.likes_count ?? raw.like_count ?? 0;
           setLikeCount(actualCount);
         }
-        
+
         // Check if user has liked
         if (!currentUserId) {
           setIsLiked(false);
@@ -671,18 +634,18 @@ function PromptCard({
 
         const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
         const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
-        
+
         const { data, error } = await supabaseAuth
           .from(likesTable)
           .select("id")
           .eq("user_id", currentUserId)
           .eq(itemIdColumn, prompt.id)
           .maybeSingle();
-        
+
         if (error && !error.message.includes("permission") && !error.message.includes("JWT")) {
           console.error("Error checking like status:", error);
         }
-        
+
         setIsLiked(!!data);
       } catch (error) {
         console.error("Error checking like status:", error);
@@ -694,7 +657,10 @@ function PromptCard({
   }, [prompt.id, prompt.type, currentUserId, supabaseAuth, supabase]);
 
   const displayHandle =
-    currentUserId && prompt.owner_id && String(prompt.owner_id) === String(currentUserId) && currentUserHandle
+    currentUserId &&
+    prompt.owner_id &&
+    String(prompt.owner_id) === String(currentUserId) &&
+    currentUserHandle
       ? currentUserHandle
       : prompt.owner_handle;
 
@@ -718,8 +684,8 @@ function PromptCard({
   const priceLabel = isFree
     ? "Free"
     : prompt.price_usd != null
-    ? `$${prompt.price_usd.toFixed(2)}`
-    : "Paid";
+      ? `$${prompt.price_usd.toFixed(2)}`
+      : "Paid";
 
   const badgeLabel = prompt.type === "workflow" ? "Workflow" : "Prompt";
   const desc = clampText(prompt.description, 140);
@@ -753,10 +719,10 @@ function PromptCard({
     if (!currentUserId) return;
 
     const wasLiked = isLiked;
-    
+
     // Optimistic update
     setIsLiked(!wasLiked);
-    setLikeCount((prev) => wasLiked ? Math.max(0, prev - 1) : prev + 1);
+    setLikeCount((prev) => (wasLiked ? Math.max(0, prev - 1) : prev + 1));
 
     onEvent({
       name: "like",
@@ -769,12 +735,12 @@ function PromptCard({
 
     try {
       setLikeLoading(true);
-      
+
       // Use Supabase client directly (like comments do) - RLS handles security
       const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
       const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
       const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
-      
+
       if (wasLiked) {
         // Remove like
         const { error: deleteError } = await supabaseAuth
@@ -782,24 +748,25 @@ function PromptCard({
           .delete()
           .eq("user_id", currentUserId)
           .eq(itemIdColumn, prompt.id);
-        
+
         if (deleteError) {
           throw deleteError;
         }
-        
+
         setIsLiked(false);
-        
+
         // Small delay to ensure triggers have updated the count
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         // Refresh count from database (triggers update it)
-        const likeCountCols = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
+        const likeCountCols =
+          prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
         const { data: itemData } = await supabase
           .from(itemsTable)
           .select(likeCountCols)
           .eq("id", prompt.id)
           .single();
-        
+
         if (itemData) {
           const raw = itemData as LikeCountRow;
           const actualCount = raw.likes_count ?? raw.like_count ?? 0;
@@ -810,30 +777,30 @@ function PromptCard({
         }
       } else {
         // Add like
-        const insertData = prompt.type === "workflow"
-          ? { user_id: currentUserId, workflow_id: prompt.id }
-          : { user_id: currentUserId, prompt_id: prompt.id };
-        
-        const { error: insertError } = await supabaseAuth
-          .from(likesTable)
-          .insert(insertData);
-        
+        const insertData =
+          prompt.type === "workflow"
+            ? { user_id: currentUserId, workflow_id: prompt.id }
+            : { user_id: currentUserId, prompt_id: prompt.id };
+
+        const { error: insertError } = await supabaseAuth.from(likesTable).insert(insertData);
+
         if (insertError) {
           // If duplicate, user already liked - refresh from DB
           if (insertError.message.includes("unique") || insertError.message.includes("duplicate")) {
             setIsLiked(true);
-            
+
             // Small delay to ensure triggers have updated the count
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
             // Refresh count from database
-            const likeCountColsDup = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
+            const likeCountColsDup =
+              prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
             const { data: itemDataDup } = await supabase
               .from(itemsTable)
               .select(likeCountColsDup)
               .eq("id", prompt.id)
               .single();
-            
+
             if (itemDataDup) {
               const raw = itemDataDup as LikeCountRow;
               const actualCount = raw.likes_count ?? raw.like_count ?? 0;
@@ -846,20 +813,21 @@ function PromptCard({
           }
           throw insertError;
         }
-        
+
         setIsLiked(true);
-        
+
         // Small delay to ensure triggers have updated the count
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
         // Refresh count from database (triggers update it)
-        const likeCountCols2 = prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
+        const likeCountCols2 =
+          prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
         const { data: itemData2 } = await supabase
           .from(itemsTable)
           .select(likeCountCols2)
           .eq("id", prompt.id)
           .single();
-        
+
         if (itemData2) {
           const raw = itemData2 as LikeCountRow;
           const actualCount = raw.likes_count ?? raw.like_count ?? 0;
@@ -869,17 +837,22 @@ function PromptCard({
           setLikeCount((prev) => prev + 1);
         }
       }
-      
     } catch (error) {
       console.error("Error toggling like:", error);
       // Revert optimistic update on error
       setIsLiked(wasLiked);
-      setLikeCount((prev) => wasLiked ? prev + 1 : Math.max(0, prev - 1));
-      
+      setLikeCount((prev) => (wasLiked ? prev + 1 : Math.max(0, prev - 1)));
+
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       // Check if it's an auth error
-      if (errorMessage.includes("JWT") || errorMessage.includes("session") || errorMessage.includes("auth") || errorMessage.includes("permission") || errorMessage.includes("row-level security")) {
+      if (
+        errorMessage.includes("JWT") ||
+        errorMessage.includes("session") ||
+        errorMessage.includes("auth") ||
+        errorMessage.includes("permission") ||
+        errorMessage.includes("row-level security")
+      ) {
         setErrorModal({
           open: true,
           title: "Authentication Required",
@@ -909,11 +882,10 @@ function PromptCard({
     >
       <div className="relative overflow-hidden rounded-2xl">
         {prompt.thumbnail_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={prompt.thumbnail_url}
             alt={prompt.title || "Listing thumbnail"}
-            className="aspect-video w-full object-cover"
+            className="aspect-video w-full object-cover object-center"
             loading="lazy"
           />
         ) : (
@@ -925,13 +897,20 @@ function PromptCard({
             className={cn(
               "rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur",
               badgeClass,
-              badgeGlow
+              badgeGlow,
             )}
           >
             {badgeLabel}
           </span>
 
-          <span className="rounded-full border border-white/12 bg-black/55 px-2.5 py-1 text-[10px] font-semibold text-white/85 backdrop-blur">
+          <span
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[10px] font-semibold tabular-nums backdrop-blur",
+              isFree
+                ? "border-emerald-400/30 bg-emerald-500/20 text-emerald-300"
+                : "border-white/12 bg-black/55 text-white/85",
+            )}
+          >
             {priceLabel}
           </span>
         </div>
@@ -969,9 +948,7 @@ function PromptCard({
           </div>
 
           {desc && (
-            <div className="mt-2 line-clamp-2 text-[12px] leading-snug text-white/55">
-              {desc}
-            </div>
+            <div className="mt-2 line-clamp-2 text-[12px] leading-snug text-white/55">{desc}</div>
           )}
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-white/55">
@@ -1013,7 +990,7 @@ function PromptCard({
                   : "border-white/15 bg-white/5 text-white/70 hover:border-white/25 hover:text-white/90",
                 prompt.type === "workflow"
                   ? "hover:border-pink-400 hover:text-pink-200"
-                  : "hover:border-cyan-300 hover:text-cyan-100"
+                  : "hover:border-cyan-300 hover:text-cyan-100",
               )}
             >
               {likeLoading ? (
@@ -1026,7 +1003,7 @@ function PromptCard({
           </div>
         </div>
       </div>
-      
+
       <ErrorModal
         open={errorModal.open}
         onClose={() => setErrorModal({ ...errorModal, open: false })}
@@ -1081,13 +1058,9 @@ function scoreSuggestion(q: string, s: UnifiedSearchResult) {
     const bio = norm(p.bio || "");
 
     let sc =
-      rankTextMatch(Q, handle) * 2.2 +
-      rankTextMatch(Q, name) * 1.6 +
-      rankTextMatch(Q, bio) * 0.35;
+      rankTextMatch(Q, handle) * 2.2 + rankTextMatch(Q, name) * 1.6 + rankTextMatch(Q, bio) * 0.35;
 
-    const pops =
-      0.08 * log1pSafe(p.runs_count ?? 0) +
-      0.1 * log1pSafe(p.remixes_count ?? 0);
+    const pops = 0.08 * log1pSafe(p.runs_count ?? 0) + 0.1 * log1pSafe(p.remixes_count ?? 0);
 
     return sc + pops;
   }
@@ -1112,7 +1085,6 @@ function scoreSuggestion(q: string, s: UnifiedSearchResult) {
 
   return sc;
 }
-
 
 type SearchBarProps = {
   compact?: boolean;
@@ -1180,7 +1152,7 @@ function MarketplaceSearchBar({
       <div
         className={cn(
           "flex items-center rounded-full border border-white/15 bg-white/5 text-sm focus-within:border-white/35 focus-within:bg-white/[0.07]",
-          compact ? "gap-2 px-2 py-1.5" : "gap-3 px-4 py-2"
+          compact ? "gap-2 px-2 py-1.5" : "gap-3 px-4 py-2",
         )}
         onMouseDown={(e) => {
           // Focus input even when user clicks padding/icon. Do NOT steal focus when they click the actual input.
@@ -1261,8 +1233,7 @@ function MarketplaceSearchBar({
           className="relative z-10 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/40"
         />
 
-        {(searchRefreshing ||
-          (query.trim().length > 0 && debouncedQuery !== activeQuery)) && (
+        {(searchRefreshing || (query.trim().length > 0 && debouncedQuery !== activeQuery)) && (
           <Loader2 className="h-4 w-4 animate-spin text-white/40" />
         )}
       </div>
@@ -1305,7 +1276,7 @@ function MarketplaceSearchBar({
                           onClick={() => handlePredictSelect(r)}
                           className={cn(
                             "group flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/5",
-                            idx === activePredictIndex && "bg-white/10"
+                            idx === activePredictIndex && "bg-white/10",
                           )}
                         >
                           <ProfileAvatar
@@ -1360,12 +1331,11 @@ function MarketplaceSearchBar({
                           onClick={() => handlePredictSelect(r)}
                           className={cn(
                             "group flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/5",
-                            idx === activePredictIndex && "bg-white/10"
+                            idx === activePredictIndex && "bg-white/10",
                           )}
                         >
                           <div className="h-10 w-10 overflow-hidden rounded-xl border border-white/10 bg-white/5">
                             {w.thumbnail_url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={w.thumbnail_url}
                                 alt={w.title || "Workflow"}
@@ -1376,17 +1346,17 @@ function MarketplaceSearchBar({
                             )}
                           </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold text-white/85">
-                            {w.title || "Untitled workflow"}
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-semibold text-white/85">
+                              {w.title || "Untitled workflow"}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 min-w-0">
+                              <span className="truncate text-xs text-white/45">
+                                @{w.owner_handle || "unknown"}
+                              </span>
+                              <FoundingCreatorBadge size="sm" className="shrink-0" />
+                            </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2 min-w-0">
-                            <span className="truncate text-xs text-white/45">
-                              @{w.owner_handle || "unknown"}
-                            </span>
-                            <FoundingCreatorBadge size="sm" className="shrink-0" />
-                          </div>
-                        </div>
 
                           <span className="rounded-full border border-pink-400/25 bg-pink-500/10 px-2 py-1 text-[10px] font-semibold text-pink-100">
                             Workflow
@@ -1417,12 +1387,11 @@ function MarketplaceSearchBar({
                         onClick={() => handlePredictSelect(r)}
                         className={cn(
                           "group flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/5",
-                          idx === activePredictIndex && "bg-white/10"
+                          idx === activePredictIndex && "bg-white/10",
                         )}
                       >
                         <div className="h-10 w-10 overflow-hidden rounded-xl border border-white/10 bg-white/5">
                           {p.thumbnail_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={p.thumbnail_url}
                               alt={p.title || "Prompt"}
@@ -1468,9 +1437,7 @@ export default function MarketplacePage() {
   const router = useRouter();
 
   const sessionId = useMemo(() => getOrCreateSessionId(), []);
-  const [userProfile, setUserProfile] = useState<MarketplaceUserProfile>(() =>
-    safeLoadProfile()
-  );
+  const [userProfile, setUserProfile] = useState<MarketplaceUserProfile>(() => safeLoadProfile());
 
   const emitEvent = useMemo(() => {
     return (evt: Omit<MarketplaceEvent, "ts" | "session_id" | "user_id">) => {
@@ -1514,13 +1481,15 @@ export default function MarketplacePage() {
     workflowsOffset: 0,
   });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorDebug, setErrorDebug] = useState<string | null>(null);
+  const [debugOpen, setDebugOpen] = useState(false);
 
   // search input (unified across prompts/workflows/profiles)
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query.trim(), 220);
-  
+
   const [activeQuery, setActiveQuery] = useState("");
-const committedDebouncedQuery = useDebouncedValue(query.trim(), 3000);
+  const committedDebouncedQuery = useDebouncedValue(query.trim(), 3000);
 
   // predictor
   const [predictOpen, setPredictOpen] = useState(false);
@@ -1560,7 +1529,7 @@ const committedDebouncedQuery = useDebouncedValue(query.trim(), 3000);
     }, 0);
     return () => window.clearTimeout(id);
   }, []);
-const [codeQuery, setCodeQuery] = useState("");
+  const [codeQuery, setCodeQuery] = useState("");
   const [codeSubmitting, setCodeSubmitting] = useState(false);
   const [codeSuggestions, setCodeSuggestions] = useState<CodeSuggestion[]>([]);
   const [codeSugLoading, setCodeSugLoading] = useState(false);
@@ -1573,9 +1542,7 @@ const [codeQuery, setCodeQuery] = useState("");
     topics: [],
   });
 
-  const [ownerProfiles, setOwnerProfiles] = useState<
-    Record<string, ProfileMini | undefined>
-  >({});
+  const [ownerProfiles, setOwnerProfiles] = useState<Record<string, ProfileMini | undefined>>({});
 
   const [menuOpen, setMenuOpen] = useState(false);
   const pillRef = useRef<HTMLButtonElement | null>(null);
@@ -1620,16 +1587,21 @@ const [codeQuery, setCodeQuery] = useState("");
   }, [committedDebouncedQuery]);
 
   // close predictor when clicking outside
-  
+
   const fetchOwnerProfiles = async (
     prompts: MarketplacePrompt[],
-    opts?: { userId: string | null; currentUserHandle: string | null | undefined }
+    opts?: { userId: string | null; currentUserHandle: string | null | undefined },
   ) => {
     const handlesSet = new Set<string>();
     (prompts || []).forEach((p) => {
       const h = (p.owner_handle || "").toLowerCase();
       if (h) handlesSet.add(h);
-      if (opts?.userId && opts?.currentUserHandle && p.owner_id && String(p.owner_id) === String(opts.userId)) {
+      if (
+        opts?.userId &&
+        opts?.currentUserHandle &&
+        p.owner_id &&
+        String(p.owner_id) === String(opts.userId)
+      ) {
         handlesSet.add(opts.currentUserHandle.toLowerCase());
       }
     });
@@ -1673,203 +1645,40 @@ const [codeQuery, setCodeQuery] = useState("");
     priceMax: number | null;
   };
 
-  const fetchPrompts = async (offset: number, opts: FetchOpts) => {
-    const { q, sort, contentType, topic, topics, priceMin, priceMax } = opts;
-    if (contentType === "workflow") return [];
-
-    let builder = supabase
-      .from("prompts")
-      .select(
-        [
-          "id",
-          "owner_id",
-          "type",
-          "edgaze_code",
-          "title",
-          "description",
-          "prompt_text",
-          "thumbnail_url",
-          "owner_name",
-          "owner_handle",
-          "tags",
-          "visibility",
-          "monetisation_mode",
-          "is_paid",
-          "price_usd",
-          "views_count",
-          "likes_count",
-          "view_count",
-          "like_count",
-          "created_at",
-        ].join(",")
-      )
-      .in("type", contentType === "prompt" ? ["prompt"] : ["prompt", "workflow"])
-      .in("visibility", ["public", "unlisted"])
-      .range(offset, offset + PAGE_SIZE - 1);
-
-    if (sort === "popular") {
-      builder = builder
-        .order("views_count", { ascending: false, nullsFirst: false })
-        .order("likes_count", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false });
-    } else {
-      builder = builder.order("created_at", { ascending: false });
+  const formatError = (err: unknown): string => {
+    if (err instanceof Error) {
+      return [err.message, err.stack].filter(Boolean).join("\n\n");
     }
-
-    if (q) {
-      builder = builder.or(
-        [
-          `title.ilike.%${q}%`,
-          `description.ilike.%${q}%`,
-          `tags.ilike.%${q}%`,
-          `owner_name.ilike.%${q}%`,
-          `owner_handle.ilike.%${q}%`,
-          `edgaze_code.ilike.%${q}%`,
-        ].join(",")
-      );
-    }
-
-    if (topic) builder = builder.ilike("tags", `%${topic}%`);
-    if (topics.length > 0) {
-      builder = builder.or(topics.map((t) => `tags.ilike.%${t}%`).join(","));
-    }
-    if (priceMin != null) builder = builder.gte("price_usd", priceMin);
-    if (priceMax != null) builder = builder.lte("price_usd", priceMax);
-
-    const { data, error } = await builder;
-    if (error) throw error;
-
-    const mapped: MarketplacePrompt[] = (data ?? []).map((p: any) => ({
-      id: String(p.id),
-      owner_id: p.owner_id != null ? String(p.owner_id) : null,
-      type: (p.type as any) ?? "prompt",
-      edgaze_code: p.edgaze_code ?? null,
-      title: p.title ?? null,
-      description: p.description ?? null,
-      prompt_text: p.prompt_text ?? null,
-      thumbnail_url: p.thumbnail_url ?? null,
-      owner_name: p.owner_name ?? null,
-      owner_handle: p.owner_handle ?? null,
-      tags: p.tags ?? null,
-      visibility: (p.visibility as any) ?? null,
-      monetisation_mode: (p.monetisation_mode as any) ?? null,
-      is_paid: p.is_paid ?? null,
-      price_usd: p.price_usd != null ? Number(p.price_usd) : null,
-      view_count:
-        p.views_count != null ? Number(p.views_count) : p.view_count != null ? Number(p.view_count) : null,
-      like_count:
-        p.likes_count != null ? Number(p.likes_count) : p.like_count != null ? Number(p.like_count) : null,
-      created_at: p.created_at ?? null,
-    }));
-
-    return mapped;
+    return String(err);
   };
 
-  const fetchWorkflows = async (offset: number, opts: FetchOpts) => {
+  const fetchListingsFromApi = async (
+    promptsOffset: number,
+    workflowsOffset: number,
+    opts: FetchOpts,
+  ): Promise<{ prompts: MarketplacePrompt[]; workflows: MarketplacePrompt[] }> => {
     const { q, sort, contentType, topic, topics, priceMin, priceMax } = opts;
-    if (contentType === "prompt") return [];
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    params.set("sort", sort);
+    params.set("contentType", contentType);
+    if (topic) params.set("topic", topic);
+    if (topics.length > 0) params.set("topics", JSON.stringify(topics));
+    if (priceMin != null) params.set("priceMin", String(priceMin));
+    if (priceMax != null) params.set("priceMax", String(priceMax));
+    params.set("promptsOffset", String(promptsOffset));
+    params.set("workflowsOffset", String(workflowsOffset));
 
-    const baseSelect = [
-      "id",
-      "owner_id",
-      "type",
-      "edgaze_code",
-      "title",
-      "description",
-      "prompt_text",
-      "thumbnail_url",
-      "owner_name",
-      "owner_handle",
-      "tags",
-      "visibility",
-      "monetisation_mode",
-      "is_paid",
-      "price_usd",
-      "views_count",
-      "likes_count",
-      "created_at",
-      "published_at",
-      "is_published",
-      "is_public",
-    ].join(",");
-
-    const runQuery = async (mode: "visibility" | "is_public") => {
-      let builder = supabase
-        .from("workflows")
-        .select(baseSelect)
-        .eq("is_published", true)
-        .range(offset, offset + PAGE_SIZE - 1);
-
-      if (sort === "popular") {
-        builder = builder
-          .order("views_count", { ascending: false, nullsFirst: false })
-          .order("likes_count", { ascending: false, nullsFirst: false })
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false });
-      } else {
-        builder = builder
-          .order("published_at", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false });
-      }
-
-      if (mode === "visibility") builder = builder.in("visibility", ["public", "unlisted"]);
-      else builder = builder.eq("is_public", true);
-
-      if (q) {
-        builder = builder.or(
-          [
-            `title.ilike.%${q}%`,
-            `description.ilike.%${q}%`,
-            `tags.ilike.%${q}%`,
-            `owner_name.ilike.%${q}%`,
-            `owner_handle.ilike.%${q}%`,
-            `edgaze_code.ilike.%${q}%`,
-          ].join(",")
-        );
-      }
-
-      if (topic) builder = builder.ilike("tags", `%${topic}%`);
-      if (topics.length > 0) {
-        builder = builder.or(topics.map((t) => `tags.ilike.%${t}%`).join(","));
-      }
-      if (priceMin != null) builder = builder.gte("price_usd", priceMin);
-      if (priceMax != null) builder = builder.lte("price_usd", priceMax);
-
-      return await builder;
-    };
-
-    let res = await runQuery("visibility");
-    if (res.error) {
-      const msg = String((res.error as any)?.message || "");
-      if (msg.toLowerCase().includes("visibility") && msg.toLowerCase().includes("does not exist")) {
-        res = await runQuery("is_public");
-      }
+    const url = `/api/marketplace/listings?${params.toString()}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "(unable to read)");
+      throw new Error(`HTTP ${res.status}: ${body.slice(0, 500)}`);
     }
-    if (res.error) throw res.error;
-
-    const mapped: MarketplacePrompt[] = (res.data ?? []).map((w: any) => ({
-      id: String(w.id),
-      owner_id: w.owner_id != null ? String(w.owner_id) : null,
-      type: (w.type as any) ?? "workflow",
-      edgaze_code: w.edgaze_code ?? null,
-      title: w.title ?? null,
-      description: w.description ?? null,
-      prompt_text: w.prompt_text ?? null,
-      thumbnail_url: w.thumbnail_url ?? null,
-      owner_name: w.owner_name ?? null,
-      owner_handle: w.owner_handle ?? null,
-      tags: w.tags ?? null,
-      visibility: (w.visibility as any) ?? (w.is_public ? "public" : null),
-      monetisation_mode: (w.monetisation_mode as any) ?? null,
-      is_paid: w.is_paid ?? null,
-      price_usd: w.price_usd != null ? Number(w.price_usd) : null,
-      view_count: w.views_count != null ? Number(w.views_count) : null,
-      like_count: w.likes_count != null ? Number(w.likes_count) : null,
-      created_at: w.published_at ?? w.created_at ?? null,
-      published_at: w.published_at ?? null,
-    }));
-
-    return mapped;
+    const json = await res.json();
+    const prompts = (json.prompts ?? []) as MarketplacePrompt[];
+    const workflows = (json.workflows ?? []) as MarketplacePrompt[];
+    return { prompts, workflows };
   };
 
   const loadPage = async ({
@@ -1888,7 +1697,10 @@ const [codeQuery, setCodeQuery] = useState("");
         const json = await res.json();
         const wf = (json.topWorkflowsThisWeek ?? []) as Array<Record<string, unknown>>;
         const pr = (json.topPromptsThisWeek ?? []) as Array<Record<string, unknown>>;
-        const toMp = (r: Record<string, unknown>, type: "workflow" | "prompt"): MarketplacePrompt => ({
+        const toMp = (
+          r: Record<string, unknown>,
+          type: "workflow" | "prompt",
+        ): MarketplacePrompt => ({
           id: String(r.id ?? ""),
           owner_id: r.owner_id != null ? String(r.owner_id) : null,
           type,
@@ -1904,8 +1716,18 @@ const [codeQuery, setCodeQuery] = useState("");
           monetisation_mode: (r.monetisation_mode as MonetisationMode) ?? null,
           is_paid: (r.is_paid as boolean) ?? null,
           price_usd: r.price_usd != null ? Number(r.price_usd) : null,
-          view_count: r.views_count != null ? Number(r.views_count) : r.view_count != null ? Number(r.view_count) : null,
-          like_count: r.likes_count != null ? Number(r.likes_count) : r.like_count != null ? Number(r.like_count) : null,
+          view_count:
+            r.views_count != null
+              ? Number(r.views_count)
+              : r.view_count != null
+                ? Number(r.view_count)
+                : null,
+          like_count:
+            r.likes_count != null
+              ? Number(r.likes_count)
+              : r.like_count != null
+                ? Number(r.like_count)
+                : null,
           created_at: (r.created_at as string) ?? (r.published_at as string) ?? null,
           published_at: (r.published_at as string) ?? null,
         });
@@ -1918,11 +1740,12 @@ const [codeQuery, setCodeQuery] = useState("");
               (x.description ?? "").toLowerCase().includes(ql) ||
               (x.tags ?? "").toLowerCase().includes(ql) ||
               (x.owner_handle ?? "").toLowerCase().includes(ql) ||
-              (x.edgaze_code ?? "").toLowerCase().includes(ql)
+              (x.edgaze_code ?? "").toLowerCase().includes(ql),
           );
         }
         if (filters.contentType === "prompt") merged = merged.filter((x) => x.type === "prompt");
-        else if (filters.contentType === "workflow") merged = merged.filter((x) => x.type === "workflow");
+        else if (filters.contentType === "workflow")
+          merged = merged.filter((x) => x.type === "workflow");
         if (filters.topic) {
           const t = filters.topic.toLowerCase();
           merged = merged.filter((x) => (x.tags ?? "").toLowerCase().includes(t));
@@ -1931,8 +1754,10 @@ const [codeQuery, setCodeQuery] = useState("");
           const tl = t.toLowerCase();
           merged = merged.filter((x) => (x.tags ?? "").toLowerCase().includes(tl));
         }
-        if (filters.priceRange.min != null) merged = merged.filter((x) => (x.price_usd ?? 0) >= filters.priceRange.min!);
-        if (filters.priceRange.max != null) merged = merged.filter((x) => (x.price_usd ?? 999) <= filters.priceRange.max!);
+        if (filters.priceRange.min != null)
+          merged = merged.filter((x) => (x.price_usd ?? 0) >= filters.priceRange.min!);
+        if (filters.priceRange.max != null)
+          merged = merged.filter((x) => (x.price_usd ?? 999) <= filters.priceRange.max!);
         setItems(merged);
         setPending([]);
         setHasMore(false);
@@ -1952,41 +1777,31 @@ const [codeQuery, setCodeQuery] = useState("");
         priceMax: filters.priceRange.max,
       };
 
-      const [promptsRes, workflowsRes] = await Promise.allSettled([
-        fetchPrompts(cursorState.promptsOffset, opts),
-        fetchWorkflows(cursorState.workflowsOffset, opts),
-      ]);
-
-      const prompts =
-        promptsRes.status === "fulfilled"
-          ? promptsRes.value
-          : (() => {
-              console.error("Marketplace prompts load error", promptsRes.reason);
-              return [] as MarketplacePrompt[];
-            })();
-
-      const workflows =
-        workflowsRes.status === "fulfilled"
-          ? workflowsRes.value
-          : (() => {
-              console.error("Marketplace workflows load error", workflowsRes.reason);
-              return [] as MarketplacePrompt[];
-            })();
-
-      if (promptsRes.status === "rejected" && workflowsRes.status === "rejected") {
+      let prompts: MarketplacePrompt[] = [];
+      let workflows: MarketplacePrompt[] = [];
+      try {
+        const result = await fetchListingsFromApi(
+          cursorState.promptsOffset,
+          cursorState.workflowsOffset,
+          opts,
+        );
+        prompts = result.prompts;
+        workflows = result.workflows;
+      } catch (err) {
+        console.error("Marketplace load error", err);
         setErrorMsg("Failed to load marketplace. Refresh and try again.");
+        setErrorDebug(formatError(err));
+        setDebugOpen(false);
         return false;
       }
 
       const mergedPool = [...(replace ? [] : pending), ...prompts, ...workflows].sort(
-        (a, b) => safeDateMs(b.created_at) - safeDateMs(a.created_at)
+        (a, b) => safeDateMs(b.created_at) - safeDateMs(a.created_at),
       );
 
       emitEvent({ name: "load_page", meta: { replace, q } });
 
-      const sessionSalt = replace
-        ? `${sessionId}_r${refreshSaltRef.current}`
-        : sessionId;
+      const sessionSalt = replace ? `${sessionId}_r${refreshSaltRef.current}` : sessionId;
 
       // For "newest", preserve strict chronological order; otherwise use diversification
       const { page: nextPage, rest: nextPending } =
@@ -2016,12 +1831,15 @@ const [codeQuery, setCodeQuery] = useState("");
     } catch (err) {
       console.error("Marketplace unexpected load error", err);
       setErrorMsg("Failed to load marketplace. Refresh and try again.");
+      setErrorDebug(formatError(err));
+      setDebugOpen(false);
       return false;
     }
   };
 
   const resetAndLoad = async () => {
     setErrorMsg(null);
+    setErrorDebug(null);
     setHasMore(true);
     setItems([]);
     setPending([]);
@@ -2080,7 +1898,7 @@ const [codeQuery, setCodeQuery] = useState("");
         setLoadingMore(false);
         if (!more) setHasMore(false);
       },
-      { root: null, rootMargin: "1800px 0px", threshold: 0 }
+      { root: null, rootMargin: "1800px 0px", threshold: 0 },
     );
 
     obs.observe(el);
@@ -2123,8 +1941,7 @@ const [codeQuery, setCodeQuery] = useState("");
       if (e.key !== "r" && e.key !== "R") return;
       const target = e.target as HTMLElement;
       const tag = target?.tagName?.toLowerCase();
-      if (tag === "input" || tag === "textarea" || target?.isContentEditable)
-        return;
+      if (tag === "input" || tag === "textarea" || target?.isContentEditable) return;
       if (loadingFirst) return;
       e.preventDefault();
       resetAndLoadRef.current();
@@ -2160,14 +1977,16 @@ const [codeQuery, setCodeQuery] = useState("");
               `owner_handle.ilike.%${qLower}%`,
               `title.ilike.%${qLower}%`,
               `tags.ilike.%${qLower}%`,
-            ].join(",")
+            ].join(","),
           )
           .order("created_at", { ascending: false })
           .limit(6),
 
         supabase
           .from("workflows")
-          .select("id, owner_handle, edgaze_code, title, type, created_at, published_at, is_published, thumbnail_url")
+          .select(
+            "id, owner_handle, edgaze_code, title, type, created_at, published_at, is_published, thumbnail_url",
+          )
           .eq("is_published", true)
           .or(
             [
@@ -2175,7 +1994,7 @@ const [codeQuery, setCodeQuery] = useState("");
               `owner_handle.ilike.%${qLower}%`,
               `title.ilike.%${qLower}%`,
               `tags.ilike.%${qLower}%`,
-            ].join(",")
+            ].join(","),
           )
           .order("published_at", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false })
@@ -2189,7 +2008,7 @@ const [codeQuery, setCodeQuery] = useState("");
               `handle.ilike.%${qLower}%`,
               `full_name.ilike.%${qLower}%`,
               `bio.ilike.%${qLower}%`,
-            ].join(",")
+            ].join(","),
           )
           .order("runs_count", { ascending: false })
           .limit(6),
@@ -2309,7 +2128,6 @@ const [codeQuery, setCodeQuery] = useState("");
     };
   }, [predictDebounced, supabase]);
 
-  
   const openWithMagic = async (path: string, meta?: Record<string, any>) => {
     burstSparkle();
     emitEvent({ name: "open_code", meta: meta ?? null });
@@ -2317,92 +2135,85 @@ const [codeQuery, setCodeQuery] = useState("");
     router.push(path as any);
   };
 
-  const fetchCodeSuggestions = useCallback(async (q: string) => {
-    const qLower = q.trim().toLowerCase();
-    if (!qLower) return [];
+  const fetchCodeSuggestions = useCallback(
+    async (q: string) => {
+      const qLower = q.trim().toLowerCase();
+      if (!qLower) return [];
 
-    const [promptsRes, workflowsRes] = await Promise.allSettled([
-      supabase
-        .from("prompts")
-        .select("id, owner_handle, edgaze_code, title, type, created_at")
-        .in("visibility", ["public", "unlisted"])
-        .in("type", ["prompt", "workflow"])
-        .or(
-          [`edgaze_code.ilike.%${qLower}%`, `owner_handle.ilike.%${qLower}%`].join(
-            ","
+      const [promptsRes, workflowsRes] = await Promise.allSettled([
+        supabase
+          .from("prompts")
+          .select("id, owner_handle, edgaze_code, title, type, created_at")
+          .in("visibility", ["public", "unlisted"])
+          .in("type", ["prompt", "workflow"])
+          .or([`edgaze_code.ilike.%${qLower}%`, `owner_handle.ilike.%${qLower}%`].join(","))
+          .order("created_at", { ascending: false })
+          .limit(6),
+        supabase
+          .from("workflows")
+          .select(
+            "id, owner_handle, edgaze_code, title, type, created_at, published_at, is_published",
           )
-        )
-        .order("created_at", { ascending: false })
-        .limit(6),
-      supabase
-        .from("workflows")
-        .select("id, owner_handle, edgaze_code, title, type, created_at, published_at, is_published")
-        .eq("is_published", true)
-        .or(
-          [`edgaze_code.ilike.%${qLower}%`, `owner_handle.ilike.%${qLower}%`].join(
-            ","
-          )
-        )
-        .order("published_at", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false })
-        .limit(6),
-    ]);
+          .eq("is_published", true)
+          .or([`edgaze_code.ilike.%${qLower}%`, `owner_handle.ilike.%${qLower}%`].join(","))
+          .order("published_at", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false })
+          .limit(6),
+      ]);
 
-    const promptsData =
-      promptsRes.status === "fulfilled" && !(promptsRes.value as any).error
-        ? (((promptsRes.value as any).data ?? []) as any[])
-        : [];
+      const promptsData =
+        promptsRes.status === "fulfilled" && !(promptsRes.value as any).error
+          ? (((promptsRes.value as any).data ?? []) as any[])
+          : [];
 
-    const workflowsData =
-      workflowsRes.status === "fulfilled" && !(workflowsRes.value as any).error
-        ? (((workflowsRes.value as any).data ?? []) as any[])
-        : [];
+      const workflowsData =
+        workflowsRes.status === "fulfilled" && !(workflowsRes.value as any).error
+          ? (((workflowsRes.value as any).data ?? []) as any[])
+          : [];
 
-    const mappedPrompts: CodeSuggestion[] = promptsData.map((p) => ({
-      id: String(p.id),
-      owner_handle: p.owner_handle ?? null,
-      edgaze_code: p.edgaze_code ?? null,
-      title: p.title ?? null,
-      type: (p.type as any) ?? "prompt",
-      created_at: p.created_at ?? null,
-    }));
+      const mappedPrompts: CodeSuggestion[] = promptsData.map((p) => ({
+        id: String(p.id),
+        owner_handle: p.owner_handle ?? null,
+        edgaze_code: p.edgaze_code ?? null,
+        title: p.title ?? null,
+        type: (p.type as any) ?? "prompt",
+        created_at: p.created_at ?? null,
+      }));
 
-    const mappedWorkflows: CodeSuggestion[] = workflowsData.map((w) => ({
-      id: String(w.id),
-      owner_handle: w.owner_handle ?? null,
-      edgaze_code: w.edgaze_code ?? null,
-      title: w.title ?? null,
-      type: ((w.type as any) ?? "workflow") as any,
-      created_at: w.published_at ?? w.created_at ?? null,
-    }));
+      const mappedWorkflows: CodeSuggestion[] = workflowsData.map((w) => ({
+        id: String(w.id),
+        owner_handle: w.owner_handle ?? null,
+        edgaze_code: w.edgaze_code ?? null,
+        title: w.title ?? null,
+        type: ((w.type as any) ?? "workflow") as any,
+        created_at: w.published_at ?? w.created_at ?? null,
+      }));
 
-    const merged = [...mappedPrompts, ...mappedWorkflows]
-      .filter((p) => {
-        const h = (p.owner_handle ?? "").toLowerCase();
-        const c = (p.edgaze_code ?? "").toLowerCase();
-        const combo = h && c ? `${h}/${c}` : "";
-        return (
-          c.includes(qLower) ||
-          h.includes(qLower) ||
-          (combo && combo.includes(qLower))
-        );
-      })
-      .sort((a, b) => safeDateMs(b.created_at) - safeDateMs(a.created_at));
+      const merged = [...mappedPrompts, ...mappedWorkflows]
+        .filter((p) => {
+          const h = (p.owner_handle ?? "").toLowerCase();
+          const c = (p.edgaze_code ?? "").toLowerCase();
+          const combo = h && c ? `${h}/${c}` : "";
+          return c.includes(qLower) || h.includes(qLower) || (combo && combo.includes(qLower));
+        })
+        .sort((a, b) => safeDateMs(b.created_at) - safeDateMs(a.created_at));
 
-    const seen = new Set<string>();
-    const deduped: CodeSuggestion[] = [];
-    for (const it of merged) {
-      const key = `${(it.owner_handle ?? "").toLowerCase()}/${(
-        it.edgaze_code ?? ""
-      ).toLowerCase()}/${it.type ?? ""}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      deduped.push(it);
-      if (deduped.length >= 6) break;
-    }
+      const seen = new Set<string>();
+      const deduped: CodeSuggestion[] = [];
+      for (const it of merged) {
+        const key = `${(it.owner_handle ?? "").toLowerCase()}/${(
+          it.edgaze_code ?? ""
+        ).toLowerCase()}/${it.type ?? ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(it);
+        if (deduped.length >= 6) break;
+      }
 
-    return deduped;
-  }, [supabase]);
+      return deduped;
+    },
+    [supabase],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -2513,9 +2324,10 @@ const [codeQuery, setCodeQuery] = useState("");
       if (!listing?.owner_handle || !listing?.edgaze_code) return;
 
       // Use correct path: /handle/code for workflows, /p/handle/code for prompts
-      const path = listing.type === "workflow" 
-        ? `/${listing.owner_handle}/${listing.edgaze_code}`
-        : `/p/${listing.owner_handle}/${listing.edgaze_code}`;
+      const path =
+        listing.type === "workflow"
+          ? `/${listing.owner_handle}/${listing.edgaze_code}`
+          : `/p/${listing.owner_handle}/${listing.edgaze_code}`;
 
       await openWithMagic(path, {
         owner_handle: listing.owner_handle,
@@ -2594,56 +2406,59 @@ const [codeQuery, setCodeQuery] = useState("");
       </button>
     );
 
-// MOBILE: no profile icon, no sign in button (use hamburger menu instead)
-const topRightMobile = null;
+  // MOBILE: no profile icon, no sign in button (use hamburger menu instead)
+  const topRightMobile = null;
 
-const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item: any }) => {
-  setPredictOpen(false);
+  const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item: any }) => {
+    setPredictOpen(false);
 
-  if (r.kind === "profile") {
-    const h = (r.item as ProfileSuggestion).handle;
-    if (!h) return;
-    router.push((`/profile/${h}`) as any);
-    return;
-  }
+    if (r.kind === "profile") {
+      const h = (r.item as ProfileSuggestion).handle;
+      if (!h) return;
+      router.push(`/profile/${h}` as any);
+      return;
+    }
 
-  const it = r.item as CodeSuggestion;
-  if (!it.owner_handle || !it.edgaze_code) return;
+    const it = r.item as CodeSuggestion;
+    if (!it.owner_handle || !it.edgaze_code) return;
 
-  const path =
-    r.kind === "workflow"
-      ? `/${it.owner_handle}/${it.edgaze_code}`
-      : `/p/${it.owner_handle}/${it.edgaze_code}`;
+    const path =
+      r.kind === "workflow"
+        ? `/${it.owner_handle}/${it.edgaze_code}`
+        : `/p/${it.owner_handle}/${it.edgaze_code}`;
 
-  // IMPORTANT: do not await; keep this handler synchronous to satisfy the prop type
-  void openWithMagic(path, {
-    owner_handle: it.owner_handle,
-    edgaze_code: it.edgaze_code,
-    type: it.type,
-  });
-};
-
-  
+    // IMPORTANT: do not await; keep this handler synchronous to satisfy the prop type
+    void openWithMagic(path, {
+      owner_handle: it.owner_handle,
+      edgaze_code: it.edgaze_code,
+      type: it.type,
+    });
+  };
 
   return (
     <>
       <div className="flex h-screen flex-col bg-[#050505] text-white min-h-[100dvh]">
-      <header className="sticky top-0 z-[70] flex flex-col gap-2 bg-[#050505]/90 backdrop-blur-md px-5 py-3 sm:gap-3 sm:px-6 sm:py-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.04]">
-  <div className="flex items-center justify-between sm:justify-start">
-    <div className="hidden sm:block leading-tight">
-  <div className="flex items-center gap-2">
-    <div className="text-base font-semibold">Marketplace</div>
-    <span className="flex items-center gap-1 rounded-full border border-blue-400/30 bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-200">
-      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-      </svg>
-      BETA
-    </span>
-  </div>
-  <div className="text-xs text-white/55">
-    Prompts, workflows, and creators — intelligently mixed.
-  </div>
-</div>
+        <header className="sticky top-0 z-[70] flex flex-col gap-2 bg-[#050505]/90 backdrop-blur-md px-5 py-3 sm:gap-3 sm:px-6 sm:py-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.04]">
+          <div className="flex items-center justify-between sm:justify-start">
+            <div className="hidden sm:block leading-tight">
+              <div className="flex items-center gap-2">
+                <div className="text-base font-semibold">Marketplace</div>
+                <span className="flex items-center gap-1 rounded-full border border-blue-400/30 bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-200">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
+                  </svg>
+                  BETA
+                </span>
+              </div>
+              <div className="text-xs text-white/55">
+                Prompts, workflows, and creators — intelligently mixed.
+              </div>
+            </div>
           </div>
 
           <div className="mx-6 hidden max-w-2xl flex-1 md:block">
@@ -2703,14 +2518,12 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
               disabled={loadingFirst}
               className={cn(
                 "hidden sm:flex rounded-full border border-white/15 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white transition-colors",
-                loadingFirst && "opacity-50 cursor-not-allowed"
+                loadingFirst && "opacity-50 cursor-not-allowed",
               )}
               title="Refresh (personalized order)"
               aria-label="Refresh marketplace"
             >
-              <RefreshCw
-                className={cn("h-4 w-4", loadingFirst && "animate-spin")}
-              />
+              <RefreshCw className={cn("h-4 w-4", loadingFirst && "animate-spin")} />
             </button>
             <div className="hidden sm:block">{topRightDesktop}</div>
           </div>
@@ -2756,7 +2569,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
               <div
                 className={cn(
                   "pointer-events-none absolute inset-0 overflow-hidden rounded-3xl transition-opacity duration-300",
-                  sparkleOn ? "opacity-100" : "opacity-0"
+                  sparkleOn ? "opacity-100" : "opacity-0",
                 )}
                 aria-hidden="true"
               >
@@ -2767,13 +2580,15 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
               <div className="relative">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {}
                     <img
                       src="/brand/edgaze-mark.png"
                       alt="Edgaze"
                       className="h-5 w-5 sm:h-5 sm:w-5 rounded-md"
                     />
-                    <div className="text-base sm:text-sm font-semibold text-white/95">Edgaze Codes</div>
+                    <div className="text-base sm:text-sm font-semibold text-white/95">
+                      Edgaze Codes
+                    </div>
                   </div>
                 </div>
 
@@ -2805,9 +2620,10 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                                   onClick={async () => {
                                     if (!p.owner_handle || !p.edgaze_code) return;
                                     // Use correct path: /handle/code for workflows, /p/handle/code for prompts
-                                    const path = p.type === "workflow"
-                                      ? `/${p.owner_handle}/${p.edgaze_code}`
-                                      : `/p/${p.owner_handle}/${p.edgaze_code}`;
+                                    const path =
+                                      p.type === "workflow"
+                                        ? `/${p.owner_handle}/${p.edgaze_code}`
+                                        : `/p/${p.owner_handle}/${p.edgaze_code}`;
                                     await openWithMagic(path, {
                                       owner_handle: p.owner_handle,
                                       edgaze_code: p.edgaze_code,
@@ -2832,7 +2648,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                                         "rounded-full border px-2 py-1 text-[10px] font-semibold",
                                         p.type === "workflow"
                                           ? "border-pink-400/25 bg-pink-500/10 text-pink-100"
-                                          : "border-cyan-300/25 bg-cyan-400/10 text-cyan-50"
+                                          : "border-cyan-300/25 bg-cyan-400/10 text-cyan-50",
                                       )}
                                     >
                                       {p.type === "workflow" ? "Workflow" : "Prompt"}
@@ -2853,7 +2669,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                     className={cn(
                       "group relative w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-6 py-3.5 sm:px-5 sm:py-3 text-sm font-semibold text-black shadow-[0_0_24px_rgba(56,189,248,0.75)] hover:shadow-[0_0_32px_rgba(56,189,248,0.9)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]",
                       (codeSubmitting || !codeQuery.trim()) &&
-                        "cursor-not-allowed opacity-70 hover:scale-100 hover:shadow-[0_0_24px_rgba(56,189,248,0.75)]"
+                        "cursor-not-allowed opacity-70 hover:scale-100 hover:shadow-[0_0_24px_rgba(56,189,248,0.75)]",
                     )}
                   >
                     <span className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400/20 via-sky-500/20 to-pink-500/20 opacity-0 group-hover:opacity-100 transition-opacity blur-xl" />
@@ -2886,18 +2702,31 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
           />
 
           {errorMsg && (
-            <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {errorMsg}
-            </div>
+            <>
+              <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex flex-row items-center justify-between gap-4">
+                <span className="flex-1 min-w-0">{errorMsg}</span>
+                <button
+                  type="button"
+                  onClick={() => setDebugOpen(true)}
+                  className="shrink-0 rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+                >
+                  Debug
+                </button>
+              </div>
+              <ErrorModal
+                open={debugOpen}
+                onClose={() => setDebugOpen(false)}
+                title="Debug"
+                message="Error details:"
+                details={errorDebug ?? undefined}
+              />
+            </>
           )}
 
           {loadingFirst ? (
             <div className="grid grid-cols-1 gap-6 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 2 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"
-                >
+                <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
                   <div className="aspect-video w-full animate-pulse rounded-2xl bg-white/5" />
                   <div className="mt-3 flex gap-3">
                     <div className="h-9 w-9 animate-pulse rounded-full bg-white/5" />
@@ -2909,10 +2738,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
                   </div>
                 </div>
               ))}
-              <div
-                className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"
-                aria-hidden
-              >
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3" aria-hidden>
                 <div className="aspect-video w-full animate-pulse rounded-2xl bg-white/5" />
                 <div className="mt-3 flex gap-3">
                   <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/5" />
@@ -3017,80 +2843,102 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
       <style jsx>{`
         @keyframes edgazeFlowA {
           0% {
-            background-position: 0% 0%, 100% 20%, 20% 100%;
+            background-position:
+              0% 0%,
+              100% 20%,
+              20% 100%;
           }
           18% {
-            background-position: 30% 40%, 70% 10%, 10% 80%;
+            background-position:
+              30% 40%,
+              70% 10%,
+              10% 80%;
           }
           45% {
-            background-position: 60% 10%, 40% 90%, 80% 60%;
+            background-position:
+              60% 10%,
+              40% 90%,
+              80% 60%;
           }
           72% {
-            background-position: 10% 70%, 90% 35%, 50% 0%;
+            background-position:
+              10% 70%,
+              90% 35%,
+              50% 0%;
           }
           100% {
-            background-position: 0% 0%, 100% 20%, 20% 100%;
+            background-position:
+              0% 0%,
+              100% 20%,
+              20% 100%;
           }
         }
 
         @keyframes edgazeFlowB {
           0% {
-            background-position: 10% 10%, 90% 30%, 30% 90%;
+            background-position:
+              10% 10%,
+              90% 30%,
+              30% 90%;
           }
           22% {
-            background-position: 55% 20%, 65% 0%, 0% 80%;
+            background-position:
+              55% 20%,
+              65% 0%,
+              0% 80%;
           }
           50% {
-            background-position: 90% 60%, 20% 95%, 60% 40%;
+            background-position:
+              90% 60%,
+              20% 95%,
+              60% 40%;
           }
           78% {
-            background-position: 25% 85%, 100% 45%, 45% 10%;
+            background-position:
+              25% 85%,
+              100% 45%,
+              45% 10%;
           }
           100% {
-            background-position: 10% 10%, 90% 30%, 30% 90%;
+            background-position:
+              10% 10%,
+              90% 30%,
+              30% 90%;
           }
         }
 
         .edgaze-gradient {
-          background-image: radial-gradient(
-              800px circle at 15% 10%,
-              rgba(56, 189, 248, 0.22),
-              transparent 60%
-            ),
-            radial-gradient(
-              700px circle at 85% 20%,
-              rgba(236, 72, 153, 0.18),
-              transparent 60%
-            ),
+          background-image:
+            radial-gradient(800px circle at 15% 10%, rgba(56, 189, 248, 0.22), transparent 60%),
+            radial-gradient(700px circle at 85% 20%, rgba(236, 72, 153, 0.18), transparent 60%),
             linear-gradient(
               120deg,
               rgba(56, 189, 248, 0.18),
               rgba(236, 72, 153, 0.16),
               rgba(56, 189, 248, 0.12)
             );
-          background-size: 150% 150%, 150% 150%, 220% 220%;
+          background-size:
+            150% 150%,
+            150% 150%,
+            220% 220%;
           animation: edgazeFlowA 10.5s ease-in-out infinite;
           filter: saturate(1.15);
         }
 
         .edgaze-gradient-2 {
-          background-image: radial-gradient(
-              900px circle at 20% 90%,
-              rgba(56, 189, 248, 0.16),
-              transparent 62%
-            ),
-            radial-gradient(
-              700px circle at 90% 70%,
-              rgba(236, 72, 153, 0.14),
-              transparent 62%
-            ),
+          background-image:
+            radial-gradient(900px circle at 20% 90%, rgba(56, 189, 248, 0.16), transparent 62%),
+            radial-gradient(700px circle at 90% 70%, rgba(236, 72, 153, 0.14), transparent 62%),
             linear-gradient(
               40deg,
               rgba(236, 72, 153, 0.12),
               rgba(56, 189, 248, 0.12),
               rgba(236, 72, 153, 0.09)
             );
-          background-size: 170% 170%, 170% 170%, 240% 240%;
+          background-size:
+            170% 170%,
+            170% 170%,
+            240% 240%;
           animation: edgazeFlowB 12.5s ease-in-out infinite;
           mix-blend-mode: screen;
           filter: saturate(1.2) blur(0.2px);
@@ -3099,10 +2947,7 @@ const handlePredictSelect = (r: { kind: "workflow" | "prompt" | "profile"; item:
         .sparkle-layer {
           position: absolute;
           inset: -40%;
-          background-image: radial-gradient(
-            rgba(255, 255, 255, 0.7) 0.8px,
-            transparent 1px
-          );
+          background-image: radial-gradient(rgba(255, 255, 255, 0.7) 0.8px, transparent 1px);
           background-size: 18px 18px;
           opacity: 0.22;
           transform: rotate(12deg);

@@ -30,7 +30,12 @@ export async function GET(req: Request) {
     }
 
     // Validate exclude_user_id is a valid UUID (security: prevent injection/abuse)
-    if (excludeUserId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(excludeUserId)) {
+    if (
+      excludeUserId &&
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        excludeUserId,
+      )
+    ) {
       excludeUserId = null;
     }
 

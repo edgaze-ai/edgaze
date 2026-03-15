@@ -1,4 +1,9 @@
-import { initializeSnapshot, transitionNode, transitionWorkflow, withUpdatedSnapshot } from "./state-machine";
+import {
+  initializeSnapshot,
+  transitionNode,
+  transitionWorkflow,
+  withUpdatedSnapshot,
+} from "./state-machine";
 import type { ExecutionSnapshot, NodeStatus, WorkflowStatus } from "./types";
 
 /** Valid node state transitions. Terminal states (failed, success, blocked, skipped) allow no transitions. */
@@ -20,7 +25,12 @@ export class ExecutionStateManager {
   private snapshot: ExecutionSnapshot;
   private readonly persistHook?: PersistHook;
 
-  constructor(params: { workflowId?: string; nodeIds: string[]; metadata?: Record<string, unknown>; persistHook?: PersistHook }) {
+  constructor(params: {
+    workflowId?: string;
+    nodeIds: string[];
+    metadata?: Record<string, unknown>;
+    persistHook?: PersistHook;
+  }) {
     this.snapshot = initializeSnapshot({
       workflowId: params.workflowId,
       nodeIds: params.nodeIds,
@@ -97,4 +107,3 @@ export class ExecutionStateManager {
     this.persistHook(this.snapshot);
   }
 }
-

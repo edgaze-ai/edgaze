@@ -12,10 +12,6 @@ export const metadata: Metadata = {
   },
 };
 
-export default function CreatorsLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function CreatorsLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }

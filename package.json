@@ -33,6 +33,7 @@
   "dependencies": {
     "@stripe/connect-js": "^3.3.34",
     "@stripe/react-connect-js": "^3.3.33",
+    "@stripe/react-stripe-js": "^5.6.1",
     "@stripe/stripe-js": "^8.9.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.84.0",
@@ -55,16 +56,16 @@
     "stripe": "^20.4.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
     "@types/node": "^20.14.12",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.2.3",
-    "autoprefixer": "^10.4.20",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.1",
     "postcss": "^8.4.45",
     "prettier": "^3.3.3",
-    "tailwindcss": "^3.4.13",
+    "tailwindcss": "^4.2.1",
     "typescript": "^5.6.2"
   },
   "engines": {

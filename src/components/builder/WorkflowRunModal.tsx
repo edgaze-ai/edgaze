@@ -61,7 +61,7 @@ export default function WorkflowRunModal({
 
   useEffect(() => {
     if (!open) return;
-    
+
     safeTrack("Workflow Run Modal Opened", {
       surface: "builder",
       workflow_id: state?.workflowId,
@@ -69,7 +69,7 @@ export default function WorkflowRunModal({
       status: state?.status,
       step_count: state?.steps?.length || 0,
     });
-    
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (canClose) {
@@ -85,7 +85,15 @@ export default function WorkflowRunModal({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, canClose, state?.workflowId, state?.workflowName, state?.status, state?.steps?.length]);
+  }, [
+    open,
+    onClose,
+    canClose,
+    state?.workflowId,
+    state?.workflowName,
+    state?.status,
+    state?.steps?.length,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -101,10 +109,10 @@ export default function WorkflowRunModal({
     state?.status === "running"
       ? { label: "Running", icon: <Loader2 className="h-4 w-4 animate-spin" /> }
       : state?.status === "success"
-      ? { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" /> }
-      : state?.status === "error"
-      ? { label: "Failed", icon: <AlertTriangle className="h-4 w-4" /> }
-      : { label: "Ready", icon: <Sparkles className="h-4 w-4" /> };
+        ? { label: "Completed", icon: <CheckCircle2 className="h-4 w-4" /> }
+        : state?.status === "error"
+          ? { label: "Failed", icon: <AlertTriangle className="h-4 w-4" /> }
+          : { label: "Ready", icon: <Sparkles className="h-4 w-4" /> };
 
   return (
     <div className="fixed inset-0 z-[120]">
@@ -195,13 +203,16 @@ export default function WorkflowRunModal({
                     workflow_id: state?.workflowId,
                     method: "close_button",
                     final_status: state?.status,
-                    duration_ms: state?.startedAt && state?.finishedAt ? state.finishedAt - state.startedAt : undefined,
+                    duration_ms:
+                      state?.startedAt && state?.finishedAt
+                        ? state.finishedAt - state.startedAt
+                        : undefined,
                   });
                   onClose();
                 }}
                 className={cx(
                   "h-10 w-10 rounded-xl border border-white/12 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors",
-                  !canClose && "opacity-50 cursor-not-allowed"
+                  !canClose && "opacity-50 cursor-not-allowed",
                 )}
                 title={canClose ? "Close" : "Running…"}
               >
@@ -214,7 +225,9 @@ export default function WorkflowRunModal({
           <div className="grid grid-cols-12 gap-0 h-[calc(100%-72px)]">
             {/* steps */}
             <div className="col-span-5 border-r border-white/10 p-4 overflow-auto">
-              <div className="text-xs uppercase tracking-widest text-white/45">What’s happening</div>
+              <div className="text-xs uppercase tracking-widest text-white/45">
+                What’s happening
+              </div>
               <div className="mt-3 space-y-2">
                 {(state?.steps || []).map((s) => {
                   const isActive = state?.currentStepId === s.id && state?.status === "running";
@@ -234,14 +247,17 @@ export default function WorkflowRunModal({
                       key={s.id}
                       className={cx(
                         "rounded-2xl border border-white/12 bg-white/[0.035] px-4 py-3 transition-all",
-                        isActive && "bg-white/[0.06] border-white/20 shadow-[0_16px_60px_rgba(0,0,0,0.35)]"
+                        isActive &&
+                          "bg-white/[0.06] border-white/20 shadow-[0_16px_60px_rgba(0,0,0,0.35)]",
                       )}
                     >
                       <div className="flex items-start gap-3">
                         <div className="mt-0.5">{badge}</div>
                         <div className="min-w-0">
                           <div className="text-sm font-semibold text-white/90">{s.title}</div>
-                          {s.detail ? <div className="mt-1 text-xs text-white/60">{s.detail}</div> : null}
+                          {s.detail ? (
+                            <div className="mt-1 text-xs text-white/60">{s.detail}</div>
+                          ) : null}
                         </div>
                         <div className="ml-auto">
                           <span className="rounded-full border border-white/12 bg-white/5 px-2 py-1 text-[10px] font-semibold text-white/60">
@@ -264,9 +280,7 @@ export default function WorkflowRunModal({
             <div className="col-span-7 p-4 overflow-auto">
               <div className="flex items-center justify-between">
                 <div className="text-xs uppercase tracking-widest text-white/45">Logs</div>
-                <div className="text-[11px] text-white/45">
-                  {state?.logs?.length || 0} events
-                </div>
+                <div className="text-[11px] text-white/45">{state?.logs?.length || 0} events</div>
               </div>
 
               <div className="mt-3 rounded-2xl border border-white/12 bg-black/40 overflow-hidden">
@@ -276,15 +290,13 @@ export default function WorkflowRunModal({
                 <div className="p-3 space-y-2 font-mono text-[12px] leading-relaxed">
                   {(state?.logs || []).map((l, idx) => (
                     <div key={idx} className="flex gap-3">
-                      <span className="text-white/35">
-                        {new Date(l.t).toLocaleTimeString()}
-                      </span>
+                      <span className="text-white/35">{new Date(l.t).toLocaleTimeString()}</span>
                       <span
                         className={cx(
                           "uppercase text-[10px] tracking-widest",
                           l.level === "info" && "text-white/50",
                           l.level === "warn" && "text-white/70",
-                          l.level === "error" && "text-white/80"
+                          l.level === "error" && "text-white/80",
                         )}
                       >
                         {l.level}
@@ -300,7 +312,8 @@ export default function WorkflowRunModal({
               </div>
 
               <div className="mt-3 text-xs text-white/45">
-                Foundation: this UI is fed by a future “workflow runtime” that streams step events in real time.
+                Foundation: this UI is fed by a future “workflow runtime” that streams step events
+                in real time.
               </div>
             </div>
           </div>

@@ -9,10 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
-      return NextResponse.json(
-        { error: authError ?? "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: authError ?? "Not authenticated" }, { status: 401 });
     }
 
     const userIsAdmin = await isAdmin(user.id);
@@ -42,10 +39,7 @@ export async function POST(req: NextRequest) {
 
     const userId = profile.id;
 
-    let query = supabase
-      .from("workflow_runs")
-      .delete()
-      .eq("user_id", userId);
+    let query = supabase.from("workflow_runs").delete().eq("user_id", userId);
 
     if (workflowId && typeof workflowId === "string" && workflowId.trim()) {
       query = query.eq("workflow_id", workflowId.trim());
@@ -70,7 +64,7 @@ export async function POST(req: NextRequest) {
     console.error("Refill workflow runs error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

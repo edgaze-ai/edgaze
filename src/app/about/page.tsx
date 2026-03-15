@@ -662,9 +662,13 @@ export default function AboutPage() {
                   Explore the marketplace
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </Link>
-                <span className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white/60 bg-white/5 ring-1 ring-white/10 cursor-not-allowed">
-                  Join as a creator — Coming soon
-                </span>
+                <Link
+                  href="/creators/onboarding?from=about"
+                  className="group inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-95 transition-opacity"
+                >
+                  Join as a creator
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Link>
               </div>
             </SectionReveal>
           </section>

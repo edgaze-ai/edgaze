@@ -1,20 +1,20 @@
 # Support
 
-Edgaze is a **closed-source, proprietary platform** owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation. Support is provided through **internal channels only**.
+Edgaze is a **closed-source, proprietary platform** owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation. Support is provided through **internal channels only**.
 
 ---
 
 ## Getting help
 
-| Need | Where to go |
-|------|-------------|
-| **Setup & run** | [README — Quick Start](README.md#quick-start) |
-| **Auth & API** | [AUTH.md](AUTH.md) |
-| **Architecture & standards** | [docs/OVERVIEW.md](docs/OVERVIEW.md) |
-| **Bugs & features** | Internal issue tracker or team Slack |
-| **Security** | [SECURITY.md](SECURITY.md) — report privately to security team |
-| **Releases** | [CHANGELOG.md](CHANGELOG.md) |
-| **Access & permissions** | Contact team lead or admin |
+| Need                         | Where to go                                                    |
+| ---------------------------- | -------------------------------------------------------------- |
+| **Setup & run**              | [README — Quick Start](README.md#quick-start)                  |
+| **Auth & API**               | [AUTH.md](AUTH.md)                                             |
+| **Architecture & standards** | [docs/OVERVIEW.md](docs/OVERVIEW.md)                           |
+| **Bugs & features**          | Internal issue tracker or team Slack                           |
+| **Security**                 | [SECURITY.md](SECURITY.md) — report privately to security team |
+| **Releases**                 | [CHANGELOG.md](CHANGELOG.md)                                   |
+| **Access & permissions**     | Contact team lead or admin                                     |
 
 For general questions, access, or deployment, use your organization's designated channel (e.g., Slack, email).
 

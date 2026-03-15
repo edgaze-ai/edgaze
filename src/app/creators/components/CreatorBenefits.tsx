@@ -2,14 +2,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import {
-  DollarSign,
-  Repeat,
-  FileCode2,
-  Share2,
-  Sliders,
-  TrendingUp,
-} from "lucide-react";
+import { DollarSign, Repeat, FileCode2, Share2, Sliders, TrendingUp } from "lucide-react";
 
 const BENEFITS = [
   {

@@ -20,7 +20,8 @@ export async function POST(req: Request) {
     "";
 
   const { token } = await req.json().catch(() => ({ token: "" }));
-  if (!token || typeof token !== "string") return json(400, { ok: false, error: "Captcha required" });
+  if (!token || typeof token !== "string")
+    return json(400, { ok: false, error: "Captcha required" });
 
   const form = new FormData();
   form.append("secret", secret);
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
       process.env.NODE_ENV === "production" ? "Secure" : "",
     ]
       .filter(Boolean)
-      .join("; ")
+      .join("; "),
   );
 
   return res;

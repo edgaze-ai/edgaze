@@ -76,7 +76,10 @@ export default function RunModal({
               <span>Summary</span>
             </div>
             <p className="text-[14px] leading-7 text-white/85">
-              {running && !summary && !errorText && "Running your workflow… this will just take a moment."}
+              {running &&
+                !summary &&
+                !errorText &&
+                "Running your workflow… this will just take a moment."}
               {!running && summary && summary}
               {!running && !summary && errorText && (
                 <span className="text-white/80">{errorText}</span>
@@ -147,25 +150,31 @@ export default function RunModal({
 
 function StatusChip({ id, status }: { id: string; status: NodeStatus }) {
   const label =
-    status === "running" ? "Running…" : status === "success" ? "Done" : status === "error" ? "Error" : "Waiting";
+    status === "running"
+      ? "Running…"
+      : status === "success"
+        ? "Done"
+        : status === "error"
+          ? "Error"
+          : "Waiting";
 
   const outline =
     status === "success"
       ? "0 0 0 1px rgba(34,197,94,.35)"
       : status === "error"
-      ? "0 0 0 1px rgba(244,63,94,.35)"
-      : status === "running"
-      ? "0 0 0 1px rgba(34,211,238,.35)"
-      : "0 0 0 1px rgba(255,255,255,.12)";
+        ? "0 0 0 1px rgba(244,63,94,.35)"
+        : status === "running"
+          ? "0 0 0 1px rgba(34,211,238,.35)"
+          : "0 0 0 1px rgba(255,255,255,.12)";
 
   const dot =
     status === "success"
       ? "#34d399"
       : status === "error"
-      ? "#fb7185"
-      : status === "running"
-      ? "#22d3ee"
-      : "rgba(255,255,255,.45)";
+        ? "#fb7185"
+        : status === "running"
+          ? "#22d3ee"
+          : "rgba(255,255,255,.45)";
 
   return (
     <div
@@ -182,8 +191,7 @@ function StatusChip({ id, status }: { id: string; status: NodeStatus }) {
 }
 
 function LogRow({ log }: { log: Log }) {
-  const color =
-    log.type === "success" ? "#34d399" : log.type === "error" ? "#fb7185" : "#22d3ee";
+  const color = log.type === "success" ? "#34d399" : log.type === "error" ? "#fb7185" : "#22d3ee";
   return (
     <div className="flex items-start gap-3 py-1.5">
       <span className="inline-block mt-1 h-2.5 w-2.5 rounded-full" style={{ background: color }} />

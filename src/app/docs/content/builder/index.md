@@ -5,7 +5,7 @@ description = "Learn how to use Workflow Studio and Prompt Studio to create AI p
 
 Welcome to the Builder documentation! This comprehensive guide will help you master Edgaze's powerful builder tools and create professional AI products without writing code.
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 ## What is the Builder?
 
@@ -26,6 +26,7 @@ Choose the builder that fits your needs:
 Workflow Studio lets you create multi-step AI workflows by connecting different blocks (called "nodes") together. Each node performs a specific task, and you connect them to create a complete workflow that can handle complex processes.
 
 **Use Workflow Studio when you want to:**
+
 - Create complex multi-step AI processes
 - Combine multiple AI models or services
 - Build workflows that process data through multiple stages
@@ -36,6 +37,7 @@ Workflow Studio lets you create multi-step AI workflows by connecting different 
 - Create sophisticated data transformations
 
 **Perfect for:**
+
 - Content generation pipelines
 - Data processing workflows
 - Multi-model AI applications
@@ -50,6 +52,7 @@ Workflow Studio lets you create multi-step AI workflows by connecting different 
 Prompt Studio helps you create reusable prompts with placeholders. You write your prompt once, define what information users need to provide, and then publish it as a shareable product that others can use.
 
 **Use Prompt Studio when you want to:**
+
 - Create reusable prompts with customizable inputs
 - Build prompt templates for specific use cases
 - Share prompts with others through a simple interface
@@ -58,6 +61,7 @@ Prompt Studio helps you create reusable prompts with placeholders. You write you
 - Create prompt libraries
 
 **Perfect for:**
+
 - Content writing prompts
 - Analysis templates
 - Translation prompts
@@ -72,6 +76,7 @@ Prompt Studio helps you create reusable prompts with placeholders. You write you
 ### Visual Interface
 
 Both builders feature intuitive visual interfaces:
+
 - Drag-and-drop node placement
 - Visual connections between components
 - Real-time preview and testing
@@ -81,6 +86,7 @@ Both builders feature intuitive visual interfaces:
 ### No Code Required
 
 Create sophisticated AI products without writing a single line of code:
+
 - Visual workflow building
 - Point-and-click configuration
 - Pre-built AI nodes
@@ -90,6 +96,7 @@ Create sophisticated AI products without writing a single line of code:
 ### Powerful Capabilities
 
 Despite being visual tools, both builders are incredibly powerful:
+
 - Access to multiple AI models
 - HTTP request capabilities
 - Data processing and transformation
@@ -100,6 +107,7 @@ Despite being visual tools, both builders are incredibly powerful:
 ### Publishing and Sharing
 
 Share your creations with the world:
+
 - Publish to the marketplace
 - Get shareable links
 - Set pricing (premium feature)
@@ -125,6 +133,7 @@ Share your creations with the world:
 6. **Publish** - Share it with others
 
 **Experienced user?** Jump to:
+
 - [Workflow Studio Advanced Features](/docs/builder/workflow-studio#advanced-features)
 - [Prompt Studio Advanced Techniques](/docs/builder/prompt-studio#advanced-techniques)
 - [Best Practices](/docs/builder/workflow-studio#best-practices)
@@ -132,6 +141,7 @@ Share your creations with the world:
 ## Common Use Cases
 
 ### Content Creation
+
 - Blog post generation
 - Social media content
 - Email writing
@@ -139,6 +149,7 @@ Share your creations with the world:
 - Marketing copy
 
 ### Data Processing
+
 - Document analysis
 - Data extraction
 - Text summarization
@@ -146,6 +157,7 @@ Share your creations with the world:
 - Data transformation
 
 ### Business Automation
+
 - Customer service automation
 - Content moderation
 - Data validation
@@ -153,6 +165,7 @@ Share your creations with the world:
 - Workflow automation
 
 ### Creative Projects
+
 - Story writing
 - Poetry generation
 - Creative brainstorming
@@ -162,6 +175,7 @@ Share your creations with the world:
 ## Need Help?
 
 If you have questions or need assistance:
+
 - Check the detailed guides for each builder above
 - Visit the [Help Center](/help) for general support
 - Browse example workflows and prompts in the marketplace

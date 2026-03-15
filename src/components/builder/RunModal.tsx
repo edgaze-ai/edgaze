@@ -39,17 +39,17 @@ export default function RunModal() {
       setOpen(true);
       setTab("output"); // reset tab every run
     });
-  
+
     return () => {
       try {
         // ensure cleanup returns void even if off() returns boolean
-        (off as unknown as (() => void))?.();
+        (off as unknown as () => void)?.();
       } catch {
         // no-op
       }
     };
   }, []);
-  
+
   /* -----------------------------------------------
    * Data Extraction (safe) – hooks must ALWAYS run
    * --------------------------------------------- */
@@ -57,7 +57,7 @@ export default function RunModal() {
   const safeOutput = useMemo(() => {
     if (phase.phase !== "finished") return null;
     const d = phase.data;
-    return typeof d === "object" ? d?.output ?? d : d;
+    return typeof d === "object" ? (d?.output ?? d) : d;
   }, [phase]);
 
   const safeLogs = useMemo(() => {
@@ -152,8 +152,7 @@ export default function RunModal() {
                 • Ensure required connections exist
                 <br />
                 • Check nodes that need inputs
-                <br />
-                • Restart your server if necessary
+                <br />• Restart your server if necessary
               </div>
             </div>
           </div>
@@ -167,18 +166,14 @@ export default function RunModal() {
                     {JSON.stringify(safeOutput, null, 2)}
                   </pre>
                 ) : (
-                  <div className="text-sm text-white/60">
-                    No output returned from workflow.
-                  </div>
+                  <div className="text-sm text-white/60">No output returned from workflow.</div>
                 )}
               </div>
             )}
             {tab === "logs" && (
               <div className="max-h-[60vh] space-y-2 overflow-auto pr-2">
                 {safeLogs.length === 0 && (
-                  <div className="text-sm text-white/60">
-                    No logs recorded for this execution.
-                  </div>
+                  <div className="text-sm text-white/60">No logs recorded for this execution.</div>
                 )}
                 {safeLogs.map((l: any, i: number) => (
                   <div

@@ -221,7 +221,7 @@ Proprietary. All rights reserved. See [LICENSE](LICENSE).
 
 **Proprietary software.** All rights reserved.
 
-This is a closed-source, commercial platform owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation. See [LICENSE](LICENSE) for full terms.
+This is a closed-source, commercial platform owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation. See [LICENSE](LICENSE) for full terms.
 
 Unauthorized copying, modification, distribution, or use is strictly prohibited.
 

@@ -1,23 +1,24 @@
 title = "Platform Status and Beta Disclaimer"
 description = "Important disclosures regarding the beta status of the Edgaze platform."
 
----
+# Platform Status and Beta Disclaimer
 
-1. Platform Status
+## Platform Status
 
 Edgaze is currently operating in a beta stage.
 
-The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 The Platform is under active development and is made available solely for testing, evaluation, and feedback purposes.
 
 The Platform is not a finalized or production-grade service.
 
----
+## Experimental Nature of the Platform
 
-2. Experimental Nature of the Platform
+### Risks During Beta
 
 During the beta, the Platform may:
+
 - Contain bugs, errors, or security vulnerabilities
 - Experience downtime, outages, or degraded performance
 - Produce incorrect, incomplete, or unexpected results
@@ -26,11 +27,12 @@ During the beta, the Platform may:
 
 You acknowledge and accept that the Platform is experimental.
 
----
+## No Guarantees or Commitments
 
-3. No Guarantees or Commitments
+### What We Do Not Guarantee
 
 Edge Platforms makes no guarantees regarding:
+
 - Platform availability or uptime
 - Feature completeness or stability
 - Data retention or persistence
@@ -39,13 +41,12 @@ Edge Platforms makes no guarantees regarding:
 
 All features are provided on an “as is” and “as available” basis.
 
----
-
-4. Risk Allocation
+## Risk Allocation
 
 You use the Platform entirely at your own risk.
 
 Edge Platforms is not responsible for:
+
 - Loss of data, content, or configurations
 - Loss of revenue, profits, or business opportunities
 - Service interruptions or system failures
@@ -54,11 +55,12 @@ Edge Platforms is not responsible for:
 
 Your sole remedy for dissatisfaction is to discontinue use of the Platform.
 
----
+## No Liability for Loss or Damage
 
-5. No Liability for Loss or Damage
+### Limitation of Liability
 
 To the maximum extent permitted by law, Edge Platforms shall not be liable for:
+
 - Direct or indirect losses arising from use of the Platform
 - Incidental, consequential, special, or punitive damages
 - Damages resulting from reliance on beta features
@@ -66,11 +68,10 @@ To the maximum extent permitted by law, Edge Platforms shall not be liable for:
 
 This limitation applies regardless of the theory of liability.
 
----
-
-6. No Support or Service Level Commitments
+## No Support or Service Level Commitments
 
 Edge Platforms does not provide:
+
 - Guaranteed support
 - Service level agreements (SLAs)
 - Response time commitments
@@ -78,44 +79,42 @@ Edge Platforms does not provide:
 
 Support, if provided, is discretionary and may be limited or unavailable.
 
----
+## Data Handling During Beta
 
-7. Data Handling During Beta
+### Data and Backups
 
 During the beta:
+
 - Data may be modified, migrated, or deleted
 - Storage formats and systems may change
 - Data recovery is not guaranteed
 
 Users are responsible for maintaining independent backups of any important data.
 
----
-
-8. Changes and Termination
+## Changes and Termination
 
 Edge Platforms reserves the right to:
+
 - Modify or discontinue the Platform or any feature
 - Suspend or terminate access to the Platform
 - End the beta at any time
 
 Such actions may occur without prior notice.
 
----
-
-9. No Reliance
+## No Reliance
 
 You agree not to rely on the Platform for:
+
 - Production workloads
 - Mission-critical operations
 - Compliance-sensitive or regulated activities
 
 The Platform is not intended for high-risk or critical use cases.
 
----
-
-10. Relationship to Other Policies
+## Relationship to Other Policies
 
 This Disclaimer operates in conjunction with:
+
 - Terms of Service
 - Privacy Policy
 - Acceptable Use Policy
@@ -124,17 +123,13 @@ This Disclaimer operates in conjunction with:
 
 In the event of conflict, the Terms of Service control.
 
----
-
-11. Changes to This Disclaimer
+## Changes to This Disclaimer
 
 This Platform Status and Beta Disclaimer may be updated at any time.
 
 Changes become effective upon publication. Continued use of the Platform constitutes acceptance of the updated Disclaimer.
 
----
-
-12. Contact
+## Contact
 
 For questions regarding this Disclaimer, contact:
 support@edgaze.ai

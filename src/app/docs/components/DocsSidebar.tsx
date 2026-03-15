@@ -16,20 +16,12 @@ export default function DocsSidebar({ docs }: { docs: DocMeta[] }) {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return docs;
-    return docs.filter((d) =>
-      `${d.title} ${d.description} ${d.slug}`.toLowerCase().includes(s)
-    );
+    return docs.filter((d) => `${d.title} ${d.description} ${d.slug}`.toLowerCase().includes(s));
   }, [q, docs]);
 
   // Separate builder docs from other docs
-  const builderDocs = useMemo(
-    () => filtered.filter((d) => d.category === "builder"),
-    [filtered]
-  );
-  const otherDocs = useMemo(
-    () => filtered.filter((d) => d.category !== "builder"),
-    [filtered]
-  );
+  const builderDocs = useMemo(() => filtered.filter((d) => d.category === "builder"), [filtered]);
+  const otherDocs = useMemo(() => filtered.filter((d) => d.category !== "builder"), [filtered]);
 
   const isHome = pathname === "/docs";
 
@@ -57,21 +49,24 @@ export default function DocsSidebar({ docs }: { docs: DocMeta[] }) {
                   href="/docs"
                   className={[
                     "rounded-lg px-3 py-2 transition",
-                    isHome
-                      ? "bg-white/10 ring-1 ring-white/10"
-                      : "hover:bg-white/5",
+                    isHome ? "bg-white/10 ring-1 ring-white/10" : "hover:bg-white/5",
                   ].join(" ")}
                 >
-                  <div className="text-sm font-medium text-white/90">
-                    Home
-                  </div>
+                  <div className="text-sm font-medium text-white/90">Home</div>
                   <div className="mt-0.5 text-xs text-white/45">
                     Overview of all Edgaze documentation.
                   </div>
                 </Link>
                 {builderDocs.map((d) => {
-                  const href = d.slug === "builder" ? "/docs/builder" : `/docs/builder/${d.slug.split("/")[1]}`;
-                  const active = pathname === href || (d.slug === "builder" && pathname.startsWith("/docs/builder") && !pathname.includes("/builder/"));
+                  const href =
+                    d.slug === "builder"
+                      ? "/docs/builder"
+                      : `/docs/builder/${d.slug.split("/")[1]}`;
+                  const active =
+                    pathname === href ||
+                    (d.slug === "builder" &&
+                      pathname.startsWith("/docs/builder") &&
+                      !pathname.includes("/builder/"));
                   const isSubItem = d.slug !== "builder";
 
                   return (
@@ -80,15 +75,11 @@ export default function DocsSidebar({ docs }: { docs: DocMeta[] }) {
                       href={href}
                       className={[
                         "rounded-lg px-3 py-2 transition",
-                        active
-                          ? "bg-white/10 ring-1 ring-white/10"
-                          : "hover:bg-white/5",
+                        active ? "bg-white/10 ring-1 ring-white/10" : "hover:bg-white/5",
                         isSubItem ? "ml-4" : "",
                       ].join(" ")}
                     >
-                      <div className="text-sm font-medium text-white/90">
-                        {d.title}
-                      </div>
+                      <div className="text-sm font-medium text-white/90">{d.title}</div>
                       {d.description ? (
                         <div className="mt-0.5 text-xs text-white/45 line-clamp-2">
                           {d.description}
@@ -118,14 +109,10 @@ export default function DocsSidebar({ docs }: { docs: DocMeta[] }) {
                       href={href}
                       className={[
                         "rounded-lg px-3 py-2 transition",
-                        active
-                          ? "bg-white/10 ring-1 ring-white/10"
-                          : "hover:bg-white/5",
+                        active ? "bg-white/10 ring-1 ring-white/10" : "hover:bg-white/5",
                       ].join(" ")}
                     >
-                      <div className="text-sm font-medium text-white/90">
-                        {d.title}
-                      </div>
+                      <div className="text-sm font-medium text-white/90">{d.title}</div>
                       {d.description ? (
                         <div className="mt-0.5 text-xs text-white/45 line-clamp-2">
                           {d.description}

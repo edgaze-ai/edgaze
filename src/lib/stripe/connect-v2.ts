@@ -12,8 +12,8 @@
  * @see https://docs.stripe.com/changelog/clover/2025-12-15/accounts-v2
  */
 
-import { stripe } from './client';
-import { stripeConfig } from './config';
+import { stripe } from "./client";
+import { stripeConfig } from "./config";
 
 /**
  * Create a V2 connected account for a creator.
@@ -30,12 +30,12 @@ export async function createV2ConnectedAccount(params: {
 }) {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error(
-      'STRIPE_SECRET_KEY is required. Add it to your .env file. Get keys at https://dashboard.stripe.com/apikeys'
+      "STRIPE_SECRET_KEY is required. Add it to your .env file. Get keys at https://dashboard.stripe.com/apikeys",
     );
   }
 
   if (!params.country || params.country.length !== 2) {
-    throw new Error('country is required (ISO 3166-1 alpha-2, e.g. US, GB)');
+    throw new Error("country is required (ISO 3166-1 alpha-2, e.g. US, GB)");
   }
 
   const account = await stripe.v2.core.accounts.create({
@@ -43,13 +43,13 @@ export async function createV2ConnectedAccount(params: {
     contact_email: params.contactEmail,
     identity: {
       country: params.country.toUpperCase(),
-      entity_type: 'individual',
+      entity_type: "individual",
     },
-    dashboard: 'none',
+    dashboard: "none",
     defaults: {
       responsibilities: {
-        fees_collector: 'stripe',
-        losses_collector: 'stripe',
+        fees_collector: "stripe",
+        losses_collector: "stripe",
       },
     },
     configuration: {
@@ -78,17 +78,15 @@ export async function createV2AccountLink(params: {
   returnUrl: string;
 }) {
   if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error(
-      'STRIPE_SECRET_KEY is required. Add it to your .env file.'
-    );
+    throw new Error("STRIPE_SECRET_KEY is required. Add it to your .env file.");
   }
 
   const accountLink = await stripe.v2.core.accountLinks.create({
     account: params.accountId,
     use_case: {
-      type: 'account_onboarding',
+      type: "account_onboarding",
       account_onboarding: {
-        configurations: ['merchant', 'customer'],
+        configurations: ["merchant", "customer"],
         refresh_url: params.refreshUrl,
         return_url: params.returnUrl,
       },
@@ -106,7 +104,7 @@ export async function createV2AccountLink(params: {
 export async function createAccountSession(accountId: string) {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error(
-      'STRIPE_SECRET_KEY is required. Add it to .env.local. Get keys at https://dashboard.stripe.com/apikeys'
+      "STRIPE_SECRET_KEY is required. Add it to .env.local. Get keys at https://dashboard.stripe.com/apikeys",
     );
   }
 
@@ -129,7 +127,7 @@ export async function createAccountSession(accountId: string) {
 export async function createDashboardAccountSession(accountId: string) {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error(
-      'STRIPE_SECRET_KEY is required. Add it to .env.local. Get keys at https://dashboard.stripe.com/apikeys'
+      "STRIPE_SECRET_KEY is required. Add it to .env.local. Get keys at https://dashboard.stripe.com/apikeys",
     );
   }
 
@@ -171,26 +169,29 @@ export async function createDashboardAccountSession(accountId: string) {
  */
 export async function getV2AccountStatus(stripeAccountId: string) {
   if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY is required.');
+    throw new Error("STRIPE_SECRET_KEY is required.");
   }
 
   const account = await stripe.v2.core.accounts.retrieve(stripeAccountId, {
-    include: ['configuration.merchant', 'requirements'],
+    include: ["configuration.merchant", "requirements"],
   });
 
-  const merchantConfig = account.configuration?.merchant as { capabilities?: { card_payments?: { status?: string } } } | undefined;
-  const readyToProcessPayments =
-    merchantConfig?.capabilities?.card_payments?.status === 'active';
+  const merchantConfig = account.configuration?.merchant as
+    | { capabilities?: { card_payments?: { status?: string } } }
+    | undefined;
+  const readyToProcessPayments = merchantConfig?.capabilities?.card_payments?.status === "active";
 
-  const requirementsSummary = account.requirements?.summary as { minimum_deadline?: { status?: string } } | undefined;
+  const requirementsSummary = account.requirements?.summary as
+    | { minimum_deadline?: { status?: string } }
+    | undefined;
   const requirementsStatus = requirementsSummary?.minimum_deadline?.status;
   const onboardingComplete =
-    requirementsStatus !== 'currently_due' && requirementsStatus !== 'past_due';
+    requirementsStatus !== "currently_due" && requirementsStatus !== "past_due";
 
   return {
     accountId: account.id,
     readyToProcessPayments,
     onboardingComplete,
-    requirementsStatus: requirementsStatus || 'unknown',
+    requirementsStatus: requirementsStatus || "unknown",
   };
 }

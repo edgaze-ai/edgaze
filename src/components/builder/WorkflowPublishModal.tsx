@@ -22,7 +22,17 @@ import { generateWorkflowThumbnailFile } from "./workflowThumbnailGenerator";
 import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
-import { WORKFLOW_MAX_USD, WORKFLOW_MIN_USD, validateWorkflowPrice } from "../../lib/marketplace/pricing";
+import {
+  WORKFLOW_MAX_USD,
+  WORKFLOW_MIN_USD,
+  validateWorkflowPrice,
+} from "../../lib/marketplace/pricing";
+import {
+  estimateWorkflowCostForRuns,
+  getMinimumWorkflowPrice,
+  getRecommendedWorkflowPrice,
+} from "../../lib/workflow/cost-estimation";
+import { PayoutSystemCard } from "../publish/PayoutSystemCard";
 
 type MonetisationMode = "free" | "paywall";
 type Visibility = "public" | "unlisted" | "private";
@@ -107,7 +117,9 @@ function baseCodeFromTitle(title: string) {
 }
 
 function randomSuffix(len = 4) {
-  return Math.random().toString(36).slice(2, 2 + len);
+  return Math.random()
+    .toString(36)
+    .slice(2, 2 + len);
 }
 
 function toPublicUrl(supabase: any, path: string) {
@@ -151,11 +163,7 @@ async function codeExistsInTables(supabase: any, code: string, excludeWorkflowId
   if (!normalized) return true;
 
   const [w, p] = await Promise.all([
-    supabase
-      .from("workflows")
-      .select("id")
-      .eq("edgaze_code", normalized)
-      .limit(1),
+    supabase.from("workflows").select("id").eq("edgaze_code", normalized).limit(1),
     supabase.from("prompts").select("id").eq("edgaze_code", normalized).limit(1),
   ]);
 
@@ -163,7 +171,9 @@ async function codeExistsInTables(supabase: any, code: string, excludeWorkflowId
   if (p?.error) throw p.error;
 
   // If editing, exclude the current workflow from the check
-  const wHas = Array.isArray(w?.data) && w.data.length > 0 && 
+  const wHas =
+    Array.isArray(w?.data) &&
+    w.data.length > 0 &&
     (!excludeWorkflowId || !w.data.some((row: any) => row.id === excludeWorkflowId));
   const pHas = Array.isArray(p?.data) && p.data.length > 0;
   return wHas || pHas;
@@ -258,7 +268,7 @@ function ConfettiSides({ active }: { active: boolean }) {
           top: "-12%",
           animationDelay: `${Math.random() * 0.25}s`,
           transform: `rotate(${Math.random() * 360}deg)`,
-        }))
+        })),
       );
       setRightStyles(
         Array.from({ length: 45 }, () => ({
@@ -266,7 +276,7 @@ function ConfettiSides({ active }: { active: boolean }) {
           top: "-12%",
           animationDelay: `${Math.random() * 0.25}s`,
           transform: `rotate(${Math.random() * 360}deg)`,
-        }))
+        })),
       );
     });
   }, []);
@@ -276,14 +286,12 @@ function ConfettiSides({ active }: { active: boolean }) {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       <div className="absolute left-0 top-0 bottom-0 w-[18%]">
-        {leftStyles.length > 0 && leftStyles.map((style, i) => (
-          <span key={`l-${i}`} className="confetti" style={style} />
-        ))}
+        {leftStyles.length > 0 &&
+          leftStyles.map((style, i) => <span key={`l-${i}`} className="confetti" style={style} />)}
       </div>
       <div className="absolute right-0 top-0 bottom-0 w-[18%]">
-        {rightStyles.length > 0 && rightStyles.map((style, i) => (
-          <span key={`r-${i}`} className="confetti" style={style} />
-        ))}
+        {rightStyles.length > 0 &&
+          rightStyles.map((style, i) => <span key={`r-${i}`} className="confetti" style={style} />)}
       </div>
 
       <style jsx>{`
@@ -327,7 +335,9 @@ function RailButton({
       onClick={onClick}
       className={cx(
         "w-full text-left rounded-2xl border p-4 transition-colors",
-        active ? "border-white/14 bg-white/[0.06]" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]"
+        active
+          ? "border-white/14 bg-white/[0.06]"
+          : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]",
       )}
     >
       <div className="text-[12px] font-semibold text-white/90">{title}</div>
@@ -365,7 +375,9 @@ export default function WorkflowPublishModal({
   const [priceUsd, setPriceUsd] = useState<string>("2.99");
 
   const [edgazeCode, setEdgazeCode] = useState<string>("");
-  const [codeStatus, setCodeStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+  const [codeStatus, setCodeStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "invalid"
+  >("idle");
   const [codeMsg, setCodeMsg] = useState<string>("");
 
   const codeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -383,6 +395,7 @@ export default function WorkflowPublishModal({
 
   const [published, setPublished] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState<string>("");
+  const [acceptedCreatorTerms, setAcceptedCreatorTerms] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [qrBusy, setQrBusy] = useState(false);
   const [confetti, setConfetti] = useState(false);
@@ -392,9 +405,24 @@ export default function WorkflowPublishModal({
 
   const draftGraph = useMemo(() => draft?.graph_json ?? draft?.graph ?? null, [draft]);
 
+  const costEstimate = useMemo(() => {
+    if (!draftGraph) return null;
+    const cost10 = estimateWorkflowCostForRuns(draftGraph, 10);
+    const min = getMinimumWorkflowPrice(draftGraph);
+    const recommended = getRecommendedWorkflowPrice(draftGraph);
+    return { cost10, min, recommended };
+  }, [draftGraph]);
+
+  const effectiveMinPrice = useMemo(() => {
+    return costEstimate?.min ?? WORKFLOW_MIN_USD;
+  }, [costEstimate]);
+
   const cleanTags = useMemo(() => {
     const raw = safeArr(tagsInput);
-    const cleaned = raw.map((t) => t.replace(/^#/, "").trim()).filter(Boolean).slice(0, 10);
+    const cleaned = raw
+      .map((t) => t.replace(/^#/, "").trim())
+      .filter(Boolean)
+      .slice(0, 10);
     return Array.from(new Set(cleaned));
   }, [tagsInput]);
 
@@ -493,6 +521,7 @@ export default function WorkflowPublishModal({
     setQrDataUrl(null);
     setQrBusy(false);
     setConfetti(false);
+    setAcceptedCreatorTerms(false);
 
     // Load existing data when editing
     if (editId && draft) {
@@ -503,7 +532,7 @@ export default function WorkflowPublishModal({
       setMonetisationMode(((draft as any).monetisation_mode || "free") as MonetisationMode);
       setPriceUsd((draft as any).price_usd != null ? String((draft as any).price_usd) : "2.99");
       setEdgazeCode((draft as any).edgaze_code || baseCodeFromTitle(draft.title || ""));
-      
+
       // Load existing demo images if available
       const existingDemos = (draft as any).demo_images || (draft as any).output_demo_urls;
       if (Array.isArray(existingDemos) && existingDemos.length > 0) {
@@ -531,6 +560,7 @@ export default function WorkflowPublishModal({
 
     setCodeStatus("checking");
     setCodeMsg("Checking availability…");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when open/draft id changes; draft body not needed for reset
   }, [open, draft?.id, editId]);
 
   // Code availability check (debounced)
@@ -685,7 +715,11 @@ export default function WorkflowPublishModal({
     }
   }
 
-  async function generateQrAndMaybeUpload(opts: { url: string; userId: string; workflowId: string }) {
+  async function generateQrAndMaybeUpload(opts: {
+    url: string;
+    userId: string;
+    workflowId: string;
+  }) {
     setQrBusy(true);
     try {
       const qr = await qrWithCenteredLogoDataUrl(opts.url);
@@ -694,7 +728,9 @@ export default function WorkflowPublishModal({
       // Upload QR as file (optional)
       try {
         const blob = await (await fetch(qr)).blob();
-        const qrFile = new File([blob], `edgaze-qr-${normalizeEdgazeCode(edgazeCode)}.png`, { type: "image/png" });
+        const qrFile = new File([blob], `edgaze-qr-${normalizeEdgazeCode(edgazeCode)}.png`, {
+          type: "image/png",
+        });
         await uploadFileToBucket({
           supabase,
           userId: opts.userId,
@@ -770,7 +806,7 @@ export default function WorkflowPublishModal({
 
       // Upload demo images (optional)
       const demoUrls: string[] = [];
-      
+
       // Preserve existing demo URLs when editing
       if (editId) {
         const existingDemos = (draft as any)?.demo_images || (draft as any)?.output_demo_urls;
@@ -778,7 +814,7 @@ export default function WorkflowPublishModal({
           demoUrls.push(...existingDemos.filter(Boolean));
         }
       }
-      
+
       // Add new demo files
       for (let i = 0; i < demoFiles.length; i++) {
         const f = demoFiles[i];
@@ -795,13 +831,13 @@ export default function WorkflowPublishModal({
       }
 
       const effectiveMonetisation: MonetisationMode =
-        postingAs.canReceivePayments && monetisationMode === "paywall" ? "paywall" : "free";
+        monetisationMode === "paywall" ? "paywall" : "free";
       const effectivePrice =
         effectiveMonetisation === "paywall"
           ? (() => {
-              const v = validateWorkflowPrice(Number(priceUsd) || 0);
+              const v = validateWorkflowPrice(Number(priceUsd) || 0, effectiveMinPrice);
               if (!v.valid) throw new Error(v.error);
-              return Number(priceUsd) || WORKFLOW_MIN_USD;
+              return Number(priceUsd) || effectiveMinPrice;
             })()
           : 0;
 
@@ -839,7 +875,9 @@ export default function WorkflowPublishModal({
         updated_at: new Date().toISOString(),
       };
 
-      const { error: upsertErr } = await supabase.from("workflows").upsert(row, { onConflict: "id" });
+      const { error: upsertErr } = await supabase
+        .from("workflows")
+        .upsert(row, { onConflict: "id" });
       if (upsertErr) throw upsertErr;
 
       // Build published URL - use current origin (works for localhost and production)
@@ -863,7 +901,12 @@ export default function WorkflowPublishModal({
 
   if (!open) return null;
 
-  const canPublish = !!draft?.id && !busy && codeStatus === "available";
+  const needsTermsAcceptance = monetisationMode === "paywall" && !postingAs?.canReceivePayments;
+  const canPublish =
+    !!draft?.id &&
+    !busy &&
+    codeStatus === "available" &&
+    (!needsTermsAcceptance || acceptedCreatorTerms);
   const handle = postingAs?.handle || owner?.handle || "you";
   const shownCode = normalizeEdgazeCode(edgazeCode);
 
@@ -904,14 +947,16 @@ export default function WorkflowPublishModal({
                   className={cx(
                     "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold",
                     "bg-white text-black hover:bg-white/90 transition-colors",
-                    !canPublish && "opacity-60 cursor-not-allowed"
+                    !canPublish && "opacity-60 cursor-not-allowed",
                   )}
                   title={
                     !draft?.id
                       ? "Open a draft first"
                       : codeStatus !== "available"
                         ? "Pick a unique Edgaze code"
-                        : editId ? "Update workflow" : "Publish workflow"
+                        : editId
+                          ? "Update workflow"
+                          : "Publish workflow"
                   }
                 >
                   {busy ? (
@@ -946,7 +991,7 @@ export default function WorkflowPublishModal({
                 onClick={published ? () => {} : closeNow}
                 className={cx(
                   "h-10 w-10 rounded-full border border-white/12 bg-white/5 text-white/85 grid place-items-center",
-                  published ? "opacity-40 cursor-not-allowed" : "hover:bg-white/10"
+                  published ? "opacity-40 cursor-not-allowed" : "hover:bg-white/10",
                 )}
                 aria-label="Close"
                 title={published ? "Finish with Done" : "Close"}
@@ -966,9 +1011,7 @@ export default function WorkflowPublishModal({
                   <div className="text-white text-xl font-semibold">Published</div>
                 </div>
 
-                <div className="mt-2 text-sm text-white/60">
-                  Your workflow is live. Share it.
-                </div>
+                <div className="mt-2 text-sm text-white/60">Your workflow is live. Share it.</div>
 
                 <div className="mt-7 grid grid-cols-12 gap-6 flex-1 min-h-0">
                   <div className="col-span-12 md:col-span-7 rounded-3xl border border-white/10 bg-black/35 p-6 min-h-0">
@@ -1024,8 +1067,11 @@ export default function WorkflowPublishModal({
                           Generating…
                         </div>
                       ) : qrDataUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={qrDataUrl} alt="Edgaze QR" className="w-full h-full object-cover" />
+                        <img
+                          src={qrDataUrl}
+                          alt="Edgaze QR"
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <div className="text-[12px] text-white/60">QR not available</div>
                       )}
@@ -1041,7 +1087,7 @@ export default function WorkflowPublishModal({
                         disabled={!qrDataUrl}
                         className={cx(
                           "h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 inline-flex items-center gap-2 text-[12px] font-semibold",
-                          !qrDataUrl && "opacity-60 cursor-not-allowed"
+                          !qrDataUrl && "opacity-60 cursor-not-allowed",
                         )}
                       >
                         <Download className="h-4 w-4" />
@@ -1068,7 +1114,9 @@ export default function WorkflowPublishModal({
               {/* Left rail */}
               <div className="col-span-12 md:col-span-3 border-r border-white/10 p-6 overflow-auto">
                 <div className="text-[12px] font-semibold text-white/85">Publish</div>
-                <div className="mt-1 text-[11px] text-white/45">Set listing details, pricing and media.</div>
+                <div className="mt-1 text-[11px] text-white/45">
+                  Set listing details, pricing and media.
+                </div>
 
                 <div className="mt-6 space-y-3">
                   <RailButton
@@ -1080,7 +1128,7 @@ export default function WorkflowPublishModal({
                   <RailButton
                     active={tab === "pricing"}
                     title="Pricing"
-                    desc="Free only (payments unavailable during beta)."
+                    desc="Free or set a price ($5–$150)."
                     onClick={() => setTab("pricing")}
                   />
                   <RailButton
@@ -1138,7 +1186,9 @@ export default function WorkflowPublishModal({
                     <div className="col-span-12 md:col-span-6 p-5">
                       <div className="text-[11px] text-white/45">Preview</div>
                       <div className="mt-1 text-white text-[16px] font-semibold">{safeTitle}</div>
-                      <div className="mt-2 text-[12px] text-white/60 leading-relaxed">{safeDescription}</div>
+                      <div className="mt-2 text-[12px] text-white/60 leading-relaxed">
+                        {safeDescription}
+                      </div>
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-black/40 px-3 py-1 text-[11px] text-white/85">
@@ -1190,8 +1240,11 @@ export default function WorkflowPublishModal({
 
                       <div className="mt-2 rounded-2xl border border-white/10 bg-black/40 overflow-hidden aspect-[1200/630]">
                         {previewThumbSrc ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={previewThumbSrc} alt="Workflow thumbnail" className="w-full h-full object-cover" />
+                          <img
+                            src={previewThumbSrc}
+                            alt="Workflow thumbnail"
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
                           <div className="w-full h-full grid place-items-center text-[12px] text-white/55">
                             {autoThumbBusy ? (
@@ -1220,7 +1273,10 @@ export default function WorkflowPublishModal({
                           onChange={(e) => {
                             setTitle(e.target.value);
                             // If user hasn't manually changed code, keep it derived from title
-                            if (!edgazeCode || edgazeCode === baseCodeFromTitle(draft?.title || "")) {
+                            if (
+                              !edgazeCode ||
+                              edgazeCode === baseCodeFromTitle(draft?.title || "")
+                            ) {
                               setEdgazeCode(baseCodeFromTitle(e.target.value));
                             }
                           }}
@@ -1241,7 +1297,9 @@ export default function WorkflowPublishModal({
 
                       <div>
                         <div className="text-[12px] font-semibold text-white/85">Tags</div>
-                        <div className="mt-1 text-[11px] text-white/45">Comma-separated (max 10)</div>
+                        <div className="mt-1 text-[11px] text-white/45">
+                          Comma-separated (max 10)
+                        </div>
                         <input
                           value={tagsInput}
                           onChange={(e) => setTagsInput(e.target.value)}
@@ -1253,8 +1311,12 @@ export default function WorkflowPublishModal({
                       <div>
                         <div className="flex items-end justify-between">
                           <div>
-                            <div className="text-[12px] font-semibold text-white/85">Edgaze code</div>
-                            <div className="text-[11px] text-white/45">This becomes: edgaze.ai/&lt;handle&gt;/&lt;code&gt;</div>
+                            <div className="text-[12px] font-semibold text-white/85">
+                              Edgaze code
+                            </div>
+                            <div className="text-[11px] text-white/45">
+                              This becomes: edgaze.ai/&lt;handle&gt;/&lt;code&gt;
+                            </div>
                           </div>
                           <button
                             onClick={() => {
@@ -1292,12 +1354,15 @@ export default function WorkflowPublishModal({
                             className={cx(
                               "inline-flex items-center gap-2",
                               codeStatus === "available" && "text-emerald-200",
-                              (codeStatus === "taken" || codeStatus === "invalid") && "text-amber-200",
+                              (codeStatus === "taken" || codeStatus === "invalid") &&
+                                "text-amber-200",
                               codeStatus === "checking" && "text-white/60",
-                              codeStatus === "idle" && "text-white/50"
+                              codeStatus === "idle" && "text-white/50",
                             )}
                           >
-                            {codeStatus === "checking" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                            {codeStatus === "checking" ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : null}
                             {codeMsg || (codeStatus === "available" ? "Available." : "")}
                           </span>
                         </div>
@@ -1307,70 +1372,119 @@ export default function WorkflowPublishModal({
 
                   {tab === "pricing" ? (
                     <div className="space-y-5">
-                      {postingAs && !postingAs.canReceivePayments && (
-                        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
-                          <div className="flex items-start gap-3">
-                            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-                            <div>
-                              <div className="text-[12px] font-semibold text-amber-200">You haven&apos;t connected payments</div>
-                              <div className="mt-1 text-[11px] text-white/70">
-                                Join the Edgaze Creator Program and connect your payout account to enable payments on your workflows.
-                              </div>
-                              <span className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-[12px] font-semibold text-white/70 cursor-not-allowed">
-                                Coming soon
+                      {!postingAs?.canReceivePayments && (
+                        <PayoutSystemCard
+                          variant="workflow"
+                          showCheckbox={monetisationMode === "paywall"}
+                          acceptedCreatorTerms={acceptedCreatorTerms}
+                          onAcceptedChange={setAcceptedCreatorTerms}
+                        />
+                      )}
+                      {costEstimate && monetisationMode === "paywall" && (
+                        <div className="rounded-2xl border border-white/10 bg-black/35 p-4 space-y-3">
+                          <div className="text-[12px] font-semibold text-white/90">
+                            Infrastructure cost estimate
+                          </div>
+                          <div className="grid gap-2 text-[11px]">
+                            <div className="flex justify-between">
+                              <span className="text-white/60">Estimated cost for 10 runs</span>
+                              <span className="text-white font-medium">
+                                ${costEstimate.cost10.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-white/60">Minimum price</span>
+                              <span className="text-white font-medium">
+                                ${costEstimate.min.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-white/60">Recommended price</span>
+                              <span className="text-emerald-300 font-medium">
+                                ${costEstimate.recommended.toFixed(2)}
                               </span>
                             </div>
                           </div>
+                          <p className="text-[11px] text-white/50 leading-relaxed">
+                            This infrastructure cost is{" "}
+                            <strong className="text-white/70">
+                              separate from the Edgaze marketplace fee
+                            </strong>{" "}
+                            (20%). Set your price to cover infrastructure cost, marketplace fee, and
+                            your profit.
+                          </p>
+                          <Link
+                            href="/docs/infrastructure-cost-estimation"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                          >
+                            Learn more about cost estimation
+                          </Link>
                         </div>
                       )}
                       <div>
                         <div className="text-[12px] font-semibold text-white/85">Monetisation</div>
                         <div className="text-[11px] text-white/50 mt-1">
-                          {postingAs?.canReceivePayments
-                            ? "Choose Free or set a price ($5–$150 for workflows)."
-                            : "Your workflow will be published as Free until you connect payments."}
+                          Choose Free or set a price (${effectiveMinPrice.toFixed(2)}–$
+                          {WORKFLOW_MAX_USD} for workflows).
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {(["free", "paywall"] as MonetisationMode[]).map((m) => {
-                            const disabled = m === "paywall" && !postingAs?.canReceivePayments;
-                            return (
-                              <button
-                                key={m}
-                                type="button"
-                                disabled={disabled}
-                                onClick={() => !disabled && setMonetisationMode(m)}
-                                className={cx(
-                                  "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
-                                  disabled
-                                    ? "border-white/10 bg-white/[0.02] text-white/50 opacity-70 cursor-not-allowed"
-                                    : monetisationMode === m
-                                      ? "border-cyan-400/25 bg-cyan-400/10 text-white"
-                                      : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]"
-                                )}
-                              >
-                                {m === "free" ? "Free" : "Paywall"}
-                                {m === "paywall" && !postingAs?.canReceivePayments && " (connect payouts first)"}
-                              </button>
-                            );
-                          })}
+                          {(["free", "paywall"] as MonetisationMode[]).map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setMonetisationMode(m)}
+                              className={cx(
+                                "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
+                                monetisationMode === m
+                                  ? "border-cyan-400/25 bg-cyan-400/10 text-white"
+                                  : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]",
+                              )}
+                            >
+                              {m === "free" ? "Free" : "Paywall"}
+                            </button>
+                          ))}
                         </div>
-                        {postingAs?.canReceivePayments && monetisationMode === "paywall" && (
+                        {monetisationMode === "paywall" && (
                           <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4">
-                            <div className="text-[12px] font-semibold text-white/90 mb-2">Price (USD)</div>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-[12px] font-semibold text-white/90">
+                                Price (USD)
+                              </div>
+                              {costEstimate && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPriceUsd(costEstimate.recommended.toFixed(2))}
+                                  className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium"
+                                >
+                                  Use recommended (${costEstimate.recommended.toFixed(2)})
+                                </button>
+                              )}
+                            </div>
                             <input
                               type="number"
-                              min={WORKFLOW_MIN_USD}
+                              min={effectiveMinPrice}
                               max={WORKFLOW_MAX_USD}
                               step="0.99"
                               value={priceUsd}
                               onChange={(e) => setPriceUsd(e.target.value)}
                               className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-[14px] text-white placeholder-white/40 focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/30 focus:outline-none"
-                              placeholder="5.99"
+                              placeholder={costEstimate?.recommended.toFixed(2) ?? "5.99"}
                             />
-                            {validateWorkflowPrice(Number(priceUsd) || 0).error && (
-                              <p className="mt-2 text-[11px] text-amber-400">{validateWorkflowPrice(Number(priceUsd) || 0).error}</p>
+                            {validateWorkflowPrice(Number(priceUsd) || 0, effectiveMinPrice)
+                              .error && (
+                              <p className="mt-2 text-[11px] text-amber-400">
+                                {
+                                  validateWorkflowPrice(Number(priceUsd) || 0, effectiveMinPrice)
+                                    .error
+                                }
+                              </p>
                             )}
-                            <p className="mt-2 text-[11px] text-white/45">Minimum $5, maximum $150 for workflows.</p>
+                            <p className="mt-2 text-[11px] text-white/45">
+                              Minimum ${effectiveMinPrice.toFixed(2)}, maximum ${WORKFLOW_MAX_USD}{" "}
+                              for workflows.
+                            </p>
                           </div>
                         )}
                       </div>
@@ -1418,7 +1532,9 @@ export default function WorkflowPublishModal({
                       </div>
 
                       <div>
-                        <div className="text-[12px] font-semibold text-white/85">Output demo images</div>
+                        <div className="text-[12px] font-semibold text-white/85">
+                          Output demo images
+                        </div>
                         <div className="mt-1 text-[11px] text-white/45">Up to 6 images.</div>
 
                         <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1429,8 +1545,11 @@ export default function WorkflowPublishModal({
                               className="aspect-[4/3] rounded-2xl border border-white/10 bg-black/35 hover:bg-black/45 transition-colors overflow-hidden grid place-items-center"
                             >
                               {f ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={URL.createObjectURL(f)} alt={`demo ${i + 1}`} className="w-full h-full object-cover" />
+                                <img
+                                  src={URL.createObjectURL(f)}
+                                  alt={`demo ${i + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
                               ) : (
                                 <div className="text-[11px] text-white/55">Add demo</div>
                               )}
@@ -1454,7 +1573,7 @@ export default function WorkflowPublishModal({
                     <div className="space-y-4">
                       <div className="text-[12px] font-semibold text-white/85">Visibility</div>
                       <div className="text-[11px] text-white/50 mt-1">
-                        During beta, only <span className="text-white/80 font-semibold">Public</span> is available.
+                        Choose who can see your workflow.
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {(["public", "unlisted", "private"] as Visibility[]).map((v) => {
@@ -1471,17 +1590,21 @@ export default function WorkflowPublishModal({
                                   ? "border-white/10 bg-white/[0.02] text-white/50 opacity-70 cursor-not-allowed"
                                   : visibility === v
                                     ? "border-white/18 bg-white/[0.08] text-white"
-                                    : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]"
+                                    : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]",
                               )}
                             >
-                              {v === "public" ? "Public" : v === "unlisted" ? "Unlisted" : "Private"}
+                              {v === "public"
+                                ? "Public"
+                                : v === "unlisted"
+                                  ? "Unlisted"
+                                  : "Private"}
                               {disabled ? " (unavailable)" : ""}
                             </button>
                           );
                         })}
                       </div>
                       <div className="text-[11px] text-white/45 leading-relaxed">
-                        Public = discoverable. Unlisted and Private are unavailable during beta.
+                        Public = discoverable in the marketplace.
                       </div>
                     </div>
                   ) : null}
@@ -1489,13 +1612,42 @@ export default function WorkflowPublishModal({
 
                 <div className="mt-4 text-[11px] text-white/40">
                   By publishing, you confirm you have rights to the content and agree to our{" "}
-                  <a href="/docs/terms-of-service" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+                  <a
+                    href="/docs/terms-of-service"
+                    className="text-white/60 hover:text-white underline underline-offset-4"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Terms of Service
+                  </a>
                   ,{" "}
-                  <a href="/docs/creator-terms" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Creator Terms</a>
+                  <a
+                    href="/docs/creator-terms"
+                    className="text-white/60 hover:text-white underline underline-offset-4"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Creator Terms
+                  </a>
                   ,{" "}
-                  <a href="/docs/acceptable-use-policy" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Acceptable Use Policy</a>
+                  <a
+                    href="/docs/acceptable-use-policy"
+                    className="text-white/60 hover:text-white underline underline-offset-4"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Acceptable Use Policy
+                  </a>
                   , and{" "}
-                  <a href="/docs/refund-policy" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Refund Policy</a>.
+                  <a
+                    href="/docs/refund-policy"
+                    className="text-white/60 hover:text-white underline underline-offset-4"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Refund Policy
+                  </a>
+                  .
                 </div>
               </div>
             </div>

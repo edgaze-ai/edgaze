@@ -14,8 +14,9 @@ export default function SellerTermsPage() {
           <section>
             <h2 className="text-2xl font-bold text-white mb-4">1. Agreement to Terms</h2>
             <p>
-              By creating a Stripe Connect account and selling products on Edgaze, you agree to these Seller Terms, 
-              our general Terms of Service, Privacy Policy, and Stripe&apos;s Connected Account Agreement.
+              By creating a Stripe Connect account and selling products on Edgaze, you agree to
+              these Seller Terms, our general Terms of Service, Privacy Policy, and Stripe&apos;s
+              Connected Account Agreement.
             </p>
           </section>
 
@@ -33,12 +34,15 @@ export default function SellerTermsPage() {
 
           <section>
             <h2 className="text-2xl font-bold text-white mb-4">3. Revenue Share</h2>
-            <p>
-              Edgaze operates on an 80/20 revenue split model:
-            </p>
+            <p>Edgaze operates on an 80/20 revenue split model:</p>
             <ul className="list-disc pl-6 space-y-2">
-              <li><strong>You receive:</strong> 80% of each sale</li>
-              <li><strong>Platform fee:</strong> 20% to cover hosting, payment processing, and platform operations</li>
+              <li>
+                <strong>You receive:</strong> 80% of each sale
+              </li>
+              <li>
+                <strong>Platform fee:</strong> 20% to cover hosting, payment processing, and
+                platform operations
+              </li>
               <li>Stripe payment processing fees (2.9% + $0.30) are deducted before the split</li>
               <li>All amounts are calculated and displayed in USD</li>
             </ul>
@@ -46,9 +50,7 @@ export default function SellerTermsPage() {
 
           <section>
             <h2 className="text-2xl font-bold text-white mb-4">4. Payouts</h2>
-            <p>
-              Payouts are handled automatically by Stripe:
-            </p>
+            <p>Payouts are handled automatically by Stripe:</p>
             <ul className="list-disc pl-6 space-y-2">
               <li>Automatic weekly payouts every Monday</li>
               <li>Minimum payout threshold: $10.00</li>
@@ -93,9 +95,7 @@ export default function SellerTermsPage() {
 
           <section>
             <h2 className="text-2xl font-bold text-white mb-4">7. Taxes</h2>
-            <p>
-              You are responsible for all taxes related to your earnings:
-            </p>
+            <p>You are responsible for all taxes related to your earnings:</p>
             <ul className="list-disc pl-6 space-y-2">
               <li>Stripe will issue 1099-K forms for US creators earning over $600/year</li>
               <li>International creators must provide W-8BEN forms</li>
@@ -106,9 +106,7 @@ export default function SellerTermsPage() {
 
           <section>
             <h2 className="text-2xl font-bold text-white mb-4">8. Account Suspension</h2>
-            <p>
-              We may suspend or terminate your seller account if:
-            </p>
+            <p>We may suspend or terminate your seller account if:</p>
             <ul className="list-disc pl-6 space-y-2">
               <li>You violate these terms or our policies</li>
               <li>You engage in fraudulent activity</li>
@@ -120,9 +118,7 @@ export default function SellerTermsPage() {
 
           <section>
             <h2 className="text-2xl font-bold text-white mb-4">9. Limitation of Liability</h2>
-            <p>
-              Edgaze is not liable for:
-            </p>
+            <p>Edgaze is not liable for:</p>
             <ul className="list-disc pl-6 space-y-2">
               <li>Lost earnings due to technical issues</li>
               <li>Stripe payout delays or failures</li>
@@ -134,15 +130,15 @@ export default function SellerTermsPage() {
           <section>
             <h2 className="text-2xl font-bold text-white mb-4">10. Changes to Terms</h2>
             <p>
-              We may update these terms at any time. Continued selling after changes constitutes acceptance. 
-              Material changes will be communicated via email with 30 days notice.
+              We may update these terms at any time. Continued selling after changes constitutes
+              acceptance. Material changes will be communicated via email with 30 days notice.
             </p>
           </section>
 
           <section>
             <h2 className="text-2xl font-bold text-white mb-4">11. Contact</h2>
             <p>
-              For questions about these Seller Terms, contact us at{' '}
+              For questions about these Seller Terms, contact us at{" "}
               <a href="mailto:sellers@edgaze.ai" className="text-cyan-400 hover:underline">
                 sellers@edgaze.ai
               </a>

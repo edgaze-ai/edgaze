@@ -1,13 +1,7 @@
 // src/components/marketplace/WorkflowCommentsSection.tsx
 "use client";
 
-import React, {
-  FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   MessageCircle,
   ThumbsUp,
@@ -140,16 +134,9 @@ function Avatar({
       style={{ width: size, height: size }}
     >
       {avatarUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatarUrl}
-          alt={name || "User"}
-          className="h-full w-full object-cover"
-        />
+        <img src={avatarUrl} alt={name || "User"} className="h-full w-full object-cover" />
       ) : (
-        <span className="text-[11px] font-semibold text-white/75">
-          {initials}
-        </span>
+        <span className="text-[11px] font-semibold text-white/75">{initials}</span>
       )}
     </div>
   );
@@ -179,10 +166,9 @@ function CommentItem({
 
   const padLeft = Math.min(depth, 4) * 14;
 
-  const authorLabel =
-    comment.user_handle?.trim()
-      ? `@${comment.user_handle.trim()}`
-      : comment.user_name?.trim() || "User";
+  const authorLabel = comment.user_handle?.trim()
+    ? `@${comment.user_handle.trim()}`
+    : comment.user_name?.trim() || "User";
 
   const canShowCreatorBadges = isCreator;
 
@@ -211,9 +197,7 @@ function CommentItem({
                     className="min-w-0 truncate text-[12px] font-semibold text-white/85"
                   />
                 </div>
-                <div className="text-[11px] text-white/40">
-                  {timeAgo(comment.created_at)}
-                </div>
+                <div className="text-[11px] text-white/40">{timeAgo(comment.created_at)}</div>
 
                 {comment.is_pinned ? (
                   <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-white/70">
@@ -253,9 +237,7 @@ function CommentItem({
 
                 <button
                   type="button"
-                  onClick={() =>
-                    onToggleCreatorLike(comment.id, !comment.creator_liked)
-                  }
+                  onClick={() => onToggleCreatorLike(comment.id, !comment.creator_liked)}
                   className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-2.5 py-1.5 text-[11px] font-semibold text-white/80 hover:bg-white/10"
                 >
                   <Crown className="h-3.5 w-3.5" />
@@ -335,7 +317,7 @@ function CommentItem({
                       "rounded-full px-3 py-1.5 text-[12px] font-semibold text-black",
                       "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500",
                       "shadow-[0_0_18px_rgba(56,189,248,0.35)]",
-                      !replyText.trim() && "cursor-not-allowed opacity-70"
+                      !replyText.trim() && "cursor-not-allowed opacity-70",
                     )}
                   >
                     Reply
@@ -383,9 +365,7 @@ export default function WorkflowCommentsSection({
 
   const [workflowIdForComments] = useState<string>(listingId);
 
-  const [toast, setToast] = useState<null | { title: string; detail?: string }>(
-    null
-  );
+  const [toast, setToast] = useState<null | { title: string; detail?: string }>(null);
 
   const isCreator = !!userId && !!listingOwnerId && userId === listingOwnerId;
 
@@ -430,7 +410,7 @@ export default function WorkflowCommentsSection({
           "dislike_count",
           "is_pinned",
           "creator_liked",
-        ].join(",")
+        ].join(","),
       )
       .eq("workflow_id", workflowIdForComments)
       .order("created_at", { ascending: true });
@@ -458,9 +438,7 @@ export default function WorkflowCommentsSection({
     if (!userId) return;
 
     const name =
-      (profile as any)?.full_name?.trim() ||
-      (profile as any)?.handle?.trim() ||
-      "Creator";
+      (profile as any)?.full_name?.trim() || (profile as any)?.handle?.trim() || "Creator";
     const handle = (profile as any)?.handle?.trim() || null;
 
     setSubmitting(true);
@@ -491,7 +469,7 @@ export default function WorkflowCommentsSection({
             "dislike_count",
             "is_pinned",
             "creator_liked",
-          ].join(",")
+          ].join(","),
         )
         .single();
 
@@ -521,13 +499,10 @@ export default function WorkflowCommentsSection({
   const handleReact = async (commentId: string, type: "like" | "dislike") => {
     if (!requireAuth()) return;
 
-    const { data, error } = await supabase.rpc(
-      "toggle_workflow_comment_reaction",
-      {
-        p_comment_id: commentId,
-        p_reaction: type,
-      }
-    );
+    const { data, error } = await supabase.rpc("toggle_workflow_comment_reaction", {
+      p_comment_id: commentId,
+      p_reaction: type,
+    });
 
     if (error) {
       const payload = {
@@ -557,11 +532,10 @@ export default function WorkflowCommentsSection({
             ? ({
                 ...r,
                 like_count: typeof nextLike === "number" ? nextLike : r.like_count,
-                dislike_count:
-                  typeof nextDislike === "number" ? nextDislike : r.dislike_count,
+                dislike_count: typeof nextDislike === "number" ? nextDislike : r.dislike_count,
               } as CommentRow)
-            : r
-        )
+            : r,
+        ),
       );
       return;
     }
@@ -571,16 +545,16 @@ export default function WorkflowCommentsSection({
 
   const handleTogglePin = async (id: string, shouldPin: boolean) => {
     if (!isCreator) return;
-  
+
     // optimistic UI
     setRows((prev) =>
       prev.map((r) =>
         r.id === id
           ? ({ ...r, is_pinned: shouldPin } as CommentRow)
-          : ({ ...r, is_pinned: shouldPin ? false : r.is_pinned } as CommentRow)
-      )
+          : ({ ...r, is_pinned: shouldPin ? false : r.is_pinned } as CommentRow),
+      ),
     );
-  
+
     // Clear existing pins first (only if pinning)
     if (shouldPin) {
       const { error: clearError } = await supabase
@@ -588,7 +562,7 @@ export default function WorkflowCommentsSection({
         .update({ is_pinned: false })
         .eq("workflow_id", workflowIdForComments)
         .eq("is_pinned", true);
-  
+
       if (clearError) {
         const payload = {
           message: clearError.message,
@@ -598,19 +572,19 @@ export default function WorkflowCommentsSection({
         };
         console.error("Error clearing workflow pins:", payload);
         console.error("Error clearing workflow pins (string):", JSON.stringify(payload));
-  
+
         setToast({ title: "Pin failed", detail: payload.message || "RLS denied" });
         loadComments();
         return;
       }
     }
-  
+
     // Now apply the pin/unpin
     const { error } = await supabase
       .from("workflow_comments")
       .update({ is_pinned: shouldPin })
       .eq("id", id);
-  
+
     if (error) {
       const payload = {
         message: error.message,
@@ -620,19 +594,17 @@ export default function WorkflowCommentsSection({
       };
       console.error("Error updating workflow pin:", payload);
       console.error("Error updating workflow pin (string):", JSON.stringify(payload));
-  
+
       setToast({ title: "Pin failed", detail: payload.message || "RLS denied" });
       loadComments();
     }
   };
-  
+
   const handleToggleCreatorLike = async (id: string, next: boolean) => {
     if (!isCreator) return;
 
     setRows((prev) =>
-      prev.map((r) =>
-        r.id === id ? ({ ...r, creator_liked: next } as CommentRow) : r
-      )
+      prev.map((r) => (r.id === id ? ({ ...r, creator_liked: next } as CommentRow) : r)),
     );
 
     const { error } = await supabase
@@ -655,9 +627,7 @@ export default function WorkflowCommentsSection({
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <div className="font-semibold">{toast.title}</div>
-              {toast.detail ? (
-                <div className="mt-0.5 text-red-200/80">{toast.detail}</div>
-              ) : null}
+              {toast.detail ? <div className="mt-0.5 text-red-200/80">{toast.detail}</div> : null}
             </div>
           </div>
           <button
@@ -696,8 +666,7 @@ export default function WorkflowCommentsSection({
                 "rounded-full px-3 py-1.5 text-[12px] font-semibold text-black",
                 "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500",
                 "shadow-[0_0_18px_rgba(56,189,248,0.35)]",
-                (submitting || !newContent.trim()) &&
-                  "cursor-not-allowed opacity-70"
+                (submitting || !newContent.trim()) && "cursor-not-allowed opacity-70",
               )}
             >
               {submitting ? (

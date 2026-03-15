@@ -5,7 +5,7 @@ description = "Edgaze Plus subscription benefits and terms for creators"
 
 ## 1. Edgaze Plus
 
-*Last Updated: March 13, 2026*
+_Last Updated: March 13, 2026_
 
 Creators may optionally subscribe to **Edgaze Plus**, a paid tier that provides additional benefits for workflow creators.
 
@@ -23,14 +23,14 @@ Billed monthly. Creators can cancel at any time.
 
 Edgaze Plus includes:
 
-| Benefit | Free | Plus |
-|---------|------|------|
-| Hosted runs per purchase | 10 | 15 |
-| Advanced builder features | — | ✓ |
-| Private workflows | — | ✓ |
-| Workflow versioning | — | ✓ |
-| Detailed analytics | — | ✓ |
-| Priority support | — | ✓ |
+| Benefit                   | Free | Plus |
+| ------------------------- | ---- | ---- |
+| Hosted runs per purchase  | 10   | 15   |
+| Advanced builder features | —    | ✓    |
+| Private workflows         | —    | ✓    |
+| Workflow versioning       | —    | ✓    |
+| Detailed analytics        | —    | ✓    |
+| Priority support          | —    | ✓    |
 
 ### 3.1 Hosted Runs
 

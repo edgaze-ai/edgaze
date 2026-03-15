@@ -31,7 +31,7 @@ export default function PlaceholderEditModal({
 
   const usedLower = useMemo(
     () => new Set(alreadyUsedNames.map((x) => x.toLowerCase())),
-    [alreadyUsedNames]
+    [alreadyUsedNames],
   );
 
   const handleSubmit = (e: React.FormEvent) => {

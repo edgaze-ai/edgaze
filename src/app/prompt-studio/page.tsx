@@ -105,9 +105,7 @@ function DesktopOnlyGate({ blocked }: { blocked: boolean }) {
               <Monitor className="h-5 w-5 text-white/80" />
             </div>
             <div>
-              <div className="text-sm font-semibold text-white/90">
-                Desktop only (for now)
-              </div>
+              <div className="text-sm font-semibold text-white/90">Desktop only (for now)</div>
               <div className="text-[11px] text-white/45">
                 Prompt Studio isn’t supported on small screens yet.
               </div>
@@ -115,8 +113,7 @@ function DesktopOnlyGate({ blocked }: { blocked: boolean }) {
           </div>
 
           <div className="mt-4 rounded-2xl bg-black/30 px-4 py-3 text-[12px] text-white/70">
-            Open this page on a larger window (desktop/laptop). Mobile support
-            comes later.
+            Open this page on a larger window (desktop/laptop). Mobile support comes later.
           </div>
         </div>
       </div>
@@ -132,8 +129,7 @@ export default function PromptStudioPage() {
   const [placeholders, setPlaceholders] = useState<PlaceholderDef[]>([]);
   const [versions, setVersions] = useState<VersionSnapshot[]>([]);
   const [showPlaceholderModal, setShowPlaceholderModal] = useState(false);
-  const [editingPlaceholder, setEditingPlaceholder] =
-    useState<PlaceholderDef | null>(null);
+  const [editingPlaceholder, setEditingPlaceholder] = useState<PlaceholderDef | null>(null);
 
   const [publishOpen, setPublishOpen] = useState(false);
   const [runModalOpen, setRunModalOpen] = useState(false);
@@ -210,10 +206,7 @@ export default function PromptStudioPage() {
   const tokenEstimate = useMemo(() => estimateTokens(promptText), [promptText]);
 
   const tokenRanges = useMemo(() => extractTokenRanges(promptText), [promptText]);
-  const overlaySegments = useMemo(
-    () => splitWithPlaceholders(promptText),
-    [promptText]
-  );
+  const overlaySegments = useMemo(() => splitWithPlaceholders(promptText), [promptText]);
 
   const placeholderMeta = useMemo(() => {
     const map = new Map<string, PlaceholderDef>();
@@ -221,10 +214,12 @@ export default function PromptStudioPage() {
     return map;
   }, [placeholders]);
 
-  // Fix: if token removed from promptText, remove it from placeholders state
+  // Fix: if token removed from promptText, remove it from placeholders state (defer to avoid setState-in-effect warning)
   useEffect(() => {
     const active = new Set(tokenRanges.map((r) => r.name));
-    setPlaceholders((prev) => prev.filter((p) => active.has(p.name)));
+    queueMicrotask(() => {
+      setPlaceholders((prev) => prev.filter((p) => active.has(p.name)));
+    });
   }, [tokenRanges]);
 
   const normalizeCaret = () => {
@@ -252,7 +247,6 @@ export default function PromptStudioPage() {
 
   useEffect(() => {
     syncOverlayScrollFromTextarea();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promptText]);
 
   const handleInsertPlaceholderClick = () => {
@@ -261,7 +255,7 @@ export default function PromptStudioPage() {
       normalizeCaret();
       pendingInsertRange.current = {
         start: el.selectionStart ?? 0,
-        end: el.selectionEnd ?? (el.selectionStart ?? 0),
+        end: el.selectionEnd ?? el.selectionStart ?? 0,
       };
     } else {
       pendingInsertRange.current = {
@@ -297,8 +291,7 @@ export default function PromptStudioPage() {
 
     setPlaceholders((prev) => {
       const existing = prev.find((p) => p.name === name);
-      if (existing)
-        return prev.map((p) => (p.name === name ? { ...p, question } : p));
+      if (existing) return prev.map((p) => (p.name === name ? { ...p, question } : p));
       return [...prev, { name, question }];
     });
 
@@ -343,7 +336,7 @@ export default function PromptStudioPage() {
         })),
       },
       null,
-      2
+      2,
     );
   };
 
@@ -366,10 +359,7 @@ export default function PromptStudioPage() {
     setTimeout(() => editorRef.current?.focus(), 0);
   };
 
-  const handleUpdatePlaceholder = (
-    nextNameRaw: string,
-    nextQuestionRaw: string
-  ) => {
+  const handleUpdatePlaceholder = (nextNameRaw: string, nextQuestionRaw: string) => {
     const current = editingPlaceholder;
     if (!current) return;
 
@@ -386,9 +376,7 @@ export default function PromptStudioPage() {
 
       if (exists) {
         return withoutCurrent.map((p) =>
-          p.name === nextName
-            ? { ...p, question: nextQuestion || p.question }
-            : p
+          p.name === nextName ? { ...p, question: nextQuestion || p.question } : p,
         );
       }
       return [...withoutCurrent, { name: nextName, question: nextQuestion }];
@@ -458,8 +446,7 @@ export default function PromptStudioPage() {
           <div className="mb-2 flex items-center justify-between">
             <div className="text-[11px] tracking-wide text-white/45">Editor</div>
             <div className="text-[11px] text-white/35">
-              Overlay + textarea use identical typography. Caret stays outside
-              tokens.
+              Overlay + textarea use identical typography. Caret stays outside tokens.
             </div>
           </div>
 
@@ -540,9 +527,7 @@ export default function PromptStudioPage() {
 
           <div className="h-full overflow-hidden rounded-3xl bg-[#0b0b0c] shadow-[0_18px_70px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="px-4 py-3">
-              <div className="text-[12px] font-semibold text-white/85">
-                User form
-              </div>
+              <div className="text-[12px] font-semibold text-white/85">User form</div>
               <div className="text-[11px] text-white/40">
                 What they fill before running your prompt.
               </div>
@@ -558,12 +543,8 @@ export default function PromptStudioPage() {
       <div className="px-5 pb-5">
         <div className="rounded-3xl bg-[#0b0b0c] shadow-[0_18px_70px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.04)]">
           <div className="flex items-center justify-between px-4 py-3">
-            <div className="text-[11px] font-semibold text-white/65">
-              Version history
-            </div>
-            <div className="text-[11px] text-white/35">
-              Stored locally for now.
-            </div>
+            <div className="text-[11px] font-semibold text-white/65">Version history</div>
+            <div className="text-[11px] text-white/35">Stored locally for now.</div>
           </div>
 
           <div className="px-4 pb-4">
@@ -575,8 +556,7 @@ export default function PromptStudioPage() {
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {versions.map((v) => {
                   const d = new Date(v.createdAt);
-                  const summary =
-                    v.text.length > 110 ? v.text.slice(0, 110) + "…" : v.text;
+                  const summary = v.text.length > 110 ? v.text.slice(0, 110) + "…" : v.text;
 
                   return (
                     <button
@@ -593,9 +573,7 @@ export default function PromptStudioPage() {
                           {v.charCount}c · ~{v.tokenEstimate}t
                         </span>
                       </div>
-                      <div className="text-[11px] text-white/78 line-clamp-3">
-                        {summary}
-                      </div>
+                      <div className="text-[11px] text-white/78 line-clamp-3">{summary}</div>
                     </button>
                   );
                 })}

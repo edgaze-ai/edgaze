@@ -8,10 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     const { user, supabase } = await getUserAndClient(req);
     if (!user || !supabase) {
-      return NextResponse.json(
-        { error: "Not authenticated", assets: [] },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Not authenticated", assets: [] }, { status: 401 });
     }
 
     const userId = user.id;
@@ -26,17 +23,12 @@ export async function GET(req: NextRequest) {
 
     if (error) {
       console.error("Error listing assets:", error);
-      return NextResponse.json(
-        { error: "Failed to list assets", assets: [] },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to list assets", assets: [] }, { status: 500 });
     }
 
     const assets =
       data?.map((row) => {
-        const { data: publicData } = supabase.storage
-          .from(BUCKET)
-          .getPublicUrl(row.path);
+        const { data: publicData } = supabase.storage.from(BUCKET).getPublicUrl(row.path);
 
         return {
           id: row.id,
@@ -52,7 +44,7 @@ export async function GET(req: NextRequest) {
     console.error("Unexpected list error:", err);
     return NextResponse.json(
       { error: "Unexpected error listing assets", assets: [] },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

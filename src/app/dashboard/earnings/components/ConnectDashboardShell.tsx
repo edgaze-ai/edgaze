@@ -1,17 +1,14 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import {
-  loadConnectAndInitialize,
-  type StripeConnectInstance,
-} from '@stripe/connect-js';
-import { ConnectComponentsProvider } from '@stripe/react-connect-js';
-import { Loader2, ArrowRight } from 'lucide-react';
-import { useAuth } from 'src/components/auth/AuthContext';
-import { stripeConfig } from '@/lib/stripe/config';
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { loadConnectAndInitialize, type StripeConnectInstance } from "@stripe/connect-js/pure";
+import { ConnectComponentsProvider } from "@stripe/react-connect-js";
+import { Loader2, ArrowRight } from "lucide-react";
+import { useAuth } from "src/components/auth/AuthContext";
+import { stripeConfig } from "@/lib/stripe/config";
 
-const DASHBOARD_SESSION_URL = '/api/stripe/v2/connect/dashboard-session';
+const DASHBOARD_SESSION_URL = "/api/stripe/v2/connect/dashboard-session";
 
 type ConnectDashboardShellProps = {
   children: React.ReactNode;
@@ -25,8 +22,7 @@ export function ConnectDashboardShell({
   description,
 }: ConnectDashboardShellProps) {
   const { authReady, userId, getAccessToken } = useAuth();
-  const [connectInstance, setConnectInstance] =
-    useState<StripeConnectInstance | null>(null);
+  const [connectInstance, setConnectInstance] = useState<StripeConnectInstance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,19 +31,19 @@ export function ConnectDashboardShell({
   const fetchClientSecret = useCallback(async (): Promise<string> => {
     const token = await getAccessToken();
     const res = await fetch(DASHBOARD_SESSION_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      credentials: 'include',
+      credentials: "include",
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.error || 'Failed to load dashboard');
+      throw new Error(data.error || "Failed to load dashboard");
     }
     if (!data.clientSecret) {
-      throw new Error('No client secret returned');
+      throw new Error("No client secret returned");
     }
     return data.clientSecret;
   }, [getAccessToken]);
@@ -67,17 +63,17 @@ export function ConnectDashboardShell({
           fetchClientSecret,
           appearance: {
             variables: {
-              colorText: '#f3f4f6',
-              colorBackground: '#14171D',
-              colorPrimary: '#22d3ee',
-              colorDanger: '#f87171',
-              borderRadius: '12px',
+              colorText: "#f3f4f6",
+              colorBackground: "#14171D",
+              colorPrimary: "#22d3ee",
+              colorDanger: "#f87171",
+              borderRadius: "12px",
             },
           },
         });
         setConnectInstance(instance);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Something went wrong');
+        setError(err instanceof Error ? err.message : "Something went wrong");
       } finally {
         setLoading(false);
       }
@@ -86,18 +82,24 @@ export function ConnectDashboardShell({
 
   if (!authReady || loading) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center bg-[#0d0d0d]">
-        <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
+      <div className="min-h-[50vh] flex items-center justify-center bg-earnings-page">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-cyan-500/20 blur-xl animate-pulse" />
+            <Loader2 className="relative w-12 h-12 text-cyan-400 animate-spin" />
+          </div>
+          <p className="text-sm font-medium text-white/50 tracking-wide">Loading…</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0d0d0d] p-4 md:p-8">
+      <div className="min-h-screen bg-earnings-page p-4 md:p-8">
         <div className="max-w-2xl mx-auto text-center py-16">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-8">
-            <h1 className="text-xl font-bold text-white mb-2">
+          <div className="earnings-card p-8">
+            <h1 className="font-instrument text-2xl font-normal text-white mb-2">
               Unable to load this page
             </h1>
             <p className="text-white/60 mb-6">{error}</p>
@@ -106,7 +108,7 @@ export function ConnectDashboardShell({
             </p>
             <Link
               href="/creators/onboarding?from=creators"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 px-6 py-3 text-white font-semibold hover:opacity-90 transition"
+              className="earnings-btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-white font-semibold"
             >
               Complete payout setup
               <ArrowRight className="w-4 h-4" />
@@ -119,29 +121,29 @@ export function ConnectDashboardShell({
 
   if (!connectInstance) {
     return (
-      <div className="min-h-[50vh] flex items-center justify-center bg-[#0d0d0d]">
-        <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
+      <div className="min-h-[50vh] flex items-center justify-center bg-earnings-page">
+        <Loader2 className="w-12 h-12 text-cyan-400 animate-spin" />
       </div>
     );
   }
 
   return (
     <ConnectComponentsProvider connectInstance={connectInstance}>
-      <div className="min-h-screen bg-[#0d0d0d] p-4 md:p-8">
+      <div className="min-h-screen bg-earnings-page p-4 md:p-8 lg:p-10">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-6">
+          <header className="mb-8">
             <Link
               href="/dashboard/earnings"
-              className="text-sm text-white/50 hover:text-white/70 transition mb-4 inline-block"
+              className="text-xs font-medium uppercase tracking-widest text-white/45 hover:text-white/70 transition-colors mb-4 inline-block"
             >
               ← Back to Earnings Dashboard
             </Link>
-            <h1 className="text-2xl md:text-3xl font-bold text-white">{title}</h1>
-            {description && (
-              <p className="text-white/60 mt-1">{description}</p>
-            )}
-          </div>
-          <div className="rounded-2xl border border-white/10 overflow-hidden bg-[#14171D] min-h-[400px] overflow-y-auto">
+            <h1 className="font-instrument text-3xl md:text-4xl font-normal text-white tracking-tight">
+              {title}
+            </h1>
+            {description && <p className="text-white/55 mt-1.5 text-base">{description}</p>}
+          </header>
+          <div className="earnings-card overflow-hidden min-h-[400px] overflow-y-auto">
             {children}
           </div>
         </div>

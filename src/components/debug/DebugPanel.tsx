@@ -10,13 +10,7 @@ function safeJson(v: any) {
   }
 }
 
-export default function DebugPanel({
-  title,
-  data,
-}: {
-  title: string;
-  data: any;
-}) {
+export default function DebugPanel({ title, data }: { title: string; data: any }) {
   return (
     <div className="mt-4 w-full rounded-2xl border border-white/10 bg-white/5 p-4">
       <div className="text-xs font-semibold text-white/80">{title}</div>

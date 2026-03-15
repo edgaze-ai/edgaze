@@ -21,7 +21,9 @@ export default function MergeDiamondNode({ data }: NodeProps) {
           {!!connected?.length && (
             <div className="mt-2 flex flex-wrap gap-1">
               {connected.map((c: string) => (
-                <span key={c} className="edge-badge">{c}</span>
+                <span key={c} className="edge-badge">
+                  {c}
+                </span>
               ))}
             </div>
           )}

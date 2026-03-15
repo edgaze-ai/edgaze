@@ -72,7 +72,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : listing.type === "workflow"
         ? "Discover and use this AI workflow on Edgaze. Build powerful automation with AI."
         : "Discover and use this AI prompt on Edgaze. Create amazing content with AI.";
-  
+
   const imageUrl = absoluteImageUrl(listing.thumbnail_url);
   const pageUrl = `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`;
 

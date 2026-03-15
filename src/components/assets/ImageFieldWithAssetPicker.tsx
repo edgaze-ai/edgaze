@@ -4,7 +4,6 @@
 import React, { useState } from "react";
 import AssetPickerModal from "./AssetPickerModal";
 
-
 type ImageFieldWithAssetPickerProps = {
   label?: string;
   value: string;
@@ -20,11 +19,7 @@ export function ImageFieldWithAssetPicker({
 
   return (
     <div className="space-y-1">
-      {label && (
-        <label className="text-sm font-medium text-neutral-200">
-          {label}
-        </label>
-      )}
+      {label && <label className="text-sm font-medium text-neutral-200">{label}</label>}
 
       <div className="flex gap-2">
         <input

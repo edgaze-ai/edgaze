@@ -9,4 +9,3 @@ export const EDGAZE_MARK_SRC = "/brand/edgaze-mark.png";
 // Create this file: public/brand/profile-default.png
 export const DEFAULT_AVATAR_SRC =
   "https://vbiobyjxhwiyvjqkwosx.supabase.co/storage/v1/object/public/edgaze-assets/Defaults/profile-default.png";
-

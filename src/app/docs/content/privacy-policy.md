@@ -3,7 +3,7 @@ description = "How Edgaze collects, uses, and handles information."
 
 ## 1. Introduction
 
-This Privacy Policy explains how Edge Platforms, Inc., a Delaware C Corporation (“Edge Platforms”, “Edgaze”, “we”, “us”, or “our”) collects, uses, stores, and processes information in connection with your access to and use of the Edgaze platform (the “Platform”).
+This Privacy Policy explains how Edge Platforms, Inc., a Delaware Corporation (“Edge Platforms”, “Edgaze”, “we”, “us”, or “our”) collects, uses, stores, and processes information in connection with your access to and use of the Edgaze platform (the “Platform”).
 
 By using the Platform, you acknowledge and agree to the practices described in this Privacy Policy. If you do not agree, you must not use the Platform.
 
@@ -14,6 +14,7 @@ By using the Platform, you acknowledge and agree to the practices described in t
 Edgaze is currently operating in a **beta**.
 
 Accordingly:
+
 - Features, data flows, and storage practices may evolve over time
 - Certain functionality may be experimental or incomplete
 - Data handling practices may change as the Platform develops
@@ -27,7 +28,9 @@ This Privacy Policy reflects current intentions and practices but does **not** c
 Depending on how you use the Platform, Edge Platforms may collect the following categories of information.
 
 ### 3.1 Information You Provide Directly
+
 This may include:
+
 - Account information (such as name, email address, username)
 - Content you submit, upload, or publish (including prompts, workflows, text, metadata, or related materials)
 - Communications you send to us (such as support inquiries or feedback)
@@ -37,7 +40,9 @@ You are responsible for ensuring that any information you submit complies with a
 ---
 
 ### 3.2 Automatically Collected Information
+
 We may automatically collect certain technical or usage information, including:
+
 - Device type, browser type, operating system
 - IP address or approximate location
 - Log files, timestamps, and interaction data
@@ -50,6 +55,7 @@ This information is generally used to operate, maintain, and improve the Platfor
 ### 3.3 Cookies and Similar Technologies
 
 Edge Platforms may use cookies or similar technologies that are **strictly necessary** for:
+
 - Authentication
 - Session management
 - Security
@@ -77,6 +83,7 @@ Edge Platforms does **not** guarantee that information will be used solely for a
 ## 5. User-Generated Content and Public Visibility
 
 Content you submit or publish on the Platform may be:
+
 - Publicly accessible
 - Viewable by other users
 - Indexed, cached, or stored for operational purposes
@@ -90,11 +97,13 @@ You should not submit information you consider confidential or sensitive.
 ## 6. AI, Automation, and Experimental Features
 
 Some features of the Platform may involve:
+
 - AI-assisted processing
 - Automated analysis
 - Experimental systems
 
 Edgaze does **not guarantee**:
+
 - Accuracy, confidentiality, or permanence of AI-related outputs
 - That content will not be processed or transformed by automated systems
 
@@ -118,6 +127,7 @@ We do not guarantee that data will never be shared.
 ## 8. Data Retention
 
 Edge Platforms may retain information:
+
 - For as long as necessary to operate the Platform
 - For legitimate business, legal, or compliance purposes
 - Even after account termination, where required or reasonable
@@ -131,6 +141,7 @@ We do not guarantee permanent retention or deletion of data.
 We implement **reasonable administrative and technical measures** intended to protect information.
 
 However:
+
 - No system is completely secure
 - We do not guarantee absolute security
 - Unauthorized access, loss, or disclosure may occur
@@ -168,6 +179,7 @@ Requests may be declined where permitted by law or where technically infeasible.
 ## 13. No Professional or Fiduciary Relationship
 
 Your use of the Platform does **not** create:
+
 - A fiduciary relationship
 - A professional services relationship
 - A data trustee or data fiduciary obligation beyond applicable law
@@ -185,6 +197,7 @@ Changes become effective upon publication. Continued use of the Platform constit
 ## 15. Limitation of Liability
 
 To the maximum extent permitted by law, Edge Platforms shall not be liable for:
+
 - Loss, misuse, or unauthorized access to information
 - Decisions made based on information obtained from the Platform
 - Indirect, incidental, or consequential damages related to data handling

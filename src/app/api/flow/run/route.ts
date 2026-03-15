@@ -13,7 +13,10 @@ import {
 } from "@lib/supabase/executions";
 import { createRun, updateRun } from "@lib/supabase/runs";
 import { insertWorkflowRunNodes } from "@lib/supabase/workflow-run-nodes";
-import { getWorkflowActiveVersionId, getWorkflowVersionById } from "@lib/supabase/workflow-versions";
+import {
+  getWorkflowActiveVersionId,
+  getWorkflowVersionById,
+} from "@lib/supabase/workflow-versions";
 import { getEdgazeApiKey } from "@lib/workflow/edgaze-api-key";
 import type { GraphPayload } from "src/server/flow/types";
 import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
@@ -26,7 +29,7 @@ async function finishUnifiedRun(
   status: "success" | "error",
   duration: number,
   errorMessage?: string,
-  nodeTraces?: Array<{ tokens?: number; model?: string }>
+  nodeTraces?: Array<{ tokens?: number; model?: string }>,
 ): Promise<void> {
   if (!unifiedRunId) return;
   const traces = nodeTraces ?? [];
@@ -61,7 +64,19 @@ export async function POST(req: Request) {
       adminDemoToken?: string;
     };
 
-    const { nodes = [], edges = [], inputs = {}, workflowId, userApiKeys = {}, isDemo = false, isBuilderTest = false, openaiApiKey: modalOpenaiKey, deviceFingerprint, stream: useStream = false, adminDemoToken } = body;
+    const {
+      nodes = [],
+      edges = [],
+      inputs = {},
+      workflowId,
+      userApiKeys = {},
+      isDemo = false,
+      isBuilderTest = false,
+      openaiApiKey: modalOpenaiKey,
+      deviceFingerprint,
+      stream: useStream = false,
+      adminDemoToken,
+    } = body;
 
     if (!workflowId) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
@@ -72,7 +87,11 @@ export async function POST(req: Request) {
     let userId: string;
     if (user) {
       userId = user.id;
-    } else if (adminDemoToken && typeof adminDemoToken === "string" && adminDemoToken.length >= 16) {
+    } else if (
+      adminDemoToken &&
+      typeof adminDemoToken === "string" &&
+      adminDemoToken.length >= 16
+    ) {
       // Admin demo link: verify token matches workflow, bypass device limit
       const supabase = createSupabaseAdminClient();
       const { data: wf, error: wfError } = await supabase
@@ -84,8 +103,11 @@ export async function POST(req: Request) {
         .maybeSingle();
       if (wfError || !wf) {
         return NextResponse.json(
-          { ok: false, error: "Invalid or expired demo link. Please use the link from the admin panel." },
-          { status: 403 }
+          {
+            ok: false,
+            error: "Invalid or expired demo link. Please use the link from the admin panel.",
+          },
+          { status: 403 },
         );
       }
       userId = "admin_demo_user";
@@ -97,7 +119,7 @@ export async function POST(req: Request) {
             ok: false,
             error: "Device fingerprint is required for demo runs",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -120,7 +142,7 @@ export async function POST(req: Request) {
             ok: false,
             error: "Failed to verify demo run eligibility. Please try again.",
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -129,18 +151,22 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             ok: false,
-            error: "You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.",
+            error:
+              "You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.",
           },
-          { status: 403 }
+          { status: 403 },
         );
       }
 
       // Record the demo run (atomic operation with duplicate check)
-      const { data: recordData, error: recordError } = await supabase.rpc("record_anonymous_demo_run", {
-        p_workflow_id: workflowId,
-        p_device_fingerprint: deviceFingerprint,
-        p_ip_address: ipAddress,
-      });
+      const { data: recordData, error: recordError } = await supabase.rpc(
+        "record_anonymous_demo_run",
+        {
+          p_workflow_id: workflowId,
+          p_device_fingerprint: deviceFingerprint,
+          p_ip_address: ipAddress,
+        },
+      );
 
       if (recordError) {
         console.error("[Demo Runs] Error recording demo run:", recordError);
@@ -149,7 +175,7 @@ export async function POST(req: Request) {
             ok: false,
             error: "Failed to record demo run. Please try again.",
           },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -166,7 +192,7 @@ export async function POST(req: Request) {
             ok: false,
             error: recordResult.error || "Demo run already used for this device and IP address.",
           },
-          { status: 403 }
+          { status: 403 },
         );
       }
 
@@ -175,9 +201,11 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: authError ?? "Authentication required. Please sign in to run workflows, or try a demo run.",
+          error:
+            authError ??
+            "Authentication required. Please sign in to run workflows, or try a demo run.",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -186,13 +214,18 @@ export async function POST(req: Request) {
       userId,
       workflowId,
       nodes,
-      userApiKeys: isBuilderTest && modalOpenaiKey?.trim()
-        ? Object.fromEntries(
-            (nodes as { id: string; data?: { specId?: string } }[])
-              .filter((n) => ["openai-chat", "openai-embeddings", "openai-image"].includes(n.data?.specId ?? ""))
-              .map((n) => [n.id, { apiKey: modalOpenaiKey.trim() }])
-          )
-        : userApiKeys,
+      userApiKeys:
+        isBuilderTest && modalOpenaiKey?.trim()
+          ? Object.fromEntries(
+              (nodes as { id: string; data?: { specId?: string } }[])
+                .filter((n) =>
+                  ["openai-chat", "openai-embeddings", "openai-image"].includes(
+                    n.data?.specId ?? "",
+                  ),
+                )
+                .map((n) => [n.id, { apiKey: modalOpenaiKey.trim() }]),
+            )
+          : userApiKeys,
       isDemo,
       isBuilderTest,
     });
@@ -205,13 +238,14 @@ export async function POST(req: Request) {
           requiresApiKeys: enforcement.requiresApiKeys,
           freeRunsRemaining: enforcement.freeRunsRemaining,
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     // Inject API keys into inputs for premium nodes
     const enrichedInputs: Record<string, unknown> = { ...inputs };
-    const userProvidedKey = isBuilderTest && typeof modalOpenaiKey === "string" && modalOpenaiKey.trim().length > 0;
+    const userProvidedKey =
+      isBuilderTest && typeof modalOpenaiKey === "string" && modalOpenaiKey.trim().length > 0;
     if (isBuilderTest) {
       enrichedInputs["__builder_test"] = true;
       if (userProvidedKey) {
@@ -258,7 +292,9 @@ export async function POST(req: Request) {
           // For builder test runs, check if it's a draft
           draftId = await getWorkflowDraftId(workflowId, userId);
           if (!draftId) {
-            console.warn(`[Run Tracking] Skipping run tracking: workflow ${workflowId} not found in workflows or drafts`);
+            console.warn(
+              `[Run Tracking] Skipping run tracking: workflow ${workflowId} not found in workflows or drafts`,
+            );
           }
         }
 
@@ -292,7 +328,7 @@ export async function POST(req: Request) {
           try {
             const creatorUserId = await getCreatorUserIdForWorkflowRun(
               workflowExistsInDb ? workflowId : null,
-              draftId
+              draftId,
             );
             const unifiedRun = await createRun({
               kind: "workflow",
@@ -312,7 +348,7 @@ export async function POST(req: Request) {
             console.warn("[Runs] Failed to create unified run record:", runErr);
           }
           console.warn(
-            `[Run Tracking] Created run ${runId} for user ${userId}, ${draftId ? `draft ${draftId}` : `workflow ${workflowId}`}, status: running`
+            `[Run Tracking] Created run ${runId} for user ${userId}, ${draftId ? `draft ${draftId}` : `workflow ${workflowId}`}, status: running`,
           );
         }
       } catch (err: any) {
@@ -364,7 +400,8 @@ export async function POST(req: Request) {
             });
             const duration = Date.now() - startTime;
             const finalStatus =
-              result.workflowStatus === "completed" || result.workflowStatus === "completed_with_skips"
+              result.workflowStatus === "completed" ||
+              result.workflowStatus === "completed_with_skips"
                 ? "completed"
                 : "failed";
             let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
@@ -393,7 +430,11 @@ export async function POST(req: Request) {
                       outputsByNode: redactSecrets(result.outputsByNode),
                     },
                   });
-                  const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
+                  const updatedRunCount = await getUserWorkflowRunCount(
+                    userId,
+                    workflowId,
+                    draftId,
+                  );
                   const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
                   updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
                 } catch (e) {
@@ -429,13 +470,19 @@ export async function POST(req: Request) {
                     retries: t.retries,
                     tokens: t.tokens,
                     model: t.model,
-                  }))
+                  })),
                 );
               } catch {
                 // ignore
               }
             }
-            await finishUnifiedRun(unifiedRunId, finalStatus === "completed" ? "success" : "error", duration, undefined, result.nodeTraces);
+            await finishUnifiedRun(
+              unifiedRunId,
+              finalStatus === "completed" ? "success" : "error",
+              duration,
+              undefined,
+              result.nodeTraces,
+            );
             const safeResult = {
               ...result,
               outputsByNode: redactSecrets(result.outputsByNode) as Record<string, unknown>,
@@ -444,7 +491,13 @@ export async function POST(req: Request) {
                 value: redactSecrets(fo.value),
               })),
             };
-            write({ type: "complete", ok: true, result: safeResult, freeRunsRemaining: updatedFreeRunsRemaining, runId });
+            write({
+              type: "complete",
+              ok: true,
+              result: safeResult,
+              freeRunsRemaining: updatedFreeRunsRemaining,
+              runId,
+            });
           } catch (err: any) {
             const duration = Date.now() - startTime;
             let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
@@ -453,7 +506,10 @@ export async function POST(req: Request) {
                 runId,
                 status: "failed",
                 durationMs: duration,
-                errorDetails: redactSecrets({ message: err?.message, stack: err?.stack }) as Record<string, unknown>,
+                errorDetails: redactSecrets({ message: err?.message, stack: err?.stack }) as Record<
+                  string,
+                  unknown
+                >,
               });
               if (countResult) {
                 const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
@@ -464,9 +520,16 @@ export async function POST(req: Request) {
                     status: "failed",
                     completed_at: new Date().toISOString(),
                     duration_ms: duration,
-                    error_details: redactSecrets({ message: err?.message, stack: err?.stack }) as Record<string, unknown>,
+                    error_details: redactSecrets({
+                      message: err?.message,
+                      stack: err?.stack,
+                    }) as Record<string, unknown>,
                   });
-                  const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
+                  const updatedRunCount = await getUserWorkflowRunCount(
+                    userId,
+                    workflowId,
+                    draftId,
+                  );
                   const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
                   updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
                 } catch {
@@ -479,14 +542,23 @@ export async function POST(req: Request) {
                   status: "failed",
                   completed_at: new Date().toISOString(),
                   duration_ms: duration,
-                  error_details: redactSecrets({ message: err?.message, stack: err?.stack }) as Record<string, unknown>,
+                  error_details: redactSecrets({
+                    message: err?.message,
+                    stack: err?.stack,
+                  }) as Record<string, unknown>,
                 });
               } catch {
                 // ignore
               }
             }
             await finishUnifiedRun(unifiedRunId, "error", duration, err?.message);
-            write({ type: "complete", ok: false, error: err?.message || "Unknown error", freeRunsRemaining: updatedFreeRunsRemaining, runId });
+            write({
+              type: "complete",
+              ok: false,
+              error: err?.message || "Unknown error",
+              freeRunsRemaining: updatedFreeRunsRemaining,
+              runId,
+            });
           } finally {
             controller.close();
           }
@@ -532,7 +604,9 @@ export async function POST(req: Request) {
           updateSuccess = true;
           const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
-          console.warn(`[Run Tracking] Atomic complete: run ${runId} → ${finalStatus}, count=${countResult.newCount}/${freeRunLimit}`);
+          console.warn(
+            `[Run Tracking] Atomic complete: run ${runId} → ${finalStatus}, count=${countResult.newCount}/${freeRunLimit}`,
+          );
         }
       }
       if (!updateSuccess && runId) {
@@ -551,7 +625,10 @@ export async function POST(req: Request) {
             updateSuccess = true;
             break;
           } catch (updateErr: any) {
-            console.error(`[Run Tracking] Fallback update attempt ${attempt} failed:`, updateErr?.message);
+            console.error(
+              `[Run Tracking] Fallback update attempt ${attempt} failed:`,
+              updateErr?.message,
+            );
             if (attempt < 3) await new Promise((r) => setTimeout(r, 100 * attempt));
           }
         }
@@ -575,16 +652,24 @@ export async function POST(req: Request) {
               retries: t.retries,
               tokens: t.tokens,
               model: t.model,
-            }))
+            })),
           );
         } catch (e) {
           console.warn("[Run Tracking] insertWorkflowRunNodes failed:", e);
         }
       }
       if (!runId) {
-        console.warn(`[Run Tracking] No runId - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
+        console.warn(
+          `[Run Tracking] No runId - run was not tracked. User: ${userId}, Workflow: ${workflowId}`,
+        );
       }
-      await finishUnifiedRun(unifiedRunId, finalStatus === "completed" ? "success" : "error", duration, undefined, result.nodeTraces);
+      await finishUnifiedRun(
+        unifiedRunId,
+        finalStatus === "completed" ? "success" : "error",
+        duration,
+        undefined,
+        result.nodeTraces,
+      );
 
       // Redact secrets from response
       const safeResult = {
@@ -614,13 +699,18 @@ export async function POST(req: Request) {
           runId,
           status: "failed",
           durationMs: duration,
-          errorDetails: redactSecrets({ message: errorMessage, stack: err?.stack }) as Record<string, unknown>,
+          errorDetails: redactSecrets({ message: errorMessage, stack: err?.stack }) as Record<
+            string,
+            unknown
+          >,
         });
         if (countResult) {
           updateSuccess = true;
           const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
-          console.warn(`[Run Tracking] Atomic complete (error): run ${runId} → failed, count=${countResult.newCount}/${freeRunLimit}`);
+          console.warn(
+            `[Run Tracking] Atomic complete (error): run ${runId} → failed, count=${countResult.newCount}/${freeRunLimit}`,
+          );
         }
       }
       if (!updateSuccess && runId) {
@@ -630,7 +720,10 @@ export async function POST(req: Request) {
               status: "failed",
               completed_at: new Date().toISOString(),
               duration_ms: duration,
-              error_details: redactSecrets({ message: errorMessage, stack: err?.stack }) as Record<string, unknown>,
+              error_details: redactSecrets({ message: errorMessage, stack: err?.stack }) as Record<
+                string,
+                unknown
+              >,
             });
             updateSuccess = true;
             if (isTrackedUser) {
@@ -640,13 +733,18 @@ export async function POST(req: Request) {
             }
             break;
           } catch (updateErr: any) {
-            console.error(`[Run Tracking] Fallback update (error) attempt ${attempt} failed:`, updateErr?.message);
+            console.error(
+              `[Run Tracking] Fallback update (error) attempt ${attempt} failed:`,
+              updateErr?.message,
+            );
             if (attempt < 3) await new Promise((r) => setTimeout(r, 100 * attempt));
           }
         }
       }
       if (!runId) {
-        console.warn(`[Run Tracking] No runId on error - run was not tracked. User: ${userId}, Workflow: ${workflowId}`);
+        console.warn(
+          `[Run Tracking] No runId on error - run was not tracked. User: ${userId}, Workflow: ${workflowId}`,
+        );
       }
       await finishUnifiedRun(unifiedRunId, "error", duration, errorMessage);
 
@@ -657,13 +755,13 @@ export async function POST(req: Request) {
           runId,
           freeRunsRemaining: updatedFreeRunsRemaining,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: redactSecrets(e?.message || "Unknown error") as string },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,5 +1,10 @@
 // src/server/flow/runtime-enforcement.ts
-import { getUserWorkflowRunCount, isAdmin, getWorkflowDraftId, workflowExists } from "../../lib/supabase/executions";
+import {
+  getUserWorkflowRunCount,
+  isAdmin,
+  getWorkflowDraftId,
+  workflowExists,
+} from "../../lib/supabase/executions";
 import { createSupabaseAdminClient } from "../../lib/supabase/admin";
 import { getEdgazeApiKey, hasEdgazeApiKey } from "../../lib/workflow/edgaze-api-key";
 import type { GraphNode } from "./types";
@@ -33,7 +38,14 @@ export async function enforceRuntimeLimits(params: {
   isDemo?: boolean; // One-time demo on product page
   isBuilderTest?: boolean; // Builder “Test run”: 10 free runs, then BYO key
 }): Promise<RuntimeEnforcementResult> {
-  const { userId, workflowId, nodes, userApiKeys = {}, isDemo = false, isBuilderTest = false } = params;
+  const {
+    userId,
+    workflowId,
+    nodes,
+    userApiKeys = {},
+    isDemo = false,
+    isBuilderTest = false,
+  } = params;
   // Builder test: 10 runs. Purchased workflow preview (isDemo + authenticated): 10 runs per purchase. Else: 5.
   const freeRunLimit = isBuilderTest
     ? FREE_BUILDER_RUNS
@@ -138,9 +150,7 @@ export async function enforceRuntimeLimits(params: {
     // Determine if we should use Edgaze API key
     // Use Edgaze key for: demos or first N free runs (builder: 10, else 5)
     const shouldUseEdgazeKey =
-      (isDemo || workflowRunCount < freeRunLimit) &&
-      hasEdgazeApiKey() &&
-      aiNodes.length > 0;
+      (isDemo || workflowRunCount < freeRunLimit) && hasEdgazeApiKey() && aiNodes.length > 0;
 
     if (workflowRunCount < freeRunLimit || isDemo) {
       // Under free run limit or demo: allowed, use Edgaze key if available
@@ -158,8 +168,10 @@ export async function enforceRuntimeLimits(params: {
       const nodeKeys = userApiKeys[node.id];
       // Also check if API key is stored in node config
       const configKey = node.data?.config?.apiKey;
-      if ((!nodeKeys || !nodeKeys.apiKey || nodeKeys.apiKey.trim() === "") &&
-          (!configKey || typeof configKey !== "string" || configKey.trim() === "")) {
+      if (
+        (!nodeKeys || !nodeKeys.apiKey || nodeKeys.apiKey.trim() === "") &&
+        (!configKey || typeof configKey !== "string" || configKey.trim() === "")
+      ) {
         missingKeys.push(node.id);
       }
     }
@@ -199,7 +211,8 @@ function looksLikeUrl(s: string): boolean {
   const t = s.trim();
   if (/^https?:\/\//i.test(t)) return true;
   if (t.startsWith("data:image/")) return true;
-  if (/oaidalleapiprodscus\.blob\.core\.windows\.net|blob\.core\.windows\.net/i.test(t)) return true;
+  if (/oaidalleapiprodscus\.blob\.core\.windows\.net|blob\.core\.windows\.net/i.test(t))
+    return true;
   return false;
 }
 
@@ -223,7 +236,11 @@ export function redactSecrets(value: unknown): unknown {
     const obj = value as Record<string, unknown>;
     const redacted: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj)) {
-      if (k.toLowerCase().includes("key") || k.toLowerCase().includes("secret") || k.toLowerCase().includes("token")) {
+      if (
+        k.toLowerCase().includes("key") ||
+        k.toLowerCase().includes("secret") ||
+        k.toLowerCase().includes("token")
+      ) {
         redacted[k] = "***REDACTED***";
       } else {
         redacted[k] = redactSecrets(v);

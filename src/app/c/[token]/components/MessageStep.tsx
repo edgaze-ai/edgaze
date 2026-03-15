@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { ArrowRight, Quote } from 'lucide-react';
+import { motion } from "framer-motion";
+import { ArrowRight, Quote } from "lucide-react";
 
 interface MessageStepProps {
   message: string;
@@ -60,7 +60,7 @@ export default function MessageStep({ message, onContinue }: MessageStepProps) {
             >
               {/* Inner gradient */}
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/5 via-transparent to-pink-500/5" />
-              
+
               <p className="relative whitespace-pre-wrap text-base leading-relaxed text-white/80 sm:text-lg">
                 {message}
               </p>

@@ -4,7 +4,15 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, ArrowRight, Sparkles, Search, PauseCircle, X, AlertCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ArrowRight,
+  Sparkles,
+  Search,
+  PauseCircle,
+  X,
+  AlertCircle,
+} from "lucide-react";
 import TurnstileWidget from "../../components/apply/TurnstileWidget";
 import ApplyAuthPanel from "../../components/apply/ApplyAuthPanel";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -49,7 +57,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
       className={cn(
         "w-full rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white",
         "placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/20",
-        props.className
+        props.className,
       )}
     />
   );
@@ -62,7 +70,7 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
       className={cn(
         "w-full rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white",
         "placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/20",
-        props.className
+        props.className,
       )}
     />
   );
@@ -85,7 +93,7 @@ function Option({
         "relative w-full text-left rounded-2xl px-4 py-4 ring-1 transition-all",
         selected
           ? "bg-white/10 ring-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_0_45px_rgba(34,211,238,0.10)]"
-          : "bg-white/5 ring-white/10 hover:bg-white/7"
+          : "bg-white/5 ring-white/10 hover:bg-white/7",
       )}
     >
       {selected ? (
@@ -117,7 +125,7 @@ function PrimaryButton({
       onClick={onClick}
       className={cn(
         "group relative inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white",
-        disabled ? "opacity-60 cursor-not-allowed" : "hover:opacity-[0.98]"
+        disabled ? "opacity-60 cursor-not-allowed" : "hover:opacity-[0.98]",
       )}
     >
       <span className="absolute inset-0 rounded-2xl p-[1px] bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))]" />
@@ -130,7 +138,13 @@ function PrimaryButton({
   );
 }
 
-function SecondaryButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function SecondaryButton({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -364,24 +378,24 @@ function PausedPanel() {
           Not accepting applications right now
         </div>
         <p className="mt-3 text-sm text-white/70 leading-relaxed max-w-xl">
-          We’re temporarily pausing applications to process the current batch. Come back after some time.
+          We’re temporarily pausing applications to process the current batch. Come back after some
+          time.
         </p>
 
         <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Link
-  href="/"
-  className="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white/90 bg-white/5 ring-1 ring-white/10 hover:bg-white/8 transition-colors"
->
-  Back to home
-</Link>
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white/90 bg-white/5 ring-1 ring-white/10 hover:bg-white/8 transition-colors"
+          >
+            Back to home
+          </Link>
 
-<Link
-  href="/marketplace"
-  className="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white/90 bg-white/5 ring-1 ring-white/10 hover:bg-white/8 transition-colors"
->
-  Explore marketplace
-</Link>
-
+          <Link
+            href="/marketplace"
+            className="inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold text-white/90 bg-white/5 ring-1 ring-white/10 hover:bg-white/8 transition-colors"
+          >
+            Explore marketplace
+          </Link>
         </div>
       </div>
     </div>
@@ -435,22 +449,16 @@ export default function ApplyPage() {
   const didAutoContinueRef = useRef(false);
 
   const selectedCountry = COUNTRY_CODES.find((c) => c.value === countryCode);
-const dialCode = selectedCountry?.code || "+1";
-const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
+  const dialCode = selectedCountry?.code || "+1";
+  const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
 
-  const step0Valid =
-    fullName.trim().length >= 2 &&
-    /^\S+@\S+\.\S+$/.test(email.trim());
+  const step0Valid = fullName.trim().length >= 2 && /^\S+@\S+\.\S+$/.test(email.trim());
   // Phone is optional; no minimum length
 
   const q5Trim = q5.trim();
   const q5Valid = q5Trim.length >= 10 && q5Trim.length <= 140;
 
-  const questionsValid =
-    q1 &&
-    q2 &&
-    q3 &&
-    captchaVerified;
+  const questionsValid = q1 && q2 && q3 && captchaVerified;
 
   async function fetchAppsPaused() {
     setAppsPausedLoading(true);
@@ -480,11 +488,16 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
       .channel("realtime:app_settings:applications_paused")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "app_settings", filter: "key=eq.applications_paused" },
+        {
+          event: "*",
+          schema: "public",
+          table: "app_settings",
+          filter: "key=eq.applications_paused",
+        },
         (payload: any) => {
           const next = Boolean(payload?.new?.value);
           setAppsPaused(next);
-        }
+        },
       )
       .subscribe();
 
@@ -585,7 +598,6 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
         setStep("auth");
       }
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function goToQuestions() {
@@ -633,7 +645,7 @@ const phoneFull = `${dialCode}${phone.replace(/\s/g, "")}`;
           full_name: fullName,
           email,
           phone_country_code: dialCode,
-phone_number: phone.replace(/\s/g, ""),
+          phone_number: phone.replace(/\s/g, ""),
 
           company: company || null,
           occupation: occupation || null,
@@ -755,10 +767,10 @@ phone_number: phone.replace(/\s/g, ""),
       <div className="sticky top-0 z-20">
         <div className="bg-[#07080b]/70 backdrop-blur-md ring-1 ring-white/10">
           <div className="mx-auto w-full max-w-4xl px-5 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-  <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-9 w-9" />
-  <div className="text-sm font-semibold tracking-wide">Edgaze</div>
-</Link>
+            <Link href="/" className="flex items-center gap-2">
+              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-9 w-9" />
+              <div className="text-sm font-semibold tracking-wide">Edgaze</div>
+            </Link>
 
             <div className="inline-flex items-center gap-2 rounded-full bg-white/5 ring-1 ring-white/10 px-3 py-1 text-xs text-white/70">
               <Sparkles className="h-3.5 w-3.5 text-white/75" />
@@ -774,17 +786,25 @@ phone_number: phone.replace(/\s/g, ""),
           <div className="p-6 sm:p-8">
             <div>
               <div className="text-xs font-semibold tracking-widest text-white/55">EDGAZE BETA</div>
-              <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">Apply</h1>
+              <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">
+                Apply
+              </h1>
               <p className="mt-2 text-sm font-medium text-emerald-200/95">
                 Get access within 30 seconds of applying.
               </p>
               <p className="mt-3 text-sm text-white/70 leading-relaxed">
                 By continuing, you agree to our{" "}
-                <Link href="/docs/terms-of-service" className="text-white/80 hover:text-white underline underline-offset-4">
+                <Link
+                  href="/docs/terms-of-service"
+                  className="text-white/80 hover:text-white underline underline-offset-4"
+                >
                   Terms
                 </Link>{" "}
                 and{" "}
-                <Link href="/docs/privacy-policy" className="text-white/80 hover:text-white underline underline-offset-4">
+                <Link
+                  href="/docs/privacy-policy"
+                  className="text-white/80 hover:text-white underline underline-offset-4"
+                >
                   Privacy Policy
                 </Link>
                 . By joining beta, you agree to give feedback to improve Edgaze.
@@ -824,7 +844,11 @@ phone_number: phone.replace(/\s/g, ""),
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <div className="space-y-2">
                             <FieldLabel>FULL NAME</FieldLabel>
-                            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
+                            <Input
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              autoComplete="name"
+                            />
                           </div>
 
                           <div className="space-y-2">
@@ -840,26 +864,26 @@ phone_number: phone.replace(/\s/g, ""),
                           <div className="space-y-2 sm:col-span-2">
                             <FieldLabel>PHONE (OPTIONAL)</FieldLabel>
                             <div className="grid grid-cols-[160px_1fr] gap-2">
-                            <select
-  value={countryCode}
-  onChange={(e) => setCountryCode(e.target.value)}
-  className={cn(
-    "rounded-2xl bg-white/5 ring-1 ring-white/10 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-white/20",
-    // closed select look
-    "text-white",
-    // Windows dropdown list (options) readability: prevent white text on white bg
-    "bg-transparent",
-    "[&>option]:bg-white [&>option]:text-black",
-    // try to keep emoji/flags consistent across platforms
-    "font-sans"
-  )}
->
-  {COUNTRY_CODES.map((c) => (
-    <option key={c.value} value={c.value}>
-      {c.label}
-    </option>
-  ))}
-</select>
+                              <select
+                                value={countryCode}
+                                onChange={(e) => setCountryCode(e.target.value)}
+                                className={cn(
+                                  "rounded-2xl bg-white/5 ring-1 ring-white/10 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-white/20",
+                                  // closed select look
+                                  "text-white",
+                                  // Windows dropdown list (options) readability: prevent white text on white bg
+                                  "bg-transparent",
+                                  "[&>option]:bg-white [&>option]:text-black",
+                                  // try to keep emoji/flags consistent across platforms
+                                  "font-sans",
+                                )}
+                              >
+                                {COUNTRY_CODES.map((c) => (
+                                  <option key={c.value} value={c.value}>
+                                    {c.label}
+                                  </option>
+                                ))}
+                              </select>
 
                               <Input
                                 value={phone}
@@ -881,7 +905,10 @@ phone_number: phone.replace(/\s/g, ""),
 
                           <div className="space-y-2">
                             <FieldLabel>OCCUPATION (OPTIONAL)</FieldLabel>
-                            <Input value={occupation} onChange={(e) => setOccupation(e.target.value)} />
+                            <Input
+                              value={occupation}
+                              onChange={(e) => setOccupation(e.target.value)}
+                            />
                           </div>
                         </div>
 
@@ -950,9 +977,15 @@ phone_number: phone.replace(/\s/g, ""),
                         </div>
 
                         <div className="space-y-3">
-                          <FieldLabel>WILL YOU REPORT ISSUES / GIVE FEEDBACK DURING BETA? (optional)</FieldLabel>
+                          <FieldLabel>
+                            WILL YOU REPORT ISSUES / GIVE FEEDBACK DURING BETA? (optional)
+                          </FieldLabel>
                           <div className="grid grid-cols-1 gap-2">
-                            {["Yes, I’m happy to give feedback", "Maybe, if I have time", "Probably not"].map((opt) => (
+                            {[
+                              "Yes, I’m happy to give feedback",
+                              "Maybe, if I have time",
+                              "Probably not",
+                            ].map((opt) => (
                               <Option key={opt} selected={q4 === opt} onClick={() => setQ4(opt)}>
                                 {opt}
                               </Option>
@@ -971,8 +1004,14 @@ phone_number: phone.replace(/\s/g, ""),
                               placeholder="One sentence (optional, max 140 chars)"
                             />
                             <div className="mt-2 flex items-center justify-between text-xs text-white/50">
-                              <div className="text-white/40">Example: “Turn my research prompt into a reusable workflow”</div>
-                              <div className={cn(q5Trim.length > 140 ? "text-red-300" : "text-white/55")}>
+                              <div className="text-white/40">
+                                Example: “Turn my research prompt into a reusable workflow”
+                              </div>
+                              <div
+                                className={cn(
+                                  q5Trim.length > 140 ? "text-red-300" : "text-white/55",
+                                )}
+                              >
                                 {q5Trim.length}/140
                               </div>
                             </div>
@@ -983,7 +1022,9 @@ phone_number: phone.replace(/\s/g, ""),
                         </div>
 
                         <div className="space-y-3">
-                          <FieldLabel>HAVE YOU SHARED PROMPTS / WORKFLOWS BEFORE? (optional)</FieldLabel>
+                          <FieldLabel>
+                            HAVE YOU SHARED PROMPTS / WORKFLOWS BEFORE? (optional)
+                          </FieldLabel>
                           <div className="grid grid-cols-1 gap-2">
                             {[
                               "No, never",
@@ -1009,7 +1050,9 @@ phone_number: phone.replace(/\s/g, ""),
                           ) : captchaVerified ? (
                             <div className="mt-2 text-xs text-emerald-200">Captcha verified</div>
                           ) : (
-                            <div className="mt-2 text-xs text-white/55">Captcha required to continue.</div>
+                            <div className="mt-2 text-xs text-white/55">
+                              Captcha required to continue.
+                            </div>
                           )}
                         </div>
 
@@ -1031,7 +1074,11 @@ phone_number: phone.replace(/\s/g, ""),
                         transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
                         className="mt-8"
                       >
-                        <ApplyAuthPanel emailPrefill={email} fullNamePrefill={fullName} onAuthed={afterAuthed} />
+                        <ApplyAuthPanel
+                          emailPrefill={email}
+                          fullNamePrefill={fullName}
+                          onAuthed={afterAuthed}
+                        />
                       </motion.div>
                     ) : null}
 
@@ -1045,8 +1092,12 @@ phone_number: phone.replace(/\s/g, ""),
                         className="mt-10"
                       >
                         <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7 overflow-hidden">
-                          <div className="text-xs font-semibold tracking-widest text-white/55">PROCESSING</div>
-                          <div className="mt-2 text-2xl font-semibold text-white">Checking your application</div>
+                          <div className="text-xs font-semibold tracking-widest text-white/55">
+                            PROCESSING
+                          </div>
+                          <div className="mt-2 text-2xl font-semibold text-white">
+                            Checking your application
+                          </div>
 
                           <div className="mt-6 relative h-[160px] rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
                             <div className="absolute inset-0 opacity-[0.10] [background-image:linear-gradient(rgba(255,255,255,0.10)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:36px_36px]" />
@@ -1063,17 +1114,30 @@ phone_number: phone.replace(/\s/g, ""),
                             <motion.div
                               className="absolute top-[56px] left-[28px] w-[200px] h-[16px] rounded bg-white/10"
                               animate={{ opacity: [0.35, 0.7, 0.35] }}
-                              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
+                              transition={{
+                                duration: 1.6,
+                                repeat: Infinity,
+                                ease: "easeInOut",
+                                delay: 0.1,
+                              }}
                             />
                             <motion.div
                               className="absolute top-[84px] left-[28px] w-[260px] h-[16px] rounded bg-white/10"
                               animate={{ opacity: [0.35, 0.7, 0.35] }}
-                              transition={{ duration: 1.7, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                              transition={{
+                                duration: 1.7,
+                                repeat: Infinity,
+                                ease: "easeInOut",
+                                delay: 0.2,
+                              }}
                             />
 
                             <motion.div
                               className="absolute"
-                              animate={{ x: ["10%", "65%", "20%", "75%", "10%"], y: ["20%", "35%", "60%", "45%", "20%"] }}
+                              animate={{
+                                x: ["10%", "65%", "20%", "75%", "10%"],
+                                y: ["20%", "35%", "60%", "45%", "20%"],
+                              }}
                               transition={{ duration: 3.8, repeat: Infinity, ease: "easeInOut" }}
                               style={{ left: 0, top: 0 }}
                             >
@@ -1084,7 +1148,10 @@ phone_number: phone.replace(/\s/g, ""),
                           </div>
 
                           <div className="mt-5 space-y-1 text-sm text-white/70">
-                            <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.6, repeat: Infinity }}>
+                            <motion.div
+                              animate={{ opacity: [0.4, 1, 0.4] }}
+                              transition={{ duration: 1.6, repeat: Infinity }}
+                            >
                               Viewing your application…
                             </motion.div>
                             <motion.div
@@ -1099,7 +1166,9 @@ phone_number: phone.replace(/\s/g, ""),
                             >
                               Almost there…
                             </motion.div>
-                            {submitting ? <div className="text-xs text-white/55 mt-2">Finalizing…</div> : null}
+                            {submitting ? (
+                              <div className="text-xs text-white/55 mt-2">Finalizing…</div>
+                            ) : null}
                           </div>
                         </div>
                       </motion.div>
@@ -1119,7 +1188,9 @@ phone_number: phone.replace(/\s/g, ""),
                             <CheckCircle2 className="h-6 w-6 text-white/85 mt-0.5" />
                             <div>
                               <div className="text-lg font-semibold text-white">Approved</div>
-                              <div className="mt-2 text-sm text-white/70">Welcome. Your application is in.</div>
+                              <div className="mt-2 text-sm text-white/70">
+                                Welcome. Your application is in.
+                              </div>
                               {applicationId ? (
                                 <div className="mt-4 text-xs text-white/50">
                                   Reference: <span className="text-white/70">{applicationId}</span>
@@ -1132,7 +1203,9 @@ phone_number: phone.replace(/\s/g, ""),
                             <PrimaryButton onClick={() => (window.location.href = "/marketplace")}>
                               Enter marketplace
                             </PrimaryButton>
-                            <SecondaryButton onClick={() => (window.location.href = "/")}>Back to home</SecondaryButton>
+                            <SecondaryButton onClick={() => (window.location.href = "/")}>
+                              Back to home
+                            </SecondaryButton>
                           </div>
                         </div>
                       </motion.div>
@@ -1144,7 +1217,9 @@ phone_number: phone.replace(/\s/g, ""),
           </div>
         </Frame>
 
-        <div className="mt-10 text-center text-xs text-white/45">© 2026 Edge Platforms, Inc. All rights reserved.</div>
+        <div className="mt-10 text-center text-xs text-white/45">
+          © 2026 Edge Platforms, Inc. All rights reserved.
+        </div>
       </div>
     </div>
   );

@@ -1,17 +1,15 @@
 title = "Refund Policy"
 description = "Our refund policy for workflow and prompt purchases"
 
----
+# Refund Policy
 
-## 1. Overview
-
-*Last Updated: March 13, 2026*
+_Last Updated: March 13, 2026_
 
 Due to the nature of digital products, purchases on Edgaze are **generally non-refundable**. Refunds may be granted in specific circumstances. All requests are reviewed manually.
 
----
+## When Refunds May Be Granted
 
-## 2. When Refunds May Be Granted
+### Eligible Cases
 
 Refunds may be granted if:
 
@@ -21,9 +19,9 @@ Refunds may be granted if:
 
 Each request is evaluated on its own merits.
 
----
+## Refund Process
 
-## 3. Refund Process
+### How To Request One
 
 To request a refund:
 
@@ -34,9 +32,9 @@ To request a refund:
 
 We review refund requests and respond within a few business days.
 
----
+## If a Refund Is Approved
 
-## 4. If a Refund Is Approved
+### What Happens Next
 
 - The customer receives a refund to the original payment method
 - Creator revenue for that sale is reversed
@@ -44,9 +42,9 @@ We review refund requests and respond within a few business days.
 
 Processing typically takes 5–10 business days after approval.
 
----
+## Non-Refundable Situations
 
-## 5. Non-Refundable Situations
+### Cases That Usually Do Not Qualify
 
 Refunds will **not** be issued if:
 
@@ -56,20 +54,20 @@ Refunds will **not** be issued if:
 - The product functions as described and you received what you paid for
 - You violate our Terms of Service
 
----
+## Chargebacks
 
-## 6. Chargebacks
+### Contact Support First
 
 **Please contact us before initiating a chargeback.** Chargebacks should be a last resort. See our [Chargeback Policy](/docs/chargeback-policy) for details.
 
----
+## Creator Responsibilities
 
-## 7. Creator Responsibilities
+### Expectations for Sellers
 
 Creators are expected to accurately describe products and ensure they function as advertised. Excessive refund rates may result in creator account review.
 
----
+## Contact
 
-## 8. Contact
+### Support
 
 Questions? Contact us at [support@edgaze.ai](mailto:support@edgaze.ai)

@@ -99,10 +99,7 @@ export default function DocsShell({
         {/* Mobile drawer */}
         {mobileOpen ? (
           <div className="lg:hidden fixed inset-0 z-50">
-            <div
-              className="absolute inset-0 bg-black/60"
-              onClick={() => setMobileOpen(false)}
-            />
+            <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
             <div className="absolute left-0 top-0 h-full w-[86%] max-w-[360px] bg-[#0b0b0f] border-r border-white/10">
               <div className="h-14 flex items-center justify-between px-4 border-b border-white/10">
                 <div className="flex items-center gap-3">
@@ -123,7 +120,10 @@ export default function DocsShell({
                   onClick={() => setMobileOpen(false)}
                   aria-label="Close docs menu"
                 >
-                  <X className="h-[18px] w-[18px] text-white/80 transition-colors group-hover:text-white" strokeWidth={2.25} />
+                  <X
+                    className="h-[18px] w-[18px] text-white/80 transition-colors group-hover:text-white"
+                    strokeWidth={2.25}
+                  />
                 </button>
               </div>
 

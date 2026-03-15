@@ -5,14 +5,14 @@ description = "Hosted runs, consumption rules, and options after runs are used"
 
 ## 1. Included Hosted Runs
 
-*Last Updated: March 13, 2026*
+_Last Updated: March 13, 2026_
 
 Each workflow purchase includes a limited number of **hosted executions** provided by Edgaze infrastructure. These runs use Edgaze compute and orchestration services.
 
-| Creator Type | Included Runs per Purchase |
-|--------------|----------------------------|
-| Free creators | 10 hosted runs |
-| Plus creators | 15 hosted runs |
+| Creator Type  | Included Runs per Purchase |
+| ------------- | -------------------------- |
+| Free creators | 10 hosted runs             |
+| Plus creators | 15 hosted runs             |
 
 ---
 

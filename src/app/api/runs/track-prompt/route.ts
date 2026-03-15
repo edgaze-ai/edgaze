@@ -53,7 +53,7 @@ export async function POST(req: Request) {
     console.error("[track-prompt] Error:", e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

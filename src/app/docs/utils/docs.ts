@@ -43,6 +43,10 @@ const CANONICAL_TO_FILE: Record<string, string> = {
   "creator-subscription-policy": "creator-subscription-policy.md",
   "pricing-limits": "pricing-limits.md",
   "fraud-abuse-policy": "fraud-abuse-policy.md",
+  "content-disclaimer": "content-disclaimer.md",
+  "platform-status-beta-disclaimer": "platform-status-beta-disclaimer.md",
+  "security-responsible-disclosure": "security-responsible-disclosure.md",
+  "creator-guidelines": "creator-guidelines.md",
   // Builder docs
   builder: "builder/index.md",
   "builder/workflow-studio": "builder/workflow-studio.md",
@@ -74,6 +78,10 @@ const ORDER: string[] = [
   "creator-subscription-policy",
   "pricing-limits",
   "fraud-abuse-policy",
+  "content-disclaimer",
+  "platform-status-beta-disclaimer",
+  "security-responsible-disclosure",
+  "creator-guidelines",
 ];
 
 function safeRead(filePath: string) {

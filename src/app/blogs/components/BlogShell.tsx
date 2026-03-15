@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import type { BlogMeta } from "../utils/blogs";
 
-
 function BlogSidebar({ blogs, onItemClick }: { blogs: BlogMeta[]; onItemClick?: () => void }) {
   const pathname = usePathname();
 
@@ -96,9 +95,7 @@ export default function BlogShell({
       {/* Fixed sidebar - desktop only */}
       <aside className="hidden lg:block fixed left-0 top-14 bottom-0 w-[300px] border-r border-white/[0.06] bg-[#050505]/60 backdrop-blur-sm overflow-y-auto">
         <div className="py-10 pl-10 pr-6">
-          <p className="text-xs font-medium uppercase tracking-widest text-white/40 mb-5">
-            Posts
-          </p>
+          <p className="text-xs font-medium uppercase tracking-widest text-white/40 mb-5">Posts</p>
           <BlogSidebar blogs={blogs} />
         </div>
       </aside>

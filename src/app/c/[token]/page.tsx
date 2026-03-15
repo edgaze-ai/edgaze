@@ -1,27 +1,27 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useState, Suspense } from 'react';
-import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { AnimatePresence, motion } from 'framer-motion';
-import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
-import { calculateProgress, type OnboardingStep } from '@/lib/onboarding';
-import Image from 'next/image';
+import { useCallback, useEffect, useState, Suspense } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { calculateProgress, type OnboardingStep } from "@/lib/onboarding";
+import Image from "next/image";
 
-import ProgressBar from './components/ProgressBar';
-import WelcomeStep from './components/WelcomeStep';
-import MessageStep from './components/MessageStep';
-import AuthStep from './components/AuthStep';
-import ProfileStep from './components/ProfileStep';
-import StripeStep from './components/StripeStep';
-import AllSetStep from './components/AllSetStep';
-import InvalidTokenScreen from './components/InvalidTokenScreen';
+import ProgressBar from "./components/ProgressBar";
+import WelcomeStep from "./components/WelcomeStep";
+import MessageStep from "./components/MessageStep";
+import AuthStep from "./components/AuthStep";
+import ProfileStep from "./components/ProfileStep";
+import StripeStep from "./components/StripeStep";
+import AllSetStep from "./components/AllSetStep";
+import InvalidTokenScreen from "./components/InvalidTokenScreen";
 
 interface InviteData {
   id: string;
   creator_name: string;
   creator_photo_url: string;
   custom_message: string;
-  status: 'active' | 'claimed' | 'completed' | 'revoked' | 'expired';
+  status: "active" | "claimed" | "completed" | "revoked" | "expired";
 }
 
 function OnboardingContent() {
@@ -31,46 +31,48 @@ function OnboardingContent() {
   const token = params.token as string;
 
   const [loading, setLoading] = useState(true);
-  const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>("welcome");
   const [invite, setInvite] = useState<InviteData | null>(null);
   const [invalidReason, setInvalidReason] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [stripeChoice, setStripeChoice] = useState<'now' | 'later' | 'unset'>('unset');
+  const [stripeChoice, setStripeChoice] = useState<"now" | "later" | "unset">("unset");
 
   const supabase = createSupabaseBrowserClient();
 
   const initializeOnboarding = useCallback(async () => {
     try {
       // Validate token
-      console.log('[Onboarding] Raw token from URL:', token);
-      console.log('[Onboarding] Token length:', token.length);
-      console.log('[Onboarding] Calling validation API...');
-      
+      console.warn("[Onboarding] Raw token from URL:", token);
+      console.warn("[Onboarding] Token length:", token.length);
+      console.warn("[Onboarding] Calling validation API...");
+
       const response = await fetch(`/api/invite-token/${encodeURIComponent(token)}/validate`);
-      console.log('[Onboarding] Validation response status:', response.status);
-      
+      console.warn("[Onboarding] Validation response status:", response.status);
+
       const data = await response.json();
-      console.log('[Onboarding] Validation data:', data);
+      console.warn("[Onboarding] Validation data:", data);
 
       if (!data.valid) {
-        console.log('[Onboarding] Token invalid, reason:', data.reason);
+        console.warn("[Onboarding] Token invalid, reason:", data.reason);
         setInvalidReason(data.reason);
         setLoading(false);
         return;
       }
-      
-      console.log('[Onboarding] Token valid! Invite:', data.invite);
+
+      console.warn("[Onboarding] Token valid! Invite:", data.invite);
 
       setInvite(data.invite);
 
       // Check if user is authenticated
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (user) {
         setUserId(user.id);
 
         // Check if they have an onboarding record
-        const onboardingResponse = await fetch('/api/onboarding');
+        const onboardingResponse = await fetch("/api/onboarding");
         if (onboardingResponse.ok) {
           const { onboarding } = await onboardingResponse.json();
           if (onboarding) {
@@ -78,20 +80,20 @@ function OnboardingContent() {
             setStripeChoice(onboarding.stripe_choice);
           } else {
             // User is authenticated but no onboarding record, start at profile
-            setCurrentStep('profile');
+            setCurrentStep("profile");
           }
         } else {
-          setCurrentStep('profile');
+          setCurrentStep("profile");
         }
       } else {
         // Not authenticated, start at welcome
-        setCurrentStep('welcome');
+        setCurrentStep("welcome");
       }
 
       setLoading(false);
     } catch (error) {
-      console.error('Failed to initialize onboarding:', error);
-      setInvalidReason('invalid');
+      console.error("Failed to initialize onboarding:", error);
+      setInvalidReason("invalid");
       setLoading(false);
     }
   }, [token, supabase]);
@@ -99,24 +101,24 @@ function OnboardingContent() {
   const handleStripeReturn = useCallback(async () => {
     try {
       // Check Stripe account status
-      const response = await fetch('/api/stripe/connect/status');
+      const response = await fetch("/api/stripe/connect/status");
       if (response.ok) {
         const data = await response.json();
-        
+
         // Update onboarding state
-        await fetch('/api/onboarding', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+        await fetch("/api/onboarding", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            step: 'done',
-            stripe_status: data.status === 'active' ? 'complete' : 'in_progress',
+            step: "done",
+            stripe_status: data.status === "active" ? "complete" : "in_progress",
           }),
         });
 
-        setCurrentStep('done');
+        setCurrentStep("done");
       }
     } catch (error) {
-      console.error('Failed to handle Stripe return:', error);
+      console.error("Failed to handle Stripe return:", error);
     }
   }, []);
 
@@ -125,7 +127,7 @@ function OnboardingContent() {
   }, [initializeOnboarding]);
 
   useEffect(() => {
-    if (searchParams.get('stripe') === 'return') {
+    if (searchParams.get("stripe") === "return") {
       queueMicrotask(() => handleStripeReturn());
     }
   }, [searchParams, handleStripeReturn]);
@@ -136,18 +138,18 @@ function OnboardingContent() {
 
   const handleAuthSuccess = (newUserId: string) => {
     setUserId(newUserId);
-    setCurrentStep('profile');
+    setCurrentStep("profile");
   };
 
   const handleGoToMarketplace = async () => {
     // Mark onboarding as complete
-    await fetch('/api/onboarding', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch("/api/onboarding", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ complete: true }),
     });
 
-    router.push('/marketplace');
+    router.push("/marketplace");
   };
 
   if (loading) {
@@ -206,13 +208,14 @@ function OnboardingContent() {
           style={{
             backgroundImage: `linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
               linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)`,
-            backgroundSize: '72px 72px',
+            backgroundSize: "72px 72px",
           }}
         />
         <div
           className="absolute inset-0 opacity-30"
           style={{
-            background: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03), transparent 50%)',
+            background:
+              "radial-gradient(circle at 50% 0%, rgba(255,255,255,0.03), transparent 50%)",
           }}
         />
       </div>
@@ -225,57 +228,57 @@ function OnboardingContent() {
       {/* Step content */}
       <div className="relative z-10">
         <AnimatePresence mode="wait">
-        {currentStep === 'welcome' && (
-          <WelcomeStep
-            key="welcome"
-            creatorName={invite.creator_name}
-            creatorPhotoUrl={invite.creator_photo_url}
-            onContinue={() => handleStepComplete('message')}
-          />
-        )}
+          {currentStep === "welcome" && (
+            <WelcomeStep
+              key="welcome"
+              creatorName={invite.creator_name}
+              creatorPhotoUrl={invite.creator_photo_url}
+              onContinue={() => handleStepComplete("message")}
+            />
+          )}
 
-        {currentStep === 'message' && (
-          <MessageStep
-            key="message"
-            message={invite.custom_message}
-            onContinue={() => handleStepComplete('auth')}
-          />
-        )}
+          {currentStep === "message" && (
+            <MessageStep
+              key="message"
+              message={invite.custom_message}
+              onContinue={() => handleStepComplete("auth")}
+            />
+          )}
 
-        {currentStep === 'auth' && (
-          <AuthStep
-            key="auth"
-            creatorName={invite.creator_name}
-            creatorPhotoUrl={invite.creator_photo_url}
-            inviteToken={token}
-            onSuccess={handleAuthSuccess}
-          />
-        )}
+          {currentStep === "auth" && (
+            <AuthStep
+              key="auth"
+              creatorName={invite.creator_name}
+              creatorPhotoUrl={invite.creator_photo_url}
+              inviteToken={token}
+              onSuccess={handleAuthSuccess}
+            />
+          )}
 
-        {currentStep === 'profile' && userId && (
-          <ProfileStep
-            key="profile"
-            userId={userId}
-            onContinue={() => handleStepComplete('stripe')}
-          />
-        )}
+          {currentStep === "profile" && userId && (
+            <ProfileStep
+              key="profile"
+              userId={userId}
+              onContinue={() => handleStepComplete("stripe")}
+            />
+          )}
 
-        {currentStep === 'stripe' && userId && (
-          <StripeStep
-            key="stripe"
-            userId={userId}
-            inviteToken={token}
-            onContinue={() => handleStepComplete('done')}
-          />
-        )}
+          {currentStep === "stripe" && userId && (
+            <StripeStep
+              key="stripe"
+              userId={userId}
+              inviteToken={token}
+              onContinue={() => handleStepComplete("done")}
+            />
+          )}
 
-        {currentStep === 'done' && (
-          <AllSetStep
-            key="done"
-            stripeChoice={stripeChoice}
-            onGoToMarketplace={handleGoToMarketplace}
-          />
-        )}
+          {currentStep === "done" && (
+            <AllSetStep
+              key="done"
+              stripeChoice={stripeChoice}
+              onGoToMarketplace={handleGoToMarketplace}
+            />
+          )}
         </AnimatePresence>
       </div>
     </div>
@@ -289,7 +292,12 @@ export default function OnboardingPage() {
         <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-black">
           <motion.div
             className="h-16 w-16 animate-spin rounded-full border-4 border-transparent bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500"
-            style={{ WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)', WebkitMaskComposite: 'xor', maskComposite: 'exclude', padding: '4px' }}
+            style={{
+              WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+              WebkitMaskComposite: "xor",
+              maskComposite: "exclude",
+              padding: "4px",
+            }}
           />
         </div>
       }

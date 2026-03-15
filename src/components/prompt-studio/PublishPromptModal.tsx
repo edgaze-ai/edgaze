@@ -23,7 +23,12 @@ import { useAuth } from "../auth/AuthContext";
 import AssetPickerModalRaw from "../assets/AssetPickerModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
-import { PROMPT_MAX_USD, MIN_TRANSACTION_USD, validatePromptPrice } from "../../lib/marketplace/pricing";
+import {
+  PROMPT_MAX_USD,
+  MIN_TRANSACTION_USD,
+  validatePromptPrice,
+} from "../../lib/marketplace/pricing";
+import { PayoutSystemCard } from "../publish/PayoutSystemCard";
 
 type PlaceholderDef = {
   name: string;
@@ -78,7 +83,12 @@ function makePromptSnippetForThumb(full: string) {
   return snippet + (cleaned.length > snippet.length ? "…" : "");
 }
 
-function wrapTextLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) {
+function wrapTextLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+) {
   const words = (text || "").split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
@@ -97,7 +107,14 @@ function wrapTextLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: nu
   return lines;
 }
 
-function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
   const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
   ctx.moveTo(x + rr, y);
@@ -222,7 +239,12 @@ async function createPromptOnlyThumbnail(promptText: string): Promise<string> {
 
   // Extra veil to ensure unreadable
   ctx.save();
-  const veil = ctx.createLinearGradient(textAreaX, textAreaY, textAreaX + textAreaW, textAreaY + textAreaH);
+  const veil = ctx.createLinearGradient(
+    textAreaX,
+    textAreaY,
+    textAreaX + textAreaW,
+    textAreaY + textAreaH,
+  );
   veil.addColorStop(0, "rgba(0,0,0,0.22)");
   veil.addColorStop(1, "rgba(0,0,0,0.14)");
   ctx.fillStyle = veil;
@@ -253,7 +275,9 @@ function baseCodeFromTitle(title: string) {
 }
 
 function randomSuffix(len = 4) {
-  return Math.random().toString(36).slice(2, 2 + len);
+  return Math.random()
+    .toString(36)
+    .slice(2, 2 + len);
 }
 
 function safeArr(v: any): string[] {
@@ -300,7 +324,7 @@ async function qrDataUrlLocal(text: string): Promise<string> {
         color: { dark: "#0b0c10", light: "#ffffff" },
       }),
       4500,
-      "QR generation"
+      "QR generation",
     );
     return String(dataUrl);
   } catch {
@@ -406,7 +430,7 @@ function ConfettiSides({ active }: { active: boolean }) {
             height: `${size * 1.55}px`,
             animationDelay: `${delay}s`,
           };
-        })
+        }),
       );
     });
   }, []);
@@ -415,9 +439,8 @@ function ConfettiSides({ active }: { active: boolean }) {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-      {pieceStyles.length > 0 && pieceStyles.map((style, i) => (
-        <div key={i} className="confetti" style={style} />
-      ))}
+      {pieceStyles.length > 0 &&
+        pieceStyles.map((style, i) => <div key={i} className="confetti" style={style} />)}
       <style jsx>{`
         .confetti {
           position: absolute;
@@ -457,9 +480,9 @@ type StepKey = "details" | "pricing" | "media" | "visibility" | "review";
 
 const STEPS: Array<{ key: StepKey; title: string; desc: string }> = [
   { key: "details", title: "Basics", desc: "Title, description, tags, code." },
-  { key: "pricing", title: "Pricing", desc: "Payments (beta = free)." },
+  { key: "pricing", title: "Pricing", desc: "Free or set a price ($3–$50)." },
   { key: "media", title: "Media", desc: "Thumbnail + optional demos." },
-  { key: "visibility", title: "Visibility", desc: "Public (beta)." },
+  { key: "visibility", title: "Visibility", desc: "Public." },
   { key: "review", title: "Review", desc: "Confirm and publish." },
 ];
 
@@ -480,7 +503,6 @@ function StepDot({
   canClick: boolean;
   onClick: () => void;
 }) {
-
   return (
     <button
       type="button"
@@ -488,7 +510,7 @@ function StepDot({
       className={cx(
         "group flex items-center gap-3 rounded-2xl px-3 py-2 text-left transition-colors",
         canClick ? "hover:bg-white/[0.04]" : "opacity-80",
-        active && "bg-white/[0.05]"
+        active && "bg-white/[0.05]",
       )}
     >
       <div
@@ -498,13 +520,15 @@ function StepDot({
             ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
             : active
               ? "border-white/20 bg-white/[0.06] text-white"
-              : "border-white/12 bg-white/[0.03] text-white/80"
+              : "border-white/12 bg-white/[0.03] text-white/80",
         )}
       >
         {done ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
       </div>
       <div className="min-w-0">
-        <div className={cx("text-[12px] font-semibold", active ? "text-white" : "text-white/85")}>{title}</div>
+        <div className={cx("text-[12px] font-semibold", active ? "text-white" : "text-white/85")}>
+          {title}
+        </div>
         <div className="text-[11px] text-white/45 truncate">{desc}</div>
       </div>
     </button>
@@ -545,7 +569,9 @@ export default function PublishPromptModal({
 
   const [edgazeCode, setEdgazeCode] = useState<string>("");
 
-  const [codeStatus, setCodeStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+  const [codeStatus, setCodeStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "invalid"
+  >("idle");
   const [codeMsg, setCodeMsg] = useState<string>("");
 
   const codeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -566,6 +592,7 @@ export default function PublishPromptModal({
   const [published, setPublished] = useState(false);
   const [publishedCode, setPublishedCode] = useState("");
   const [publishedUrl, setPublishedUrl] = useState("");
+  const [acceptedCreatorTerms, setAcceptedCreatorTerms] = useState(false);
 
   const [confetti, setConfetti] = useState(false);
 
@@ -582,10 +609,11 @@ export default function PublishPromptModal({
   const safeTitle = (title || "").trim();
   const safeDescription = (description || "").trim();
 
-  const demoCount =
-    demoUrlsPicked.filter(Boolean).length + demoFiles.filter((f) => !!f).length;
+  const demoCount = demoUrlsPicked.filter(Boolean).length + demoFiles.filter((f) => !!f).length;
 
-  const hasValidPlaceholders = placeholders.every((p) => (p.name || "").trim() && (p.question || "").trim());
+  const hasValidPlaceholders = placeholders.every(
+    (p) => (p.name || "").trim() && (p.question || "").trim(),
+  );
 
   const isDetailsValid =
     safeTitle.length > 0 &&
@@ -595,8 +623,10 @@ export default function PublishPromptModal({
     hasValidPlaceholders;
 
   const priceNum = monetisationMode === "paywall" ? Number(priceUsd) || 0 : 0;
-  const priceValidation = monetisationMode === "paywall" ? validatePromptPrice(priceNum) : { valid: true };
-  const isPricingValid = monetisationMode === "free" || (monetisationMode === "paywall" && canReceivePayments && priceValidation.valid);
+  const priceValidation =
+    monetisationMode === "paywall" ? validatePromptPrice(priceNum) : { valid: true };
+  const isPricingValid =
+    monetisationMode === "free" || (monetisationMode === "paywall" && priceValidation.valid);
 
   // Media: demo images optional during beta
   const isMediaValid = true;
@@ -604,7 +634,13 @@ export default function PublishPromptModal({
   // Visibility: only public enabled during beta
   const isVisibilityValid = visibility === "public";
 
-  const isReviewValid = isDetailsValid && isPricingValid && isMediaValid && isVisibilityValid;
+  const needsTermsAcceptance = monetisationMode === "paywall" && !canReceivePayments;
+  const isReviewValid =
+    isDetailsValid &&
+    isPricingValid &&
+    isMediaValid &&
+    isVisibilityValid &&
+    (!needsTermsAcceptance || acceptedCreatorTerms);
 
   const canPublish = !busy && !!userId && codeStatus === "available" && isReviewValid;
 
@@ -615,6 +651,7 @@ export default function PublishPromptModal({
     setPublishedCode("");
     setPublishedUrl("");
     setParentNotified(false);
+    setAcceptedCreatorTerms(false);
     setErr(null);
     setBusy(false);
     setQrBusy(false);
@@ -688,7 +725,11 @@ export default function PublishPromptModal({
     setCodeStatus("checking");
     setCodeMsg("Checking…");
 
-    const { data, error } = await supabase.from("prompts").select("id").eq("edgaze_code", c).limit(1);
+    const { data, error } = await supabase
+      .from("prompts")
+      .select("id")
+      .eq("edgaze_code", c)
+      .limit(1);
 
     if (error) {
       setCodeStatus("idle");
@@ -697,7 +738,9 @@ export default function PublishPromptModal({
     }
 
     // If editing, exclude the current prompt from the check
-    const taken = Array.isArray(data) && data.length > 0 && 
+    const taken =
+      Array.isArray(data) &&
+      data.length > 0 &&
       (!editId || !data.some((row: any) => row.id === editId));
     setCodeStatus(taken ? "taken" : "available");
     setCodeMsg(taken ? "Taken" : "Available");
@@ -731,7 +774,8 @@ export default function PublishPromptModal({
 
     const { data } = await supabase.from("prompts").select("id").eq("edgaze_code", base).limit(1);
     // If editing, exclude the current prompt from the check
-    const taken = data && data.length > 0 && (!editId || !data.some((row: any) => row.id === editId));
+    const taken =
+      data && data.length > 0 && (!editId || !data.some((row: any) => row.id === editId));
     if (!taken) {
       setCodeStatus("available");
       setCodeMsg("Available");
@@ -741,7 +785,11 @@ export default function PublishPromptModal({
 
     for (let i = 0; i < 6; i++) {
       const next = `${base}-${randomSuffix(4)}`.slice(0, 32);
-      const { data: d2 } = await supabase.from("prompts").select("id").eq("edgaze_code", next).limit(1);
+      const { data: d2 } = await supabase
+        .from("prompts")
+        .select("id")
+        .eq("edgaze_code", next)
+        .limit(1);
       const taken2 = d2 && d2.length > 0 && (!editId || !d2.some((row: any) => row.id === editId));
       if (!taken2) {
         setCodeStatus("available");
@@ -828,7 +876,9 @@ export default function PublishPromptModal({
 
       try {
         const blob = await (await fetch(qr)).blob();
-        const qrFile = new File([blob], `edgaze-qr-${normalizeEdgazeCode(edgazeCode)}.png`, { type: "image/png" });
+        const qrFile = new File([blob], `edgaze-qr-${normalizeEdgazeCode(edgazeCode)}.png`, {
+          type: "image/png",
+        });
         await withTimeout(
           uploadFileToBucket({
             supabase,
@@ -838,7 +888,7 @@ export default function PublishPromptModal({
             file: qrFile,
           }),
           9000,
-          "QR upload"
+          "QR upload",
         );
       } catch {
         // ignore upload failures
@@ -888,7 +938,7 @@ export default function PublishPromptModal({
     // Media: demo images are optional during beta
 
     if (key === "pricing") {
-      if (monetisationMode === "paywall" && canReceivePayments && !priceValidation.valid) {
+      if (monetisationMode === "paywall" && !priceValidation.valid) {
         return setErr(priceValidation.error || "Invalid price.");
       }
     }
@@ -953,9 +1003,7 @@ export default function PublishPromptModal({
       }
 
       const effectiveMonetisation: MonetisationMode =
-        canReceivePayments && monetisationMode === "paywall"
-          ? "paywall"
-          : "free";
+        monetisationMode === "paywall" ? "paywall" : "free";
       const effectivePrice =
         effectiveMonetisation === "paywall"
           ? (() => {
@@ -968,11 +1016,11 @@ export default function PublishPromptModal({
       const cleanTags = safeArr(tagsInput);
 
       let promptId: string;
-      
+
       if (editId) {
         // Update existing prompt
         promptId = editId;
-        
+
         const updateRow: any = {
           title: safeTitle,
           description: safeDescription,
@@ -992,7 +1040,10 @@ export default function PublishPromptModal({
           updated_at: new Date().toISOString(),
         };
 
-        const { error: updateErr } = await supabase.from("prompts").update(updateRow).eq("id", editId);
+        const { error: updateErr } = await supabase
+          .from("prompts")
+          .update(updateRow)
+          .eq("id", editId);
         if (updateErr) throw updateErr;
       } else {
         // Create new prompt
@@ -1026,7 +1077,11 @@ export default function PublishPromptModal({
           updated_at: new Date().toISOString(),
         };
 
-        const { data: created, error: createErr } = await supabase.from("prompts").insert(insertRow).select("id").single();
+        const { data: created, error: createErr } = await supabase
+          .from("prompts")
+          .insert(insertRow)
+          .select("id")
+          .single();
         if (createErr) throw createErr;
 
         promptId = created?.id as string;
@@ -1062,7 +1117,7 @@ export default function PublishPromptModal({
 
       const demoUrls: string[] = [];
       const seenUrls = new Set<string>();
-      
+
       // Add picked URLs (these come from asset picker or existing demos when editing)
       for (const u of demoUrlsPicked) {
         if (u && !seenUrls.has(u)) {
@@ -1070,7 +1125,7 @@ export default function PublishPromptModal({
           seenUrls.add(u);
         }
       }
-      
+
       // Preserve existing demo URLs when editing (if not already added)
       if (editId && meta?.demoImageUrls) {
         for (const u of meta.demoImageUrls) {
@@ -1106,7 +1161,10 @@ export default function PublishPromptModal({
           output_demo_urls: demoFinal.length ? demoFinal : null,
           updated_at: new Date().toISOString(),
         };
-        const { error: patchErr } = await supabase.from("prompts").update(mediaPatch).eq("id", promptId);
+        const { error: patchErr } = await supabase
+          .from("prompts")
+          .update(mediaPatch)
+          .eq("id", promptId);
         if (patchErr) throw patchErr;
       } else {
         // For new prompts, update media separately
@@ -1165,7 +1223,8 @@ export default function PublishPromptModal({
       className={cx(
         "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold",
         "bg-white text-black hover:bg-white/90 transition-colors",
-        (stepKey === "review" ? !canPublish : !stepCanAdvance(step)) && "opacity-60 cursor-not-allowed"
+        (stepKey === "review" ? !canPublish : !stepCanAdvance(step)) &&
+          "opacity-60 cursor-not-allowed",
       )}
     >
       {busy ? (
@@ -1205,7 +1264,15 @@ export default function PublishPromptModal({
           {/* Header */}
           <div className="h-[72px] sm:h-[76px] px-4 sm:px-6 flex items-center justify-between border-b border-white/10">
             <div className="flex items-center gap-3 min-w-0">
-              <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={32} height={32} className="h-8 w-8" priority style={{ width: "auto", height: "auto" }} />
+              <Image
+                src="/brand/edgaze-mark.png"
+                alt="Edgaze"
+                width={32}
+                height={32}
+                className="h-8 w-8"
+                priority
+                style={{ width: "auto", height: "auto" }}
+              />
               <div className="min-w-0">
                 <div className="text-[15px] sm:text-[16px] font-semibold text-white leading-tight truncate">
                   {published ? "Published" : editId ? "Edit prompt" : "Publish prompt"}
@@ -1225,7 +1292,7 @@ export default function PublishPromptModal({
                 onClick={published ? undefined : closeNow}
                 className={cx(
                   "grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10",
-                  published && "opacity-60 cursor-not-allowed"
+                  published && "opacity-60 cursor-not-allowed",
                 )}
                 aria-label="Close"
               >
@@ -1246,40 +1313,30 @@ export default function PublishPromptModal({
               </div>
 
               <div className="mt-3 space-y-1.5">
-              {STEPS.map((s, i) => {
-  const canClick =
-    i <= step ||
-    (() => {
-      for (let k = 0; k < i; k++) {
-        if (!stepCanAdvance(k)) return false;
-      }
-      return true;
-    })();
+                {STEPS.map((s, i) => {
+                  const canClick =
+                    i <= step ||
+                    (() => {
+                      for (let k = 0; k < i; k++) {
+                        if (!stepCanAdvance(k)) return false;
+                      }
+                      return true;
+                    })();
 
-  return (
-    <StepDot
-      key={s.key}
-      index={i}
-      title={s.title}
-      desc={s.desc}
-      active={i === step}
-      done={!!completed[s.key]}
-      canClick={canClick && !busy && !published}
-      onClick={() => goToStep(i)}
-    />
-  );
-})}
-
+                  return (
+                    <StepDot
+                      key={s.key}
+                      index={i}
+                      title={s.title}
+                      desc={s.desc}
+                      active={i === step}
+                      done={!!completed[s.key]}
+                      canClick={canClick && !busy && !published}
+                      onClick={() => goToStep(i)}
+                    />
+                  );
+                })}
               </div>
-
-              {!published ? (
-                <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <div className="text-[11px] font-semibold text-white/70">Beta constraints</div>
-                  <div className="mt-1 text-[11px] text-white/50">
-                    Payments are unavailable during beta. Visibility is Public only.
-                  </div>
-                </div>
-              ) : null}
 
               {err ? (
                 <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-3 text-[12px] text-red-200">
@@ -1298,7 +1355,7 @@ export default function PublishPromptModal({
                     disabled={step === 0 || busy}
                     className={cx(
                       "h-10 flex-1 inline-flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/5 px-3 text-[12px] font-semibold text-white/85 hover:bg-white/10",
-                      (step === 0 || busy) && "opacity-60 cursor-not-allowed"
+                      (step === 0 || busy) && "opacity-60 cursor-not-allowed",
                     )}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -1312,7 +1369,8 @@ export default function PublishPromptModal({
                     className={cx(
                       "h-10 flex-1 inline-flex items-center justify-center gap-2 rounded-2xl px-3 text-[12px] font-semibold",
                       "bg-white text-black hover:bg-white/90",
-                      (stepKey === "review" ? !canPublish : !stepCanAdvance(step)) && "opacity-60 cursor-not-allowed"
+                      (stepKey === "review" ? !canPublish : !stepCanAdvance(step)) &&
+                        "opacity-60 cursor-not-allowed",
                     )}
                   >
                     {stepKey === "review" ? (
@@ -1339,7 +1397,9 @@ export default function PublishPromptModal({
                     <div className="space-y-4">
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                         <div className="text-[12px] font-semibold text-white/85">Basic details</div>
-                        <div className="text-[11px] text-white/50 mt-1">Make it clear and searchable.</div>
+                        <div className="text-[11px] text-white/50 mt-1">
+                          Make it clear and searchable.
+                        </div>
 
                         <div className="mt-4">
                           <div className="text-[12px] font-semibold text-white/80">Title</div>
@@ -1367,7 +1427,9 @@ export default function PublishPromptModal({
 
                         <div className="mt-4 grid grid-cols-12 gap-3">
                           <div className="col-span-12 lg:col-span-7">
-                            <div className="text-[12px] font-semibold text-white/80">Edgaze code</div>
+                            <div className="text-[12px] font-semibold text-white/80">
+                              Edgaze code
+                            </div>
                             <input
                               value={edgazeCode}
                               onChange={(e) => setEdgazeCode(e.target.value)}
@@ -1376,12 +1438,16 @@ export default function PublishPromptModal({
                             />
                             <div className="mt-2 text-[11px] text-white/45">
                               Link format: <span className="text-white/70">/p/{ownerHandle}/</span>
-                              <span className="text-white/70">{normalizeEdgazeCode(edgazeCode) || "your-code"}</span>
+                              <span className="text-white/70">
+                                {normalizeEdgazeCode(edgazeCode) || "your-code"}
+                              </span>
                             </div>
                           </div>
 
                           <div className="col-span-12 lg:col-span-5">
-                            <div className="text-[12px] font-semibold text-white/80">Availability</div>
+                            <div className="text-[12px] font-semibold text-white/80">
+                              Availability
+                            </div>
                             <div
                               className={cx(
                                 "mt-2 rounded-2xl border px-4 py-3 text-[12px] font-semibold",
@@ -1391,7 +1457,7 @@ export default function PublishPromptModal({
                                     ? "border-red-500/25 bg-red-500/10 text-red-200"
                                     : codeStatus === "invalid"
                                       ? "border-amber-500/25 bg-amber-500/10 text-amber-200"
-                                      : "border-white/10 bg-black/35 text-white/70"
+                                      : "border-white/10 bg-black/35 text-white/70",
                               )}
                             >
                               {codeStatus === "checking" ? "Checking…" : codeMsg || "—"}
@@ -1427,11 +1493,19 @@ export default function PublishPromptModal({
                               <div
                                 className={cx(
                                   "flex items-center justify-between rounded-2xl border px-4 py-3",
-                                  i.ok ? "border-cyan-400/20 bg-cyan-400/10" : "border-white/10 bg-black/35"
+                                  i.ok
+                                    ? "border-cyan-400/20 bg-cyan-400/10"
+                                    : "border-white/10 bg-black/35",
                                 )}
                               >
-                                <div className="text-[12px] font-semibold text-white">{i.label}</div>
-                                {i.ok ? <CheckCircle2 className="h-4 w-4 text-cyan-200" /> : <div className="text-[11px] text-white/45">—</div>}
+                                <div className="text-[12px] font-semibold text-white">
+                                  {i.label}
+                                </div>
+                                {i.ok ? (
+                                  <CheckCircle2 className="h-4 w-4 text-cyan-200" />
+                                ) : (
+                                  <div className="text-[11px] text-white/45">—</div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -1443,27 +1517,17 @@ export default function PublishPromptModal({
                   {stepKey === "pricing" ? (
                     <div className="space-y-4">
                       {!canReceivePayments && (
-                        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
-                          <div className="flex items-start gap-3">
-                            <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
-                            <div>
-                              <div className="text-[12px] font-semibold text-amber-200">You haven&apos;t connected payments</div>
-                              <div className="mt-1 text-[11px] text-white/70">
-                                Join the Edgaze Creator Program and connect your payout account to enable payments.
-                              </div>
-                              <span className="mt-3 inline-flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-[12px] font-semibold text-white/70 cursor-not-allowed">
-                                Coming soon
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                        <PayoutSystemCard
+                          variant="prompt"
+                          showCheckbox={monetisationMode === "paywall"}
+                          acceptedCreatorTerms={acceptedCreatorTerms}
+                          onAcceptedChange={setAcceptedCreatorTerms}
+                        />
                       )}
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                         <div className="text-[12px] font-semibold text-white/85">Pricing</div>
                         <div className="text-[11px] text-white/50 mt-1">
-                          {canReceivePayments
-                            ? "Choose Free or set a price ($3–$50 for prompts)."
-                            : "Your prompt will be published as Free until you connect payments."}
+                          Choose Free or set a price ($3–$50 for prompts).
                         </div>
 
                         <div className="mt-4 grid grid-cols-12 gap-3">
@@ -1474,48 +1538,47 @@ export default function PublishPromptModal({
                               "col-span-12 md:col-span-6 rounded-2xl border p-4 text-left transition-colors",
                               monetisationMode === "free"
                                 ? "border-cyan-400/25 bg-cyan-400/10"
-                                : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]"
+                                : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]",
                             )}
-                            
                           >
                             <div className="flex items-center justify-between">
                               <div className="text-[12px] font-semibold text-white">Free</div>
-                              {monetisationMode === "free" ? <CheckCircle2 className="h-4 w-4 text-cyan-200" /> : null}
-
+                              {monetisationMode === "free" ? (
+                                <CheckCircle2 className="h-4 w-4 text-cyan-200" />
+                              ) : null}
                             </div>
-                            <div className="text-[11px] text-white/55 mt-1">Everyone can use it.</div>
+                            <div className="text-[11px] text-white/55 mt-1">
+                              Everyone can use it.
+                            </div>
                           </button>
 
                           <button
                             type="button"
-                            disabled={!canReceivePayments}
-                            onClick={() => canReceivePayments && setMonetisationMode("paywall")}
+                            onClick={() => setMonetisationMode("paywall")}
                             className={cx(
                               "col-span-12 md:col-span-6 rounded-2xl border p-4 text-left transition-colors",
-                              !canReceivePayments && "border-white/10 bg-white/[0.02] opacity-70 cursor-not-allowed",
-                              canReceivePayments && monetisationMode === "paywall"
+                              monetisationMode === "paywall"
                                 ? "border-cyan-400/25 bg-cyan-400/10"
-                                : canReceivePayments && "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]"
+                                : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]",
                             )}
                           >
                             <div className="flex items-center justify-between">
                               <div className="text-[12px] font-semibold text-white">Paywall</div>
-                              {monetisationMode === "paywall" ? <CheckCircle2 className="h-4 w-4 text-cyan-200" /> : null}
-                              {!canReceivePayments && (
-                                <span className="text-[10px] rounded-full border border-white/10 bg-white/[0.05] px-2 py-1 text-white/70">
-                                  Connect payouts first
-                                </span>
-                              )}
+                              {monetisationMode === "paywall" ? (
+                                <CheckCircle2 className="h-4 w-4 text-cyan-200" />
+                              ) : null}
                             </div>
                             <div className="text-[11px] text-white/55 mt-1">
-                              {canReceivePayments ? "Charge $3–$50 per purchase." : "Connect payouts to enable."}
+                              Charge $3–$50 per purchase.
                             </div>
                           </button>
                         </div>
 
-                        {canReceivePayments && monetisationMode === "paywall" && (
-                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4">
-                          <div className="text-[12px] font-semibold text-white/90 mb-2">Price (USD)</div>
+                        {monetisationMode === "paywall" && (
+                          <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4">
+                            <div className="text-[12px] font-semibold text-white/90 mb-2">
+                              Price (USD)
+                            </div>
                             <input
                               type="number"
                               min={MIN_TRANSACTION_USD}
@@ -1527,10 +1590,14 @@ export default function PublishPromptModal({
                               placeholder="3.99"
                             />
                             {priceValidation.error && (
-                              <p className="mt-2 text-[11px] text-amber-400">{priceValidation.error}</p>
+                              <p className="mt-2 text-[11px] text-amber-400">
+                                {priceValidation.error}
+                              </p>
                             )}
-                          <p className="mt-2 text-[11px] text-white/45">Minimum $3, maximum $50 for prompts.</p>
-                        </div>
+                            <p className="mt-2 text-[11px] text-white/45">
+                              Minimum $3, maximum $50 for prompts.
+                            </p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -1542,7 +1609,9 @@ export default function PublishPromptModal({
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <div className="text-[12px] font-semibold text-white/85">Thumbnail</div>
-                            <div className="text-[11px] text-white/50 mt-1">Upload, pick from assets, or use auto-generated.</div>
+                            <div className="text-[11px] text-white/50 mt-1">
+                              Upload, pick from assets, or use auto-generated.
+                            </div>
                           </div>
                           <button
                             type="button"
@@ -1559,15 +1628,22 @@ export default function PublishPromptModal({
                             <div className="rounded-3xl border border-white/10 bg-black/35 p-4">
                               <div className="flex items-center justify-between">
                                 <div className="text-[11px] font-semibold text-white/70">
-                                  {meta?.thumbnailUrl ? "Selected from assets" : thumbnailFile ? "Uploaded" : "Auto"}
+                                  {meta?.thumbnailUrl
+                                    ? "Selected from assets"
+                                    : thumbnailFile
+                                      ? "Uploaded"
+                                      : "Auto"}
                                 </div>
                                 <button
                                   type="button"
                                   onClick={generateAutoThumbnail}
-                                  disabled={autoThumbBusy || !!meta?.thumbnailUrl || !!thumbnailFile}
+                                  disabled={
+                                    autoThumbBusy || !!meta?.thumbnailUrl || !!thumbnailFile
+                                  }
                                   className={cx(
                                     "inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 hover:bg-white/10",
-                                    (autoThumbBusy || !!meta?.thumbnailUrl || !!thumbnailFile) && "opacity-60 cursor-not-allowed"
+                                    (autoThumbBusy || !!meta?.thumbnailUrl || !!thumbnailFile) &&
+                                      "opacity-60 cursor-not-allowed",
                                   )}
                                 >
                                   <RotateCcw className="h-3.5 w-3.5" />
@@ -1577,14 +1653,23 @@ export default function PublishPromptModal({
 
                               <div className="mt-3 aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
                                 {meta?.thumbnailUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={meta.thumbnailUrl} alt="Thumbnail" className="h-full w-full object-cover" />
+                                  <img
+                                    src={meta.thumbnailUrl}
+                                    alt="Thumbnail"
+                                    className="h-full w-full object-cover"
+                                  />
                                 ) : thumbnailFile ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={URL.createObjectURL(thumbnailFile)} alt="Thumbnail upload" className="h-full w-full object-cover" />
+                                  <img
+                                    src={URL.createObjectURL(thumbnailFile)}
+                                    alt="Thumbnail upload"
+                                    className="h-full w-full object-cover"
+                                  />
                                 ) : autoThumbDataUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={autoThumbDataUrl} alt="Auto thumbnail" className="h-full w-full object-cover" />
+                                  <img
+                                    src={autoThumbDataUrl}
+                                    alt="Auto thumbnail"
+                                    className="h-full w-full object-cover"
+                                  />
                                 ) : (
                                   <div className="h-full w-full grid place-items-center text-[11px] text-white/55">
                                     {autoThumbBusy ? "Generating…" : "No thumbnail"}
@@ -1593,14 +1678,17 @@ export default function PublishPromptModal({
                               </div>
 
                               <div className="mt-3 text-[11px] text-white/45">
-                                Auto thumbnail stays in sync with your prompt unless you upload/pick one.
+                                Auto thumbnail stays in sync with your prompt unless you upload/pick
+                                one.
                               </div>
                             </div>
                           </div>
 
                           <div className="col-span-12 lg:col-span-5">
                             <div className="rounded-3xl border border-white/10 bg-black/35 p-4">
-                              <div className="text-[11px] font-semibold text-white/70">Upload a thumbnail</div>
+                              <div className="text-[11px] font-semibold text-white/70">
+                                Upload a thumbnail
+                              </div>
                               <input
                                 type="file"
                                 accept="image/*"
@@ -1610,7 +1698,8 @@ export default function PublishPromptModal({
                                   setThumbnailFile(f);
                                   if (f) {
                                     // if user uploads, clear asset-selected thumb (avoid ambiguity)
-                                    if (meta?.thumbnailUrl) onMetaChange?.({ ...meta, thumbnailUrl: "" });
+                                    if (meta?.thumbnailUrl)
+                                      onMetaChange?.({ ...meta, thumbnailUrl: "" });
                                   }
                                 }}
                               />
@@ -1621,7 +1710,7 @@ export default function PublishPromptModal({
                                 }}
                                 className={cx(
                                   "mt-3 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] text-white/80 hover:bg-white/10",
-                                  !thumbnailFile && "opacity-60 cursor-not-allowed"
+                                  !thumbnailFile && "opacity-60 cursor-not-allowed",
                                 )}
                                 disabled={!thumbnailFile}
                               >
@@ -1640,7 +1729,9 @@ export default function PublishPromptModal({
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="text-[12px] font-semibold text-white/85">Demo images</div>
+                            <div className="text-[12px] font-semibold text-white/85">
+                              Demo images
+                            </div>
                             <div className="text-[11px] text-white/50 mt-1">
                               Optional. Add up to 6 example outputs.
                             </div>
@@ -1657,8 +1748,12 @@ export default function PublishPromptModal({
                               className="col-span-12 sm:col-span-6 lg:col-span-4 rounded-2xl border border-white/10 bg-black/35 p-3"
                             >
                               <div className="flex items-center justify-between">
-                                <div className="text-[11px] font-semibold text-white/70">Slot {i + 1}</div>
-                                {demoFiles[i] ? <CheckCircle2 className="h-4 w-4 text-cyan-200" /> : null}
+                                <div className="text-[11px] font-semibold text-white/70">
+                                  Slot {i + 1}
+                                </div>
+                                {demoFiles[i] ? (
+                                  <CheckCircle2 className="h-4 w-4 text-cyan-200" />
+                                ) : null}
                               </div>
 
                               <input
@@ -1676,9 +1771,13 @@ export default function PublishPromptModal({
                               />
 
                               {demoFiles[i] ? (
-                                <div className="mt-2 text-[11px] text-white/45 truncate">{demoFiles[i]?.name}</div>
+                                <div className="mt-2 text-[11px] text-white/45 truncate">
+                                  {demoFiles[i]?.name}
+                                </div>
                               ) : (
-                                <div className="mt-2 text-[11px] text-white/45">Upload an example output.</div>
+                                <div className="mt-2 text-[11px] text-white/45">
+                                  Upload an example output.
+                                </div>
                               )}
                             </div>
                           ))}
@@ -1692,7 +1791,7 @@ export default function PublishPromptModal({
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                         <div className="text-[12px] font-semibold text-white/85">Visibility</div>
                         <div className="text-[11px] text-white/50 mt-1">
-                          During beta, only <span className="text-white/80 font-semibold">Public</span> is available.
+                          Choose who can see your prompt.
                         </div>
 
                         <div className="mt-4 grid grid-cols-12 gap-3">
@@ -1710,7 +1809,7 @@ export default function PublishPromptModal({
                                     ? "border-white/10 bg-white/[0.02] opacity-70 cursor-not-allowed"
                                     : visibility === v
                                       ? "border-cyan-400/25 bg-cyan-400/10"
-                                      : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]"
+                                      : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]",
                                 )}
                               >
                                 <div className="flex items-center justify-between">
@@ -1724,7 +1823,11 @@ export default function PublishPromptModal({
                                   )}
                                 </div>
                                 <div className="text-[11px] text-white/55 mt-1">
-                                  {v === "public" ? "Visible to everyone." : v === "unlisted" ? "Only via link." : "Only you."}
+                                  {v === "public"
+                                    ? "Visible to everyone."
+                                    : v === "unlisted"
+                                      ? "Only via link."
+                                      : "Only you."}
                                 </div>
                               </button>
                             );
@@ -1738,23 +1841,37 @@ export default function PublishPromptModal({
                     <div className="space-y-4">
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
                         <div className="text-[12px] font-semibold text-white/85">Review</div>
-                        <div className="text-[11px] text-white/50 mt-1">Confirm everything before publishing.</div>
+                        <div className="text-[11px] text-white/50 mt-1">
+                          Confirm everything before publishing.
+                        </div>
 
                         <div className="mt-4 grid grid-cols-12 gap-3">
                           <div className="col-span-12 lg:col-span-7 rounded-3xl border border-white/10 bg-black/35 p-4">
                             <div className="text-[11px] font-semibold text-white/70">Title</div>
-                            <div className="mt-1 text-[14px] font-semibold text-white">{safeTitle || "—"}</div>
+                            <div className="mt-1 text-[14px] font-semibold text-white">
+                              {safeTitle || "—"}
+                            </div>
 
-                            <div className="mt-4 text-[11px] font-semibold text-white/70">Description</div>
-                            <div className="mt-1 text-[12px] text-white/75 whitespace-pre-wrap">{safeDescription || "—"}</div>
+                            <div className="mt-4 text-[11px] font-semibold text-white/70">
+                              Description
+                            </div>
+                            <div className="mt-1 text-[12px] text-white/75 whitespace-pre-wrap">
+                              {safeDescription || "—"}
+                            </div>
 
                             <div className="mt-4 grid grid-cols-12 gap-3">
                               <div className="col-span-12 sm:col-span-6">
-                                <div className="text-[11px] font-semibold text-white/70">Edgaze code</div>
-                                <div className="mt-1 text-[12px] text-white/80">{normalizeEdgazeCode(edgazeCode) || "—"}</div>
+                                <div className="text-[11px] font-semibold text-white/70">
+                                  Edgaze code
+                                </div>
+                                <div className="mt-1 text-[12px] text-white/80">
+                                  {normalizeEdgazeCode(edgazeCode) || "—"}
+                                </div>
                               </div>
                               <div className="col-span-12 sm:col-span-6">
-                                <div className="text-[11px] font-semibold text-white/70">Visibility</div>
+                                <div className="text-[11px] font-semibold text-white/70">
+                                  Visibility
+                                </div>
                                 <div className="mt-1 text-[12px] text-white/80">Public</div>
                               </div>
                             </div>
@@ -1762,14 +1879,16 @@ export default function PublishPromptModal({
                             <div className="mt-4 text-[11px] font-semibold text-white/70">Tags</div>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {safeArr(tagsInput).length ? (
-                                safeArr(tagsInput).slice(0, 10).map((t) => (
-                                  <span
-                                    key={t}
-                                    className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/80"
-                                  >
-                                    {t}
-                                  </span>
-                                ))
+                                safeArr(tagsInput)
+                                  .slice(0, 10)
+                                  .map((t) => (
+                                    <span
+                                      key={t}
+                                      className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/80"
+                                    >
+                                      {t}
+                                    </span>
+                                  ))
                               ) : (
                                 <span className="text-[11px] text-white/45">No tags</span>
                               )}
@@ -1777,7 +1896,9 @@ export default function PublishPromptModal({
                           </div>
 
                           <div className="col-span-12 lg:col-span-5 rounded-3xl border border-white/10 bg-black/35 p-4">
-                            <div className="text-[11px] font-semibold text-white/70">Prompt preview (blurred)</div>
+                            <div className="text-[11px] font-semibold text-white/70">
+                              Prompt preview (blurred)
+                            </div>
                             <div className="mt-2 rounded-2xl border border-white/10 bg-black/40 p-3 overflow-hidden relative">
                               <div
                                 className="text-[12px] leading-relaxed text-white/85 select-none whitespace-pre-wrap"
@@ -1801,18 +1922,56 @@ export default function PublishPromptModal({
                             </div>
 
                             <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                              <div className="text-[11px] font-semibold text-white/80">By publishing</div>
+                              <div className="text-[11px] font-semibold text-white/80">
+                                By publishing
+                              </div>
                               <div className="mt-1 text-[11px] text-white/50">
                                 You agree to our{" "}
-                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/terms-of-service" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+                                <a
+                                  className="text-white/80 hover:text-white underline underline-offset-4"
+                                  href="/docs/terms-of-service"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Terms of Service
+                                </a>
                                 ,{" "}
-                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+                                <a
+                                  className="text-white/80 hover:text-white underline underline-offset-4"
+                                  href="/docs/privacy-policy"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Privacy Policy
+                                </a>
                                 ,{" "}
-                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/creator-terms" target="_blank" rel="noopener noreferrer">Creator Terms</a>
+                                <a
+                                  className="text-white/80 hover:text-white underline underline-offset-4"
+                                  href="/docs/creator-terms"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Creator Terms
+                                </a>
                                 ,{" "}
-                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/community-guidelines" target="_blank" rel="noopener noreferrer">Community Guidelines</a>
+                                <a
+                                  className="text-white/80 hover:text-white underline underline-offset-4"
+                                  href="/docs/community-guidelines"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Community Guidelines
+                                </a>
                                 , and{" "}
-                                <a className="text-white/80 hover:text-white underline underline-offset-4" href="/docs/refund-policy" target="_blank" rel="noopener noreferrer">Refund Policy</a>.
+                                <a
+                                  className="text-white/80 hover:text-white underline underline-offset-4"
+                                  href="/docs/refund-policy"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  Refund Policy
+                                </a>
+                                .
                               </div>
                             </div>
                           </div>
@@ -1822,11 +1981,12 @@ export default function PublishPromptModal({
                           <div className="flex items-center justify-between">
                             <div className="text-[11px] font-semibold text-white/70">Media</div>
                             <div className="text-[11px] font-semibold rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1.5 text-cyan-200">
-                              Thumbnail {demoCount > 0 ? `+ ${demoCount} demo(s)` : "(demos optional)"}
+                              Thumbnail{" "}
+                              {demoCount > 0 ? `+ ${demoCount} demo(s)` : "(demos optional)"}
                             </div>
                           </div>
                           <div className="mt-1 text-[11px] text-white/50">
-                            Demo images are optional during beta.
+                            Demo images are optional.
                           </div>
                         </div>
                       </div>
@@ -1845,9 +2005,13 @@ export default function PublishPromptModal({
                     <div className="mt-4 grid grid-cols-12 gap-4">
                       <div className="col-span-12 lg:col-span-7 rounded-3xl border border-white/10 bg-black/35 p-4">
                         <div className="text-[11px] font-semibold text-white/70">Edgaze code</div>
-                        <div className="mt-2 text-[34px] font-semibold tracking-tight text-white leading-none">{publishedCode}</div>
+                        <div className="mt-2 text-[34px] font-semibold tracking-tight text-white leading-none">
+                          {publishedCode}
+                        </div>
 
-                        <div className="mt-4 text-[11px] font-semibold text-white/70">Share link</div>
+                        <div className="mt-4 text-[11px] font-semibold text-white/70">
+                          Share link
+                        </div>
                         <div className="mt-2 flex items-center gap-2">
                           <div className="flex-1 rounded-2xl border border-white/10 bg-black/40 px-3 py-2 text-[12px] text-white/80 overflow-hidden">
                             <span className="inline-flex items-center gap-2">
@@ -1869,7 +2033,14 @@ export default function PublishPromptModal({
                         </div>
 
                         <div className="mt-4 text-[11px] text-white/45">
-                          Published as <span className="text-white/70 font-semibold">Free</span> during beta.
+                          Published as{" "}
+                          {monetisationMode === "free" ? (
+                            <span className="font-semibold text-emerald-400">Free</span>
+                          ) : (
+                            <span className="font-semibold text-white/90">
+                              ${Number(priceUsd || 0).toFixed(2)}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -1881,7 +2052,11 @@ export default function PublishPromptModal({
                             onClick={async () => {
                               setQrBusy(true);
                               try {
-                                const qr = await withTimeout(qrWithCenteredLogoDataUrl(publishedUrl), 9000, "QR render");
+                                const qr = await withTimeout(
+                                  qrWithCenteredLogoDataUrl(publishedUrl),
+                                  9000,
+                                  "QR render",
+                                );
                                 setQrDataUrl(qr);
                               } finally {
                                 setQrBusy(false);
@@ -1902,10 +2077,15 @@ export default function PublishPromptModal({
                                 Generating…
                               </div>
                             ) : qrDataUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={qrDataUrl} alt="Edgaze QR" className="h-full w-full object-cover" />
+                              <img
+                                src={qrDataUrl}
+                                alt="Edgaze QR"
+                                className="h-full w-full object-cover"
+                              />
                             ) : (
-                              <div className="text-[12px] text-white/55">{qrErr || "QR unavailable"}</div>
+                              <div className="text-[12px] text-white/55">
+                                {qrErr || "QR unavailable"}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1914,10 +2094,17 @@ export default function PublishPromptModal({
                           <button
                             type="button"
                             disabled={!qrDataUrl}
-                            onClick={() => (qrDataUrl ? downloadDataUrl(qrDataUrl, `edgaze-qr-${publishedCode || "prompt"}.png`) : null)}
+                            onClick={() =>
+                              qrDataUrl
+                                ? downloadDataUrl(
+                                    qrDataUrl,
+                                    `edgaze-qr-${publishedCode || "prompt"}.png`,
+                                  )
+                                : null
+                            }
                             className={cx(
                               "h-10 flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 text-[12px] font-semibold text-white/90 hover:bg-white/10",
-                              !qrDataUrl && "opacity-60 cursor-not-allowed"
+                              !qrDataUrl && "opacity-60 cursor-not-allowed",
                             )}
                           >
                             <span className="inline-flex items-center gap-2 justify-center w-full">
@@ -1931,11 +2118,51 @@ export default function PublishPromptModal({
 
                     <div className="mt-4 text-[11px] text-white/45">
                       You agreed to{" "}
-                      <a href="/docs/terms-of-service" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Terms</a>
-                      , <a href="/docs/privacy-policy" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
-                      , <a href="/docs/creator-terms" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Creator Terms</a>
-                      , <a href="/docs/community-guidelines" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Community Guidelines</a>
-                      , and <a href="/docs/refund-policy" className="text-white/60 hover:text-white underline underline-offset-4" target="_blank" rel="noopener noreferrer">Refund Policy</a> at publish time.
+                      <a
+                        href="/docs/terms-of-service"
+                        className="text-white/60 hover:text-white underline underline-offset-4"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Terms
+                      </a>
+                      ,{" "}
+                      <a
+                        href="/docs/privacy-policy"
+                        className="text-white/60 hover:text-white underline underline-offset-4"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Privacy Policy
+                      </a>
+                      ,{" "}
+                      <a
+                        href="/docs/creator-terms"
+                        className="text-white/60 hover:text-white underline underline-offset-4"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Creator Terms
+                      </a>
+                      ,{" "}
+                      <a
+                        href="/docs/community-guidelines"
+                        className="text-white/60 hover:text-white underline underline-offset-4"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Community Guidelines
+                      </a>
+                      , and{" "}
+                      <a
+                        href="/docs/refund-policy"
+                        className="text-white/60 hover:text-white underline underline-offset-4"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Refund Policy
+                      </a>{" "}
+                      at publish time.
                     </div>
                   </div>
                 </div>

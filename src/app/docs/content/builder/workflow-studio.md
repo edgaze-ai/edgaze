@@ -3,8 +3,7 @@ description = "Complete guide to building AI workflows with Workflow Studio"
 
 # Workflow Studio Guide
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
-
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 Workflow Studio is a powerful visual tool for building sophisticated AI workflows. You connect different blocks (called "nodes") together to create complex AI processes that can handle multiple steps, conditions, data transformations, API calls, and much more. This comprehensive guide will teach you everything you need to know to become a master workflow builder.
 
@@ -40,6 +39,7 @@ When you open Workflow Studio, you'll see several main areas:
 **The Inspector Panel** - When you select a node, this panel appears on the right side showing all the settings and configuration options for that node. This is where you configure how each node behaves.
 
 **The Toolbar** - At the top, you'll find buttons for:
+
 - **Docs** - Access this documentation
 - **Home** - Return to the workflow launcher
 - **Run** - Test your workflow
@@ -70,6 +70,7 @@ Nodes are the building blocks of your workflow. To add a node:
 4. The node will appear on the canvas and you can drag it to position it
 
 **Common starting blocks:**
+
 - **Workflow Input** - This is where users provide information to your workflow
 - **OpenAI Chat** - This calls an AI language model
 - **Workflow Output** - This shows the final result
@@ -88,6 +89,7 @@ To create a workflow, you need to connect nodes so information flows from one to
 4. Release to create a connection
 
 **Understanding connections:**
+
 - Information flows from left to right (or top to bottom)
 - The output of one node becomes the input of the next
 - You can connect one node to multiple nodes
@@ -163,6 +165,7 @@ The Input node is where users provide information. Every workflow should start w
 **Question** - The question or prompt shown to users when collecting this input. This is displayed as a form label above the input field. Examples: "What message would you like to send?", "Paste the document text here", "Enter the image URL". Make questions clear and specific.
 
 **Input Type** - What type of input field to show users. Options:
+
 - **Text** - Single line text input for short answers
 - **Long Paragraph** - Multi-line textarea for longer text
 - **Number** - Number input with validation
@@ -185,6 +188,7 @@ The Output node determines what users see as the final result of your workflow.
 **Output Name** - What to call the output. This appears in the results. Examples: "Generated Content", "Analysis Result", "Processed Data". Use descriptive names that tell users what they're seeing.
 
 **Output Format** - How to format the output. Options:
+
 - **JSON** - Structured JSON format (default, best for complex data)
 - **Text** - Plain text format (best for simple text responses)
 - **HTML** - HTML format (best for formatted content with links, lists, etc.)
@@ -198,6 +202,7 @@ The Merge node combines outputs from multiple nodes into one unified output.
 **How it works:** The Merge node automatically combines all inputs it receives. It doesn't have inspector fields - it simply merges whatever data flows into it.
 
 **Use cases:**
+
 - Combine results from multiple parallel AI calls
 - Merge user input with processed data
 - Aggregate data from different sources
@@ -217,6 +222,7 @@ The OpenAI Chat node calls OpenAI's GPT models to generate text completions. Thi
 **Style / System (optional)** - Optional system message that sets the tone, style, and constraints for the AI. This helps guide the AI's behavior. Examples: "You are a helpful assistant that explains things clearly.", "Respond in a professional, formal tone.", "Always provide examples in your responses." Leave empty if you don't need special styling.
 
 **Model (Premium)** - Which OpenAI model to use. Options:
+
 - **GPT-4o mini** - Fast and cheap, good for most tasks
 - **GPT-4o** - Flagship model, best quality
 - **GPT-4o (2024-08-06)** - Specific version snapshot
@@ -230,6 +236,7 @@ The OpenAI Chat node calls OpenAI's GPT models to generate text completions. Thi
 With your API key, you can use any model. Free runs use gpt-4o-mini. Choose GPT-4o for best quality, GPT-4o mini for speed and cost savings, or o1 for complex reasoning tasks.
 
 **Temperature** - Controls randomness and creativity. Range: 0 to 2. Default: 0.7.
+
 - **0** - Deterministic, focused, consistent responses
 - **0.7** - Balanced creativity and consistency (recommended)
 - **1.0** - More creative and varied
@@ -258,6 +265,7 @@ The Embeddings node converts text into vector embeddings for use in search, simi
 **Text (fallback)** - The text to convert to embeddings. Used when the node input is not connected. Paste text directly here or connect another node to provide text dynamically.
 
 **Model** - Which embedding model to use. Options:
+
 - **text-embedding-3-small** - Fast and efficient, 1536 dimensions
 - **text-embedding-3-large** - Higher quality, 3072 dimensions
 - **text-embedding-ada-002** - Older model, 1536 dimensions
@@ -279,12 +287,14 @@ The Image node generates images using DALL-E.
 **Prompt (fallback)** - The image generation prompt. Describe what you want to see in detail. Examples: "A futuristic cityscape at sunset with flying cars", "A minimalist logo for a tech startup, blue and white", "A professional headshot of a business person". Be specific about style, colors, composition, and subject matter.
 
 **Model** - Which DALL-E model to use. Options:
+
 - **DALL-E 3** - Latest model, best quality, more creative
 - **DALL-E 2** - Older model, faster and cheaper
 
 Use DALL-E 3 for best results. Use DALL-E 2 if you need faster generation or lower costs.
 
 **Size** - Image dimensions. Options:
+
 - **1024x1024** - Square, standard size
 - **1792x1024** - Wide landscape
 - **1024x1792** - Tall portrait
@@ -294,6 +304,7 @@ Use DALL-E 3 for best results. Use DALL-E 2 if you need faster generation or low
 Choose based on your use case. 1024x1024 is standard. Use wide/tall formats for specific layouts.
 
 **Quality** - Image quality. Options:
+
 - **Standard** - Good quality, faster generation
 - **HD** - Higher quality, slower generation
 
@@ -316,6 +327,7 @@ The HTTP Request node makes HTTP requests to external APIs and services.
 **URL** - The endpoint URL to call. Used when input is not connected. Must be HTTPS. Examples: "https://api.example.com/data", "https://jsonplaceholder.typicode.com/posts/1". You can use placeholders like `{{api_key}}` if you have variables.
 
 **Method** - HTTP method to use. Options:
+
 - **GET** - Retrieve data (default)
 - **POST** - Send data, create resources
 - **PUT** - Update/replace resources
@@ -345,6 +357,7 @@ The Condition node makes decisions based on input values, routing to different p
 **Condition (Human Language)** - Describe the condition in plain English. The AI will evaluate this. Examples: "The user's age is greater than 18", "The input contains the word 'approved'", "The status equals 'active'". Leave empty to use operator-based evaluation instead.
 
 **Condition Type (Fallback)** - How to evaluate the condition if human language is not provided. Options:
+
 - **Truthy** - Passes if value is truthy (not null, not empty, not false, not 0)
 - **Falsy** - Passes if value is falsy (null, empty, false, 0)
 - **Equals** - Passes if value equals compare value
@@ -369,6 +382,7 @@ The Delay node waits for a specified duration before continuing execution.
 **Inspector Fields:**
 
 **Duration (ms)** - How long to wait in milliseconds. Range: 0 to 600000 (10 minutes). Examples: 1000 (1 second), 5000 (5 seconds), 30000 (30 seconds). Use delays to:
+
 - Rate limit API calls
 - Add pauses between steps
 - Simulate processing time
@@ -389,6 +403,7 @@ The Loop node iterates over an array and executes downstream nodes for each item
 **Max Iterations** - Maximum number of iterations to prevent infinite loops. Range: 1 to 10000. Default: 1000. Set this to the maximum number of items you expect to process. The loop will stop if it reaches this limit even if there are more items.
 
 **How it works:** The Loop node takes an array as input and outputs each item one at a time. Connect nodes after the Loop to process each item. The Loop provides two outputs:
+
 - **Current Item** - The current array item being processed
 - **Current Index** - The index (0, 1, 2, etc.) of the current item
 
@@ -447,24 +462,28 @@ Before building, think about:
 ### Best Practices
 
 **Keep it organized:**
+
 - Arrange nodes logically from left to right
 - Use clear, descriptive names for all nodes
 - Group related nodes together visually
 - Use consistent spacing and alignment
 
 **Test frequently:**
+
 - Test after adding each major section
 - Try different inputs to ensure it works in all cases
 - Test edge cases (empty inputs, very long inputs, etc.)
 - Fix issues before adding more complexity
 
 **Document your workflow:**
+
 - Use descriptive names for nodes
 - Add helpful descriptions in node settings
 - Write clear prompts that explain what each step does
 - Comment complex logic in node descriptions
 
 **Optimize for performance:**
+
 - Don't add unnecessary nodes
 - Use conditions to avoid unnecessary processing
 - Consider the order of operations
@@ -472,6 +491,7 @@ Before building, think about:
 - Use faster models when quality isn't critical
 
 **Security:**
+
 - Use Allowed Hosts in HTTP Request nodes
 - Never expose API keys in prompts
 - Validate user inputs
@@ -480,43 +500,55 @@ Before building, think about:
 ### Common Patterns
 
 **Simple Linear Flow:**
+
 ```
 Input → OpenAI Chat → Output
 ```
+
 This is the most basic pattern: get input, process it with AI, show result.
 
 **Conditional Processing:**
+
 ```
 Input → Condition → [True: OpenAI Chat A] → Merge → Output
                     [False: OpenAI Chat B]
 ```
+
 Process differently based on conditions, then combine results.
 
 **Multi-Step Processing:**
+
 ```
 Input → OpenAI Chat 1 → OpenAI Chat 2 → OpenAI Chat 3 → Output
 ```
+
 Chain multiple processing steps together. Each step builds on the previous.
 
 **Parallel Processing:**
+
 ```
 Input → [OpenAI Chat A] → Merge → Output
         [OpenAI Chat B]
         [OpenAI Chat C]
 ```
+
 Process the same input in multiple ways simultaneously, then combine. Faster than sequential processing.
 
 **Error Handling:**
+
 ```
 Input → HTTP Request → [Success: Process] → Output
                        [Error: Error Handler] → Output
 ```
+
 Handle errors gracefully with conditional routing.
 
 **Loop Processing:**
+
 ```
 Input (Array) → Loop → Process Each Item → Merge → Output
 ```
+
 Process each item in an array individually, then combine results.
 
 ## Advanced Features
@@ -531,6 +563,7 @@ In prompts and configurations, you can reference data from other nodes using pla
 
 **Example:**
 If you have an Input node named "Document" and an OpenAI Chat node, in the Chat prompt you could write:
+
 ```
 Summarize this document: {{Document.text}}
 
@@ -551,6 +584,7 @@ Some nodes require API keys (like OpenAI Chat, Embeddings, Image). You can:
 3. **Free Runs** - First 10 runs are free using Edgaze's API key. After that, you'll need to provide your own.
 
 **Security Best Practices:**
+
 - Never share workflows with API keys embedded
 - Use environment variables when possible
 - Rotate keys regularly
@@ -591,24 +625,28 @@ Browse templates in the Block Library or when creating a new workflow.
 ### Testing Tips
 
 **Test with different inputs:**
+
 - Try edge cases (very short, very long, empty, etc.)
 - Test with realistic examples
 - Try inputs that might break your workflow
 - Test with various data types
 
 **Check each step:**
+
 - Make sure data flows correctly between nodes
 - Verify conditions work as expected
 - Ensure outputs are formatted correctly
 - Check that error cases are handled
 
 **Performance testing:**
+
 - See how long workflows take to run
 - Check if any steps are unnecessarily slow
 - Optimize prompts to be more efficient
 - Consider parallel processing for speed
 
 **API testing:**
+
 - Test with different API endpoints
 - Verify authentication works
 - Check rate limits and retries
@@ -619,6 +657,7 @@ Browse templates in the Block Library or when creating a new workflow.
 ### Before Publishing
 
 **Make sure your workflow:**
+
 - Works correctly with various inputs
 - Has clear names and descriptions
 - Is well-organized and easy to understand
@@ -638,17 +677,20 @@ Browse templates in the Block Library or when creating a new workflow.
 **Tags** - Add relevant tags to help people find your workflow. Use common, descriptive tags. Examples: "summarization", "content-generation", "translation", "image-generation".
 
 **Visibility:**
+
 - **Public** - Anyone can find and use it in the marketplace
 - **Unlisted** - Only people with the link can use it
 - **Private** - Only you can use it
 
 **Pricing:**
+
 - **Free** - Anyone can use it without payment
 - **Paid** - Set a price per use (requires premium account)
 
 ### After Publishing
 
 Once published, your workflow:
+
 - Gets a unique shareable link
 - Appears in the Marketplace (if public)
 - Can be used by others
@@ -660,6 +702,7 @@ Once published, your workflow:
 ### Common Issues
 
 **Workflow won't run:**
+
 - Check that all required inputs are connected
 - Verify nodes are properly configured
 - Make sure there's a path from Input to Output
@@ -667,6 +710,7 @@ Once published, your workflow:
 - Verify timeouts are set appropriately
 
 **Unexpected results:**
+
 - Review your prompts - they might need to be more specific
 - Check that data is flowing correctly between nodes
 - Verify conditions are set up correctly
@@ -674,6 +718,7 @@ Once published, your workflow:
 - Check node configurations for errors
 
 **Performance issues:**
+
 - Simplify complex workflows
 - Reduce unnecessary processing
 - Optimize prompts to be more efficient
@@ -682,12 +727,14 @@ Once published, your workflow:
 - Check timeout settings
 
 **Connection problems:**
+
 - Make sure nodes are properly connected
 - Check that output types match input types
 - Verify you're referencing the correct node names
 - Ensure connections flow in the right direction
 
 **API errors:**
+
 - Verify API keys are correct
 - Check rate limits
 - Verify URLs and endpoints
@@ -695,6 +742,7 @@ Once published, your workflow:
 - Review API documentation
 
 **Timeout errors:**
+
 - Increase timeout values for slow operations
 - Check if APIs are responding
 - Verify network connectivity
@@ -703,6 +751,7 @@ Once published, your workflow:
 ### Getting Help
 
 If you're stuck:
+
 1. Review this comprehensive documentation
 2. Check the [Help Center](/help)
 3. Browse example workflows in the marketplace
@@ -711,6 +760,7 @@ If you're stuck:
 ## Next Steps
 
 Now that you understand Workflow Studio:
+
 - [Learn about Prompt Studio](/docs/builder/prompt-studio) - Create reusable prompts
 - [Browse the Marketplace](/marketplace) - See what others have built
 - [Visit your Library](/library) - Manage your workflows

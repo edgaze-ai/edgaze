@@ -15,16 +15,16 @@ export default function ContactPage() {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 sm:px-6 py-16 sm:py-24">
-        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">
-          Contact
-        </h1>
+        <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white">Contact</h1>
         <p className="mt-3 text-base text-white/65">
           Get in touch. We typically respond within 24–48 hours.
         </p>
 
         <div className="mt-12 space-y-8">
           <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/10 p-6 sm:p-8">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">General inquiries</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">
+              General inquiries
+            </h2>
             <a
               href="mailto:support@edgaze.ai"
               className="mt-2 block text-lg font-medium text-cyan-300 hover:text-cyan-200 transition-colors"
@@ -37,7 +37,9 @@ export default function ContactPage() {
           </div>
 
           <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/10 p-6 sm:p-8">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">Creator & seller support</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">
+              Creator & seller support
+            </h2>
             <a
               href="mailto:sellers@edgaze.ai"
               className="mt-2 block text-lg font-medium text-cyan-300 hover:text-cyan-200 transition-colors"
@@ -50,7 +52,9 @@ export default function ContactPage() {
           </div>
 
           <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/10 p-6 sm:p-8">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">Press & partnerships</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">
+              Press & partnerships
+            </h2>
             <a
               href="mailto:press@edgaze.ai"
               className="mt-2 block text-lg font-medium text-cyan-300 hover:text-cyan-200 transition-colors"
@@ -64,10 +68,7 @@ export default function ContactPage() {
         </div>
 
         <div className="mt-8">
-          <Link
-            href="/help"
-            className="text-sm text-white/60 hover:text-white transition-colors"
-          >
+          <Link href="/help" className="text-sm text-white/60 hover:text-white transition-colors">
             ← Help & resources
           </Link>
         </div>

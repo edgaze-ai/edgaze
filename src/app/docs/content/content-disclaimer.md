@@ -1,35 +1,36 @@
 title = "Content Disclaimer"
 description = "Important disclosures regarding content available on the Edgaze platform."
 
----
+# Content Disclaimer
 
-1. General Disclaimer
+## General Disclaimer
 
 All content made available on the Edgaze platform (the “Platform”), including but not limited to prompts, workflows, tools, documentation, examples, templates, text, code, and other materials (collectively, “Content”), is provided for informational, testing, and experimental purposes only.
 
-The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
-
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 Edge Platforms makes no representations or warranties regarding the Content.
 
----
+## User-Generated Content
 
-2. User-Generated Content
+### Our Role
 
 The Platform hosts content that is created, uploaded, and published by users.
 
 Edge Platforms:
+
 - Does not create user-generated content
 - Does not verify, validate, or review content for accuracy, legality, or suitability
 - Does not endorse or recommend any specific content, creator, or workflow
 
 Responsibility for all Content rests solely with the user who publishes it.
 
----
+## No Professional Advice
 
-3. No Professional Advice
+### What Content Is Not
 
 Content available on the Platform does not constitute, and should not be relied upon as:
+
 - Legal advice
 - Financial or investment advice
 - Medical or health advice
@@ -39,24 +40,26 @@ Edgaze is not a professional services provider.
 
 You are solely responsible for seeking independent professional advice where appropriate.
 
----
+## AI and Automation Disclaimer
 
-4. AI and Automation Disclaimer
+### No Guarantees on AI Outputs
 
 Some Content may involve or rely on artificial intelligence, automation, or third-party systems.
 
 Edge Platforms makes no guarantees regarding:
+
 - Accuracy, reliability, or completeness of AI-generated outputs
 - Bias, errors, or hallucinations produced by AI systems
 - Suitability of outputs for any specific purpose
 
 Use of AI-related Content is at your own risk.
 
----
+## No Guarantees of Results
 
-5. No Guarantees of Results
+### What We Do Not Guarantee
 
 Edge Platforms does not guarantee:
+
 - Any specific outcomes, performance, or results
 - That Content will function as described
 - That Content will be error-free, safe, or effective
@@ -64,35 +67,34 @@ Edge Platforms does not guarantee:
 
 Past or example results do not guarantee future outcomes.
 
----
-
-6. Testing and Experimental Use
+## Testing and Experimental Use
 
 During beta:
+
 - Content is provided free of charge for testing and evaluation
 - Features and Content may be incomplete, unstable, or experimental
 - Content may change, be removed, or become unavailable without notice
 
 You acknowledge and accept the risks of using experimental software and content.
 
----
-
-7. Third-Party Services and External Dependencies
+## Third-Party Services and External Dependencies
 
 Some Content may reference or depend on third-party tools, APIs, models, platforms, or services.
 
 Edge Platforms:
+
 - Does not control third-party services
 - Is not responsible for their availability, behavior, or compliance
 - Does not guarantee compatibility or continued access
 
 Your use of third-party services is governed by their respective terms.
 
----
+## Limitation of Liability
 
-8. Limitation of Liability
+### What Edge Platforms Is Not Liable For
 
 To the maximum extent permitted by law, Edge Platforms shall not be liable for:
+
 - Any loss or damage arising from reliance on Content
 - Errors, omissions, or inaccuracies in Content
 - Actions taken or decisions made based on Content
@@ -100,44 +102,36 @@ To the maximum extent permitted by law, Edge Platforms shall not be liable for:
 
 Your sole remedy is to discontinue use of the Platform.
 
----
-
-9. User Responsibility
+## User Responsibility
 
 You are solely responsible for:
+
 - Evaluating the accuracy and suitability of Content
 - Ensuring compliance with applicable laws and regulations
 - Understanding risks associated with AI, automation, or external systems
 - Any consequences resulting from use of Content
 
----
-
-10. No Monitoring Obligation
+## No Monitoring Obligation
 
 Edge Platforms does not actively monitor or review all Content and makes no guarantees regarding detection of harmful, misleading, or prohibited material.
 
----
-
-11. Changes to This Disclaimer
+## Changes to This Disclaimer
 
 This Content Disclaimer may be updated at any time.
 
 Changes become effective upon publication. Continued use of the Platform constitutes acceptance of the updated Disclaimer.
 
----
-
-12. Relationship to Other Policies
+## Relationship to Other Policies
 
 This Disclaimer operates in conjunction with:
+
 - Terms of Service
 - Privacy Policy
 - Acceptable Use Policy
 
 In the event of conflict, the Terms of Service control.
 
----
-
-13. Contact
+## Contact
 
 For questions regarding this Disclaimer, contact:
 support@edgaze.ai

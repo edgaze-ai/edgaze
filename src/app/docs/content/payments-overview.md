@@ -5,7 +5,7 @@ description = "How payments and monetization work on Edgaze"
 
 ## 1. Overview
 
-*Last Updated: March 13, 2026*
+_Last Updated: March 13, 2026_
 
 Edgaze is a two-sided marketplace for AI workflows and prompts. Payments are processed securely through Stripe, with creators receiving revenue through Stripe Connect Express accounts. Edgaze does not store sensitive financial information.
 

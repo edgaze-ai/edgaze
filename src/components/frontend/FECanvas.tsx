@@ -71,7 +71,7 @@ const FECanvas = forwardRef<
       },
       getDesign: () => [],
     }),
-    []
+    [],
   );
 
   // Let parents reset inspector state if they were listening.

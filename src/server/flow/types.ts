@@ -75,7 +75,10 @@ export type RuntimeContext = {
   };
 };
 
-export type NodeRuntimeHandler = (node: GraphNode, ctx: RuntimeContext) => Promise<unknown> | unknown;
+export type NodeRuntimeHandler = (
+  node: GraphNode,
+  ctx: RuntimeContext,
+) => Promise<unknown> | unknown;
 
 export type RunLogEntry = {
   type: "start" | "success" | "error" | "retry";
@@ -112,5 +115,12 @@ export type RuntimeResult = {
 export type FlowProgressEvent =
   | { type: "node_start"; nodeId: string; specId: string; nodeTitle?: string; timestamp: number }
   | { type: "node_done"; nodeId: string; specId: string; nodeTitle?: string; timestamp: number }
-  | { type: "node_failed"; nodeId: string; specId: string; nodeTitle?: string; error?: string; timestamp: number }
+  | {
+      type: "node_failed";
+      nodeId: string;
+      specId: string;
+      nodeTitle?: string;
+      error?: string;
+      timestamp: number;
+    }
   | { type: "node_ready"; nodeId: string; specId: string; nodeTitle?: string; timestamp: number };

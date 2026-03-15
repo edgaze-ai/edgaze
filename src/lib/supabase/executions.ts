@@ -13,12 +13,12 @@ export async function isAdmin(userId: string): Promise<boolean> {
     .select("user_id")
     .eq("user_id", userId)
     .maybeSingle();
-  
+
   if (error) {
     console.error("Error checking admin status:", error);
     return false;
   }
-  
+
   return !!data;
 }
 
@@ -54,7 +54,7 @@ export async function createWorkflowRun(params: {
     started_at: new Date().toISOString(),
     metadata: params.metadata ?? {},
   };
-  
+
   if (params.workflowId) {
     insertData.workflow_id = params.workflowId;
   } else if (params.draftId) {
@@ -67,11 +67,7 @@ export async function createWorkflowRun(params: {
     insertData.workflow_version_id = params.workflowVersionId;
   }
 
-  const { data, error } = await supabase
-    .from("workflow_runs")
-    .insert(insertData)
-    .select()
-    .single();
+  const { data, error } = await supabase.from("workflow_runs").insert(insertData).select().single();
 
   if (error) throw error;
   return data as WorkflowRunRow;
@@ -79,7 +75,12 @@ export async function createWorkflowRun(params: {
 
 export async function updateWorkflowRun(
   runId: string,
-  updates: Partial<Pick<WorkflowRunRow, "status" | "completed_at" | "duration_ms" | "error_details" | "state_snapshot" | "checkpoint">>
+  updates: Partial<
+    Pick<
+      WorkflowRunRow,
+      "status" | "completed_at" | "duration_ms" | "error_details" | "state_snapshot" | "checkpoint"
+    >
+  >,
 ) {
   const supabase = createSupabaseAdminClient();
 
@@ -130,14 +131,20 @@ export async function completeWorkflowRunAndGetCount(params: {
       p_state_snapshot: params.stateSnapshot ?? null,
     });
     if (error) {
-      console.warn("[completeWorkflowRunAndGetCount] RPC failed, falling back to updateWorkflowRun:", error.message);
+      console.warn(
+        "[completeWorkflowRunAndGetCount] RPC failed, falling back to updateWorkflowRun:",
+        error.message,
+      );
       return null;
     }
     const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
     if (!row || typeof row.new_count !== "number") return null;
     return { newCount: row.new_count };
   } catch (err: unknown) {
-    console.warn("[completeWorkflowRunAndGetCount] Error:", err instanceof Error ? err.message : err);
+    console.warn(
+      "[completeWorkflowRunAndGetCount] Error:",
+      err instanceof Error ? err.message : err,
+    );
     return null;
   }
 }
@@ -145,23 +152,26 @@ export async function completeWorkflowRunAndGetCount(params: {
 export async function getUserWorkflowRunCount(
   userId: string,
   workflowId: string,
-  draftId?: string | null
+  draftId?: string | null,
 ): Promise<number> {
   const supabase = createSupabaseAdminClient();
-  
+
   // Try using the database function first (more reliable)
   // When draftId is set, pass null for workflow_id so RPC counts by draft_id (draft runs have workflow_id NULL)
   try {
     const { data, error } = await supabase.rpc("get_user_workflow_run_count", {
       p_user_id: userId,
-      p_workflow_id: draftId ? null : (workflowId || null),
+      p_workflow_id: draftId ? null : workflowId || null,
       p_draft_id: draftId || null,
     });
-    
-    if (!error && (typeof data === "number" || (typeof data === "string" && !isNaN(Number(data))))) {
+
+    if (
+      !error &&
+      (typeof data === "number" || (typeof data === "string" && !isNaN(Number(data))))
+    ) {
       return typeof data === "number" ? data : Number(data);
     }
-    
+
     // If function doesn't exist or fails, log and fallback
     if (error) {
       console.warn("[getUserWorkflowRunCount] RPC function failed, using fallback:", error.message);
@@ -170,7 +180,7 @@ export async function getUserWorkflowRunCount(
     // RPC function might not exist yet, that's okay - use fallback
     console.warn("[getUserWorkflowRunCount] RPC call error, using fallback:", err?.message);
   }
-  
+
   // Fallback: direct query (count all terminal states)
   let query = supabase
     .from("workflow_runs")
@@ -178,7 +188,7 @@ export async function getUserWorkflowRunCount(
     .eq("user_id", userId)
     .in("status", [...TERMINAL_STATUSES])
     .not("completed_at", "is", null);
-  
+
   if (draftId) {
     query = query.eq("draft_id", draftId);
   } else if (workflowId) {
@@ -193,13 +203,17 @@ export async function getUserWorkflowRunCount(
     console.error("[getUserWorkflowRunCount] Query failed:", error);
     throw error;
   }
-  
+
   return count ?? 0;
 }
 
 export async function getWorkflowRunById(runId: string): Promise<WorkflowRunRow | null> {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase.from("workflow_runs").select("*").eq("id", runId).maybeSingle();
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .select("*")
+    .eq("id", runId)
+    .maybeSingle();
   if (error) throw error;
   return data as WorkflowRunRow | null;
 }
@@ -215,7 +229,7 @@ export async function workflowExists(workflowId: string): Promise<boolean> {
     .select("id")
     .eq("id", workflowId)
     .maybeSingle();
-  
+
   if (error) {
     // If error is "not found" or similar, workflow doesn't exist
     if (error.code === "PGRST116") return false;
@@ -223,7 +237,7 @@ export async function workflowExists(workflowId: string): Promise<boolean> {
     console.warn("[workflowExists] Error checking workflow:", error.message);
     return false;
   }
-  
+
   return !!data;
 }
 
@@ -231,7 +245,10 @@ export async function workflowExists(workflowId: string): Promise<boolean> {
  * Check if a workflow draft exists in the database.
  * Returns the draft ID if it exists, null otherwise.
  */
-export async function getWorkflowDraftId(workflowId: string, userId: string): Promise<string | null> {
+export async function getWorkflowDraftId(
+  workflowId: string,
+  userId: string,
+): Promise<string | null> {
   const supabase = createSupabaseAdminClient();
   // Check if workflowId matches a draft ID (builder might send draft ID as workflowId)
   const { data: draftById, error: draftByIdError } = await supabase
@@ -240,11 +257,11 @@ export async function getWorkflowDraftId(workflowId: string, userId: string): Pr
     .eq("id", workflowId)
     .eq("owner_id", userId)
     .maybeSingle();
-  
+
   if (!draftByIdError && draftById) {
     return draftById.id;
   }
-  
+
   return null;
 }
 
@@ -254,7 +271,7 @@ export async function getWorkflowDraftId(workflowId: string, userId: string): Pr
  */
 export async function getCreatorUserIdForWorkflowRun(
   workflowId: string | null,
-  draftId: string | null
+  draftId: string | null,
 ): Promise<string | null> {
   const supabase = createSupabaseAdminClient();
   if (workflowId) {

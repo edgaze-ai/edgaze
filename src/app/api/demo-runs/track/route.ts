@@ -10,10 +10,14 @@ import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
-    if (!body || typeof body.workflowId !== "string" || typeof body.deviceFingerprint !== "string") {
+    if (
+      !body ||
+      typeof body.workflowId !== "string" ||
+      typeof body.deviceFingerprint !== "string"
+    ) {
       return NextResponse.json(
         { ok: false, error: "workflowId and deviceFingerprint are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -25,27 +29,24 @@ export async function POST(req: NextRequest) {
 
     // Validate fingerprint format
     if (!deviceFingerprint || deviceFingerprint.length < 10) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid device fingerprint" },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "Invalid device fingerprint" }, { status: 400 });
     }
 
     const supabase = createSupabaseAdminClient();
 
     // Record the demo run using database function (includes duplicate check)
-    const { data: recordData, error: recordError } = await supabase.rpc("record_anonymous_demo_run", {
-      p_workflow_id: workflowId,
-      p_device_fingerprint: deviceFingerprint,
-      p_ip_address: ipAddress,
-    });
+    const { data: recordData, error: recordError } = await supabase.rpc(
+      "record_anonymous_demo_run",
+      {
+        p_workflow_id: workflowId,
+        p_device_fingerprint: deviceFingerprint,
+        p_ip_address: ipAddress,
+      },
+    );
 
     if (recordError) {
       console.error("[Demo Runs] Error recording demo run:", recordError);
-      return NextResponse.json(
-        { ok: false, error: "Failed to record demo run" },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "Failed to record demo run" }, { status: 500 });
     }
 
     const result = recordData as {
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
           allowed: false,
           error: result.error || "Demo run already used for this device and IP address",
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
     console.error("[Demo Runs] Exception in track:", err);
     return NextResponse.json(
       { ok: false, error: err?.message || "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

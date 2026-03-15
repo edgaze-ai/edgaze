@@ -138,9 +138,7 @@ export default function ReportModal({
               </div>
               <div>
                 <div className="text-[14px] font-semibold text-white">Report {targetType}</div>
-                <div className="text-[11px] text-white/55">
-                  Help us keep the marketplace safe
-                </div>
+                <div className="text-[11px] text-white/55">Help us keep the marketplace safe</div>
               </div>
             </div>
             <button

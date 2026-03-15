@@ -1,33 +1,33 @@
-import { NextResponse } from 'next/server';
-import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import Stripe from 'stripe';
+import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { buildReplayStripeEvent, processStripeWebhookEvent } from "@/lib/stripe/webhook-processing";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization');
+  const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const supabase = createSupabaseAdminClient();
-  
+
   const { data: failedEvents } = await supabase
-    .from('stripe_webhook_events')
-    .select('*')
-    .eq('processed', false)
-    .lt('processing_attempts', 5)
-    .lt('created_at', new Date(Date.now() - 300000).toISOString())
-    .order('created_at', { ascending: true })
+    .from("stripe_webhook_events")
+    .select("*")
+    .eq("processed", false)
+    .lt("processing_attempts", 5)
+    .lt("created_at", new Date(Date.now() - 300000).toISOString())
+    .order("created_at", { ascending: true })
     .limit(100);
 
   if (!failedEvents || failedEvents.length === 0) {
-    return NextResponse.json({ 
-      success: true, 
-      message: 'No failed events to retry' 
+    return NextResponse.json({
+      success: true,
+      message: "No failed events to retry",
     });
   }
 
@@ -36,67 +36,62 @@ export async function GET(req: Request) {
 
   for (const event of failedEvents) {
     try {
-      const stripeEvent: Stripe.Event = {
-        id: event.stripe_event_id,
-        object: 'event',
-        api_version: null,
-        created: Math.floor(new Date(event.created_at).getTime() / 1000),
-        data: {
-          object: event.payload as any
-        },
-        livemode: false,
-        pending_webhooks: 0,
-        request: null,
-        type: event.event_type as any
-      };
+      const replayEvent = buildReplayStripeEvent(event);
+      const startedAt = Date.now();
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/stripe/webhooks`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'stripe-signature': 'retry'
-        },
-        body: JSON.stringify(stripeEvent)
-      });
+      await processStripeWebhookEvent(replayEvent, supabase);
 
-      if (response.ok) {
-        successCount++;
-      } else {
-        failCount++;
-        await supabase.rpc('increment_webhook_attempts', {
-          event_id: event.stripe_event_id,
-          error_msg: `Retry failed with status ${response.status}`
-        });
-      }
+      await supabase
+        .from("stripe_webhook_events")
+        .update({
+          processed: true,
+          processed_at: new Date().toISOString(),
+          processing_duration_ms: Date.now() - startedAt,
+          error_message: null,
+        })
+        .eq("stripe_event_id", event.stripe_event_id);
+
+      successCount++;
     } catch (error: any) {
       failCount++;
       console.error(`Retry failed for event ${event.id}:`, error);
-      
-      await supabase.rpc('increment_webhook_attempts', {
+
+      await supabase.rpc("increment_webhook_attempts", {
         event_id: event.stripe_event_id,
-        error_msg: error.message
+        error_msg: error.message,
       });
     }
   }
 
   const { data: deadEvents } = await supabase
-    .from('stripe_webhook_events')
-    .select('*')
-    .eq('processed', false)
-    .gte('processing_attempts', 5);
+    .from("stripe_webhook_events")
+    .select("*")
+    .eq("processed", false)
+    .gte("processing_attempts", 5);
 
   if (deadEvents && deadEvents.length > 0) {
-    await supabase.from('webhook_dead_letter_queue').insert(
-      deadEvents.map(e => ({
-        stripe_event_id: e.stripe_event_id,
-        event_type: e.event_type,
-        processing_attempts: e.processing_attempts,
-        payload: e.payload,
-        error_message: e.error_message,
-        last_error_at: e.last_error_at,
-        moved_at: new Date().toISOString()
-      }))
-    );
+    const deadEventIds = deadEvents.map((event) => event.stripe_event_id);
+    const { data: existingDeadLetters } = await supabase
+      .from("webhook_dead_letter_queue")
+      .select("stripe_event_id")
+      .in("stripe_event_id", deadEventIds);
+
+    const existingIds = new Set((existingDeadLetters || []).map((row) => row.stripe_event_id));
+    const newDeadLetters = deadEvents.filter((event) => !existingIds.has(event.stripe_event_id));
+
+    if (newDeadLetters.length > 0) {
+      await supabase.from("webhook_dead_letter_queue").insert(
+        newDeadLetters.map((event) => ({
+          stripe_event_id: event.stripe_event_id,
+          event_type: event.event_type,
+          processing_attempts: event.processing_attempts,
+          payload: event.payload,
+          error_message: event.error_message,
+          last_error_at: event.last_error_at,
+          moved_at: new Date().toISOString(),
+        })),
+      );
+    }
 
     console.error(`[CRON] Moved ${deadEvents.length} events to dead letter queue`);
   }
@@ -106,6 +101,6 @@ export async function GET(req: Request) {
     retriedEvents: failedEvents.length,
     successCount,
     failCount,
-    deadLetterQueueCount: deadEvents?.length || 0
+    deadLetterQueueCount: deadEvents?.length || 0,
   });
 }

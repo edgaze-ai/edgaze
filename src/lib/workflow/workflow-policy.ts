@@ -7,19 +7,19 @@ export type RunMode = "dev" | "marketplace";
 
 /** Per-node failure policy */
 export type FailurePolicy =
-  | "fail_fast"   // Default: fail workflow immediately
-  | "continue"    // Mark node failed, continue downstream
-  | "skip_downstream"  // Mark failed, don't run downstream
-  | "use_fallback_value";  // Use config.fallbackValue instead
+  | "fail_fast" // Default: fail workflow immediately
+  | "continue" // Mark node failed, continue downstream
+  | "skip_downstream" // Mark failed, don't run downstream
+  | "use_fallback_value"; // Use config.fallbackValue instead
 
 /** Per-edge gating: when does an edge "satisfy" its target's dependency? */
 export type EdgeGating =
-  | "require_success"       // default: only when source succeeded
-  | "allow_on_failure"      // run downstream even when source failed
-  | "require_non_empty"     // source succeeded AND output is non-empty
-  | "require_truthy"        // source succeeded AND output is truthy
-  | "require_type:json"     // source succeeded AND output is json object/array
-  | "require_type:array"    // source succeeded AND output is array
+  | "require_success" // default: only when source succeeded
+  | "allow_on_failure" // run downstream even when source failed
+  | "require_non_empty" // source succeeded AND output is non-empty
+  | "require_truthy" // source succeeded AND output is truthy
+  | "require_type:json" // source succeeded AND output is json object/array
+  | "require_type:array" // source succeeded AND output is array
   | "require_type:string"; // source succeeded AND output is string
 
 export function getRunMode(options: {
@@ -37,7 +37,9 @@ export function getRunMode(options: {
   return "marketplace";
 }
 
-export function getFailurePolicy(node: { data?: { config?: Record<string, unknown> } }): FailurePolicy {
+export function getFailurePolicy(node: {
+  data?: { config?: Record<string, unknown> };
+}): FailurePolicy {
   const policy = node.data?.config?.failurePolicy;
   if (
     policy === "fail_fast" ||
@@ -53,8 +55,12 @@ export function getFailurePolicy(node: { data?: { config?: Record<string, unknow
 export function getEdgeGating(edge: { data?: Record<string, unknown> }): EdgeGating {
   const gating = edge.data?.gating;
   if (
-    gating === "allow_on_failure" || gating === "require_non_empty" || gating === "require_truthy" ||
-    gating === "require_type:json" || gating === "require_type:array" || gating === "require_type:string"
+    gating === "allow_on_failure" ||
+    gating === "require_non_empty" ||
+    gating === "require_truthy" ||
+    gating === "require_type:json" ||
+    gating === "require_type:array" ||
+    gating === "require_type:string"
   ) {
     return gating as EdgeGating;
   }
@@ -65,7 +71,7 @@ export function getEdgeGating(edge: { data?: Record<string, unknown> }): EdgeGat
 export function satisfiesEdgeGating(
   output: unknown,
   sourceStatus: "success" | "failed",
-  gating: EdgeGating
+  gating: EdgeGating,
 ): boolean {
   if (sourceStatus === "failed") {
     return gating === "allow_on_failure";

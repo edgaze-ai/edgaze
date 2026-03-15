@@ -54,7 +54,7 @@ export default function WorkflowLauncherModal({
         <div className="flex items-center justify-between border-b border-gray-700/30 bg-black/40 px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-black/40 border border-gray-700/40 grid place-items-center overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {}
               <img src={logoSrc} alt="Edgaze" className="h-5 w-5" />
             </div>
             <div className="text-[18px] font-semibold text-white tracking-tight">Workflows</div>
@@ -66,7 +66,7 @@ export default function WorkflowLauncherModal({
                 onClick={onRefresh}
                 className={cx(
                   "inline-flex items-center gap-2 rounded-xl border border-gray-700/40 bg-black/40 px-4 py-2 text-[12px] text-gray-300 hover:bg-black/60 hover:text-white hover:border-gray-600/50 transition-all duration-200",
-                  busy && "cursor-not-allowed opacity-50"
+                  busy && "cursor-not-allowed opacity-50",
                 )}
                 disabled={busy}
                 title="Refresh"
@@ -113,16 +113,13 @@ export default function WorkflowLauncherModal({
             )}
 
             <div className="mt-4 text-[12px] leading-relaxed text-gray-400 font-medium">
-              Drafts autosave while you edit. Publishing pushes to the marketplace
-              later.
+              Drafts autosave while you edit. Publishing pushes to the marketplace later.
             </div>
           </div>
 
           <div className="col-span-12 overflow-auto pr-1 md:col-span-8">
             <div>
-              <div className="mb-4 text-sm font-semibold text-white tracking-tight">
-                Continue
-              </div>
+              <div className="mb-4 text-sm font-semibold text-white tracking-tight">Continue</div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {continueItems.length === 0 ? (
                   <div className="text-sm text-gray-500">No drafts yet.</div>
@@ -146,9 +143,7 @@ export default function WorkflowLauncherModal({
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {publishedItems.length === 0 ? (
-                  <div className="text-sm text-gray-500">
-                    No published workflows yet.
-                  </div>
+                  <div className="text-sm text-gray-500">No published workflows yet.</div>
                 ) : (
                   publishedItems.map((w: WorkflowRow) => (
                     <Card
@@ -191,7 +186,7 @@ function Card({
       onClick={onClick}
       className={cx(
         "rounded-xl border border-gray-700/40 bg-black/40 hover:bg-black/60 hover:border-gray-600/50 transition-all duration-200",
-        "px-4 py-3 text-left shadow-[0_8px_32px_rgba(0,0,0,0.4)] group"
+        "px-4 py-3 text-left shadow-[0_8px_32px_rgba(0,0,0,0.4)] group",
       )}
       type="button"
     >
@@ -225,14 +220,12 @@ function MiniGraphPreview({ graph }: { graph?: any }) {
 
   const byId = new Map<string, MiniPt>(pts.map((p: MiniPt) => [p.id, p]));
 
-  const lines: MiniLine[] = (edges as MiniEdge[])
-    .slice(0, 6)
-    .flatMap((e: MiniEdge): MiniLine[] => {
-      const a = byId.get(e.source);
-      const b = byId.get(e.target);
-      if (!a || !b) return [];
-      return [{ x1: a.x, y1: a.y, x2: b.x, y2: b.y }];
-    });
+  const lines: MiniLine[] = (edges as MiniEdge[]).slice(0, 6).flatMap((e: MiniEdge): MiniLine[] => {
+    const a = byId.get(e.source);
+    const b = byId.get(e.target);
+    if (!a || !b) return [];
+    return [{ x1: a.x, y1: a.y, x2: b.x, y2: b.y }];
+  });
 
   return (
     <div className="h-[44px] w-[64px] overflow-hidden rounded-xl border border-gray-700/40 bg-black/40 backdrop-blur-sm">
@@ -261,14 +254,7 @@ function MiniGraphPreview({ graph }: { graph?: any }) {
         ))}
 
         {pts.length === 0 && (
-          <rect
-            x="10"
-            y="14"
-            width="44"
-            height="16"
-            rx="8"
-            fill="rgba(255,255,255,0.06)"
-          />
+          <rect x="10" y="14" width="44" height="16" rx="8" fill="rgba(255,255,255,0.06)" />
         )}
       </svg>
     </div>

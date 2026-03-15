@@ -2,7 +2,7 @@
 
 This document outlines the performance optimizations implemented to improve loading times and eliminate the black screen on initial page load.
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 ## Key Improvements
 

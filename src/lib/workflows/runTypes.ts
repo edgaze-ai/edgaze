@@ -1,22 +1,12 @@
 // src/lib/workflows/runTypes.ts
 
-export type RunStatus =
-  | "queued"
-  | "running"
-  | "succeeded"
-  | "failed"
-  | "canceled";
+export type RunStatus = "queued" | "running" | "succeeded" | "failed" | "canceled";
 
-export type RunStepState =
-  | "queued"
-  | "running"
-  | "succeeded"
-  | "failed"
-  | "skipped";
+export type RunStepState = "queued" | "running" | "succeeded" | "failed" | "skipped";
 
 export type WorkflowRunStepView = {
   stepKey: string;
-  title: string;   // human-readable name, not code
+  title: string; // human-readable name, not code
   message: string; // human-readable description of what this step is doing
   state: RunStepState;
   durationMs?: number | null;

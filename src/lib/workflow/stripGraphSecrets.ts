@@ -27,15 +27,19 @@ export function stripGraphSecrets(graph: unknown): unknown {
   const g = graph as { nodes?: unknown[]; edges?: unknown[] };
   const nodes = g.nodes;
   if (!Array.isArray(nodes)) return graph;
-  const out = { ...g, nodes: nodes.map((node) => {
-    if (node == null || typeof node !== "object") return node;
-    const n = node as Record<string, unknown>;
-    const data = n.data;
-    if (data == null || typeof data !== "object") return node;
-    const d = data as Record<string, unknown>;
-    const config = d.config;
-    if (config == null || typeof config !== "object") return node;
-    return { ...n, data: { ...d, config: stripConfig(config) } };
-  }), edges: Array.isArray(g.edges) ? g.edges : [] };
+  const out = {
+    ...g,
+    nodes: nodes.map((node) => {
+      if (node == null || typeof node !== "object") return node;
+      const n = node as Record<string, unknown>;
+      const data = n.data;
+      if (data == null || typeof data !== "object") return node;
+      const d = data as Record<string, unknown>;
+      const config = d.config;
+      if (config == null || typeof config !== "object") return node;
+      return { ...n, data: { ...d, config: stripConfig(config) } };
+    }),
+    edges: Array.isArray(g.edges) ? g.edges : [],
+  };
   return out;
 }

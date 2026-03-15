@@ -39,11 +39,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function BlogPostPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const blog = getBlog(slug);
 
@@ -87,9 +83,7 @@ export default async function BlogPostPage({
           {blog.title}
         </h1>
         {blog.description && (
-          <p className="mt-5 text-xl text-white/65 max-w-3xl leading-relaxed">
-            {blog.description}
-          </p>
+          <p className="mt-5 text-xl text-white/65 max-w-3xl leading-relaxed">{blog.description}</p>
         )}
         <div className="mt-8 h-px w-24 bg-gradient-to-r from-cyan-400/60 via-pink-500/60 to-transparent rounded-full" />
       </header>
@@ -101,10 +95,7 @@ export default async function BlogPostPage({
 
         {toc.length > 0 && (
           <aside className="hidden lg:block">
-            <nav
-              className="sticky top-28"
-              aria-label="Table of contents"
-            >
+            <nav className="sticky top-28" aria-label="Table of contents">
               <p className="text-xs font-medium uppercase tracking-widest text-white/40 mb-4">
                 On this page
               </p>
@@ -144,15 +135,10 @@ export default async function BlogPostPage({
                     {b.title}
                   </h3>
                   {b.description && (
-                    <p className="mt-1.5 text-base text-white/55 line-clamp-2">
-                      {b.description}
-                    </p>
+                    <p className="mt-1.5 text-base text-white/55 line-clamp-2">{b.description}</p>
                   )}
                   {b.date && (
-                    <time
-                      dateTime={b.date}
-                      className="mt-2 inline-block text-sm text-white/40"
-                    >
+                    <time dateTime={b.date} className="mt-2 inline-block text-sm text-white/40">
                       {new Date(b.date).toLocaleDateString("en-US", {
                         year: "numeric",
                         month: "long",
@@ -161,7 +147,10 @@ export default async function BlogPostPage({
                     </time>
                   )}
                 </div>
-                <ArrowRight className="w-5 h-5 shrink-0 text-white/40 group-hover:text-cyan-400/90 group-hover:translate-x-0.5 transition-all mt-1" strokeWidth={2} />
+                <ArrowRight
+                  className="w-5 h-5 shrink-0 text-white/40 group-hover:text-cyan-400/90 group-hover:translate-x-0.5 transition-all mt-1"
+                  strokeWidth={2}
+                />
               </Link>
             ))}
           </div>

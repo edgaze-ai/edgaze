@@ -9,7 +9,16 @@ const MAX_TEXT_LENGTH = 50_000; // ~50KB to prevent abuse
 function withTimeout<T>(p: Promise<T>, ms = 2500): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("timeout")), ms);
-    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
   });
 }
 
@@ -30,17 +39,20 @@ export async function POST(req: NextRequest) {
 
     // Try Ollama first (best-effort)
     try {
-      const r = await withTimeout(fetch(`${OLLAMA_URL}/api/generate`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          model: OLLAMA_MODEL,
-          prompt:
-            "Summarize the following workflow run for a non-technical user in 2 sentences. Keep it plain and helpful:\n\n" +
-            text,
-          stream: false,
+      const r = await withTimeout(
+        fetch(`${OLLAMA_URL}/api/generate`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            model: OLLAMA_MODEL,
+            prompt:
+              "Summarize the following workflow run for a non-technical user in 2 sentences. Keep it plain and helpful:\n\n" +
+              text,
+            stream: false,
+          }),
         }),
-      }), 3500);
+        3500,
+      );
 
       if (r.ok) {
         const j = await r.json().catch(() => null as any);
@@ -55,7 +67,9 @@ export async function POST(req: NextRequest) {
     // Fallback: quick human-friendly summary
     const lines = text.split(/\n+/).filter(Boolean);
     const first = lines.find((l) => /start/i.test(l)) || lines[0] || "The workflow started.";
-    const last = lines.reverse().find((l) => /(finish|done|output|success)/i.test(l)) || "The workflow finished.";
+    const last =
+      lines.reverse().find((l) => /(finish|done|output|success)/i.test(l)) ||
+      "The workflow finished.";
     const summary = `${first.replace(/\[\d+:\d+(:\d+)?\s*(AM|PM)?\]\s*/i, "")} ${last}`;
     return NextResponse.json({ summary }, { status: 200 });
   } catch (e) {

@@ -6,7 +6,7 @@ import { createSupabaseAdminClient } from "@lib/supabase/admin";
  */
 export async function getWorkflowRedirectPath(
   ownerHandle: string,
-  edgazeCode: string
+  edgazeCode: string,
 ): Promise<string | null> {
   if (!ownerHandle?.trim() || !edgazeCode?.trim()) return null;
   const supabase = createSupabaseAdminClient();
@@ -49,7 +49,7 @@ export async function getWorkflowRedirectPath(
  */
 export async function getProductRedirectPath(
   ownerHandle: string,
-  edgazeCode: string
+  edgazeCode: string,
 ): Promise<string | null> {
   if (!ownerHandle?.trim() || !edgazeCode?.trim()) return null;
   const supabase = createSupabaseAdminClient();

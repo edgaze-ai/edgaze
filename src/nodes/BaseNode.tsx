@@ -21,7 +21,10 @@ import {
   FileText,
 } from "lucide-react";
 
-const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string; style?: any }>> = {
+const ICON_MAP: Record<
+  string,
+  React.ComponentType<{ size?: number; className?: string; style?: any }>
+> = {
   ArrowRight,
   ArrowLeft,
   GitMerge,
@@ -98,14 +101,14 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
   const label = data?.title ?? data?.label ?? registry?.label ?? spec?.label ?? "Node";
   const version = spec?.version ?? data?.config?.version ?? "1.0.0";
   const status = data?.status ?? "idle";
-  const config = data?.config ?? {};
+  const config = useMemo(() => data?.config ?? {}, [data?.config]);
   const errorMessage = data?.errorMessage ?? "";
   const executionTime = data?.executionTime;
   const tags = data?.config?.tags ?? data?.tags;
 
   const previewText = useMemo(
     () => buildPreview(data?.specId ?? "", config, edges, id),
-    [data?.specId, config, edges, id]
+    [data?.specId, config, edges, id],
   );
 
   const ports = spec?.ports ?? [];

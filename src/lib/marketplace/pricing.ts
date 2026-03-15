@@ -17,9 +17,17 @@ export function validatePromptPrice(priceUsd: number): { valid: boolean; error?:
   return { valid: true };
 }
 
-export function validateWorkflowPrice(priceUsd: number): { valid: boolean; error?: string } {
-  if (priceUsd < WORKFLOW_MIN_USD) {
-    return { valid: false, error: `Minimum price for workflows is $${WORKFLOW_MIN_USD}` };
+export function validateWorkflowPrice(
+  priceUsd: number,
+  minOverride?: number,
+): { valid: boolean; error?: string } {
+  const effectiveMin =
+    minOverride !== undefined ? Math.max(WORKFLOW_MIN_USD, minOverride) : WORKFLOW_MIN_USD;
+  if (priceUsd < effectiveMin) {
+    return {
+      valid: false,
+      error: `Minimum price for workflows is $${effectiveMin.toFixed(2)}`,
+    };
   }
   if (priceUsd > WORKFLOW_MAX_USD) {
     return { valid: false, error: `Maximum price for workflows is $${WORKFLOW_MAX_USD}` };

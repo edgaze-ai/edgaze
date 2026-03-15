@@ -37,10 +37,7 @@ function escapeLikePattern(s: string): string {
 export async function GET(req: NextRequest) {
   const { allowed } = checkSimpleIpRateLimit(req);
   if (!allowed) {
-    return NextResponse.json(
-      { query: "", profiles: [], workflows: [] },
-      { status: 429 }
-    );
+    return NextResponse.json({ query: "", profiles: [], workflows: [] }, { status: 429 });
   }
 
   const url = new URL(req.url);
@@ -73,7 +70,7 @@ export async function GET(req: NextRequest) {
       .from("profiles")
       .select("id, display_name, handle, avatar_url")
       .or(
-        `display_name.ilike.%${escaped}%,handle.ilike.%${escaped}%` // name or handle (escaped to prevent LIKE wildcard abuse)
+        `display_name.ilike.%${escaped}%,handle.ilike.%${escaped}%`, // name or handle (escaped to prevent LIKE wildcard abuse)
       )
       .limit(5);
 

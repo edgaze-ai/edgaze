@@ -28,9 +28,7 @@ function QuickStartItem({
       onClick={() => onLoad(templateId)}
       className="flex w-full items-center gap-3 rounded-xl bg-[#0c0c0c] edge-border text-[12px] hover:bg-white/5 transition-colors overflow-hidden text-left"
     >
-      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#141414]">
-        {icon}
-      </div>
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#141414]">{icon}</div>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <div className="font-semibold text-[12px]">{title}</div>
@@ -64,15 +62,13 @@ function BlockLibrary({
   const items = useMemo(() => {
     if (!q) return all;
     const term = q.toLowerCase();
-    return all.filter((s) =>
-      `${s.label} ${s.id} ${s.summary}`.toLowerCase().includes(term)
-    );
+    return all.filter((s) => `${s.label} ${s.id} ${s.summary}`.toLowerCase().includes(term));
   }, [q, all]);
 
   const handleAdd = (specId: string) => {
     // keep existing behaviour – do NOT change event name
     window.dispatchEvent(
-      new CustomEvent("edgaze:add-node", { detail: { specId, source: "library" } })
+      new CustomEvent("edgaze:add-node", { detail: { specId, source: "library" } }),
     );
     onAdd?.(specId);
   };
@@ -152,7 +148,9 @@ function BlockLibrary({
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
                 <p className="text-[12px] text-white/70">
-                  Describe what you want in plain English (e.g. &quot;generate an image&quot;, &quot;call an API&quot;, &quot;merge data&quot;). I&apos;ll suggest matching nodes—no AI API used.
+                  Describe what you want in plain English (e.g. &quot;generate an image&quot;,
+                  &quot;call an API&quot;, &quot;merge data&quot;). I&apos;ll suggest matching
+                  nodes—no AI API used.
                 </p>
                 <div className="space-y-3">
                   <div className="ai-input-glow w-full rounded-xl p-[1.5px]">
@@ -192,9 +190,7 @@ function BlockLibrary({
                             className="flex items-center justify-between gap-2 rounded-lg bg-black/30 edge-border px-3 py-2"
                           >
                             <div className="min-w-0">
-                              <div className="text-[13px] font-medium truncate">
-                                {spec.label}
-                              </div>
+                              <div className="text-[13px] font-medium truncate">{spec.label}</div>
                               <div className="text-[11px] text-white/55 line-clamp-1">
                                 {spec.summary}
                               </div>
@@ -227,9 +223,7 @@ function BlockLibrary({
         {/* Quick start */}
         <div className="px-2 pt-1">
           <div className="mb-1.5 flex items-center justify-between">
-            <h4 className="text-[11px] tracking-[0.18em] text-white/70">
-              QUICK START
-            </h4>
+            <h4 className="text-[11px] tracking-[0.18em] text-white/70">QUICK START</h4>
             <button
               onClick={() => setShowQS((s) => !s)}
               className="text-[11px] opacity-70 hover:opacity-100"
@@ -271,7 +265,7 @@ function BlockLibrary({
             const onDragStart = (e: React.DragEvent) => {
               e.dataTransfer.setData(
                 "application/edgaze-node",
-                JSON.stringify({ specId: spec.id })
+                JSON.stringify({ specId: spec.id }),
               );
               e.dataTransfer.effectAllowed = "move";
             };
@@ -280,22 +274,15 @@ function BlockLibrary({
             const outputs = spec.ports.filter((p) => p.kind === "output").length;
 
             return (
-              <div
-                key={spec.id}
-                className="rounded-xl bg-black/20 p-3 edge-glass edge-border"
-              >
+              <div key={spec.id} className="rounded-xl bg-black/20 p-3 edge-glass edge-border">
                 <div className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="truncate text-[13px] font-semibold">
-                      {spec.label}
-                    </div>
+                    <div className="truncate text-[13px] font-semibold">{spec.label}</div>
                     <div className="mt-0.5 text-[11px] text-white/55 line-clamp-1">
                       {spec.summary}
                     </div>
                   </div>
-                  <span className="shrink-0 text-[10px] font-mono text-white/45">
-                    {spec.id}
-                  </span>
+                  <span className="shrink-0 text-[10px] font-mono text-white/45">{spec.id}</span>
                 </div>
 
                 <div className="mt-2 preview-stage rounded-lg py-4 px-4">
@@ -339,10 +326,7 @@ function BlockLibrary({
           width: 100%;
           border-radius: 10px;
           background-color: #2a2a2e;
-          background-image: radial-gradient(
-            rgba(255, 255, 255, 0.06) 1px,
-            transparent 1px
-          );
+          background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
           background-size: 12px 12px;
         }
 
@@ -359,13 +343,7 @@ function BlockLibrary({
         }
 
         .edgaze-flow {
-          background: linear-gradient(
-            90deg,
-            #78e9ff,
-            #b68cff,
-            #ff6db2,
-            #78e9ff
-          );
+          background: linear-gradient(90deg, #78e9ff, #b68cff, #ff6db2, #78e9ff);
           background-size: 260% 100%;
           animation: edgaze-move 9s linear infinite;
         }
@@ -387,38 +365,19 @@ function BlockLibrary({
         }
 
         .ai-modal-glow {
-          background: linear-gradient(
-            120deg,
-            #78e9ff,
-            #b68cff,
-            #ff6db2,
-            #78e9ff,
-            #b68cff
-          );
+          background: linear-gradient(120deg, #78e9ff, #b68cff, #ff6db2, #78e9ff, #b68cff);
           background-size: 300% 300%;
           animation: ai-glow-move 8s ease-in-out infinite;
         }
 
         .ai-input-glow {
-          background: linear-gradient(
-            90deg,
-            #78e9ff,
-            #b68cff,
-            #ff6db2,
-            #78e9ff
-          );
+          background: linear-gradient(90deg, #78e9ff, #b68cff, #ff6db2, #78e9ff);
           background-size: 280% 100%;
           animation: ai-glow-move 6s linear infinite;
         }
 
         .ai-search-btn {
-          background: linear-gradient(
-            90deg,
-            #78e9ff,
-            #b68cff,
-            #ff6db2,
-            #78e9ff
-          );
+          background: linear-gradient(90deg, #78e9ff, #b68cff, #ff6db2, #78e9ff);
           background-size: 280% 100%;
           animation: ai-glow-move 5s linear infinite;
         }

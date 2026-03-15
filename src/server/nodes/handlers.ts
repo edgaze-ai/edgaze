@@ -34,11 +34,14 @@ const inputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
   if (external !== undefined && external !== null) {
     value = external;
   } else {
-    const configValue = node.data?.config?.value ?? node.data?.config?.text ?? node.data?.config?.defaultValue;
-    value = configValue !== undefined && configValue !== null && configValue !== "" ? configValue : "";
+    const configValue =
+      node.data?.config?.value ?? node.data?.config?.text ?? node.data?.config?.defaultValue;
+    value =
+      configValue !== undefined && configValue !== null && configValue !== "" ? configValue : "";
   }
 
-  const question = typeof node.data?.config?.question === "string" ? node.data.config.question.trim() : undefined;
+  const question =
+    typeof node.data?.config?.question === "string" ? node.data.config.question.trim() : undefined;
 
   // When question is set, output { value, question } so OpenAI can show "Question / Answer" in an Inputs section
   if (question && question.length > 0) {
@@ -56,11 +59,21 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
   // This node receives outputs from previous nodes (like ChatGPT) and combines them
   const inbound = ctx.getInboundValues(node.id);
 
-  console.warn(`[Merge Node ${node.id}] Received inbound values:`, inbound.map(v => ({
-    type: typeof v,
-    isArray: Array.isArray(v),
-    preview: typeof v === "string" ? v.substring(0, 50) : Array.isArray(v) ? `Array[${v.length}]` : typeof v === "object" ? "Object" : String(v)
-  })));
+  console.warn(
+    `[Merge Node ${node.id}] Received inbound values:`,
+    inbound.map((v) => ({
+      type: typeof v,
+      isArray: Array.isArray(v),
+      preview:
+        typeof v === "string"
+          ? v.substring(0, 50)
+          : Array.isArray(v)
+            ? `Array[${v.length}]`
+            : typeof v === "object"
+              ? "Object"
+              : String(v),
+    })),
+  );
 
   // Filter out only null/undefined (preserve empty strings, 0, false, etc. - let downstream nodes decide)
   const valid = inbound.filter((v) => v !== null && v !== undefined);
@@ -79,7 +92,12 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
     if (content !== null && typeof content === "object" && !Array.isArray(content)) {
       const obj = content as any;
       if (typeof obj.question === "string" && "value" in obj) {
-        const answer = obj.value === undefined || obj.value === null ? "" : typeof obj.value === "string" ? obj.value : JSON.stringify(obj.value);
+        const answer =
+          obj.value === undefined || obj.value === null
+            ? ""
+            : typeof obj.value === "string"
+              ? obj.value
+              : JSON.stringify(obj.value);
         return answer;
       }
       if (typeof obj.content === "string") return obj.content;
@@ -92,7 +110,10 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
         return String(content);
       }
     }
-    if (Array.isArray(content)) return content.map((item) => (typeof item === "string" ? item : JSON.stringify(item))).join(" ");
+    if (Array.isArray(content))
+      return content
+        .map((item) => (typeof item === "string" ? item : JSON.stringify(item)))
+        .join(" ");
     return String(content);
   };
 
@@ -100,7 +121,10 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
   if (valid.length === 1) {
     const single = valid[0];
     const output = toMergeString(single);
-    console.warn(`[Merge Node ${node.id}] Single input, passing through:`, output.substring(0, 100));
+    console.warn(
+      `[Merge Node ${node.id}] Single input, passing through:`,
+      output.substring(0, 100),
+    );
     ctx.setNodeOutput(node.id, output);
     return output;
   }
@@ -108,7 +132,10 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
   // Multiple inputs: merge all into one string (do not drop any input)
   const stringInputs = valid.map((v) => toMergeString(v));
   const merged = stringInputs.join("\n\n");
-  console.warn(`[Merge Node ${node.id}] Merged ${valid.length} inputs into string:`, merged.substring(0, 100));
+  console.warn(
+    `[Merge Node ${node.id}] Merged ${valid.length} inputs into string:`,
+    merged.substring(0, 100),
+  );
   ctx.setNodeOutput(node.id, merged);
   return merged;
 };
@@ -201,7 +228,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   });
   if (!rateCheck.allowed) {
     throw new Error(
-      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`
+      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
     );
   }
 
@@ -209,7 +236,13 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   const inbound = ctx.getInboundValues(node.id);
 
   // Debug: log inbound values to help diagnose issues
-  console.warn(`[OpenAI Chat] Node ${node.id} received inbound values:`, inbound.length, inbound.map(v => typeof v === "string" ? `"${v.substring(0, 50)}${v.length > 50 ? "..." : ""}"` : typeof v));
+  console.warn(
+    `[OpenAI Chat] Node ${node.id} received inbound values:`,
+    inbound.length,
+    inbound.map((v) =>
+      typeof v === "string" ? `"${v.substring(0, 50)}${v.length > 50 ? "..." : ""}"` : typeof v,
+    ),
+  );
 
   // Extract prompt/messages from inbound - BE LENIENT, convert ANYTHING to usable format
   let inboundMessages: any[] | undefined = undefined;
@@ -221,20 +254,29 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
 
     if (Array.isArray(content) && content.length > 0) {
       // Check if it's OpenAI messages format
-      if (content.every((item: any) => item && typeof item === "object" && ("role" in item || "content" in item))) {
+      if (
+        content.every(
+          (item: any) => item && typeof item === "object" && ("role" in item || "content" in item),
+        )
+      ) {
         inboundMessages = content;
         break;
       }
     }
 
-    if (typeof content === "object" && !Array.isArray(content) && Array.isArray((content as any).messages)) {
+    if (
+      typeof content === "object" &&
+      !Array.isArray(content) &&
+      Array.isArray((content as any).messages)
+    ) {
       inboundMessages = (content as any).messages;
       break;
     }
   }
 
   // Build prompt from ALL inbound values (no dropping): format as "## Inputs" section so OpenAI receives every connected input
-  const configPrompt = typeof config.prompt === "string" ? config.prompt.trim() || undefined : undefined;
+  const configPrompt =
+    typeof config.prompt === "string" ? config.prompt.trim() || undefined : undefined;
 
   /** Convert one inbound value to a string for the Inputs section (handles condition passthrough, input node { value, question }) */
   const oneInboundToInputSegment = (val: unknown): string => {
@@ -244,7 +286,12 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     if (typeof content === "object" && !Array.isArray(content)) {
       const obj = content as any;
       if (typeof obj.question === "string" && "value" in obj) {
-        const answer = obj.value === undefined || obj.value === null ? "" : typeof obj.value === "string" ? obj.value : JSON.stringify(obj.value);
+        const answer =
+          obj.value === undefined || obj.value === null
+            ? ""
+            : typeof obj.value === "string"
+              ? obj.value
+              : JSON.stringify(obj.value);
         return answer;
       }
       if (typeof obj.prompt === "string") return obj.prompt;
@@ -267,29 +314,42 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   let prompt: string | undefined;
   if (!inboundMessages && inbound.length > 0) {
     const validInbound = inbound.filter((v) => v !== null && v !== undefined);
-    const segments = validInbound.map(oneInboundToInputSegment).filter((s) => s.length > 0 || validInbound.length === 1);
+    const segments = validInbound
+      .map(oneInboundToInputSegment)
+      .filter((s) => s.length > 0 || validInbound.length === 1);
     const inputsSection = segments.join("\n\n");
     if (inputsSection) {
       prompt = configPrompt
         ? `## Inputs\n\n${inputsSection}\n\n## Prompt\n\n${configPrompt}`
         : `## Inputs\n\n${inputsSection}`;
-      console.warn(`[OpenAI Chat ${node.id}] Built prompt from ${validInbound.length} inbound value(s) (Inputs section):`, prompt.substring(0, 150));
+      console.warn(
+        `[OpenAI Chat ${node.id}] Built prompt from ${validInbound.length} inbound value(s) (Inputs section):`,
+        prompt.substring(0, 150),
+      );
     } else {
       prompt = configPrompt;
-      console.warn(`[OpenAI Chat ${node.id}] No usable text from inbound, using config prompt only:`, configPrompt?.substring(0, 80));
+      console.warn(
+        `[OpenAI Chat ${node.id}] No usable text from inbound, using config prompt only:`,
+        configPrompt?.substring(0, 80),
+      );
     }
   } else {
     prompt = configPrompt;
     if (inbound.length === 0) {
-      console.warn(`[OpenAI Chat ${node.id}] No inbound connections, using config prompt only:`, configPrompt?.substring(0, 80));
+      console.warn(
+        `[OpenAI Chat ${node.id}] No inbound connections, using config prompt only:`,
+        configPrompt?.substring(0, 80),
+      );
     }
   }
 
-  const userSystem = typeof config.system === "string" ? config.system.trim() || undefined : undefined;
+  const userSystem =
+    typeof config.system === "string" ? config.system.trim() || undefined : undefined;
   const messages = inboundMessages;
 
   // Server-side enforced system prompt (from env or default)
-  const serverSystemPrompt = process.env.EDGAZE_SERVER_SYSTEM_PROMPT ||
+  const serverSystemPrompt =
+    process.env.EDGAZE_SERVER_SYSTEM_PROMPT ||
     "You are a helpful AI assistant running in Edgaze workflows. Be concise, accurate, and follow user instructions carefully.\n\nDo not echo or repeat the input values in your response. Just provide the requested output directly.";
 
   // Combine server system prompt with user's system prompt (server first, then user)
@@ -305,12 +365,18 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   // Only error if we have nothing at all – no prompt, no system, no messages, no usable inbound
   if (prompt === undefined && !messages) {
     if (inbound.length === 0) {
-      throw new Error("Prompt or messages array required. Please provide a prompt in the node configuration or connect an input node with data.");
+      throw new Error(
+        "Prompt or messages array required. Please provide a prompt in the node configuration or connect an input node with data.",
+      );
     }
     // Inbound exists but wasn't usable (e.g. merge not run yet, or wrong shape) – still allow config.prompt/system
-    const anyConfig = (typeof config.prompt === "string" && config.prompt.trim()) || (typeof config.system === "string" && config.system.trim());
+    const anyConfig =
+      (typeof config.prompt === "string" && config.prompt.trim()) ||
+      (typeof config.system === "string" && config.system.trim());
     if (!anyConfig) {
-      throw new Error("Connected input node(s) did not provide usable data. Please ensure input nodes have values or set a prompt in the OpenAI Chat node configuration.");
+      throw new Error(
+        "Connected input node(s) did not provide usable data. Please ensure input nodes have values or set a prompt in the OpenAI Chat node configuration.",
+      );
     }
     prompt = (typeof config.prompt === "string" ? config.prompt.trim() : undefined) || "";
   }
@@ -318,9 +384,11 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   const isBuilderTest = !!(ctx.inputs as any)?.["__builder_test"];
   const builderUserKey = !!(ctx.inputs as any)?.["__builder_user_key"];
   const usePremium = !isBuilderTest || builderUserKey; // User's key => use inspector model and normal limits
-  const model = usePremium ? (config.model || "gpt-4o-mini") : "gpt-4o-mini";
+  const model = usePremium ? config.model || "gpt-4o-mini" : "gpt-4o-mini";
   const temperature = config.temperature ?? 0.7;
-  const effectiveMaxTokens = usePremium ? (config.maxTokens ?? 2000) : Math.min(5000, config.maxTokens ?? 2000);
+  const effectiveMaxTokens = usePremium
+    ? (config.maxTokens ?? 2000)
+    : Math.min(5000, config.maxTokens ?? 2000);
   const maxTokens = effectiveMaxTokens;
   const stream = false; // Server run always needs full response; streaming returns SSE and breaks JSON parse
 
@@ -337,7 +405,10 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     const tempMessages = [{ role: "system", content: serverSystemPrompt } as const];
     const userSystemMsg = messages.find((m: any) => m.role === "system");
     if (userSystemMsg && userSystemMsg.content) {
-      tempMessages[0] = { role: "system", content: `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}` };
+      tempMessages[0] = {
+        role: "system",
+        content: `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`,
+      };
       tempMessages.push(...messages.filter((m: any) => m.role !== "system"));
     } else {
       tempMessages.push(...messages);
@@ -352,12 +423,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     maxTokens,
   });
 
-  const tokenValidation = validateNodeTokenLimit(
-    node.id,
-    tokenCount.total,
-    "chat",
-    nodeTokenCap
-  );
+  const tokenValidation = validateNodeTokenLimit(node.id, tokenCount.total, "chat", nodeTokenCap);
   if (!tokenValidation.valid) {
     throw new Error(tokenValidation.error || "Token limit exceeded");
   }
@@ -455,7 +521,10 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   }
 };
 
-const openaiEmbeddingsHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
+const openaiEmbeddingsHandler: NodeRuntimeHandler = async (
+  node: GraphNode,
+  ctx: RuntimeContext,
+) => {
   const apiKey = getApiKey(node, ctx);
   if (!apiKey) {
     throw new Error("OpenAI API key required");
@@ -468,7 +537,7 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (node: GraphNode, ctx:
   });
   if (!rateCheck.allowed) {
     throw new Error(
-      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`
+      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
     );
   }
 
@@ -494,7 +563,7 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (node: GraphNode, ctx:
     node.id,
     tokenCount,
     "embeddings",
-    tokenLimits.maxTokensPerNode
+    tokenLimits.maxTokensPerNode,
   );
   if (!tokenValidation.valid) {
     throw new Error(tokenValidation.error || "Token limit exceeded");
@@ -572,7 +641,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
       requestMeta.identifier,
       requestMeta.identifierType,
       userId,
-      false // Not using user's API key, so hasApiKey = false for free tier check
+      false, // Not using user's API key, so hasApiKey = false for free tier check
     );
 
     if (!rateLimitCheck.allowed) {
@@ -582,19 +651,19 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         const freeRemaining = rateLimitCheck.freeRemaining || 0;
         throw new Error(
           rateLimitCheck.error ||
-          `You have used all 5 free images (${freeUsed}/5 used). Please provide your OpenAI API key in the run modal to continue generating images.`
+            `You have used all 5 free images (${freeUsed}/5 used). Please provide your OpenAI API key in the run modal to continue generating images.`,
         );
       }
       // If check failed for other reasons, throw error
       throw new Error(
         rateLimitCheck.error ||
-        "Image generation is not allowed at this time. Please provide your OpenAI API key."
+          "Image generation is not allowed at this time. Please provide your OpenAI API key.",
       );
     }
   } else if (!isUserApiKey && !hasApiKey) {
     // No identifier available and no API key - require API key
     throw new Error(
-      "OpenAI API key required for image generation. Please provide your API key in the run modal."
+      "OpenAI API key required for image generation. Please provide your API key in the run modal.",
     );
   }
 
@@ -610,7 +679,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   });
   if (!rateCheck.allowed) {
     throw new Error(
-      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`
+      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
     );
   }
 
@@ -636,7 +705,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     node.id,
     tokenCount,
     "image",
-    tokenLimits.maxTokensPerNode
+    tokenLimits.maxTokensPerNode,
   );
   if (!tokenValidation.valid) {
     throw new Error(tokenValidation.error || "Token limit exceeded");
@@ -652,8 +721,12 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   const DALL_E_3_SIZES = ["1024x1024", "1792x1024", "1024x1792"];
   const validSize =
     model === "dall-e-3"
-      ? (DALL_E_3_SIZES.includes(size) ? size : "1024x1024")
-      : (DALL_E_2_SIZES.includes(size) ? size : "1024x1024");
+      ? DALL_E_3_SIZES.includes(size)
+        ? size
+        : "1024x1024"
+      : DALL_E_2_SIZES.includes(size)
+        ? size
+        : "1024x1024";
 
   const body: Record<string, unknown> = {
     model,
@@ -717,7 +790,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         node.id,
         imageUrl || null,
         usedFreeTier,
-        isUserApiKey
+        isUserApiKey,
       );
     }
 
@@ -745,7 +818,9 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
       ? ((inbound0 as any).headers as Record<string, string> | undefined)
       : undefined) ?? undefined;
   const body =
-    inbound0 && typeof inbound0 === "object" && !Array.isArray(inbound0) ? (inbound0 as any).body : undefined;
+    inbound0 && typeof inbound0 === "object" && !Array.isArray(inbound0)
+      ? (inbound0 as any).body
+      : undefined;
 
   if (!url) {
     throw new Error("URL required for HTTP request");
@@ -754,8 +829,16 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   const allowOnlyRaw = config.allowOnly;
   const allowOnly = Array.isArray(allowOnlyRaw)
     ? allowOnlyRaw.map((h) => String(h).trim().toLowerCase()).filter(Boolean)
-    : (typeof allowOnlyRaw === "string" ? allowOnlyRaw.split(",").map((h) => h.trim().toLowerCase()).filter(Boolean) : []);
-  const denyHosts = (config.denyHosts || "").split(",").map((h: string) => h.trim().toLowerCase()).filter(Boolean);
+    : typeof allowOnlyRaw === "string"
+      ? allowOnlyRaw
+          .split(",")
+          .map((h) => h.trim().toLowerCase())
+          .filter(Boolean)
+      : [];
+  const denyHosts = (config.denyHosts || "")
+    .split(",")
+    .map((h: string) => h.trim().toLowerCase())
+    .filter(Boolean);
 
   const urlCheck = validateUrlForWorkflow(url, {
     allowOnly: allowOnly.length > 0 ? allowOnly : undefined,
@@ -768,18 +851,26 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   const method = (config.method || "GET").toUpperCase();
   const hasSideEffects = nodeHasSideEffects("http-request", config);
   if (hasSideEffects && ["POST", "PUT", "PATCH"].includes(method)) {
-    const idempotencyKey = config.idempotencyKey ?? (inbound0 && typeof inbound0 === "object" && (inbound0 as any).idempotencyKey);
+    const idempotencyKey =
+      config.idempotencyKey ??
+      (inbound0 && typeof inbound0 === "object" && (inbound0 as any).idempotencyKey);
     if (!idempotencyKey || typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
-      throw new Error("Side-effect HTTP requests (POST/PUT/PATCH) require idempotencyKey in config or input");
+      throw new Error(
+        "Side-effect HTTP requests (POST/PUT/PATCH) require idempotencyKey in config or input",
+      );
     }
   }
 
   const timeout = config.timeout ?? 30000;
   const hasAllowlist = allowOnly.length > 0;
-  const followRedirects = !hasAllowlist && (config.followRedirects !== false);
+  const followRedirects = !hasAllowlist && config.followRedirects !== false;
 
-  const sanitizedHeaders = stripSensitiveHeaders((headers && typeof headers === "object" ? headers : {}) as Record<string, string>);
-  const idempotencyKey = config.idempotencyKey ?? (inbound0 && typeof inbound0 === "object" ? (inbound0 as any).idempotencyKey : undefined);
+  const sanitizedHeaders = stripSensitiveHeaders(
+    (headers && typeof headers === "object" ? headers : {}) as Record<string, string>,
+  );
+  const idempotencyKey =
+    config.idempotencyKey ??
+    (inbound0 && typeof inbound0 === "object" ? (inbound0 as any).idempotencyKey : undefined);
   const requestHeaders: Record<string, string> = {
     "Content-Type": "application/json",
     ...sanitizedHeaders,
@@ -796,7 +887,7 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
       method,
       headers: requestHeaders,
       signal: controller.signal,
-      redirect: hasAllowlist ? "manual" : (followRedirects ? "follow" : "manual"),
+      redirect: hasAllowlist ? "manual" : followRedirects ? "follow" : "manual",
     };
 
     if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
@@ -934,9 +1025,14 @@ const conditionHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtim
       try {
         const aiResult = await evaluateConditionWithAI(humanCondition.trim(), value, apiKey);
         result = aiResult.result;
-        console.warn(`[Condition Node ${node.id}] AI evaluation: "${humanCondition}" = ${result} (confidence: ${aiResult.confidence})`);
+        console.warn(
+          `[Condition Node ${node.id}] AI evaluation: "${humanCondition}" = ${result} (confidence: ${aiResult.confidence})`,
+        );
       } catch (err) {
-        console.error(`[Condition Node ${node.id}] AI evaluation failed, falling back to operator:`, err);
+        console.error(
+          `[Condition Node ${node.id}] AI evaluation failed, falling back to operator:`,
+          err,
+        );
         // Fall through to operator-based evaluation
         result = undefined;
       }
@@ -1027,7 +1123,14 @@ const mergeJsonHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtim
       for (const src of sources) {
         if (src && typeof src === "object" && !Array.isArray(src)) {
           for (const k of Object.keys(src)) {
-            if (src[k] && typeof src[k] === "object" && !Array.isArray(src[k]) && target[k] && typeof target[k] === "object" && !Array.isArray(target[k])) {
+            if (
+              src[k] &&
+              typeof src[k] === "object" &&
+              !Array.isArray(src[k]) &&
+              target[k] &&
+              typeof target[k] === "object" &&
+              !Array.isArray(target[k])
+            ) {
               target[k] = deepMerge({ ...target[k] }, src[k]);
             } else {
               target[k] = src[k];
@@ -1054,7 +1157,12 @@ const templateHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtime
   let data: Record<string, unknown> = {};
   for (const v of inbound) {
     const content = extractPipelineContent(v);
-    if (content !== null && content !== undefined && typeof content === "object" && !Array.isArray(content)) {
+    if (
+      content !== null &&
+      content !== undefined &&
+      typeof content === "object" &&
+      !Array.isArray(content)
+    ) {
       data = { ...data, ...(content as Record<string, unknown>) };
     }
   }
@@ -1080,7 +1188,9 @@ const mapHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeConte
       item,
       index,
       length: array.length,
-      ...(item && typeof item === "object" && !Array.isArray(item) ? (item as Record<string, unknown>) : { value: item }),
+      ...(item && typeof item === "object" && !Array.isArray(item)
+        ? (item as Record<string, unknown>)
+        : { value: item }),
     };
     return String(template).replace(/\{\{(\w+)\}\}/g, (_, key) => {
       const val = data[key];

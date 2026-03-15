@@ -46,9 +46,7 @@ function LeftShowcase() {
       <div className="relative z-10 p-8">
         {/* Header */}
         <div className="mb-6">
-          <div className="text-xs tracking-widest text-white/50 uppercase">
-            Experience
-          </div>
+          <div className="text-xs tracking-widest text-white/50 uppercase">Experience</div>
           <div className="mt-1 text-xl font-semibold text-white">
             Enter a code. Get value instantly.
           </div>
@@ -57,9 +55,7 @@ function LeftShowcase() {
         {/* Code Input */}
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.05] px-4 py-3">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-sm text-white/80">
-            edgaze.ai/@handle/code
-          </span>
+          <span className="text-sm text-white/80">edgaze.ai/@handle/code</span>
 
           <span className="ml-auto flex items-center gap-1 rounded-lg border border-white/20 bg-black/40 px-3 py-1 text-xs font-mono text-white">
             {scene === "prompt" ? "HELLO" : "WORKFLOW"}
@@ -75,7 +71,7 @@ function LeftShowcase() {
               "absolute inset-0 p-6 transition-all duration-500",
               scene === "prompt"
                 ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-4 pointer-events-none"
+                : "opacity-0 translate-y-4 pointer-events-none",
             )}
           >
             <div className="text-sm font-semibold text-white mb-3">Prompt</div>
@@ -104,7 +100,7 @@ function LeftShowcase() {
               "absolute inset-0 p-6 transition-all duration-500",
               scene === "workflow"
                 ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-4 pointer-events-none"
+                : "opacity-0 translate-y-4 pointer-events-none",
             )}
           >
             <div className="flex items-center justify-between mb-3">
@@ -146,7 +142,7 @@ function LeftShowcase() {
                   key={i}
                   className={cn(
                     "absolute -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/20 bg-white/[0.08] px-3 py-1.5 text-xs text-white shadow-[0_0_30px_rgba(56,189,248,0.10)]",
-                    "animate-[float_5.2s_ease-in-out_infinite]"
+                    "animate-[float_5.2s_ease-in-out_infinite]",
                   )}
                   style={{
                     left: n.x,
@@ -199,13 +195,7 @@ function LeftShowcase() {
    Modal
 ========================= */
 
-export default function SignInModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export default function SignInModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPasswordForEmail } = useAuth();
 
@@ -242,21 +232,22 @@ export default function SignInModal({
 
   async function doSignin() {
     setError(null);
-    
+
     // Save current path before sign-in (in case it wasn't saved already)
     if (typeof window !== "undefined") {
       try {
-        const currentPath = window.location.pathname + window.location.search + window.location.hash;
+        const currentPath =
+          window.location.pathname + window.location.search + window.location.hash;
         if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
           localStorage.setItem("edgaze:returnTo", currentPath);
           sessionStorage.setItem("edgaze:returnTo", currentPath);
         }
       } catch {}
     }
-    
+
     await signInWithEmail(email, password);
     close();
-    
+
     // The redirect will be handled by AuthContext's auth state change listener
     // No need to manually redirect here to avoid race conditions
   }
@@ -304,17 +295,17 @@ export default function SignInModal({
                   {mode === "signin"
                     ? "Sign in"
                     : mode === "signup"
-                    ? "Create your account"
-                    : mode === "forgot"
-                    ? "Forgot password"
-                    : "Verify your email"}
+                      ? "Create your account"
+                      : mode === "forgot"
+                        ? "Forgot password"
+                        : "Verify your email"}
                 </div>
                 <div className="mt-1 text-sm text-white/60">
                   {mode === "verify"
                     ? "Check your inbox and verify your email to continue."
                     : mode === "forgot"
-                    ? "Enter your email and we'll send you a reset link."
-                    : "Publish prompts and workflows under your handle."}
+                      ? "Enter your email and we'll send you a reset link."
+                      : "Publish prompts and workflows under your handle."}
                 </div>
               </div>
 
@@ -330,13 +321,10 @@ export default function SignInModal({
               <div className="mt-6 space-y-4">
                 {forgotSent ? (
                   <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5">
-                    <div className="text-sm font-semibold text-emerald-300">
-                      Check your email
-                    </div>
+                    <div className="text-sm font-semibold text-emerald-300">Check your email</div>
                     <div className="mt-2 text-sm text-white/70">
-                      We sent a password reset link to{" "}
-                      <span className="text-white">{email}</span>. Click the link
-                      to set a new password.
+                      We sent a password reset link to <span className="text-white">{email}</span>.
+                      Click the link to set a new password.
                     </div>
                     <button
                       onClick={() => {
@@ -371,9 +359,7 @@ export default function SignInModal({
                     >
                       Send reset link
                     </button>
-                    {error && (
-                      <p className="text-sm text-red-400">{error}</p>
-                    )}
+                    {error && <p className="text-sm text-red-400">{error}</p>}
                     <button
                       type="button"
                       onClick={() => {
@@ -399,13 +385,7 @@ export default function SignInModal({
                   className="mt-6 w-full rounded-2xl border border-white/12 bg-white text-black py-3 font-semibold shadow-[0_18px_55px_rgba(255,255,255,0.08)] hover:opacity-95 active:opacity-90"
                 >
                   <span className="flex items-center justify-center gap-3">
-                    <Image
-                      src="/misc/google.png"
-                      alt="Google"
-                      width={18}
-                      height={18}
-                      priority
-                    />
+                    <Image src="/misc/google.png" alt="Google" width={18} height={18} priority />
                     Continue with Google
                   </span>
                 </button>
@@ -419,9 +399,7 @@ export default function SignInModal({
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    (mode === "signup" ? doSignup() : doSignin()).catch((e) =>
-                      setError(e.message)
-                    );
+                    (mode === "signup" ? doSignup() : doSignin()).catch((e) => setError(e.message));
                   }}
                   className="space-y-3"
                 >
@@ -479,9 +457,7 @@ export default function SignInModal({
                       onChange={(e) => setPassword(e.target.value)}
                       className="input"
                       required
-                      autoComplete={
-                        mode === "signup" ? "new-password" : "current-password"
-                      }
+                      autoComplete={mode === "signup" ? "new-password" : "current-password"}
                     />
                   </div>
 
@@ -523,12 +499,8 @@ export default function SignInModal({
 
                       <div className="mt-2">
                         <div className="flex items-center justify-between">
-                          <div className="text-xs text-white/55">
-                            Password strength
-                          </div>
-                          <div className="text-xs text-white/55">
-                            {pw.score}/5
-                          </div>
+                          <div className="text-xs text-white/55">Password strength</div>
+                          <div className="text-xs text-white/55">{pw.score}/5</div>
                         </div>
 
                         <div className="mt-2 grid grid-cols-5 gap-1">
@@ -537,9 +509,7 @@ export default function SignInModal({
                               key={i}
                               className={cn(
                                 "h-1 rounded-full",
-                                pw.score > i
-                                  ? "bg-emerald-400/80"
-                                  : "bg-white/10"
+                                pw.score > i ? "bg-emerald-400/80" : "bg-white/10",
                               )}
                             />
                           ))}
@@ -553,7 +523,7 @@ export default function SignInModal({
                                 "text-[11px] rounded-lg border px-2 py-1",
                                 r.ok
                                   ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
-                                  : "border-white/10 bg-white/[0.03] text-white/55"
+                                  : "border-white/10 bg-white/[0.03] text-white/55",
                               )}
                             >
                               {r.label}
@@ -606,13 +576,10 @@ export default function SignInModal({
 
             {mode === "verify" && (
               <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="text-sm font-semibold text-white/90">
-                  Verify your email
-                </div>
+                <div className="text-sm font-semibold text-white/90">Verify your email</div>
                 <div className="mt-2 text-sm text-white/60">
-                  We sent a verification link to{" "}
-                  <span className="text-white">{email}</span>. Open it to
-                  activate your account, then return and sign in.
+                  We sent a verification link to <span className="text-white">{email}</span>. Open
+                  it to activate your account, then return and sign in.
                 </div>
 
                 <button

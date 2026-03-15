@@ -55,7 +55,7 @@ function setupConsoleErrorFilter() {
   consoleErrorInterceptor = (...args: any[]) => {
     // Check if this is a Mixpanel mutex timeout error or other harmless errors
     let message = "";
-    
+
     if (args.length > 0) {
       // Try to extract message from all possible formats
       for (const arg of args) {
@@ -70,7 +70,7 @@ function setupConsoleErrorFilter() {
         }
       }
     }
-    
+
     message = message.trim().toLowerCase();
 
     // List of harmless Mixpanel errors to suppress
@@ -81,7 +81,8 @@ function setupConsoleErrorFilter() {
       message.includes("__mpq_") ||
       message.includes("mutex") ||
       message.includes("storage quota exceeded") || // Browser storage limits
-      (message.includes("mixpanel error") && (message.includes("mutex") || message.includes("lock"))) ||
+      (message.includes("mixpanel error") &&
+        (message.includes("mutex") || message.includes("lock"))) ||
       message.includes("failed to persist") ||
       message.includes("quotaexceedederror");
 
@@ -104,13 +105,13 @@ function commonProps(): Properties {
 
   const { innerWidth, innerHeight, devicePixelRatio } = window;
   const now = new Date();
-  
+
   // Extract browser info
   const ua = navigator.userAgent;
   const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
   const isTablet = /iPad|Android/i.test(ua) && !/Mobile/i.test(ua);
   const isDesktop = !isMobile && !isTablet;
-  
+
   // Detect browser
   let browser = "unknown";
   if (ua.includes("Chrome") && !ua.includes("Edg")) browser = "chrome";
@@ -118,7 +119,7 @@ function commonProps(): Properties {
   else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "safari";
   else if (ua.includes("Edg")) browser = "edge";
   else if (ua.includes("Opera")) browser = "opera";
-  
+
   // Detect OS
   let os = "unknown";
   if (ua.includes("Windows")) os = "windows";
@@ -126,7 +127,7 @@ function commonProps(): Properties {
   else if (ua.includes("Linux")) os = "linux";
   else if (ua.includes("Android")) os = "android";
   else if (ua.includes("iPhone") || ua.includes("iPad")) os = "ios";
-  
+
   // Determine user type based on Mixpanel distinct_id
   // If distinct_id looks like a UUID (authenticated user), mark as authenticated
   // Otherwise, it's anonymous
@@ -144,40 +145,40 @@ function commonProps(): Properties {
     // If we can't determine, default to anonymous
     userType = "anonymous";
   }
-  
+
   return {
     // Environment
     env: process.env.NODE_ENV,
-    
+
     // Page information
     pathname: window.location?.pathname,
     search: window.location?.search,
     hash: window.location?.hash,
     referrer: document.referrer || undefined,
-    
+
     // Screen/device
     screen_w: innerWidth,
     screen_h: innerHeight,
     dpr: devicePixelRatio,
     device_type: isMobile ? "mobile" : isTablet ? "tablet" : "desktop",
-    
+
     // Browser
     browser,
     os,
     user_agent: ua,
-    
+
     // Session
     session_id: getSessionId(),
-    
+
     // User type (critical for accurate active user counts)
     user_type: userType,
-    
+
     // Timestamp (ISO format for better Mixpanel handling)
     timestamp: now.toISOString(),
-    
+
     // Timezone
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    
+
     // Language
     language: navigator.language || navigator.languages?.[0] || "en",
   };
@@ -212,12 +213,12 @@ function suppressMutexErrors<T>(fn: () => T): T | undefined {
 async function ensureInit(): Promise<void> {
   // If already initialized, return immediately
   if (initialized) return;
-  
+
   // If initialization is in progress, wait for it
   if (initPromise) {
     return initPromise;
   }
-  
+
   if (!hasToken()) {
     if (!initErrorLogged) {
       console.warn("[Mixpanel] NEXT_PUBLIC_MIXPANEL_TOKEN not configured");
@@ -225,13 +226,13 @@ async function ensureInit(): Promise<void> {
     }
     return;
   }
-  
+
   if (!canUseBrowserApis()) return;
 
   // Create a single initialization promise that all callers will wait for
   initPromise = (async () => {
     if (initialized) return; // Double-check after async gap
-    
+
     try {
       // Set up console.error filter BEFORE initializing Mixpanel
       // This prevents mutex timeout errors from cluttering the console
@@ -299,15 +300,15 @@ export const initMixpanel = () => {
  */
 export const track = (event: string, properties?: Properties) => {
   if (!hasToken()) return;
-  
+
   ensureInit()
     .then(() => {
       suppressMutexErrors(() => {
         const props = { ...commonProps(), ...(properties ?? {}) };
-        
+
         // Ensure event name is valid (Mixpanel requirement)
         const sanitizedEvent = event.trim() || "Unknown Event";
-        
+
         mixpanel.track(sanitizedEvent, props);
       });
     })
@@ -325,21 +326,18 @@ export const track = (event: string, properties?: Properties) => {
  */
 export const trackPageView = (properties?: Properties) => {
   if (!hasToken()) return;
-  
+
   const now = Date.now();
   const currentPath = window.location?.pathname + window.location?.search;
-  
+
   // Deduplicate: don't track the same page view within debounce window
-  if (
-    lastPageView === currentPath &&
-    now - lastPageViewTime < PAGE_VIEW_DEBOUNCE_MS
-  ) {
+  if (lastPageView === currentPath && now - lastPageViewTime < PAGE_VIEW_DEBOUNCE_MS) {
     return;
   }
-  
+
   lastPageView = currentPath;
   lastPageViewTime = now;
-  
+
   ensureInit()
     .then(() => {
       suppressMutexErrors(() => {
@@ -350,7 +348,7 @@ export const trackPageView = (properties?: Properties) => {
           page_title: document.title || undefined,
           page_url: window.location?.href || undefined,
         };
-        
+
         mixpanel.track("Page Viewed", props);
       });
     })
@@ -364,12 +362,9 @@ export const trackPageView = (properties?: Properties) => {
  * Call exactly once after a user logs in (or session appears).
  * This merges anonymous pre-login events into the user profile.
  */
-export const identifyUser = (
-  userId: string,
-  props?: Record<string, any>
-) => {
+export const identifyUser = (userId: string, props?: Record<string, any>) => {
   if (!hasToken()) return;
-  
+
   ensureInit()
     .then(() => {
       suppressMutexErrors(() => {
@@ -396,7 +391,7 @@ export const identifyUser = (
           try {
             // Use Mixpanel-reserved keys where possible for better UI/joins
             const peopleProps: Record<string, any> = { ...props };
-            
+
             // Map standard properties to Mixpanel reserved properties
             if (peopleProps.email && !peopleProps.$email) {
               peopleProps.$email = peopleProps.email;
@@ -407,7 +402,7 @@ export const identifyUser = (
             if (peopleProps.handle && !peopleProps.$username) {
               peopleProps.$username = peopleProps.handle;
             }
-            
+
             // Set user properties in Mixpanel People
             mixpanel.people.set(peopleProps);
 
@@ -420,7 +415,7 @@ export const identifyUser = (
               email_verified: peopleProps.email_verified ?? undefined,
               user_type: "authenticated", // Mark as authenticated for all future events
             });
-            
+
             // Track identification event
             mixpanel.track("User Identified", {
               ...commonProps(),
@@ -444,7 +439,7 @@ export const identifyUser = (
  */
 export const resetIdentity = () => {
   if (!hasToken()) return;
-  
+
   ensureInit()
     .then(() => {
       suppressMutexErrors(() => {
@@ -452,13 +447,13 @@ export const resetIdentity = () => {
         mixpanel.track("User Logged Out", {
           ...commonProps(),
         });
-        
+
         // Reset to anonymous state
         mixpanel.reset();
-        
+
         // Generate new session ID for anonymous session
         sessionId = generateSessionId();
-        
+
         // Update session ID and user_type in super properties
         mixpanel.register({
           session_id: sessionId,
@@ -476,12 +471,12 @@ export const resetIdentity = () => {
  */
 export const setUserProperties = (props: Record<string, any>) => {
   if (!hasToken()) return;
-  
+
   ensureInit()
     .then(() => {
       suppressMutexErrors(() => {
         const peopleProps: Record<string, any> = { ...props };
-        
+
         // Map to Mixpanel reserved properties
         if (peopleProps.email && !peopleProps.$email) {
           peopleProps.$email = peopleProps.email;
@@ -492,7 +487,7 @@ export const setUserProperties = (props: Record<string, any>) => {
         if (peopleProps.handle && !peopleProps.$username) {
           peopleProps.$username = peopleProps.handle;
         }
-        
+
         mixpanel.people.set(peopleProps);
         mixpanel.register(peopleProps);
       });
@@ -507,7 +502,7 @@ export const setUserProperties = (props: Record<string, any>) => {
  */
 export const incrementUserProperty = (property: string, value: number = 1) => {
   if (!hasToken()) return;
-  
+
   ensureInit()
     .then(() => {
       suppressMutexErrors(() => {
@@ -524,7 +519,7 @@ export const incrementUserProperty = (property: string, value: number = 1) => {
  */
 export const timeEvent = (eventName: string) => {
   if (!hasToken()) return;
-  
+
   ensureInit()
     .then(() => {
       suppressMutexErrors(() => {

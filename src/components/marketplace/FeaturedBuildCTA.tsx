@@ -60,15 +60,12 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
             "shadow-[0_12px_40px_rgba(0,0,0,0.4)]",
             "transition-all duration-300 ease-out",
             "hover:border-white/15 hover:shadow-[0_16px_48px_rgba(0,0,0,0.45)]",
-            "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/25 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]",
           )}
           aria-label="Explore builders. Prompts and workflows, made simple."
         >
           {/* Edgaze vibe: faint cyan → pink gradient glow */}
-          <div
-            className="pointer-events-none absolute inset-0 rounded-2xl opacity-100"
-            aria-hidden
-          >
+          <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-100" aria-hidden>
             <div
               className="absolute -inset-px rounded-2xl opacity-50 blur-sm transition-opacity duration-300 group-hover:opacity-60"
               style={{
@@ -94,7 +91,8 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
               Build your own
             </span>
             <span className="text-sm text-white/55 sm:text-[15px] leading-snug">
-              Turn prompts and Workflows into powerful tools in minutes. No code. Share instantly. Monetize when ready.
+              Turn prompts and Workflows into powerful tools in minutes. No code. Share instantly.
+              Monetize when ready.
             </span>
           </div>
           <span
@@ -103,7 +101,7 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
               "bg-white/10 ring-1 ring-white/15",
               "transition-all duration-300 ease-out",
               "hover:bg-white/15 hover:ring-white/20 hover:text-white",
-              "active:scale-[0.98]"
+              "active:scale-[0.98]",
             )}
           >
             Explore builders
@@ -136,15 +134,12 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
           "transition-all duration-300 ease-out",
           "hover:border-white/20 hover:shadow-[0_28px_70px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]",
           "hover:-translate-y-1",
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]"
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050505]",
         )}
         aria-label="Explore builders — Prompt studio and Workflow studio"
       >
         {/* Faint cyan → pink gradient glow (Edgaze brand) */}
-        <div
-          className="pointer-events-none absolute inset-0 rounded-2xl opacity-100"
-          aria-hidden
-        >
+        <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-100" aria-hidden>
           <div
             className="absolute -inset-px rounded-2xl opacity-40 blur-sm transition-opacity duration-300 group-hover:opacity-60"
             style={{
@@ -179,7 +174,8 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
               Create your own
             </h3>
             <p className="mt-3 max-w-sm text-base leading-relaxed text-white/60 sm:text-lg">
-              Turn prompts and Workflows into powerful tools in minutes. No code. Share instantly. Monetize when ready.
+              Turn prompts and Workflows into powerful tools in minutes. No code. Share instantly.
+              Monetize when ready.
             </p>
           </div>
 
@@ -249,15 +245,12 @@ function ExploreBuildersModal({
           "relative w-full max-w-md rounded-2xl border border-white/10",
           "bg-[#0a0b0f]/98 backdrop-blur-xl",
           "shadow-[0_24px_60px_rgba(0,0,0,0.5)]",
-          "overflow-hidden"
+          "overflow-hidden",
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Edgaze gradient accent */}
-        <div
-          className="absolute inset-0 opacity-100 pointer-events-none"
-          aria-hidden
-        >
+        <div className="absolute inset-0 opacity-100 pointer-events-none" aria-hidden>
           <div
             className="absolute -inset-px rounded-2xl opacity-60 blur-sm"
             style={{
@@ -273,7 +266,10 @@ function ExploreBuildersModal({
             }}
           />
         </div>
-        <div className="absolute inset-[1px] rounded-[15px] border border-white/[0.06] bg-[#0a0b0f]/95" aria-hidden />
+        <div
+          className="absolute inset-[1px] rounded-[15px] border border-white/[0.06] bg-[#0a0b0f]/95"
+          aria-hidden
+        />
 
         <div className="relative p-6 sm:p-8">
           <div className="flex items-center justify-between gap-4 mb-6">
@@ -315,7 +311,7 @@ function ExploreBuildersModal({
                   "group flex flex-col items-start gap-3 rounded-xl border border-white/10 p-5 text-left",
                   "bg-white/[0.03] hover:bg-white/[0.06] hover:border-cyan-400/30",
                   "transition-all duration-200 ease-out",
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0b0f]"
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0b0f]",
                 )}
               >
                 <div
@@ -340,7 +336,7 @@ function ExploreBuildersModal({
                   "group flex flex-col items-start gap-3 rounded-xl border border-white/10 p-5 text-left",
                   "bg-white/[0.03] hover:bg-white/[0.06] hover:border-pink-400/30",
                   "transition-all duration-200 ease-out",
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0b0f]"
+                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0b0f]",
                 )}
               >
                 <div

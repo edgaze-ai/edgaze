@@ -14,10 +14,7 @@ export async function GET(req: NextRequest) {
     // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>)
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
-      return NextResponse.json(
-        { error: authError ?? "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: authError ?? "Not authenticated" }, { status: 401 });
     }
 
     // Check if user is admin
@@ -35,7 +32,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "Failed to fetch token limits" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -45,10 +42,7 @@ export async function POST(req: NextRequest) {
     // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>)
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
-      return NextResponse.json(
-        { error: authError ?? "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: authError ?? "Not authenticated" }, { status: 401 });
     }
 
     // Check if user is admin
@@ -66,10 +60,7 @@ export async function POST(req: NextRequest) {
       maxTokensPerWorkflow < 0 ||
       maxTokensPerNode < 0
     ) {
-      return NextResponse.json(
-        { error: "Invalid token limit values" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid token limit values" }, { status: 400 });
     }
 
     const result = await updateTokenLimits(
@@ -77,7 +68,7 @@ export async function POST(req: NextRequest) {
         maxTokensPerWorkflow,
         maxTokensPerNode,
       },
-      workflowId
+      workflowId,
     );
 
     if (!result.success) {
@@ -88,7 +79,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "Failed to update token limits" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

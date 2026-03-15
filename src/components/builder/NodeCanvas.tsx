@@ -165,9 +165,7 @@ export default function NodeCanvas() {
       const snapX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
       const snapY = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
 
-      setNodes((list) =>
-        list.map((n) => (n.id === id ? { ...n, x: snapX, y: snapY } : n))
-      );
+      setNodes((list) => list.map((n) => (n.id === id ? { ...n, x: snapX, y: snapY } : n)));
     };
 
     const handleUp = () => {
@@ -186,10 +184,7 @@ export default function NodeCanvas() {
     const id = Math.random().toString(36).slice(2);
     const baseX = 120 + nodes.length * 40;
     const baseY = 80 + nodes.length * 20;
-    setNodes((list) => [
-      ...list,
-      { id, x: baseX, y: baseY, label: "Node" },
-    ]);
+    setNodes((list) => [...list, { id, x: baseX, y: baseY, label: "Node" }]);
     setSelectedId(id);
   };
 
@@ -198,10 +193,7 @@ export default function NodeCanvas() {
     const n = nodes.find((nd) => nd.id === selectedId);
     if (!n) return;
     const id = Math.random().toString(36).slice(2);
-    setNodes((list) => [
-      ...list,
-      { ...n, id, x: n.x + GRID_SIZE, y: n.y + GRID_SIZE },
-    ]);
+    setNodes((list) => [...list, { ...n, id, x: n.x + GRID_SIZE, y: n.y + GRID_SIZE }]);
     setSelectedId(id);
   };
 
@@ -230,7 +222,7 @@ export default function NodeCanvas() {
       ref={canvasRef}
       className={cx(
         "relative h-full w-full overflow-hidden rounded-3xl border border-white/10 bg-[#05060A] shadow-[0_24px_80px_rgba(0,0,0,0.85)]",
-        "edge-glass edge-border"
+        "edge-glass edge-border",
       )}
     >
       {/* HUD – top centre */}
@@ -245,19 +237,11 @@ export default function NodeCanvas() {
 
         <span className="mx-1 h-4 w-px bg-white/15" />
 
-        <button
-          className="rounded-full p-1 hover:bg-white/10"
-          onClick={() => zoomStep("out")}
-        >
+        <button className="rounded-full p-1 hover:bg-white/10" onClick={() => zoomStep("out")}>
           <ZoomOut size={14} />
         </button>
-        <span className="px-1 text-xs tabular-nums text-white/70">
-          {(zoom * 100).toFixed(0)}%
-        </span>
-        <button
-          className="rounded-full p-1 hover:bg-white/10"
-          onClick={() => zoomStep("in")}
-        >
+        <span className="px-1 text-xs tabular-nums text-white/70">{(zoom * 100).toFixed(0)}%</span>
+        <button className="rounded-full p-1 hover:bg-white/10" onClick={() => zoomStep("in")}>
           <ZoomIn size={14} />
         </button>
 
@@ -281,7 +265,7 @@ export default function NodeCanvas() {
         <button
           className={cx(
             "rounded-full p-1 hover:bg-white/10",
-            !selectedId && "cursor-not-allowed opacity-40"
+            !selectedId && "cursor-not-allowed opacity-40",
           )}
           onClick={duplicateSelected}
         >
@@ -290,7 +274,7 @@ export default function NodeCanvas() {
         <button
           className={cx(
             "rounded-full p-1 hover:bg-white/10 text-red-300",
-            !selectedId && "cursor-not-allowed opacity-40"
+            !selectedId && "cursor-not-allowed opacity-40",
           )}
           onClick={deleteSelected}
         >
@@ -309,7 +293,7 @@ export default function NodeCanvas() {
         ref={viewportRef}
         className={cx(
           "absolute inset-0 cursor-default select-none",
-          fullscreen && "fixed inset-6 z-40 rounded-3xl border border-white/15 bg-[#05060A]"
+          fullscreen && "fixed inset-6 z-40 rounded-3xl border border-white/15 bg-[#05060A]",
         )}
       >
         {/* Grid */}
@@ -350,12 +334,10 @@ export default function NodeCanvas() {
                 "backdrop-blur-xl transition-colors",
                 n.id === selectedId
                   ? "border-cyan-400/70 bg-white/10"
-                  : "border-white/12 bg-white/5 hover:border-white/30"
+                  : "border-white/12 bg-white/5 hover:border-white/30",
               )}
             >
-              <span className="px-4 text-[13px] font-medium text-white/90">
-                {n.label}
-              </span>
+              <span className="px-4 text-[13px] font-medium text-white/90">{n.label}</span>
             </button>
           ))}
         </div>
@@ -363,12 +345,8 @@ export default function NodeCanvas() {
 
       {/* Helper hint */}
       <div className="pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/12 bg-black/70 px-3 py-1 text-[11px] text-white/65 backdrop-blur">
-        Hold{" "}
-        <span className="rounded border border-white/25 bg-white/5 px-1">
-          Space
-        </span>{" "}
-        and drag to pan · Pinch / Ctrl+Scroll to zoom · Drag nodes to snap to
-        grid
+        Hold <span className="rounded border border-white/25 bg-white/5 px-1">Space</span> and drag
+        to pan · Pinch / Ctrl+Scroll to zoom · Drag nodes to snap to grid
       </div>
     </div>
   );

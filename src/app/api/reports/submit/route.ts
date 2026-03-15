@@ -7,10 +7,7 @@ export async function POST(req: NextRequest) {
     // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>)
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
-      return NextResponse.json(
-        { error: authError ?? "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: authError ?? "Not authenticated" }, { status: 401 });
     }
 
     const reporterId = user.id;
@@ -42,10 +39,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existingReport) {
-      return NextResponse.json(
-        { error: "You have already reported this item" },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "You have already reported this item" }, { status: 409 });
     }
 
     // Insert report
@@ -64,10 +58,7 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error("Failed to insert report:", insertError);
-      return NextResponse.json(
-        { error: "Failed to submit report" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to submit report" }, { status: 500 });
     }
 
     // Check if this target now has 3+ reports and reduce visibility if needed
@@ -83,7 +74,7 @@ export async function POST(req: NextRequest) {
       if (count && count >= 3) {
         // Reduce visibility to "unlisted" (hide from marketplace but still accessible via direct link)
         const tableName = target_type === "prompt" ? "prompts" : "workflows";
-        
+
         // Get current visibility
         const { data: currentItem } = await supabase
           .from(tableName)
@@ -93,10 +84,7 @@ export async function POST(req: NextRequest) {
 
         // Only reduce if currently public
         if (currentItem?.visibility === "public") {
-          await supabase
-            .from(tableName)
-            .update({ visibility: "unlisted" })
-            .eq("id", target_id);
+          await supabase.from(tableName).update({ visibility: "unlisted" }).eq("id", target_id);
         }
       }
     }
@@ -106,7 +94,7 @@ export async function POST(req: NextRequest) {
     console.error("Unexpected report submission error:", err);
     return NextResponse.json(
       { error: "Unexpected error while submitting report" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

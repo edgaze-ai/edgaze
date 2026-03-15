@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     return NextResponse.json(
       { error: true, message: err?.message ?? "Flow run failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

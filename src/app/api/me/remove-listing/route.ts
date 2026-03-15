@@ -9,10 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
-      return NextResponse.json(
-        { error: authError ?? "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: authError ?? "Not authenticated" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -65,7 +62,7 @@ export async function POST(req: NextRequest) {
     console.error("Remove listing error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

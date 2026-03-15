@@ -10,10 +10,14 @@ import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
-    if (!body || typeof body.workflowId !== "string" || typeof body.deviceFingerprint !== "string") {
+    if (
+      !body ||
+      typeof body.workflowId !== "string" ||
+      typeof body.deviceFingerprint !== "string"
+    ) {
       return NextResponse.json(
         { ok: false, error: "workflowId and deviceFingerprint are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -25,10 +29,7 @@ export async function POST(req: NextRequest) {
 
     // Validate fingerprint format (should be a hash string)
     if (!deviceFingerprint || deviceFingerprint.length < 10) {
-      return NextResponse.json(
-        { ok: false, error: "Invalid device fingerprint" },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "Invalid device fingerprint" }, { status: 400 });
     }
 
     const supabase = createSupabaseAdminClient();
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
       console.error("[Demo Runs] Error checking demo run:", checkError);
       return NextResponse.json(
         { ok: false, error: "Failed to check demo run eligibility" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
     console.error("[Demo Runs] Exception in check:", err);
     return NextResponse.json(
       { ok: false, error: err?.message || "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

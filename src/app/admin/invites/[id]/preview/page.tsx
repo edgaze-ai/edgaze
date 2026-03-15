@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import WelcomeStep from "@/app/c/[token]/components/WelcomeStep";
@@ -25,11 +25,7 @@ export default function InvitePreviewPage() {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<"welcome" | "message">("welcome");
 
-  useEffect(() => {
-    fetchInvite();
-  }, [inviteId]);
-
-  const fetchInvite = async () => {
+  const fetchInvite = useCallback(async () => {
     try {
       const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
@@ -48,7 +44,11 @@ export default function InvitePreviewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [inviteId]);
+
+  useEffect(() => {
+    fetchInvite();
+  }, [fetchInvite]);
 
   if (loading) {
     return (

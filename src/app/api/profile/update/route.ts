@@ -33,7 +33,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Invalid handle format" }, { status: 400 });
       }
     }
-    if (full_name !== undefined) full_name = String(full_name ?? "").trim().slice(0, MAX_FULL_NAME) || null;
+    if (full_name !== undefined)
+      full_name =
+        String(full_name ?? "")
+          .trim()
+          .slice(0, MAX_FULL_NAME) || null;
     if (avatar_url !== undefined) {
       const s = sanitizeUrl(avatar_url);
       avatar_url = s ? s.slice(0, MAX_AVATAR_URL) : null;
@@ -42,17 +46,24 @@ export async function POST(req: Request) {
       const s = sanitizeUrl(banner_url);
       banner_url = s ? s.slice(0, MAX_BANNER_URL) : null;
     }
-    if (bio !== undefined) bio = String(bio ?? "").trim().slice(0, MAX_BIO) || null;
+    if (bio !== undefined)
+      bio =
+        String(bio ?? "")
+          .trim()
+          .slice(0, MAX_BIO) || null;
     if (socials !== undefined) {
       const sanitized = sanitizeSocials(socials);
       socials = sanitized ?? {};
     }
     if (country !== undefined) {
-      const c = String(country ?? "").trim().toUpperCase().slice(0, 2);
+      const c = String(country ?? "")
+        .trim()
+        .toUpperCase()
+        .slice(0, 2);
       if (!c || !isAllowedPayoutCountry(c)) {
         return NextResponse.json(
           { error: "Country must be a valid 2-letter code from the allowed list" },
-          { status: 400 }
+          { status: 400 },
         );
       }
       country = c;
@@ -72,16 +83,15 @@ export async function POST(req: Request) {
       // Only check cooldown if handle is actually changing
       if (currentProfile?.handle !== handle) {
         // Check if handle change is allowed
-        const { data: cooldownCheck, error: cooldownError } = await admin.rpc(
-          "can_change_handle",
-          { user_id_input: user.id }
-        );
+        const { data: cooldownCheck, error: cooldownError } = await admin.rpc("can_change_handle", {
+          user_id_input: user.id,
+        });
 
         if (cooldownError) {
           console.error("[profile/update] Cooldown check failed:", cooldownError);
           return NextResponse.json(
             { error: "Failed to check handle change status" },
-            { status: 500 }
+            { status: 500 },
           );
         }
 
@@ -92,7 +102,7 @@ export async function POST(req: Request) {
               error: `Handle changes are limited to once every 60 days. You can change your handle again in ${result?.days_remaining ?? "N/A"} day(s).`,
               daysRemaining: result?.days_remaining ?? 0,
             },
-            { status: 429 } // Too Many Requests
+            { status: 429 }, // Too Many Requests
           );
         }
       }
@@ -117,18 +127,12 @@ export async function POST(req: Request) {
 
     if (updateError) {
       console.error("[profile/update] Update failed:", updateError);
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[profile/update] Unexpected error:", e);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

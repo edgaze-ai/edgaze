@@ -40,7 +40,9 @@ export default function ProfileLink({
   const content = (
     <>
       {children || <span className={cn("min-w-0 truncate", className)}>{name || "Creator"}</span>}
-      {showBadge && <FoundingCreatorBadge size={badgeSize} compact={badgeCompact} className="shrink-0" />}
+      {showBadge && (
+        <FoundingCreatorBadge size={badgeSize} compact={badgeCompact} className="shrink-0" />
+      )}
     </>
   );
 
@@ -58,10 +60,7 @@ export default function ProfileLink({
 
   if (profileHref) {
     return (
-      <Link
-        href={profileHref}
-        className="cursor-pointer hover:opacity-80 transition-opacity"
-      >
+      <Link href={profileHref} className="cursor-pointer hover:opacity-80 transition-opacity">
         {content}
       </Link>
     );

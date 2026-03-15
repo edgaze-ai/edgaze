@@ -31,8 +31,7 @@ export default function MaintenanceScreen() {
             <motion.div
               className="absolute -top-24 -left-24 h-64 w-64 rounded-full blur-3xl opacity-30"
               style={{
-                background:
-                  "radial-gradient(circle, rgba(34,211,238,0.8), transparent 60%)",
+                background: "radial-gradient(circle, rgba(34,211,238,0.8), transparent 60%)",
               }}
               animate={{
                 x: [0, 18, -6, 0],
@@ -48,8 +47,7 @@ export default function MaintenanceScreen() {
             <motion.div
               className="absolute -bottom-28 -right-24 h-72 w-72 rounded-full blur-3xl opacity-25"
               style={{
-                background:
-                  "radial-gradient(circle, rgba(236,72,153,0.75), transparent 60%)",
+                background: "radial-gradient(circle, rgba(236,72,153,0.75), transparent 60%)",
               }}
               animate={{
                 x: [0, -14, 8, 0],
@@ -74,14 +72,8 @@ export default function MaintenanceScreen() {
 
           <div className="relative flex flex-col items-center text-center">
             <div className="mb-6 flex items-center justify-center gap-2">
-              <img
-                src="/brand/edgaze-mark.png"
-                alt=""
-                className="h-10 w-10"
-              />
-              <span className="text-sm font-semibold tracking-wide text-white/90">
-                Edgaze
-              </span>
+              <img src="/brand/edgaze-mark.png" alt="" className="h-10 w-10" />
+              <span className="text-sm font-semibold tracking-wide text-white/90">Edgaze</span>
             </div>
 
             <div className="inline-flex items-center gap-2 rounded-full bg-white/5 ring-1 ring-white/10 px-3 py-1.5 text-xs text-white/70">
@@ -93,8 +85,7 @@ export default function MaintenanceScreen() {
               We&apos;ll be back shortly
             </h1>
             <p className="mt-3 max-w-md text-sm leading-relaxed text-white/70">
-              We&apos;re performing scheduled maintenance. Please check back
-              later.
+              We&apos;re performing scheduled maintenance. Please check back later.
             </p>
 
             <p className="mt-6 text-sm text-white/60">

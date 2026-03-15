@@ -17,9 +17,5 @@ export default function BuilderClientPage() {
   // const workflowId = searchParams.get("id");
 
   // ✅ paste your old JSX return from page.tsx here
-  return (
-    <div className="min-h-screen">
-      {/* paste the original builder UI here */}
-    </div>
-  );
+  return <div className="min-h-screen">{/* paste the original builder UI here */}</div>;
 }

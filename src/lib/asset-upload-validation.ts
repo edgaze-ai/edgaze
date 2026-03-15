@@ -39,12 +39,7 @@ export function getMimeFromMagic(bytes: Uint8Array): string | null {
     if (!matchesMagic(bytes, magic)) continue;
     if (mime === "image/webp") {
       // RIFF....WEBP at offset 8
-      if (
-        bytes[8] === 0x57 &&
-        bytes[9] === 0x45 &&
-        bytes[10] === 0x42 &&
-        bytes[11] === 0x50
-      )
+      if (bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50)
         return mime;
       continue;
     }
@@ -60,7 +55,7 @@ export function getMimeFromMagic(bytes: Uint8Array): string | null {
 export function validateAssetFile(
   file: File,
   bytes: Uint8Array,
-  options: { requireMagicMatchForImages?: boolean } = {}
+  options: { requireMagicMatchForImages?: boolean } = {},
 ): string | null {
   if (file.size > MAX_ASSET_FILE_BYTES) {
     return `File too large. Maximum size is ${MAX_ASSET_FILE_BYTES / 1024 / 1024} MB`;

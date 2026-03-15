@@ -1,7 +1,6 @@
 # Supabase Setup for Builder Test Run Tracking
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
-
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 ## Run this SQL in Supabase SQL Editor
 
@@ -97,24 +96,27 @@ Replace `USER_UUID_HERE` with the actual user's UUID from `auth.users` table.
 ## Verify It's Working
 
 1. Check run tracking:
+
 ```sql
-SELECT user_id, workflow_id, status, COUNT(*) 
-FROM workflow_runs 
+SELECT user_id, workflow_id, status, COUNT(*)
+FROM workflow_runs
 GROUP BY user_id, workflow_id, status;
 ```
 
 2. Check admin status:
+
 ```sql
-SELECT ar.user_id, p.email, p.handle 
+SELECT ar.user_id, p.email, p.handle
 FROM admin_roles ar
 JOIN profiles p ON p.id = ar.user_id;
 ```
 
 3. Check run counts:
+
 ```sql
-SELECT 
-  user_id, 
-  workflow_id, 
+SELECT
+  user_id,
+  workflow_id,
   COUNT(*) FILTER (WHERE status IN ('completed', 'failed')) as run_count
 FROM workflow_runs
 GROUP BY user_id, workflow_id;

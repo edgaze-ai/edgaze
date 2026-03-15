@@ -19,11 +19,7 @@ export type AssetPickerModalProps = {
   onSelect?: (url: string) => void;
 };
 
-export function AssetPickerModal({
-  isOpen,
-  onClose,
-  onSelect,
-}: AssetPickerModalProps) {
+export function AssetPickerModal({ isOpen, onClose, onSelect }: AssetPickerModalProps) {
   const { getAccessToken } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [assets, setAssets] = useState<EdgazeAsset[]>([]);
@@ -69,6 +65,7 @@ export function AssetPickerModal({
     };
 
     loadAssets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when modal opens only; getAccessToken stable
   }, [isOpen]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,29 +160,19 @@ export function AssetPickerModal({
             disabled={isUploading}
             className="text-sm text-neutral-200"
           />
-          {isUploading && (
-            <p className="mt-1 text-xs text-neutral-400">Uploading…</p>
-          )}
+          {isUploading && <p className="mt-1 text-xs text-neutral-400">Uploading…</p>}
         </div>
 
         {/* Library section */}
         <div className="rounded-md border border-neutral-700 p-3">
-          <p className="mb-2 text-sm font-medium text-neutral-200">
-            Your assets
-          </p>
+          <p className="mb-2 text-sm font-medium text-neutral-200">Your assets</p>
 
-          {loadingAssets && (
-            <p className="text-sm text-neutral-400">Loading…</p>
-          )}
+          {loadingAssets && <p className="text-sm text-neutral-400">Loading…</p>}
 
-          {error && (
-            <p className="mb-2 text-sm text-red-400">{error}</p>
-          )}
+          {error && <p className="mb-2 text-sm text-red-400">{error}</p>}
 
           {!loadingAssets && !error && assets.length === 0 && (
-            <p className="text-sm text-neutral-400">
-              No assets yet. Upload a file to get started.
-            </p>
+            <p className="text-sm text-neutral-400">No assets yet. Upload a file to get started.</p>
           )}
 
           {!loadingAssets && assets.length > 0 && (
@@ -197,9 +184,7 @@ export function AssetPickerModal({
                   onClick={() => handlePick(asset)}
                   className="flex w-full items-center justify-between rounded-md px-2 py-1 text-left hover:bg-neutral-800"
                 >
-                  <span className="truncate text-neutral-100">
-                    {asset.filename}
-                  </span>
+                  <span className="truncate text-neutral-100">{asset.filename}</span>
                   <span className="ml-2 text-xs text-neutral-500">
                     {Math.round(asset.sizeBytes / 1024)} kb
                   </span>

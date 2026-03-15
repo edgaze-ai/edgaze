@@ -53,11 +53,7 @@ export function NodeFooter({
         #{shortId(nodeId)}
       </span>
       <span
-        className={
-          status === "running"
-            ? "animate-pulse"
-            : ""
-        }
+        className={status === "running" ? "animate-pulse" : ""}
         style={{
           fontSize: NODE_STYLES.footer.resultFontSize,
           color: resultDisplay.color,

@@ -104,7 +104,10 @@ const WORKFLOW_STEPS = [
 ];
 
 const MONETIZATION_CARDS = [
-  { label: "Build", desc: "Build multi-step AI workflows with models, APIs, and logic blocks in the Edgaze visual canvas." },
+  {
+    label: "Build",
+    desc: "Build multi-step AI workflows with models, APIs, and logic blocks in the Edgaze visual canvas.",
+  },
   { label: "Publish", desc: "Share your workflow with one link. Users run it instantly." },
   { label: "Monetize", desc: "Set a price. Edgaze handles payments. You keep 80%." },
   { label: "Scale", desc: "Reach more users through the marketplace and distribution." },
@@ -207,13 +210,7 @@ function cn(...args: Array<string | false | null | undefined>) {
   return args.filter(Boolean).join(" ");
 }
 
-function SectionReveal({
-  children,
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  delay?: number;
-}) {
+function SectionReveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.1 });
   const reduce = useReducedMotion();
@@ -246,13 +243,17 @@ export default function PricingPage() {
           <>
             <motion.div
               className="absolute left-[15%] top-[15%] h-80 w-80 rounded-full opacity-20 blur-[100px]"
-              style={{ background: "radial-gradient(circle, rgba(34,211,238,0.5) 0%, transparent 70%)" }}
+              style={{
+                background: "radial-gradient(circle, rgba(34,211,238,0.5) 0%, transparent 70%)",
+              }}
               animate={{ x: [0, 25, 0], y: [0, -15, 0] }}
               transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
             />
             <motion.div
               className="absolute right-[20%] top-[30%] h-72 w-72 rounded-full opacity-18 blur-[90px]"
-              style={{ background: "radial-gradient(circle, rgba(236,72,153,0.5) 0%, transparent 70%)" }}
+              style={{
+                background: "radial-gradient(circle, rgba(236,72,153,0.5) 0%, transparent 70%)",
+              }}
               animate={{ x: [0, -20, 0], y: [0, 20, 0] }}
               transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
             />
@@ -270,13 +271,21 @@ export default function PricingPage() {
               aria-label="Edgaze home"
             >
               <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8 md:h-9 md:w-9" />
-              <span className="text-[14px] font-semibold tracking-tight md:text-[15px]">Edgaze</span>
+              <span className="text-[14px] font-semibold tracking-tight md:text-[15px]">
+                Edgaze
+              </span>
             </Link>
             <nav className="ml-auto flex items-center gap-6">
-              <Link href="/marketplace" className="text-[13px] text-white/70 hover:text-white transition-colors">
+              <Link
+                href="/marketplace"
+                className="text-[13px] text-white/70 hover:text-white transition-colors"
+              >
                 Marketplace
               </Link>
-              <Link href="/docs" className="text-[13px] text-white/70 hover:text-white transition-colors">
+              <Link
+                href="/docs"
+                className="text-[13px] text-white/70 hover:text-white transition-colors"
+              >
                 Docs
               </Link>
               <Link
@@ -308,7 +317,8 @@ export default function PricingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.08, ease: [0.2, 0.8, 0.2, 1] }}
             >
-              Start free to explore and build. Upgrade when your workflows get traction and you want stronger monetization tools.
+              Start free to explore and build. Upgrade when your workflows get traction and you want
+              stronger monetization tools.
             </motion.p>
 
             {/* Billing toggle */}
@@ -318,7 +328,9 @@ export default function PricingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.12, ease: [0.2, 0.8, 0.2, 1] }}
             >
-              <span className={cn("text-sm", !billingYearly ? "text-white" : "text-white/55")}>Monthly</span>
+              <span className={cn("text-sm", !billingYearly ? "text-white" : "text-white/55")}>
+                Monthly
+              </span>
               <button
                 type="button"
                 role="switch"
@@ -333,7 +345,9 @@ export default function PricingPage() {
                 />
               </button>
               <span className="flex items-center gap-2">
-                <span className={cn("text-sm", billingYearly ? "text-white" : "text-white/55")}>Yearly</span>
+                <span className={cn("text-sm", billingYearly ? "text-white" : "text-white/55")}>
+                  Yearly
+                </span>
                 <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-medium text-cyan-300">
                   Save up to 20%
                 </span>
@@ -399,68 +413,103 @@ export default function PricingPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto">
               {PLANS.map((plan, i) => {
                 const price = billingYearly ? plan.priceYearly : plan.priceMonthly;
-                const priceNote = plan.priceMonthly === 0
-                  ? "Always free"
-                  : billingYearly && plan.priceYearlyTotal > 0
-                    ? `Billed $${plan.priceYearlyTotal}/year`
-                    : plan.priceNote;
+                const priceNote =
+                  plan.priceMonthly === 0
+                    ? "Always free"
+                    : billingYearly && plan.priceYearlyTotal > 0
+                      ? `Billed $${plan.priceYearlyTotal}/year`
+                      : plan.priceNote;
                 const isPlus = plan.id === "plus";
                 return (
-                <SectionReveal key={plan.id} delay={i * 0.06}>
-                  <motion.div
-                    className={cn(
-                      "relative rounded-3xl p-8 h-full flex flex-col",
-                      isPlus
-                        ? "bg-white/[0.02] ring-1 ring-white/[0.06] opacity-70"
-                        : "bg-white/[0.03] ring-1 ring-white/8 backdrop-blur-xl",
-                      isPlus && "cursor-not-allowed"
-                    )}
-                    whileHover={!isPlus ? { scale: 1.01, transition: { duration: 0.2 } } : undefined}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <h3 className={cn("text-xl font-semibold", isPlus ? "text-white/55" : "text-white")}>{plan.name}</h3>
-                    <p className={cn("mt-2 text-sm", isPlus ? "text-white/45" : "text-white/60")}>{plan.who}</p>
-                    <div className="mt-6 flex items-baseline gap-1">
-                      <span className={cn("text-4xl font-semibold tracking-tight", isPlus ? "text-white/50" : "text-white")}>
-                        ${price}
-                      </span>
-                      <span className={isPlus ? "text-white/40" : "text-white/50"}>/month</span>
-                      {billingYearly && plan.priceYearlyTotal > 0 && (
-                        <span className={cn("ml-2 text-sm", isPlus ? "text-white/40" : "text-white/45")}>
-                          (${plan.priceYearlyTotal}/yr)
-                        </span>
+                  <SectionReveal key={plan.id} delay={i * 0.06}>
+                    <motion.div
+                      className={cn(
+                        "relative rounded-3xl p-8 h-full flex flex-col",
+                        isPlus
+                          ? "bg-white/[0.02] ring-1 ring-white/[0.06] opacity-70"
+                          : "bg-white/[0.03] ring-1 ring-white/8 backdrop-blur-xl",
+                        isPlus && "cursor-not-allowed",
                       )}
-                    </div>
-                    <p className={cn("mt-1 text-xs", isPlus ? "text-white/40" : "text-white/45")}>{priceNote}</p>
-                    <ul className="mt-8 space-y-3 flex-1">
-                      {plan.features.map((f) => (
-                        <li key={f} className={cn("flex items-start gap-3 text-sm", isPlus ? "text-white/50" : "text-white/75")}>
-                          <Check className={cn("h-5 w-5 shrink-0", isPlus ? "text-white/40" : "text-cyan-400/90")} />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {isPlus ? (
-                      <span className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold bg-white/[0.04] ring-1 ring-white/[0.08] text-white/50 cursor-not-allowed">
-                        Coming soon
-                      </span>
-                    ) : (
-                      <Link
-                        href={plan.ctaHref}
+                      whileHover={
+                        !isPlus ? { scale: 1.01, transition: { duration: 0.2 } } : undefined
+                      }
+                      transition={{ duration: 0.2 }}
+                    >
+                      <h3
                         className={cn(
-                          "mt-8 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition-all",
-                          plan.ctaSecondary
-                            ? "bg-white/8 ring-1 ring-white/10 text-white hover:bg-white/12"
-                            : "text-white bg-[linear-gradient(135deg,rgba(34,211,238,0.9),rgba(236,72,153,0.85)] hover:opacity-95"
+                          "text-xl font-semibold",
+                          isPlus ? "text-white/55" : "text-white",
                         )}
                       >
-                        {plan.cta}
-                        {!plan.ctaSecondary && <ArrowRight className="h-4 w-4" />}
-                      </Link>
-                    )}
-                  </motion.div>
-                </SectionReveal>
-              );
+                        {plan.name}
+                      </h3>
+                      <p className={cn("mt-2 text-sm", isPlus ? "text-white/45" : "text-white/60")}>
+                        {plan.who}
+                      </p>
+                      <div className="mt-6 flex items-baseline gap-1">
+                        <span
+                          className={cn(
+                            "text-4xl font-semibold tracking-tight",
+                            isPlus ? "text-white/50" : "text-white",
+                          )}
+                        >
+                          ${price}
+                        </span>
+                        <span className={isPlus ? "text-white/40" : "text-white/50"}>/month</span>
+                        {billingYearly && plan.priceYearlyTotal > 0 && (
+                          <span
+                            className={cn(
+                              "ml-2 text-sm",
+                              isPlus ? "text-white/40" : "text-white/45",
+                            )}
+                          >
+                            (${plan.priceYearlyTotal}/yr)
+                          </span>
+                        )}
+                      </div>
+                      <p className={cn("mt-1 text-xs", isPlus ? "text-white/40" : "text-white/45")}>
+                        {priceNote}
+                      </p>
+                      <ul className="mt-8 space-y-3 flex-1">
+                        {plan.features.map((f) => (
+                          <li
+                            key={f}
+                            className={cn(
+                              "flex items-start gap-3 text-sm",
+                              isPlus ? "text-white/50" : "text-white/75",
+                            )}
+                          >
+                            <Check
+                              className={cn(
+                                "h-5 w-5 shrink-0",
+                                isPlus ? "text-white/40" : "text-cyan-400/90",
+                              )}
+                            />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {isPlus ? (
+                        <span className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold bg-white/[0.04] ring-1 ring-white/[0.08] text-white/50 cursor-not-allowed">
+                          Coming soon
+                        </span>
+                      ) : (
+                        <Link
+                          href={plan.ctaHref}
+                          className={cn(
+                            "mt-8 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition-all",
+                            plan.ctaSecondary
+                              ? "bg-white/8 ring-1 ring-white/10 text-white hover:bg-white/12"
+                              : "text-white bg-[linear-gradient(135deg,rgba(34,211,238,0.9),rgba(236,72,153,0.85)] hover:opacity-95",
+                          )}
+                        >
+                          {plan.cta}
+                          {!plan.ctaSecondary && <ArrowRight className="h-4 w-4" />}
+                        </Link>
+                      )}
+                    </motion.div>
+                  </SectionReveal>
+                );
               })}
             </div>
           </section>
@@ -480,11 +529,15 @@ export default function PricingPage() {
                 <div className="p-8 sm:p-10">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
                     <div className="rounded-xl bg-white/[0.04] ring-1 ring-white/8 p-5">
-                      <p className="text-xs font-medium tracking-wider text-white/50 uppercase">Workflow price</p>
+                      <p className="text-xs font-medium tracking-wider text-white/50 uppercase">
+                        Workflow price
+                      </p>
                       <p className="mt-2 text-3xl font-semibold text-white">$10</p>
                     </div>
                     <div className="rounded-xl bg-gradient-to-br from-cyan-500/10 to-pink-500/10 ring-1 ring-cyan-400/20 p-5">
-                      <p className="text-xs font-medium tracking-wider text-cyan-400/80 uppercase">Creator earnings per sale</p>
+                      <p className="text-xs font-medium tracking-wider text-cyan-400/80 uppercase">
+                        Creator earnings per sale
+                      </p>
                       <p className="mt-2 text-3xl font-semibold text-cyan-300">$8</p>
                     </div>
                   </div>
@@ -518,14 +571,19 @@ export default function PricingPage() {
                 <SectionReveal key={i} delay={i * 0.06}>
                   <motion.div
                     className="rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-6 h-full flex flex-col"
-                    whileHover={{ borderColor: "rgba(255,255,255,0.12)", boxShadow: "0 0 0 1px rgba(34,211,238,0.08)" }}
+                    whileHover={{
+                      borderColor: "rgba(255,255,255,0.12)",
+                      boxShadow: "0 0 0 1px rgba(34,211,238,0.08)",
+                    }}
                     transition={{ duration: 0.2 }}
                   >
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 border border-white/10">
                       <step.icon className="h-5 w-5 text-white/85" />
                     </div>
                     <h3 className="mt-5 text-base font-semibold text-white">{step.headline}</h3>
-                    <p className="mt-3 text-sm text-white/65 leading-relaxed flex-1">{step.explanation}</p>
+                    <p className="mt-3 text-sm text-white/65 leading-relaxed flex-1">
+                      {step.explanation}
+                    </p>
                   </motion.div>
                 </SectionReveal>
               ))}
@@ -535,7 +593,10 @@ export default function PricingPage() {
             <SectionReveal delay={0.2}>
               <motion.div
                 className="mt-10 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 backdrop-blur-xl p-6 sm:p-8"
-                whileHover={{ borderColor: "rgba(34,211,238,0.35)", boxShadow: "0 0 0 1px rgba(34,211,238,0.15)" }}
+                whileHover={{
+                  borderColor: "rgba(34,211,238,0.35)",
+                  boxShadow: "0 0 0 1px rgba(34,211,238,0.15)",
+                }}
                 transition={{ duration: 0.2 }}
               >
                 <div className="flex items-start gap-4">
@@ -543,9 +604,13 @@ export default function PricingPage() {
                     <Rocket className="h-6 w-6 text-cyan-300" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-white">Plus creators get additional hosted runs</h3>
+                    <h3 className="text-lg font-semibold text-white">
+                      Plus creators get additional hosted runs
+                    </h3>
                     <p className="mt-2 text-sm text-white/70 leading-relaxed">
-                      Creators on the Plus plan receive 15 hosted runs included with every workflow purchase made after upgrading. This increases the value delivered to buyers and helps creators improve conversion rates.
+                      Creators on the Plus plan receive 15 hosted runs included with every workflow
+                      purchase made after upgrading. This increases the value delivered to buyers
+                      and helps creators improve conversion rates.
                     </p>
                   </div>
                 </div>
@@ -553,7 +618,8 @@ export default function PricingPage() {
             </SectionReveal>
 
             <p className="mt-6 text-xs text-white/45 text-center">
-              Hosted run limits and monetization tools may vary depending on the creator&apos;s plan.
+              Hosted run limits and monetization tools may vary depending on the creator&apos;s
+              plan.
             </p>
           </section>
 
@@ -564,7 +630,9 @@ export default function PricingPage() {
                 Built to help creators earn, not just build
               </h2>
               <p className="mt-4 text-center text-white/65 max-w-2xl mx-auto">
-                Free creators can already sell workflows, receive payouts, access the payout dashboard, and earn revenue. Plus adds advanced tools and more hosted runs per purchase.
+                Free creators can already sell workflows, receive payouts, access the payout
+                dashboard, and earn revenue. Plus adds advanced tools and more hosted runs per
+                purchase.
               </p>
             </SectionReveal>
             <SectionReveal delay={0.04}>
@@ -574,27 +642,41 @@ export default function PricingPage() {
                   <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                     <motion.div
                       className="flex flex-col rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-6 min-h-[180px]"
-                      whileHover={{ borderColor: "rgba(255,255,255,0.12)", boxShadow: "0 0 0 1px rgba(34,211,238,0.06)" }}
+                      whileHover={{
+                        borderColor: "rgba(255,255,255,0.12)",
+                        boxShadow: "0 0 0 1px rgba(34,211,238,0.06)",
+                      }}
                       transition={{ duration: 0.2 }}
                     >
-                      <div className="text-xs font-semibold tracking-widest text-cyan-400/90 uppercase">Edgaze handles</div>
+                      <div className="text-xs font-semibold tracking-widest text-cyan-400/90 uppercase">
+                        Edgaze handles
+                      </div>
                       <ul className="mt-4 space-y-2 text-sm text-white/70 flex-1">
                         <li>Payments</li>
                         <li>Hosting</li>
                         <li>Execution infrastructure</li>
                         <li>Distribution</li>
                       </ul>
-                      <p className="mt-4 pt-4 border-t border-white/[0.06] text-sm text-cyan-300/90 font-medium">Creators focus on building.</p>
+                      <p className="mt-4 pt-4 border-t border-white/[0.06] text-sm text-cyan-300/90 font-medium">
+                        Creators focus on building.
+                      </p>
                     </motion.div>
                     {MONETIZATION_CARDS.map((card, i) => (
                       <motion.div
                         key={card.label}
                         className="flex flex-col rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-6 min-h-[180px]"
-                        whileHover={{ borderColor: "rgba(255,255,255,0.12)", boxShadow: "0 0 0 1px rgba(34,211,238,0.06)" }}
+                        whileHover={{
+                          borderColor: "rgba(255,255,255,0.12)",
+                          boxShadow: "0 0 0 1px rgba(34,211,238,0.06)",
+                        }}
                         transition={{ duration: 0.2 }}
                       >
-                        <div className="text-xs font-semibold tracking-widest text-cyan-400/90 uppercase">{card.label}</div>
-                        <p className="mt-4 text-sm text-white/65 leading-relaxed flex-1">{card.desc}</p>
+                        <div className="text-xs font-semibold tracking-widest text-cyan-400/90 uppercase">
+                          {card.label}
+                        </div>
+                        <p className="mt-4 text-sm text-white/65 leading-relaxed flex-1">
+                          {card.desc}
+                        </p>
                       </motion.div>
                     ))}
                   </div>
@@ -617,13 +699,20 @@ export default function PricingPage() {
                     <thead>
                       <tr className="border-b border-white/10">
                         <th className="px-5 py-4 text-sm font-semibold text-white/90">Feature</th>
-                        <th className="px-5 py-4 text-sm font-semibold text-white/90 text-center">Free</th>
-                        <th className="px-5 py-4 text-sm font-semibold text-cyan-300 text-center">Plus</th>
+                        <th className="px-5 py-4 text-sm font-semibold text-white/90 text-center">
+                          Free
+                        </th>
+                        <th className="px-5 py-4 text-sm font-semibold text-cyan-300 text-center">
+                          Plus
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {COMPARISON_ROWS.map((row) => (
-                        <tr key={row.feature} className="border-b border-white/[0.05] last:border-0">
+                        <tr
+                          key={row.feature}
+                          className="border-b border-white/[0.05] last:border-0"
+                        >
                           <td className="px-5 py-4 text-sm text-white/80">{row.feature}</td>
                           <td className="px-5 py-4 text-center">
                             {row.free === true ? (
@@ -696,7 +785,10 @@ export default function PricingPage() {
                     >
                       {item.q}
                       <ChevronDown
-                        className={cn("h-5 w-5 shrink-0 text-white/50 transition-transform", openFaq === i && "rotate-180")}
+                        className={cn(
+                          "h-5 w-5 shrink-0 text-white/50 transition-transform",
+                          openFaq === i && "rotate-180",
+                        )}
                       />
                     </button>
                     {openFaq === i && (
@@ -707,7 +799,9 @@ export default function PricingPage() {
                         transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
                         className="overflow-hidden"
                       >
-                        <p className="px-5 pb-4 pt-0 text-sm text-white/65 leading-relaxed">{item.a}</p>
+                        <p className="px-5 pb-4 pt-0 text-sm text-white/65 leading-relaxed">
+                          {item.a}
+                        </p>
                       </motion.div>
                     )}
                   </div>
@@ -726,7 +820,8 @@ export default function PricingPage() {
                     Start building on Edgaze for free
                   </h2>
                   <p className="mt-5 text-lg text-white/70 max-w-xl mx-auto">
-                    Launch your first workflow, test demand, and upgrade when you&apos;re ready to scale distribution and monetization.
+                    Launch your first workflow, test demand, and upgrade when you&apos;re ready to
+                    scale distribution and monetization.
                   </p>
                   <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
                     <Link

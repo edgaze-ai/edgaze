@@ -87,10 +87,7 @@ async function compressImage(file: File): Promise<Blob> {
 export async function getUserAssetsUsage(userId: string): Promise<number> {
   const supabase = getSupabase();
 
-  const { data, error } = await supabase
-    .from("assets")
-    .select("size_bytes")
-    .eq("user_id", userId);
+  const { data, error } = await supabase.from("assets").select("size_bytes").eq("user_id", userId);
 
   if (error) {
     console.error("Failed to fetch assets usage", error);
@@ -111,7 +108,7 @@ export async function getUserAssetsUsage(userId: string): Promise<number> {
 export async function uploadImageAsset(
   userId: string,
   file: File,
-  opts?: { folder?: string }
+  opts?: { folder?: string },
 ): Promise<UploadResult> {
   const supabase = getSupabase();
 
@@ -126,7 +123,7 @@ export async function uploadImageAsset(
 
   if (used + sizeBytes > USER_ASSET_QUOTA_BYTES) {
     throw new Error(
-      "Upload would exceed your 200 MB Edgaze assets quota. Please delete some assets first."
+      "Upload would exceed your 200 MB Edgaze assets quota. Please delete some assets first.",
     );
   }
 
@@ -176,10 +173,7 @@ export async function uploadImageAsset(
  *  - figures out current user via supabase.auth.getUser()
  *  - calls uploadImageAsset(user.id, file, opts)
  */
-export async function uploadAsset(
-  file: File,
-  opts?: { folder?: string }
-): Promise<UploadResult> {
+export async function uploadAsset(file: File, opts?: { folder?: string }): Promise<UploadResult> {
   const supabase = getSupabase();
 
   const { data, error } = await supabase.auth.getUser();
@@ -283,7 +277,7 @@ export function createBlurredPromptThumbnail(promptText: string): string {
     panelX + panelWidth,
     panelY + panelHeight,
     panelX + panelWidth - r,
-    panelY + panelHeight
+    panelY + panelHeight,
   );
   ctx.lineTo(panelX + r, panelY + panelHeight);
   ctx.quadraticCurveTo(panelX, panelY + panelHeight, panelX, panelY + panelHeight - r);

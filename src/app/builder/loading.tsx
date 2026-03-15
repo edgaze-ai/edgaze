@@ -1,5 +1,5 @@
-import GlobalLoadingScreen from "../../components/loading/GlobalLoadingScreen";
+import { MinimalLoadingFallback } from "../../components/loading/GlobalLoadingScreen";
 
 export default function Loading() {
-  return <GlobalLoadingScreen />;
+  return <MinimalLoadingFallback />;
 }

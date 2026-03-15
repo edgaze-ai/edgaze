@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     }
 
     const admin = createSupabaseAdminClient();
-    
+
     // Call the database function to check handle change eligibility
     const { data, error } = await admin.rpc("can_change_handle", {
       user_id_input: user.id,
@@ -21,20 +21,14 @@ export async function GET(req: Request) {
 
     if (error) {
       console.error("[check-handle-change] Error:", error);
-      return NextResponse.json(
-        { error: "Failed to check handle change status" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to check handle change status" }, { status: 500 });
     }
 
     // The function returns an array with one row
     const result = data?.[0];
-    
+
     if (!result) {
-      return NextResponse.json(
-        { error: "No data returned" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "No data returned" }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -45,9 +39,6 @@ export async function GET(req: Request) {
     });
   } catch (e) {
     console.error("[check-handle-change] unexpected error:", e);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

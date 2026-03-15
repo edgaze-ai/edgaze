@@ -37,4 +37,3 @@ export function CopyMarkdownButton({ body }: { title: string; body: string }) {
     </button>
   );
 }
-

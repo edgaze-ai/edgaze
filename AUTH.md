@@ -2,7 +2,7 @@
 
 This document explains how authentication works in this project, the fixes applied so API routes work reliably, and how to implement auth correctly in new code.
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 ---
 

@@ -3,9 +3,7 @@
  * Respect provider retry-after. Circuit breaker per workflow run.
  */
 
-export type RetryDecision =
-  | { retry: true; delayMs: number }
-  | { retry: false; reason: string };
+export type RetryDecision = { retry: true; delayMs: number } | { retry: false; reason: string };
 
 const RETRY_AFTER_HEADER = "retry-after";
 
@@ -21,9 +19,17 @@ function parseRetryAfter(header: string | null): number | null {
 }
 
 /** Check if error is retryable */
-export function isRetryableError(err: unknown, response?: { status?: number; headers?: Headers }): boolean {
+export function isRetryableError(
+  err: unknown,
+  response?: { status?: number; headers?: Headers },
+): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  if (msg.includes("timeout") || msg.includes("Timeout") || msg.includes("ETIMEDOUT") || msg.includes("ECONNRESET")) {
+  if (
+    msg.includes("timeout") ||
+    msg.includes("Timeout") ||
+    msg.includes("ETIMEDOUT") ||
+    msg.includes("ECONNRESET")
+  ) {
     return true;
   }
   if (response?.status) {
@@ -32,7 +38,13 @@ export function isRetryableError(err: unknown, response?: { status?: number; hea
     if (response.status === 408) return true; // Request Timeout
   }
   if (msg.includes("429") || msg.includes("rate limit")) return true;
-  if (msg.includes("5") && (msg.includes("Internal Server") || msg.includes("Bad Gateway") || msg.includes("Service Unavailable"))) return true;
+  if (
+    msg.includes("5") &&
+    (msg.includes("Internal Server") ||
+      msg.includes("Bad Gateway") ||
+      msg.includes("Service Unavailable"))
+  )
+    return true;
   return false;
 }
 
@@ -40,7 +52,7 @@ export function isRetryableError(err: unknown, response?: { status?: number; hea
 export function getRetryDelay(
   err: unknown,
   attempt: number,
-  response?: { status?: number; headers?: Headers }
+  response?: { status?: number; headers?: Headers },
 ): number {
   const retryAfter = response?.headers?.get?.(RETRY_AFTER_HEADER) ?? null;
   const parsed = parseRetryAfter(retryAfter);
@@ -56,7 +68,7 @@ export function shouldRetry(
   err: unknown,
   attempt: number,
   maxRetries: number,
-  response?: { status?: number; headers?: Headers }
+  response?: { status?: number; headers?: Headers },
 ): RetryDecision {
   if (attempt > maxRetries) {
     return { retry: false, reason: "max retries exceeded" };

@@ -101,14 +101,24 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
     </div>
   );
 
-  const WorkflowNode = ({ label, x, y, delay = 0 }: { label: string; x: number; y: number; delay?: number }) => {
+  const WorkflowNode = ({
+    label,
+    x,
+    y,
+    delay = 0,
+  }: {
+    label: string;
+    x: number;
+    y: number;
+    delay?: number;
+  }) => {
     const drift =
-      reduce || isMobileCanvas
-        ? undefined
-        : { x: [0, 6, -5, 4, 0], y: [0, -4, 3, -3, 0] };
+      reduce || isMobileCanvas ? undefined : { x: [0, 6, -5, 4, 0], y: [0, -4, 3, -3, 0] };
     const targetXVacuum = cx - x - 80;
     const targetYVacuum = cy - y - 36;
-    const showAnimate = isMobileCanvas ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, ...drift };
+    const showAnimate = isMobileCanvas
+      ? { opacity: 1, scale: 1 }
+      : { opacity: 1, scale: 1, ...drift };
 
     return (
       <motion.div
@@ -119,14 +129,19 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
           reduce
             ? undefined
             : show
-            ? showAnimate
-            : vacuum
-            ? { opacity: [1, 0.75, 0], scale: [1, 0.65, 0.16], x: [0, targetXVacuum], y: [0, targetYVacuum] }
-            : glaze
-            ? { opacity: 0, scale: 0.12 }
-            : returnBack
-            ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
-            : { opacity: 1, scale: 1 }
+              ? showAnimate
+              : vacuum
+                ? {
+                    opacity: [1, 0.75, 0],
+                    scale: [1, 0.65, 0.16],
+                    x: [0, targetXVacuum],
+                    y: [0, targetYVacuum],
+                  }
+                : glaze
+                  ? { opacity: 0, scale: 0.12 }
+                  : returnBack
+                    ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
+                    : { opacity: 1, scale: 1 }
         }
         transition={
           show
@@ -134,10 +149,10 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
               ? { duration: 0.25, ease: "easeOut" }
               : { duration: 4.2, ease: "easeInOut", repeat: Infinity, delay }
             : vacuum
-            ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
-            : returnBack
-            ? { type: "spring", stiffness: 180, damping: 22, mass: 0.9 }
-            : { duration: 0.35, ease: "easeOut" }
+              ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
+              : returnBack
+                ? { type: "spring", stiffness: 180, damping: 22, mass: 0.9 }
+                : { duration: 0.35, ease: "easeOut" }
         }
       >
         <SolidCard w={160}>
@@ -148,7 +163,17 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
     );
   };
 
-  const PromptCard = ({ text, x, y, delay = 0 }: { text: string; x: number; y: number; delay?: number }) => {
+  const PromptCard = ({
+    text,
+    x,
+    y,
+    delay = 0,
+  }: {
+    text: string;
+    x: number;
+    y: number;
+    delay?: number;
+  }) => {
     const parts = text.split(/(\{\{[^}]+\}\})/g);
     const targetXVacuum = cx - x - 160;
     const targetYVacuum = cy - y - 56;
@@ -165,14 +190,19 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
           reduce
             ? undefined
             : show
-            ? showAnimate
-            : vacuum
-            ? { opacity: [1, 0.75, 0], scale: [1, 0.65, 0.16], x: [0, targetXVacuum], y: [0, targetYVacuum] }
-            : glaze
-            ? { opacity: 0, scale: 0.14 }
-            : returnBack
-            ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
-            : { opacity: 1, scale: 1 }
+              ? showAnimate
+              : vacuum
+                ? {
+                    opacity: [1, 0.75, 0],
+                    scale: [1, 0.65, 0.16],
+                    x: [0, targetXVacuum],
+                    y: [0, targetYVacuum],
+                  }
+                : glaze
+                  ? { opacity: 0, scale: 0.14 }
+                  : returnBack
+                    ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
+                    : { opacity: 1, scale: 1 }
         }
         transition={
           show
@@ -180,10 +210,10 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
               ? { duration: 0.25, ease: "easeOut" }
               : { duration: 4.6, ease: "easeInOut", repeat: Infinity, delay }
             : vacuum
-            ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
-            : returnBack
-            ? { type: "spring", stiffness: 170, damping: 22, mass: 0.95 }
-            : { duration: 0.35, ease: "easeOut" }
+              ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
+              : returnBack
+                ? { type: "spring", stiffness: 170, damping: 22, mass: 0.95 }
+                : { duration: 0.35, ease: "easeOut" }
         }
       >
         <SolidCard w={320}>
@@ -196,7 +226,7 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
                 </span>
               ) : (
                 <span key={i}>{part}</span>
-              )
+              ),
             )}
           </div>
         </SolidCard>
@@ -240,15 +270,19 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
               reduce
                 ? undefined
                 : vacuum
-                ? { scale: [1, 1.03, 1], opacity: [1, 1, 1] }
-                : glaze
-                ? { scale: 1.02 }
-                : { scale: 1 }
+                  ? { scale: [1, 1.03, 1], opacity: [1, 1, 1] }
+                  : glaze
+                    ? { scale: 1.02 }
+                    : { scale: 1 }
             }
             transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
           >
             <div className="relative">
-              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-16 w-16 md:h-20 md:w-20 object-contain" />
+              <img
+                src="/brand/edgaze-mark.png"
+                alt="Edgaze"
+                className="h-16 w-16 md:h-20 md:w-20 object-contain"
+              />
               {glaze && !reduce && (
                 <motion.div
                   className="absolute inset-0"
@@ -272,10 +306,10 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
               reduce
                 ? undefined
                 : vacuum
-                ? { scale: [1, 1.03, 1], opacity: [1, 1, 1] }
-                : glaze
-                ? { scale: 1.02 }
-                : { scale: 1 }
+                  ? { scale: [1, 1.03, 1], opacity: [1, 1, 1] }
+                  : glaze
+                    ? { scale: 1.02 }
+                    : { scale: 1 }
             }
             transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
           >
@@ -288,7 +322,9 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
                   <div className="absolute -inset-5 rounded-full blur-2xl opacity-70 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.26),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.22),transparent_62%)]" />
                   <img src="/brand/edgaze-mark.png" alt="Edgaze" className="relative h-12 w-12" />
                 </div>
-                <div className="mt-3 text-lg font-semibold tracking-tight text-white/95">Edgaze</div>
+                <div className="mt-3 text-lg font-semibold tracking-tight text-white/95">
+                  Edgaze
+                </div>
                 <div className="mt-1 text-xs text-white/60">Collect → publish → share</div>
               </div>
             </div>
@@ -328,7 +364,13 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
         )}
 
         {connectorsVisible && !isMobileCanvas ? (
-          <svg className="absolute inset-0" width={W} height={H} style={{ overflow: "visible" }} aria-hidden>
+          <svg
+            className="absolute inset-0"
+            width={W}
+            height={H}
+            style={{ overflow: "visible" }}
+            aria-hidden
+          >
             {layout.nodes.map((n, i) => {
               const x1 = n.x + 80;
               const y1 = n.y + 40;

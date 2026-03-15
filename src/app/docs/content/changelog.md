@@ -3,7 +3,8 @@ description = "Product updates, platform changes, and notable improvements."
 
 ---
 
-## Initial Platform Release  
+## Initial Platform Release
+
 **1 January 2026**
 
 This marks the first public availability of the Edgaze platform in **beta**.  

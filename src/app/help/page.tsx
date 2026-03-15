@@ -105,7 +105,12 @@ function AnimatedFeedbackIcon({ reducedMotion }: { reducedMotion: boolean }) {
 
           <div className="mt-2 flex items-center gap-2">
             <div className="h-3 w-3 rounded border border-white/18 bg-white/5 relative overflow-hidden">
-              <div className={["absolute inset-0 opacity-0", reducedMotion ? "" : "edg-anim-check"].join(" ")}>
+              <div
+                className={[
+                  "absolute inset-0 opacity-0",
+                  reducedMotion ? "" : "edg-anim-check",
+                ].join(" ")}
+              >
                 <div className="absolute left-[3px] top-[6px] h-[2px] w-[4px] rotate-45 bg-cyan-300" />
                 <div className="absolute left-[5px] top-[5px] h-[2px] w-[7px] -rotate-45 bg-cyan-300" />
               </div>
@@ -227,10 +232,10 @@ function AccentGlow({ accent }: { accent: Card["accent"] }) {
     accent === "docs"
       ? "from-cyan-500/18 via-fuchsia-500/10 to-cyan-500/18"
       : accent === "feedback"
-      ? "from-fuchsia-500/18 via-cyan-500/10 to-fuchsia-500/18"
-      : accent === "bugs"
-      ? "from-rose-500/18 via-fuchsia-500/10 to-rose-500/18"
-      : "from-cyan-500/18 via-white/6 to-fuchsia-500/18";
+        ? "from-fuchsia-500/18 via-cyan-500/10 to-fuchsia-500/18"
+        : accent === "bugs"
+          ? "from-rose-500/18 via-fuchsia-500/10 to-rose-500/18"
+          : "from-cyan-500/18 via-white/6 to-fuchsia-500/18";
 
   return (
     <div
@@ -286,9 +291,7 @@ function ResourceCard({ card, reducedMotion }: { card: Card; reducedMotion: bool
               {card.title}
             </h2>
 
-            <p className="mt-1 text-sm text-white/70 leading-relaxed">
-              {card.description}
-            </p>
+            <p className="mt-1 text-sm text-white/70 leading-relaxed">{card.description}</p>
 
             <div className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-white">
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
@@ -351,7 +354,7 @@ export default function HelpPage() {
         accent: "support",
       },
     ],
-    [reducedMotion]
+    [reducedMotion],
   );
 
   return (
@@ -386,9 +389,7 @@ export default function HelpPage() {
         </div>
 
         <div className="mt-8 border-t border-white/10 pt-6">
-          <p className="text-xs text-white/45">
-            © 2026 Edge Platforms, Inc. All rights reserved.
-          </p>
+          <p className="text-xs text-white/45">© 2026 Edge Platforms, Inc. All rights reserved.</p>
         </div>
       </div>
 

@@ -25,10 +25,7 @@ export default function ErrorModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
       <div className="relative w-full max-w-md rounded-2xl border border-red-500/30 bg-[#0b0b10] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
@@ -54,9 +51,7 @@ export default function ErrorModal({
         {details && (
           <div className="mb-4 p-3 rounded-lg bg-white/5 border border-white/10">
             <div className="text-xs font-medium text-white/60 mb-1">Details:</div>
-            <div className="text-sm text-white/80 font-mono break-words">
-              {details}
-            </div>
+            <div className="text-sm text-white/80 font-mono break-words">{details}</div>
           </div>
         )}
 

@@ -32,9 +32,7 @@ export default function PromptToolbar({
       <div className="flex items-center justify-between px-5 py-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-white/90 truncate">
-              {title}
-            </div>
+            <div className="text-sm font-semibold text-white/90 truncate">{title}</div>
             <div className="text-[11px] text-white/45 truncate">
               Write, version, and publish prompts with placeholders.
             </div>
@@ -116,9 +114,7 @@ function TileButton({ onClick, icon: Icon, label, sub, accent }: TileProps) {
       ].join(" ")}
     >
       <Icon className="h-[18px] w-[18px] text-white/85 group-hover:text-white" />
-      <div className="mt-1 text-[11px] font-semibold text-white/85 leading-none">
-        {label}
-      </div>
+      <div className="mt-1 text-[11px] font-semibold text-white/85 leading-none">{label}</div>
       <div className="mt-0.5 text-[10px] text-white/40 leading-none">{sub}</div>
     </button>
   );
@@ -137,9 +133,7 @@ function MetricTile({
     <div className="flex h-[66px] w-[96px] flex-col items-center justify-center rounded-2xl bg-[#17181b] ring-1 ring-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.50),inset_0_1px_0_rgba(255,255,255,0.04)]">
       <Icon className="h-[16px] w-[16px] text-white/60" />
       <div className="mt-1 text-[10px] text-white/40 leading-none">{label}</div>
-      <div className="mt-0.5 text-[12px] font-semibold text-white/85 leading-none">
-        {value}
-      </div>
+      <div className="mt-0.5 text-[12px] font-semibold text-white/85 leading-none">{value}</div>
     </div>
   );
 }
@@ -148,9 +142,7 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl bg-[#17181b] ring-1 ring-white/5 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="text-[10px] text-white/40 leading-none">{label}</div>
-      <div className="text-[12px] font-semibold text-white/85 leading-none">
-        {value}
-      </div>
+      <div className="text-[12px] font-semibold text-white/85 leading-none">{value}</div>
     </div>
   );
 }

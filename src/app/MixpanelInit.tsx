@@ -25,7 +25,7 @@ export default function MixpanelInit() {
       // This is critical for accurate DAU (Daily Active Users) tracking
       if (!appOpenedTrackedRef.current) {
         appOpenedTrackedRef.current = true;
-        
+
         // Small delay to ensure Mixpanel is initialized
         setTimeout(() => {
           track("App Opened", {
@@ -38,24 +38,24 @@ export default function MixpanelInit() {
     };
 
     // Wait for page to be interactive before loading analytics
-    if (document.readyState === 'complete') {
+    if (document.readyState === "complete") {
       // Page already loaded, defer slightly
       setTimeout(initAfterLoad, 100);
       return; // Explicit return for TypeScript
     } else {
       // Wait for page load
-      window.addEventListener('load', initAfterLoad, { once: true });
-      return () => window.removeEventListener('load', initAfterLoad);
+      window.addEventListener("load", initAfterLoad, { once: true });
+      return () => window.removeEventListener("load", initAfterLoad);
     }
   }, []);
 
   useEffect(() => {
     // Track page views on App Router navigations with deduplication
     if (!pathname) return;
-    
+
     const qs = searchParams?.toString() ?? "";
     const key = `${pathname}?${qs}`;
-    
+
     // Prevent duplicate page views
     if (lastPageKeyRef.current === key) return;
     lastPageKeyRef.current = key;

@@ -407,7 +407,7 @@ function AutoFitCircleIcon({
       )}
       style={{ width: size, height: size }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {}
       <img
         src={src}
         alt={alt}
@@ -690,7 +690,6 @@ function ShareModal({
                           Generating…
                         </div>
                       ) : qrDataUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={qrDataUrl}
                           alt="Edgaze QR"
@@ -858,7 +857,7 @@ export default function WorkflowProductPage() {
   const searchParams = useSearchParams();
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { requireAuth, userId, profile } = useAuth();
+  const { requireAuth, userId, profile, getAccessToken, refreshAuthSession } = useAuth();
 
   const [listing, setListing] = useState<WorkflowListing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -896,9 +895,6 @@ export default function WorkflowProductPage() {
 
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
-
-  // Keep this behavior consistent with your prompts page: paid becomes free during beta.
-  const CLOSED_BETA = false; // Set to true to grant free access to paid items during beta
 
   // Demo mode: when visiting with ?demo=TOKEN and it matches, skip sign-in and Turnstile for Run
   const demoTokenFromUrl = searchParams?.get("demo") ?? null;
@@ -1071,11 +1067,6 @@ export default function WorkflowProductPage() {
     return listing.monetisation_mode === "free" || listing.is_paid === false;
   }, [listing]);
 
-  const showClosedBetaFree = useMemo(() => {
-    if (!listing) return false;
-    return CLOSED_BETA && !isNaturallyFree;
-  }, [CLOSED_BETA, isNaturallyFree, listing]);
-
   const paidLabel = useMemo(() => {
     if (!listing) return "Free";
     if (isNaturallyFree) return "Free";
@@ -1148,7 +1139,7 @@ export default function WorkflowProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing?.id, userId]);
 
-  // Auto-trigger purchase/run flow after auth redirect
+  // Auto-trigger purchase/run flow only after auth redirect (not on shared links or back navigation)
   useEffect(() => {
     if (!userId || !listing) return;
     if (autoActionTriggeredRef.current) return;
@@ -1157,15 +1148,36 @@ export default function WorkflowProductPage() {
     const action = urlParams.get("action");
 
     if (action === "purchase") {
+      // Only auto-trigger if user initiated this flow (intent set when they clicked Buy Access)
+      try {
+        const intentAt = sessionStorage.getItem("edgaze:actionIntentAt");
+        const intentPath = sessionStorage.getItem("edgaze:actionIntentPath");
+        const age = intentAt ? Date.now() - parseInt(intentAt, 10) : Infinity;
+        const pathMatch = intentPath === window.location.pathname;
+        if (!intentAt || !pathMatch || age > 120_000) {
+          urlParams.delete("action");
+          const newUrl =
+            window.location.pathname +
+            (urlParams.toString() ? `?${urlParams.toString()}` : "") +
+            window.location.hash;
+          window.history.replaceState({}, "", newUrl);
+          sessionStorage.removeItem("edgaze:actionIntentAt");
+          sessionStorage.removeItem("edgaze:actionIntentPath");
+          return;
+        }
+        sessionStorage.removeItem("edgaze:actionIntentAt");
+        sessionStorage.removeItem("edgaze:actionIntentPath");
+      } catch {}
+
       autoActionTriggeredRef.current = true;
 
-      // Remove action param from URL immediately to prevent duplicate triggers
       urlParams.delete("action");
       const newUrl =
-        window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "");
+        window.location.pathname +
+        (urlParams.toString() ? `?${urlParams.toString()}` : "") +
+        window.location.hash;
       window.history.replaceState({}, "", newUrl);
 
-      // Wait a bit for purchase state to load, then trigger
       const timer = setTimeout(() => {
         grantAccessOrOpen();
       }, 300);
@@ -1181,7 +1193,6 @@ export default function WorkflowProductPage() {
     setPurchaseError(null);
 
     // Save intent in URL before requiring auth so redirect includes it
-    // Use relative path only (not absolute URL)
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set("action", "purchase");
     const relativePath =
@@ -1189,6 +1200,19 @@ export default function WorkflowProductPage() {
       (urlParams.toString() ? `?${urlParams.toString()}` : "") +
       window.location.hash;
     window.history.replaceState({}, "", relativePath);
+    // Mark that user initiated this flow (for auto-trigger after auth redirect only)
+    try {
+      sessionStorage.setItem("edgaze:actionIntentAt", String(Date.now()));
+      sessionStorage.setItem("edgaze:actionIntentPath", window.location.pathname);
+    } catch {}
+
+    // For paid items when not logged in: full-screen sign-in-to-buy page (conversion-optimized)
+    if (!userId && !isNaturallyFree) {
+      const returnPath =
+        window.location.pathname + (window.location.search ? window.location.search : "");
+      window.location.href = `/auth/sign-in-to-buy?return=${encodeURIComponent(returnPath)}&type=workflow`;
+      return;
+    }
 
     if (!requireAuth()) {
       return;
@@ -1199,8 +1223,8 @@ export default function WorkflowProductPage() {
       return;
     }
 
-    // For beta OR free items: insert purchase row (free items still need purchase to show in library)
-    if (showClosedBetaFree || isNaturallyFree) {
+    // For free items: insert purchase row (free items still need purchase to show in library)
+    if (isNaturallyFree) {
       setPurchaseLoading(true);
       try {
         const uid = userId!;
@@ -1254,31 +1278,49 @@ export default function WorkflowProductPage() {
       }
     }
 
-    // Real paid checkout (Stripe) - redirect to Stripe hosted checkout
-    if (!isNaturallyFree && !showClosedBetaFree) {
+    // Real paid checkout (Stripe) - create session and redirect to hosted checkout (loading on button)
+    if (!isNaturallyFree) {
+      try {
+        sessionStorage.removeItem("edgaze:actionIntentAt");
+        sessionStorage.removeItem("edgaze:actionIntentPath");
+      } catch {}
       setPurchaseLoading(true);
       try {
+        let token = await getAccessToken();
+        if (!token) {
+          await refreshAuthSession();
+          token = await getAccessToken();
+        }
+        if (!token) {
+          setPurchaseError("Please sign in to continue.");
+          return;
+        }
         const res = await fetch("/api/stripe/checkout/create", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           credentials: "include",
           body: JSON.stringify({
             type: "workflow",
             workflowId: listing.id,
+            sourceTable: "workflows",
+            embedded: false,
           }),
         });
         const data = await res.json();
         if (!res.ok) {
-          setPurchaseError(data.error || "Could not start checkout.");
+          setPurchaseError(data.error || "Failed to start checkout");
           return;
         }
         if (data.url) {
           window.location.href = data.url;
           return;
         }
-        setPurchaseError("Checkout failed. Please try again.");
+        setPurchaseError("Invalid checkout response");
       } catch (err) {
-        setPurchaseError("Could not start checkout. Please try again.");
+        setPurchaseError(err instanceof Error ? err.message : "Failed to start checkout");
       } finally {
         setPurchaseLoading(false);
       }
@@ -1948,7 +1990,19 @@ export default function WorkflowProductPage() {
             ) : (
               <Lock className="h-3.5 w-3.5" />
             )}
-            <span>{isOwned ? "Open" : primaryCtaLabel}</span>
+            <span className="flex items-center gap-1.5">
+              {isOwned ? "Open" : primaryCtaLabel}
+              {!isOwned && (
+                <span
+                  className={cn(
+                    "tabular-nums opacity-90",
+                    isNaturallyFree ? "text-emerald-700" : "text-black/80",
+                  )}
+                >
+                  · {paidLabel}
+                </span>
+              )}
+            </span>
           </button>
           <button
             type="button"
@@ -1979,13 +2033,12 @@ export default function WorkflowProductPage() {
             {/* LEFT */}
             <div className="min-w-0">
               <section className="relative overflow-hidden rounded-2xl bg-black/60 border border-white/10">
-                <div className="aspect-video w-full">
+                <div className="aspect-video w-full overflow-hidden">
                   {activeDemo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={activeDemo}
                       alt={listing.title || "Workflow demo image"}
-                      className="h-full w-full cursor-pointer object-cover"
+                      className="h-full w-full cursor-pointer object-cover object-center"
                       onClick={() => window.open(activeDemo, "_blank", "noopener,noreferrer")}
                     />
                   ) : (
@@ -2029,17 +2082,17 @@ export default function WorkflowProductPage() {
                       type="button"
                       onClick={() => setMainDemoIndex(idx)}
                       className={cn(
-                        "relative h-14 w-24 flex-none overflow-hidden rounded-xl border border-white/10 bg-black/60",
+                        "relative aspect-video w-20 flex-none overflow-hidden rounded-xl border border-white/10 bg-black/60",
                         idx === mainDemoIndex &&
                           "border-cyan-400 shadow-[0_0_14px_rgba(56,189,248,0.55)]",
                       )}
                       aria-label={`Select demo ${idx + 1}`}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {}
                       <img
                         src={img}
                         alt={`Demo ${idx + 1}`}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover object-center"
                       />
                     </button>
                   ))}
@@ -2072,9 +2125,35 @@ export default function WorkflowProductPage() {
                   )}
                 </div>
 
-                <h1 className="text-[18px] sm:text-[22px] font-semibold leading-snug">
-                  {listing.title || "Untitled workflow"}
-                </h1>
+                {/* Title + prominent mobile price */}
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <h1 className="text-[18px] sm:text-[22px] font-semibold leading-snug flex-1 min-w-0">
+                    {listing.title || "Untitled workflow"}
+                  </h1>
+                  <div
+                    className={cn(
+                      "flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 lg:hidden",
+                      isNaturallyFree
+                        ? "border-emerald-400/25 bg-emerald-500/15"
+                        : "border-white/15 bg-white/[0.06]",
+                    )}
+                  >
+                    <span className="text-[11px] font-medium text-white/55 uppercase tracking-wide">
+                      Price
+                    </span>
+                    <span
+                      className={cn(
+                        "text-lg font-bold tabular-nums",
+                        isNaturallyFree ? "text-emerald-400" : "text-white",
+                      )}
+                    >
+                      {paidLabel}
+                    </span>
+                    {!isNaturallyFree && paidLabel !== "Paid" && (
+                      <span className="text-[11px] text-white/50">one-time</span>
+                    )}
+                  </div>
+                </div>
 
                 {SHOW_VIEWS_AND_LIKES_PUBLICLY && (
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-white/60">
@@ -2294,7 +2373,6 @@ export default function WorkflowProductPage() {
                       >
                         <div className="relative h-20 w-36 flex-none overflow-hidden rounded-xl bg-black/60 border border-white/10">
                           {thumb ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={thumb}
                               alt={s.title || "Workflow thumbnail"}
@@ -2330,17 +2408,13 @@ export default function WorkflowProductPage() {
                                 : ""}
                             </p>
 
-                            <span className="text-[12px] font-semibold text-white/75">
-                              {CLOSED_BETA && !suggestionFree ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <span className="line-through decoration-white/40">
-                                    {suggestionPaidLabel === "Paid" ? "$—" : suggestionPaidLabel}
-                                  </span>
-                                  <span className="text-white/85">Free</span>
-                                </span>
-                              ) : (
-                                suggestionPaidLabel
+                            <span
+                              className={cn(
+                                "text-[12px] font-semibold tabular-nums",
+                                suggestionFree ? "text-emerald-400" : "text-white/75",
                               )}
+                            >
+                              {suggestionPaidLabel}
                             </span>
                           </div>
                         </div>
@@ -2382,12 +2456,6 @@ export default function WorkflowProductPage() {
                       </p>
                     </div>
 
-                    {showClosedBetaFree && !isOwned && (
-                      <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-white/60">
-                        Beta
-                      </span>
-                    )}
-
                     {isOwned && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-200">
                         <CheckCircle2 className="h-3.5 w-3.5" />
@@ -2397,37 +2465,20 @@ export default function WorkflowProductPage() {
                   </div>
 
                   <div className="mt-4">
-                    {showClosedBetaFree && !isNaturallyFree ? (
-                      <div className="flex items-end justify-between gap-3">
-                        <div>
-                          <div className="text-[11px] text-white/45">Price</div>
-                          <div className="mt-1 flex items-baseline gap-2">
-                            <div className="text-2xl font-semibold">$0.00</div>
-                            <div className="text-[12px] text-white/55">during beta</div>
-                          </div>
-                          <div className="mt-1 text-[12px] text-white/50">
-                            <span className="line-through decoration-white/40">
-                              {paidLabel === "Paid" ? "$—" : paidLabel}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right text-[11px] text-white/45">
-                          Limited access drop
-                        </div>
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <div className="text-[11px] text-white/45">Price</div>
+                      <div
+                        className={cn(
+                          "text-2xl font-semibold tabular-nums",
+                          isNaturallyFree ? "text-emerald-400" : "text-white",
+                        )}
+                      >
+                        {paidLabel}
                       </div>
-                    ) : (
-                      <div>
-                        <div className="text-[11px] text-white/45">Price</div>
-                        <div className="mt-1 flex items-baseline gap-2">
-                          <div className="text-2xl font-semibold">
-                            {paidLabel === "Free" ? "$0.00" : paidLabel}
-                          </div>
-                          {!isNaturallyFree && (
-                            <span className="text-[12px] text-white/55">one-time</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                      {!isNaturallyFree && paidLabel !== "Paid" && (
+                        <span className="text-[12px] text-white/55">one-time</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-4 space-y-2">
@@ -2458,8 +2509,7 @@ export default function WorkflowProductPage() {
 
                     {!isOwned && (
                       <p className="mt-3 text-[11px] text-white/45">
-                        By {isNaturallyFree || showClosedBetaFree ? "getting access" : "purchasing"}
-                        , you agree to our{" "}
+                        By {isNaturallyFree ? "getting access" : "purchasing"}, you agree to our{" "}
                         <a
                           href="/docs/terms-of-service"
                           target="_blank"
@@ -2477,7 +2527,7 @@ export default function WorkflowProductPage() {
                         >
                           Privacy Policy
                         </a>
-                        {!isNaturallyFree && !showClosedBetaFree && (
+                        {!isNaturallyFree && (
                           <>
                             , and{" "}
                             <a
@@ -2610,7 +2660,6 @@ export default function WorkflowProductPage() {
                         >
                           <div className="relative h-20 w-36 flex-none overflow-hidden rounded-xl bg-black/60 border border-white/10">
                             {thumb ? (
-                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={thumb}
                                 alt={s.title || "Workflow thumbnail"}
@@ -2646,17 +2695,13 @@ export default function WorkflowProductPage() {
                                   : ""}
                               </p>
 
-                              <span className="text-[12px] font-semibold text-white/75">
-                                {CLOSED_BETA && !suggestionFree ? (
-                                  <span className="inline-flex items-center gap-2">
-                                    <span className="line-through decoration-white/40">
-                                      {suggestionPaidLabel === "Paid" ? "$—" : suggestionPaidLabel}
-                                    </span>
-                                    <span className="text-white/85">Free</span>
-                                  </span>
-                                ) : (
-                                  suggestionPaidLabel
+                              <span
+                                className={cn(
+                                  "text-[12px] font-semibold tabular-nums",
+                                  suggestionFree ? "text-emerald-400" : "text-white/75",
                                 )}
+                              >
+                                {suggestionPaidLabel}
                               </span>
                             </div>
                           </div>

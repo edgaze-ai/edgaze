@@ -43,7 +43,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
       className={cn(
         "w-full rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white",
         "placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/20",
-        props.className
+        props.className,
       )}
     />
   );
@@ -56,7 +56,7 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
       className={cn(
         "w-full rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white",
         "placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/20",
-        props.className
+        props.className,
       )}
     />
   );
@@ -79,7 +79,7 @@ function Option({
         "relative w-full text-left rounded-2xl px-4 py-4 ring-1 transition-all",
         selected
           ? "bg-white/10 ring-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_0_45px_rgba(34,211,238,0.10)]"
-          : "bg-white/5 ring-white/10 hover:bg-white/7"
+          : "bg-white/5 ring-white/10 hover:bg-white/7",
       )}
     >
       {selected ? (
@@ -113,7 +113,7 @@ function Chip({
         active
           ? "bg-white/10 ring-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_0_35px_rgba(236,72,153,0.10)]"
           : "bg-white/5 ring-white/10 hover:bg-white/7",
-        "text-white/85"
+        "text-white/85",
       )}
     >
       {children}
@@ -137,7 +137,7 @@ function PrimaryButton({
       onClick={onClick}
       className={cn(
         "group relative inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white",
-        disabled ? "opacity-60 cursor-not-allowed" : "hover:opacity-[0.98]"
+        disabled ? "opacity-60 cursor-not-allowed" : "hover:opacity-[0.98]",
       )}
     >
       <span className="absolute inset-0 rounded-2xl p-[1px] bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))]" />
@@ -262,7 +262,7 @@ export default function BugsPage() {
         { value: "performance", label: "Performance / lag" },
         { value: "error_crash", label: "Error message / crash" },
       ] as Array<{ value: Category; label: string }>,
-    []
+    [],
   );
 
   const featureOptions = useMemo(
@@ -275,7 +275,7 @@ export default function BugsPage() {
         { value: "account_auth", label: "Account / auth" },
         { value: "other", label: "Other" },
       ] as Array<{ value: FeatureArea; label: string }>,
-    []
+    [],
   );
 
   const severityOptions = useMemo(
@@ -285,7 +285,7 @@ export default function BugsPage() {
         { value: "major", label: "⚠️ Major issue, workaround exists" },
         { value: "minor", label: "🟡 Minor / visual issue" },
       ] as Array<{ value: Severity; label: string }>,
-    []
+    [],
   );
 
   const followUpOptions = useMemo(
@@ -294,7 +294,7 @@ export default function BugsPage() {
         { value: "yes", label: "Yes, you can contact me" },
         { value: "no", label: "No" },
       ] as Array<{ value: "yes" | "no"; label: string }>,
-    []
+    [],
   );
 
   // hydrate draft
@@ -342,7 +342,7 @@ export default function BugsPage() {
           allowFollowUp,
           contact,
           savedAt: Date.now(),
-        })
+        }),
       );
     } catch {}
   }, [
@@ -362,9 +362,12 @@ export default function BugsPage() {
 
   function validate(): { ok: true } | { ok: false; message: string } {
     if (!category) return { ok: false, message: "Select the bug category." };
-    if (sanitizeText(summary).length < 4) return { ok: false, message: "Describe what went wrong in one sentence." };
-    if (sanitizeText(steps).length < 10) return { ok: false, message: "Add steps to reproduce (minimum 3 steps)." };
-    if (sanitizeText(expected).length < 2) return { ok: false, message: "Fill expected behaviour." };
+    if (sanitizeText(summary).length < 4)
+      return { ok: false, message: "Describe what went wrong in one sentence." };
+    if (sanitizeText(steps).length < 10)
+      return { ok: false, message: "Add steps to reproduce (minimum 3 steps)." };
+    if (sanitizeText(expected).length < 2)
+      return { ok: false, message: "Fill expected behaviour." };
     if (sanitizeText(actual).length < 2) return { ok: false, message: "Fill actual behaviour." };
     if (!featureArea) return { ok: false, message: "Select where this happened." };
     if (!severity) return { ok: false, message: "Select severity." };
@@ -376,7 +379,8 @@ export default function BugsPage() {
     for (const f of files) {
       const okType = f.type.startsWith("image/") || f.type.startsWith("video/");
       if (!okType) return { ok: false, message: "Attachments must be images or videos." };
-      if (f.size > MAX_FILE_MB * 1024 * 1024) return { ok: false, message: `Max ${MAX_FILE_MB}MB per file.` };
+      if (f.size > MAX_FILE_MB * 1024 * 1024)
+        return { ok: false, message: `Max ${MAX_FILE_MB}MB per file.` };
     }
     return { ok: true };
   }
@@ -508,8 +512,12 @@ export default function BugsPage() {
             {/* NO HEADER / NO TOPBAR — matches the pattern, but without the marketplace pill */}
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-xs font-semibold tracking-widest text-white/55">EDGAZE SUPPORT</div>
-                <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">🐞 Report a bug</h1>
+                <div className="text-xs font-semibold tracking-widest text-white/55">
+                  EDGAZE SUPPORT
+                </div>
+                <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">
+                  🐞 Report a bug
+                </h1>
                 <p className="mt-3 text-sm text-white/70 leading-relaxed">
                   Help us fix this fast. This takes under 2 minutes.
                 </p>
@@ -539,7 +547,11 @@ export default function BugsPage() {
                 <FieldLabel>1. BUG CATEGORY *</FieldLabel>
                 <div className="grid grid-cols-1 gap-2">
                   {categoryOptions.map((o) => (
-                    <Option key={o.value} selected={category === o.value} onClick={() => setCategory(o.value)}>
+                    <Option
+                      key={o.value}
+                      selected={category === o.value}
+                      onClick={() => setCategory(o.value)}
+                    >
                       {o.label}
                     </Option>
                   ))}
@@ -550,7 +562,8 @@ export default function BugsPage() {
               <div className="space-y-3">
                 <FieldLabel>2. WHAT WENT WRONG? *</FieldLabel>
                 <div className="text-xs text-white/45">
-                  One clear sentence. Example: “Workflow preview stays stuck on loading after purchase.”
+                  One clear sentence. Example: “Workflow preview stays stuck on loading after
+                  purchase.”
                 </div>
                 <Input
                   value={summary}
@@ -563,9 +576,15 @@ export default function BugsPage() {
               {/* 3. Steps */}
               <div className="space-y-3">
                 <FieldLabel>3. STEPS TO REPRODUCE *</FieldLabel>
-                <div className="text-xs text-white/45">If we can’t reproduce it, we can’t fix it.</div>
+                <div className="text-xs text-white/45">
+                  If we can’t reproduce it, we can’t fix it.
+                </div>
                 <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-4">
-                  <Textarea value={steps} onChange={(e) => setSteps(clampLen(e.target.value, 4000))} rows={5} />
+                  <Textarea
+                    value={steps}
+                    onChange={(e) => setSteps(clampLen(e.target.value, 4000))}
+                    rows={5}
+                  />
                   <div className="mt-2 text-xs text-white/45">{steps.length}/4000</div>
                 </div>
               </div>
@@ -575,7 +594,9 @@ export default function BugsPage() {
                 <FieldLabel>4. EXPECTED VS ACTUAL *</FieldLabel>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <div className="text-xs font-semibold tracking-widest text-white/55">EXPECTED</div>
+                    <div className="text-xs font-semibold tracking-widest text-white/55">
+                      EXPECTED
+                    </div>
                     <Input
                       value={expected}
                       onChange={(e) => setExpected(clampLen(e.target.value, 1000))}
@@ -583,7 +604,9 @@ export default function BugsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <div className="text-xs font-semibold tracking-widest text-white/55">ACTUAL</div>
+                    <div className="text-xs font-semibold tracking-widest text-white/55">
+                      ACTUAL
+                    </div>
                     <Input
                       value={actual}
                       onChange={(e) => setActual(clampLen(e.target.value, 1000))}
@@ -600,7 +623,11 @@ export default function BugsPage() {
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     {featureOptions.map((o) => (
-                      <Chip key={o.value} active={featureArea === o.value} onClick={() => setFeatureArea(o.value)}>
+                      <Chip
+                        key={o.value}
+                        active={featureArea === o.value}
+                        onClick={() => setFeatureArea(o.value)}
+                      >
                         {o.label}
                       </Chip>
                     ))}
@@ -608,7 +635,9 @@ export default function BugsPage() {
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <div className="text-xs font-semibold tracking-widest text-white/55">DEVICE</div>
+                      <div className="text-xs font-semibold tracking-widest text-white/55">
+                        DEVICE
+                      </div>
                       <select
                         value={deviceType}
                         onChange={(e) => setDeviceType(e.target.value as DeviceType)}
@@ -620,7 +649,9 @@ export default function BugsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <div className="text-xs font-semibold tracking-widest text-white/55">BROWSER</div>
+                      <div className="text-xs font-semibold tracking-widest text-white/55">
+                        BROWSER
+                      </div>
                       <select
                         value={browser}
                         onChange={(e) => setBrowser(e.target.value as BrowserType)}
@@ -642,7 +673,11 @@ export default function BugsPage() {
                 <FieldLabel>6. HOW BAD IS THIS? *</FieldLabel>
                 <div className="grid grid-cols-1 gap-2">
                   {severityOptions.map((o) => (
-                    <Option key={o.value} selected={severity === o.value} onClick={() => setSeverity(o.value)}>
+                    <Option
+                      key={o.value}
+                      selected={severity === o.value}
+                      onClick={() => setSeverity(o.value)}
+                    >
                       {o.label}
                     </Option>
                   ))}
@@ -653,7 +688,8 @@ export default function BugsPage() {
               <div className="space-y-3">
                 <FieldLabel>7. SCREENSHOT / SCREEN RECORDING (OPTIONAL)</FieldLabel>
                 <div className="text-xs text-white/45">
-                  Drag & drop supported. Up to {MAX_FILES} files. Max {MAX_FILE_MB}MB each. Images/videos only.
+                  Drag & drop supported. Up to {MAX_FILES} files. Max {MAX_FILE_MB}MB each.
+                  Images/videos only.
                 </div>
 
                 <div
@@ -680,7 +716,7 @@ export default function BugsPage() {
                   }}
                   className={cn(
                     "rounded-3xl ring-1 p-5 transition-all",
-                    dragActive ? "bg-white/6 ring-white/20" : "bg-white/4 ring-white/10"
+                    dragActive ? "bg-white/6 ring-white/20" : "bg-white/4 ring-white/10",
                   )}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -768,7 +804,9 @@ export default function BugsPage() {
                       className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-4"
                     >
                       <div className="space-y-2">
-                        <div className="text-xs font-semibold tracking-widest text-white/55">EMAIL OR X HANDLE</div>
+                        <div className="text-xs font-semibold tracking-widest text-white/55">
+                          EMAIL OR X HANDLE
+                        </div>
                         <Input
                           value={contact}
                           onChange={(e) => setContact(clampLen(e.target.value, 120))}
@@ -845,14 +883,14 @@ export default function BugsPage() {
                 </AnimatePresence>
               </div>
 
-              <div className="text-xs text-white/45">
-                Edgaze.
-              </div>
+              <div className="text-xs text-white/45">Edgaze.</div>
             </div>
           </div>
         </Frame>
 
-        <div className="mt-10 text-center text-xs text-white/45">© 2026 Edge Platforms, Inc. All rights reserved.</div>
+        <div className="mt-10 text-center text-xs text-white/45">
+          © 2026 Edge Platforms, Inc. All rights reserved.
+        </div>
       </div>
     </div>
   );

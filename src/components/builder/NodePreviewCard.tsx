@@ -116,82 +116,104 @@ export function NodePreviewCard({
               position: "relative",
             }}
           >
-          {/* Left accent bar */}
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 3,
-              background: "linear-gradient(180deg, #f59e0b 0%, #ef4444 100%)",
-              borderRadius: "8px 0 0 8px",
-              zIndex: 2,
-              pointerEvents: "none",
-            }}
-          />
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-            }}
-          >
+            {/* Left accent bar */}
             <div
               style={{
-                width: 20,
-                height: 20,
-                background: "rgba(245,158,11,0.12)",
-                border: "1px solid rgba(245,158,11,0.22)",
-                borderRadius: 4,
+                position: "absolute",
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 3,
+                background: "linear-gradient(180deg, #f59e0b 0%, #ef4444 100%)",
+                borderRadius: "8px 0 0 8px",
+                zIndex: 2,
+                pointerEvents: "none",
+              }}
+            />
+            <div
+              style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
+                gap: 6,
               }}
             >
-              {React.createElement(iconComp, {
-                size: 12,
-                style: { color: nodeColor },
-              })}
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1 }}>Condition</span>
-            <span style={{ fontSize: 9, color: "#333" }}>
-              v{spec.version ?? "1.0.0"}
-            </span>
-          </div>
-          <div style={{ marginTop: 5 }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: nodeColor }}>IF</div>
-            <div
-              style={{
-                fontSize: 11,
-                color: "#505050",
-                fontStyle: "italic",
-                marginTop: 5,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {previewText}
-            </div>
-            <div style={{ height: 1, background: "#1e1e1e", margin: "4px 0" }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
-                <span style={{ fontSize: 8, fontWeight: 500, color: "#22c55e" }}>True →</span>
-                <span style={{ fontSize: 8, color: "#444" }}>if passes</span>
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  background: "rgba(245,158,11,0.12)",
+                  border: "1px solid rgba(245,158,11,0.22)",
+                  borderRadius: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {React.createElement(iconComp, {
+                  size: 12,
+                  style: { color: nodeColor },
+                })}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#ef4444", flexShrink: 0 }} />
-                <span style={{ fontSize: 8, fontWeight: 500, color: "#ef4444" }}>False →</span>
-                <span style={{ fontSize: 8, color: "#444" }}>if fails</span>
+              <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1 }}>
+                Condition
+              </span>
+              <span style={{ fontSize: 9, color: "#333" }}>v{spec.version ?? "1.0.0"}</span>
+            </div>
+            <div style={{ marginTop: 5 }}>
+              <div
+                style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.06em", color: nodeColor }}
+              >
+                IF
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "#505050",
+                  fontStyle: "italic",
+                  marginTop: 5,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {previewText}
+              </div>
+              <div style={{ height: 1, background: "#1e1e1e", margin: "4px 0" }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: "50%",
+                      background: "#22c55e",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span style={{ fontSize: 8, fontWeight: 500, color: "#22c55e" }}>True →</span>
+                  <span style={{ fontSize: 8, color: "#444" }}>if passes</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: "50%",
+                      background: "#ef4444",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span style={{ fontSize: 8, fontWeight: 500, color: "#ef4444" }}>False →</span>
+                  <span style={{ fontSize: 8, color: "#444" }}>if fails</span>
+                </div>
               </div>
             </div>
-          </div>
-          <div style={{ marginTop: 6, display: "flex", alignItems: "center" }}>
-            <span style={{ fontFamily: "monospace", fontSize: 9, color: "#3f3f46" }}>1 in · 2 out</span>
-          </div>
+            <div style={{ marginTop: 6, display: "flex", alignItems: "center" }}>
+              <span style={{ fontFamily: "monospace", fontSize: 9, color: "#3f3f46" }}>
+                1 in · 2 out
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -227,46 +249,58 @@ export function NodePreviewCard({
               overflow: "hidden",
             }}
           >
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  background: `${nodeColor}15`,
+                  border: `1px solid ${nodeColor}28`,
+                  borderRadius: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {React.createElement(iconComp, {
+                  size: 12,
+                  style: { color: nodeColor },
+                })}
+              </div>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: "#c8c8c8",
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {spec.label}
+              </span>
+              <span style={{ fontSize: 9, color: "#333" }}>v{spec.version ?? "1.0.0"}</span>
+            </div>
             <div
               style={{
-                width: 20,
-                height: 20,
-                background: `${nodeColor}15`,
-                border: `1px solid ${nodeColor}28`,
-                borderRadius: 4,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
+                fontSize: 11,
+                color: "#505050",
+                fontStyle: "italic",
+                marginTop: 5,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
-              {React.createElement(iconComp, {
-                size: 12,
-                style: { color: nodeColor },
-              })}
+              {previewText}
             </div>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {spec.label}
-            </span>
-            <span style={{ fontSize: 9, color: "#333" }}>v{spec.version ?? "1.0.0"}</span>
-          </div>
-          <div
-            style={{
-              fontSize: 11,
-              color: "#505050",
-              fontStyle: "italic",
-              marginTop: 5,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {previewText}
-          </div>
-          <div style={{ marginTop: 6 }}>
-            <span style={{ fontFamily: "monospace", fontSize: 9, color: "#3f3f46" }}>#preview</span>
-          </div>
+            <div style={{ marginTop: 6 }}>
+              <span style={{ fontFamily: "monospace", fontSize: 9, color: "#3f3f46" }}>
+                #preview
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -302,53 +336,82 @@ export function NodePreviewCard({
             position: "relative",
           }}
         >
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div
+              style={{
+                width: 20,
+                height: 20,
+                background: `${nodeColor}15`,
+                border: `1px solid ${nodeColor}28`,
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                overflow: "hidden",
+              }}
+            >
+              {registry?.iconImage ? (
+                <img
+                  src={registry.iconImage}
+                  alt=""
+                  style={{ width: 12, height: 12, objectFit: "contain" }}
+                />
+              ) : (
+                React.createElement(iconComp, {
+                  size: 12,
+                  style: { color: nodeColor },
+                })
+              )}
+            </div>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: "#c8c8c8",
+                flex: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {spec.label}
+            </span>
+            <span style={{ fontSize: 9, color: "#333" }}>v{spec.version ?? "1.0.0"}</span>
+            <div
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: "50%",
+                background: "#252525",
+                flexShrink: 0,
+              }}
+            />
+          </div>
           <div
             style={{
-              width: 20,
-              height: 20,
-              background: `${nodeColor}15`,
-              border: `1px solid ${nodeColor}28`,
-              borderRadius: 4,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
+              fontSize: 11,
+              color: "#505050",
+              fontStyle: "italic",
+              marginTop: 5,
               overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
-            {registry?.iconImage ? (
-              <img src={registry.iconImage} alt="" style={{ width: 12, height: 12, objectFit: "contain" }} />
-            ) : (
-              React.createElement(iconComp, {
-                size: 12,
-                style: { color: nodeColor },
-              })
-            )}
+            {previewText}
           </div>
-          <span style={{ fontSize: 12, fontWeight: 500, color: "#c8c8c8", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {spec.label}
-          </span>
-          <span style={{ fontSize: 9, color: "#333" }}>v{spec.version ?? "1.0.0"}</span>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#252525", flexShrink: 0 }} />
-        </div>
-        <div
-          style={{
-            fontSize: 11,
-            color: "#505050",
-            fontStyle: "italic",
-            marginTop: 5,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {previewText}
-        </div>
-        <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontFamily: "monospace", fontSize: 9, color: "#3f3f46" }}>#preview</span>
-          <span style={{ fontSize: 9, color: "#3f3f46" }}>—</span>
-        </div>
+          <div
+            style={{
+              marginTop: 6,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ fontFamily: "monospace", fontSize: 9, color: "#3f3f46" }}>#preview</span>
+            <span style={{ fontSize: 9, color: "#3f3f46" }}>—</span>
+          </div>
         </div>
       </div>
     </div>

@@ -57,9 +57,7 @@ function getCreatorItems(canReceivePayments: boolean | null | undefined): NavIte
 }
 
 // Include a query param so /profile can show a sign-in CTA only when opened from sidebar.
-const ACCOUNT_ITEMS: NavItem[] = [
-  { href: "/profile?from=sidebar", label: "Profile", icon: User },
-];
+const ACCOUNT_ITEMS: NavItem[] = [{ href: "/profile?from=sidebar", label: "Profile", icon: User }];
 
 const FOOTER_ITEMS: NavItem[] = [
   { href: "/help", label: "Help", icon: HelpCircle },
@@ -76,9 +74,7 @@ export default function Sidebar() {
   const { profile, userId, openSignIn, signOut, loading } = useAuth();
 
   const displayName =
-    profile?.full_name?.trim() ||
-    (profile?.handle ? `@${profile.handle}` : "") ||
-    "Your account";
+    profile?.full_name?.trim() || (profile?.handle ? `@${profile.handle}` : "") || "Your account";
 
   const planLabel = (profile?.plan ?? "Free") + " plan";
 
@@ -101,7 +97,7 @@ export default function Sidebar() {
       className={cn(
         "relative flex-shrink-0 h-screen border-r border-white/10 bg-[#050505]",
         "transition-[width] duration-250 ease-out",
-        widthClass
+        widthClass,
       )}
     >
       <div className="relative flex h-full flex-col px-3 pt-4 pb-3 gap-6">
@@ -110,7 +106,7 @@ export default function Sidebar() {
           className={cn(
             collapsed
               ? "flex flex-col items-center gap-2"
-              : "flex items-center justify-between gap-2"
+              : "flex items-center justify-between gap-2",
           )}
         >
           <div className="flex items-center gap-3 overflow-hidden">
@@ -131,7 +127,7 @@ export default function Sidebar() {
               "inline-flex items-center justify-center rounded-full border border-white/14",
               "bg-black/60 hover:bg-black/80 active:scale-95 transition-all",
               "h-7 w-7 text-white/70",
-              collapsed ? "mt-1 self-center" : ""
+              collapsed ? "mt-1 self-center" : "",
             )}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
@@ -183,12 +179,8 @@ export default function Sidebar() {
             ) : (
               <div className="flex items-center justify-between gap-3">
                 <div className="flex flex-col">
-                  <span className="text-xs font-medium text-white/90">
-                    Not signed in
-                  </span>
-                  <span className="text-[11px] text-white/50">
-                    Sign in to save and publish
-                  </span>
+                  <span className="text-xs font-medium text-white/90">Not signed in</span>
+                  <span className="text-[11px] text-white/50">Sign in to save and publish</span>
                 </div>
 
                 <button
@@ -291,7 +283,7 @@ function NavButton({ item, collapsed, active }: NavButtonProps) {
       href={item.href}
       className={cn(
         "group block rounded-2xl transition-transform duration-150",
-        "hover:translate-x-[1px]"
+        "hover:translate-x-[1px]",
       )}
     >
       <div
@@ -300,13 +292,11 @@ function NavButton({ item, collapsed, active }: NavButtonProps) {
           "transition-colors duration-150",
           active
             ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.55)]"
-            : "border border-white/15 bg-white/[0.03] text-white/75 hover:bg-white/[0.06] hover:border-white/25"
+            : "border border-white/15 bg-white/[0.03] text-white/75 hover:bg-white/[0.06] hover:border-white/25",
         )}
       >
         <Icon className="h-5 w-5 shrink-0" />
-        {!collapsed && (
-          <span className="text-sm font-medium truncate">{item.label}</span>
-        )}
+        {!collapsed && <span className="text-sm font-medium truncate">{item.label}</span>}
       </div>
     </Link>
   );

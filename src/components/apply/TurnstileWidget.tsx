@@ -8,11 +8,7 @@ declare global {
   }
 }
 
-export default function TurnstileWidget({
-  onToken,
-}: {
-  onToken: (token: string) => void;
-}) {
+export default function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   const cbRef = useRef(onToken);
@@ -122,8 +118,8 @@ export default function TurnstileWidget({
       ) : null}
       {status === "blocked" ? (
         <div className="text-xs text-red-300">
-          Captcha blocked. Disable adblock / allow Cloudflare Turnstile, and ensure your domain is added
-          in Turnstile settings.
+          Captcha blocked. Disable adblock / allow Cloudflare Turnstile, and ensure your domain is
+          added in Turnstile settings.
         </div>
       ) : null}
     </div>

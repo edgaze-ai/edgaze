@@ -2,7 +2,7 @@
 
 This document outlines the planned features and future direction for Edgaze. Items are subject to change based on priorities and feedback.
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 ---
 

@@ -4,7 +4,7 @@
 
 Users experienced a black screen when loading Edgaze webpages, creating a poor first impression and slow perceived loading times.
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 ## Solution Overview
 

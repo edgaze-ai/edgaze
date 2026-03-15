@@ -41,9 +41,7 @@ export default function CreatorFlow() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
-            How it works
-          </h2>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">How it works</h2>
           <p className="mt-4 text-lg text-white/60 max-w-2xl mx-auto">
             Simple, professional, and built to reduce friction.
           </p>

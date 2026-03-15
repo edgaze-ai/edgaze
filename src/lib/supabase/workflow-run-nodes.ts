@@ -12,7 +12,7 @@ export async function insertWorkflowRunNodes(
     retries: number;
     tokens?: number;
     model?: string;
-  }>
+  }>,
 ): Promise<void> {
   if (traces.length === 0) return;
   const supabase = createSupabaseAdminClient();

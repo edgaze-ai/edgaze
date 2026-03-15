@@ -55,7 +55,9 @@ function isEmail(s: string) {
 }
 
 function clampStr(s: any, max: number) {
-  return String(s ?? "").trim().slice(0, max);
+  return String(s ?? "")
+    .trim()
+    .slice(0, max);
 }
 
 function scoreAndTier(args: { q1: Q1; q2: Q2; q3: Q3; q4?: Q4; q5: string }) {
@@ -66,30 +68,30 @@ function scoreAndTier(args: { q1: Q1; q2: Q2; q3: Q3; q4?: Q4; q5: string }) {
     args.q1 === "I’ve tried them a few times"
       ? 0
       : args.q1 === "I use them occasionally (weekly)"
-      ? 1
-      : args.q1 === "I rely on them daily for work or study"
-      ? 2
-      : 3;
+        ? 1
+        : args.q1 === "I rely on them daily for work or study"
+          ? 2
+          : 3;
   score += q1Score;
 
   const q2Score =
     args.q2 === "Casual use (chatting, homework help, basic questions)"
       ? 0
       : args.q2 === "Structured prompts for real tasks (writing, coding, research, content)"
-      ? 2
-      : args.q2 === "Connected prompts into repeatable workflows or systems"
-      ? 3
-      : 4;
+        ? 2
+        : args.q2 === "Connected prompts into repeatable workflows or systems"
+          ? 3
+          : 4;
   score += q2Score;
 
   const q3Score =
     args.q3 === "Build, publish, and iterate on workflows or prompt packs"
       ? 2
       : args.q3 === "Turn my own prompts into something reusable and organized"
-      ? 2
-      : args.q3 === "Run higher-quality prompts and workflows made by others"
-      ? 1
-      : 0;
+        ? 2
+        : args.q3 === "Run higher-quality prompts and workflows made by others"
+          ? 1
+          : 0;
   score += q3Score;
 
   score += args.q4 === "Yes, I’m happy to give feedback" ? 1 : 0;
@@ -228,7 +230,8 @@ export async function POST(req: Request) {
   });
 
   const { data: userData, error: userErr } = await supabaseAuth.auth.getUser(access_token);
-  if (userErr || !userData?.user?.id) return NextResponse.json({ error: "Auth check failed." }, { status: 401 });
+  if (userErr || !userData?.user?.id)
+    return NextResponse.json({ error: "Auth check failed." }, { status: 401 });
   const auth_user_id = userData.user.id;
 
   // Personal details (FULL NAME FIX: fallback to auth metadata for Google OAuth)
@@ -260,8 +263,10 @@ export async function POST(req: Request) {
   const q5 = clampStr(body.q5, 140);
   const q6 = body.q6 as Q6;
 
-  if (!full_name || full_name.length < 2) return NextResponse.json({ error: "Name required." }, { status: 400 });
-  if (!isEmail(email)) return NextResponse.json({ error: "Valid email required." }, { status: 400 });
+  if (!full_name || full_name.length < 2)
+    return NextResponse.json({ error: "Name required." }, { status: 400 });
+  if (!isEmail(email))
+    return NextResponse.json({ error: "Valid email required." }, { status: 400 });
   // Phone, feedback consent, q4, q5 (one-liner), and q6 (sharing) are optional. q5 max 140 chars if provided.
   if (q5.trim().length > 140) {
     return NextResponse.json({ error: "One sentence max 140 chars." }, { status: 400 });
@@ -293,12 +298,16 @@ export async function POST(req: Request) {
       .gte("created_at", oneDayAgo),
   ]);
 
-  if ((ipCount ?? 0) >= 5) return NextResponse.json({ error: "Too many attempts. Try later." }, { status: 429 });
-  if ((emailCount ?? 0) >= 1) return NextResponse.json({ error: "This email applied recently." }, { status: 429 });
-  if ((userCount ?? 0) >= 1) return NextResponse.json({ error: "You already applied recently." }, { status: 429 });
+  if ((ipCount ?? 0) >= 5)
+    return NextResponse.json({ error: "Too many attempts. Try later." }, { status: 429 });
+  if ((emailCount ?? 0) >= 1)
+    return NextResponse.json({ error: "This email applied recently." }, { status: 429 });
+  if ((userCount ?? 0) >= 1)
+    return NextResponse.json({ error: "You already applied recently." }, { status: 429 });
 
   const scored = scoreAndTier({ q1, q2, q3, q4, q5 });
-  const phone_full = [phone_country_code, phone_number].filter(Boolean).join("").replace(/\s/g, "") || "";
+  const phone_full =
+    [phone_country_code, phone_number].filter(Boolean).join("").replace(/\s/g, "") || "";
 
   const insertPayload = {
     auth_user_id,

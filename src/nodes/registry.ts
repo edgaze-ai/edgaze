@@ -43,7 +43,8 @@ const CORE_SPECS: NodeSpec[] = [
         label: "Question",
         type: "textarea",
         rows: 2,
-        helpText: "The question or prompt shown to users when collecting this input (e.g., What message would you like to send?)",
+        helpText:
+          "The question or prompt shown to users when collecting this input (e.g., What message would you like to send?)",
       },
       {
         key: "inputType",

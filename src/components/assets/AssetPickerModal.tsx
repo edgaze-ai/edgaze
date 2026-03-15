@@ -23,11 +23,7 @@ export type AssetPickerModalProps = {
   onSelect?: (url: string) => void;
 };
 
-export default function AssetPickerModal({
-  isOpen,
-  onClose,
-  onSelect,
-}: AssetPickerModalProps) {
+export default function AssetPickerModal({ isOpen, onClose, onSelect }: AssetPickerModalProps) {
   const { user, getAccessToken } = useAuth();
 
   const [isUploading, setIsUploading] = useState(false);
@@ -74,11 +70,10 @@ export default function AssetPickerModal({
     };
 
     loadAssets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when modal opens only; getAccessToken stable
   }, [isOpen]);
 
-  const handleFileChange = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -179,12 +174,8 @@ export default function AssetPickerModal({
             <div className="rounded-2xl border border-dashed border-white/25 bg-black/40 p-4">
               <div className="flex flex-col items-center text-center">
                 <UploadCloud className="mb-2 h-6 w-6 text-cyan-300" />
-                <p className="text-xs font-medium text-white/80">
-                  Upload a new image
-                </p>
-                <p className="mt-1 text-[10px] text-white/45">
-                  PNG, JPG, up to a few MB.
-                </p>
+                <p className="text-xs font-medium text-white/80">Upload a new image</p>
+                <p className="mt-1 text-[10px] text-white/45">PNG, JPG, up to a few MB.</p>
                 <label className="mt-3 inline-flex cursor-pointer items-center rounded-full bg-gradient-to-r from-cyan-400 to-pink-500 px-3 py-1 text-[11px] font-semibold text-black hover:brightness-110">
                   <span>Choose file</span>
                   <input
@@ -195,19 +186,14 @@ export default function AssetPickerModal({
                     className="hidden"
                   />
                 </label>
-                {isUploading && (
-                  <p className="mt-2 text-[10px] text-white/60">
-                    Uploading…
-                  </p>
-                )}
+                {isUploading && <p className="mt-2 text-[10px] text-white/60">Uploading…</p>}
               </div>
             </div>
 
             <div className="rounded-2xl border border-white/15 bg-black/40 p-3 text-[10px] text-white/55">
               <p className="font-medium text-white/70">Tip</p>
               <p className="mt-1">
-                Use a clean, high-contrast image. It will be reused across your
-                listings.
+                Use a clean, high-contrast image. It will be reused across your listings.
               </p>
             </div>
 
@@ -221,12 +207,8 @@ export default function AssetPickerModal({
           {/* Right: library */}
           <div className="flex-1">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-medium text-white/70">
-                Your assets
-              </span>
-              {loadingAssets && (
-                <span className="text-[10px] text-white/45">Loading…</span>
-              )}
+              <span className="text-[11px] font-medium text-white/70">Your assets</span>
+              {loadingAssets && <span className="text-[10px] text-white/45">Loading…</span>}
             </div>
 
             {!loadingAssets && assets.length === 0 && !error && (
@@ -245,7 +227,7 @@ export default function AssetPickerModal({
                       onClick={() => handlePick(asset)}
                       className="group relative flex h-24 flex-col overflow-hidden rounded-xl border border-white/15 bg-white/5 text-left"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {}
                       <img
                         src={asset.publicUrl}
                         alt={asset.filename}

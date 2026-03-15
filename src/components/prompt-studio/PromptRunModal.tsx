@@ -18,11 +18,34 @@ const EDGAZE_RUN_COMING_SOON = true;
 
 function providerInfo(p: Provider) {
   if (p === "edgaze")
-    return { name: "Edgaze", sub: "Coming soon", icon: "/brand/edgaze-mark.png", kind: "internal" as const };
-  if (p === "chatgpt") return { name: "ChatGPT", sub: "Prefill", icon: "/misc/chatgpt.png", kind: "external" as const };
-  if (p === "claude") return { name: "Claude", sub: "Prefill", icon: "/misc/claude.png", kind: "external" as const };
-  if (p === "gemini") return { name: "Gemini", sub: "AI Studio", icon: "/misc/gemini.png", kind: "external" as const };
-  return { name: "Perplexity", sub: "Search", icon: "/misc/perplexity.png", kind: "external" as const };
+    return {
+      name: "Edgaze",
+      sub: "Coming soon",
+      icon: "/brand/edgaze-mark.png",
+      kind: "internal" as const,
+    };
+  if (p === "chatgpt")
+    return {
+      name: "ChatGPT",
+      sub: "Prefill",
+      icon: "/misc/chatgpt.png",
+      kind: "external" as const,
+    };
+  if (p === "claude")
+    return { name: "Claude", sub: "Prefill", icon: "/misc/claude.png", kind: "external" as const };
+  if (p === "gemini")
+    return {
+      name: "Gemini",
+      sub: "AI Studio",
+      icon: "/misc/gemini.png",
+      kind: "external" as const,
+    };
+  return {
+    name: "Perplexity",
+    sub: "Search",
+    icon: "/misc/perplexity.png",
+    kind: "external" as const,
+  };
 }
 
 function buildProviderUrl(p: Provider, filledPrompt: string) {
@@ -75,13 +98,7 @@ type Props = {
   placeholders: PromptPlaceholder[];
 };
 
-export default function PromptRunModal({
-  open,
-  onClose,
-  title,
-  template,
-  placeholders,
-}: Props) {
+export default function PromptRunModal({ open, onClose, title, template, placeholders }: Props) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
   const [providerHint, setProviderHint] = useState<Provider>("chatgpt");
@@ -96,9 +113,9 @@ export default function PromptRunModal({
       fieldFillsRef.current.clear();
       return;
     }
-    
+
     openedAtRef.current = Date.now();
-    
+
     const init: Record<string, string> = {};
     placeholders.forEach((p) => {
       init[p.key] = (p.default ?? "").toString();
@@ -109,6 +126,7 @@ export default function PromptRunModal({
       setProviderHint("chatgpt");
       setMobileTab(placeholders.length > 0 ? "fields" : "prompt");
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init values when modal opens; placeholders read inside callback
   }, [open]);
 
   // Update values when placeholders change (add new ones, but keep existing values)
@@ -174,15 +192,28 @@ export default function PromptRunModal({
             onClick={() => openProvider(p)}
             className={cn(
               "rounded-2xl border px-3 py-2 text-left",
-              active ? "border-cyan-400/60 bg-white/10" : "border-white/10 bg-white/5 hover:bg-white/10",
-              disabled && "opacity-60 cursor-not-allowed"
+              active
+                ? "border-cyan-400/60 bg-white/10"
+                : "border-white/10 bg-white/5 hover:bg-white/10",
+              disabled && "opacity-60 cursor-not-allowed",
             )}
             title={isEdgazeDisabled ? "Run in Edgaze is coming soon" : undefined}
           >
             <div className="flex items-center gap-2">
-              <Image src={info.icon} alt={info.name} width={18} height={18} className="h-[18px] w-[18px]" />
+              <Image
+                src={info.icon}
+                alt={info.name}
+                width={18}
+                height={18}
+                className="h-[18px] w-[18px]"
+              />
               <div className="min-w-0">
-                <div className={cn("text-[12px] font-semibold leading-tight", isEdgazeDisabled ? "text-white/70" : "text-white")}>
+                <div
+                  className={cn(
+                    "text-[12px] font-semibold leading-tight",
+                    isEdgazeDisabled ? "text-white/70" : "text-white",
+                  )}
+                >
                   {info.name}
                 </div>
                 <div className="text-[10px] text-white/45 leading-tight">{info.sub}</div>
@@ -245,7 +276,9 @@ export default function PromptRunModal({
       )}
 
       {anyMissingRequired && (
-        <div className="mt-3 text-[11px] text-amber-300">Fill the required fields (*) for best results.</div>
+        <div className="mt-3 text-[11px] text-amber-300">
+          Fill the required fields (*) for best results.
+        </div>
       )}
     </div>
   );
@@ -256,7 +289,8 @@ export default function PromptRunModal({
         <div className="min-w-0">
           <div className="text-[12px] font-semibold text-white/90">Generated prompt</div>
           <div className="mt-1 text-[11px] text-white/55 leading-snug">
-            One click opens a provider with your prompt prefilled. Link is also copied automatically.
+            One click opens a provider with your prompt prefilled. Link is also copied
+            automatically.
           </div>
         </div>
 
@@ -287,7 +321,9 @@ export default function PromptRunModal({
           <ExternalLink className="h-4 w-4 mt-[1px] text-white/45" />
           <div className="min-w-0">
             <div className="text-white/80 font-semibold">Fast fallback</div>
-            <div className="mt-0.5 leading-snug">If prefill doesn&apos;t show, paste (Cmd+V / Ctrl+V) and send.</div>
+            <div className="mt-0.5 leading-snug">
+              If prefill doesn&apos;t show, paste (Cmd+V / Ctrl+V) and send.
+            </div>
           </div>
         </div>
       </div>
@@ -304,7 +340,9 @@ export default function PromptRunModal({
           <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4">
             <div className="min-w-0">
               <div className="text-[13px] font-semibold text-white">Run</div>
-              <div className="mt-0.5 text-[12px] text-white/55 break-words leading-snug">{title}</div>
+              <div className="mt-0.5 text-[12px] text-white/55 break-words leading-snug">
+                {title}
+              </div>
             </div>
 
             <button
@@ -325,7 +363,9 @@ export default function PromptRunModal({
                 onClick={() => setMobileTab("fields")}
                 className={cn(
                   "flex-1 rounded-full border px-3 py-2 text-[12px] font-semibold",
-                  mobileTab === "fields" ? "border-cyan-400/60 bg-white/10 text-white" : "border-white/10 bg-white/5 text-white/70"
+                  mobileTab === "fields"
+                    ? "border-cyan-400/60 bg-white/10 text-white"
+                    : "border-white/10 bg-white/5 text-white/70",
                 )}
               >
                 Fields
@@ -335,7 +375,9 @@ export default function PromptRunModal({
                 onClick={() => setMobileTab("prompt")}
                 className={cn(
                   "flex-1 rounded-full border px-3 py-2 text-[12px] font-semibold",
-                  mobileTab === "prompt" ? "border-cyan-400/60 bg-white/10 text-white" : "border-white/10 bg-white/5 text-white/70"
+                  mobileTab === "prompt"
+                    ? "border-cyan-400/60 bg-white/10 text-white"
+                    : "border-white/10 bg-white/5 text-white/70",
                 )}
               >
                 Prompt
@@ -350,9 +392,7 @@ export default function PromptRunModal({
                 <div className="col-span-12 lg:col-span-5">
                   <div className="max-h-[520px] overflow-y-auto">{FieldsPanel}</div>
                 </div>
-                <div className="col-span-12 lg:col-span-7">
-                  {PromptPanel}
-                </div>
+                <div className="col-span-12 lg:col-span-7">{PromptPanel}</div>
               </div>
 
               {/* Mobile layout */}
@@ -376,7 +416,7 @@ export default function PromptRunModal({
                         "w-full rounded-2xl px-4 py-3 text-[13px] font-semibold",
                         filled.trim()
                           ? "bg-white text-black hover:bg-white/90"
-                          : "bg-white/10 text-white/60 cursor-not-allowed"
+                          : "bg-white/10 text-white/60 cursor-not-allowed",
                       )}
                     >
                       <span className="inline-flex items-center gap-2 justify-center w-full">

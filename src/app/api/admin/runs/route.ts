@@ -8,10 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
-      return NextResponse.json(
-        { error: authError ?? "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: authError ?? "Not authenticated" }, { status: 401 });
     }
     const userIsAdmin = await isAdmin(user.id);
     if (!userIsAdmin) {
@@ -57,7 +54,7 @@ export async function GET(req: NextRequest) {
         metadata,
         created_at
       `,
-        { count: "exact" }
+        { count: "exact" },
       )
       .gte("started_at", sinceIso)
       .order("started_at", { ascending: false })
@@ -100,18 +97,23 @@ export async function GET(req: NextRequest) {
     const { data: runs, error: runsError, count } = await runsQuery;
 
     if (runsError) {
-      return NextResponse.json(
-        { error: runsError.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: runsError.message }, { status: 500 });
     }
 
     // Resolve creator profiles for runs
-    const creatorIds = [...new Set((runs ?? []).map((r: { creator_user_id?: string | null }) => r.creator_user_id).filter(Boolean))] as string[];
+    const creatorIds = [
+      ...new Set(
+        (runs ?? [])
+          .map((r: { creator_user_id?: string | null }) => r.creator_user_id)
+          .filter(Boolean),
+      ),
+    ] as string[];
     const { data: profiles } = creatorIds.length
       ? await supabase.from("profiles").select("id, handle, full_name").in("id", creatorIds)
       : { data: [] };
-    const profileMap = new Map((profiles ?? []).map((p: { id: string; handle?: string; full_name?: string }) => [p.id, p]));
+    const profileMap = new Map(
+      (profiles ?? []).map((p: { id: string; handle?: string; full_name?: string }) => [p.id, p]),
+    );
 
     const enrichedRuns = (runs ?? []).map((r: Record<string, unknown>) => {
       const creatorProfile = r.creator_user_id ? profileMap.get(r.creator_user_id as string) : null;
@@ -134,9 +136,11 @@ export async function GET(req: NextRequest) {
     const { data: aggRows } = await aggQuery;
 
     const totalRuns = aggRows?.length ?? 0;
-    const workflowRuns = aggRows?.filter((r: { kind: string }) => r.kind === "workflow").length ?? 0;
+    const workflowRuns =
+      aggRows?.filter((r: { kind: string }) => r.kind === "workflow").length ?? 0;
     const promptRuns = aggRows?.filter((r: { kind: string }) => r.kind === "prompt").length ?? 0;
-    const successCount = aggRows?.filter((r: { status: string }) => r.status === "success").length ?? 0;
+    const successCount =
+      aggRows?.filter((r: { status: string }) => r.status === "success").length ?? 0;
     const errorCount = aggRows?.filter((r: { status: string }) => r.status === "error").length ?? 0;
     const successRate = totalRuns > 0 ? Math.round((successCount / totalRuns) * 100) : 0;
 
@@ -193,7 +197,7 @@ export async function GET(req: NextRequest) {
   } catch (e: unknown) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

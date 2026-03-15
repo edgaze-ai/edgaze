@@ -18,18 +18,12 @@ function buildPreview(data: NodeCardData | undefined, spec: NodeSpec): string {
   if (!data) return spec.summary ?? "";
 
   const candidate =
-    data.preview ??
-    data.lastOutput ??
-    data.output ??
-    data.summaryOverride ??
-    spec.summary;
+    data.preview ?? data.lastOutput ?? data.output ?? data.summaryOverride ?? spec.summary;
 
   if (candidate == null) return spec.summary ?? "";
 
   if (typeof candidate === "string") {
-    return candidate.length > 220
-      ? candidate.slice(0, 220).trimEnd() + "…"
-      : candidate;
+    return candidate.length > 220 ? candidate.slice(0, 220).trimEnd() + "…" : candidate;
   }
 
   try {
@@ -61,9 +55,7 @@ export default function NodeCard({
 
   const isMerge = spec.id === "merge";
 
-  const shapeClass = isMerge
-    ? "edge-ring rotate-45"
-    : "edge-ring";
+  const shapeClass = isMerge ? "edge-ring rotate-45" : "edge-ring";
 
   const innerClass = isMerge
     ? "edge-card -rotate-45 min-w-[230px] max-w-[320px]"
@@ -75,9 +67,7 @@ export default function NodeCard({
         {/* Header */}
         <div className="flex items-start justify-between gap-2 px-3 pt-2 pb-1.5">
           <div className="min-w-0">
-            <div className="truncate text-[13px] font-semibold">
-              {spec.label}
-            </div>
+            <div className="truncate text-[13px] font-semibold">{spec.label}</div>
             <div className="mt-0.5 text-[11px] text-white/55 truncate">
               {spec.category || "Block"}
             </div>

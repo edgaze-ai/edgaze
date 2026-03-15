@@ -18,9 +18,7 @@ type Props = {
 export default function VersionHistoryPanel({ versions, onRestore }: Props) {
   return (
     <div className="flex flex-col h-full">
-      <div className="mb-2 text-[11px] font-semibold text-white/70">
-        Version history
-      </div>
+      <div className="mb-2 text-[11px] font-semibold text-white/70">Version history</div>
       <div className="flex-1 rounded-2xl border border-white/15 bg-black/60 overflow-y-auto text-[11px]">
         {versions.length === 0 ? (
           <div className="px-3 py-2 text-white/50">
@@ -38,9 +36,7 @@ export default function VersionHistoryPanel({ versions, onRestore }: Props) {
                   onClick={() => onRestore(v.id)}
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-[10px] text-white/60">
-                      {v.createdAt}
-                    </span>
+                    <span className="text-[10px] text-white/60">{v.createdAt}</span>
                     <span className="text-[10px] text-white/40">
                       {v.charCount} chars · ~{v.tokenEstimate} tokens
                     </span>

@@ -88,9 +88,7 @@ export default function BannedPage() {
         {loading ? (
           <div className="text-sm text-white/60 mt-2">Loading…</div>
         ) : !userId ? (
-          <div className="text-sm text-white/60 mt-2">
-            You are not signed in.
-          </div>
+          <div className="text-sm text-white/60 mt-2">You are not signed in.</div>
         ) : !isStillBanned ? (
           <>
             <div className="text-sm text-white/60 mt-2">
@@ -118,7 +116,11 @@ export default function BannedPage() {
 
             <div className="mt-3 text-xs text-white/50 space-y-1">
               {mod?.banned_at ? <div>Banned at: {fmt(mod.banned_at)}</div> : null}
-              {mod?.ban_expires_at ? <div>Expires: {fmt(mod.ban_expires_at)}</div> : <div>Expires: never</div>}
+              {mod?.ban_expires_at ? (
+                <div>Expires: {fmt(mod.ban_expires_at)}</div>
+              ) : (
+                <div>Expires: never</div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 mt-4">

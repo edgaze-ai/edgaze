@@ -39,9 +39,7 @@ export default function CreatorFaq() {
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
             Creator notes
           </h2>
-          <p className="mt-4 text-lg text-white/60">
-            Common questions and answers.
-          </p>
+          <p className="mt-4 text-lg text-white/60">Common questions and answers.</p>
         </motion.div>
 
         <div className="space-y-4">

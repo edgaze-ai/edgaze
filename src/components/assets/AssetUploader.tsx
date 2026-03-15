@@ -61,15 +61,15 @@ export default function AssetUploader({ user, value, onChange }: Props) {
 
         {value ? (
           <div className="relative h-12 w-12 overflow-hidden rounded-lg border border-white/15 bg-black/40">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {}
             <img src={value} alt="Thumbnail preview" className="h-full w-full object-cover" />
           </div>
         ) : null}
       </div>
 
       <p className="text-[11px] text-white/40">
-        PNG / JPG only. Total Edgaze assets limit per account:{" "}
-        {formatBytes(USER_ASSET_QUOTA_BYTES)}.
+        PNG / JPG only. Total Edgaze assets limit per account: {formatBytes(USER_ASSET_QUOTA_BYTES)}
+        .
       </p>
 
       {error ? <p className="text-[11px] text-amber-300">{error}</p> : null}

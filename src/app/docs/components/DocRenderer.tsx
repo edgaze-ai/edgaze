@@ -21,6 +21,10 @@ function slugify(text: string) {
     .replace(/\s+/g, "-");
 }
 
+function isUnorderedListItem(line: string) {
+  return /^[-*]\s+/.test(line);
+}
+
 function parse(md: string): Block[] {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
   const blocks: Block[] = [];
@@ -118,11 +122,11 @@ function parse(md: string): Block[] {
       }
     }
 
-    if (line.startsWith("- ")) {
+    if (isUnorderedListItem(line)) {
       const items: string[] = [];
       while (i < lines.length) {
         const cur = lines[i] ?? "";
-        if (!cur.startsWith("- ")) break;
+        if (!isUnorderedListItem(cur)) break;
         items.push(cur.slice(2).trim());
         i++;
       }
@@ -165,7 +169,7 @@ function parse(md: string): Block[] {
       if (cur.startsWith("## ")) break;
       if (cur.startsWith("### ")) break;
       if (cur.startsWith("#### ")) break;
-      if (cur.startsWith("- ")) break;
+      if (isUnorderedListItem(cur)) break;
       if (/^\d+\.\s+/.test(cur)) break;
       if (cur.trim().startsWith("|") && cur.trim().endsWith("|")) break;
       if (cur.startsWith("```")) break;
@@ -181,6 +185,147 @@ function parse(md: string): Block[] {
   return blocks;
 }
 
+type InlineMatch = {
+  type: "link" | "bold" | "italic";
+  start: number;
+  end: number;
+  text: string;
+  url?: string;
+};
+
+function collectInlineMatches(text: string): InlineMatch[] {
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  const boldRegex = /\*\*(.+?)\*\*/g;
+  const italicRegex = /\*([^*\n]+?)\*/g;
+  const matches: InlineMatch[] = [];
+
+  let match: RegExpExecArray | null;
+
+  linkRegex.lastIndex = 0;
+  while ((match = linkRegex.exec(text)) !== null) {
+    const linkText = match[1];
+    const linkUrl = match[2];
+    const matchIndex = match.index;
+    const matchLength = match[0]?.length;
+    if (linkText && linkUrl && matchLength !== undefined) {
+      matches.push({
+        type: "link",
+        start: matchIndex,
+        end: matchIndex + matchLength,
+        text: linkText,
+        url: linkUrl,
+      });
+    }
+  }
+
+  boldRegex.lastIndex = 0;
+  while ((match = boldRegex.exec(text)) !== null) {
+    const boldText = match[1];
+    const matchIndex = match.index;
+    const matchLength = match[0]?.length;
+    if (boldText && matchLength !== undefined) {
+      matches.push({
+        type: "bold",
+        start: matchIndex,
+        end: matchIndex + matchLength,
+        text: boldText,
+      });
+    }
+  }
+
+  italicRegex.lastIndex = 0;
+  while ((match = italicRegex.exec(text)) !== null) {
+    const italicText = match[1];
+    const matchIndex = match.index;
+    const matchLength = match[0]?.length;
+    if (italicText && matchLength !== undefined) {
+      matches.push({
+        type: "italic",
+        start: matchIndex,
+        end: matchIndex + matchLength,
+        text: italicText,
+      });
+    }
+  }
+
+  matches.sort((a, b) => a.start - b.start);
+
+  const filteredMatches: InlineMatch[] = [];
+  for (const current of matches) {
+    const overlaps = filteredMatches.some(
+      (existing) => !(current.end <= existing.start || current.start >= existing.end),
+    );
+    if (!overlaps) {
+      filteredMatches.push(current);
+    }
+  }
+
+  return filteredMatches;
+}
+
+function renderInlineMarkdown(text: string) {
+  const matches = collectInlineMatches(text);
+
+  if (matches.length === 0) {
+    return text;
+  }
+
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of matches) {
+    if (match.start > lastIndex) {
+      parts.push(text.slice(lastIndex, match.start));
+    }
+
+    if (match.type === "link") {
+      const href = match.url || "#";
+      const isExternal = href.startsWith("http");
+      parts.push(
+        isExternal ? (
+          <a
+            key={match.start}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
+          >
+            {match.text}
+          </a>
+        ) : (
+          <Link
+            key={match.start}
+            href={href}
+            className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
+          >
+            {match.text}
+          </Link>
+        ),
+      );
+    } else if (match.type === "bold") {
+      parts.push(
+        <strong key={match.start} className="font-semibold text-white/90">
+          {match.text}
+        </strong>,
+      );
+    } else {
+      parts.push(
+        <em key={match.start} className="italic text-white/80">
+          {match.text}
+        </em>,
+      );
+    }
+
+    lastIndex = match.end;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
+
 export default function DocRenderer({ content }: { content: string }) {
   const blocks = parse(content);
 
@@ -192,19 +337,14 @@ export default function DocRenderer({ content }: { content: string }) {
             b.level === 1
               ? "mt-12 text-2xl sm:text-3xl font-semibold tracking-tight text-white/95 scroll-mt-28"
               : b.level === 2
-              ? "mt-10 text-xl sm:text-2xl font-semibold tracking-tight text-white/95 scroll-mt-24"
-              : b.level === 3
-              ? "mt-8 text-lg sm:text-xl font-semibold tracking-tight text-white/95 scroll-mt-24"
-              : "mt-6 text-base sm:text-lg font-semibold tracking-tight text-white/95 scroll-mt-24";
+                ? "mt-10 text-xl sm:text-2xl font-semibold tracking-tight text-white/95 scroll-mt-24"
+                : b.level === 3
+                  ? "mt-8 text-lg sm:text-xl font-semibold tracking-tight text-white/95 scroll-mt-24"
+                  : "mt-6 text-base sm:text-lg font-semibold tracking-tight text-white/95 scroll-mt-24";
 
-          const Tag =
-            (b.level === 1
-              ? "h1"
-              : b.level === 2
-              ? "h2"
-              : b.level === 3
-              ? "h3"
-              : "h4") as keyof React.JSX.IntrinsicElements;
+          const Tag = (
+            b.level === 1 ? "h1" : b.level === 2 ? "h2" : b.level === 3 ? "h3" : "h4"
+          ) as keyof React.JSX.IntrinsicElements;
 
           return (
             <Tag key={idx} id={b.id} className={cls}>
@@ -214,119 +354,9 @@ export default function DocRenderer({ content }: { content: string }) {
         }
 
         if (b.type === "p") {
-          // Convert **text** to <strong>text</strong> and [text](url) to <Link>
-          const parts: (string | React.JSX.Element)[] = [];
-          const text = b.text;
-          let lastIndex = 0;
-          
-          // Process both bold and links - links first to avoid conflicts
-          const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-          const boldRegex = /\*\*(.+?)\*\*/g;
-          
-          // Collect all matches with their positions
-          const matches: Array<{ type: "link" | "bold"; start: number; end: number; text: string; url?: string }> = [];
-          
-          let match: RegExpExecArray | null;
-          linkRegex.lastIndex = 0; // Reset regex
-          while ((match = linkRegex.exec(text)) !== null) {
-            const linkText = match[1];
-            const linkUrl = match[2];
-            const matchIndex = match.index;
-            const matchLength = match[0]?.length;
-            if (linkText && linkUrl && matchIndex !== undefined && matchLength !== undefined) {
-              matches.push({
-                type: "link",
-                start: matchIndex,
-                end: matchIndex + matchLength,
-                text: linkText,
-                url: linkUrl,
-              });
-            }
-          }
-          
-          boldRegex.lastIndex = 0; // Reset regex
-          while ((match = boldRegex.exec(text)) !== null) {
-            const boldText = match[1];
-            const matchIndex = match.index;
-            const matchLength = match[0]?.length;
-            if (boldText && matchIndex !== undefined && matchLength !== undefined) {
-              matches.push({
-                type: "bold",
-                start: matchIndex,
-                end: matchIndex + matchLength,
-                text: boldText,
-              });
-            }
-          }
-          
-          // Sort by position
-          matches.sort((a, b) => a.start - b.start);
-          
-          // Remove overlapping matches (prefer links over bold)
-          const filteredMatches: typeof matches = [];
-          for (const m of matches) {
-            const overlaps = filteredMatches.some(
-              (f) => !(m.end <= f.start || m.start >= f.end)
-            );
-            if (!overlaps) {
-              filteredMatches.push(m);
-            }
-          }
-          
-          // Build parts
-          for (const m of filteredMatches) {
-            // Add text before match
-            if (m.start > lastIndex) {
-              const beforeText = text.slice(lastIndex, m.start);
-              parts.push(beforeText);
-            }
-            
-            // Add the match
-            if (m.type === "link") {
-              const href = m.url || "#";
-              const isExternal = href.startsWith("http");
-              if (isExternal) {
-                parts.push(
-                  <a
-                    key={m.start}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
-                  >
-                    {m.text}
-                  </a>
-                );
-              } else {
-                parts.push(
-                  <Link
-                    key={m.start}
-                    href={href}
-                    className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
-                  >
-                    {m.text}
-                  </Link>
-                );
-              }
-            } else {
-              parts.push(
-                <strong key={m.start} className="font-semibold text-white/90">
-                  {m.text}
-                </strong>
-              );
-            }
-            
-            lastIndex = m.end;
-          }
-          
-          // Add remaining text
-          if (lastIndex < text.length) {
-            parts.push(text.slice(lastIndex));
-          }
-
           return (
             <p key={idx} className="mt-3 text-[15px] leading-7 text-white/75 max-w-3xl">
-              {parts.length > 0 ? parts : b.text}
+              {renderInlineMarkdown(b.text)}
             </p>
           );
         }
@@ -335,110 +365,9 @@ export default function DocRenderer({ content }: { content: string }) {
           return (
             <ul key={idx} className="mt-3 list-disc pl-6 text-white/75 max-w-3xl">
               {b.items.map((it, j) => {
-                // Convert **text** to <strong>text</strong> and [text](url) to <Link> for list items
-                const parts: (string | React.JSX.Element)[] = [];
-                let lastIndex = 0;
-                
-                // Process both bold and links
-                const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-                const boldRegex = /\*\*(.+?)\*\*/g;
-                
-                const matches: Array<{ type: "link" | "bold"; start: number; end: number; text: string; url?: string }> = [];
-                
-                let match: RegExpExecArray | null;
-                linkRegex.lastIndex = 0; // Reset regex
-                while ((match = linkRegex.exec(it)) !== null) {
-                  const linkText = match[1];
-                  const linkUrl = match[2];
-                  const matchIndex = match.index;
-                  const matchLength = match[0]?.length;
-                  if (linkText && linkUrl && matchIndex !== undefined && matchLength !== undefined) {
-                    matches.push({
-                      type: "link",
-                      start: matchIndex,
-                      end: matchIndex + matchLength,
-                      text: linkText,
-                      url: linkUrl,
-                    });
-                  }
-                }
-                
-                boldRegex.lastIndex = 0; // Reset regex
-                while ((match = boldRegex.exec(it)) !== null) {
-                  const boldText = match[1];
-                  const matchIndex = match.index;
-                  const matchLength = match[0]?.length;
-                  if (boldText && matchIndex !== undefined && matchLength !== undefined) {
-                    matches.push({
-                      type: "bold",
-                      start: matchIndex,
-                      end: matchIndex + matchLength,
-                      text: boldText,
-                    });
-                  }
-                }
-                
-                matches.sort((a, b) => a.start - b.start);
-                
-                const filteredMatches: typeof matches = [];
-                for (const m of matches) {
-                  const overlaps = filteredMatches.some(
-                    (f) => !(m.end <= f.start || m.start >= f.end)
-                  );
-                  if (!overlaps) {
-                    filteredMatches.push(m);
-                  }
-                }
-                
-                for (const m of filteredMatches) {
-                  if (m.start > lastIndex) {
-                    parts.push(it.slice(lastIndex, m.start));
-                  }
-                  
-                  if (m.type === "link") {
-                    const href = m.url || "#";
-                    const isExternal = href.startsWith("http");
-                    if (isExternal) {
-                      parts.push(
-                        <a
-                          key={m.start}
-                          href={href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
-                        >
-                          {m.text}
-                        </a>
-                      );
-                    } else {
-                      parts.push(
-                        <Link
-                          key={m.start}
-                          href={href}
-                          className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
-                        >
-                          {m.text}
-                        </Link>
-                      );
-                    }
-                  } else {
-                    parts.push(
-                      <strong key={m.start} className="font-semibold text-white/90">
-                        {m.text}
-                      </strong>
-                    );
-                  }
-                  
-                  lastIndex = m.end;
-                }
-                
-                if (lastIndex < it.length) {
-                  parts.push(it.slice(lastIndex));
-                }
-
                 return (
                   <li key={j} className="mt-1 text-[15px] leading-7">
-                    {parts.length > 0 ? parts : it}
+                    {renderInlineMarkdown(it)}
                   </li>
                 );
               })}
@@ -450,56 +379,9 @@ export default function DocRenderer({ content }: { content: string }) {
           return (
             <ol key={idx} className="mt-3 list-decimal pl-6 text-white/75 max-w-3xl space-y-1">
               {b.items.map((it, j) => {
-                const parts: (string | React.JSX.Element)[] = [];
-                let lastIndex = 0;
-                const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-                const boldRegex = /\*\*(.+?)\*\*/g;
-                const matches: Array<{ type: "link" | "bold"; start: number; end: number; text: string; url?: string }> = [];
-                let match: RegExpExecArray | null;
-                linkRegex.lastIndex = 0;
-                while ((match = linkRegex.exec(it)) !== null) {
-                  const linkText = match[1];
-                  const linkUrl = match[2];
-                  const matchIndex = match.index;
-                  const matchLength = match[0]?.length;
-                  if (linkText && linkUrl && matchIndex !== undefined && matchLength !== undefined) {
-                    matches.push({ type: "link", start: matchIndex, end: matchIndex + matchLength, text: linkText, url: linkUrl });
-                  }
-                }
-                boldRegex.lastIndex = 0;
-                while ((match = boldRegex.exec(it)) !== null) {
-                  const boldText = match[1];
-                  const matchIndex = match.index;
-                  const matchLength = match[0]?.length;
-                  if (boldText && matchIndex !== undefined && matchLength !== undefined) {
-                    matches.push({ type: "bold", start: matchIndex, end: matchIndex + matchLength, text: boldText });
-                  }
-                }
-                matches.sort((a, b) => a.start - b.start);
-                const filteredMatches: typeof matches = [];
-                for (const m of matches) {
-                  const overlaps = filteredMatches.some((f) => !(m.end <= f.start || m.start >= f.end));
-                  if (!overlaps) filteredMatches.push(m);
-                }
-                for (const m of filteredMatches) {
-                  if (m.start > lastIndex) parts.push(it.slice(lastIndex, m.start));
-                  if (m.type === "link") {
-                    const href = m.url || "#";
-                    const isExternal = href.startsWith("http");
-                    if (isExternal) {
-                      parts.push(<a key={m.start} href={href} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline transition-colors">{m.text}</a>);
-                    } else {
-                      parts.push(<Link key={m.start} href={href} className="text-cyan-400 hover:text-cyan-300 underline transition-colors">{m.text}</Link>);
-                    }
-                  } else {
-                    parts.push(<strong key={m.start} className="font-semibold text-white/90">{m.text}</strong>);
-                  }
-                  lastIndex = m.end;
-                }
-                if (lastIndex < it.length) parts.push(it.slice(lastIndex));
                 return (
                   <li key={j} className="text-[15px] leading-7 pl-1">
-                    {parts.length > 0 ? parts : it}
+                    {renderInlineMarkdown(it)}
                   </li>
                 );
               })}
@@ -508,33 +390,6 @@ export default function DocRenderer({ content }: { content: string }) {
         }
 
         if (b.type === "table") {
-          const renderCell = (text: string, isTh: boolean) => {
-            const parts: (string | React.JSX.Element)[] = [];
-            const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-            const boldRegex = /\*\*(.+?)\*\*/g;
-            const matches: Array<{ type: "link" | "bold"; start: number; end: number; text: string; url?: string }> = [];
-            let match: RegExpExecArray | null;
-            linkRegex.lastIndex = 0;
-            while ((match = linkRegex.exec(text)) !== null) {
-              if (match[1] && match[2]) matches.push({ type: "link", start: match.index, end: match.index + match[0].length, text: match[1], url: match[2] });
-            }
-            boldRegex.lastIndex = 0;
-            while ((match = boldRegex.exec(text)) !== null) {
-              if (match[1]) matches.push({ type: "bold", start: match.index, end: match.index + match[0].length, text: match[1] });
-            }
-            matches.sort((a, b) => a.start - b.start);
-            let lastIndex = 0;
-            for (const m of matches) {
-              if (m.start > lastIndex) parts.push(text.slice(lastIndex, m.start));
-              if (m.type === "link" && m.url) {
-                const isExt = m.url.startsWith("http");
-                parts.push(isExt ? <a key={m.start} href={m.url} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline">{m.text}</a> : <Link key={m.start} href={m.url} className="text-cyan-400 hover:text-cyan-300 underline">{m.text}</Link>);
-              } else parts.push(<strong key={m.start} className="font-semibold text-white/90">{m.text}</strong>);
-              lastIndex = m.end;
-            }
-            if (lastIndex < text.length) parts.push(text.slice(lastIndex));
-            return parts.length > 0 ? parts : text;
-          };
           const [header, ...bodyRows] = b.rows;
           return (
             <div key={idx} className="mt-6 overflow-auto rounded-2xl border border-white/10">
@@ -543,8 +398,11 @@ export default function DocRenderer({ content }: { content: string }) {
                   <thead>
                     <tr className="border-b border-white/15">
                       {header.map((cell, j) => (
-                        <th key={j} className="px-4 py-3 font-semibold text-white/95 bg-white/[0.03]">
-                          {renderCell(cell, true)}
+                        <th
+                          key={j}
+                          className="px-4 py-3 font-semibold text-white/95 bg-white/[0.03]"
+                        >
+                          {renderInlineMarkdown(cell)}
                         </th>
                       ))}
                     </tr>
@@ -552,10 +410,13 @@ export default function DocRenderer({ content }: { content: string }) {
                 )}
                 <tbody>
                   {bodyRows.map((row, ri) => (
-                    <tr key={ri} className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.02]">
+                    <tr
+                      key={ri}
+                      className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.02]"
+                    >
                       {row.map((cell, ci) => (
                         <td key={ci} className="px-4 py-3 text-white/75">
-                          {renderCell(cell, false)}
+                          {renderInlineMarkdown(cell)}
                         </td>
                       ))}
                     </tr>
@@ -568,8 +429,13 @@ export default function DocRenderer({ content }: { content: string }) {
 
         if (b.type === "code") {
           return (
-            <div key={idx} className="mt-6 overflow-auto rounded-2xl bg-black/35 ring-1 ring-white/10">
-              <div className="px-4 py-2 text-xs text-white/45 border-b border-white/10">{b.lang || "code"}</div>
+            <div
+              key={idx}
+              className="mt-6 overflow-auto rounded-2xl bg-black/35 ring-1 ring-white/10"
+            >
+              <div className="px-4 py-2 text-xs text-white/45 border-b border-white/10">
+                {b.lang || "code"}
+              </div>
               <pre className="px-4 py-4 text-[13px] leading-6 text-white/85">
                 <code>{b.code}</code>
               </pre>

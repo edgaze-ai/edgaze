@@ -1,11 +1,11 @@
 title = "Chargeback Policy"
 description = "How Edgaze and creators handle payment disputes and chargebacks"
 
----
+# Chargeback Policy
 
-## 1. What Is a Chargeback
+_Last Updated: March 13, 2026_
 
-*Last Updated: March 13, 2026*
+## What a Chargeback Means
 
 A **chargeback** occurs when a customer disputes a payment through their bank or card issuer. Common reasons include:
 
@@ -14,9 +14,9 @@ A **chargeback** occurs when a customer disputes a payment through their bank or
 - Product not as described
 - Customer dissatisfaction
 
----
+## Stripe Manages Disputes
 
-## 2. Stripe Manages Disputes
+### How the Process Works
 
 Stripe manages the chargeback and dispute process. When a dispute is filed:
 
@@ -25,9 +25,9 @@ Stripe manages the chargeback and dispute process. When a dispute is filed:
 - The bank or card network makes the final decision
 - The payment may be reversed if the dispute is upheld
 
----
+## Impact on Creators
 
-## 3. Impact on Creators
+### Financial Consequences
 
 If a chargeback is upheld:
 
@@ -37,11 +37,13 @@ If a chargeback is upheld:
 
 Creators are responsible for chargebacks on sales of their products.
 
----
+## Before Filing a Chargeback
 
-## 4. Before Filing a Chargeback
+### Contact Support Before Disputing
 
 **Customers:** Contact Edgaze support before initiating a chargeback. We can often resolve issues through refunds or troubleshooting. Chargebacks should be a last resort.
+
+### If You Skip That Step
 
 **If you file a chargeback without contacting us first:**
 
@@ -49,9 +51,9 @@ Creators are responsible for chargebacks on sales of their products.
 - You may be banned from future purchases
 - Edgaze will dispute fraudulent or abusive chargebacks
 
----
+## Repeated Disputes
 
-## 5. Repeated Disputes
+### Risk Signals for Creators
 
 Creators with high chargeback rates may face:
 
@@ -61,15 +63,15 @@ Creators with high chargeback rates may face:
 
 Providing accurate product descriptions, clear expectations, and good support helps minimize disputes.
 
----
+## Fraudulent Chargebacks
 
-## 6. Fraudulent Chargebacks
+### When Edgaze Will Contest a Dispute
 
 Edgaze will contest chargebacks that appear fraudulent or abusive. We may share evidence with Stripe and the card network to protect creators and the platform.
 
----
+## Dispute Evidence
 
-## 7. Dispute Evidence
+### Evidence That May Be Submitted
 
 When contesting a dispute, Stripe and Edgaze may submit:
 

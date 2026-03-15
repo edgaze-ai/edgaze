@@ -28,9 +28,19 @@ import { useAuth } from "../../../../components/auth/AuthContext";
 import { track } from "../../../../lib/mixpanel";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../../lib/constants";
 import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
-import PremiumWorkflowRunModal, { type WorkflowRunState } from "../../../../components/builder/PremiumWorkflowRunModal";
-import { canRunDemo, trackDemoRun, getDeviceFingerprintHash, canRunDemoSync } from "../../../../lib/workflow/device-tracking";
-import { extractWorkflowInputs, extractWorkflowOutputs } from "../../../../lib/workflow/input-extraction";
+import PremiumWorkflowRunModal, {
+  type WorkflowRunState,
+} from "../../../../components/builder/PremiumWorkflowRunModal";
+import {
+  canRunDemo,
+  trackDemoRun,
+  getDeviceFingerprintHash,
+  canRunDemoSync,
+} from "../../../../lib/workflow/device-tracking";
+import {
+  extractWorkflowInputs,
+  extractWorkflowOutputs,
+} from "../../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../../lib/workflow/validation";
 import FoundingCreatorBadge from "../../../../components/ui/FoundingCreatorBadge";
 import ProfileAvatar from "../../../../components/ui/ProfileAvatar";
@@ -139,7 +149,7 @@ async function qrDataUrlLocal(text: string): Promise<string> {
         color: { dark: "#0b0c10", light: "#ffffff" },
       }),
       4500,
-      "QR generation"
+      "QR generation",
     );
     return String(dataUrl);
   } catch {
@@ -292,11 +302,34 @@ const EDGAZE_RUN_COMING_SOON = true;
 
 function providerInfo(p: Provider) {
   if (p === "edgaze")
-    return { name: "Edgaze", sub: "Coming soon", icon: "/brand/edgaze-mark.png", kind: "internal" as const };
-  if (p === "chatgpt") return { name: "ChatGPT", sub: "Prefill", icon: "/misc/chatgpt.png", kind: "external" as const };
-  if (p === "claude") return { name: "Claude", sub: "Prefill", icon: "/misc/claude.png", kind: "external" as const };
-  if (p === "gemini") return { name: "Gemini", sub: "AI Studio", icon: "/misc/gemini.png", kind: "external" as const };
-  return { name: "Perplexity", sub: "Search", icon: "/misc/perplexity.png", kind: "external" as const };
+    return {
+      name: "Edgaze",
+      sub: "Coming soon",
+      icon: "/brand/edgaze-mark.png",
+      kind: "internal" as const,
+    };
+  if (p === "chatgpt")
+    return {
+      name: "ChatGPT",
+      sub: "Prefill",
+      icon: "/misc/chatgpt.png",
+      kind: "external" as const,
+    };
+  if (p === "claude")
+    return { name: "Claude", sub: "Prefill", icon: "/misc/claude.png", kind: "external" as const };
+  if (p === "gemini")
+    return {
+      name: "Gemini",
+      sub: "AI Studio",
+      icon: "/misc/gemini.png",
+      kind: "external" as const,
+    };
+  return {
+    name: "Perplexity",
+    sub: "Search",
+    icon: "/misc/perplexity.png",
+    kind: "external" as const,
+  };
 }
 
 function buildProviderUrl(p: Provider, filledPrompt: string) {
@@ -419,9 +452,8 @@ function AutoFitCircleIcon({
         for (let y = 0; y < CAN; y++) {
           for (let x = 0; x < CAN; x++) {
             const idx = (y * CAN + x) * 4 + 3;
-const a = data[idx] ?? 0;
-if (a > ALPHA_THRESHOLD) {
-
+            const a = data[idx] ?? 0;
+            if (a > ALPHA_THRESHOLD) {
               if (x < minX) minX = x;
               if (y < minY) minY = y;
               if (x > maxX) maxX = x;
@@ -469,11 +501,11 @@ if (a > ALPHA_THRESHOLD) {
     <div
       className={cn(
         "relative grid place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30",
-        className
+        className,
       )}
       style={{ width: size, height: size }}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {}
       <img
         src={src}
         alt={alt}
@@ -534,6 +566,7 @@ function ShareModal({
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shareUrl/title/code/ownerHandle derived from route; intentional deps
   }, [open, shareUrl]);
 
   async function onShareApp(app: ShareApp) {
@@ -541,7 +574,7 @@ function ShareModal({
       setShareBusy(app);
       await copyToClipboard(shareUrl);
       const url = buildShareUrl(app, shareUrl, title);
-      
+
       safeTrack("Product Shared", {
         surface: "share_modal",
         method: app,
@@ -549,7 +582,7 @@ function ShareModal({
         owner_handle: ownerHandle,
         title: title || undefined,
       });
-      
+
       openExternal(url);
     } finally {
       setTimeout(() => setShareBusy(null), 500);
@@ -576,7 +609,9 @@ function ShareModal({
               />
               <div>
                 <div className="text-[13px] sm:text-[14px] font-semibold text-white">Share</div>
-                <div className="hidden sm:block text-[11px] text-white/50">Link, QR, and quick-share</div>
+                <div className="hidden sm:block text-[11px] text-white/50">
+                  Link, QR, and quick-share
+                </div>
               </div>
             </div>
 
@@ -602,7 +637,9 @@ function ShareModal({
                       {code || "—"}
                     </div>
                     <div className="text-right text-[11px] text-white/45">
-                      <span className="text-white/70 font-semibold">@{ownerHandle || "creator"}</span>
+                      <span className="text-white/70 font-semibold">
+                        @{ownerHandle || "creator"}
+                      </span>
                     </div>
                   </div>
 
@@ -643,33 +680,41 @@ function ShareModal({
                   <div className="mt-4">
                     <div className="text-[11px] font-semibold text-white/70">Quick share</div>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {(["whatsapp", "x", "snapchat", "reddit", "facebook"] as ShareApp[]).map((app) => {
-                        const info = shareAppInfo(app);
-                        const busy = shareBusy === app;
-                        return (
-                          <button
-                            key={app}
-                            type="button"
-                            onClick={() => onShareApp(app)}
-                            className={cn(
-                              "group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/10",
-                              busy && "opacity-70"
-                            )}
-                            aria-label={`Share to ${info.name}`}
-                            title={info.name}
-                          >
-                            {busy ? (
-                              <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30">
-                                <Loader2 className="h-4 w-4 animate-spin text-white/70" />
-                              </span>
-                            ) : (
-                              <AutoFitCircleIcon src={info.icon} alt={info.name} size={28} pad={1} maxScale={3.6} />
-                            )}
+                      {(["whatsapp", "x", "snapchat", "reddit", "facebook"] as ShareApp[]).map(
+                        (app) => {
+                          const info = shareAppInfo(app);
+                          const busy = shareBusy === app;
+                          return (
+                            <button
+                              key={app}
+                              type="button"
+                              onClick={() => onShareApp(app)}
+                              className={cn(
+                                "group inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/10",
+                                busy && "opacity-70",
+                              )}
+                              aria-label={`Share to ${info.name}`}
+                              title={info.name}
+                            >
+                              {busy ? (
+                                <span className="grid h-7 w-7 place-items-center overflow-hidden rounded-full border border-white/10 bg-black/30">
+                                  <Loader2 className="h-4 w-4 animate-spin text-white/70" />
+                                </span>
+                              ) : (
+                                <AutoFitCircleIcon
+                                  src={info.icon}
+                                  alt={info.name}
+                                  size={28}
+                                  pad={1}
+                                  maxScale={3.6}
+                                />
+                              )}
 
-                            <span className="hidden sm:inline">{info.name}</span>
-                          </button>
-                        );
-                      })}
+                              <span className="hidden sm:inline">{info.name}</span>
+                            </button>
+                          );
+                        },
+                      )}
                     </div>
 
                     <div className="mt-2 text-[11px] text-white/45">
@@ -689,7 +734,11 @@ function ShareModal({
                       onClick={async () => {
                         setQrBusy(true);
                         try {
-                          const qr = await withTimeout(qrWithCenteredLogoDataUrl(shareUrl), 9000, "QR render");
+                          const qr = await withTimeout(
+                            qrWithCenteredLogoDataUrl(shareUrl),
+                            9000,
+                            "QR render",
+                          );
                           setQrDataUrl(qr);
                         } finally {
                           setQrBusy(false);
@@ -710,8 +759,11 @@ function ShareModal({
                           Generating…
                         </div>
                       ) : qrDataUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={qrDataUrl} alt="Edgaze QR" className="h-full w-full object-cover" />
+                        <img
+                          src={qrDataUrl}
+                          alt="Edgaze QR"
+                          className="h-full w-full object-cover"
+                        />
                       ) : (
                         <div className="text-[12px] text-white/55">QR unavailable</div>
                       )}
@@ -734,7 +786,7 @@ function ShareModal({
                       }}
                       className={cn(
                         "h-10 sm:h-11 flex-1 rounded-2xl border border-white/10 bg-white/5 px-3 sm:px-4 text-[12px] font-semibold text-white/90 hover:bg-white/10",
-                        !qrDataUrl && "opacity-60 cursor-not-allowed"
+                        !qrDataUrl && "opacity-60 cursor-not-allowed",
                       )}
                     >
                       <span className="inline-flex items-center gap-2 justify-center w-full">
@@ -780,7 +832,6 @@ function ShareModal({
   );
 }
 
-
 function BlurredPreview({ text, kind }: { text: string; kind: "prompt" | "workflow" }) {
   const snippet =
     (text || (kind === "workflow" ? "EDGAZE WORKFLOW" : "EDGAZE PROMPT"))
@@ -795,7 +846,9 @@ function BlurredPreview({ text, kind }: { text: string; kind: "prompt" | "workfl
     <div className="relative h-28 w-full overflow-hidden rounded-2xl bg-slate-950/90">
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="scale-[1.5] blur-2xl opacity-80">
-          <div className="whitespace-nowrap text-5xl font-extrabold tracking-[0.35em] text-white/30">{snippet}</div>
+          <div className="whitespace-nowrap text-5xl font-extrabold tracking-[0.35em] text-white/30">
+            {snippet}
+          </div>
         </div>
       </div>
 
@@ -864,7 +917,7 @@ function RunModal({
       fieldFillsRef.current.clear();
       return;
     }
-    
+
     openedAtRef.current = Date.now();
     safeTrack("Prompt Run Modal Opened", {
       surface: "product_page",
@@ -874,7 +927,7 @@ function RunModal({
       has_required_fields: placeholders.some((p) => Boolean(p.required)),
     });
     trackPromptRun();
-    
+
     const init: Record<string, string> = {};
     placeholders.forEach((p) => {
       init[p.key] = (p.default ?? "").toString();
@@ -951,15 +1004,28 @@ function RunModal({
             onClick={() => openProvider(p)}
             className={cn(
               "rounded-2xl border px-3 py-2 text-left",
-              active ? "border-cyan-400/60 bg-white/10" : "border-white/10 bg-white/5 hover:bg-white/10",
-              disabled && "opacity-60 cursor-not-allowed"
+              active
+                ? "border-cyan-400/60 bg-white/10"
+                : "border-white/10 bg-white/5 hover:bg-white/10",
+              disabled && "opacity-60 cursor-not-allowed",
             )}
             title={isEdgazeDisabled ? "Run in Edgaze is coming soon" : undefined}
           >
             <div className="flex items-center gap-2">
-              <Image src={info.icon} alt={info.name} width={18} height={18} className="h-[18px] w-[18px]" />
+              <Image
+                src={info.icon}
+                alt={info.name}
+                width={18}
+                height={18}
+                className="h-[18px] w-[18px]"
+              />
               <div className="min-w-0">
-                <div className={cn("text-[12px] font-semibold leading-tight", isEdgazeDisabled ? "text-white/70" : "text-white")}>
+                <div
+                  className={cn(
+                    "text-[12px] font-semibold leading-tight",
+                    isEdgazeDisabled ? "text-white/70" : "text-white",
+                  )}
+                >
                   {info.name}
                 </div>
                 <div className="text-[10px] text-white/45 leading-tight">{info.sub}</div>
@@ -1011,7 +1077,7 @@ function RunModal({
                   onChange={(e) => {
                     const newValue = e.target.value;
                     setValues((prev) => ({ ...prev, [p.key]: newValue }));
-                    
+
                     // Track first-time field fills
                     if (!fieldFillsRef.current.has(p.key) && newValue.trim()) {
                       fieldFillsRef.current.add(p.key);
@@ -1034,7 +1100,9 @@ function RunModal({
       )}
 
       {anyMissingRequired && (
-        <div className="mt-3 text-[11px] text-amber-300">Fill the required fields (*) for best results.</div>
+        <div className="mt-3 text-[11px] text-amber-300">
+          Fill the required fields (*) for best results.
+        </div>
       )}
     </div>
   );
@@ -1045,7 +1113,8 @@ function RunModal({
         <div className="min-w-0">
           <div className="text-[12px] font-semibold text-white/90">Generated prompt</div>
           <div className="mt-1 text-[11px] text-white/55 leading-snug">
-            One click opens a provider with your prompt prefilled. Link is also copied automatically.
+            One click opens a provider with your prompt prefilled. Link is also copied
+            automatically.
           </div>
         </div>
 
@@ -1084,7 +1153,9 @@ function RunModal({
           <ExternalLink className="h-4 w-4 mt-[1px] text-white/45" />
           <div className="min-w-0">
             <div className="text-white/80 font-semibold">Fast fallback</div>
-            <div className="mt-0.5 leading-snug">If prefill doesn’t show, paste (Cmd+V / Ctrl+V) and send.</div>
+            <div className="mt-0.5 leading-snug">
+              If prefill doesn’t show, paste (Cmd+V / Ctrl+V) and send.
+            </div>
           </div>
         </div>
       </div>
@@ -1101,7 +1172,9 @@ function RunModal({
           <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4">
             <div className="min-w-0">
               <div className="text-[13px] font-semibold text-white">Run</div>
-              <div className="mt-0.5 text-[12px] text-white/55 break-words leading-snug">{title}</div>
+              <div className="mt-0.5 text-[12px] text-white/55 break-words leading-snug">
+                {title}
+              </div>
             </div>
 
             <button
@@ -1122,7 +1195,9 @@ function RunModal({
                 onClick={() => setMobileTab("fields")}
                 className={cn(
                   "flex-1 rounded-full border px-3 py-2 text-[12px] font-semibold",
-                  mobileTab === "fields" ? "border-cyan-400/60 bg-white/10 text-white" : "border-white/10 bg-white/5 text-white/70"
+                  mobileTab === "fields"
+                    ? "border-cyan-400/60 bg-white/10 text-white"
+                    : "border-white/10 bg-white/5 text-white/70",
                 )}
               >
                 Fields
@@ -1132,7 +1207,9 @@ function RunModal({
                 onClick={() => setMobileTab("prompt")}
                 className={cn(
                   "flex-1 rounded-full border px-3 py-2 text-[12px] font-semibold",
-                  mobileTab === "prompt" ? "border-cyan-400/60 bg-white/10 text-white" : "border-white/10 bg-white/5 text-white/70"
+                  mobileTab === "prompt"
+                    ? "border-cyan-400/60 bg-white/10 text-white"
+                    : "border-white/10 bg-white/5 text-white/70",
                 )}
               >
                 Prompt
@@ -1147,9 +1224,7 @@ function RunModal({
                 <div className="col-span-12 lg:col-span-5">
                   <div className="max-h-[520px] overflow-y-auto">{FieldsPanel}</div>
                 </div>
-                <div className="col-span-12 lg:col-span-7">
-                  {PromptPanel}
-                </div>
+                <div className="col-span-12 lg:col-span-7">{PromptPanel}</div>
               </div>
 
               {/* Mobile layout */}
@@ -1181,7 +1256,7 @@ function RunModal({
                         "w-full rounded-2xl px-4 py-3 text-[13px] font-semibold",
                         filled.trim()
                           ? "bg-white text-black hover:bg-white/90"
-                          : "bg-white/10 text-white/60 cursor-not-allowed"
+                          : "bg-white/10 text-white/60 cursor-not-allowed",
                       )}
                     >
                       <span className="inline-flex items-center gap-2 justify-center w-full">
@@ -1208,7 +1283,7 @@ export default function PromptProductPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { requireAuth, userId, profile, getAccessToken } = useAuth();
+  const { requireAuth, userId, profile, getAccessToken, refreshAuthSession } = useAuth();
 
   const [listing, setListing] = useState<PromptListing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1243,15 +1318,13 @@ export default function PromptProductPage() {
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
 
-  const CLOSED_BETA = false; // Set to true to grant free access to paid items during beta
-
   // Demo mode: when visiting with ?demo=TOKEN and it matches, skip sign-in for Run
   const demoTokenFromUrl = searchParams?.get("demo") ?? null;
   const isDemoModeActive = Boolean(
     listing?.demo_mode_enabled &&
-      listing?.demo_token &&
-      demoTokenFromUrl &&
-      String(demoTokenFromUrl).trim() === String(listing.demo_token).trim()
+    listing?.demo_token &&
+    demoTokenFromUrl &&
+    String(demoTokenFromUrl).trim() === String(listing.demo_token).trim(),
   );
 
   // When demo mode is off but URL has ?demo=, redirect to clean URL
@@ -1295,7 +1368,7 @@ export default function PromptProductPage() {
             "like_count",
             "demo_mode_enabled",
             "demo_token",
-          ].join(",")
+          ].join(","),
         )
         .eq("owner_handle", ownerHandle)
         .eq("edgaze_code", edgazeCode)
@@ -1335,7 +1408,9 @@ export default function PromptProductPage() {
           view_count: record.view_count || 0,
           like_count: record.like_count || 0,
           has_demo_images: Array.isArray(record.demo_images) && record.demo_images.length > 0,
-          placeholder_count: Array.isArray(coercePlaceholders(record.placeholders)) ? coercePlaceholders(record.placeholders).length : 0,
+          placeholder_count: Array.isArray(coercePlaceholders(record.placeholders))
+            ? coercePlaceholders(record.placeholders).length
+            : 0,
           is_owner: currentUserId ? String(record.owner_id) === String(currentUserId) : false,
         });
 
@@ -1345,7 +1420,10 @@ export default function PromptProductPage() {
             const token = await getAccessToken();
             await fetch("/api/views/track", {
               method: "POST",
-              headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              },
               credentials: "include",
               body: JSON.stringify({ listingId: record.id }),
             });
@@ -1358,6 +1436,7 @@ export default function PromptProductPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- currentUserId from auth; load runs when route/listing identity changes
   }, [ownerHandle, edgazeCode, supabase, getAccessToken]);
 
   // Load creator avatar/name from profiles (handle-based, avoids uuid/text mismatch)
@@ -1390,8 +1469,10 @@ export default function PromptProductPage() {
 
   const demoImages: string[] = useMemo(() => {
     if (!listing) return [];
-    if (Array.isArray(listing.demo_images) && listing.demo_images.length > 0) return listing.demo_images;
-    if (Array.isArray(listing.output_demo_urls) && listing.output_demo_urls.length > 0) return listing.output_demo_urls;
+    if (Array.isArray(listing.demo_images) && listing.demo_images.length > 0)
+      return listing.demo_images;
+    if (Array.isArray(listing.output_demo_urls) && listing.output_demo_urls.length > 0)
+      return listing.output_demo_urls;
     if (listing.thumbnail_url) return [listing.thumbnail_url];
     return [];
   }, [listing]);
@@ -1443,11 +1524,6 @@ export default function PromptProductPage() {
     return listing.monetisation_mode === "free" || listing.is_paid === false;
   }, [listing]);
 
-  const showClosedBetaFree = useMemo(() => {
-    if (!listing) return false;
-    return CLOSED_BETA && !isNaturallyFree;
-  }, [CLOSED_BETA, isNaturallyFree, listing]);
-
   const paidLabel = useMemo(() => {
     if (!listing) return "Free";
     if (isNaturallyFree) return "Free";
@@ -1496,7 +1572,7 @@ export default function PromptProductPage() {
 
     let cancelled = false;
     setCheckingDemoRun(true);
-    
+
     (async () => {
       try {
         const allowed = await canRunDemo(listing.id, true);
@@ -1516,6 +1592,7 @@ export default function PromptProductPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- listing used inside async load; avoid re-running on every listing field change
   }, [listing?.id, listing?.type, isNaturallyFree, userId]);
 
   async function loadPurchaseRow(promptId: string, uid: string) {
@@ -1554,31 +1631,55 @@ export default function PromptProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing?.id, userId]);
 
-  // Auto-trigger purchase/run flow after auth redirect
+  // Auto-trigger purchase/run flow only after auth redirect (not on shared links or back navigation)
   useEffect(() => {
     if (!userId || !listing) return;
     if (autoActionTriggeredRef.current) return;
-    
+
     const urlParams = new URLSearchParams(window.location.search);
     const action = urlParams.get("action");
-    
-    if (action === "run") {
+
+    const isRunOrPurchase = action === "run" || action === "purchase";
+    if (isRunOrPurchase) {
+      // Only auto-trigger if user initiated this flow (intent set when they clicked Buy/Run or came from sign-in-to-buy)
+      try {
+        const intentAt = sessionStorage.getItem("edgaze:actionIntentAt");
+        const intentPath = sessionStorage.getItem("edgaze:actionIntentPath");
+        const age = intentAt ? Date.now() - parseInt(intentAt, 10) : Infinity;
+        const pathMatch = intentPath === window.location.pathname;
+        if (!intentAt || !pathMatch || age > 120_000) {
+          urlParams.delete("action");
+          const newUrl =
+            window.location.pathname +
+            (urlParams.toString() ? `?${urlParams.toString()}` : "") +
+            window.location.hash;
+          window.history.replaceState({}, "", newUrl);
+          sessionStorage.removeItem("edgaze:actionIntentAt");
+          sessionStorage.removeItem("edgaze:actionIntentPath");
+          return;
+        }
+        sessionStorage.removeItem("edgaze:actionIntentAt");
+        sessionStorage.removeItem("edgaze:actionIntentPath");
+      } catch {}
+
       autoActionTriggeredRef.current = true;
-      
-      // Remove action param from URL immediately to prevent duplicate triggers
+
       urlParams.delete("action");
-      const newUrl = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "");
+      const newUrl =
+        window.location.pathname +
+        (urlParams.toString() ? `?${urlParams.toString()}` : "") +
+        window.location.hash;
       window.history.replaceState({}, "", newUrl);
-      
-      // Wait a bit for purchase state to load, then trigger
+
       const timer = setTimeout(() => {
         grantAccessOrRun();
       }, 300);
-      
+
       return () => clearTimeout(timer);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     return;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- grantAccessOrRun called from timeout; stable callback
   }, [userId, listing]);
 
   async function grantAccessOrRun() {
@@ -1589,8 +1690,16 @@ export default function PromptProductPage() {
     // Use relative path only (not absolute URL)
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set("action", "run");
-    const relativePath = window.location.pathname + (urlParams.toString() ? `?${urlParams.toString()}` : "") + window.location.hash;
+    const relativePath =
+      window.location.pathname +
+      (urlParams.toString() ? `?${urlParams.toString()}` : "") +
+      window.location.hash;
     window.history.replaceState({}, "", relativePath);
+    // Mark that user initiated this flow (for auto-trigger after auth redirect only)
+    try {
+      sessionStorage.setItem("edgaze:actionIntentAt", String(Date.now()));
+      sessionStorage.setItem("edgaze:actionIntentPath", window.location.pathname);
+    } catch {}
 
     // Demo mode: admin-enabled demo link — skip sign-in, allow direct run
     if (isDemoModeActive) {
@@ -1615,7 +1724,9 @@ export default function PromptProductPage() {
       // Check if demo run is allowed (server-side check)
       const canRun = await canRunDemo(listing.id, true);
       if (!canRun) {
-        setPurchaseError("You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.");
+        setPurchaseError(
+          "You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.",
+        );
         safeTrack("Workflow Demo Run Blocked", {
           surface: "product_page",
           listing_id: listing.id,
@@ -1623,7 +1734,7 @@ export default function PromptProductPage() {
         });
         return;
       }
-      
+
       // Allow demo run for non-authenticated users
       safeTrack("Workflow Demo Run Initiated", {
         surface: "product_page",
@@ -1632,12 +1743,25 @@ export default function PromptProductPage() {
         edgaze_code: listing.edgaze_code,
         authenticated: false,
       });
-      
+
       handleWorkflowRun();
       return;
     }
 
-    // For other cases, require authentication
+    // For paid items when not logged in: full-screen sign-in-to-buy page (conversion-optimized)
+    if (!userId && !isNaturallyFree) {
+      try {
+        sessionStorage.setItem("edgaze:actionIntentAt", String(Date.now()));
+        sessionStorage.setItem("edgaze:actionIntentPath", window.location.pathname);
+      } catch {}
+      const returnPath =
+        window.location.pathname + (window.location.search ? window.location.search : "");
+      const type = listing.type === "workflow" ? "workflow" : "prompt";
+      window.location.href = `/auth/sign-in-to-buy?return=${encodeURIComponent(returnPath)}&type=${type}`;
+      return;
+    }
+
+    // For other cases (e.g. free but need auth), use modal
     if (!requireAuth()) {
       return;
     }
@@ -1650,23 +1774,23 @@ export default function PromptProductPage() {
         edgaze_code: listing.edgaze_code,
         already_owned: true,
       });
-      
+
       // Handle workflows differently
       if (listing.type === "workflow") {
         handleWorkflowRun();
         return;
       }
-      
+
       setRunOpen(true);
       return;
     }
 
     // For beta OR free items: insert purchase row (free items still need purchase to show in library)
-    if (showClosedBetaFree || isNaturallyFree) {
+    if (isNaturallyFree) {
       setPurchaseLoading(true);
       try {
         const uid = userId!;
-        
+
         // Check if purchase already exists (might have been created during redirect)
         const existing = await loadPurchaseRow(listing.id, uid);
         if (existing) {
@@ -1675,7 +1799,7 @@ export default function PromptProductPage() {
           setPurchaseLoading(false);
           return;
         }
-        
+
         const { data, error } = await supabase
           .from("prompt_purchases")
           .insert({ buyer_id: uid, prompt_id: listing.id, status: "beta" })
@@ -1684,9 +1808,13 @@ export default function PromptProductPage() {
 
         if (error) {
           console.error("purchase insert error", error);
-          
+
           // If it's a duplicate key error, try to load the existing purchase
-          if (error.code === "23505" || error.message?.includes("duplicate") || error.message?.includes("unique")) {
+          if (
+            error.code === "23505" ||
+            error.message?.includes("duplicate") ||
+            error.message?.includes("unique")
+          ) {
             const existingAfterError = await loadPurchaseRow(listing.id, uid);
             if (existingAfterError) {
               setPurchase(existingAfterError);
@@ -1695,7 +1823,7 @@ export default function PromptProductPage() {
               return;
             }
           }
-          
+
           setPurchaseError("Could not grant access right now. Please try again.");
           safeTrack("Access Grant Failed", {
             surface: "product_page",
@@ -1723,32 +1851,50 @@ export default function PromptProductPage() {
       }
     }
 
-    // Real paid checkout (Stripe) - redirect to Stripe hosted checkout
-    if (!isNaturallyFree && !showClosedBetaFree) {
+    // Real paid checkout (Stripe) - create session and redirect to hosted checkout (loading on button)
+    if (!isNaturallyFree) {
+      try {
+        sessionStorage.removeItem("edgaze:actionIntentAt");
+        sessionStorage.removeItem("edgaze:actionIntentPath");
+      } catch {}
       setPurchaseLoading(true);
       try {
+        let token = await getAccessToken();
+        if (!token) {
+          await refreshAuthSession();
+          token = await getAccessToken();
+        }
+        if (!token) {
+          setPurchaseError("Please sign in to continue.");
+          return;
+        }
         const res = await fetch("/api/stripe/checkout/create", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           credentials: "include",
           body: JSON.stringify({
             type: listing.type || "prompt",
-            promptId: listing.type === "prompt" ? listing.id : undefined,
             workflowId: listing.type === "workflow" ? listing.id : undefined,
+            promptId: listing.type === "prompt" ? listing.id : undefined,
+            sourceTable: "prompts",
+            embedded: false,
           }),
         });
         const data = await res.json();
         if (!res.ok) {
-          setPurchaseError(data.error || "Could not start checkout.");
+          setPurchaseError(data.error || "Failed to start checkout");
           return;
         }
         if (data.url) {
           window.location.href = data.url;
           return;
         }
-        setPurchaseError("Checkout failed. Please try again.");
+        setPurchaseError("Invalid checkout response");
       } catch (err) {
-        setPurchaseError("Could not start checkout. Please try again.");
+        setPurchaseError(err instanceof Error ? err.message : "Failed to start checkout");
       } finally {
         setPurchaseLoading(false);
       }
@@ -1772,7 +1918,9 @@ export default function PromptProductPage() {
           listing_id: listing.id,
           reason: "device_ip_limit_reached",
         });
-        setPurchaseError("You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.");
+        setPurchaseError(
+          "You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.",
+        );
         return;
       }
     }
@@ -1796,10 +1944,10 @@ export default function PromptProductPage() {
       }
 
       const graph = workflowData.graph || { nodes: [], edges: [] };
-      
+
       // Validate workflow graph before execution
       const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
-      
+
       if (!validation.valid) {
         const errorMessage = validation.errors.map((e) => e.message).join("\n\n");
         setPurchaseError(errorMessage);
@@ -1826,9 +1974,10 @@ export default function PromptProductPage() {
         steps: [],
         logs: [],
         inputs: inputs.length > 0 ? inputs : undefined,
-        summary: validation.warnings.length > 0 
-          ? `${validation.warnings.length} warning(s): ${validation.warnings[0]?.message ?? ""}`
-          : undefined,
+        summary:
+          validation.warnings.length > 0
+            ? `${validation.warnings.length} warning(s): ${validation.warnings[0]?.message ?? ""}`
+            : undefined,
       };
 
       setWorkflowRunState(initialState);
@@ -1882,7 +2031,7 @@ export default function PromptProductPage() {
     for (const node of workflowGraph.nodes || []) {
       const specId = node.data?.specId;
       const apiKey = node.data?.config?.apiKey;
-      
+
       // Check if this node requires API keys and has one configured
       if (specId && ["openai-chat", "openai-embeddings", "openai-image"].includes(specId)) {
         if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
@@ -1902,7 +2051,8 @@ export default function PromptProductPage() {
 
     try {
       // Admin demo link: pass token to bypass auth and device limit. Otherwise use device fingerprint for anonymous demo.
-      const deviceFingerprint = !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
+      const deviceFingerprint =
+        !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
 
       const response = await fetch("/api/flow/run", {
         method: "POST",
@@ -1939,20 +2089,24 @@ export default function PromptProductPage() {
         specId: log.specId,
       }));
 
-      const steps = Object.entries(executionResult.nodeStatus || {}).map(([nodeId, status]: [string, any]) => {
-        const node = workflowGraph.nodes?.find((n: any) => n.id === nodeId);
-        const specId = node?.data?.specId || "default";
-        return {
-          id: nodeId,
-          title: node?.data?.title || node?.data?.config?.name || specId,
-          status: mapNodeStatus(status),
-          timestamp: Date.now(),
-        };
-      });
+      const steps = Object.entries(executionResult.nodeStatus || {}).map(
+        ([nodeId, status]: [string, any]) => {
+          const node = workflowGraph.nodes?.find((n: any) => n.id === nodeId);
+          const specId = node?.data?.specId || "default";
+          return {
+            id: nodeId,
+            title: node?.data?.title || node?.data?.config?.name || specId,
+            status: mapNodeStatus(status),
+            timestamp: Date.now(),
+          };
+        },
+      );
 
       const outputs = extractWorkflowOutputs(workflowGraph.nodes || [])
         .map((output) => {
-          const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+          const finalOutput = executionResult.finalOutputs?.find(
+            (fo: any) => fo.nodeId === output.nodeId,
+          );
           if (!finalOutput) return null;
           return {
             ...output,
@@ -2047,7 +2201,7 @@ export default function PromptProductPage() {
             typeof r === "object" &&
             typeof (r as any).id === "string" &&
             typeof (r as any).owner_handle !== "undefined" &&
-            typeof (r as any).edgaze_code !== "undefined"
+            typeof (r as any).edgaze_code !== "undefined",
         )
       : [];
 
@@ -2076,7 +2230,7 @@ export default function PromptProductPage() {
         const first = entries[0];
         if (first?.isIntersecting) loadMoreUpNext(false);
       },
-      { root: null, rootMargin: "600px 0px", threshold: 0.01 }
+      { root: null, rootMargin: "600px 0px", threshold: 0.01 },
     );
 
     obs.observe(el);
@@ -2084,7 +2238,6 @@ export default function PromptProductPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upNextHasMore, upNextCursor, upNextLoading]);
 
-  
   if (loading) {
     return (
       <div className="flex h-full flex-col bg-[#050505] text-white">
@@ -2117,7 +2270,7 @@ export default function PromptProductPage() {
     const reasonText =
       listing.removed_by === "owner"
         ? "Removed by owner"
-        : (listing.removed_reason || "This item has been removed.");
+        : listing.removed_reason || "This item has been removed.";
     return (
       <div className="flex h-full flex-col bg-[#050505] text-white">
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
@@ -2159,7 +2312,9 @@ export default function PromptProductPage() {
           }}
           state={workflowRunState}
           onCancel={() => {
-            setWorkflowRunState((prev) => (prev ? { ...prev, status: "error", error: "Cancelled by user" } : null));
+            setWorkflowRunState((prev) =>
+              prev ? { ...prev, status: "error", error: "Cancelled by user" } : null,
+            );
           }}
           onRerun={() => {
             setWorkflowRunState(null);
@@ -2296,34 +2451,70 @@ export default function PromptProductPage() {
           <button
             type="button"
             onClick={grantAccessOrRun}
-            disabled={purchaseLoading || (listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false)}
+            disabled={
+              purchaseLoading ||
+              (listing?.type === "workflow" &&
+                isNaturallyFree &&
+                !userId &&
+                demoRunAllowed === false)
+            }
             className={cn(
               "flex-1 inline-flex items-center justify-center gap-1.5 rounded-full px-3 h-10 text-xs font-semibold relative",
-              purchaseLoading || (listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false)
+              purchaseLoading ||
+                (listing?.type === "workflow" &&
+                  isNaturallyFree &&
+                  !userId &&
+                  demoRunAllowed === false)
                 ? "bg-white/10 text-white/70 border border-white/10 opacity-60"
-                : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_16px_rgba(56,189,248,0.6)]"
+                : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_16px_rgba(56,189,248,0.6)]",
             )}
-            title={listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false 
-              ? "You've already used your one-time demo. Each device and IP address combination gets one demo run." 
-              : undefined}
+            title={
+              listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false
+                ? "You've already used your one-time demo. Each device and IP address combination gets one demo run."
+                : undefined
+            }
           >
             {purchaseLoading || checkingDemoRun ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : isOwned || (listing?.type === "workflow" && isNaturallyFree && !userId && (demoRunAllowed === true || demoRunAllowed === null)) ? (
+            ) : isOwned ||
+              (listing?.type === "workflow" &&
+                isNaturallyFree &&
+                !userId &&
+                (demoRunAllowed === true || demoRunAllowed === null)) ? (
               <Sparkles className="h-3.5 w-3.5" />
-            ) : listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false ? (
+            ) : listing?.type === "workflow" &&
+              isNaturallyFree &&
+              !userId &&
+              demoRunAllowed === false ? (
               <CheckCircle2 className="h-3.5 w-3.5" />
             ) : (
               <Lock className="h-3.5 w-3.5" />
             )}
             <span className="flex items-center gap-1.5">
-              {isOwned 
-                ? (listing?.type === "workflow" ? "Try a one time demo" : "Run")
+              {isOwned
+                ? listing?.type === "workflow"
+                  ? "Try a one time demo"
+                  : "Run"
                 : listing?.type === "workflow" && isNaturallyFree && !userId
-                  ? (demoRunAllowed === false ? "Used" : "Try a one time demo")
+                  ? demoRunAllowed === false
+                    ? "Used"
+                    : "Try a one time demo"
                   : primaryCtaLabel}
-              {listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false && (
-                <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">Used</span>
+              {listing?.type === "workflow" &&
+                isNaturallyFree &&
+                !userId &&
+                demoRunAllowed === false && (
+                  <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">Used</span>
+                )}
+              {!isOwned && (
+                <span
+                  className={cn(
+                    "tabular-nums opacity-90",
+                    isNaturallyFree ? "text-emerald-700" : "text-black/80",
+                  )}
+                >
+                  · {paidLabel}
+                </span>
               )}
             </span>
           </button>
@@ -2351,13 +2542,13 @@ export default function PromptProductPage() {
             {/* LEFT */}
             <div className="min-w-0">
               <section className="relative overflow-hidden rounded-2xl bg-black/60 border border-white/10">
-                <div className="aspect-video w-full">
+                <div className="aspect-video w-full overflow-hidden">
                   {activeDemo ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={activeDemo}
                       alt={listing.title || "Demo image"}
-                      className="h-full w-full cursor-pointer object-cover"
+                      className="h-full w-full cursor-pointer object-cover object-center"
+                      style={{ aspectRatio: "16/9" }}
                       onClick={() => setLightboxOpen(true)}
                     />
                   ) : (
@@ -2369,43 +2560,45 @@ export default function PromptProductPage() {
 
                 {demoImages.length > 1 && (
                   <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newIndex = mainDemoIndex === 0 ? demoImages.length - 1 : mainDemoIndex - 1;
-                      setMainDemoIndex(newIndex);
-                      safeTrack("Demo Image Navigated", {
-                        surface: "product_page",
-                        direction: "previous",
-                        index: newIndex,
-                        total_images: demoImages.length,
-                        listing_id: listing?.id,
-                      });
-                    }}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
-                    aria-label="Previous"
-                  >
-                    {"<"}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newIndex =
+                          mainDemoIndex === 0 ? demoImages.length - 1 : mainDemoIndex - 1;
+                        setMainDemoIndex(newIndex);
+                        safeTrack("Demo Image Navigated", {
+                          surface: "product_page",
+                          direction: "previous",
+                          index: newIndex,
+                          total_images: demoImages.length,
+                          listing_id: listing?.id,
+                        });
+                      }}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
+                      aria-label="Previous"
+                    >
+                      {"<"}
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newIndex = mainDemoIndex === demoImages.length - 1 ? 0 : mainDemoIndex + 1;
-                      setMainDemoIndex(newIndex);
-                      safeTrack("Demo Image Navigated", {
-                        surface: "product_page",
-                        direction: "next",
-                        index: newIndex,
-                        total_images: demoImages.length,
-                        listing_id: listing?.id,
-                      });
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
-                    aria-label="Next"
-                  >
-                    {">"}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newIndex =
+                          mainDemoIndex === demoImages.length - 1 ? 0 : mainDemoIndex + 1;
+                        setMainDemoIndex(newIndex);
+                        safeTrack("Demo Image Navigated", {
+                          surface: "product_page",
+                          direction: "next",
+                          index: newIndex,
+                          total_images: demoImages.length,
+                          listing_id: listing?.id,
+                        });
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/45 px-3 py-2 text-white hover:border-cyan-400"
+                      aria-label="Next"
+                    >
+                      {">"}
+                    </button>
                   </>
                 )}
               </section>
@@ -2421,13 +2614,18 @@ export default function PromptProductPage() {
                         setLightboxOpen(true);
                       }}
                       className={cn(
-                        "relative h-14 w-24 flex-none overflow-hidden rounded-xl border border-white/10 bg-black/60",
-                        idx === mainDemoIndex && "border-cyan-400 shadow-[0_0_14px_rgba(56,189,248,0.55)]"
+                        "relative aspect-video w-20 flex-none overflow-hidden rounded-xl border border-white/10 bg-black/60",
+                        idx === mainDemoIndex &&
+                          "border-cyan-400 shadow-[0_0_14px_rgba(56,189,248,0.55)]",
                       )}
                       aria-label={`Select demo ${idx + 1}`}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img} alt={`Demo ${idx + 1}`} className="h-full w-full object-cover" />
+                      {}
+                      <img
+                        src={img}
+                        alt={`Demo ${idx + 1}`}
+                        className="h-full w-full object-cover object-center"
+                      />
                     </button>
                   ))}
                 </div>
@@ -2458,9 +2656,16 @@ export default function PromptProductPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          const newIndex = mainDemoIndex === 0 ? demoImages.length - 1 : mainDemoIndex - 1;
+                          const newIndex =
+                            mainDemoIndex === 0 ? demoImages.length - 1 : mainDemoIndex - 1;
                           setMainDemoIndex(newIndex);
-                          safeTrack("Demo Image Navigated", { surface: "lightbox", direction: "previous", index: newIndex, total_images: demoImages.length, listing_id: listing?.id });
+                          safeTrack("Demo Image Navigated", {
+                            surface: "lightbox",
+                            direction: "previous",
+                            index: newIndex,
+                            total_images: demoImages.length,
+                            listing_id: listing?.id,
+                          });
                         }}
                         className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white hover:bg-white/10 sm:left-4"
                         aria-label="Previous image"
@@ -2468,7 +2673,7 @@ export default function PromptProductPage() {
                         <ChevronLeft className="h-6 w-6 sm:h-8 sm:w-8" />
                       </button>
                     )}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {}
                     <img
                       src={activeDemo}
                       alt={listing?.title || `Demo ${mainDemoIndex + 1}`}
@@ -2479,9 +2684,16 @@ export default function PromptProductPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          const newIndex = mainDemoIndex === demoImages.length - 1 ? 0 : mainDemoIndex + 1;
+                          const newIndex =
+                            mainDemoIndex === demoImages.length - 1 ? 0 : mainDemoIndex + 1;
                           setMainDemoIndex(newIndex);
-                          safeTrack("Demo Image Navigated", { surface: "lightbox", direction: "next", index: newIndex, total_images: demoImages.length, listing_id: listing?.id });
+                          safeTrack("Demo Image Navigated", {
+                            surface: "lightbox",
+                            direction: "next",
+                            index: newIndex,
+                            total_images: demoImages.length,
+                            listing_id: listing?.id,
+                          });
                         }}
                         className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white hover:bg-white/10 sm:right-4"
                         aria-label="Next image"
@@ -2498,7 +2710,9 @@ export default function PromptProductPage() {
                   <span
                     className={cn(
                       "rounded-full px-2 py-[3px] text-[11px] font-medium",
-                      listing.type === "workflow" ? "bg-pink-500/15 text-pink-200" : "bg-cyan-400/15 text-cyan-200"
+                      listing.type === "workflow"
+                        ? "bg-pink-500/15 text-pink-200"
+                        : "bg-cyan-400/15 text-cyan-200",
                     )}
                   >
                     {badgeLabel}
@@ -2517,7 +2731,35 @@ export default function PromptProductPage() {
                   )}
                 </div>
 
-                <h1 className="text-[18px] sm:text-[22px] font-semibold leading-snug">{listing.title || "Untitled listing"}</h1>
+                {/* Title + prominent mobile price */}
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                  <h1 className="text-[18px] sm:text-[22px] font-semibold leading-snug flex-1 min-w-0">
+                    {listing.title || "Untitled listing"}
+                  </h1>
+                  <div
+                    className={cn(
+                      "flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 lg:hidden",
+                      isNaturallyFree
+                        ? "border-emerald-400/25 bg-emerald-500/15"
+                        : "border-white/15 bg-white/[0.06]",
+                    )}
+                  >
+                    <span className="text-[11px] font-medium text-white/55 uppercase tracking-wide">
+                      Price
+                    </span>
+                    <span
+                      className={cn(
+                        "text-lg font-bold tabular-nums",
+                        isNaturallyFree ? "text-emerald-400" : "text-white",
+                      )}
+                    >
+                      {paidLabel}
+                    </span>
+                    {!isNaturallyFree && paidLabel !== "Paid" && (
+                      <span className="text-[11px] text-white/50">one-time</span>
+                    )}
+                  </div>
+                </div>
 
                 {SHOW_VIEWS_AND_LIKES_PUBLICLY && (
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-white/60">
@@ -2561,37 +2803,70 @@ export default function PromptProductPage() {
                 <button
                   type="button"
                   onClick={grantAccessOrRun}
-                  disabled={listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false}
+                  disabled={
+                    listing?.type === "workflow" &&
+                    isNaturallyFree &&
+                    !userId &&
+                    demoRunAllowed === false
+                  }
                   className={cn(
                     "hidden sm:inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 text-xs font-semibold text-white hover:border-cyan-400/70 relative",
-                    listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false && "opacity-60 cursor-not-allowed"
+                    listing?.type === "workflow" &&
+                      isNaturallyFree &&
+                      !userId &&
+                      demoRunAllowed === false &&
+                      "opacity-60 cursor-not-allowed",
                   )}
-                  title={listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false 
-                    ? "You've already used your one-time demo. Each device and IP address combination gets one demo run." 
-                    : undefined}
+                  title={
+                    listing?.type === "workflow" &&
+                    isNaturallyFree &&
+                    !userId &&
+                    demoRunAllowed === false
+                      ? "You've already used your one-time demo. Each device and IP address combination gets one demo run."
+                      : undefined
+                  }
                 >
-                  {isOwned 
-                    ? <Sparkles className="h-4 w-4" />
-                    : listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false
-                      ? <CheckCircle2 className="h-4 w-4" />
-                      : listing?.type === "workflow" && isNaturallyFree && !userId && (demoRunAllowed === true || demoRunAllowed === null)
-                        ? <Sparkles className="h-4 w-4" />
-                        : <Lock className="h-4 w-4" />}
+                  {isOwned ? (
+                    <Sparkles className="h-4 w-4" />
+                  ) : listing?.type === "workflow" &&
+                    isNaturallyFree &&
+                    !userId &&
+                    demoRunAllowed === false ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : listing?.type === "workflow" &&
+                    isNaturallyFree &&
+                    !userId &&
+                    (demoRunAllowed === true || demoRunAllowed === null) ? (
+                    <Sparkles className="h-4 w-4" />
+                  ) : (
+                    <Lock className="h-4 w-4" />
+                  )}
                   <span className="flex items-center gap-1.5">
-                    {isOwned 
-                      ? (listing?.type === "workflow" ? "Try a one time demo" : "Run")
+                    {isOwned
+                      ? listing?.type === "workflow"
+                        ? "Try a one time demo"
+                        : "Run"
                       : listing?.type === "workflow" && isNaturallyFree && !userId
-                        ? (demoRunAllowed === false ? "Used" : "Try a one time demo")
+                        ? demoRunAllowed === false
+                          ? "Used"
+                          : "Try a one time demo"
                         : primaryCtaLabel}
-                    {listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false && (
-                      <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">Used</span>
-                    )}
+                    {listing?.type === "workflow" &&
+                      isNaturallyFree &&
+                      !userId &&
+                      demoRunAllowed === false && (
+                        <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">
+                          Used
+                        </span>
+                      )}
                   </span>
                 </button>
               </div>
 
               <div className="mt-4 border-t border-white/10 pt-4">
-                <p className="text-sm leading-relaxed text-white/75">{listing.description || "No description provided yet."}</p>
+                <p className="text-sm leading-relaxed text-white/75">
+                  {listing.description || "No description provided yet."}
+                </p>
 
                 {listing.tags && (
                   <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/55">
@@ -2626,7 +2901,6 @@ export default function PromptProductPage() {
                   <Flag className="h-3 w-3" /> Report
                 </button>
               </div>
-
 
               <div className="hidden sm:block mt-6 border-t border-white/10 pt-6">
                 <CommentsSection
@@ -2687,7 +2961,10 @@ export default function PromptProductPage() {
 
                 {commentsOpen && (
                   <div className="fixed inset-0 z-[110]">
-                    <div className="absolute inset-0 bg-black/80" onClick={() => setCommentsOpen(false)} />
+                    <div
+                      className="absolute inset-0 bg-black/80"
+                      onClick={() => setCommentsOpen(false)}
+                    />
                     <div className="absolute inset-x-0 bottom-0 top-[10%] rounded-t-3xl border border-white/10 bg-[#050505] overflow-hidden">
                       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                         <div className="text-[14px] font-semibold text-white">Comments</div>
@@ -2726,8 +3003,15 @@ export default function PromptProductPage() {
                 <div className="flex flex-col gap-3">
                   {upNext.map((s) => {
                     const suggestionFree = s.monetisation_mode === "free" || s.is_paid === false;
-                    const href = s.owner_handle && s.edgaze_code ? `/p/${s.owner_handle}/${s.edgaze_code}` : null;
-                    const suggestionPaidLabel = suggestionFree ? "Free" : s.price_usd != null ? `$${s.price_usd.toFixed(2)}` : "Paid";
+                    const href =
+                      s.owner_handle && s.edgaze_code
+                        ? `/p/${s.owner_handle}/${s.edgaze_code}`
+                        : null;
+                    const suggestionPaidLabel = suggestionFree
+                      ? "Free"
+                      : s.price_usd != null
+                        ? `$${s.price_usd.toFixed(2)}`
+                        : "Paid";
 
                     return (
                       <button
@@ -2735,11 +3019,13 @@ export default function PromptProductPage() {
                         type="button"
                         disabled={!href}
                         onClick={() => href && router.push(href)}
-                        className={cn("group flex w-full items-start gap-3 text-left", !href && "cursor-not-allowed opacity-60")}
+                        className={cn(
+                          "group flex w-full items-start gap-3 text-left",
+                          !href && "cursor-not-allowed opacity-60",
+                        )}
                       >
                         <div className="relative h-20 w-36 flex-none overflow-hidden rounded-xl bg-black/60 border border-white/10">
                           {s.thumbnail_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={s.thumbnail_url}
                               alt={s.title || "Listing thumbnail"}
@@ -2753,9 +3039,13 @@ export default function PromptProductPage() {
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 text-[13px] font-semibold text-white/90">{s.title || "Untitled listing"}</p>
+                          <p className="line-clamp-2 text-[13px] font-semibold text-white/90">
+                            {s.title || "Untitled listing"}
+                          </p>
                           <div className="mt-1 flex flex-wrap items-center gap-2 min-w-0">
-                            <span className="truncate text-[12px] text-white/55">@{s.owner_handle || s.owner_name || "creator"}</span>
+                            <span className="truncate text-[12px] text-white/55">
+                              @{s.owner_handle || s.owner_name || "creator"}
+                            </span>
                             <FoundingCreatorBadge size="sm" className="shrink-0" />
                           </div>
 
@@ -2772,17 +3062,13 @@ export default function PromptProductPage() {
                                 : ""}
                             </p>
 
-                            <span className="text-[12px] font-semibold text-white/75">
-                              {CLOSED_BETA && !suggestionFree ? (
-                                <span className="inline-flex items-center gap-2">
-                                  <span className="line-through decoration-white/40">
-                                    {suggestionPaidLabel === "Paid" ? "$—" : suggestionPaidLabel}
-                                  </span>
-                                  <span className="text-white/85">Free</span>
-                                </span>
-                              ) : (
-                                suggestionPaidLabel
+                            <span
+                              className={cn(
+                                "text-[12px] font-semibold tabular-nums",
+                                suggestionFree ? "text-emerald-400" : "text-white/75",
                               )}
+                            >
+                              {suggestionPaidLabel}
                             </span>
                           </div>
                         </div>
@@ -2799,7 +3085,9 @@ export default function PromptProductPage() {
                     </div>
                   )}
 
-                  {!upNextHasMore && upNext.length > 0 && <p className="text-[12px] text-white/45">You reached the end.</p>}
+                  {!upNextHasMore && upNext.length > 0 && (
+                    <p className="text-[12px] text-white/45">You reached the end.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -2811,16 +3099,16 @@ export default function PromptProductPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-sm font-semibold">
-                        {isOwned ? `You own this ${badgeLabel.toLowerCase()}` : `Unlock this ${badgeLabel.toLowerCase()}`}
+                        {isOwned
+                          ? `You own this ${badgeLabel.toLowerCase()}`
+                          : `Unlock this ${badgeLabel.toLowerCase()}`}
                       </h2>
                       <p className="mt-1 text-[12px] text-white/55">
-                        {isOwned ? "Fill placeholders and run in one click." : "Access attaches to your Edgaze account."}
+                        {isOwned
+                          ? "Fill placeholders and run in one click."
+                          : "Access attaches to your Edgaze account."}
                       </p>
                     </div>
-
-                    {showClosedBetaFree && !isOwned && (
-                      <span className="rounded-full bg-white/5 px-2 py-1 text-[10px] text-white/60">Beta</span>
-                    )}
 
                     {isOwned && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-200">
@@ -2831,7 +3119,10 @@ export default function PromptProductPage() {
 
                   <div className="mt-3">
                     {!isOwned ? (
-                      <BlurredPreview text={listing.prompt_text || listing.title || ""} kind={kind} />
+                      <BlurredPreview
+                        text={listing.prompt_text || listing.title || ""}
+                        kind={kind}
+                      />
                     ) : (
                       <div className="rounded-2xl border border-white/10 bg-black/30 p-3">
                         <div className="text-[11px] text-white/55">Includes</div>
@@ -2845,79 +3136,119 @@ export default function PromptProductPage() {
                   </div>
 
                   <div className="mt-4">
-                    {showClosedBetaFree && !isNaturallyFree ? (
-                      <div className="flex items-end justify-between gap-3">
-                        <div>
-                          <div className="text-[11px] text-white/45">Price</div>
-                          <div className="mt-1 flex items-baseline gap-2">
-                            <div className="text-2xl font-semibold">$0.00</div>
-                            <div className="text-[12px] text-white/55">during beta</div>
-                          </div>
-                          <div className="mt-1 text-[12px] text-white/50">
-                            <span className="line-through decoration-white/40">{paidLabel === "Paid" ? "$—" : paidLabel}</span>
-                          </div>
-                        </div>
-                        <div className="text-right text-[11px] text-white/45">Limited access</div>
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <div className="text-[11px] text-white/45">Price</div>
+                      <div
+                        className={cn(
+                          "text-2xl font-semibold tabular-nums",
+                          isNaturallyFree ? "text-emerald-400" : "text-white",
+                        )}
+                      >
+                        {paidLabel}
                       </div>
-                    ) : (
-                      <div>
-                        <div className="text-[11px] text-white/45">Price</div>
-                        <div className="mt-1 flex items-baseline gap-2">
-                          <div className="text-2xl font-semibold">{paidLabel === "Free" ? "$0.00" : paidLabel}</div>
-                          {!isNaturallyFree && <span className="text-[12px] text-white/55">one-time</span>}
-                        </div>
-                      </div>
-                    )}
+                      {!isNaturallyFree && paidLabel !== "Paid" && (
+                        <span className="text-[12px] text-white/55">one-time</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-4 space-y-2">
                     <button
                       type="button"
                       onClick={grantAccessOrRun}
-                      disabled={purchaseLoading || (listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false)}
+                      disabled={
+                        purchaseLoading ||
+                        (listing?.type === "workflow" &&
+                          isNaturallyFree &&
+                          !userId &&
+                          demoRunAllowed === false)
+                      }
                       className={cn(
                         "flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold relative",
-                        purchaseLoading || (listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false)
+                        purchaseLoading ||
+                          (listing?.type === "workflow" &&
+                            isNaturallyFree &&
+                            !userId &&
+                            demoRunAllowed === false)
                           ? "bg-white/10 text-white/70 border border-white/10 opacity-60"
-                          : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
+                          : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]",
                       )}
-                      title={listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false 
-                        ? "You've already used your one-time demo. Each device and IP address combination gets one demo run." 
-                        : undefined}
+                      title={
+                        listing?.type === "workflow" &&
+                        isNaturallyFree &&
+                        !userId &&
+                        demoRunAllowed === false
+                          ? "You've already used your one-time demo. Each device and IP address combination gets one demo run."
+                          : undefined
+                      }
                     >
                       {purchaseLoading || checkingDemoRun ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : isOwned ? (
                         <Sparkles className="h-4 w-4" />
-                      ) : listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false ? (
+                      ) : listing?.type === "workflow" &&
+                        isNaturallyFree &&
+                        !userId &&
+                        demoRunAllowed === false ? (
                         <CheckCircle2 className="h-4 w-4" />
-                      ) : listing?.type === "workflow" && isNaturallyFree && !userId && (demoRunAllowed === true || demoRunAllowed === null) ? (
+                      ) : listing?.type === "workflow" &&
+                        isNaturallyFree &&
+                        !userId &&
+                        (demoRunAllowed === true || demoRunAllowed === null) ? (
                         <Sparkles className="h-4 w-4" />
                       ) : (
                         <Lock className="h-4 w-4" />
                       )}
                       <span className="flex items-center gap-1.5">
-                        {isOwned 
+                        {isOwned
                           ? "Run now"
                           : listing?.type === "workflow" && isNaturallyFree && !userId
-                            ? (demoRunAllowed === false ? "Used" : "Run now")
+                            ? demoRunAllowed === false
+                              ? "Used"
+                              : "Run now"
                             : primaryCtaLabel}
-                        {listing?.type === "workflow" && isNaturallyFree && !userId && demoRunAllowed === false && (
-                          <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">Used</span>
-                        )}
+                        {listing?.type === "workflow" &&
+                          isNaturallyFree &&
+                          !userId &&
+                          demoRunAllowed === false && (
+                            <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">
+                              Used
+                            </span>
+                          )}
                       </span>
                     </button>
 
                     {!isOwned && (
                       <p className="mt-3 text-[11px] text-white/45">
-                        By {isNaturallyFree || showClosedBetaFree ? "getting access" : "purchasing"}, you agree to our{" "}
-                        <a href="/docs/terms-of-service" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Terms of Service</a>
+                        By {isNaturallyFree ? "getting access" : "purchasing"}, you agree to our{" "}
+                        <a
+                          href="/docs/terms-of-service"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-white/60 hover:text-white underline underline-offset-4"
+                        >
+                          Terms of Service
+                        </a>
                         ,{" "}
-                        <a href="/docs/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Privacy Policy</a>
-                        {!isNaturallyFree && !showClosedBetaFree && (
+                        <a
+                          href="/docs/privacy-policy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-white/60 hover:text-white underline underline-offset-4"
+                        >
+                          Privacy Policy
+                        </a>
+                        {!isNaturallyFree && (
                           <>
                             , and{" "}
-                            <a href="/docs/refund-policy" target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-white underline underline-offset-4">Refund Policy</a>
+                            <a
+                              href="/docs/refund-policy"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-white/60 hover:text-white underline underline-offset-4"
+                            >
+                              Refund Policy
+                            </a>
                           </>
                         )}
                         .
@@ -2949,7 +3280,11 @@ export default function PromptProductPage() {
                     </button>
                   </div>
 
-                  {!isOwned && <div className="mt-3 text-[11px] text-white/45">Full prompt unlocks after access is granted.</div>}
+                  {!isOwned && (
+                    <div className="mt-3 text-[11px] text-white/45">
+                      Full prompt unlocks after access is granted.
+                    </div>
+                  )}
                 </section>
 
                 <section className="mt-6">
@@ -2961,8 +3296,15 @@ export default function PromptProductPage() {
                   <div className="flex flex-col gap-3">
                     {upNext.map((s) => {
                       const suggestionFree = s.monetisation_mode === "free" || s.is_paid === false;
-                      const href = s.owner_handle && s.edgaze_code ? `/p/${s.owner_handle}/${s.edgaze_code}` : null;
-                      const suggestionPaidLabel = suggestionFree ? "Free" : s.price_usd != null ? `$${s.price_usd.toFixed(2)}` : "Paid";
+                      const href =
+                        s.owner_handle && s.edgaze_code
+                          ? `/p/${s.owner_handle}/${s.edgaze_code}`
+                          : null;
+                      const suggestionPaidLabel = suggestionFree
+                        ? "Free"
+                        : s.price_usd != null
+                          ? `$${s.price_usd.toFixed(2)}`
+                          : "Paid";
 
                       return (
                         <button
@@ -2970,11 +3312,13 @@ export default function PromptProductPage() {
                           type="button"
                           disabled={!href}
                           onClick={() => href && router.push(href)}
-                          className={cn("group flex w-full items-start gap-3 text-left", !href && "cursor-not-allowed opacity-60")}
+                          className={cn(
+                            "group flex w-full items-start gap-3 text-left",
+                            !href && "cursor-not-allowed opacity-60",
+                          )}
                         >
                           <div className="relative h-20 w-36 flex-none overflow-hidden rounded-xl bg-black/60 border border-white/10">
                             {s.thumbnail_url ? (
-                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={s.thumbnail_url}
                                 alt={s.title || "Listing thumbnail"}
@@ -2988,9 +3332,13 @@ export default function PromptProductPage() {
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <p className="line-clamp-2 text-[13px] font-semibold text-white/90">{s.title || "Untitled listing"}</p>
+                            <p className="line-clamp-2 text-[13px] font-semibold text-white/90">
+                              {s.title || "Untitled listing"}
+                            </p>
                             <div className="mt-1 flex flex-wrap items-center gap-2 min-w-0">
-                              <span className="truncate text-[12px] text-white/55">@{s.owner_handle || s.owner_name || "creator"}</span>
+                              <span className="truncate text-[12px] text-white/55">
+                                @{s.owner_handle || s.owner_name || "creator"}
+                              </span>
                               <FoundingCreatorBadge size="sm" className="shrink-0" />
                             </div>
 
@@ -3007,17 +3355,13 @@ export default function PromptProductPage() {
                                   : ""}
                               </p>
 
-                              <span className="text-[12px] font-semibold text-white/75">
-                                {CLOSED_BETA && !suggestionFree ? (
-                                  <span className="inline-flex items-center gap-2">
-                                    <span className="line-through decoration-white/40">
-                                      {suggestionPaidLabel === "Paid" ? "$—" : suggestionPaidLabel}
-                                    </span>
-                                    <span className="text-white/85">Free</span>
-                                  </span>
-                                ) : (
-                                  suggestionPaidLabel
+                              <span
+                                className={cn(
+                                  "text-[12px] font-semibold tabular-nums",
+                                  suggestionFree ? "text-emerald-400" : "text-white/75",
                                 )}
+                              >
+                                {suggestionPaidLabel}
                               </span>
                             </div>
                           </div>

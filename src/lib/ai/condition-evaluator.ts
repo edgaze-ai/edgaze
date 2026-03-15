@@ -14,7 +14,7 @@ export interface ConditionEvaluationResult {
 export async function evaluateConditionWithAI(
   condition: string,
   inputValue: unknown,
-  apiKey: string
+  apiKey: string,
 ): Promise<ConditionEvaluationResult> {
   try {
     // Convert input value to a readable string
@@ -67,8 +67,7 @@ Be strict and logical. If the condition is ambiguous or cannot be evaluated, ret
         messages: [
           {
             role: "system",
-            content:
-              "You are a precise condition evaluator. Always respond with valid JSON only.",
+            content: "You are a precise condition evaluator. Always respond with valid JSON only.",
           },
           {
             role: "user",
@@ -97,7 +96,7 @@ Be strict and logical. If the condition is ambiguous or cannot be evaluated, ret
     try {
       // Extract JSON from markdown code blocks if present
       const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : content;
+      const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
       const parsed = JSON.parse(jsonStr.trim());
 
       return {

@@ -4,17 +4,11 @@ import { getUserFromRequest } from "@lib/auth/server";
 import { isAdmin } from "@lib/supabase/executions";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
-      return NextResponse.json(
-        { error: authError ?? "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: authError ?? "Not authenticated" }, { status: 401 });
     }
     const userIsAdmin = await isAdmin(user.id);
     if (!userIsAdmin) {
@@ -50,7 +44,9 @@ export async function GET(
     if (run.workflow_run_id) {
       const { data } = await supabase
         .from("workflow_run_nodes")
-        .select("node_id, spec_id, status, started_at, ended_at, duration_ms, error_message, tokens_used, model, retries")
+        .select(
+          "node_id, spec_id, status, started_at, ended_at, duration_ms, error_message, tokens_used, model, retries",
+        )
         .eq("workflow_run_id", run.workflow_run_id)
         .order("started_at", { ascending: true });
       nodeLogs = data ?? [];
@@ -63,7 +59,7 @@ export async function GET(
   } catch (e: unknown) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

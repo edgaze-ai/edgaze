@@ -12,15 +12,12 @@ function SelectionRing() {
     <div
       className="pointer-events-none absolute -inset-[7px] rounded-[18px]"
       style={{
-        background:
-          "linear-gradient(120deg, rgba(56,189,248,0.95), rgba(244,114,182,0.95))",
+        background: "linear-gradient(120deg, rgba(56,189,248,0.95), rgba(244,114,182,0.95))",
         padding: 2.5,
-        WebkitMask:
-          "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+        WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
         WebkitMaskComposite: "xor",
         maskComposite: "exclude",
-        boxShadow:
-          "0 0 26px rgba(56,189,248,0.33), 0 0 26px rgba(244,114,182,0.33)",
+        boxShadow: "0 0 26px rgba(56,189,248,0.33), 0 0 26px rgba(244,114,182,0.33)",
       }}
     />
   );
@@ -56,9 +53,7 @@ function buildPreview(data: any, summary: string): string {
   if (candidate == null) return summary;
 
   if (typeof candidate === "string") {
-    return candidate.length > 260
-      ? candidate.slice(0, 260).trimEnd() + "…"
-      : candidate;
+    return candidate.length > 260 ? candidate.slice(0, 260).trimEnd() + "…" : candidate;
   }
 
   try {
@@ -153,20 +148,21 @@ function NodeFrameImpl(props: NodeProps) {
         <button
           key={field.key}
           type="button"
-          onClick={() => emit("builder:updateNodeConfig", { nodeId: id, patch: { [field.key]: !on } })}
-                    className={[
-                      "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition",
-                      on ? "border-white/20 bg-white/10 text-white" : "border-white/12 bg-black/30 text-white/70 hover:bg-white/5 hover:text-white/85",
-                    ].join(" ")}
-                  >
-                    <span
-                      className={[
-                        "h-2.5 w-2.5 rounded-full",
-                        on ? "bg-[#ff0071]" : "bg-white/20",
-                      ].join(" ")}
-                    />
-                    {field.label}
-                  </button>
+          onClick={() =>
+            emit("builder:updateNodeConfig", { nodeId: id, patch: { [field.key]: !on } })
+          }
+          className={[
+            "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition",
+            on
+              ? "border-white/20 bg-white/10 text-white"
+              : "border-white/12 bg-black/30 text-white/70 hover:bg-white/5 hover:text-white/85",
+          ].join(" ")}
+        >
+          <span
+            className={["h-2.5 w-2.5 rounded-full", on ? "bg-[#ff0071]" : "bg-white/20"].join(" ")}
+          />
+          {field.label}
+        </button>
       );
     }
 
@@ -181,7 +177,12 @@ function NodeFrameImpl(props: NodeProps) {
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => emit("builder:updateNodeConfig", { nodeId: id, patch: { [field.key]: opt.value } })}
+                  onClick={() =>
+                    emit("builder:updateNodeConfig", {
+                      nodeId: id,
+                      patch: { [field.key]: opt.value },
+                    })
+                  }
                   className="flex items-center gap-3 text-left"
                 >
                   <span
@@ -224,7 +225,10 @@ function NodeFrameImpl(props: NodeProps) {
             step={step}
             value={Number.isFinite(vNum) ? vNum : min}
             onChange={(e) =>
-              emit("builder:updateNodeConfig", { nodeId: id, patch: { [field.key]: Number(e.target.value) } })
+              emit("builder:updateNodeConfig", {
+                nodeId: id,
+                patch: { [field.key]: Number(e.target.value) },
+              })
             }
             className="mt-2 w-full accent-[#ff0071]"
           />
@@ -256,7 +260,8 @@ function NodeFrameImpl(props: NodeProps) {
           {isOutput && (
             <div className="mb-4">
               <div className="text-[13px] font-medium text-white/90 leading-relaxed">
-                {outputDescription || "No input connected. Connect a node to see what will be output."}
+                {outputDescription ||
+                  "No input connected. Connect a node to see what will be output."}
               </div>
             </div>
           )}
@@ -275,10 +280,14 @@ function NodeFrameImpl(props: NodeProps) {
                   <button
                     key={t.key}
                     type="button"
-                    onClick={() => emit("builder:updateNodeConfig", { nodeId: id, patch: { [t.key]: !on } })}
+                    onClick={() =>
+                      emit("builder:updateNodeConfig", { nodeId: id, patch: { [t.key]: !on } })
+                    }
                     className={[
                       "rounded-full border px-3 py-1.5 text-[12px] font-semibold transition",
-                      on ? "border-white/20 bg-white/10 text-white" : "border-white/12 bg-black/30 text-white/70 hover:bg-white/5 hover:text-white/85",
+                      on
+                        ? "border-white/20 bg-white/10 text-white"
+                        : "border-white/12 bg-black/30 text-white/70 hover:bg-white/5 hover:text-white/85",
                     ].join(" ")}
                   >
                     {t.label}
@@ -296,10 +305,12 @@ function NodeFrameImpl(props: NodeProps) {
           )}
 
           {/* Preview - always show for output node when connected, or when selected for others */}
-          {(isOutput ? (connectedInput && (shouldShowPreview || true)) : shouldShowPreview) && (
+          {(isOutput ? connectedInput && (shouldShowPreview || true) : shouldShowPreview) && (
             <div className={isOutput ? "mt-4" : "mt-4"}>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="text-[11px] uppercase tracking-widest text-white/45 mb-2">Preview</div>
+                <div className="text-[11px] uppercase tracking-widest text-white/45 mb-2">
+                  Preview
+                </div>
                 {isOutput && !shouldShowPreview && connectedInput ? (
                   <div className="text-[12px] text-white/60 italic">
                     Preview will appear here when the workflow runs.

@@ -29,7 +29,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    const fileExt = file.name.includes(".") ? file.name.split(".").pop()?.toLowerCase() ?? "" : "";
+    const fileExt = file.name.includes(".")
+      ? (file.name.split(".").pop()?.toLowerCase() ?? "")
+      : "";
     const safeExt = /^[a-z0-9]+$/.test(fileExt) ? fileExt : "";
     const fileName = `${crypto.randomUUID()}${safeExt ? `.${safeExt}` : ""}`;
     const filePath = `${userId}/${fileName}`;

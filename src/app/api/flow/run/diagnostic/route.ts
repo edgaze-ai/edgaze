@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getUserFromRequest } from "@lib/auth/server";
-import { getUserWorkflowRunCount, workflowExists, getWorkflowDraftId } from "@lib/supabase/executions";
+import {
+  getUserWorkflowRunCount,
+  workflowExists,
+  getWorkflowDraftId,
+} from "@lib/supabase/executions";
 
 const FREE_BUILDER_RUNS = 10;
 
@@ -23,7 +27,7 @@ export async function GET(req: Request) {
     if (!user) {
       return NextResponse.json(
         { ok: false, error: authError ?? "Sign in required" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -60,13 +64,13 @@ export async function GET(req: Request) {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1);
-      
+
       if (draftId) {
         query = query.eq("draft_id", draftId);
       } else {
         query = query.eq("workflow_id", workflowId);
       }
-      
+
       const { data: lastRun, error: lastRunErr } = await query.maybeSingle();
 
       if (!lastRunErr && lastRun) {
@@ -98,9 +102,6 @@ export async function GET(req: Request) {
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

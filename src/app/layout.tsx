@@ -5,9 +5,9 @@ import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "../styles/globals.css";
 
 import { AppProviders } from "./providers";
-import LayoutGate from "./LayoutGate";
+import ClientLayoutGate from "./ClientLayoutGate";
 import LazyAnalyticsWrapper from "../components/layout/LazyAnalytics";
-import GlobalLoadingScreen from "../components/loading/GlobalLoadingScreen";
+import { MinimalLoadingFallback } from "../components/loading/GlobalLoadingScreen";
 import { WebVitals } from "./web-vitals";
 
 const instrumentSerif = Instrument_Serif({
@@ -88,54 +88,54 @@ const siteNavigationJsonLd = {
     {
       "@type": "Organization",
       "@id": "https://edgaze.ai/#organization",
-      "name": "Edgaze",
-      "url": "https://edgaze.ai",
-      "logo": {
+      name: "Edgaze",
+      url: "https://edgaze.ai",
+      logo: {
         "@type": "ImageObject",
-        "url": "https://edgaze.ai/brand/edgaze-mark.png"
+        url: "https://edgaze.ai/brand/edgaze-mark.png",
       },
-      "sameAs": []
+      sameAs: [],
     },
     {
       "@type": "WebSite",
       "@id": "https://edgaze.ai/#website",
-      "url": "https://edgaze.ai",
-      "name": "Edgaze",
-      "description": "Create, sell, and distribute AI products.",
-      "publisher": {
-        "@id": "https://edgaze.ai/#organization"
+      url: "https://edgaze.ai",
+      name: "Edgaze",
+      description: "Create, sell, and distribute AI products.",
+      publisher: {
+        "@id": "https://edgaze.ai/#organization",
       },
-      "potentialAction": {
+      potentialAction: {
         "@type": "SearchAction",
-        "target": {
+        target: {
           "@type": "EntryPoint",
-          "urlTemplate": "https://edgaze.ai/marketplace?q={search_term_string}"
+          urlTemplate: "https://edgaze.ai/marketplace?q={search_term_string}",
         },
-        "query-input": "required name=search_term_string"
-      }
-    }
-  ]
+        "query-input": "required name=search_term_string",
+      },
+    },
+  ],
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
-      <body className="h-full bg-[#0a0a0a] text-white antialiased">
+    <html
+      lang="en"
+      className={`dark ${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="h-full bg-[#0a0a0a] text-white antialiased font-dm-sans">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationJsonLd) }}
         />
         <AppProviders>
           <WebVitals />
-          <Suspense fallback={<GlobalLoadingScreen />}>
+          <Suspense fallback={<MinimalLoadingFallback />}>
             <LazyAnalyticsWrapper />
           </Suspense>
-          <Suspense fallback={<GlobalLoadingScreen />}>
-            <LayoutGate>{children}</LayoutGate>
+          <Suspense fallback={<MinimalLoadingFallback />}>
+            <ClientLayoutGate>{children}</ClientLayoutGate>
           </Suspense>
         </AppProviders>
       </body>

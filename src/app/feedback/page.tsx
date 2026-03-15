@@ -20,7 +20,9 @@ function Gradients() {
 }
 
 function AccentLine() {
-  return <div className="h-[2px] w-full bg-[linear-gradient(90deg,rgba(34,211,238,0.95),rgba(236,72,153,0.9))]" />;
+  return (
+    <div className="h-[2px] w-full bg-[linear-gradient(90deg,rgba(34,211,238,0.95),rgba(236,72,153,0.9))]" />
+  );
 }
 
 function Frame({ children }: { children: React.ReactNode }) {
@@ -42,7 +44,7 @@ function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
       className={cn(
         "w-full rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white",
         "placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/20",
-        props.className
+        props.className,
       )}
     />
   );
@@ -55,7 +57,7 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
       className={cn(
         "w-full rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white",
         "placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/20",
-        props.className
+        props.className,
       )}
     />
   );
@@ -78,7 +80,7 @@ function Option({
         "relative w-full text-left rounded-2xl px-4 py-4 ring-1 transition-all",
         selected
           ? "bg-white/10 ring-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_0_45px_rgba(34,211,238,0.10)]"
-          : "bg-white/5 ring-white/10 hover:bg-white/7"
+          : "bg-white/5 ring-white/10 hover:bg-white/7",
       )}
     >
       {selected ? (
@@ -112,7 +114,7 @@ function Chip({
         active
           ? "bg-white/10 ring-white/20 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_0_35px_rgba(236,72,153,0.10)]"
           : "bg-white/5 ring-white/10 hover:bg-white/7",
-        "text-white/85"
+        "text-white/85",
       )}
     >
       {children}
@@ -136,7 +138,7 @@ function PrimaryButton({
       onClick={onClick}
       className={cn(
         "group relative inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white",
-        disabled ? "opacity-60 cursor-not-allowed" : "hover:opacity-[0.98]"
+        disabled ? "opacity-60 cursor-not-allowed" : "hover:opacity-[0.98]",
       )}
     >
       <span className="absolute inset-0 rounded-2xl p-[1px] bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))]" />
@@ -247,7 +249,7 @@ export default function FeedbackPage() {
         { value: "student", label: "Student / learner" },
         { value: "exploring", label: "Just exploring" },
       ] as Array<{ value: RoleOption; label: string }>,
-    []
+    [],
   );
 
   const triedOptions = useMemo(
@@ -259,7 +261,7 @@ export default function FeedbackPage() {
         { value: "buying_or_viewing_paid", label: "Buying / viewing paid content" },
         { value: "just_browsing", label: "Just browsing" },
       ] as Array<{ value: TriedOption; label: string }>,
-    []
+    [],
   );
 
   const frictionOptions = useMemo(
@@ -273,7 +275,7 @@ export default function FeedbackPage() {
         { value: "performance_bugs", label: "Performance / bugs" },
         { value: "didnt_feel_useful", label: "Didn’t feel useful yet" },
       ] as Array<{ value: FrictionOption; label: string }>,
-    []
+    [],
   );
 
   const usefulOptions = useMemo(
@@ -284,7 +286,7 @@ export default function FeedbackPage() {
         { value: "workflows", label: "Workflows" },
         { value: "nothing_yet", label: "Nothing yet" },
       ] as Array<{ value: UsefulOption; label: string }>,
-    []
+    [],
   );
 
   const comeBackOptions = useMemo(
@@ -294,7 +296,7 @@ export default function FeedbackPage() {
         { value: "maybe", label: "Maybe" },
         { value: "no", label: "No" },
       ] as Array<{ value: ComeBack; label: string }>,
-    []
+    [],
   );
 
   useEffect(() => {
@@ -337,17 +339,35 @@ export default function FeedbackPage() {
           comeBack,
           mustChange,
           savedAt: Date.now(),
-        })
+        }),
       );
     } catch {}
-  }, [hydrated, role, tried, problem, friction, blocker, useful, weak, alternative, comeBack, mustChange]);
+  }, [
+    hydrated,
+    role,
+    tried,
+    problem,
+    friction,
+    blocker,
+    useful,
+    weak,
+    alternative,
+    comeBack,
+    mustChange,
+  ]);
 
   function validate(): { ok: true } | { ok: false; message: string } {
-    if (!sb) return { ok: false, message: "Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL / ANON_KEY)." };
+    if (!sb)
+      return {
+        ok: false,
+        message: "Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL / ANON_KEY).",
+      };
     if (!role) return { ok: false, message: "Select what best describes you." };
-    if (sanitizeText(problem).length < 3) return { ok: false, message: "Answer the problem you were trying to solve." };
+    if (sanitizeText(problem).length < 3)
+      return { ok: false, message: "Answer the problem you were trying to solve." };
     if (!useful) return { ok: false, message: "Select what felt useful (or Nothing yet)." };
-    if (sanitizeText(alternative).length < 2) return { ok: false, message: "Answer what you'd use instead today." };
+    if (sanitizeText(alternative).length < 2)
+      return { ok: false, message: "Answer what you'd use instead today." };
     if (!comeBack) return { ok: false, message: "Select if you'd come back within 7 days." };
     if ((comeBack === "no" || comeBack === "maybe") && sanitizeText(mustChange).length < 3) {
       return { ok: false, message: "If No/Maybe: what must change?" };
@@ -402,7 +422,11 @@ export default function FeedbackPage() {
         locale: typeof navigator !== "undefined" ? navigator.language : null,
       };
 
-      const { data, error } = await sb.from("feedback_submissions").insert(payload).select("id").single();
+      const { data, error } = await sb
+        .from("feedback_submissions")
+        .insert(payload)
+        .select("id")
+        .single();
 
       if (error) {
         console.error("feedback insert error (raw):", error);
@@ -421,7 +445,9 @@ export default function FeedbackPage() {
       } catch {}
 
       setTimeout(() => {
-        document.getElementById("feedback-end")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document
+          .getElementById("feedback-end")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 50);
     } catch (e: any) {
       console.error("feedback submit exception:", e);
@@ -464,7 +490,9 @@ export default function FeedbackPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-semibold tracking-widest text-white/55">EDGAZE</div>
-                <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">Feedback</h1>
+                <h1 className="mt-3 text-2xl sm:text-3xl font-semibold tracking-tight text-white">
+                  Feedback
+                </h1>
               </div>
               <a
                 href="/marketplace"
@@ -496,7 +524,11 @@ export default function FeedbackPage() {
                 <FieldLabel>WHAT BEST DESCRIBES YOU? *</FieldLabel>
                 <div className="grid grid-cols-1 gap-2">
                   {roleOptions.map((o) => (
-                    <Option key={o.value} selected={role === o.value} onClick={() => setRole(o.value)}>
+                    <Option
+                      key={o.value}
+                      selected={role === o.value}
+                      onClick={() => setRole(o.value)}
+                    >
                       {o.label}
                     </Option>
                   ))}
@@ -563,7 +595,11 @@ export default function FeedbackPage() {
                 <FieldLabel>WHICH PART FELT USEFUL? *</FieldLabel>
                 <div className="grid grid-cols-1 gap-2">
                   {usefulOptions.map((o) => (
-                    <Option key={o.value} selected={useful === o.value} onClick={() => setUseful(o.value)}>
+                    <Option
+                      key={o.value}
+                      selected={useful === o.value}
+                      onClick={() => setUseful(o.value)}
+                    >
                       {o.label}
                     </Option>
                   ))}
@@ -573,14 +609,21 @@ export default function FeedbackPage() {
               <div className="space-y-3">
                 <FieldLabel>WHAT FELT WEAK? (OPTIONAL)</FieldLabel>
                 <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-4">
-                  <Textarea value={weak} onChange={(e) => setWeak(clampLen(e.target.value, 240))} rows={3} />
+                  <Textarea
+                    value={weak}
+                    onChange={(e) => setWeak(clampLen(e.target.value, 240))}
+                    rows={3}
+                  />
                   <div className="mt-2 text-xs text-white/45">{weak.length}/240</div>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <FieldLabel>WHAT WOULD YOU USE INSTEAD TODAY? *</FieldLabel>
-                <Input value={alternative} onChange={(e) => setAlternative(clampLen(e.target.value, 120))} />
+                <Input
+                  value={alternative}
+                  onChange={(e) => setAlternative(clampLen(e.target.value, 120))}
+                />
                 <div className="flex flex-wrap gap-2">
                   {["Notion", "Google Docs", "Screenshots", "PromptBase", "Nothing"].map((t) => (
                     <Chip key={t} active={alternative === t} onClick={() => setAlternative(t)}>
@@ -594,14 +637,18 @@ export default function FeedbackPage() {
                 <FieldLabel>WOULD YOU COME BACK IN 7 DAYS? *</FieldLabel>
                 <div className="grid grid-cols-1 gap-2">
                   {comeBackOptions.map((o) => (
-                    <Option key={o.value} selected={comeBack === o.value} onClick={() => setComeBack(o.value)}>
+                    <Option
+                      key={o.value}
+                      selected={comeBack === o.value}
+                      onClick={() => setComeBack(o.value)}
+                    >
                       {o.label}
                     </Option>
                   ))}
                 </div>
               </div>
 
-              {(comeBack === "no" || comeBack === "maybe") ? (
+              {comeBack === "no" || comeBack === "maybe" ? (
                 <div className="space-y-3">
                   <FieldLabel>IF NO/MAYBE: WHAT MUST CHANGE? *</FieldLabel>
                   <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-4">
@@ -692,7 +739,9 @@ export default function FeedbackPage() {
           </div>
         </Frame>
 
-        <div className="mt-10 text-center text-xs text-white/45">© 2026 Edge Platforms, Inc. All rights reserved.</div>
+        <div className="mt-10 text-center text-xs text-white/45">
+          © 2026 Edge Platforms, Inc. All rights reserved.
+        </div>
       </div>
     </div>
   );

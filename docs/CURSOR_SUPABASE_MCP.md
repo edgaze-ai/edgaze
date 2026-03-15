@@ -2,7 +2,7 @@
 
 This project is configured so Cursor can talk to your Supabase project via the [Model Context Protocol (MCP)](https://supabase.com/docs/guides/getting-started/mcp).
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 ## What’s already done
 

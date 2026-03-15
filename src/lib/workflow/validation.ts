@@ -37,7 +37,7 @@ function issue(
   msg: string,
   nodeId?: string,
   fieldHint?: string,
-  fixGuidance?: string
+  fixGuidance?: string,
 ): ValidationIssue {
   return { message: msg, nodeId, fieldHint, fixGuidance };
 }
@@ -63,22 +63,34 @@ function validateOpenAIImageNode(node: GraphNode): ValidationIssue[] {
   const name = config.name || node.data?.specId || "OpenAI Image";
   const errs: ValidationIssue[] = [];
   if (model === "dall-e-2" && quality === "hd") {
-    errs.push(issue(
-      `${name}: Quality "HD" is only supported with DALL-E 3.`,
-      node.id, "quality", "Inspector → Configuration → Model: set to DALL-E 3, or Quality: set to Standard"
-    ));
+    errs.push(
+      issue(
+        `${name}: Quality "HD" is only supported with DALL-E 3.`,
+        node.id,
+        "quality",
+        "Inspector → Configuration → Model: set to DALL-E 3, or Quality: set to Standard",
+      ),
+    );
   }
   if (model === "dall-e-2" && !DALL_E_2_SIZES.includes(size)) {
-    errs.push(issue(
-      `${name}: Size "${size}" is not valid for DALL-E 2.`,
-      node.id, "size", "Inspector → Configuration → Size: use 256x256, 512x512, or 1024x1024"
-    ));
+    errs.push(
+      issue(
+        `${name}: Size "${size}" is not valid for DALL-E 2.`,
+        node.id,
+        "size",
+        "Inspector → Configuration → Size: use 256x256, 512x512, or 1024x1024",
+      ),
+    );
   }
   if (model === "dall-e-3" && !DALL_E_3_SIZES.includes(size)) {
-    errs.push(issue(
-      `${name}: Size "${size}" is not valid for DALL-E 3.`,
-      node.id, "size", "Inspector → Configuration → Size: use 1024x1024, 1792x1024, or 1024x1792"
-    ));
+    errs.push(
+      issue(
+        `${name}: Size "${size}" is not valid for DALL-E 3.`,
+        node.id,
+        "size",
+        "Inspector → Configuration → Size: use 1024x1024, 1792x1024, or 1024x1792",
+      ),
+    );
   }
   return errs;
 }
@@ -175,10 +187,7 @@ function calculateMaxDepth(nodes: GraphNode[], edges: GraphEdge[]): number {
 /**
  * Validate workflow graph for potential issues
  */
-export function validateWorkflowGraph(
-  nodes: GraphNode[],
-  edges: GraphEdge[]
-): ValidationResult {
+export function validateWorkflowGraph(nodes: GraphNode[], edges: GraphEdge[]): ValidationResult {
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
 
@@ -198,24 +207,25 @@ export function validateWorkflowGraph(
   });
 
   // Check for invalid edges (reference non-existent nodes) — one issue per edge
-  const invalidEdges = edges.filter(
-    (e) => !nodeIds.has(e.source) || !nodeIds.has(e.target)
-  );
+  const invalidEdges = edges.filter((e) => !nodeIds.has(e.source) || !nodeIds.has(e.target));
   for (const e of invalidEdges) {
     const srcExists = nodeIds.has(e.source);
     const tgtExists = nodeIds.has(e.target);
     const focusNodeId = srcExists ? e.source : tgtExists ? e.target : undefined;
-    const msg = srcExists || tgtExists
-      ? `Connection ${srcExists ? `from this node to missing "${e.target}"` : `from missing "${e.source}" to this node`}.`
-      : `Orphan connection references missing nodes.`;
-    errors.push(issue(
-      msg,
-      focusNodeId,
-      "connection",
-      focusNodeId
-        ? "Canvas: select this node, then delete the invalid connection (or add the missing node)"
-        : "Canvas: find and delete the orphan connection"
-    ));
+    const msg =
+      srcExists || tgtExists
+        ? `Connection ${srcExists ? `from this node to missing "${e.target}"` : `from missing "${e.source}" to this node`}.`
+        : `Orphan connection references missing nodes.`;
+    errors.push(
+      issue(
+        msg,
+        focusNodeId,
+        "connection",
+        focusNodeId
+          ? "Canvas: select this node, then delete the invalid connection (or add the missing node)"
+          : "Canvas: find and delete the orphan connection",
+      ),
+    );
   }
 
   // OpenAI Chat: needs prompt or inbound connection
@@ -226,10 +236,14 @@ export function validateWorkflowGraph(
       const hasInbound = (inboundByNode.get(node.id) ?? []).length > 0;
       const title = node.data?.title ?? config.name ?? "OpenAI Chat";
       if (!hasPrompt && !hasInbound) {
-        errors.push(issue(
-          `"${title}": Missing prompt. Add one or connect an Input node.`,
-          node.id, "prompt", "Inspector → Configuration → Prompt: enter text or connect an Input"
-        ));
+        errors.push(
+          issue(
+            `"${title}": Missing prompt. Add one or connect an Input node.`,
+            node.id,
+            "prompt",
+            "Inspector → Configuration → Prompt: enter text or connect an Input",
+          ),
+        );
       }
     }
   }
@@ -242,10 +256,14 @@ export function validateWorkflowGraph(
       const hasUrl = typeof url === "string" && url.trim().length > 0;
       const title = node.data?.title ?? config.name ?? "HTTP Request";
       if (!hasUrl) {
-        errors.push(issue(
-          `"${title}": URL is required.`,
-          node.id, "url", "Inspector → Configuration → URL: enter the request URL"
-        ));
+        errors.push(
+          issue(
+            `"${title}": URL is required.`,
+            node.id,
+            "url",
+            "Inspector → Configuration → URL: enter the request URL",
+          ),
+        );
       }
     }
   }
@@ -258,10 +276,14 @@ export function validateWorkflowGraph(
       const hasInbound = (inboundByNode.get(node.id) ?? []).length > 0;
       const title = node.data?.title ?? config.name ?? "OpenAI Embeddings";
       if (!hasText && !hasInbound) {
-        errors.push(issue(
-          `"${title}": Missing text. Add text or connect an Input node.`,
-          node.id, "text", "Inspector → Configuration → Text: enter text or connect an Input"
-        ));
+        errors.push(
+          issue(
+            `"${title}": Missing text. Add text or connect an Input node.`,
+            node.id,
+            "text",
+            "Inspector → Configuration → Text: enter text or connect an Input",
+          ),
+        );
       }
     }
   }
@@ -270,30 +292,44 @@ export function validateWorkflowGraph(
   for (const node of nodes) {
     if (node.data?.specId === "input") {
       const config = node.data?.config ?? {};
-      const hasLabel = (config.label ?? config.inputKey ?? config.question ?? config.name ?? "").toString().trim().length > 0;
+      const hasLabel =
+        (config.label ?? config.inputKey ?? config.question ?? config.name ?? "").toString().trim()
+          .length > 0;
       if (!hasLabel) {
-        warnings.push(issue(
-          "Input node has no label. Users won't know what to enter.",
-          node.id, "question", "Inspector → General → Question / Input Name: add a label"
-        ));
+        warnings.push(
+          issue(
+            "Input node has no label. Users won't know what to enter.",
+            node.id,
+            "question",
+            "Inspector → General → Question / Input Name: add a label",
+          ),
+        );
       }
     }
   }
 
   // Check for cycles
   if (hasCycle(nodes, edges)) {
-    errors.push(issue(
-      "Workflow has a circular dependency.",
-      undefined, undefined, "Canvas: find and remove the connection that creates the loop"
-    ));
+    errors.push(
+      issue(
+        "Workflow has a circular dependency.",
+        undefined,
+        undefined,
+        "Canvas: find and remove the connection that creates the loop",
+      ),
+    );
   }
 
   // Check node count
   if (nodes.length > MAX_NODES) {
-    errors.push(issue(
-      `Workflow has ${nodes.length} nodes (max ${MAX_NODES}).`,
-      undefined, undefined, "Simplify: remove or merge nodes"
-    ));
+    errors.push(
+      issue(
+        `Workflow has ${nodes.length} nodes (max ${MAX_NODES}).`,
+        undefined,
+        undefined,
+        "Simplify: remove or merge nodes",
+      ),
+    );
   }
 
   // Validate OpenAI Image node config
@@ -304,22 +340,20 @@ export function validateWorkflowGraph(
   }
 
   // Check for expensive nodes
-  const expensiveNodes = nodes.filter(
-    (n) => EXPENSIVE_NODE_TYPES.includes(n.data?.specId || "")
-  );
+  const expensiveNodes = nodes.filter((n) => EXPENSIVE_NODE_TYPES.includes(n.data?.specId || ""));
 
   if (expensiveNodes.length > MAX_EXPENSIVE_NODES) {
-    warnings.push(issue(
-      `Workflow has ${expensiveNodes.length} external service nodes. Each execution consumes credits.`
-    ));
+    warnings.push(
+      issue(
+        `Workflow has ${expensiveNodes.length} external service nodes. Each execution consumes credits.`,
+      ),
+    );
   }
 
   // Check workflow depth
   const maxDepth = calculateMaxDepth(nodes, edges);
   if (maxDepth > MAX_DEPTH) {
-    warnings.push(issue(
-      `Workflow depth is ${maxDepth} levels. Consider flattening.`
-    ));
+    warnings.push(issue(`Workflow depth is ${maxDepth} levels. Consider flattening.`));
   }
 
   // Check for disconnected nodes
@@ -334,31 +368,41 @@ export function validateWorkflowGraph(
   if (nodes.length > 1) {
     for (const node of disconnectedNodes) {
       const title = node.data?.title ?? node.data?.config?.name ?? "Node";
-      warnings.push(issue(
-        `"${title}" is disconnected and won't execute.`,
-        node.id, undefined, "Canvas: connect this node to the workflow or delete it"
-      ));
+      warnings.push(
+        issue(
+          `"${title}" is disconnected and won't execute.`,
+          node.id,
+          undefined,
+          "Canvas: connect this node to the workflow or delete it",
+        ),
+      );
     }
   }
 
   // Check for nodes with no outputs but have outgoing edges
   const nodesWithOutputs = new Set(
-    nodes.filter((n) => {
-      const specId = n.data?.specId;
-      return specId === "output" || specId === "input" || edges.some((e) => e.source === n.id);
-    }).map((n) => n.id)
+    nodes
+      .filter((n) => {
+        const specId = n.data?.specId;
+        return specId === "output" || specId === "input" || edges.some((e) => e.source === n.id);
+      })
+      .map((n) => n.id),
   );
 
   const nodesWithoutOutputs = nodes.filter(
-    (n) => !nodesWithOutputs.has(n.id) && edges.some((e) => e.target === n.id)
+    (n) => !nodesWithOutputs.has(n.id) && edges.some((e) => e.target === n.id),
   );
 
   for (const node of nodesWithoutOutputs) {
     const title = node.data?.title ?? node.data?.config?.name ?? "Node";
-    warnings.push(issue(
-      `"${title}" may not produce outputs. Verify its connections.`,
-      node.id, undefined, "Inspector / Canvas: check that this node has valid outputs"
-    ));
+    warnings.push(
+      issue(
+        `"${title}" may not produce outputs. Verify its connections.`,
+        node.id,
+        undefined,
+        "Inspector / Canvas: check that this node has valid outputs",
+      ),
+    );
   }
 
   return {

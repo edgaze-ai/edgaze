@@ -36,9 +36,7 @@ export default async function ProfileByHandlePage(props: any) {
       <div className="min-h-[70vh] flex items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5">
           <div className="text-sm font-semibold text-white/90">Invalid profile link</div>
-          <div className="mt-2 text-xs text-white/55">
-            This URL doesn’t include a valid handle.
-          </div>
+          <div className="mt-2 text-xs text-white/55">This URL doesn’t include a valid handle.</div>
 
           {debug && (
             <div className="mt-4 rounded-xl border border-white/10 bg-black/40 p-3 text-[11px] text-white/70">
@@ -79,7 +77,8 @@ export default async function ProfileByHandlePage(props: any) {
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-5">
           <div className="text-sm font-semibold text-white/90">Profile not found.</div>
           <div className="mt-2 text-xs text-white/55">
-            No profile exists for @{handle}. The link may be broken or the account may have been removed.
+            No profile exists for @{handle}. The link may be broken or the account may have been
+            removed.
           </div>
           <Link
             href="/marketplace"
@@ -92,7 +91,5 @@ export default async function ProfileByHandlePage(props: any) {
     );
   }
 
-  return (
-    <PublicProfileView handle={canonicalHandle ?? handle} debug={debug} />
-  );
+  return <PublicProfileView handle={canonicalHandle ?? handle} debug={debug} />;
 }

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { ConnectBalances } from '@stripe/react-connect-js';
-import { ConnectDashboardShell } from '../components/ConnectDashboardShell';
+import { ConnectBalances } from "@stripe/react-connect-js";
+import { ConnectDashboardShell } from "../components/ConnectDashboardShell";
 
 export default function BalancesPage() {
   return (

@@ -34,8 +34,8 @@ export default function CreatorsHero() {
               transition={{ duration: 0.45, delay: 0.1 }}
               className="mt-6 text-lg sm:text-xl text-white/60 leading-relaxed max-w-xl"
             >
-              Join the Edgaze Creator Program to publish and monetize AI workflows.
-              Built for prompt creators, automation builders, and AI power users.
+              Join the Edgaze Creator Program to publish and monetize AI workflows. Built for prompt
+              creators, automation builders, and AI power users.
             </motion.p>
 
             <motion.div
@@ -44,13 +44,12 @@ export default function CreatorsHero() {
               transition={{ duration: 0.4, delay: 0.15 }}
               className="mt-8 flex flex-col sm:flex-row gap-4"
             >
-              <button
-                type="button"
-                disabled
-                className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400/60 via-sky-500/60 to-pink-500/60 px-8 py-4 text-base font-semibold text-white/90 shadow-[0_0_32px_rgba(56,189,248,0.2)] cursor-not-allowed opacity-90"
+              <Link
+                href="/creators/onboarding?from=creators"
+                className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-8 py-4 text-base font-semibold text-white shadow-[0_0_32px_rgba(56,189,248,0.35)] hover:shadow-[0_0_40px_rgba(56,189,248,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all"
               >
-                Coming soon
-              </button>
+                Join the Creator Program
+              </Link>
               <Link
                 href="/marketplace"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-8 py-4 text-base font-semibold text-white/90 hover:bg-white/10 hover:border-white/25 transition-colors"
@@ -98,7 +97,9 @@ export default function CreatorsHero() {
               </div>
               <div className="relative rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm">
                 <div className="text-sm font-medium text-white/80">Workflow</div>
-                <div className="text-sm font-semibold text-white mt-1">LinkedIn Content Generator</div>
+                <div className="text-sm font-semibold text-white mt-1">
+                  LinkedIn Content Generator
+                </div>
                 <div className="text-xs text-white/50 mt-1">1,204 runs</div>
               </div>
               <div className="relative rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 backdrop-blur-sm">

@@ -59,7 +59,16 @@ function ProfileRootPageContent() {
 
     // Remove query params when redirecting to avoid keeping from=sidebar
     router.replace(`/profile/${encodeURIComponent(handle)}`);
-  }, [authReady, userId, handle, openSignIn, openingModalOnce, refreshProfile, router, fromSidebar]);
+  }, [
+    authReady,
+    userId,
+    handle,
+    openSignIn,
+    openingModalOnce,
+    refreshProfile,
+    router,
+    fromSidebar,
+  ]);
 
   if (authReady && !userId && fromSidebar) {
     return (
@@ -78,7 +87,9 @@ function ProfileRootPageContent() {
             Sign in
           </button>
 
-          <div className="mt-3 text-xs text-white/45">You’ll be returned here after signing in.</div>
+          <div className="mt-3 text-xs text-white/45">
+            You’ll be returned here after signing in.
+          </div>
         </div>
       </div>
     );
@@ -93,11 +104,13 @@ function ProfileRootPageContent() {
 
 export default function ProfileRootPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-[70vh] flex items-center justify-center px-4">
-        <Loader2 className="h-6 w-6 animate-spin text-white/60" aria-hidden />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-[70vh] flex items-center justify-center px-4">
+          <Loader2 className="h-6 w-6 animate-spin text-white/60" aria-hidden />
+        </div>
+      }
+    >
       <ProfileRootPageContent />
     </Suspense>
   );

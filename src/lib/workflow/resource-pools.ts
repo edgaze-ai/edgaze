@@ -17,23 +17,26 @@ const SPEC_TO_RESOURCE: Record<string, ResourceClass> = {
   "openai-embeddings": "llm",
   "openai-image": "image",
   "http-request": "http",
-  "input": "cpu",
-  "merge": "cpu",
-  "output": "cpu",
+  input: "cpu",
+  merge: "cpu",
+  output: "cpu",
   "merge-json": "cpu",
-  "template": "cpu",
-  "map": "cpu",
+  template: "cpu",
+  map: "cpu",
   "json-parse": "cpu",
-  "condition": "cpu",
-  "delay": "cpu",
-  "loop": "cpu",
+  condition: "cpu",
+  delay: "cpu",
+  loop: "cpu",
 };
 
 export function getResourceClass(specId: string): ResourceClass {
   return SPEC_TO_RESOURCE[specId] ?? "cpu";
 }
 
-export function getPoolLimit(resourceClass: ResourceClass, limits?: Partial<Record<ResourceClass, number>>): number {
+export function getPoolLimit(
+  resourceClass: ResourceClass,
+  limits?: Partial<Record<ResourceClass, number>>,
+): number {
   if (limits && typeof limits[resourceClass] === "number") {
     return limits[resourceClass]!;
   }

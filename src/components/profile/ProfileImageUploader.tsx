@@ -58,8 +58,7 @@ export default function ProfileImageUploader({
       const { data } = supabase.storage.from(bucket).getPublicUrl(path);
       const publicUrl = data.publicUrl;
 
-      const patch =
-        kind === "avatar" ? { avatar_url: publicUrl } : { banner_url: publicUrl };
+      const patch = kind === "avatar" ? { avatar_url: publicUrl } : { banner_url: publicUrl };
 
       const res = await updateProfile(patch as any);
       if (!res.ok) throw new Error(res.error || "Failed to update profile");

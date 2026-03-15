@@ -7,6 +7,6 @@ import { NextResponse } from "next/server";
 export async function POST() {
   return NextResponse.json(
     { error: "Gone", message: "Use /api/flow/run for workflow execution." },
-    { status: 410 }
+    { status: 410 },
   );
 }

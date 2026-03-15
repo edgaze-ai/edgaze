@@ -46,7 +46,10 @@ function DarkSelect({
           disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <span className="truncate">{label}</span>
-        <ChevronDown size={14} className={`shrink-0 opacity-70 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          size={14}
+          className={`shrink-0 opacity-70 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
       {open && (
         <div
@@ -64,7 +67,9 @@ function DarkSelect({
                 setOpen(false);
               }}
               className={`w-full px-2.5 py-1.5 text-[12px] text-left transition-colors ${
-                opt.value === value ? "bg-white/10 text-white" : "text-white/90 hover:bg-white/[0.08]"
+                opt.value === value
+                  ? "bg-white/10 text-white"
+                  : "text-white/90 hover:bg-white/[0.08]"
               }`}
             >
               {opt.label}
@@ -110,9 +115,7 @@ async function safeJSON<T>(res: Response): Promise<T | null> {
 /* -------------------- External Fetch Hooks -------------------- */
 function useAnalytics(workflowId?: string) {
   const [data, setData] = useState<Analytics | null>(null);
-  const [state, setState] = useState<
-    "idle" | "loading" | "ready" | "missing" | "error"
-  >("idle");
+  const [state, setState] = useState<"idle" | "loading" | "ready" | "missing" | "error">("idle");
 
   useEffect(() => {
     if (!workflowId) {
@@ -169,9 +172,7 @@ function useAnalytics(workflowId?: string) {
 
 function useCommunity(workflowId?: string) {
   const [data, setData] = useState<Community | null>(null);
-  const [state, setState] = useState<
-    "idle" | "loading" | "ready" | "missing" | "error"
-  >("idle");
+  const [state, setState] = useState<"idle" | "loading" | "ready" | "missing" | "error">("idle");
 
   useEffect(() => {
     if (!workflowId) {
@@ -298,7 +299,14 @@ function GeneralPanel({
 }) {
   const cfg = selection.config ?? {};
   const inspectorFields = spec?.inspector ?? [];
-  const advancedKeys = new Set(["timeout", "retries", "allowOnly", "denyHosts", "maxTokens", "maxIterations"]);
+  const advancedKeys = new Set([
+    "timeout",
+    "retries",
+    "allowOnly",
+    "denyHosts",
+    "maxTokens",
+    "maxIterations",
+  ]);
 
   // Auto-fix OpenAI Image config so invalid model+size/quality are never sent to the API
   useEffect(() => {
@@ -319,13 +327,16 @@ function GeneralPanel({
   }, [spec?.id, selection.nodeId, cfg.model, cfg.size, cfg.quality, onUpdate]);
 
   const fieldLabel = (label: string, helpText?: string) => (
-    <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1" title={helpText}>
+    <label
+      className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1"
+      title={helpText}
+    >
       {label}
     </label>
   );
 
   const renderField = (field: any) => {
-    const value = cfg[field.key] ?? (spec.defaultConfig?.[field.key] ?? "");
+    const value = cfg[field.key] ?? spec.defaultConfig?.[field.key] ?? "";
 
     switch (field.type) {
       case "text":
@@ -378,7 +389,12 @@ function GeneralPanel({
         return (
           <div key={field.key}>
             <label className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-medium uppercase tracking-wider text-white/45" title={field.helpText}>{field.label}</span>
+              <span
+                className="text-[10px] font-medium uppercase tracking-wider text-white/45"
+                title={field.helpText}
+              >
+                {field.label}
+              </span>
               <span className="text-[10px] text-white/60 font-mono">{value}</span>
             </label>
             <input
@@ -396,7 +412,10 @@ function GeneralPanel({
       case "switch":
         return (
           <div key={field.key} className="flex items-center justify-between py-0.5">
-            <label className="text-[10px] font-medium uppercase tracking-wider text-white/45" title={field.helpText}>
+            <label
+              className="text-[10px] font-medium uppercase tracking-wider text-white/45"
+              title={field.helpText}
+            >
               {field.label}
             </label>
             <button
@@ -418,7 +437,8 @@ function GeneralPanel({
       case "select": {
         const isOpenAIImage = spec?.id === "openai-image";
         const imageModel = cfg.model || "dall-e-2";
-        const qualityDisabled = isOpenAIImage && field.key === "quality" && imageModel === "dall-e-2";
+        const qualityDisabled =
+          isOpenAIImage && field.key === "quality" && imageModel === "dall-e-2";
         const sizeOptionsDallE2 = [
           { label: "1024x1024", value: "1024x1024" },
           { label: "512x512", value: "512x512" },
@@ -434,9 +454,13 @@ function GeneralPanel({
             ? imageModel === "dall-e-3"
               ? sizeOptionsDallE3
               : sizeOptionsDallE2
-            : field.options ?? [];
+            : (field.options ?? []);
         let effectiveValue: string = qualityDisabled ? "standard" : value;
-        if (isOpenAIImage && field.key === "size" && !selectOptions.some((o: any) => o.value === value)) {
+        if (
+          isOpenAIImage &&
+          field.key === "size" &&
+          !selectOptions.some((o: any) => o.value === value)
+        ) {
           effectiveValue = selectOptions[0]?.value ?? "1024x1024";
         }
         return (
@@ -472,15 +496,19 @@ function GeneralPanel({
   return (
     <div className="space-y-3 pt-2 w-full min-w-0">
       {/* Basic details: small, read-only, no input boxes */}
-      <ReadOnlyMeta items={[
-        { label: "Type", value: spec?.label ?? "Block" },
-        { label: "ID", value: selection.specId ?? "—" },
-      ]} />
+      <ReadOnlyMeta
+        items={[
+          { label: "Type", value: spec?.label ?? "Block" },
+          { label: "ID", value: selection.specId ?? "—" },
+        ]}
+      />
 
       {/* Editable fields - premium inputs only */}
       <div className="space-y-2.5">
         <div>
-          <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">Display Name</label>
+          <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">
+            Display Name
+          </label>
           <Input
             defaultValue={cfg.name ?? spec.label}
             onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
@@ -489,7 +517,9 @@ function GeneralPanel({
           />
         </div>
         <div>
-          <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">Description</label>
+          <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">
+            Description
+          </label>
           <TextArea
             rows={2}
             defaultValue={cfg.description ?? spec.summary}
@@ -500,7 +530,10 @@ function GeneralPanel({
         </div>
         {requiresApiKey && (
           <div>
-            <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1" title="Stored locally, used for your runs">
+            <label
+              className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1"
+              title="Stored locally, used for your runs"
+            >
               API Key
             </label>
             <Input
@@ -529,10 +562,21 @@ function GeneralPanel({
                 { label: "is greater than", value: "gt" },
                 { label: "is less than", value: "lt" },
               ]}
-              onChange={(v) => onUpdate({ operator: v, compareValue: conditionOperator === "equals" || conditionOperator === "notEquals" ? conditionCompareValue : "" })}
+              onChange={(v) =>
+                onUpdate({
+                  operator: v,
+                  compareValue:
+                    conditionOperator === "equals" || conditionOperator === "notEquals"
+                      ? conditionCompareValue
+                      : "",
+                })
+              }
               className="min-w-[120px]"
             />
-            {(conditionOperator === "equals" || conditionOperator === "notEquals" || conditionOperator === "gt" || conditionOperator === "lt") && (
+            {(conditionOperator === "equals" ||
+              conditionOperator === "notEquals" ||
+              conditionOperator === "gt" ||
+              conditionOperator === "lt") && (
               <Input
                 placeholder="value"
                 defaultValue={conditionCompareValue}
@@ -614,10 +658,15 @@ function InputsPanel({
           {spec.ports
             ?.filter((p: any) => p.kind === "input")
             ?.map((port: any) => (
-              <div key={port.id} className="border-b border-white/[0.04] pb-3 last:border-0 last:pb-0">
+              <div
+                key={port.id}
+                className="border-b border-white/[0.04] pb-3 last:border-0 last:pb-0"
+              >
                 <div className="flex items-baseline justify-between gap-2 mb-1">
                   <span className="text-[12px] font-medium text-white/90">{port.id}</span>
-                  <span className="text-[9px] text-white/40 font-mono truncate">{port.type ?? "any"}</span>
+                  <span className="text-[9px] text-white/40 font-mono truncate">
+                    {port.type ?? "any"}
+                  </span>
                 </div>
                 {port.label && <div className="text-[10px] text-white/45 mb-1.5">{port.label}</div>}
                 <Input
@@ -676,9 +725,7 @@ function TabPill({
       onClick={onClick}
       className={[
         "px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors",
-        active
-          ? "bg-white/10 text-white"
-          : "text-white/50 hover:text-white/70 hover:bg-[#141414]",
+        active ? "bg-white/10 text-white" : "text-white/50 hover:text-white/70 hover:bg-[#141414]",
       ].join(" ")}
       type="button"
     >
@@ -755,12 +802,8 @@ export default function InspectorPanel({
   }, [safeSelection.specId]);
 
   // Only fetch when a node is selected (avoids noise + wasted calls)
-  const { data: analytics, state: aState } = useAnalytics(
-    selected ? workflowId : undefined
-  );
-  const { data: community, state: cState } = useCommunity(
-    selected ? workflowId : undefined
-  );
+  const { data: analytics, state: aState } = useAnalytics(selected ? workflowId : undefined);
+  const { data: community, state: cState } = useCommunity(selected ? workflowId : undefined);
 
   const patchNode = (patch: any) => {
     if (!onUpdate) return;
@@ -814,11 +857,10 @@ export default function InspectorPanel({
             <div className="mx-auto h-12 w-12 rounded-full bg-white/[0.04] border border-white/[0.06] grid place-items-center">
               <Eye size={20} className="text-white/40" />
             </div>
-            <div className="mt-3 text-[12px] text-white/70">
-              Select one at a time
-            </div>
+            <div className="mt-3 text-[12px] text-white/70">Select one at a time</div>
             <div className="mt-1 text-[10px] text-white/40">
-              {safeSelection.nodeIds?.length ?? 0} blocks selected. Click a single block to inspect it.
+              {safeSelection.nodeIds?.length ?? 0} blocks selected. Click a single block to inspect
+              it.
             </div>
           </div>
         )}
@@ -827,9 +869,7 @@ export default function InspectorPanel({
             <div className="mx-auto h-12 w-12 rounded-full bg-[#0c0c0c] border border-white/[0.08] grid place-items-center">
               <Eye size={20} className="text-white/40" />
             </div>
-            <div className="mt-3 text-[12px] text-white/70">
-              Select a block to edit
-            </div>
+            <div className="mt-3 text-[12px] text-white/70">Select a block to edit</div>
             <div className="mt-1 text-[10px] text-white/40">
               Drag blocks from the left, then click to configure.
             </div>
@@ -858,18 +898,10 @@ export default function InspectorPanel({
             {spec ? (
               <>
                 {tab === "general" && (
-                  <GeneralPanel
-                    selection={safeSelection}
-                    spec={spec}
-                    onUpdate={patchNode}
-                  />
+                  <GeneralPanel selection={safeSelection} spec={spec} onUpdate={patchNode} />
                 )}
                 {tab === "inputs" && (
-                  <InputsPanel
-                    selection={safeSelection}
-                    spec={spec}
-                    onUpdate={patchNode}
-                  />
+                  <InputsPanel selection={safeSelection} spec={spec} onUpdate={patchNode} />
                 )}
                 {tab === "code" && <CodePanel selection={safeSelection} spec={spec} />}
               </>
@@ -887,15 +919,21 @@ export default function InspectorPanel({
                   <div className="grid grid-cols-3 gap-2">
                     <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Runs</div>
-                      <div className="text-[12px] font-semibold text-white/90">{analytics.totalRuns}</div>
+                      <div className="text-[12px] font-semibold text-white/90">
+                        {analytics.totalRuns}
+                      </div>
                     </div>
                     <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Success</div>
-                      <div className="text-[12px] font-semibold text-white/90">{analytics.successRate}%</div>
+                      <div className="text-[12px] font-semibold text-white/90">
+                        {analytics.successRate}%
+                      </div>
                     </div>
                     <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Avg</div>
-                      <div className="text-[12px] font-semibold text-white/90">{analytics.avgResponseMs}ms</div>
+                      <div className="text-[12px] font-semibold text-white/90">
+                        {analytics.avgResponseMs}ms
+                      </div>
                     </div>
                   </div>
                 )}
@@ -907,11 +945,15 @@ export default function InspectorPanel({
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Today</div>
-                      <div className="text-[12px] font-semibold text-white/90">{community.todayUsers}</div>
+                      <div className="text-[12px] font-semibold text-white/90">
+                        {community.todayUsers}
+                      </div>
                     </div>
                     <div className="rounded-md bg-[#0c0c0c] border border-white/[0.08] px-2 py-1.5">
                       <div className="text-[9px] text-white/40">Remixes</div>
-                      <div className="text-[12px] font-semibold text-white/90">{community.weeklyRemixes}</div>
+                      <div className="text-[12px] font-semibold text-white/90">
+                        {community.weeklyRemixes}
+                      </div>
                     </div>
                   </div>
                 )}

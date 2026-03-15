@@ -10,25 +10,17 @@ import { Handle, Position, NodeProps } from "reactflow";
  */
 export default function InputNodeCard({ data }: NodeProps) {
   const title: string = data?.title ?? "Input";
-  const description: string =
-    data?.description ?? "Entry point for this workflow.";
+  const description: string = data?.description ?? "Entry point for this workflow.";
   const connected: string[] = data?.outputs ?? ["payload"];
 
   // Optional richer preview: sample payload, schema, or description
   const previewText = useMemo(() => {
-    const candidate =
-      data?.sample ??
-      data?.example ??
-      data?.schema ??
-      data?.preview ??
-      description;
+    const candidate = data?.sample ?? data?.example ?? data?.schema ?? data?.preview ?? description;
 
     if (candidate == null) return description;
 
     if (typeof candidate === "string") {
-      return candidate.length > 220
-        ? candidate.slice(0, 220).trimEnd() + "…"
-        : candidate;
+      return candidate.length > 220 ? candidate.slice(0, 220).trimEnd() + "…" : candidate;
     }
 
     try {
@@ -46,9 +38,7 @@ export default function InputNodeCard({ data }: NodeProps) {
         <div className="flex items-start justify-between gap-2 px-3 pt-2 pb-1.5">
           <div className="min-w-0">
             <div className="truncate text-[13px] font-semibold">{title}</div>
-            <div className="mt-0.5 text-[11px] text-white/55 truncate">
-              Workflow input
-            </div>
+            <div className="mt-0.5 text-[11px] text-white/55 truncate">Workflow input</div>
           </div>
           <span className="shrink-0 rounded-full border border-white/10 bg-black/40 px-2 py-[2px] text-[10px] font-mono text-white/70">
             IN
@@ -60,9 +50,7 @@ export default function InputNodeCard({ data }: NodeProps) {
           <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] leading-5 text-white/80 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
             <div className="mb-1 flex items-center justify-between text-[10px] text-white/45">
               <span>Expected input</span>
-              <span className="uppercase tracking-[0.14em]">
-                {connected[0] || "PAYLOAD"}
-              </span>
+              <span className="uppercase tracking-[0.14em]">{connected[0] || "PAYLOAD"}</span>
             </div>
             <pre className="max-h-24 overflow-hidden whitespace-pre-wrap break-words">
               {previewText}
@@ -74,10 +62,7 @@ export default function InputNodeCard({ data }: NodeProps) {
             <div className="mt-2 flex flex-wrap gap-1 text-[10px] text-white/60">
               <span className="opacity-70">Exposes</span>
               {connected.map((c: string) => (
-                <span
-                  key={c}
-                  className="edge-badge bg-white/5 text-[10px] max-w-[120px] truncate"
-                >
+                <span key={c} className="edge-badge bg-white/5 text-[10px] max-w-[120px] truncate">
                   {c}
                 </span>
               ))}

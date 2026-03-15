@@ -25,33 +25,38 @@ import { shouldRetry, RunCircuitBreaker } from "@lib/workflow/retry-classificati
 
 /** Kahn’s topological sort (simple) */
 function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
-    const indeg = new Map<string, number>();
-    const adj = new Map<string, string[]>();
-    nodes.forEach((n) => {
-      indeg.set(n.id, 0);
-      adj.set(n.id, []);
-    });
-    edges.forEach((e) => {
-      adj.get(e.source)?.push(e.target);
-      indeg.set(e.target, (indeg.get(e.target) ?? 0) + 1);
-    });
+  const indeg = new Map<string, number>();
+  const adj = new Map<string, string[]>();
+  nodes.forEach((n) => {
+    indeg.set(n.id, 0);
+    adj.set(n.id, []);
+  });
+  edges.forEach((e) => {
+    adj.get(e.source)?.push(e.target);
+    indeg.set(e.target, (indeg.get(e.target) ?? 0) + 1);
+  });
 
-    const q: string[] = [];
-    indeg.forEach((d, id) => d === 0 && q.push(id));
+  const q: string[] = [];
+  indeg.forEach((d, id) => d === 0 && q.push(id));
 
-    const order: string[] = [];
-    while (q.length) {
-      const u = q.shift()!;
-      order.push(u);
-      for (const v of adj.get(u) ?? []) {
-        indeg.set(v, (indeg.get(v) ?? 0) - 1);
-        if ((indeg.get(v) ?? 0) === 0) q.push(v);
-      }
+  const order: string[] = [];
+  while (q.length) {
+    const u = q.shift()!;
+    order.push(u);
+    for (const v of adj.get(u) ?? []) {
+      indeg.set(v, (indeg.get(v) ?? 0) - 1);
+      if ((indeg.get(v) ?? 0) === 0) q.push(v);
     }
-    return order.length === nodes.length ? order : nodes.map((n) => n.id);
   }
+  return order.length === nodes.length ? order : nodes.map((n) => n.id);
+}
 
-import { validateWorkflowTokenLimit, countChatTokens, countEmbeddingTokens, countImageTokens } from "@lib/workflow/token-counting";
+import {
+  validateWorkflowTokenLimit,
+  countChatTokens,
+  countEmbeddingTokens,
+  countImageTokens,
+} from "@lib/workflow/token-counting";
 import { getTokenLimits } from "@lib/workflow/token-limits";
 
 export type RunMode = "dev" | "marketplace";
@@ -65,7 +70,7 @@ export type RunFlowOptions = {
 
 export async function runFlow(
   payload: GraphPayload & { workflowId?: string },
-  options?: RunFlowOptions
+  options?: RunFlowOptions,
 ): Promise<RuntimeResult> {
   const { nodes, edges, inputs = {}, workflowId, requestMetadata } = payload;
   const onProgress = options?.onProgress;
@@ -79,8 +84,8 @@ export async function runFlow(
     if (!sourceExists || !targetExists) {
       console.warn(
         `Invalid edge detected: ${e.source} -> ${e.target}. ` +
-        `Source exists: ${sourceExists}, Target exists: ${targetExists}. ` +
-        `This edge will be ignored.`
+          `Source exists: ${sourceExists}, Target exists: ${targetExists}. ` +
+          `This edge will be ignored.`,
       );
       return false;
     }
@@ -91,7 +96,7 @@ export async function runFlow(
   if (validEdges.length < edges.length) {
     console.warn(
       `Graph integrity issue: ${edges.length - validEdges.length} invalid edge(s) removed. ` +
-      `Original edges: ${edges.length}, Valid edges: ${validEdges.length}`
+        `Original edges: ${edges.length}, Valid edges: ${validEdges.length}`,
     );
   }
 
@@ -129,7 +134,7 @@ export async function runFlow(
   if (totalEstimatedTokens > 0) {
     const workflowTokenValidation = validateWorkflowTokenLimit(
       totalEstimatedTokens,
-      tokenLimits.maxTokensPerWorkflow
+      tokenLimits.maxTokensPerWorkflow,
     );
     if (!workflowTokenValidation.valid) {
       throw new Error(workflowTokenValidation.error || "Workflow token limit exceeded");
@@ -171,7 +176,7 @@ export async function runFlow(
     error?: string,
     retries = 0,
     tokens?: number,
-    model?: string
+    model?: string,
   ): void {
     const data = nodeTraceData.get(nodeId);
     const startMs = data?.startMs ?? endMs;
@@ -197,7 +202,7 @@ export async function runFlow(
   function satisfiesConditionEdge(
     sourceOutput: unknown,
     sourceStatus: string | undefined,
-    sourceHandle: string | undefined
+    sourceHandle: string | undefined,
   ): boolean {
     if (sourceStatus !== "success") return false;
     // Condition outputs { __conditionResult, __passthrough } for pipeline passthrough
@@ -216,11 +221,7 @@ export async function runFlow(
     return true; // no handle: legacy, treat as pass
   }
 
-  function tryMarkReady(
-    targetId: string,
-    ready: string[],
-    indeg: Map<string, number>
-  ): void {
+  function tryMarkReady(targetId: string, ready: string[], indeg: Map<string, number>): void {
     if ((indeg.get(targetId) ?? 0) !== 0) return;
     const targetEdges = edgesByTarget.get(targetId);
     const snapshot = state.getSnapshot();
@@ -236,13 +237,18 @@ export async function runFlow(
           satisfied = satisfiesConditionEdge(sourceOutput, sourceStatus, edge.sourceHandle);
         } else {
           const gating = getEdgeGating(edge) as EdgeGating;
-          satisfied = satisfiesEdgeGating(sourceOutput, toSourceStatus(sourceStatus ?? "failed"), gating);
+          satisfied = satisfiesEdgeGating(
+            sourceOutput,
+            toSourceStatus(sourceStatus ?? "failed"),
+            gating,
+          );
         }
 
         if (!satisfied) {
-          const reason = sourceSpecId === "condition"
-            ? `Condition branch not taken (source ${sourceId} ${edge.sourceHandle ?? "?"} -> ${sourceStatus})`
-            : `Edge gating not satisfied: source ${sourceId} (${sourceStatus})`;
+          const reason =
+            sourceSpecId === "condition"
+              ? `Condition branch not taken (source ${sourceId} ${edge.sourceHandle ?? "?"} -> ${sourceStatus})`
+              : `Edge gating not satisfied: source ${sourceId} (${sourceStatus})`;
           blockedNodes.push(targetId);
           blockedReasons[targetId] = reason;
           state.setNodeStatus(targetId, "blocked");
@@ -285,7 +291,9 @@ export async function runFlow(
       const raw = srcs.map((sid) => {
         const output = snapshot.outputsByNode[sid];
         if (!(sid in snapshot.outputsByNode)) {
-          console.warn(`Node ${sid} output not found when ${nodeId} requested it - possible execution order issue`);
+          console.warn(
+            `Node ${sid} output not found when ${nodeId} requested it - possible execution order issue`,
+          );
         }
         return output;
       });
@@ -335,7 +343,7 @@ export async function runFlow(
     nodeId: string,
     node: GraphNode,
     specId: string,
-    circuitBreaker: RunCircuitBreaker
+    circuitBreaker: RunCircuitBreaker,
   ) => {
     const nodeTitle = node.data?.title;
     const ts = Date.now();
@@ -350,7 +358,9 @@ export async function runFlow(
     const timeoutMs = Number(config.timeout ?? 0);
     const hasSideEffects = nodeHasSideEffects(specId, config);
     const retries = hasSideEffects
-      ? (typeof config.retries === "number" ? Math.max(0, config.retries) : 0)
+      ? typeof config.retries === "number"
+        ? Math.max(0, config.retries)
+        : 0
       : Math.max(0, Number(config.retries ?? 0));
 
     const runOnce = async (): Promise<void> => {
@@ -382,7 +392,6 @@ export async function runFlow(
     let attempt = 0;
     while (true) {
       try {
-        // eslint-disable-next-line no-await-in-loop
         await execWithTimeout();
         break;
       } catch (err) {
@@ -392,7 +401,13 @@ export async function runFlow(
           state.setNodeStatus(nodeId, "success");
           const doneTs = Date.now();
           recordNodeTrace(nodeId, specId, "success", doneTs, undefined, attempt);
-          onProgress?.({ type: "node_done", nodeId, specId, nodeTitle: node.data?.title, timestamp: doneTs });
+          onProgress?.({
+            type: "node_done",
+            nodeId,
+            specId,
+            nodeTitle: node.data?.title,
+            timestamp: doneTs,
+          });
           logs.push({
             type: "success",
             nodeId,
@@ -416,7 +431,7 @@ export async function runFlow(
           timestamp: Date.now(),
           message: `Retrying "${specId}" (attempt ${attempt}/${retries})`,
         });
-        // eslint-disable-next-line no-await-in-loop
+
         await new Promise((r) => setTimeout(r, decision.delayMs));
       }
     }
@@ -424,7 +439,13 @@ export async function runFlow(
     state.setNodeStatus(nodeId, "success");
     const doneTs = Date.now();
     recordNodeTrace(nodeId, specId, "success", doneTs, undefined, attempt);
-    onProgress?.({ type: "node_done", nodeId, specId, nodeTitle: node.data?.title, timestamp: doneTs });
+    onProgress?.({
+      type: "node_done",
+      nodeId,
+      specId,
+      nodeTitle: node.data?.title,
+      timestamp: doneTs,
+    });
     logs.push({
       type: "success",
       nodeId,
@@ -437,7 +458,7 @@ export async function runFlow(
   let shouldStop = false;
   while (ready.length > 0 && !shouldStop) {
     const batch = ready.splice(0, ready.length);
-    // eslint-disable-next-line no-await-in-loop
+
     await Promise.all(
       batch.map(async (nodeId) => {
         try {
@@ -454,7 +475,7 @@ export async function runFlow(
             "failed",
             Date.now(),
             errorMessage,
-            traceData?.retries ?? 0
+            traceData?.retries ?? 0,
           );
 
           state.setNodeStatus(nodeId, "failed");
@@ -493,7 +514,7 @@ export async function runFlow(
             });
           }
         }
-      })
+      }),
     );
   }
 
@@ -503,7 +524,13 @@ export async function runFlow(
   const outputNodes = nodes.filter((n) => n.data?.specId === "output");
 
   // Processing nodes: produce real output (LLM, API, etc). Input/Merge are passthrough.
-  const PROCESSING_SPECS = new Set(["openai-chat", "openai-embeddings", "openai-image", "http-request", "transform"]);
+  const PROCESSING_SPECS = new Set([
+    "openai-chat",
+    "openai-embeddings",
+    "openai-image",
+    "http-request",
+    "transform",
+  ]);
   const hasProcessingUpstream = (nodeId: string, visited = new Set<string>()): boolean => {
     if (visited.has(nodeId)) return false;
     visited.add(nodeId);
@@ -520,7 +547,9 @@ export async function runFlow(
   // Only include Output nodes that have processing upstream (exclude passthrough: Input/Merge only)
   const meaningfulFinals = outputNodes.filter((n) => hasProcessingUpstream(n.id));
 
-  const hasFailure = Object.values(snapshot.nodeStatus).some((s) => s === "failed" || s === "timeout");
+  const hasFailure = Object.values(snapshot.nodeStatus).some(
+    (s) => s === "failed" || s === "timeout",
+  );
   const hasBlocked = blockedNodes.length > 0;
   if (hasFailure) {
     state.setWorkflowStatus("failed");
@@ -532,7 +561,10 @@ export async function runFlow(
 
   return {
     outputsByNode: snapshot.outputsByNode,
-    finalOutputs: meaningfulFinals.map((n) => ({ nodeId: n.id, value: snapshot.outputsByNode[n.id] })),
+    finalOutputs: meaningfulFinals.map((n) => ({
+      nodeId: n.id,
+      value: snapshot.outputsByNode[n.id],
+    })),
     logs,
     nodeStatus: snapshot.nodeStatus,
     workflowStatus: state.getSnapshot().workflowStatus,

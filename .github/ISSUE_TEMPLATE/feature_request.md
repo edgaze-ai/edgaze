@@ -6,7 +6,7 @@ labels: enhancement
 assignees: ""
 ---
 
-<!-- Edgaze is proprietary software owned and operated by Edge Platforms, Inc., a Delaware C Corporation -->
+<!-- Edgaze is proprietary software owned and operated by Edge Platforms, Inc., a Delaware Corporation -->
 
 ## Feature summary
 

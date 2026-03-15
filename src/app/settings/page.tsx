@@ -65,13 +65,24 @@ function SettingSection({
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { userId, userEmail, profile, isVerified, isAdmin, loading, authReady, signOut, updateProfile, openSignIn } = useAuth();
+  const {
+    userId,
+    userEmail,
+    profile,
+    isVerified,
+    isAdmin,
+    loading,
+    authReady,
+    signOut,
+    updateProfile,
+    openSignIn,
+  } = useAuth();
   const [handleEdit, setHandleEdit] = useState("");
   const [handleSaving, setHandleSaving] = useState(false);
   const [handleError, setHandleError] = useState<string | null>(null);
   const [handleSuccess, setHandleSuccess] = useState(false);
   const [activeSection, setActiveSection] = useState<string>("account");
-  
+
   // Handle change cooldown state
   const [handleChangeStatus, setHandleChangeStatus] = useState<{
     canChange: boolean;
@@ -98,7 +109,7 @@ export default function SettingsPage() {
   // Check handle change status when user is loaded
   useEffect(() => {
     if (!userId || !authReady) return;
-    
+
     const checkHandleChangeStatus = async () => {
       setCheckingHandleStatus(true);
       try {
@@ -155,7 +166,10 @@ export default function SettingsPage() {
   // Signed out: premium sign-in CTA
   if (!userId) {
     return (
-      <div className="min-h-screen w-full bg-[#0a0a0a] text-white flex flex-col items-center justify-center px-6 py-16" data-settings-page>
+      <div
+        className="min-h-screen w-full bg-[#0a0a0a] text-white flex flex-col items-center justify-center px-6 py-16"
+        data-settings-page
+      >
         <div className="fixed inset-0 -z-10 pointer-events-none">
           <div className="absolute inset-0 bg-[#0a0a0a]" />
           <div
@@ -171,7 +185,9 @@ export default function SettingsPage() {
             <div className="w-14 h-14 rounded-2xl bg-white/[0.06] flex items-center justify-center mx-auto mb-6">
               <User className="h-7 w-7 text-white/60" />
             </div>
-            <h1 className="text-[22px] sm:text-[24px] font-semibold text-white tracking-tight">Settings</h1>
+            <h1 className="text-[22px] sm:text-[24px] font-semibold text-white tracking-tight">
+              Settings
+            </h1>
             <p className="mt-3 text-[15px] text-white/55 leading-relaxed max-w-sm mx-auto">
               Sign in to manage your account, profile, and preferences.
             </p>
@@ -190,58 +206,65 @@ export default function SettingsPage() {
               ← Back to home
             </Link>
           </div>
-          <p className="mt-8 text-[12px] text-white/35">© 2026 Edge Platforms, Inc. All rights reserved.</p>
+          <p className="mt-8 text-[12px] text-white/35">
+            © 2026 Edge Platforms, Inc. All rights reserved.
+          </p>
         </div>
       </div>
     );
   }
 
-  const saveHandleAction = handleEdit !== "" ? (
-    <button
-      type="button"
-      onClick={async () => {
-        const normalized = normalizeHandle(handleEdit);
-        setHandleError(null);
-        setHandleSuccess(false);
-        if (!normalized) {
-          setHandleError("Handle is required.");
-          return;
-        }
-        if (!HANDLE_REGEX.test(normalized)) {
-          setHandleError("3–24 characters, letters, numbers, underscores only.");
-          return;
-        }
-        if (normalized === profile?.handle) {
-          setHandleEdit("");
-          return;
-        }
+  const saveHandleAction =
+    handleEdit !== "" ? (
+      <button
+        type="button"
+        onClick={async () => {
+          const normalized = normalizeHandle(handleEdit);
+          setHandleError(null);
+          setHandleSuccess(false);
+          if (!normalized) {
+            setHandleError("Handle is required.");
+            return;
+          }
+          if (!HANDLE_REGEX.test(normalized)) {
+            setHandleError("3–24 characters, letters, numbers, underscores only.");
+            return;
+          }
+          if (normalized === profile?.handle) {
+            setHandleEdit("");
+            return;
+          }
 
-        // Check if handle change is allowed (60-day cooldown)
-        if (handleChangeStatus && !handleChangeStatus.canChange) {
-          setHandleError(`You can change your handle again in ${handleChangeStatus.daysRemaining} ${handleChangeStatus.daysRemaining === 1 ? "day" : "days"}.`);
-          return;
-        }
+          // Check if handle change is allowed (60-day cooldown)
+          if (handleChangeStatus && !handleChangeStatus.canChange) {
+            setHandleError(
+              `You can change your handle again in ${handleChangeStatus.daysRemaining} ${handleChangeStatus.daysRemaining === 1 ? "day" : "days"}.`,
+            );
+            return;
+          }
 
-        // Check availability
-        const res = await fetch(
-          `/api/handle-available?handle=${encodeURIComponent(normalized)}&exclude_user_id=${encodeURIComponent(userId ?? "")}`
-        );
-        const data = await res.json();
-        if (!data.available) {
-          setHandleError(data.reason === "invalid" ? "Invalid format." : "That handle is already taken.");
-          return;
-        }
+          // Check availability
+          const res = await fetch(
+            `/api/handle-available?handle=${encodeURIComponent(normalized)}&exclude_user_id=${encodeURIComponent(userId ?? "")}`,
+          );
+          const data = await res.json();
+          if (!data.available) {
+            setHandleError(
+              data.reason === "invalid" ? "Invalid format." : "That handle is already taken.",
+            );
+            return;
+          }
 
-        // Show warning dialog before proceeding
-        setPendingHandleChange(normalized);
-        setShowHandleWarning(true);
-      }}
-      disabled={handleSaving || checkingHandleStatus}
-      className="px-4 py-2 rounded-lg bg-white text-black text-[13px] font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
-    >
-      {handleSaving ? "Saving..." : "Save"}
-    </button>
-  ) : null;
+          // Show warning dialog before proceeding
+          setPendingHandleChange(normalized);
+          setShowHandleWarning(true);
+        }}
+        disabled={handleSaving || checkingHandleStatus}
+        className="px-4 py-2 rounded-lg bg-white text-black text-[13px] font-medium hover:bg-white/90 transition-colors disabled:opacity-50"
+      >
+        {handleSaving ? "Saving..." : "Save"}
+      </button>
+    ) : null;
 
   // Actual handle save function (called after warning confirmation)
   const performHandleChange = async (normalized: string) => {
@@ -260,14 +283,14 @@ export default function SettingsPage() {
       setHandleEdit("");
       setShowHandleWarning(false);
       setPendingHandleChange(null);
-      
+
       // Refresh handle change status
       const res = await fetch("/api/profile/check-handle-change");
       if (res.ok) {
         const data = await res.json();
         setHandleChangeStatus(data);
       }
-      
+
       setTimeout(() => setHandleSuccess(false), 3000);
     } finally {
       setHandleSaving(false);
@@ -277,13 +300,16 @@ export default function SettingsPage() {
   const handleContent = (
     <div className="space-y-4">
       {/* Show cooldown banner if user cannot change handle */}
-      {handleChangeStatus && !handleChangeStatus.canChange && handleChangeStatus.lastChangedAt && handleChangeStatus.nextAllowedAt && (
-        <HandleCooldownBanner
-          lastChangedAt={handleChangeStatus.lastChangedAt}
-          nextAllowedAt={handleChangeStatus.nextAllowedAt}
-          daysRemaining={handleChangeStatus.daysRemaining}
-        />
-      )}
+      {handleChangeStatus &&
+        !handleChangeStatus.canChange &&
+        handleChangeStatus.lastChangedAt &&
+        handleChangeStatus.nextAllowedAt && (
+          <HandleCooldownBanner
+            lastChangedAt={handleChangeStatus.lastChangedAt}
+            nextAllowedAt={handleChangeStatus.nextAllowedAt}
+            daysRemaining={handleChangeStatus.daysRemaining}
+          />
+        )}
 
       {handleEdit === "" ? (
         <div className="flex items-center gap-3">
@@ -292,7 +318,9 @@ export default function SettingsPage() {
             type="button"
             onClick={() => {
               if (handleChangeStatus && !handleChangeStatus.canChange) {
-                setHandleError(`Handle changes are locked for ${handleChangeStatus.daysRemaining} more ${handleChangeStatus.daysRemaining === 1 ? "day" : "days"}.`);
+                setHandleError(
+                  `Handle changes are locked for ${handleChangeStatus.daysRemaining} more ${handleChangeStatus.daysRemaining === 1 ? "day" : "days"}.`,
+                );
                 return;
               }
               setHandleEdit(profile?.handle ?? "");
@@ -300,7 +328,11 @@ export default function SettingsPage() {
             disabled={handleChangeStatus ? !handleChangeStatus.canChange : false}
             className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="Edit handle"
-            title={handleChangeStatus && !handleChangeStatus.canChange ? `Available in ${handleChangeStatus.daysRemaining} days` : "Edit handle"}
+            title={
+              handleChangeStatus && !handleChangeStatus.canChange
+                ? `Available in ${handleChangeStatus.daysRemaining} days`
+                : "Edit handle"
+            }
           >
             <Pencil className="w-4 h-4" />
           </button>
@@ -315,7 +347,12 @@ export default function SettingsPage() {
               onChange={(e) => {
                 setHandleError(null);
                 setHandleSuccess(false);
-                setHandleEdit(e.target.value.replace(/[^a-zA-Z0-9_]/g, "_").toLowerCase().slice(0, 24));
+                setHandleEdit(
+                  e.target.value
+                    .replace(/[^a-zA-Z0-9_]/g, "_")
+                    .toLowerCase()
+                    .slice(0, 24),
+                );
               }}
               placeholder="handle"
               className="flex-1 min-w-0 rounded-lg bg-white/[0.06] border border-white/[0.10] px-4 py-2.5 text-[15px] text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/15"
@@ -340,7 +377,9 @@ export default function SettingsPage() {
           )}
           {handleSuccess && (
             <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-3">
-              <p className="text-emerald-400 text-[13px] font-medium">Handle updated successfully.</p>
+              <p className="text-emerald-400 text-[13px] font-medium">
+                Handle updated successfully.
+              </p>
             </div>
           )}
         </div>
@@ -349,7 +388,10 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="h-screen w-full bg-[#0a0a0a] text-white flex overflow-hidden" data-settings-page>
+    <div
+      className="h-screen w-full bg-[#0a0a0a] text-white flex overflow-hidden"
+      data-settings-page
+    >
       {/* Subtle background */}
       <div className="fixed inset-0 -z-10 pointer-events-none">
         <div className="absolute inset-0 bg-[#0a0a0a]" />
@@ -420,8 +462,12 @@ export default function SettingsPage() {
             {activeSection === "account" && (
               <section id="account" className="space-y-8">
                 <div>
-                  <h2 className="text-[24px] lg:text-[28px] font-semibold text-white tracking-tight">Account</h2>
-                  <p className="text-[14px] text-white/50 mt-1.5">Manage your account settings and profile</p>
+                  <h2 className="text-[24px] lg:text-[28px] font-semibold text-white tracking-tight">
+                    Account
+                  </h2>
+                  <p className="text-[14px] text-white/50 mt-1.5">
+                    Manage your account settings and profile
+                  </p>
                 </div>
 
                 <SettingSection
@@ -436,7 +482,9 @@ export default function SettingsPage() {
                       className="shrink-0 ring-2 ring-white/10 rounded-full"
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="text-[16px] font-medium text-white truncate">{displayName}</div>
+                      <div className="text-[16px] font-medium text-white truncate">
+                        {displayName}
+                      </div>
                       <div className="flex items-center gap-2 mt-1 text-[13px] text-white/50 truncate">
                         <Mail className="h-3.5 w-3.5 shrink-0 opacity-60" />
                         <span className="truncate">{userEmail ?? "—"}</span>
@@ -445,19 +493,36 @@ export default function SettingsPage() {
                   </div>
                 </SettingSection>
 
-                <SettingSection title="Handle" description="This is your unique handle on Edgaze. It appears in your profile URL and is used to identify you across the platform. Please use 3-24 characters, letters, numbers, and underscores only. You can change your handle once every 60 days." action={saveHandleAction}>
+                <SettingSection
+                  title="Handle"
+                  description="This is your unique handle on Edgaze. It appears in your profile URL and is used to identify you across the platform. Please use 3-24 characters, letters, numbers, and underscores only. You can change your handle once every 60 days."
+                  action={saveHandleAction}
+                >
                   {handleContent}
                 </SettingSection>
 
-                <SettingSection title="User ID" description="Your unique user identifier. This cannot be changed and is used internally by the system.">
-                  <div className="text-[13px] text-white/60 break-all font-mono">{userId ?? "—"}</div>
+                <SettingSection
+                  title="User ID"
+                  description="Your unique user identifier. This cannot be changed and is used internally by the system."
+                >
+                  <div className="text-[13px] text-white/60 break-all font-mono">
+                    {userId ?? "—"}
+                  </div>
                 </SettingSection>
 
-                <SettingSection title="Plan" description="Your current subscription plan. Upgrade to unlock more features and capabilities.">
-                  <div className="text-[15px] text-white/90 font-medium">{profile?.plan ?? "Free"}</div>
+                <SettingSection
+                  title="Plan"
+                  description="Your current subscription plan. Upgrade to unlock more features and capabilities."
+                >
+                  <div className="text-[15px] text-white/90 font-medium">
+                    {profile?.plan ?? "Free"}
+                  </div>
                 </SettingSection>
 
-                <SettingSection title="Email Verified" description="Your email verification status. Verified emails help secure your account and enable important notifications.">
+                <SettingSection
+                  title="Email Verified"
+                  description="Your email verification status. Verified emails help secure your account and enable important notifications."
+                >
                   <div className="flex items-center gap-2">
                     {isVerified ? (
                       <>
@@ -465,7 +530,9 @@ export default function SettingsPage() {
                         <span className="text-[15px] text-emerald-400 font-medium">Verified</span>
                       </>
                     ) : (
-                      <span className="text-[15px] text-amber-400/90 font-medium">Not verified</span>
+                      <span className="text-[15px] text-amber-400/90 font-medium">
+                        Not verified
+                      </span>
                     )}
                   </div>
                 </SettingSection>
@@ -475,15 +542,25 @@ export default function SettingsPage() {
             {activeSection === "preferences" && (
               <section id="preferences" className="space-y-8">
                 <div>
-                  <h2 className="text-[24px] lg:text-[28px] font-semibold text-white tracking-tight">Preferences</h2>
-                  <p className="text-[14px] text-white/50 mt-1.5">Customize your notification and update preferences</p>
+                  <h2 className="text-[24px] lg:text-[28px] font-semibold text-white tracking-tight">
+                    Preferences
+                  </h2>
+                  <p className="text-[14px] text-white/50 mt-1.5">
+                    Customize your notification and update preferences
+                  </p>
                 </div>
 
-                <SettingSection title="Email Notifications" description="Receive email notifications about important updates, security alerts, and activity on your account.">
+                <SettingSection
+                  title="Email Notifications"
+                  description="Receive email notifications about important updates, security alerts, and activity on your account."
+                >
                   <div className="text-[14px] text-white/40">Coming soon</div>
                 </SettingSection>
 
-                <SettingSection title="Product Updates" description="Get notified about new features, improvements, and platform updates.">
+                <SettingSection
+                  title="Product Updates"
+                  description="Get notified about new features, improvements, and platform updates."
+                >
                   <div className="text-[14px] text-white/40">Coming soon</div>
                 </SettingSection>
               </section>
@@ -499,10 +576,15 @@ export default function SettingsPage() {
                   <User className="h-6 w-6 text-white/60" />
                   Account
                 </h2>
-                <p className="text-[14px] text-white/50 mt-2">Manage your account settings and profile</p>
+                <p className="text-[14px] text-white/50 mt-2">
+                  Manage your account settings and profile
+                </p>
               </div>
 
-              <SettingSection title="Profile Avatar" description="This is your profile avatar. An avatar is optional but strongly recommended.">
+              <SettingSection
+                title="Profile Avatar"
+                description="This is your profile avatar. An avatar is optional but strongly recommended."
+              >
                 <div className="flex items-center gap-6">
                   <ProfileAvatar
                     name={displayName}
@@ -520,16 +602,25 @@ export default function SettingsPage() {
                 </div>
               </SettingSection>
 
-              <SettingSection title="Handle" description="Your unique handle. Please use 3-24 characters, letters, numbers, and underscores only. You can change your handle once every 60 days." action={saveHandleAction}>
+              <SettingSection
+                title="Handle"
+                description="Your unique handle. Please use 3-24 characters, letters, numbers, and underscores only. You can change your handle once every 60 days."
+                action={saveHandleAction}
+              >
                 {handleContent}
               </SettingSection>
 
-              <SettingSection title="User ID" description="Your unique user identifier. This cannot be changed.">
+              <SettingSection
+                title="User ID"
+                description="Your unique user identifier. This cannot be changed."
+              >
                 <div className="text-[13px] text-white/60 break-all font-mono">{userId ?? "—"}</div>
               </SettingSection>
 
               <SettingSection title="Plan" description="Your current subscription plan.">
-                <div className="text-[15px] text-white/90 font-medium">{profile?.plan ?? "Free"}</div>
+                <div className="text-[15px] text-white/90 font-medium">
+                  {profile?.plan ?? "Free"}
+                </div>
               </SettingSection>
 
               <SettingSection title="Email Verified" description="Your email verification status.">
@@ -553,14 +644,22 @@ export default function SettingsPage() {
                   <Bell className="h-6 w-6 text-white/60" />
                   Preferences
                 </h2>
-                <p className="text-[14px] text-white/50 mt-2">Customize your notification and update preferences</p>
+                <p className="text-[14px] text-white/50 mt-2">
+                  Customize your notification and update preferences
+                </p>
               </div>
 
-              <SettingSection title="Email Notifications" description="Receive email notifications about important updates, security alerts, and activity on your account.">
+              <SettingSection
+                title="Email Notifications"
+                description="Receive email notifications about important updates, security alerts, and activity on your account."
+              >
                 <div className="text-[14px] text-white/40">Coming soon</div>
               </SettingSection>
 
-              <SettingSection title="Product Updates" description="Get notified about new features, improvements, and platform updates.">
+              <SettingSection
+                title="Product Updates"
+                description="Get notified about new features, improvements, and platform updates."
+              >
                 <div className="text-[14px] text-white/40">Coming soon</div>
               </SettingSection>
             </section>
@@ -568,7 +667,9 @@ export default function SettingsPage() {
         </div>
 
         <footer className="border-t border-white/[0.08] py-6 px-6 sm:px-8 lg:px-12">
-          <p className="text-[12px] text-white/30">© 2026 Edge Platforms, Inc. All rights reserved.</p>
+          <p className="text-[12px] text-white/30">
+            © 2026 Edge Platforms, Inc. All rights reserved.
+          </p>
         </footer>
       </main>
 

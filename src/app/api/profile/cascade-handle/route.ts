@@ -49,10 +49,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (profileError || !profile?.handle) {
-      return NextResponse.json(
-        { error: "Profile not found or handle missing" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Profile not found or handle missing" }, { status: 400 });
     }
 
     const handle = profile.handle;
@@ -70,10 +67,7 @@ export async function POST(req: Request) {
 
     if (eWorkflows) {
       console.error("[cascade-handle] workflows update failed:", eWorkflows);
-      return NextResponse.json(
-        { error: "Failed to update workflows" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to update workflows" }, { status: 500 });
     }
 
     // Cascade to ALL prompts for this user (owner_id is text) – includes older posts
@@ -87,30 +81,18 @@ export async function POST(req: Request) {
 
     if (ePrompts) {
       console.error("[cascade-handle] prompts update failed:", ePrompts);
-      return NextResponse.json(
-        { error: "Failed to update prompts" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to update prompts" }, { status: 500 });
     }
 
     // Cascade to workflow_comments (user_id is text)
-    await admin
-      .from("workflow_comments")
-      .update({ user_handle: handle })
-      .eq("user_id", userIdStr);
+    await admin.from("workflow_comments").update({ user_handle: handle }).eq("user_id", userIdStr);
 
     // Cascade to prompt_comments (user_id is text)
-    await admin
-      .from("prompt_comments")
-      .update({ user_handle: handle })
-      .eq("user_id", userIdStr);
+    await admin.from("prompt_comments").update({ user_handle: handle }).eq("user_id", userIdStr);
 
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[cascade-handle] unexpected error:", e);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

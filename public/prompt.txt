@@ -465,7 +465,7 @@ function AutoFitCircleIcon({
 
 
   return (
-    <div className="fixed inset-0 z-[120]">
+    <div className="fixed inset-0 z-120">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
 
       <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
@@ -495,7 +495,7 @@ function AutoFitCircleIcon({
             <div className="grid grid-cols-12 gap-3 sm:gap-5">
               {/* Left: code + link */}
               <div className="col-span-12 sm:col-span-7">
-                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+                <div className="rounded-3xl border border-white/10 bg-white/3 p-4 sm:p-5">
                   <div className="text-[11px] font-semibold text-white/70">Edgaze code</div>
                   <div className="mt-2 flex items-end justify-between gap-3">
                     <div className="text-[30px] sm:text-[40px] font-semibold tracking-tight text-white leading-none">
@@ -577,7 +577,7 @@ function AutoFitCircleIcon({
 
               {/* Right: QR */}
               <div className="col-span-12 sm:col-span-5">
-                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+                <div className="rounded-3xl border border-white/10 bg-white/3 p-4 sm:p-5">
                   <div className="flex items-center justify-between">
                     <div className="text-[11px] font-semibold text-white/70">QR code</div>
                     <button
@@ -599,7 +599,7 @@ function AutoFitCircleIcon({
                   </div>
 
                   <div className="mt-3 grid place-items-center rounded-3xl border border-white/10 bg-black/35 p-3">
-                    <div className="h-[150px] w-[150px] sm:h-[210px] sm:w-[210px] overflow-hidden rounded-2xl bg-white/[0.03] grid place-items-center">
+                    <div className="h-[150px] w-[150px] sm:h-[210px] sm:w-[210px] overflow-hidden rounded-2xl bg-white/3 grid place-items-center">
                       {qrBusy ? (
                         <div className="inline-flex items-center gap-2 text-[12px] text-white/60">
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -654,7 +654,7 @@ function AutoFitCircleIcon({
             </div>
           </div>
 
-          <div className="h-[1px] bg-gradient-to-r from-cyan-400/40 via-white/10 to-pink-500/40" />
+          <div className="h-px bg-linear-to-r from-cyan-400/40 via-white/10 to-pink-500/40" />
         </div>
       </div>
     </div>
@@ -680,8 +680,8 @@ function BlurredPreview({ text, kind }: { text: string; kind: "prompt" | "workfl
       </div>
 
       <div className="absolute inset-3 rounded-2xl border border-white/10 bg-slate-900/50 backdrop-blur-md" />
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-28 bg-gradient-to-r from-cyan-400/90 via-cyan-400/20 to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-28 bg-gradient-to-l from-pink-500/90 via-pink-500/20 to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-28 bg-linear-to-r from-cyan-400/90 via-cyan-400/20 to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-28 bg-linear-to-l from-pink-500/90 via-pink-500/20 to-transparent" />
 
       <div className="relative flex h-full items-center justify-center">
         <div className="flex flex-col items-center gap-1">
@@ -790,7 +790,7 @@ function RunModal({
   );
 
   const FieldsPanel = (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+    <div className="rounded-3xl border border-white/10 bg-white/3 p-4">
       <div className="flex items-center justify-between">
         <div className="text-[12px] font-semibold text-white/90">Fill placeholders</div>
         {placeholders.length > 0 ? (
@@ -814,7 +814,7 @@ function RunModal({
               <div key={p.key} className="rounded-2xl border border-white/10 bg-black/30 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-[12px] font-semibold text-white/90 break-words leading-snug">
+                    <div className="text-[12px] font-semibold text-white/90 wrap-break-word leading-snug">
                       {label} {required && <span className="ml-1 text-amber-300">*</span>}
                     </div>
                     {q && <div className="mt-1 text-[11px] text-white/55 leading-snug">{q}</div>}
@@ -828,7 +828,7 @@ function RunModal({
                   value={v}
                   onChange={(e) => setValues((prev) => ({ ...prev, [p.key]: e.target.value }))}
                   placeholder={p.hint || ""}
-                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-2 text-[12px] text-white/85 outline-none focus:border-cyan-400/60"
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-3 py-2 text-[12px] text-white/85 outline-hidden focus:border-cyan-400/60"
                 />
               </div>
             );
@@ -843,7 +843,7 @@ function RunModal({
   );
 
   const PromptPanel = (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+    <div className="rounded-3xl border border-white/10 bg-white/3 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[12px] font-semibold text-white/90">Generated prompt</div>
@@ -869,14 +869,14 @@ function RunModal({
       <textarea
         readOnly
         value={filled}
-        className="mt-3 h-40 sm:h-44 w-full resize-none rounded-3xl border border-white/10 bg-black/45 p-3 text-[12px] text-white/85 outline-none"
+        className="mt-3 h-40 sm:h-44 w-full resize-none rounded-3xl border border-white/10 bg-black/45 p-3 text-[12px] text-white/85 outline-hidden"
       />
 
       <div className="mt-3">{Providers}</div>
 
       <div className="mt-3 rounded-3xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
         <div className="flex items-start gap-2">
-          <ExternalLink className="h-4 w-4 mt-[1px] text-white/45" />
+          <ExternalLink className="h-4 w-4 mt-px text-white/45" />
           <div className="min-w-0">
             <div className="text-white/80 font-semibold">Fast fallback</div>
             <div className="mt-0.5 leading-snug">If prefill doesn’t show, paste (Cmd+V / Ctrl+V) and send.</div>
@@ -887,7 +887,7 @@ function RunModal({
   );
 
   return (
-    <div className="fixed inset-0 z-[140]">
+    <div className="fixed inset-0 z-140">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
 
       <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4">
@@ -896,7 +896,7 @@ function RunModal({
           <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4">
             <div className="min-w-0">
               <div className="text-[13px] font-semibold text-white">Run</div>
-              <div className="mt-0.5 text-[12px] text-white/55 break-words leading-snug">{title}</div>
+              <div className="mt-0.5 text-[12px] text-white/55 wrap-break-word leading-snug">{title}</div>
             </div>
 
             <button
@@ -954,7 +954,7 @@ function RunModal({
                 </div>
 
                 {/* Mobile sticky action bar */}
-                <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[145] p-3">
+                <div className="pointer-events-none fixed inset-x-0 bottom-0 z-145 p-3">
                   <div className="pointer-events-auto rounded-3xl border border-white/10 bg-[#0b0c10]/90 backdrop-blur-md p-2 shadow-[0_-20px_80px_rgba(0,0,0,0.7)]">
                     <button
                       type="button"
@@ -982,7 +982,7 @@ function RunModal({
             </div>
           </div>
 
-          <div className="h-[1px] bg-gradient-to-r from-cyan-400/40 via-white/10 to-pink-500/40" />
+          <div className="h-px bg-linear-to-r from-cyan-400/40 via-white/10 to-pink-500/40" />
         </div>
       </div>
     </div>
@@ -1480,7 +1480,7 @@ export default function PromptProductPage() {
               "flex-1 inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold",
               purchaseLoading
                 ? "bg-white/10 text-white/70 border border-white/10"
-                : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
+                : "bg-linear-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
             )}
           >
             {purchaseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -1582,7 +1582,7 @@ export default function PromptProductPage() {
                   </span>
 
                   {listing.edgaze_code && (
-                    <span className="rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-2 py-[3px] text-[11px] font-semibold text-black shadow-[0_0_14px_rgba(56,189,248,0.55)]">
+                    <span className="rounded-full bg-linear-to-r from-cyan-400 via-sky-500 to-pink-500 px-2 py-[3px] text-[11px] font-semibold text-black shadow-[0_0_14px_rgba(56,189,248,0.55)]">
                       /{listing.edgaze_code}
                     </span>
                   )}
@@ -1672,7 +1672,7 @@ export default function PromptProductPage() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") setCommentsOpen(true);
                   }}
-                  className="w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left cursor-pointer select-none"
+                  className="w-full rounded-2xl border border-white/10 bg-white/3 p-4 text-left cursor-pointer select-none"
                   aria-label="Open comments"
                 >
                   <div className="flex items-center justify-between">
@@ -1681,7 +1681,7 @@ export default function PromptProductPage() {
                   </div>
 
                   <div className="mt-3 max-h-[140px] overflow-hidden relative">
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#050505] to-transparent" />
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-linear-to-t from-[#050505] to-transparent" />
                     <div className="pointer-events-none opacity-90">
                       <CommentsSection
                         listingId={listing.id}
@@ -1696,7 +1696,7 @@ export default function PromptProductPage() {
                 </div>
 
                 {commentsOpen && (
-                  <div className="fixed inset-0 z-[110]">
+                  <div className="fixed inset-0 z-110">
                     <div className="absolute inset-0 bg-black/80" onClick={() => setCommentsOpen(false)} />
                     <div className="absolute inset-x-0 bottom-0 top-[10%] rounded-t-3xl border border-white/10 bg-[#050505] overflow-hidden">
                       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
@@ -1814,7 +1814,7 @@ export default function PromptProductPage() {
             {/* RIGHT */}
             <aside className="min-w-0 hidden lg:block">
               <div className="lg:sticky lg:top-[76px]">
-                <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_0_30px_rgba(15,23,42,0.65)]">
+                <section className="rounded-2xl border border-white/10 bg-white/3 p-5 shadow-[0_0_30px_rgba(15,23,42,0.65)]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-sm font-semibold">
@@ -1886,7 +1886,7 @@ export default function PromptProductPage() {
                         "flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold",
                         purchaseLoading
                           ? "bg-white/10 text-white/70 border border-white/10"
-                          : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
+                          : "bg-linear-to-r from-cyan-400 via-sky-500 to-pink-500 text-black shadow-[0_0_22px_rgba(56,189,248,0.75)]"
                       )}
                     >
                       {purchaseLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}

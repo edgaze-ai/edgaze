@@ -5,11 +5,11 @@
  * Products are owned by the creator's Stripe account.
  */
 
-import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
-import { stripe } from '@/lib/stripe/client';
+import { NextResponse } from "next/server";
+import { createServerClient } from "@/lib/supabase/server";
+import { stripe } from "@/lib/stripe/client";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
@@ -21,29 +21,29 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { name, description, priceInCents, currency = 'usd' } = body;
+    const { name, description, priceInCents, currency = "usd" } = body;
 
-    if (!name || typeof priceInCents !== 'number' || priceInCents < 0) {
+    if (!name || typeof priceInCents !== "number" || priceInCents < 0) {
       return NextResponse.json(
-        { error: 'name and priceInCents (positive number) required' },
-        { status: 400 }
+        { error: "name and priceInCents (positive number) required" },
+        { status: 400 },
       );
     }
 
     const { data: connectAccount } = await supabase
-      .from('stripe_connect_accounts')
-      .select('stripe_account_id, account_status')
-      .eq('user_id', user.id)
+      .from("stripe_connect_accounts")
+      .select("stripe_account_id, account_status")
+      .eq("user_id", user.id)
       .single();
 
-    if (!connectAccount || connectAccount.account_status !== 'active') {
+    if (!connectAccount || connectAccount.account_status !== "active") {
       return NextResponse.json(
-        { error: 'Connect account not active. Complete onboarding first.' },
-        { status: 400 }
+        { error: "Connect account not active. Complete onboarding first." },
+        { status: 400 },
       );
     }
 
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       },
       {
         stripeAccount: connectAccount.stripe_account_id,
-      }
+      },
     );
 
     return NextResponse.json({
@@ -74,10 +74,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: any) {
-    console.error('[STRIPE V2] Create product error:', error);
+    console.error("[STRIPE V2] Create product error:", error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create product' },
-      { status: 500 }
+      { error: error.message || "Failed to create product" },
+      { status: 500 },
     );
   }
 }

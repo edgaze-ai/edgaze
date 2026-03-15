@@ -4,11 +4,18 @@ import { memo } from "react";
 import { Handle, Position, type NodeProps, useStore } from "reactflow";
 import { GitBranch } from "lucide-react";
 
-function getConditionLabel(config: { operator?: string; compareValue?: string; humanCondition?: string }): string {
+function getConditionLabel(config: {
+  operator?: string;
+  compareValue?: string;
+  humanCondition?: string;
+}): string {
   const operator = config?.operator || "truthy";
   const compareValue = String(config?.compareValue ?? "").slice(0, 30);
   if (String(config?.humanCondition ?? "").trim()) {
-    return String(config.humanCondition).trim().slice(0, 40) + (String(config.humanCondition).length > 40 ? "…" : "");
+    return (
+      String(config.humanCondition).trim().slice(0, 40) +
+      (String(config.humanCondition).length > 40 ? "…" : "")
+    );
   }
   switch (operator) {
     case "truthy":
@@ -36,8 +43,12 @@ function ConditionNodeImpl(props: NodeProps) {
   const edges = useStore((s) => s.edges);
   const isHandleConnected = (handleId: string, isSource: boolean) =>
     isSource
-      ? edges.some((e) => e.source === id && (e.sourceHandle == null || e.sourceHandle === handleId))
-      : edges.some((e) => e.target === id && (e.targetHandle == null || e.targetHandle === handleId));
+      ? edges.some(
+          (e) => e.source === id && (e.sourceHandle == null || e.sourceHandle === handleId),
+        )
+      : edges.some(
+          (e) => e.target === id && (e.targetHandle == null || e.targetHandle === handleId),
+        );
 
   const trueConnected = isHandleConnected("true", true);
   const falseConnected = isHandleConnected("false", true);
@@ -134,7 +145,9 @@ function ConditionNodeImpl(props: NodeProps) {
       <div style={{ padding: "10px 44px 10px 14px", background: "#161616" }}>
         {/* Condition preview */}
         <div>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: AMBER }}>IF</div>
+          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", color: AMBER }}>
+            IF
+          </div>
           <div
             style={{
               fontSize: 12,
@@ -167,7 +180,9 @@ function ConditionNodeImpl(props: NodeProps) {
                 flexShrink: 0,
               }}
             />
-            <span style={{ fontSize: 10, fontWeight: 500, color: TRUE_COLOR, flexShrink: 0 }}>True →</span>
+            <span style={{ fontSize: 10, fontWeight: 500, color: TRUE_COLOR, flexShrink: 0 }}>
+              True →
+            </span>
             <span
               style={{
                 fontSize: 10,
@@ -191,7 +206,9 @@ function ConditionNodeImpl(props: NodeProps) {
                 flexShrink: 0,
               }}
             />
-            <span style={{ fontSize: 10, fontWeight: 500, color: FALSE_COLOR, flexShrink: 0 }}>False →</span>
+            <span style={{ fontSize: 10, fontWeight: 500, color: FALSE_COLOR, flexShrink: 0 }}>
+              False →
+            </span>
             <span
               style={{
                 fontSize: 10,

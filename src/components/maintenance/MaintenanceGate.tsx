@@ -49,7 +49,7 @@ function useMaintenanceMode() {
         (payload: { new?: { value?: boolean } }) => {
           const next = Boolean(payload?.new?.value);
           setMaintenance(next);
-        }
+        },
       )
       .subscribe();
 
@@ -64,19 +64,19 @@ function useMaintenanceMode() {
   return { maintenance };
 }
 
-export default function MaintenanceGate({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "";
   const { maintenance } = useMaintenanceMode();
+  const [mounted, setMounted] = useState(false);
 
-  const skip =
-    SKIP_PATHS.has(pathname) || pathname.startsWith(SKIP_PREFIX);
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true));
+  }, []);
+
+  const skip = mounted && (SKIP_PATHS.has(pathname) || pathname.startsWith(SKIP_PREFIX));
 
   // Never block: always render app immediately. Check maintenance in background.
-  // When maintenance is on, overlay the maintenance screen on top.
+  // Defer pathname-dependent skip until mounted to avoid hydration mismatch.
   if (skip) {
     return <>{children}</>;
   }

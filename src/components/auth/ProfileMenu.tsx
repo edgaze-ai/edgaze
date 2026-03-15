@@ -48,7 +48,7 @@ export default function ProfileMenu() {
   const userHandle = (user as any)?.handle;
   const readyHandle = useMemo(
     () => safeHandle(profile?.handle) || safeHandle(userHandle),
-    [profile?.handle, userHandle]
+    [profile?.handle, userHandle],
   );
 
   const avatarSrc = profile?.avatar_url || DEFAULT_AVATAR_SRC;
@@ -73,7 +73,7 @@ export default function ProfileMenu() {
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex items-center gap-3 rounded-full border px-3 py-1.5",
-          "border-neutral-600 bg-white/5 hover:border-neutral-500 transition-colors"
+          "border-neutral-600 bg-white/5 hover:border-neutral-500 transition-colors",
         )}
       >
         <ProfileAvatar
@@ -120,7 +120,7 @@ export default function ProfileMenu() {
             href={readyHandle ? `/profile/${encodeURIComponent(readyHandle)}` : "/profile"}
             className={cn(
               "block px-3 py-2 text-sm text-white/90 hover:bg-white/10",
-              !readyHandle && "opacity-80"
+              !readyHandle && "opacity-80",
             )}
             onClick={() => setOpen(false)}
           >

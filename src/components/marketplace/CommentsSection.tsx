@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  FormEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   MessageCircle,
   ThumbsUp,
@@ -183,10 +177,7 @@ function CommentItem({
         </>
       )}
 
-      <div
-        className="flex gap-3 py-3"
-        style={{ paddingLeft: depth === 0 ? 0 : leftGutter }}
-      >
+      <div className="flex gap-3 py-3" style={{ paddingLeft: depth === 0 ? 0 : leftGutter }}>
         <ProfileAvatar
           name={comment.user_name || comment.user_handle}
           avatarUrl={comment.user_avatar_url}
@@ -214,9 +205,7 @@ function CommentItem({
               />
             )}
 
-            <span className="text-[12px] text-white/40">
-              · {timeAgo(comment.created_at)}
-            </span>
+            <span className="text-[12px] text-white/40">· {timeAgo(comment.created_at)}</span>
 
             {comment.is_pinned && (
               <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2 py-[2px] text-[11px] font-semibold text-cyan-200 ring-1 ring-cyan-400/20">
@@ -227,7 +216,7 @@ function CommentItem({
 
             {comment.creator_liked && creatorAvatarUrl && (
               <span className="inline-flex items-center gap-1 rounded-full bg-pink-500/12 px-2 py-[2px] text-[11px] text-pink-200 ring-1 ring-pink-400/15">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {}
                 <img
                   src={creatorAvatarUrl}
                   alt="Creator"
@@ -274,9 +263,7 @@ function CommentItem({
               <>
                 <button
                   type="button"
-                  onClick={() =>
-                    onTogglePin(comment.id, !Boolean(comment.is_pinned))
-                  }
+                  onClick={() => onTogglePin(comment.id, !Boolean(comment.is_pinned))}
                   className="inline-flex items-center gap-1 rounded-full px-2 py-1 hover:bg-white/5 hover:text-white/80"
                 >
                   {comment.is_pinned ? (
@@ -294,17 +281,12 @@ function CommentItem({
 
                 <button
                   type="button"
-                  onClick={() =>
-                    onToggleCreatorLike(
-                      comment.id,
-                      !Boolean(comment.creator_liked)
-                    )
-                  }
+                  onClick={() => onToggleCreatorLike(comment.id, !Boolean(comment.creator_liked))}
                   className={cn(
                     "inline-flex items-center gap-1 rounded-full px-2 py-1",
                     comment.creator_liked
                       ? "bg-gradient-to-r from-cyan-400 to-pink-500 text-black"
-                      : "hover:bg-white/5 hover:text-white/80"
+                      : "hover:bg-white/5 hover:text-white/80",
                   )}
                 >
                   <Crown className="h-4 w-4" />
@@ -338,8 +320,7 @@ function CommentItem({
                       "rounded-full px-3 py-1.5 text-[12px] font-semibold text-black",
                       "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500",
                       "shadow-[0_0_18px_rgba(56,189,248,0.35)]",
-                      (submitting || !replyText.trim()) &&
-                        "cursor-not-allowed opacity-70"
+                      (submitting || !replyText.trim()) && "cursor-not-allowed opacity-70",
                     )}
                   >
                     {submitting ? (
@@ -379,10 +360,7 @@ function CommentItem({
   );
 }
 
-export default function CommentsSection({
-  listingId,
-  listingOwnerId,
-}: CommentsSectionProps) {
+export default function CommentsSection({ listingId, listingOwnerId }: CommentsSectionProps) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { userId, profile, requireAuth } = useAuth();
 
@@ -397,9 +375,7 @@ export default function CommentsSection({
   // We resolve to prompts.id and use that everywhere.
   const [promptIdForComments, setPromptIdForComments] = useState<string>(listingId);
 
-  const [toast, setToast] = useState<null | { title: string; detail?: string }>(
-    null
-  );
+  const [toast, setToast] = useState<null | { title: string; detail?: string }>(null);
 
   const isCreator = !!userId && !!listingOwnerId && userId === listingOwnerId;
 
@@ -433,11 +409,7 @@ export default function CommentsSection({
       let resolved = listingId;
 
       // 1) Does prompts.id == listingId?
-      const byId = await supabase
-        .from("prompts")
-        .select("id")
-        .eq("id", listingId)
-        .maybeSingle();
+      const byId = await supabase.from("prompts").select("id").eq("id", listingId).maybeSingle();
 
       if (byId.data?.id != null) {
         resolved = String(byId.data.id);
@@ -492,7 +464,7 @@ export default function CommentsSection({
           "dislike_count",
           "is_pinned",
           "creator_liked",
-        ].join(",")
+        ].join(","),
       )
       .eq("prompt_id", promptIdForComments)
       .order("created_at", { ascending: true });
@@ -519,8 +491,7 @@ export default function CommentsSection({
     if (!requireAuth()) return;
     if (!userId) return;
 
-    const name =
-      profile?.full_name?.trim() || profile?.handle?.trim() || "Creator";
+    const name = profile?.full_name?.trim() || profile?.handle?.trim() || "Creator";
     const handle = profile?.handle?.trim() || null;
 
     setSubmitting(true);
@@ -551,7 +522,7 @@ export default function CommentsSection({
             "dislike_count",
             "is_pinned",
             "creator_liked",
-          ].join(",")
+          ].join(","),
         )
         .single();
 
@@ -567,7 +538,7 @@ export default function CommentsSection({
         // Supabase returned a weird shape; reload to be safe
         loadComments();
       }
-      
+
       if (!parentId) setNewContent("");
     } finally {
       setSubmitting(false);
@@ -616,15 +587,11 @@ export default function CommentsSection({
           r.id === commentId
             ? ({
                 ...r,
-                like_count:
-                  typeof nextLike === "number" ? nextLike : r.like_count,
-                dislike_count:
-                  typeof nextDislike === "number"
-                    ? nextDislike
-                    : r.dislike_count,
+                like_count: typeof nextLike === "number" ? nextLike : r.like_count,
+                dislike_count: typeof nextDislike === "number" ? nextDislike : r.dislike_count,
               } as CommentRow)
-            : r
-        )
+            : r,
+        ),
       );
       return;
     }
@@ -640,8 +607,8 @@ export default function CommentsSection({
       prev.map((r) =>
         r.id === id
           ? ({ ...r, is_pinned: shouldPin } as CommentRow)
-          : ({ ...r, is_pinned: shouldPin ? false : r.is_pinned } as CommentRow)
-      )
+          : ({ ...r, is_pinned: shouldPin ? false : r.is_pinned } as CommentRow),
+      ),
     );
 
     if (shouldPin) {
@@ -669,9 +636,7 @@ export default function CommentsSection({
     if (!isCreator) return;
 
     setRows((prev) =>
-      prev.map((r) =>
-        r.id === id ? ({ ...r, creator_liked: next } as CommentRow) : r
-      )
+      prev.map((r) => (r.id === id ? ({ ...r, creator_liked: next } as CommentRow) : r)),
     );
 
     const { error } = await supabase
@@ -695,9 +660,7 @@ export default function CommentsSection({
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <div className="font-semibold">{toast.title}</div>
-              {toast.detail ? (
-                <div className="mt-0.5 text-red-200/80">{toast.detail}</div>
-              ) : null}
+              {toast.detail ? <div className="mt-0.5 text-red-200/80">{toast.detail}</div> : null}
             </div>
           </div>
           <button
@@ -736,8 +699,7 @@ export default function CommentsSection({
                 "rounded-full px-3 py-1.5 text-[12px] font-semibold text-black",
                 "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500",
                 "shadow-[0_0_18px_rgba(56,189,248,0.35)]",
-                (submitting || !newContent.trim()) &&
-                  "cursor-not-allowed opacity-70"
+                (submitting || !newContent.trim()) && "cursor-not-allowed opacity-70",
               )}
             >
               {submitting ? (

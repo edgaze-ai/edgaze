@@ -7,6 +7,7 @@ This document describes the complete Stripe Connect payment system implementatio
 ## Architecture
 
 ### Revenue Flow
+
 ```
 Buyer Purchase ($100)
   ↓
@@ -118,11 +119,13 @@ psql $DATABASE_URL < supabase/migrations/20250227000000_stripe_connect_tables.sq
 ### 3. Vercel Configuration
 
 Add environment variables in Vercel dashboard:
+
 - Settings → Environment Variables
 - Add all variables from `.env`
 - Redeploy after adding variables
 
 Configure cron job:
+
 - The `vercel.json` file is already configured
 - Cron runs every 5 minutes to retry failed webhooks
 
@@ -169,6 +172,7 @@ Configure cron job:
 ## API Routes
 
 ### Creator Onboarding
+
 - `POST /api/stripe/connect/onboard` - Start onboarding
 - `GET /api/stripe/connect/callback` - Handle completion
 - `POST /api/stripe/connect/refresh` - Refresh onboarding link
@@ -176,18 +180,22 @@ Configure cron job:
 - `GET /api/stripe/connect/status` - Check account status
 
 ### Checkout
+
 - `POST /api/stripe/checkout/create` - Create checkout session
 - `GET /api/stripe/checkout/confirm` - Poll for confirmation
 
 ### Webhooks
+
 - `POST /api/stripe/webhooks` - Handle all Stripe events
 
 ### Creator Earnings
+
 - `GET /api/creator/earnings` - Get earnings summary
 - `GET /api/creator/transactions` - Get transaction history
 - `GET /api/creator/analytics` - Get revenue analytics
 
 ### Cron Jobs
+
 - `GET /api/cron/retry-failed-webhooks` - Retry failed webhooks (every 5 min)
 
 ## Security Features
@@ -227,6 +235,7 @@ Configure cron job:
 ### Recommended Alerts
 
 Set up alerts for:
+
 - Payment failure rate >10%
 - Unprocessed webhooks >5 minutes old
 - Earnings mismatches detected
@@ -236,6 +245,7 @@ Set up alerts for:
 ### Logging
 
 All critical events are logged:
+
 - `[STRIPE CONNECT]` - Onboarding events
 - `[STRIPE CHECKOUT]` - Payment events
 - `[WEBHOOK]` - Webhook processing
@@ -271,7 +281,7 @@ All critical events are logged:
 
 1. Run reconciliation query:
    ```sql
-   SELECT 
+   SELECT
      ce.creator_id,
      SUM(ce.net_amount_cents) as calculated_earnings,
      p.total_earnings_cents as profile_earnings

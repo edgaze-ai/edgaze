@@ -7,10 +7,7 @@ import { getDoc } from "../../utils/docs";
 import { extractToc } from "../../utils/extractToc";
 
 export function generateStaticParams() {
-  return [
-    { subslug: "workflow-studio" },
-    { subslug: "prompt-studio" },
-  ];
+  return [{ subslug: "workflow-studio" }, { subslug: "prompt-studio" }];
 }
 
 export async function generateMetadata({
@@ -35,8 +32,10 @@ export async function generateMetadata({
   };
 
   const descMap: Record<string, string> = {
-    "workflow-studio": "Complete guide to building AI workflows with Workflow Studio. Learn how to create complex multi-step AI processes, configure nodes, use the inspector panel, and publish workflows.",
-    "prompt-studio": "Complete guide to creating reusable AI prompts with Prompt Studio. Learn how to use placeholders, configure prompts, test and publish your prompts.",
+    "workflow-studio":
+      "Complete guide to building AI workflows with Workflow Studio. Learn how to create complex multi-step AI processes, configure nodes, use the inspector panel, and publish workflows.",
+    "prompt-studio":
+      "Complete guide to creating reusable AI prompts with Prompt Studio. Learn how to use placeholders, configure prompts, test and publish your prompts.",
   };
 
   return {

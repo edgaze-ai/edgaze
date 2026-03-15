@@ -3,7 +3,17 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Edit3, ExternalLink, Layers, ShoppingBag, BookOpen, Zap, Sparkles, EyeOff } from "lucide-react";
+import {
+  Loader2,
+  Edit3,
+  ExternalLink,
+  Layers,
+  ShoppingBag,
+  BookOpen,
+  Zap,
+  Sparkles,
+  EyeOff,
+} from "lucide-react";
 
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../../components/auth/AuthContext";
@@ -217,7 +227,11 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
 
   const isFree = item.monetisation_mode === "free" || item.is_paid === false;
   const priceLabel =
-    isFree || item.price_usd == null ? (isFree ? "Free" : "Paid") : `$${Number(item.price_usd).toFixed(2)}`;
+    isFree || item.price_usd == null
+      ? isFree
+        ? "Free"
+        : "Paid"
+      : `$${Number(item.price_usd).toFixed(2)}`;
 
   const badgeLabel = item.kind === "workflow" ? "Workflow" : "Prompt";
 
@@ -268,12 +282,12 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
       onClick={openListing}
       className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-white/[0.01] backdrop-blur-sm transition-all duration-300 cursor-pointer hover:from-white/[0.06] hover:via-white/[0.03] hover:to-white/[0.02]"
       style={{
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+        boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
       }}
     >
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-fuchsia-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      
+
       {/* Content */}
       <div className="relative p-5 sm:p-6">
         {isRemoved && (
@@ -324,22 +338,21 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
           {/* Thumbnail - larger and more prominent */}
           <div className="relative h-24 w-32 sm:h-28 sm:w-40 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900/90 to-slate-800/80 shrink-0 ring-1 ring-white/5 group-hover:ring-white/10 transition-all duration-300">
             {item.thumbnail_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img 
-                src={item.thumbnail_url} 
-                alt={item.title || "Thumbnail"} 
-                className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" 
+              <img
+                src={item.thumbnail_url}
+                alt={item.title || "Thumbnail"}
+                className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
                 <div className="text-center">
                   <div className="flex justify-center mb-1">
-                  {item.kind === "workflow" ? (
-                    <Zap className="h-8 w-8 text-white/30" />
-                  ) : (
-                    <Sparkles className="h-8 w-8 text-white/30" />
-                  )}
-                </div>
+                    {item.kind === "workflow" ? (
+                      <Zap className="h-8 w-8 text-white/30" />
+                    ) : (
+                      <Sparkles className="h-8 w-8 text-white/30" />
+                    )}
+                  </div>
                   <div className="text-[10px] text-white/40">No image</div>
                 </div>
               </div>
@@ -366,14 +379,12 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
                   </p>
                 )}
               </div>
-              
-              {/* Price badge - more subtle */}
+
+              {/* Price badge */}
               <div
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-[11px] font-medium shrink-0",
-                  isFree 
-                    ? "bg-cyan-500/10 text-cyan-300/90" 
-                    : "bg-fuchsia-500/10 text-fuchsia-300/90"
+                  "rounded-lg px-2.5 py-1 text-[11px] font-semibold tabular-nums shrink-0",
+                  isFree ? "bg-emerald-500/20 text-emerald-300" : "bg-white/10 text-white/90",
                 )}
               >
                 {priceLabel}
@@ -499,7 +510,9 @@ export default function LibraryPage() {
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [promptMeta, setPromptMeta] = useState<any>(null);
   const [promptText, setPromptText] = useState<string>("");
-  const [promptPlaceholders, setPromptPlaceholders] = useState<Array<{ name: string; question: string }>>([]);
+  const [promptPlaceholders, setPromptPlaceholders] = useState<
+    Array<{ name: string; question: string }>
+  >([]);
   const [editingPromptId, setEditingPromptId] = useState<string | null>(null);
 
   const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
@@ -512,86 +525,86 @@ export default function LibraryPage() {
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
-    
+
     // Save original values
     const originalHtmlHeight = html.style.height;
     const originalHtmlOverflowY = html.style.overflowY;
     const originalBodyHeight = body.style.height;
     const originalBodyOverflowY = body.style.overflowY;
-    
+
     // Check if mobile - use media query for reliability
     const checkAndSetScrolling = () => {
       // Use matchMedia for more reliable mobile detection (matches Tailwind sm breakpoint)
-      const isMobile = window.matchMedia('(max-width: 639px)').matches;
-      
+      const isMobile = window.matchMedia("(max-width: 639px)").matches;
+
       if (isMobile) {
         // Mobile: MUST allow natural scrolling - add class for CSS override
-        html.classList.add('library-mobile-scroll');
-        body.classList.add('library-mobile-scroll');
-        
+        html.classList.add("library-mobile-scroll");
+        body.classList.add("library-mobile-scroll");
+
         // Also set inline styles as backup
-        html.style.height = 'auto';
-        html.style.minHeight = '100%';
-        html.style.overflowY = 'auto';
-        html.style.overflowX = 'hidden';
-        
-        body.style.height = 'auto';
-        body.style.minHeight = '100%';
-        body.style.overflowY = 'auto';
-        body.style.overflowX = 'hidden';
+        html.style.height = "auto";
+        html.style.minHeight = "100%";
+        html.style.overflowY = "auto";
+        html.style.overflowX = "hidden";
+
+        body.style.height = "auto";
+        body.style.minHeight = "100%";
+        body.style.overflowY = "auto";
+        body.style.overflowX = "hidden";
       } else {
         // Desktop ONLY: lock height for independent section scrolling
-        html.classList.remove('library-mobile-scroll');
-        body.classList.remove('library-mobile-scroll');
-        
-        html.style.height = '100%';
-        html.style.overflowY = 'hidden';
-        html.style.overflowX = 'hidden';
-        
-        body.style.height = '100%';
-        body.style.overflowY = 'hidden';
-        body.style.overflowX = 'hidden';
+        html.classList.remove("library-mobile-scroll");
+        body.classList.remove("library-mobile-scroll");
+
+        html.style.height = "100%";
+        html.style.overflowY = "hidden";
+        html.style.overflowX = "hidden";
+
+        body.style.height = "100%";
+        body.style.overflowY = "hidden";
+        body.style.overflowX = "hidden";
       }
     };
-    
+
     // Set immediately - run sync first, then async to ensure it applies
     checkAndSetScrolling();
-    
+
     // Also run after a tiny delay to ensure it sticks
     setTimeout(() => {
       checkAndSetScrolling();
     }, 10);
-    
+
     // Handle resize with media query listener for better reliability
-    const mediaQuery = window.matchMedia('(max-width: 639px)');
+    const mediaQuery = window.matchMedia("(max-width: 639px)");
     const handleMediaChange = () => {
       checkAndSetScrolling();
     };
-    
+
     // Also listen to resize as fallback
     const handleResize = () => {
       checkAndSetScrolling();
     };
-    
+
     // Use both media query listener and resize
     if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleMediaChange);
+      mediaQuery.addEventListener("change", handleMediaChange);
     } else {
       // Fallback for older browsers
       mediaQuery.addListener(handleMediaChange);
     }
-    window.addEventListener('resize', handleResize);
-    
+    window.addEventListener("resize", handleResize);
+
     return () => {
       if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener('change', handleMediaChange);
+        mediaQuery.removeEventListener("change", handleMediaChange);
       } else {
         mediaQuery.removeListener(handleMediaChange);
       }
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("resize", handleResize);
       // Remove classes
-      html.classList.remove('library-mobile-scroll');
-      body.classList.remove('library-mobile-scroll');
+      html.classList.remove("library-mobile-scroll");
+      body.classList.remove("library-mobile-scroll");
       // Restore
       html.style.height = originalHtmlHeight;
       html.style.overflowY = originalHtmlOverflowY;
@@ -650,7 +663,7 @@ export default function LibraryPage() {
                 "removed_at",
                 "removed_reason",
                 "removed_by",
-              ].join(",")
+              ].join(","),
             )
             .eq("owner_id", userId)
             .order("updated_at", { ascending: false }),
@@ -685,7 +698,7 @@ export default function LibraryPage() {
                 "removed_at",
                 "removed_reason",
                 "removed_by",
-              ].join(",")
+              ].join(","),
             )
             .eq("owner_id", userId)
             .order("updated_at", { ascending: false }),
@@ -758,7 +771,9 @@ export default function LibraryPage() {
 
           supabase
             .from("workflow_purchases")
-            .select("id, created_at, workflow_id, buyer_id, status, provider, currency, price_usd, external_ref, workflow_version_id")
+            .select(
+              "id, created_at, workflow_id, buyer_id, status, provider, currency, price_usd, external_ref, workflow_version_id",
+            )
             .eq("buyer_id", userId)
             .order("created_at", { ascending: false }),
         ]);
@@ -770,10 +785,16 @@ export default function LibraryPage() {
 
         // Keep “good or unknown” statuses, drop obvious bad ones
         const promptPurchases = promptPurchasesAll.filter((p) => !isBadPurchaseStatus(p.status));
-        const workflowPurchases = workflowPurchasesAll.filter((w) => !isBadPurchaseStatus(w.status));
+        const workflowPurchases = workflowPurchasesAll.filter(
+          (w) => !isBadPurchaseStatus(w.status),
+        );
 
-        const promptIds = Array.from(new Set(promptPurchases.map((p) => p.prompt_id).filter(Boolean)));
-        const workflowIds = Array.from(new Set(workflowPurchases.map((w) => w.workflow_id).filter(Boolean)));
+        const promptIds = Array.from(
+          new Set(promptPurchases.map((p) => p.prompt_id).filter(Boolean)),
+        );
+        const workflowIds = Array.from(
+          new Set(workflowPurchases.map((w) => w.workflow_id).filter(Boolean)),
+        );
 
         const [promptsDataRes, workflowsDataRes] = await Promise.all([
           promptIds.length
@@ -804,7 +825,7 @@ export default function LibraryPage() {
                     "removed_at",
                     "removed_reason",
                     "removed_by",
-                  ].join(",")
+                  ].join(","),
                 )
                 .in("id", promptIds)
             : (Promise.resolve({ data: [], error: null }) as any),
@@ -835,7 +856,7 @@ export default function LibraryPage() {
                     "removed_reason",
                     "removed_by",
                     "active_version_id",
-                  ].join(",")
+                  ].join(","),
                 )
                 .in("id", workflowIds)
             : (Promise.resolve({ data: [], error: null }) as any),
@@ -843,21 +864,23 @@ export default function LibraryPage() {
 
         if (cancelled) return;
 
-        if (promptsDataRes.error) console.warn?.("Error loading purchased prompts", promptsDataRes.error);
-        if (workflowsDataRes.error) console.warn?.("Error loading purchased workflows", workflowsDataRes.error);
+        if (promptsDataRes.error)
+          console.warn?.("Error loading purchased prompts", promptsDataRes.error);
+        if (workflowsDataRes.error)
+          console.warn?.("Error loading purchased workflows", workflowsDataRes.error);
 
         const promptMap = new Map<string, LibraryItem>(
           (promptsDataRes.data ?? []).map((r: any) => {
             const item = normalizePrompt(r as PromptRowRaw);
             return [item.id, item];
-          })
+          }),
         );
 
         const workflowMap = new Map<string, LibraryItem>(
           (workflowsDataRes.data ?? []).map((r: any) => {
             const item = normalizeWorkflow(r as WorkflowRowRaw);
             return [item.id, item];
-          })
+          }),
         );
         type PurchaseKey = { kind: LibraryKind; created_at: string; id: string };
 
@@ -873,14 +896,16 @@ export default function LibraryPage() {
             id: w.workflow_id,
           })),
         ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        
+
         const purchaseByWorkflowId = new Map(workflowPurchases.map((w) => [w.workflow_id, w]));
         const ordered: LibraryItem[] = [];
         for (const p of combinedPurchases) {
           let item = p.kind === "prompt" ? promptMap.get(p.id) : workflowMap.get(p.id);
           if (item && p.kind === "workflow") {
             const purchase = purchaseByWorkflowId.get(p.id);
-            const workflowRow = (workflowsDataRes.data ?? []).find((r: any) => r.id === p.id) as WorkflowRowRaw | undefined;
+            const workflowRow = (workflowsDataRes.data ?? []).find((r: any) => r.id === p.id) as
+              | WorkflowRowRaw
+              | undefined;
             const updateAvailable =
               !!purchase?.workflow_version_id &&
               !!workflowRow?.active_version_id &&
@@ -973,17 +998,19 @@ export default function LibraryPage() {
       {/* Premium background gradient */}
       <div className="fixed inset-0 -z-10 pointer-events-none">
         <div className="absolute inset-0 bg-[#050505]" />
-        <div 
+        <div
           className="absolute inset-0 opacity-40"
           style={{
-            backgroundImage: 'radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.08), transparent 50%), radial-gradient(circle at 80% 80%, rgba(232, 121, 249, 0.06), transparent 50%)',
+            backgroundImage:
+              "radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.08), transparent 50%), radial-gradient(circle at 80% 80%, rgba(232, 121, 249, 0.06), transparent 50%)",
           }}
         />
-        <div 
+        <div
           className="absolute inset-0 opacity-20"
           style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
+            backgroundSize: "40px 40px",
           }}
         />
       </div>
@@ -1002,9 +1029,9 @@ export default function LibraryPage() {
                   onClick={() => setMobileTab("created")}
                   className={cn(
                     "rounded-xl px-4 py-2.5 text-[12px] font-semibold transition-all duration-200",
-                    mobileTab === "created" 
-                      ? "bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 text-white shadow-lg shadow-cyan-500/10" 
-                      : "text-white/60 hover:text-white/80"
+                    mobileTab === "created"
+                      ? "bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 text-white shadow-lg shadow-cyan-500/10"
+                      : "text-white/60 hover:text-white/80",
                   )}
                 >
                   Created
@@ -1014,9 +1041,9 @@ export default function LibraryPage() {
                   onClick={() => setMobileTab("purchased")}
                   className={cn(
                     "rounded-xl px-4 py-2.5 text-[12px] font-semibold transition-all duration-200",
-                    mobileTab === "purchased" 
-                      ? "bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 text-white shadow-lg shadow-cyan-500/10" 
-                      : "text-white/60 hover:text-white/80"
+                    mobileTab === "purchased"
+                      ? "bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 text-white shadow-lg shadow-cyan-500/10"
+                      : "text-white/60 hover:text-white/80",
                   )}
                 >
                   Purchased
@@ -1028,11 +1055,13 @@ export default function LibraryPage() {
           {/* Desktop+ */}
           <div className="hidden sm:flex items-center justify-between">
             <div className="flex items-center gap-4 min-w-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {}
               <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-7 w-7" />
               <div className="min-w-0">
                 <div className="text-[16px] font-semibold text-white">Library</div>
-                <div className="text-[12px] text-white/50 truncate">Your created + purchased prompts & workflows</div>
+                <div className="text-[12px] text-white/50 truncate">
+                  Your created + purchased prompts & workflows
+                </div>
               </div>
             </div>
 
@@ -1081,7 +1110,13 @@ export default function LibraryPage() {
                   </div>
                 ) : (
                   created.map((item) => (
-                    <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="created" onEdit={openEdit} onRemoveSuccess={triggerRefresh} />
+                    <LibraryCard
+                      key={`${item.kind}:${item.id}`}
+                      item={item}
+                      context="created"
+                      onEdit={openEdit}
+                      onRemoveSuccess={triggerRefresh}
+                    />
                   ))
                 )}
               </div>
@@ -1132,7 +1167,9 @@ export default function LibraryPage() {
                 </div>
                 <div>
                   <div className="text-[15px] font-semibold text-white/90">Created</div>
-                  <div className="text-[12px] text-white/50">{created.length} {created.length === 1 ? 'item' : 'items'}</div>
+                  <div className="text-[12px] text-white/50">
+                    {created.length} {created.length === 1 ? "item" : "items"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1153,7 +1190,13 @@ export default function LibraryPage() {
                   </div>
                 ) : (
                   created.map((item) => (
-                    <LibraryCard key={`${item.kind}:${item.id}`} item={item} context="created" onEdit={openEdit} onRemoveSuccess={triggerRefresh} />
+                    <LibraryCard
+                      key={`${item.kind}:${item.id}`}
+                      item={item}
+                      context="created"
+                      onEdit={openEdit}
+                      onRemoveSuccess={triggerRefresh}
+                    />
                   ))
                 )}
               </div>
@@ -1169,7 +1212,9 @@ export default function LibraryPage() {
                 </div>
                 <div>
                   <div className="text-[15px] font-semibold text-white/90">Purchased</div>
-                  <div className="text-[12px] text-white/50">{purchased.length} {purchased.length === 1 ? 'item' : 'items'}</div>
+                  <div className="text-[12px] text-white/50">
+                    {purchased.length} {purchased.length === 1 ? "item" : "items"}
+                  </div>
                 </div>
               </div>
             </div>

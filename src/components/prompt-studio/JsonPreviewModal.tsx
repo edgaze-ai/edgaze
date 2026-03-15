@@ -48,7 +48,7 @@ export default function JsonPreviewModal({ open, onClose, json, title = "JSON Pr
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
             <div className="text-[14px] font-semibold text-white">{title}</div>
-            
+
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -67,7 +67,7 @@ export default function JsonPreviewModal({ open, onClose, json, title = "JSON Pr
                   </>
                 )}
               </button>
-              
+
               <button
                 type="button"
                 onClick={onClose}

@@ -8,11 +8,7 @@ export const metadata: Metadata = {
     "Edgaze blog—product updates, creator stories, and insights from the AI workflow economy.",
 };
 
-export default function BlogsLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function BlogsLayout({ children }: { children: React.ReactNode }) {
   const blogs = getAllBlogs();
   return <BlogShell blogs={blogs}>{children}</BlogShell>;
 }

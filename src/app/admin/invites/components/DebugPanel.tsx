@@ -44,11 +44,11 @@ export default function DebugPanel() {
   const handleLoadAllInvites = async () => {
     setLoadingInvites(true);
     try {
-      console.log("[Debug Panel] Fetching all invites...");
+      console.warn("[Debug Panel] Fetching all invites...");
       const response = await fetch("/api/admin/list-invites");
-      console.log("[Debug Panel] Response status:", response.status);
+      console.warn("[Debug Panel] Response status:", response.status);
       const data = await response.json();
-      console.log("[Debug Panel] Response data:", data);
+      console.warn("[Debug Panel] Response data:", data);
       setAllInvites(data);
     } catch (err: any) {
       console.error("[Debug Panel] Fetch failed:", err);
@@ -61,11 +61,11 @@ export default function DebugPanel() {
   const handleCheckDatabase = async () => {
     setLoadingDbCheck(true);
     try {
-      console.log("[Debug Panel] Checking database health...");
+      console.warn("[Debug Panel] Checking database health...");
       const response = await fetch("/api/admin/check-db");
-      console.log("[Debug Panel] Health check response status:", response.status);
+      console.warn("[Debug Panel] Health check response status:", response.status);
       const data = await response.json();
-      console.log("[Debug Panel] Health check data:", data);
+      console.warn("[Debug Panel] Health check data:", data);
       setDbCheck(data);
     } catch (err: any) {
       console.error("[Debug Panel] Health check failed:", err);

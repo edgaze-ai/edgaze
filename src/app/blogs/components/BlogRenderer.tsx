@@ -55,22 +55,42 @@ function parse(md: string): Block[] {
     }
 
     if (line.startsWith("# ")) {
-      blocks.push({ type: "h", level: 1, text: line.slice(2).trim(), id: slugify(line.slice(2).trim()) });
+      blocks.push({
+        type: "h",
+        level: 1,
+        text: line.slice(2).trim(),
+        id: slugify(line.slice(2).trim()),
+      });
       i++;
       continue;
     }
     if (line.startsWith("## ")) {
-      blocks.push({ type: "h", level: 2, text: line.slice(3).trim(), id: slugify(line.slice(3).trim()) });
+      blocks.push({
+        type: "h",
+        level: 2,
+        text: line.slice(3).trim(),
+        id: slugify(line.slice(3).trim()),
+      });
       i++;
       continue;
     }
     if (line.startsWith("### ")) {
-      blocks.push({ type: "h", level: 3, text: line.slice(4).trim(), id: slugify(line.slice(4).trim()) });
+      blocks.push({
+        type: "h",
+        level: 3,
+        text: line.slice(4).trim(),
+        id: slugify(line.slice(4).trim()),
+      });
       i++;
       continue;
     }
     if (line.startsWith("#### ")) {
-      blocks.push({ type: "h", level: 4, text: line.slice(5).trim(), id: slugify(line.slice(5).trim()) });
+      blocks.push({
+        type: "h",
+        level: 4,
+        text: line.slice(5).trim(),
+        id: slugify(line.slice(5).trim()),
+      });
       i++;
       continue;
     }
@@ -143,12 +163,14 @@ export default function BlogRenderer({ content }: { content: string }) {
             b.level === 1
               ? "mt-14 text-3xl sm:text-4xl font-semibold tracking-tight text-white/95 scroll-mt-32"
               : b.level === 2
-              ? "mt-12 text-2xl sm:text-3xl font-semibold tracking-tight text-white/95 scroll-mt-28"
-              : b.level === 3
-              ? "mt-10 text-xl sm:text-2xl font-semibold tracking-tight text-white/90 scroll-mt-28"
-              : "mt-8 text-lg sm:text-xl font-semibold tracking-tight text-white/90 scroll-mt-24";
+                ? "mt-12 text-2xl sm:text-3xl font-semibold tracking-tight text-white/95 scroll-mt-28"
+                : b.level === 3
+                  ? "mt-10 text-xl sm:text-2xl font-semibold tracking-tight text-white/90 scroll-mt-28"
+                  : "mt-8 text-lg sm:text-xl font-semibold tracking-tight text-white/90 scroll-mt-24";
 
-          const Tag = (b.level === 1 ? "h1" : b.level === 2 ? "h2" : b.level === 3 ? "h3" : "h4") as keyof React.JSX.IntrinsicElements;
+          const Tag = (
+            b.level === 1 ? "h1" : b.level === 2 ? "h2" : b.level === 3 ? "h3" : "h4"
+          ) as keyof React.JSX.IntrinsicElements;
 
           return (
             <Tag key={idx} id={b.id} className={cls}>
@@ -164,25 +186,47 @@ export default function BlogRenderer({ content }: { content: string }) {
           const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
           const boldRegex = /\*\*(.+?)\*\*/g;
           const italicRegex = /\*([^*]+)\*/g;
-          const matches: Array<{ type: "link" | "bold" | "italic"; start: number; end: number; text: string; url?: string }> = [];
+          const matches: Array<{
+            type: "link" | "bold" | "italic";
+            start: number;
+            end: number;
+            text: string;
+            url?: string;
+          }> = [];
 
           let match: RegExpExecArray | null;
           linkRegex.lastIndex = 0;
           while ((match = linkRegex.exec(text)) !== null) {
             if (match[1] && match[2]) {
-              matches.push({ type: "link", start: match.index, end: match.index + match[0].length, text: match[1], url: match[2] });
+              matches.push({
+                type: "link",
+                start: match.index,
+                end: match.index + match[0].length,
+                text: match[1],
+                url: match[2],
+              });
             }
           }
           boldRegex.lastIndex = 0;
           while ((match = boldRegex.exec(text)) !== null) {
             if (match[1]) {
-              matches.push({ type: "bold", start: match.index, end: match.index + match[0].length, text: match[1] });
+              matches.push({
+                type: "bold",
+                start: match.index,
+                end: match.index + match[0].length,
+                text: match[1],
+              });
             }
           }
           italicRegex.lastIndex = 0;
           while ((match = italicRegex.exec(text)) !== null) {
             if (match[1]) {
-              matches.push({ type: "italic", start: match.index, end: match.index + match[0].length, text: match[1] });
+              matches.push({
+                type: "italic",
+                start: match.index,
+                end: match.index + match[0].length,
+                text: match[1],
+              });
             }
           }
           matches.sort((a, b) => a.start - b.start);
@@ -196,21 +240,46 @@ export default function BlogRenderer({ content }: { content: string }) {
               const href = m.url ?? "#";
               const isExt = href.startsWith("http");
               if (isExt) {
-                parts.push(<a key={m.start} href={href} target="_blank" rel="noopener noreferrer" className={linkClass}>{m.text}</a>);
+                parts.push(
+                  <a
+                    key={m.start}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={linkClass}
+                  >
+                    {m.text}
+                  </a>,
+                );
               } else {
-                parts.push(<Link key={m.start} href={href} className={linkClass}>{m.text}</Link>);
+                parts.push(
+                  <Link key={m.start} href={href} className={linkClass}>
+                    {m.text}
+                  </Link>,
+                );
               }
             } else if (m.type === "bold") {
-              parts.push(<strong key={m.start} className="font-semibold text-white/90">{m.text}</strong>);
+              parts.push(
+                <strong key={m.start} className="font-semibold text-white/90">
+                  {m.text}
+                </strong>,
+              );
             } else {
-              parts.push(<em key={m.start} className="italic text-white/75">{m.text}</em>);
+              parts.push(
+                <em key={m.start} className="italic text-white/75">
+                  {m.text}
+                </em>,
+              );
             }
             lastIndex = m.end;
           }
           if (lastIndex < text.length) parts.push(text.slice(lastIndex));
 
           return (
-            <p key={idx} className="mt-5 text-base sm:text-lg leading-[1.8] text-white/80 max-w-3xl">
+            <p
+              key={idx}
+              className="mt-5 text-base sm:text-lg leading-[1.8] text-white/80 max-w-3xl"
+            >
               {parts.length > 0 ? parts : b.text}
             </p>
           );
@@ -218,26 +287,54 @@ export default function BlogRenderer({ content }: { content: string }) {
 
         if (b.type === "ul") {
           return (
-            <ul key={idx} className="mt-5 list-disc pl-7 space-y-2.5 text-white/80 max-w-3xl text-base leading-8">
+            <ul
+              key={idx}
+              className="mt-5 list-disc pl-7 space-y-2.5 text-white/80 max-w-3xl text-base leading-8"
+            >
               {b.items.map((it, j) => {
                 const parts: (string | React.JSX.Element)[] = [];
                 let last = 0;
                 const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
                 const boldRegex = /\*\*(.+?)\*\*/g;
                 const italicRegex = /\*([^*]+)\*/g;
-                const ms: Array<{ type: "link" | "bold" | "italic"; start: number; end: number; text: string; url?: string }> = [];
+                const ms: Array<{
+                  type: "link" | "bold" | "italic";
+                  start: number;
+                  end: number;
+                  text: string;
+                  url?: string;
+                }> = [];
                 let m: RegExpExecArray | null;
                 linkRegex.lastIndex = 0;
                 while ((m = linkRegex.exec(it)) !== null) {
-                  if (m[1] && m[2]) ms.push({ type: "link", start: m.index, end: m.index + m[0].length, text: m[1], url: m[2] });
+                  if (m[1] && m[2])
+                    ms.push({
+                      type: "link",
+                      start: m.index,
+                      end: m.index + m[0].length,
+                      text: m[1],
+                      url: m[2],
+                    });
                 }
                 boldRegex.lastIndex = 0;
                 while ((m = boldRegex.exec(it)) !== null) {
-                  if (m[1]) ms.push({ type: "bold", start: m.index, end: m.index + m[0].length, text: m[1] });
+                  if (m[1])
+                    ms.push({
+                      type: "bold",
+                      start: m.index,
+                      end: m.index + m[0].length,
+                      text: m[1],
+                    });
                 }
                 italicRegex.lastIndex = 0;
                 while ((m = italicRegex.exec(it)) !== null) {
-                  if (m[1]) ms.push({ type: "italic", start: m.index, end: m.index + m[0].length, text: m[1] });
+                  if (m[1])
+                    ms.push({
+                      type: "italic",
+                      start: m.index,
+                      end: m.index + m[0].length,
+                      text: m[1],
+                    });
                 }
                 ms.sort((a, b) => a.start - b.start);
                 for (const x of ms) {
@@ -245,14 +342,36 @@ export default function BlogRenderer({ content }: { content: string }) {
                   if (x.type === "link") {
                     const h = x.url ?? "#";
                     if (h.startsWith("http")) {
-                      parts.push(<a key={x.start} href={h} target="_blank" rel="noopener noreferrer" className={linkClass}>{x.text}</a>);
+                      parts.push(
+                        <a
+                          key={x.start}
+                          href={h}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={linkClass}
+                        >
+                          {x.text}
+                        </a>,
+                      );
                     } else {
-                      parts.push(<Link key={x.start} href={h} className={linkClass}>{x.text}</Link>);
+                      parts.push(
+                        <Link key={x.start} href={h} className={linkClass}>
+                          {x.text}
+                        </Link>,
+                      );
                     }
                   } else if (x.type === "bold") {
-                    parts.push(<strong key={x.start} className="font-semibold text-white/90">{x.text}</strong>);
+                    parts.push(
+                      <strong key={x.start} className="font-semibold text-white/90">
+                        {x.text}
+                      </strong>,
+                    );
                   } else {
-                    parts.push(<em key={x.start} className="italic text-white/75">{x.text}</em>);
+                    parts.push(
+                      <em key={x.start} className="italic text-white/75">
+                        {x.text}
+                      </em>,
+                    );
                   }
                   last = x.end;
                 }
@@ -265,26 +384,54 @@ export default function BlogRenderer({ content }: { content: string }) {
 
         if (b.type === "ol") {
           return (
-            <ol key={idx} className="mt-5 list-decimal pl-7 space-y-2.5 text-white/80 max-w-3xl text-base leading-8">
+            <ol
+              key={idx}
+              className="mt-5 list-decimal pl-7 space-y-2.5 text-white/80 max-w-3xl text-base leading-8"
+            >
               {b.items.map((it, j) => {
                 const parts: (string | React.JSX.Element)[] = [];
                 let last = 0;
                 const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
                 const boldRegex = /\*\*(.+?)\*\*/g;
                 const italicRegex = /\*([^*]+)\*/g;
-                const ms: Array<{ type: "link" | "bold" | "italic"; start: number; end: number; text: string; url?: string }> = [];
+                const ms: Array<{
+                  type: "link" | "bold" | "italic";
+                  start: number;
+                  end: number;
+                  text: string;
+                  url?: string;
+                }> = [];
                 let m: RegExpExecArray | null;
                 linkRegex.lastIndex = 0;
                 while ((m = linkRegex.exec(it)) !== null) {
-                  if (m[1] && m[2]) ms.push({ type: "link", start: m.index, end: m.index + m[0].length, text: m[1], url: m[2] });
+                  if (m[1] && m[2])
+                    ms.push({
+                      type: "link",
+                      start: m.index,
+                      end: m.index + m[0].length,
+                      text: m[1],
+                      url: m[2],
+                    });
                 }
                 boldRegex.lastIndex = 0;
                 while ((m = boldRegex.exec(it)) !== null) {
-                  if (m[1]) ms.push({ type: "bold", start: m.index, end: m.index + m[0].length, text: m[1] });
+                  if (m[1])
+                    ms.push({
+                      type: "bold",
+                      start: m.index,
+                      end: m.index + m[0].length,
+                      text: m[1],
+                    });
                 }
                 italicRegex.lastIndex = 0;
                 while ((m = italicRegex.exec(it)) !== null) {
-                  if (m[1]) ms.push({ type: "italic", start: m.index, end: m.index + m[0].length, text: m[1] });
+                  if (m[1])
+                    ms.push({
+                      type: "italic",
+                      start: m.index,
+                      end: m.index + m[0].length,
+                      text: m[1],
+                    });
                 }
                 ms.sort((a, b) => a.start - b.start);
                 for (const x of ms) {
@@ -292,14 +439,36 @@ export default function BlogRenderer({ content }: { content: string }) {
                   if (x.type === "link") {
                     const h = x.url ?? "#";
                     if (h.startsWith("http")) {
-                      parts.push(<a key={x.start} href={h} target="_blank" rel="noopener noreferrer" className={linkClass}>{x.text}</a>);
+                      parts.push(
+                        <a
+                          key={x.start}
+                          href={h}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={linkClass}
+                        >
+                          {x.text}
+                        </a>,
+                      );
                     } else {
-                      parts.push(<Link key={x.start} href={h} className={linkClass}>{x.text}</Link>);
+                      parts.push(
+                        <Link key={x.start} href={h} className={linkClass}>
+                          {x.text}
+                        </Link>,
+                      );
                     }
                   } else if (x.type === "bold") {
-                    parts.push(<strong key={x.start} className="font-semibold text-white/90">{x.text}</strong>);
+                    parts.push(
+                      <strong key={x.start} className="font-semibold text-white/90">
+                        {x.text}
+                      </strong>,
+                    );
                   } else {
-                    parts.push(<em key={x.start} className="italic text-white/75">{x.text}</em>);
+                    parts.push(
+                      <em key={x.start} className="italic text-white/75">
+                        {x.text}
+                      </em>,
+                    );
                   }
                   last = x.end;
                 }
@@ -312,7 +481,10 @@ export default function BlogRenderer({ content }: { content: string }) {
 
         if (b.type === "code") {
           return (
-            <div key={idx} className="mt-8 overflow-auto rounded-2xl bg-black/60 ring-1 ring-white/10 border border-white/5">
+            <div
+              key={idx}
+              className="mt-8 overflow-auto rounded-2xl bg-black/60 ring-1 ring-white/10 border border-white/5"
+            >
               <div className="px-5 py-3 text-sm text-white/45 border-b border-white/10 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-gradient-to-r from-cyan-500/60 to-pink-500/60" />
                 {b.lang || "code"}
@@ -326,7 +498,10 @@ export default function BlogRenderer({ content }: { content: string }) {
 
         if (b.type === "hr") {
           return (
-            <hr key={idx} className="my-12 border-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent max-w-3xl" />
+            <hr
+              key={idx}
+              className="my-12 border-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent max-w-3xl"
+            />
           );
         }
 

@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { useEffect, useRef } from 'react';
-import confetti from 'canvas-confetti';
-import { CheckCircle2 } from 'lucide-react';
+import { motion } from "framer-motion";
+import { useEffect, useRef } from "react";
+import confetti from "canvas-confetti";
+import { CheckCircle2 } from "lucide-react";
 
 interface AllSetStepProps {
-  stripeChoice: 'now' | 'later' | 'unset';
+  stripeChoice: "now" | "later" | "unset";
   onGoToMarketplace: () => void;
 }
 
@@ -24,7 +24,7 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
         angle: 60,
         spread: 55,
         origin: { x: 0, y: 0.6 },
-        colors: ['#00E5CC', '#ffffff', '#00B8A5', '#7FFFD4'],
+        colors: ["#00E5CC", "#ffffff", "#00B8A5", "#7FFFD4"],
       });
 
       confetti({
@@ -32,7 +32,7 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
         angle: 120,
         spread: 55,
         origin: { x: 1, y: 0.6 },
-        colors: ['#00E5CC', '#ffffff', '#00B8A5', '#7FFFD4'],
+        colors: ["#00E5CC", "#ffffff", "#00B8A5", "#7FFFD4"],
       });
     }, 300);
 
@@ -43,7 +43,7 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
         angle: 90,
         spread: 45,
         origin: { x: 0.5, y: 0.5 },
-        colors: ['#00E5CC', '#ffffff', '#00B8A5', '#7FFFD4'],
+        colors: ["#00E5CC", "#ffffff", "#00B8A5", "#7FFFD4"],
       });
     }, 900);
   }, []);
@@ -55,8 +55,12 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
       exit="exit"
       variants={{
         enter: { opacity: 0, y: 24 },
-        center: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] } },
-        exit: { opacity: 0, y: -16, transition: { duration: 0.3, ease: 'easeIn' } },
+        center: {
+          opacity: 1,
+          y: 0,
+          transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] },
+        },
+        exit: { opacity: 0, y: -16, transition: { duration: 0.3, ease: "easeIn" } },
       }}
       className="flex min-h-[100dvh] items-center justify-center px-4"
     >
@@ -70,7 +74,7 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          transition={{ delay: 0.5, type: 'spring', stiffness: 200, damping: 15 }}
+          transition={{ delay: 0.5, type: "spring", stiffness: 200, damping: 15 }}
           className="mx-auto mb-8 flex h-20 w-20 items-center justify-center"
         >
           <svg className="h-20 w-20" viewBox="0 0 80 80">
@@ -84,7 +88,7 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
               strokeWidth="3"
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
-              transition={{ delay: 0.5, duration: 0.6, ease: 'easeInOut' }}
+              transition={{ delay: 0.5, duration: 0.6, ease: "easeInOut" }}
             />
             {/* Checkmark */}
             <motion.path
@@ -96,7 +100,7 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
               strokeLinejoin="round"
               initial={{ pathLength: 0 }}
               animate={{ pathLength: 1 }}
-              transition={{ delay: 1.1, duration: 0.4, ease: 'easeInOut' }}
+              transition={{ delay: 1.1, duration: 0.4, ease: "easeInOut" }}
             />
           </svg>
         </motion.div>
@@ -122,20 +126,15 @@ export default function AllSetStep({ stripeChoice, onGoToMarketplace }: AllSetSt
         </motion.p>
 
         {/* Stripe reminder if they chose later */}
-        {stripeChoice === 'later' && (
+        {stripeChoice === "later" && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.7 }}
             className="mb-6 rounded-lg border border-cyan-400/20 bg-cyan-500/10 p-4"
           >
-            <p className="mb-2 text-sm text-white/80">
-              Don&apos;t forget to connect payouts
-            </p>
-            <a
-              href="/settings"
-              className="text-sm font-medium text-cyan-400 hover:underline"
-            >
+            <p className="mb-2 text-sm text-white/80">Don&apos;t forget to connect payouts</p>
+            <a href="/settings" className="text-sm font-medium text-cyan-400 hover:underline">
               Set up now →
             </a>
           </motion.div>

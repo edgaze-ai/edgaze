@@ -48,7 +48,9 @@ function getSupabaseAdmin() {
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !service) {
-    throw new Error("Server misconfigured: missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    throw new Error(
+      "Server misconfigured: missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+    );
   }
 
   return createClient(url, service, {
@@ -56,13 +58,18 @@ function getSupabaseAdmin() {
   });
 }
 
-function computeTags(params: { severity: Severity; feature_area: FeatureArea; reporter_id?: string | null }) {
+function computeTags(params: {
+  severity: Severity;
+  feature_area: FeatureArea;
+  reporter_id?: string | null;
+}) {
   const tags: string[] = [];
 
   if (params.severity === "blocking") tags.push("blocking");
 
   // heuristics: creator vs buyer
-  if (params.feature_area === "prompt_studio" || params.feature_area === "workflow_builder") tags.push("creator");
+  if (params.feature_area === "prompt_studio" || params.feature_area === "workflow_builder")
+    tags.push("creator");
   if (params.feature_area === "purchases") tags.push("buyer");
 
   return tags;
@@ -77,7 +84,10 @@ export async function POST(req: Request) {
 
     const contentType = req.headers.get("content-type") || "";
     if (!contentType.toLowerCase().includes("multipart/form-data")) {
-      return NextResponse.json({ error: "Invalid request: expected multipart/form-data" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request: expected multipart/form-data" },
+        { status: 400 },
+      );
     }
 
     const form = await req.formData();
@@ -103,7 +113,13 @@ export async function POST(req: Request) {
     const user_agent = sanitizeText(form.get("user_agent"), 1000);
 
     // strict enums (prevents junk in DB)
-    const categoryAllowed = ["ui_visual", "broken_flow", "data_issue", "performance", "error_crash"] as const;
+    const categoryAllowed = [
+      "ui_visual",
+      "broken_flow",
+      "data_issue",
+      "performance",
+      "error_crash",
+    ] as const;
     const featureAllowed = [
       "prompt_marketplace",
       "prompt_studio",
@@ -133,11 +149,14 @@ export async function POST(req: Request) {
     }
 
     // required fields
-    if (summary.length < 4) return NextResponse.json({ error: "Summary too short" }, { status: 400 });
+    if (summary.length < 4)
+      return NextResponse.json({ error: "Summary too short" }, { status: 400 });
     if (steps_to_reproduce.length < 10)
       return NextResponse.json({ error: "Steps to reproduce too short" }, { status: 400 });
-    if (expected_behavior.length < 2) return NextResponse.json({ error: "Expected behavior required" }, { status: 400 });
-    if (actual_behavior.length < 2) return NextResponse.json({ error: "Actual behavior required" }, { status: 400 });
+    if (expected_behavior.length < 2)
+      return NextResponse.json({ error: "Expected behavior required" }, { status: 400 });
+    if (actual_behavior.length < 2)
+      return NextResponse.json({ error: "Actual behavior required" }, { status: 400 });
     if (allow_follow_up && reporter_contact.length < 4)
       return NextResponse.json({ error: "Contact required for follow-up" }, { status: 400 });
 
@@ -148,21 +167,29 @@ export async function POST(req: Request) {
     }
     for (const f of incomingFiles) {
       const okType = f.type.startsWith("image/") || f.type.startsWith("video/");
-      if (!okType) return NextResponse.json({ error: "Attachments must be images/videos" }, { status: 400 });
+      if (!okType)
+        return NextResponse.json({ error: "Attachments must be images/videos" }, { status: 400 });
       const mb = f.size / (1024 * 1024);
-      if (mb > MAX_FILE_MB) return NextResponse.json({ error: `Max ${MAX_FILE_MB}MB per file` }, { status: 400 });
+      if (mb > MAX_FILE_MB)
+        return NextResponse.json({ error: `Max ${MAX_FILE_MB}MB per file` }, { status: 400 });
       if (f.type.startsWith("image/")) {
         const headerBlob = f.size >= 12 ? f.slice(0, 12) : f.slice(0, f.size);
         const buf = new Uint8Array(await headerBlob.arrayBuffer());
         const magicMime = getMimeFromMagic(buf);
         if (magicMime && magicMime !== f.type) {
-          return NextResponse.json({ error: "Attachment content does not match declared image type" }, { status: 400 });
+          return NextResponse.json(
+            { error: "Attachment content does not match declared image type" },
+            { status: 400 },
+          );
         }
         if (
           ["image/png", "image/jpeg", "image/gif", "image/webp"].includes(f.type) &&
           !getMimeFromMagic(buf)
         ) {
-          return NextResponse.json({ error: "Attachment content does not match declared image type" }, { status: 400 });
+          return NextResponse.json(
+            { error: "Attachment content does not match declared image type" },
+            { status: 400 },
+          );
         }
       }
     }
@@ -224,7 +251,10 @@ export async function POST(req: Request) {
       .single();
 
     if (insErr || !report?.id) {
-      return NextResponse.json({ error: insErr?.message || "Failed to insert bug report" }, { status: 500 });
+      return NextResponse.json(
+        { error: insErr?.message || "Failed to insert bug report" },
+        { status: 500 },
+      );
     }
 
     // 2) upload attachments (if any) + insert attachment rows
@@ -256,7 +286,7 @@ export async function POST(req: Request) {
               id: report.id,
               warning: `Bug saved, but attachment upload failed: ${up.error.message}`,
             },
-            { status: 200 }
+            { status: 200 },
           );
         }
 
@@ -271,8 +301,11 @@ export async function POST(req: Request) {
 
         if (attErr) {
           return NextResponse.json(
-            { id: report.id, warning: `Bug saved, but attachment record failed: ${attErr.message}` },
-            { status: 200 }
+            {
+              id: report.id,
+              warning: `Bug saved, but attachment record failed: ${attErr.message}`,
+            },
+            { status: 200 },
           );
         }
       }

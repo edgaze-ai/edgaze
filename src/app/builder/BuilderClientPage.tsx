@@ -3,20 +3,54 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LayoutPanelLeft, Play, Plus, RefreshCw, Rocket, X, ArrowRight, ArrowLeft, ZoomIn, ZoomOut, Grid3X3, Lock, Unlock, Maximize2, Minimize2, Sparkles, Loader2, BookOpen, Undo2, Redo2 } from "lucide-react";
+import {
+  Home,
+  LayoutPanelLeft,
+  Play,
+  Plus,
+  RefreshCw,
+  Rocket,
+  X,
+  ArrowRight,
+  ArrowLeft,
+  ZoomIn,
+  ZoomOut,
+  Grid3X3,
+  Lock,
+  Unlock,
+  Maximize2,
+  Minimize2,
+  Sparkles,
+  Loader2,
+  BookOpen,
+  Undo2,
+  Redo2,
+} from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "../../components/auth/AuthContext";
 import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 
-import ReactFlowCanvas, { CanvasRef as BECanvasRef } from "../../components/builder/ReactFlowCanvas";
+import ReactFlowCanvas, {
+  CanvasRef as BECanvasRef,
+} from "../../components/builder/ReactFlowCanvas";
 import BlockLibrary from "../../components/builder/BlockLibrary";
 import InspectorPanel from "../../components/builder/InspectorPanel";
 import WorkflowPublishModal from "../../components/builder/WorkflowPublishModal";
-import PremiumWorkflowRunModal, { type WorkflowRunState, type WorkflowRunStep, type BuilderRunLimit } from "../../components/builder/PremiumWorkflowRunModal";
+import PremiumWorkflowRunModal, {
+  type WorkflowRunState,
+  type WorkflowRunStep,
+  type BuilderRunLimit,
+} from "../../components/builder/PremiumWorkflowRunModal";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
-import { canRunDemo, canRunDemoSync, trackDemoRun, getRemainingDemoRuns, getRemainingDemoRunsSync } from "../../lib/workflow/device-tracking";
+import {
+  canRunDemo,
+  canRunDemoSync,
+  trackDemoRun,
+  getRemainingDemoRuns,
+  getRemainingDemoRunsSync,
+} from "../../lib/workflow/device-tracking";
 import { validateWorkflowGraph, type ValidationResult } from "../../lib/workflow/validation";
 import CanvasValidationBanner from "../../components/builder/CanvasValidationBanner";
 import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
@@ -46,7 +80,14 @@ type WindowState = {
   minimized: boolean;
 };
 
-type DragType = "move" | "resize-se" | "resize-sw" | "resize-e" | "resize-s" | "resize-w" | "resize-n";
+type DragType =
+  | "move"
+  | "resize-se"
+  | "resize-sw"
+  | "resize-e"
+  | "resize-s"
+  | "resize-w"
+  | "resize-n";
 type DragState = {
   id: WindowKind;
   type: DragType;
@@ -78,11 +119,18 @@ function normalizeGraph(raw: any): { nodes: any[]; edges: any[] } {
   }
   // Backwards compat: unwrap nested graph (e.g. { graph: { nodes, edges } })
   const g =
-    raw?.graph && (Array.isArray(raw.graph.nodes) || Array.isArray(raw.graph.edges) || Array.isArray(raw.graph.connections))
+    raw?.graph &&
+    (Array.isArray(raw.graph.nodes) ||
+      Array.isArray(raw.graph.edges) ||
+      Array.isArray(raw.graph.connections))
       ? raw.graph
       : raw;
   // Support both "edges" and "connections" (legacy alias)
-  const edges = Array.isArray(g.edges) ? g.edges : Array.isArray(g.connections) ? g.connections : [];
+  const edges = Array.isArray(g.edges)
+    ? g.edges
+    : Array.isArray(g.connections)
+      ? g.connections
+      : [];
   return {
     nodes: Array.isArray(g.nodes) ? g.nodes : [],
     edges,
@@ -98,7 +146,10 @@ function clamp(v: number, min: number, max: number) {
 }
 
 /** Kahn's topological sort - matches server execution order */
-function getExecutionOrder(nodes: { id: string }[], edges: { source: string; target: string }[]): string[] {
+function getExecutionOrder(
+  nodes: { id: string }[],
+  edges: { source: string; target: string }[],
+): string[] {
   const indeg = new Map<string, number>();
   const adj = new Map<string, string[]>();
   nodes.forEach((n) => {
@@ -141,7 +192,8 @@ export default function BuilderPage() {
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
   const isDesktop = viewport.w >= DESKTOP_MIN_W && viewport.h >= DESKTOP_MIN_H;
 
-  const previewParam = searchParams?.get("preview") === "1" || searchParams?.get("mode") === "preview";
+  const previewParam =
+    searchParams?.get("preview") === "1" || searchParams?.get("mode") === "preview";
 
   // workflow state
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
@@ -203,8 +255,24 @@ export default function BuilderPage() {
   // floating windows - positions will be set precisely on mount
   // In preview mode, windows start hidden
   const [windows, setWindows] = useState<Record<WindowKind, WindowState>>({
-    blocks: { id: "blocks", x: 0, y: 0, width: 280, height: 600, visible: !previewParam, minimized: false },
-    inspector: { id: "inspector", x: 0, y: 0, width: 320, height: 600, visible: !previewParam, minimized: false },
+    blocks: {
+      id: "blocks",
+      x: 0,
+      y: 0,
+      width: 280,
+      height: 600,
+      visible: !previewParam,
+      minimized: false,
+    },
+    inspector: {
+      id: "inspector",
+      x: 0,
+      y: 0,
+      width: 320,
+      height: 600,
+      visible: !previewParam,
+      minimized: false,
+    },
   });
   const [windowsInitialized, setWindowsInitialized] = useState(false);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -423,7 +491,8 @@ export default function BuilderPage() {
       const tag = target?.tagName?.toLowerCase();
       const isEditable = tag === "input" || tag === "textarea" || !!target?.isContentEditable;
       if (isEditable) return;
-      if (target?.closest?.("[data-workflow-run-modal]") ?? target?.closest?.("[role=\"dialog\"]")) return;
+      if (target?.closest?.("[data-workflow-run-modal]") ?? target?.closest?.('[role="dialog"]'))
+        return;
 
       const key = e.key.toLowerCase();
       const meta = e.metaKey || e.ctrlKey;
@@ -490,7 +559,6 @@ export default function BuilderPage() {
     };
   }, [isPreview]);
 
-
   const refreshWorkflows = useCallback(async () => {
     setWfError(null);
 
@@ -527,7 +595,7 @@ export default function BuilderPage() {
 
       if (wfErr) throw wfErr;
 
-      const pubRows = Array.isArray(wfData) ? ((wfData as any) as DraftRow[]) : [];
+      const pubRows = Array.isArray(wfData) ? (wfData as any as DraftRow[]) : [];
       setPublished(pubRows);
 
       safeTrack("Workflows Listed", {
@@ -565,7 +633,7 @@ export default function BuilderPage() {
     const es = (g.edges || [])
       .map(
         (e: any) =>
-          `${e.id ?? ""}:${e.source ?? ""}->${e.target ?? ""}:${e.sourceHandle ?? ""}:${e.targetHandle ?? ""}`
+          `${e.id ?? ""}:${e.source ?? ""}->${e.target ?? ""}:${e.sourceHandle ?? ""}:${e.targetHandle ?? ""}`,
       )
       .join("|");
     return `${g.nodes?.length ?? 0}/${g.edges?.length ?? 0}::${ns}::${es}`;
@@ -719,7 +787,7 @@ export default function BuilderPage() {
         previousGraphRef.current = cloneGraph(graph);
       }, UNDO_DEBOUNCE_MS);
     },
-    [activeDraftId, doAutosave, isPreview]
+    [activeDraftId, doAutosave, isPreview],
   );
 
   const onFocusValidationNode = useCallback(
@@ -727,9 +795,12 @@ export default function BuilderPage() {
       if (isPreview) return;
       beRef.current?.selectAndFocusNode?.(nodeId);
       setInspectorFieldHint(fieldHint ?? null);
-      setWindows((prev) => ({ ...prev, inspector: { ...prev.inspector, visible: true, minimized: false } }));
+      setWindows((prev) => ({
+        ...prev,
+        inspector: { ...prev.inspector, visible: true, minimized: false },
+      }));
     },
-    [isPreview]
+    [isPreview],
   );
 
   const onSelectionChange = useCallback(
@@ -761,7 +832,7 @@ export default function BuilderPage() {
         });
       }
     },
-    [isPreview]
+    [isPreview],
   );
 
   const openDraft = useCallback(
@@ -830,7 +901,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory]
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
   );
 
   const openPublishedAsDraft = useCallback(
@@ -858,7 +929,12 @@ export default function BuilderPage() {
 
         const { data: created, error: insErr } = await supabase
           .from("workflow_drafts")
-          .insert({ owner_id: userId, title: wfRow?.title || "Untitled Workflow", graph: stripGraphSecrets(g) as any, last_opened_at: nowIso() })
+          .insert({
+            owner_id: userId,
+            title: wfRow?.title || "Untitled Workflow",
+            graph: stripGraphSecrets(g) as any,
+            last_opened_at: nowIso(),
+          })
           .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
           .single();
 
@@ -899,7 +975,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory]
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
   );
 
   const openMarketplaceWorkflowAsDraft = useCallback(
@@ -951,7 +1027,12 @@ export default function BuilderPage() {
 
         const { data: created, error: insErr } = await supabase
           .from("workflow_drafts")
-          .insert({ owner_id: userId, title: wfRow?.title || "Untitled Workflow", graph: stripGraphSecrets(g) as any, last_opened_at: nowIso() })
+          .insert({
+            owner_id: userId,
+            title: wfRow?.title || "Untitled Workflow",
+            graph: stripGraphSecrets(g) as any,
+            last_opened_at: nowIso(),
+          })
           .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
           .single();
 
@@ -975,7 +1056,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory]
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
   );
 
   const openMarketplaceWorkflowPreview = useCallback(
@@ -991,7 +1072,9 @@ export default function BuilderPage() {
       try {
         const { data: wf, error: wfErr } = await supabase
           .from("workflows")
-          .select("id,owner_id,owner_handle,edgaze_code,title,graph,is_paid,monetisation_mode,is_public,is_published")
+          .select(
+            "id,owner_id,owner_handle,edgaze_code,title,graph,is_paid,monetisation_mode,is_public,is_published",
+          )
           .eq("id", workflowId)
           .eq("is_published", true)
           .maybeSingle();
@@ -1051,7 +1134,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, loadGraphAndResetHistory]
+    [requireAuth, userId, supabase, loadGraphAndResetHistory],
   );
 
   // Auto-open from URL param once auth is ready (preview works on mobile, edit is desktop-only)
@@ -1201,7 +1284,7 @@ export default function BuilderPage() {
         setCreating(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory]
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
   );
 
   const ensureDraftSavedNow = useCallback(async () => {
@@ -1213,9 +1296,17 @@ export default function BuilderPage() {
 
     latestGraphRef.current = g;
 
-    const update = { title: name || "Untitled Workflow", graph: stripGraphSecrets(g) as any, updated_at: nowIso() };
+    const update = {
+      title: name || "Untitled Workflow",
+      graph: stripGraphSecrets(g) as any,
+      updated_at: nowIso(),
+    };
 
-    const { error } = await supabase.from("workflow_drafts").update(update).eq("id", activeDraftId).eq("owner_id", userId);
+    const { error } = await supabase
+      .from("workflow_drafts")
+      .update(update)
+      .eq("id", activeDraftId)
+      .eq("owner_id", userId);
 
     if (!error) {
       lastSavedHashRef.current = hashGraph(g);
@@ -1283,18 +1374,19 @@ export default function BuilderPage() {
     };
   }, [drag]);
 
-  const startDrag =
-    (id: WindowKind, type: DragType) =>
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      userMovedRef.current[id] = true; // Mark as user-moved so auto-layout doesn't override
-      setDrag({ id, type, startX: e.clientX, startY: e.clientY, startRect: windows[id] });
-    };
+  const startDrag = (id: WindowKind, type: DragType) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    userMovedRef.current[id] = true; // Mark as user-moved so auto-layout doesn't override
+    setDrag({ id, type, startX: e.clientX, startY: e.clientY, startRect: windows[id] });
+  };
 
   const toggleWindow = (id: WindowKind) => {
     if (isPreview) return;
-    setWindows((prev) => ({ ...prev, [id]: { ...prev[id], visible: !prev[id].visible, minimized: false } }));
+    setWindows((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], visible: !prev[id].visible, minimized: false },
+    }));
   };
 
   const minimizeWindow = (id: WindowKind) => {
@@ -1336,7 +1428,9 @@ export default function BuilderPage() {
             workflow_id: activeDraftId,
             reason: "device_limit_reached",
           });
-          setWfError(`You've used your free demo runs for this workflow. Sign in or add your own API keys to continue.`);
+          setWfError(
+            `You've used your free demo runs for this workflow. Sign in or add your own API keys to continue.`,
+          );
           return;
         }
       }
@@ -1389,7 +1483,7 @@ export default function BuilderPage() {
         if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
         const remRes = await fetch(
           `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=${isBuilderTest ? "1" : "0"}&isPreview=${isPreview ? "1" : "0"}`,
-          { method: "GET", headers, credentials: "include" }
+          { method: "GET", headers, credentials: "include" },
         );
         if (remRes.ok) {
           const rem = await remRes.json();
@@ -1433,9 +1527,10 @@ export default function BuilderPage() {
       },
       logs: [],
       inputs: showInputPhase ? (inputs.length > 0 ? inputs : []) : undefined,
-      summary: validation.warnings.length > 0
-        ? `${validation.warnings.length} warning(s): ${validation.warnings[0]?.message ?? ""}`
-        : undefined,
+      summary:
+        validation.warnings.length > 0
+          ? `${validation.warnings.length} warning(s): ${validation.warnings[0]?.message ?? ""}`
+          : undefined,
     };
 
     setRunState(initialState);
@@ -1481,7 +1576,8 @@ export default function BuilderPage() {
       }
     }
 
-    const openaiApiKeyFromModal = typeof inputValues.__openaiApiKey === "string" ? inputValues.__openaiApiKey.trim() : "";
+    const openaiApiKeyFromModal =
+      typeof inputValues.__openaiApiKey === "string" ? inputValues.__openaiApiKey.trim() : "";
 
     // Convert File objects to base64 for transmission (exclude __openaiApiKey from inputs)
     const processedInputs: Record<string, any> = {};
@@ -1577,7 +1673,8 @@ export default function BuilderPage() {
         } catch {
           // If JSON parsing fails, use the status text
         }
-        const errorMessage = errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+        const errorMessage =
+          errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
 
         // Update run counter from error response if available
         if (activeDraftId && hasAiNodes && errorData.freeRunsRemaining != null) {
@@ -1588,7 +1685,11 @@ export default function BuilderPage() {
         }
 
         // BYOK required: switch to input phase and show API key prompt
-        if (response.status === 403 && Array.isArray(errorData.requiresApiKeys) && errorData.requiresApiKeys.length > 0) {
+        if (
+          response.status === 403 &&
+          Array.isArray(errorData.requiresApiKeys) &&
+          errorData.requiresApiKeys.length > 0
+        ) {
           setRequiresApiKeys(errorData.requiresApiKeys);
           const inputs = extractWorkflowInputs(graph.nodes || []);
           setRunState((prev) =>
@@ -1600,7 +1701,7 @@ export default function BuilderPage() {
                   inputs: inputs.length > 0 ? inputs : [],
                   error: undefined,
                 }
-              : prev
+              : prev,
           );
           setRunning(false);
           return;
@@ -1647,19 +1748,25 @@ export default function BuilderPage() {
               if (evt.type === "node_start") {
                 setRunState((prev) => {
                   if (!prev) return prev;
-                  const next = prev.steps.map((s) => (s.id === evt.nodeId ? { ...s, status: "running" as const } : s));
+                  const next = prev.steps.map((s) =>
+                    s.id === evt.nodeId ? { ...s, status: "running" as const } : s,
+                  );
                   return { ...prev, steps: next, currentStepId: evt.nodeId };
                 });
               } else if (evt.type === "node_done") {
                 setRunState((prev) => {
                   if (!prev) return prev;
-                  const next = prev.steps.map((s) => (s.id === evt.nodeId ? { ...s, status: "done" as const } : s));
+                  const next = prev.steps.map((s) =>
+                    s.id === evt.nodeId ? { ...s, status: "done" as const } : s,
+                  );
                   return { ...prev, steps: next, currentStepId: null };
                 });
               } else if (evt.type === "node_failed") {
                 setRunState((prev) => {
                   if (!prev) return prev;
-                  const next = prev.steps.map((s) => (s.id === evt.nodeId ? { ...s, status: "error" as const, detail: evt.error } : s));
+                  const next = prev.steps.map((s) =>
+                    s.id === evt.nodeId ? { ...s, status: "error" as const, detail: evt.error } : s,
+                  );
                   return { ...prev, steps: next, currentStepId: null };
                 });
               } else if (evt.type === "complete") {
@@ -1687,7 +1794,9 @@ export default function BuilderPage() {
           const freeRunsRemaining = result.freeRunsRemaining;
           const used = Math.max(0, FREE_BUILDER_RUNS - freeRunsRemaining);
           setBuilderRunLimit({ used, limit: FREE_BUILDER_RUNS, isAdmin: false });
-          console.warn(`[Run Counter] Updated from error result: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`);
+          console.warn(
+            `[Run Counter] Updated from error result: ${used}/${FREE_BUILDER_RUNS}, remaining: ${freeRunsRemaining}`,
+          );
         }
 
         throw new Error(errorMessage);
@@ -1710,20 +1819,23 @@ export default function BuilderPage() {
         specId: log.specId,
       }));
 
-      const steps = Object.entries(executionResult.nodeStatus || {}).map(([nodeId, status]: [string, any]) => {
-        const node = graph.nodes?.find((n: any) => n.id === nodeId);
-        const specId = node?.data?.specId || "default";
-        const nodeTitle = node?.data?.title || node?.data?.config?.name || humanReadableStep(specId);
-        const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
-        return {
-          id: nodeId,
-          title: nodeTitle,
-          detail: errorLog ? errorLog.text : undefined,
-          status: mapNodeStatus(status),
-          icon: getStepIcon(specId),
-          timestamp: Date.now(),
-        };
-      });
+      const steps = Object.entries(executionResult.nodeStatus || {}).map(
+        ([nodeId, status]: [string, any]) => {
+          const node = graph.nodes?.find((n: any) => n.id === nodeId);
+          const specId = node?.data?.specId || "default";
+          const nodeTitle =
+            node?.data?.title || node?.data?.config?.name || humanReadableStep(specId);
+          const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
+          return {
+            id: nodeId,
+            title: nodeTitle,
+            detail: errorLog ? errorLog.text : undefined,
+            status: mapNodeStatus(status),
+            icon: getStepIcon(specId),
+            timestamp: Date.now(),
+          };
+        },
+      );
 
       // Build set of raw input values so we never show them as output (hide passthrough/echo)
       const displayInputValues = processedInputs
@@ -1734,8 +1846,8 @@ export default function BuilderPage() {
                 k !== "__openaiApiKey" &&
                 k !== "__builder_test" &&
                 k !== "__builder_user_key" &&
-                k !== "__workflow_id"
-            )
+                k !== "__workflow_id",
+            ),
           )
         : {};
       const echoParts = Object.values(displayInputValues)
@@ -1763,13 +1875,19 @@ export default function BuilderPage() {
 
       const outputs = extractWorkflowOutputs(graph.nodes || [])
         .map((output) => {
-          const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+          const finalOutput = executionResult.finalOutputs?.find(
+            (fo: any) => fo.nodeId === output.nodeId,
+          );
           if (!finalOutput) return null;
           let value = finalOutput.value;
           if (typeof value === "string" && isEchoString(value)) return null;
-          if (value !== null && typeof value === "object" && Array.isArray((value as any).results)) {
+          if (
+            value !== null &&
+            typeof value === "object" &&
+            Array.isArray((value as any).results)
+          ) {
             const results = ((value as any).results as unknown[]).filter(
-              (item) => typeof item !== "string" || !isEchoString(item)
+              (item) => typeof item !== "string" || !isEchoString(item),
             );
             if (results.length === 0) return null;
             value = results.length === 1 ? results[0] : { ...(value as object), results };
@@ -1783,9 +1901,12 @@ export default function BuilderPage() {
         .filter((o): o is NonNullable<typeof o> => o != null);
 
       // Check for errors in logs or node status
-      const hasError = executionResult.workflowStatus === "failed" ||
-                       logs.some((l: any) => l.level === "error") ||
-                       Object.values(executionResult.nodeStatus || {}).some((s: any) => s === "failed" || s === "timeout");
+      const hasError =
+        executionResult.workflowStatus === "failed" ||
+        logs.some((l: any) => l.level === "error") ||
+        Object.values(executionResult.nodeStatus || {}).some(
+          (s: any) => s === "failed" || s === "timeout",
+        );
 
       const errorMessage = hasError
         ? logs.find((l: any) => l.level === "error")?.text ||
@@ -1810,20 +1931,22 @@ export default function BuilderPage() {
         error: errorMessage,
         finishedAt: Date.now(),
         summary: hasError ? undefined : "Workflow executed successfully",
-        graph: workflowGraph ? {
-          nodes: (workflowGraph.nodes || []).map((n: any) => ({
-            id: n.id,
-            data: {
-              specId: n.data?.specId,
-              title: n.data?.title,
-              config: n.data?.config,
-            },
-          })),
-          edges: (workflowGraph.edges || []).map((e: any) => ({
-            source: e.source,
-            target: e.target,
-          })),
-        } : runState?.graph,
+        graph: workflowGraph
+          ? {
+              nodes: (workflowGraph.nodes || []).map((n: any) => ({
+                id: n.id,
+                data: {
+                  specId: n.data?.specId,
+                  title: n.data?.title,
+                  config: n.data?.config,
+                },
+              })),
+              edges: (workflowGraph.edges || []).map((e: any) => ({
+                source: e.source,
+                target: e.target,
+              })),
+            }
+          : runState?.graph,
       });
 
       // Refresh remaining runs after successful completion as a backup/verification
@@ -1836,7 +1959,7 @@ export default function BuilderPage() {
             if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
             const remRes = await fetch(
               `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=1`,
-              { method: "GET", headers, credentials: "include" }
+              { method: "GET", headers, credentials: "include" },
             );
             if (remRes.ok) {
               const rem = await remRes.json();
@@ -1845,7 +1968,9 @@ export default function BuilderPage() {
                   setBuilderRunLimit({ used: 0, limit: 999999, isAdmin: true });
                 } else if (rem.used != null && rem.limit != null) {
                   setBuilderRunLimit({ used: rem.used, limit: rem.limit, isAdmin: false });
-                  console.warn(`[Run Counter] Verified/refreshed from DB: ${rem.used}/${rem.limit}`);
+                  console.warn(
+                    `[Run Counter] Verified/refreshed from DB: ${rem.used}/${rem.limit}`,
+                  );
                 }
               }
             }
@@ -1866,7 +1991,10 @@ export default function BuilderPage() {
         setRunning(false);
         return; // User cancelled - handleCancelRun already updated state
       }
-      const errorMessage = error?.message || error?.toString() || "Execution failed. Please check your workflow configuration and try again.";
+      const errorMessage =
+        error?.message ||
+        error?.toString() ||
+        "Execution failed. Please check your workflow configuration and try again.";
 
       // Refetch remaining runs after failed run too (failed runs also count)
       if (!isPreview && activeDraftId && hasAiNodes) {
@@ -1877,7 +2005,7 @@ export default function BuilderPage() {
             if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
             const remRes = await fetch(
               `/api/flow/run/remaining?workflowId=${encodeURIComponent(activeDraftId)}&isBuilderTest=1`,
-              { method: "GET", headers, credentials: "include" }
+              { method: "GET", headers, credentials: "include" },
             );
             if (remRes.ok) {
               const rem = await remRes.json();
@@ -1886,7 +2014,9 @@ export default function BuilderPage() {
                   setBuilderRunLimit({ used: 0, limit: 999999, isAdmin: true });
                 } else if (rem.used != null && rem.limit != null) {
                   setBuilderRunLimit({ used: rem.used, limit: rem.limit, isAdmin: false });
-                  console.warn(`[Run Counter] Verified/refreshed after error: ${rem.used}/${rem.limit}`);
+                  console.warn(
+                    `[Run Counter] Verified/refreshed after error: ${rem.used}/${rem.limit}`,
+                  );
                 }
               }
             }
@@ -1911,20 +2041,22 @@ export default function BuilderPage() {
             text: errorMessage,
           },
         ],
-        graph: workflowGraph ? {
-          nodes: (workflowGraph.nodes || []).map((n: any) => ({
-            id: n.id,
-            data: {
-              specId: n.data?.specId,
-              title: n.data?.title,
-              config: n.data?.config,
-            },
-          })),
-          edges: (workflowGraph.edges || []).map((e: any) => ({
-            source: e.source,
-            target: e.target,
-          })),
-        } : runState?.graph,
+        graph: workflowGraph
+          ? {
+              nodes: (workflowGraph.nodes || []).map((n: any) => ({
+                id: n.id,
+                data: {
+                  specId: n.data?.specId,
+                  title: n.data?.title,
+                  config: n.data?.config,
+                },
+              })),
+              edges: (workflowGraph.edges || []).map((e: any) => ({
+                source: e.source,
+                target: e.target,
+              })),
+            }
+          : runState?.graph,
       });
 
       safeTrack("Workflow Run Failed", {
@@ -2007,6 +2139,7 @@ export default function BuilderPage() {
     if (hasInputs) return;
     autoExecuteTriggeredRef.current = true;
     handleSubmitInputs({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only auto-run when modal opens and inputs empty
   }, [runModalOpen, runState?.phase, runState?.status, runState?.inputs?.length]);
 
   // If user is on small viewport, keep builder unavailable (except in preview mode).
@@ -2019,10 +2152,15 @@ export default function BuilderPage() {
   }, [mounted, isDesktop, isPreview]);
 
   const publishDraftForModal =
-    !isPreview && publishWorkflowId && publishWorkflowId === activeDraftId && activeDraftId && userId
+    !isPreview &&
+    publishWorkflowId &&
+    publishWorkflowId === activeDraftId &&
+    activeDraftId &&
+    userId
       ? (() => {
           // Always get the latest graph from canvas to ensure we have the most recent config
-          const latestGraph = beRef.current?.getGraph?.() ?? latestGraphRef.current ?? { nodes: [], edges: [] };
+          const latestGraph = beRef.current?.getGraph?.() ??
+            latestGraphRef.current ?? { nodes: [], edges: [] };
           const safeGraph = stripGraphSecrets(latestGraph) as any;
           return {
             id: activeDraftId,
@@ -2043,14 +2181,22 @@ export default function BuilderPage() {
 
       {/* Canvas - Full height, extends to top */}
       <div className="absolute inset-0 z-0">
-        <ReactFlowCanvas ref={beRef} mode={mode} onGraphChange={onGraphChange} onSelectionChange={onSelectionChange} />
+        <ReactFlowCanvas
+          ref={beRef}
+          mode={mode}
+          onGraphChange={onGraphChange}
+          onSelectionChange={onSelectionChange}
+        />
       </div>
 
       {/* Top bar (floating on top of canvas) */}
-      <div ref={headerRef} className={cx(
-        "absolute top-0 left-0 right-0 z-20 transition-all duration-200",
-        isPreview ? "px-3 pt-3 md:px-5 md:pt-4" : "px-5 pt-4"
-      )}>
+      <div
+        ref={headerRef}
+        className={cx(
+          "absolute top-0 left-0 right-0 z-20 transition-all duration-200",
+          isPreview ? "px-3 pt-3 md:px-5 md:pt-4" : "px-5 pt-4",
+        )}
+      >
         {/* Preparing Toast Notification */}
         {showPreparingToast && (
           <div className="mb-3 opacity-0 animate-[fadeInSlide_0.3s_ease-out_forwards]">
@@ -2066,7 +2212,9 @@ export default function BuilderPage() {
             </div>
           </div>
         )}
-        <style dangerouslySetInnerHTML={{__html: `
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
           @keyframes fadeInSlide {
             from {
               opacity: 0;
@@ -2077,7 +2225,9 @@ export default function BuilderPage() {
               transform: translateY(0);
             }
           }
-        `}} />
+        `,
+          }}
+        />
         {isPreview ? (
           /* Premium Preview Mode Topbar - Mobile Optimized */
           <div
@@ -2108,7 +2258,9 @@ export default function BuilderPage() {
                 />
               </div>
               <div className="min-w-0">
-                <div className="text-[14px] md:text-[18px] font-semibold text-white truncate">{name || "Untitled Workflow"}</div>
+                <div className="text-[14px] md:text-[18px] font-semibold text-white truncate">
+                  {name || "Untitled Workflow"}
+                </div>
                 <div className="hidden md:flex items-center gap-2 mt-0.5">
                   <span className="text-[10px] text-white/45">
                     {stats.nodes} nodes · {stats.edges} edges
@@ -2125,11 +2277,12 @@ export default function BuilderPage() {
                 className={cx(
                   "relative inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 backdrop-blur-sm px-4 py-2.5 md:px-6 md:py-3 text-[13px] md:text-[14px] font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] hover:from-cyan-500/30 hover:to-purple-500/30 transition-all duration-200",
                   "min-w-[100px] md:min-w-[140px]",
-                  (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) && "opacity-50 cursor-not-allowed"
+                  (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) &&
+                    "opacity-50 cursor-not-allowed",
                 )}
                 title={
                   canvasValidation && !canvasValidation.valid
-                    ? canvasValidation.errors[0]?.message ?? "Fix issues before running"
+                    ? (canvasValidation.errors[0]?.message ?? "Fix issues before running")
                     : "Run Workflow"
                 }
               >
@@ -2175,7 +2328,9 @@ export default function BuilderPage() {
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <div className="text-[10px] uppercase tracking-widest text-white/50">Workflow</div>
+                  <div className="text-[10px] uppercase tracking-widest text-white/50">
+                    Workflow
+                  </div>
 
                   <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70">
                     v1 Alpha preview
@@ -2219,58 +2374,61 @@ export default function BuilderPage() {
             <div className="flex items-center gap-2 flex-shrink-0">
               <Link
                 href={getDocsLink("/docs/builder/workflow-studio")}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors"
+                className="inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors"
                 title="Documentation"
               >
-                <BookOpen className="h-4 w-4" />
-                <span className="hidden sm:inline">Docs</span>
+                <BookOpen className="h-4 w-4 shrink-0" />
+                <span className="hidden truncate sm:inline">Docs</span>
               </Link>
 
               <button
+                type="button"
                 onClick={openLauncher}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors"
+                className="inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors"
                 title="Home"
               >
-                Home
+                <Home className="h-4 w-4 shrink-0" />
+                <span className="hidden truncate sm:inline">Home</span>
               </button>
 
               <button
                 onClick={runWorkflow}
                 disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
-                  "relative inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors",
-                  (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) && "opacity-60 cursor-not-allowed"
+                  "inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors",
+                  (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) &&
+                    "opacity-60 cursor-not-allowed",
                 )}
                 title={
                   canvasValidation && !canvasValidation.valid
-                    ? canvasValidation.errors[0]?.message ?? "Fix issues before running"
+                    ? (canvasValidation.errors[0]?.message ?? "Fix issues before running")
                     : "Run Workflow"
                 }
               >
-                <Play className="h-4 w-4" />
-                <span>Run</span>
+                <Play className="h-4 w-4 shrink-0" />
+                <span className="hidden truncate sm:inline">Run</span>
               </button>
 
               <button
                 onClick={publishWorkflow}
                 disabled={!activeDraftId}
                 className={cx(
-                  "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors",
-                  !activeDraftId && "opacity-60 cursor-not-allowed"
+                  "inline-flex h-9 w-[7.25rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors",
+                  !activeDraftId && "opacity-60 cursor-not-allowed",
                 )}
                 title="Publish"
               >
-                <Rocket className="h-4 w-4" />
-                Publish
+                <Rocket className="h-4 w-4 shrink-0" />
+                <span className="hidden whitespace-nowrap sm:inline">Publish</span>
               </button>
 
               <button
                 onClick={refreshWorkflows}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[12px] text-white/85 hover:bg-white/10 transition-colors"
+                className="inline-flex h-9 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors"
                 title="Refresh"
               >
-                <RefreshCw className={cx("h-4 w-4", wfLoading && "animate-spin")} />
-                Refresh
+                <RefreshCw className={cx("h-4 w-4 shrink-0", wfLoading && "animate-spin")} />
+                <span className="hidden whitespace-nowrap sm:inline">Refresh</span>
               </button>
 
               {/* Canvas controls: Undo, Redo, Zoom, Grid, Lock */}
@@ -2282,11 +2440,11 @@ export default function BuilderPage() {
                     "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
                     activeDraftId && undoStack.length > 0
                       ? "bg-white/5 text-white/85 hover:bg-white/10"
-                      : "bg-white/5 text-white/40 cursor-not-allowed"
+                      : "bg-white/5 text-white/40 cursor-not-allowed",
                   )}
                   title="Undo (Ctrl+Z)"
                 >
-                  <Undo2 className="h-4 w-4" />
+                  <Undo2 className="h-4 w-4 shrink-0" />
                 </button>
                 <button
                   onClick={redo}
@@ -2295,25 +2453,25 @@ export default function BuilderPage() {
                     "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
                     activeDraftId && redoStack.length > 0
                       ? "bg-white/5 text-white/85 hover:bg-white/10"
-                      : "bg-white/5 text-white/40 cursor-not-allowed"
+                      : "bg-white/5 text-white/40 cursor-not-allowed",
                   )}
                   title="Redo (Ctrl+Shift+Z)"
                 >
-                  <Redo2 className="h-4 w-4" />
+                  <Redo2 className="h-4 w-4 shrink-0" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomOut?.()}
                   title="Zoom out (−)"
                   className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
                 >
-                  <ZoomOut className="h-4 w-4 text-white/80" />
+                  <ZoomOut className="h-4 w-4 shrink-0 text-white/80" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomIn?.()}
                   title="Zoom in (+)"
                   className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
                 >
-                  <ZoomIn className="h-4 w-4 text-white/80" />
+                  <ZoomIn className="h-4 w-4 shrink-0 text-white/80" />
                 </button>
                 <button
                   onClick={() => {
@@ -2327,10 +2485,10 @@ export default function BuilderPage() {
                     "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
                     showGrid
                       ? "bg-white/10 text-white"
-                      : "bg-white/5 text-white/60 hover:bg-white/10"
+                      : "bg-white/5 text-white/60 hover:bg-white/10",
                   )}
                 >
-                  <Grid3X3 className="h-4 w-4" />
+                  <Grid3X3 className="h-4 w-4 shrink-0" />
                 </button>
                 <button
                   onClick={() => {
@@ -2344,10 +2502,14 @@ export default function BuilderPage() {
                     "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
                     locked
                       ? "bg-white/10 text-white"
-                      : "bg-white/5 text-white/70 hover:bg-white/10"
+                      : "bg-white/5 text-white/70 hover:bg-white/10",
                   )}
                 >
-                  {locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                  {locked ? (
+                    <Lock className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <Unlock className="h-4 w-4 shrink-0" />
+                  )}
                 </button>
                 <button
                   onClick={() => {
@@ -2359,7 +2521,11 @@ export default function BuilderPage() {
                   title="Toggle fullscreen (F)"
                   className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
                 >
-                  {isFullscreen ? <Minimize2 className="h-4 w-4 text-white/80" /> : <Maximize2 className="h-4 w-4 text-white/80" />}
+                  {isFullscreen ? (
+                    <Minimize2 className="h-4 w-4 shrink-0 text-white/80" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4 shrink-0 text-white/80" />
+                  )}
                 </button>
               </div>
 
@@ -2367,22 +2533,22 @@ export default function BuilderPage() {
                 <button
                   className={cx(
                     "h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors",
-                    windows.blocks.visible && "ring-2 ring-white/10"
+                    windows.blocks.visible && "ring-2 ring-white/10",
                   )}
                   title="Toggle Blocks"
                   onClick={() => toggleWindow("blocks")}
                 >
-                  <Plus className="h-4 w-4 text-white/80" />
+                  <Plus className="h-4 w-4 shrink-0 text-white/80" />
                 </button>
                 <button
                   className={cx(
                     "h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors",
-                    windows.inspector.visible && "ring-2 ring-white/10"
+                    windows.inspector.visible && "ring-2 ring-white/10",
                   )}
                   title="Toggle Inspector"
                   onClick={() => toggleWindow("inspector")}
                 >
-                  <LayoutPanelLeft className="h-4 w-4 text-white/80" />
+                  <LayoutPanelLeft className="h-4 w-4 shrink-0 text-white/80" />
                 </button>
               </div>
             </div>
@@ -2427,7 +2593,9 @@ export default function BuilderPage() {
             state={windows.inspector}
             onMove={startDrag("inspector", "move")}
             onMinimize={() => minimizeWindow("inspector")}
-            onClose={() => setWindows((p) => ({ ...p, inspector: { ...p.inspector, visible: false } }))}
+            onClose={() =>
+              setWindows((p) => ({ ...p, inspector: { ...p.inspector, visible: false } }))
+            }
             onResizeSE={startDrag("inspector", "resize-se")}
             onResizeSW={startDrag("inspector", "resize-sw")}
             onResizeE={startDrag("inspector", "resize-e")}
@@ -2457,18 +2625,19 @@ export default function BuilderPage() {
             )}
           </FloatingWindow>
         )}
-
       </div>
 
       {/* Validation banner - bottom, compact and expandable (hidden in preview mode) */}
-      {!isPreview && canvasValidation && (canvasValidation.errors.length > 0 || canvasValidation.warnings.length > 0) && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pb-4 flex justify-center">
-          <CanvasValidationBanner
-            validation={canvasValidation}
-            onFocusNode={onFocusValidationNode}
-          />
-        </div>
-      )}
+      {!isPreview &&
+        canvasValidation &&
+        (canvasValidation.errors.length > 0 || canvasValidation.warnings.length > 0) && (
+          <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pb-4 flex justify-center">
+            <CanvasValidationBanner
+              validation={canvasValidation}
+              onFocusNode={onFocusValidationNode}
+            />
+          </div>
+        )}
 
       {/* Premium Run Modal */}
       <PremiumWorkflowRunModal
@@ -2485,9 +2654,13 @@ export default function BuilderPage() {
         onCancel={handleCancelRun}
         onRerun={handleRerun}
         onSubmitInputs={handleSubmitInputs}
-        onBuyWorkflow={activeDraftId && previewOwnerHandle && previewEdgazeCode ? () => {
-          router.push(`/${previewOwnerHandle}/${previewEdgazeCode}`);
-        } : undefined}
+        onBuyWorkflow={
+          activeDraftId && previewOwnerHandle && previewEdgazeCode
+            ? () => {
+                router.push(`/${previewOwnerHandle}/${previewEdgazeCode}`);
+              }
+            : undefined
+        }
         remainingDemoRuns={activeDraftId ? getRemainingDemoRunsSync(activeDraftId) : undefined}
         workflowId={activeDraftId || undefined}
         isBuilderTest={!isPreview}
@@ -2518,32 +2691,33 @@ export default function BuilderPage() {
 
       {/* Desktop-only gating (only for edit mode, preview works on mobile) */}
       {!isDesktop && !isPreview && !previewParam && mounted && (
-          <div className="absolute inset-0 z-[80]">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
-            <div className="absolute inset-0 flex items-center justify-center p-6">
-              <div className="w-[min(560px,92vw)] rounded-3xl border border-white/12 bg-[#0c0c0c] shadow-[0_30px_140px_rgba(0,0,0,0.75)] p-6">
-                <div className="text-white text-lg font-semibold">Builder is desktop-only</div>
-                <div className="mt-2 text-sm text-white/60 leading-relaxed">
-                  Open the workflow builder on a larger screen (min {DESKTOP_MIN_W}px wide and {DESKTOP_MIN_H}px tall).
-                </div>
+        <div className="absolute inset-0 z-[80]">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <div className="w-[min(560px,92vw)] rounded-3xl border border-white/12 bg-[#0c0c0c] shadow-[0_30px_140px_rgba(0,0,0,0.75)] p-6">
+              <div className="text-white text-lg font-semibold">Builder is desktop-only</div>
+              <div className="mt-2 text-sm text-white/60 leading-relaxed">
+                Open the workflow builder on a larger screen (min {DESKTOP_MIN_W}px wide and{" "}
+                {DESKTOP_MIN_H}px tall).
+              </div>
 
-                <div className="mt-5 flex gap-2">
-                  <button
-                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-white text-black hover:bg-white/90 transition-colors"
-                    onClick={() => router.push("/marketplace")}
-                  >
-                    Go to Marketplace <ArrowRight className="h-4 w-4" />
-                  </button>
-                  <button
-                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm border border-white/12 bg-white/5 text-white/85 hover:bg-white/10 transition-colors"
-                    onClick={() => refreshWorkflows()}
-                  >
-                    Refresh
-                  </button>
-                </div>
+              <div className="mt-5 flex gap-2">
+                <button
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-white text-black hover:bg-white/90 transition-colors"
+                  onClick={() => router.push("/marketplace")}
+                >
+                  Go to Marketplace <ArrowRight className="h-4 w-4" />
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm border border-white/12 bg-white/5 text-white/85 hover:bg-white/10 transition-colors"
+                  onClick={() => refreshWorkflows()}
+                >
+                  Refresh
+                </button>
               </div>
             </div>
           </div>
+        </div>
       )}
 
       {/* Confined Workflows launcher overlay (disabled in preview) */}
@@ -2574,7 +2748,6 @@ export default function BuilderPage() {
     </div>
   );
 }
-
 
 function LauncherOverlay({
   leftSafe,
@@ -2616,7 +2789,10 @@ function LauncherOverlay({
   const continueItems = drafts;
 
   return (
-    <div className="fixed top-0 bottom-0 right-0 z-[70] pointer-events-none" style={{ left: leftSafe }}>
+    <div
+      className="fixed top-0 bottom-0 right-0 z-[70] pointer-events-none"
+      style={{ left: leftSafe }}
+    >
       <div className="absolute inset-0 bg-black/55 backdrop-blur-md pointer-events-none" />
 
       <div className="absolute inset-0 flex items-center justify-center p-6 pointer-events-none">
@@ -2626,7 +2802,7 @@ function LauncherOverlay({
             "border border-gray-700/40 bg-black/90 backdrop-blur-2xl shadow-[0_40px_160px_rgba(0,0,0,0.9)] overflow-hidden",
             "pointer-events-auto",
             "transition-all duration-300 ease-out",
-            "translate-y-0"
+            "translate-y-0",
           )}
         >
           {/* Header */}
@@ -2647,7 +2823,7 @@ function LauncherOverlay({
               onClick={onRefresh}
               className={cx(
                 "inline-flex items-center gap-2 rounded-xl border border-gray-700/40 bg-black/40 px-4 py-2 text-[12px] text-gray-300 hover:bg-black/60 hover:text-white hover:border-gray-600/50 transition-all duration-200",
-                busy && "opacity-50 cursor-not-allowed"
+                busy && "opacity-50 cursor-not-allowed",
               )}
               disabled={busy}
               title="Refresh"
@@ -2663,7 +2839,9 @@ function LauncherOverlay({
             <div className="col-span-12 md:col-span-4 overflow-auto pr-1">
               {!userId ? (
                 <div className="w-full rounded-xl border border-gray-700/40 bg-black/40 p-5">
-                  <div className="text-sm font-semibold text-white mb-2">Sign in to create workflows</div>
+                  <div className="text-sm font-semibold text-white mb-2">
+                    Sign in to create workflows
+                  </div>
                   <div className="text-xs text-gray-400 mb-4">
                     Sign in to save your workflows and access them from anywhere.
                   </div>
@@ -2680,7 +2858,9 @@ function LauncherOverlay({
                   className="w-full rounded-xl border border-gray-700/40 bg-black/40 hover:bg-black/60 hover:border-gray-600/50 px-5 py-4 text-left transition-all duration-200 group"
                 >
                   <div className="text-sm font-semibold text-white group-hover:text-white">New</div>
-                  <div className="text-xs text-gray-400 mt-0.5 group-hover:text-gray-300">Start a new workflow</div>
+                  <div className="text-xs text-gray-400 mt-0.5 group-hover:text-gray-300">
+                    Start a new workflow
+                  </div>
                 </button>
               )}
 
@@ -2698,7 +2878,7 @@ function LauncherOverlay({
                       className={cx(
                         "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200",
                         "bg-white text-black hover:bg-gray-100 shadow-lg shadow-white/10",
-                        creating && "opacity-60 cursor-not-allowed"
+                        creating && "opacity-60 cursor-not-allowed",
                       )}
                       disabled={creating}
                       onClick={onCreate}
@@ -2732,9 +2912,12 @@ function LauncherOverlay({
             <div className="col-span-12 md:col-span-8 overflow-auto pr-1">
               {!userId ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                  <div className="text-lg font-semibold text-white mb-2">Sign in to view your workflows</div>
+                  <div className="text-lg font-semibold text-white mb-2">
+                    Sign in to view your workflows
+                  </div>
                   <div className="text-sm text-gray-400 mb-6 max-w-md">
-                    Sign in to see your drafts and published workflows. Your workflows will be saved and accessible from any device.
+                    Sign in to see your drafts and published workflows. Your workflows will be saved
+                    and accessible from any device.
                   </div>
                   <button
                     onClick={onSignIn}
@@ -2746,7 +2929,9 @@ function LauncherOverlay({
               ) : (
                 <>
                   <div>
-                    <div className="text-sm font-semibold text-white mb-4 tracking-tight">Continue</div>
+                    <div className="text-sm font-semibold text-white mb-4 tracking-tight">
+                      Continue
+                    </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       {continueItems.length === 0 ? (
                         <div className="text-sm text-gray-500">No drafts yet.</div>
@@ -2765,7 +2950,9 @@ function LauncherOverlay({
                   </div>
 
                   <div className="mt-8">
-                    <div className="text-sm font-semibold text-white mb-4 tracking-tight">Your workflows</div>
+                    <div className="text-sm font-semibold text-white mb-4 tracking-tight">
+                      Your workflows
+                    </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       {published.length === 0 ? (
                         <div className="text-sm text-gray-500">No published workflows yet.</div>
@@ -2815,13 +3002,17 @@ function WorkflowCard({
       onClick={onClick}
       className={cx(
         "rounded-xl border border-gray-700/40 bg-black/40 hover:bg-black/60 hover:border-gray-600/50 transition-all duration-200",
-        "p-4 text-left shadow-[0_8px_32px_rgba(0,0,0,0.4)] group"
+        "p-4 text-left shadow-[0_8px_32px_rgba(0,0,0,0.4)] group",
       )}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-white truncate group-hover:text-white transition-colors">{title}</div>
-          <div className="mt-1 text-xs text-gray-400 group-hover:text-gray-300 transition-colors">{meta}</div>
+          <div className="text-sm font-semibold text-white truncate group-hover:text-white transition-colors">
+            {title}
+          </div>
+          <div className="mt-1 text-xs text-gray-400 group-hover:text-gray-300 transition-colors">
+            {meta}
+          </div>
         </div>
 
         <div className="shrink-0">
@@ -2855,7 +3046,7 @@ function GraphPreviewSquare({ graph }: { graph: any }) {
       acc.maxY = Math.max(acc.maxY, p.y);
       return acc;
     },
-    { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity }
+    { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
   );
 
   const hasPts = pts.length > 0 && Number.isFinite(bounds.minX);
@@ -2958,7 +3149,12 @@ function FloatingWindow({
   return (
     <div
       className="absolute z-30 pointer-events-auto"
-      style={{ left: state.x, top: state.y, width: state.width, height: state.minimized ? 56 : state.height }}
+      style={{
+        left: state.x,
+        top: state.y,
+        width: state.width,
+        height: state.minimized ? 56 : state.height,
+      }}
     >
       <div className="h-full rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] overflow-hidden">
         <div
@@ -2991,12 +3187,30 @@ function FloatingWindow({
 
       {!state.minimized && (
         <>
-          <div className="absolute right-0 top-3 bottom-3 w-2 cursor-e-resize" onMouseDown={onResizeE} />
-          <div className="absolute left-0 top-3 bottom-3 w-2 cursor-w-resize" onMouseDown={onResizeW} />
-          <div className="absolute top-0 left-3 right-3 h-2 cursor-n-resize" onMouseDown={onResizeN} />
-          <div className="absolute bottom-0 left-3 right-3 h-2 cursor-s-resize" onMouseDown={onResizeS} />
-          <div className="absolute right-0 bottom-0 h-4 w-4 cursor-se-resize" onMouseDown={onResizeSE} />
-          <div className="absolute left-0 bottom-0 h-4 w-4 cursor-sw-resize" onMouseDown={onResizeSW} />
+          <div
+            className="absolute right-0 top-3 bottom-3 w-2 cursor-e-resize"
+            onMouseDown={onResizeE}
+          />
+          <div
+            className="absolute left-0 top-3 bottom-3 w-2 cursor-w-resize"
+            onMouseDown={onResizeW}
+          />
+          <div
+            className="absolute top-0 left-3 right-3 h-2 cursor-n-resize"
+            onMouseDown={onResizeN}
+          />
+          <div
+            className="absolute bottom-0 left-3 right-3 h-2 cursor-s-resize"
+            onMouseDown={onResizeS}
+          />
+          <div
+            className="absolute right-0 bottom-0 h-4 w-4 cursor-se-resize"
+            onMouseDown={onResizeSE}
+          />
+          <div
+            className="absolute left-0 bottom-0 h-4 w-4 cursor-sw-resize"
+            onMouseDown={onResizeSW}
+          />
         </>
       )}
     </div>

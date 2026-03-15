@@ -6,7 +6,6 @@ type PlaceholderDef = {
   question: string;
 };
 
-
 type Props = {
   placeholders: PlaceholderDef[];
 };
@@ -22,12 +21,8 @@ export default function PlaceholderBadgeBar({ placeholders }: Props) {
             key={ph.name}
             className="inline-flex items-center gap-2 rounded-full border border-emerald-400/50 bg-emerald-500/10 px-3 py-0.5 text-emerald-200"
           >
-            <code className="font-mono text-[10px]">
-              {"{{" + ph.name + "}}"}
-            </code>
-            <span className="text-white/75 truncate max-w-[200px]">
-              {ph.question}
-            </span>
+            <code className="font-mono text-[10px]">{"{{" + ph.name + "}}"}</code>
+            <span className="text-white/75 truncate max-w-[200px]">{ph.question}</span>
           </div>
         ))}
       </div>

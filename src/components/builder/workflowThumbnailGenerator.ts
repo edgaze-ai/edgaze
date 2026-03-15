@@ -31,7 +31,7 @@ function drawRoundedRect(
   y: number,
   w: number,
   h: number,
-  r: number
+  r: number,
 ) {
   const rr = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
@@ -48,7 +48,7 @@ function toCanvasBlob(canvas: HTMLCanvasElement, type = "image/png", quality?: n
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error("Failed to create image blob"))),
       type,
-      quality
+      quality,
     );
   });
 }
@@ -73,7 +73,8 @@ function computeLayout(nodes: any[]) {
   const pts = nodes.map((n, i) => {
     const px = n.position?.x;
     const py = n.position?.y;
-    if (typeof px === "number" && typeof py === "number") return { id: n.id, x: px, y: py, node: n };
+    if (typeof px === "number" && typeof py === "number")
+      return { id: n.id, x: px, y: py, node: n };
 
     // deterministic grid fallback
     const cols = 5;
@@ -139,7 +140,7 @@ function paintBaseBackground(ctx: CanvasRenderingContext2D, width: number, heigh
     10,
     width * 0.18,
     height * -0.1,
-    width * 0.85
+    width * 0.85,
   );
   g1.addColorStop(0, "rgba(34,211,238,0.20)");
   g1.addColorStop(1, "rgba(34,211,238,0)");
@@ -152,7 +153,7 @@ function paintBaseBackground(ctx: CanvasRenderingContext2D, width: number, heigh
     10,
     width * 0.9,
     height * -0.1,
-    width * 0.9
+    width * 0.9,
   );
   g2.addColorStop(0, "rgba(232,121,249,0.18)");
   g2.addColorStop(1, "rgba(232,121,249,0)");
@@ -167,7 +168,7 @@ function softVignette(ctx: CanvasRenderingContext2D, width: number, height: numb
     50,
     width / 2,
     height / 2,
-    Math.max(width, height) * 0.7
+    Math.max(width, height) * 0.7,
   );
   vg.addColorStop(0, "rgba(0,0,0,0)");
   vg.addColorStop(1, "rgba(0,0,0,0.55)");
@@ -204,7 +205,12 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) 
   return t.slice(0, cut) + "…";
 }
 
-function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) {
+function wrapLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+) {
   const words = String(text || "")
     .replace(/\s+/g, " ")
     .trim()
@@ -424,10 +430,16 @@ export async function generatePromptThumbnailFile(opts: {
   const blurPx = clamp(opts.blurPx ?? 0, 0, 22);
   const previewBlurPx = clamp(opts.previewBlurPx ?? 3.5, 0, 12);
 
-  const title = String(opts.title || "Prompt").trim().slice(0, 90);
-  const description = String(opts.description || "").trim().slice(0, 160);
+  const title = String(opts.title || "Prompt")
+    .trim()
+    .slice(0, 90);
+  const description = String(opts.description || "")
+    .trim()
+    .slice(0, 160);
   const tags = Array.isArray(opts.tags) ? opts.tags.map(String).filter(Boolean).slice(0, 6) : [];
-  const preview = String(opts.previewText || "").trim().slice(0, 520);
+  const preview = String(opts.previewText || "")
+    .trim()
+    .slice(0, 520);
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -488,7 +500,6 @@ export async function generatePromptThumbnailFile(opts: {
   const descLines = wrapLines(ctx, description || "Premium prompt listing", contentW, 2);
   for (let i = 0; i < descLines.length; i++) {
     ctx.fillText(descLines[i] ?? "", contentX, cardY + 106 + i * 22);
-
   }
 
   // Tags pill row
@@ -554,7 +565,6 @@ export async function generatePromptThumbnailFile(opts: {
   const lines = wrapLines(ctx, preview || "Preview", textMaxW, 8);
   for (let i = 0; i < lines.length; i++) {
     ctx.fillText(lines[i] ?? "", previewX + 18, previewY + 56 + i * 20);
-
   }
   ctx.restore();
 

@@ -27,8 +27,7 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
     const question = config.question || title;
 
     // Field label: prefer config.label, inputKey, then question/title, fallback to "Input N"
-    const name =
-      config.label || config.inputKey || question || `Input ${index + 1}`;
+    const name = config.label || config.inputKey || question || `Input ${index + 1}`;
 
     // Placeholder: prefer config.placeholder, description, inputKey, fallback to generic
     const placeholder =
@@ -67,21 +66,23 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
 /**
  * Extract output nodes from workflow graph
  */
-export function extractWorkflowOutputs(nodes: GraphNode[]): Array<{ nodeId: string; label: string }> {
+export function extractWorkflowOutputs(
+  nodes: GraphNode[],
+): Array<{ nodeId: string; label: string }> {
   const outputs: Array<{ nodeId: string; label: string }> = [];
-  
+
   for (const node of nodes) {
     const specId = node.data?.specId;
     if (specId !== "output") continue;
-    
+
     const config = node.data?.config || {};
     const title = node.data?.title || config.name || config.label || "Output";
-    
+
     outputs.push({
       nodeId: node.id,
       label: title,
     });
   }
-  
+
   return outputs;
 }

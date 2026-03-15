@@ -11,10 +11,10 @@ import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
  */
 function cleanPath(path: string): string | null {
   if (!path || typeof path !== "string") return null;
-  
+
   let cleaned = path.trim();
   if (!cleaned) return null;
-  
+
   // If it's a full URL, extract just the path part (including query and hash)
   if (cleaned.includes("http://") || cleaned.includes("https://")) {
     try {
@@ -31,16 +31,16 @@ function cleanPath(path: string): string | null {
       }
     }
   }
-  
+
   // Must be a relative path starting with /
   if (!cleaned.startsWith("/")) return null;
   if (cleaned.startsWith("//")) return null;
-  
+
   // Don't allow redirect to auth pages or root (to avoid loops)
   // But allow query params and hash
   const pathOnly = cleaned.split("?")[0]?.split("#")[0];
   if (!pathOnly || pathOnly === "/" || pathOnly.startsWith("/auth/")) return null;
-  
+
   return cleaned;
 }
 
@@ -49,12 +49,19 @@ function cleanPath(path: string): string | null {
  */
 function getReturnPath(): string | null {
   if (typeof window === "undefined") return null;
-  
+
   try {
     const fromLocal = localStorage.getItem("edgaze:returnTo");
     const fromSession = sessionStorage.getItem("edgaze:returnTo");
     const result = fromLocal || fromSession;
-    console.warn("[Callback getReturnPath] Retrieved:", result, "from localStorage:", !!fromLocal, "from sessionStorage:", !!fromSession);
+    console.warn(
+      "[Callback getReturnPath] Retrieved:",
+      result,
+      "from localStorage:",
+      !!fromLocal,
+      "from sessionStorage:",
+      !!fromSession,
+    );
     return result;
   } catch (err) {
     console.error("[Callback getReturnPath] Error reading path:", err);
@@ -67,7 +74,7 @@ function getReturnPath(): string | null {
  */
 function clearReturnPath() {
   if (typeof window === "undefined") return;
-  
+
   try {
     localStorage.removeItem("edgaze:returnTo");
     sessionStorage.removeItem("edgaze:returnTo");
@@ -90,12 +97,12 @@ export default function CallbackClient() {
       // CRITICAL: Log current origin to debug redirect issues
       const currentOrigin = typeof window !== "undefined" ? window.location.origin : "unknown";
       const currentUrl = typeof window !== "undefined" ? window.location.href : "unknown";
-      
+
       console.warn("[Auth Callback] Current origin:", currentOrigin);
       console.warn("[Auth Callback] Current URL:", currentUrl);
       console.warn("[Auth Callback] Expected origin for localhost:", "http://localhost:3000");
       console.warn("[Auth Callback] Expected origin for production:", "https://edgaze.ai");
-      
+
       // If we're on localhost but got redirected to production, show error
       if (currentOrigin.includes("edgaze.ai") && typeof window !== "undefined") {
         const referrer = document.referrer;
@@ -104,13 +111,13 @@ export default function CallbackClient() {
           referrer,
           expectedOrigin: "http://localhost:3000",
         });
-        
+
         // Check if we came from localhost
         if (referrer.includes("localhost")) {
           setError(
             `Redirect Error: You were redirected to production (edgaze.ai) instead of localhost. ` +
-            `This is likely a Supabase Dashboard configuration issue. ` +
-            `Check your Supabase Dashboard → Authentication → URL Configuration → Site URL should be empty or set to http://localhost:3000 for local development.`
+              `This is likely a Supabase Dashboard configuration issue. ` +
+              `Check your Supabase Dashboard → Authentication → URL Configuration → Site URL should be empty or set to http://localhost:3000 for local development.`,
           );
           setDebugInfo(`Current: ${currentOrigin} | Referrer: ${referrer}`);
           return;
@@ -140,14 +147,18 @@ export default function CallbackClient() {
       if (isRecoveryFlow) {
         returnTo = "/auth/reset-password";
         redirectReason = "password recovery flow";
-        console.warn("[Auth Callback] Recovery flow detected, will redirect to /auth/reset-password after exchanging code");
+        console.warn(
+          "[Auth Callback] Recovery flow detected, will redirect to /auth/reset-password after exchanging code",
+        );
       }
 
       // If user came from apply flow (e.g. sign-in from apply page), send them to marketplace.
       if (!returnTo && isApplyFlow) {
         returnTo = "/marketplace";
         redirectReason = "apply flow (sessionStorage flags)";
-        console.warn("[Auth Callback] Apply flow detected, will redirect to /marketplace after exchanging code");
+        console.warn(
+          "[Auth Callback] Apply flow detected, will redirect to /marketplace after exchanging code",
+        );
       }
 
       // Priority 1: Check query parameter (passed in redirectTo URL) — unless already set by recovery or apply flow
@@ -185,7 +196,7 @@ export default function CallbackClient() {
           }
         }
       }
-      
+
       // Priority 3: Check referrer (if user came from our domain)
       // Only use if same origin to prevent production URLs on localhost
       if (!returnTo && typeof window !== "undefined" && document.referrer) {
@@ -202,32 +213,40 @@ export default function CallbackClient() {
               console.warn("[Auth Callback] Using path from referrer:", returnTo);
             }
           } else {
-            console.warn("[Auth Callback] Ignoring referrer from different origin:", referrerUrl.origin, "vs", window.location.origin);
+            console.warn(
+              "[Auth Callback] Ignoring referrer from different origin:",
+              referrerUrl.origin,
+              "vs",
+              window.location.origin,
+            );
           }
         } catch (err) {
           console.error("[Auth Callback] Error parsing referrer:", err);
         }
       }
-      
+
       // Default to marketplace if no valid path found
       if (!returnTo) {
         returnTo = "/marketplace";
         redirectReason = "default (no valid path found)";
         console.warn("[Auth Callback] No valid path found, defaulting to marketplace");
-        
+
         // Show error if we're defaulting to marketplace when we shouldn't
         const hasQueryParams = typeof window !== "undefined" && window.location.search;
         if (hasQueryParams) {
-          console.error("[Auth Callback] WARNING: Defaulting to marketplace but URL has query params:", window.location.search);
+          console.error(
+            "[Auth Callback] WARNING: Defaulting to marketplace but URL has query params:",
+            window.location.search,
+          );
           setError(
             `Redirect Error: Could not determine where to redirect after sign-in. ` +
-            `Redirecting to marketplace. ` +
-            `This might happen if the return path wasn't saved properly before sign-in. ` +
-            `Check browser console for details.`
+              `Redirecting to marketplace. ` +
+              `This might happen if the return path wasn't saved properly before sign-in. ` +
+              `Check browser console for details.`,
           );
         }
       }
-      
+
       console.warn("[Auth Callback] Final redirect decision:", {
         returnTo,
         reason: redirectReason,
@@ -290,29 +309,28 @@ export default function CallbackClient() {
       // Last resort: go to marketplace
       console.error("[Auth Callback] Failed to authenticate after all attempts");
       clearReturnPath(); // Clear on failure too
-      
+
       // Show error with details about what went wrong
       const errorDetails = [
         `Failed to complete authentication.`,
         `Redirecting to marketplace.`,
         `Reason: ${redirectReason || "authentication failed"}.`,
       ];
-      
+
       if (returnTo === "/marketplace") {
         errorDetails.push(
-          `\n\nNote: No return path was found. ` +
-          `This might happen if:`,
+          `\n\nNote: No return path was found. ` + `This might happen if:`,
           `1. The sign-in modal wasn't opened from a page`,
           `2. The return path wasn't saved properly`,
-          `3. Browser storage was cleared during sign-in`
+          `3. Browser storage was cleared during sign-in`,
         );
       } else {
         errorDetails.push(
           `\n\nNote: Intended redirect was: ${returnTo} ` +
-          `but authentication failed, so redirecting to marketplace instead.`
+            `but authentication failed, so redirecting to marketplace instead.`,
         );
       }
-      
+
       setError(errorDetails.join(" "));
       router.replace("/marketplace");
     };
@@ -334,11 +352,22 @@ export default function CallbackClient() {
             </div>
           )}
           <div className="text-xs text-white/60 space-y-2">
-            <p><strong>To fix this:</strong></p>
+            <p>
+              <strong>To fix this:</strong>
+            </p>
             <ol className="list-decimal list-inside space-y-1 ml-2">
               <li>Go to Supabase Dashboard → Authentication → URL Configuration</li>
-              <li>Set <strong>Site URL</strong> to: <code className="bg-black/50 px-1 rounded">http://localhost:3000</code> (for local dev)</li>
-              <li>Ensure <strong>Redirect URLs</strong> includes: <code className="bg-black/50 px-1 rounded">http://localhost:3000/auth/callback</code></li>
+              <li>
+                Set <strong>Site URL</strong> to:{" "}
+                <code className="bg-black/50 px-1 rounded">http://localhost:3000</code> (for local
+                dev)
+              </li>
+              <li>
+                Ensure <strong>Redirect URLs</strong> includes:{" "}
+                <code className="bg-black/50 px-1 rounded">
+                  http://localhost:3000/auth/callback
+                </code>
+              </li>
               <li>Clear browser cache and try again</li>
             </ol>
           </div>

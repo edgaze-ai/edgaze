@@ -5,10 +5,6 @@ export const metadata: Metadata = {
   description: "Join Edgaze. We're building the infrastructure for the AI creator economy.",
 };
 
-export default function CareersLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function CareersLayout({ children }: { children: React.ReactNode }) {
   return children;
 }

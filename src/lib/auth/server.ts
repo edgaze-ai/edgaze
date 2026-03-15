@@ -4,9 +4,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 
-export type AuthResult =
-  | { user: User; error: null }
-  | { user: null; error: string };
+export type AuthResult = { user: User; error: null } | { user: null; error: string };
 
 /**
  * Try Bearer first, then fall back to cookie-based session.
@@ -14,7 +12,7 @@ export type AuthResult =
  * Use for routes that may be called with either auth method (e.g. assets, marketplace).
  */
 export async function getUserAndClient(
-  req: NextRequest | Request
+  req: NextRequest | Request,
 ): Promise<{ user: User; supabase: SupabaseClient } | { user: null; supabase: null }> {
   const bearer = await getUserFromRequest(req);
   if (bearer.user) {
@@ -46,7 +44,7 @@ export async function getUserAndClient(
           } catch {}
         },
       },
-    }
+    },
   );
   const { data } = await supabase.auth.getUser();
   if (data?.user) {

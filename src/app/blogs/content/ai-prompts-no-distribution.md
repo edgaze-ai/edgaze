@@ -2,7 +2,7 @@ title = "The Day I Realized AI Prompts Had No Distribution"
 description = "AI workflows are becoming a new kind of digital product. But until now, there has been no place to publish them."
 date = "2026-03-13"
 
-*By Arjun Kuttikkat, Founder of Edgaze*
+_By Arjun Kuttikkat, Founder of Edgaze_
 
 I used to watch creators on Instagram and TikTok showing off AI prompts. You know the format. Someone posts a reel, drops a prompt on screen for three seconds, says "use this and generate an image" or "copy this to get the perfect result," and the comments are full of people asking them to pin it or share it.
 The prompt disappears. The reel loops. You either screenshot it fast or you miss it.
@@ -49,5 +49,5 @@ If you are a user who wants access to powerful AI tools without needing to under
 
 We built this for both of you.
 
-*More soon.*  
+_More soon._  
 Arjun

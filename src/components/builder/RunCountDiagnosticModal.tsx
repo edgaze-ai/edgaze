@@ -23,7 +23,10 @@ export type TrackingDiagnosticData = {
   envCheck: { serviceRoleKey: string; supabaseUrl: string };
   countRpc: { value: number | null; error: string | null };
   countDirect: { value: number | null; error: string | null };
-  recentRuns: { rows: { id: string; status: string; completed_at: string | null; created_at: string }[]; error: string | null };
+  recentRuns: {
+    rows: { id: string; status: string; completed_at: string | null; created_at: string }[];
+    error: string | null;
+  };
   testInsertResult: {
     createOk: boolean;
     createError: string | null;
@@ -71,8 +74,15 @@ export default function RunCountDiagnosticModal({
     try {
       const headers = await headersWithAuth();
       const [diagRes, trackRes] = await Promise.all([
-        fetch(`/api/flow/run/diagnostic?workflowId=${encodeURIComponent(workflowId)}`, { method: "GET", headers, credentials: "include" }),
-        fetch(`/api/flow/run/tracking-diagnostic?workflowId=${encodeURIComponent(workflowId)}${withTestInsert ? "&testInsert=1" : ""}`, { method: "GET", headers, credentials: "include" }),
+        fetch(`/api/flow/run/diagnostic?workflowId=${encodeURIComponent(workflowId)}`, {
+          method: "GET",
+          headers,
+          credentials: "include",
+        }),
+        fetch(
+          `/api/flow/run/tracking-diagnostic?workflowId=${encodeURIComponent(workflowId)}${withTestInsert ? "&testInsert=1" : ""}`,
+          { method: "GET", headers, credentials: "include" },
+        ),
       ]);
 
       if (!diagRes.ok) {
@@ -102,6 +112,7 @@ export default function RunCountDiagnosticModal({
     if (open && workflowId) {
       fetchDiagnostic();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch when modal opens; fetchDiagnostic stable
   }, [open, workflowId]);
 
   if (!open) return null;
@@ -113,7 +124,9 @@ export default function RunCountDiagnosticModal({
         <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-white">Run Count Diagnostic</h2>
-            <p className="text-sm text-white/60 mt-1">Debug information about workflow run tracking</p>
+            <p className="text-sm text-white/60 mt-1">
+              Debug information about workflow run tracking
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -178,7 +191,9 @@ export default function RunCountDiagnosticModal({
                   <div className="space-y-3">
                     <div>
                       <div className="text-xs text-white/50 mb-1">Run ID</div>
-                      <div className="text-sm font-mono text-white/80 break-all">{diagnostic.lastRunId}</div>
+                      <div className="text-sm font-mono text-white/80 break-all">
+                        {diagnostic.lastRunId}
+                      </div>
                     </div>
                     <div>
                       <div className="text-xs text-white/50 mb-1">Status</div>
@@ -196,10 +211,14 @@ export default function RunCountDiagnosticModal({
                         ) : diagnostic.lastRunStatus === "running" ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin text-yellow-400" />
-                            <span className="text-sm font-medium text-yellow-400">Running (Stuck?)</span>
+                            <span className="text-sm font-medium text-yellow-400">
+                              Running (Stuck?)
+                            </span>
                           </>
                         ) : (
-                          <span className="text-sm font-medium text-white/70">{diagnostic.lastRunStatus || "Unknown"}</span>
+                          <span className="text-sm font-medium text-white/70">
+                            {diagnostic.lastRunStatus || "Unknown"}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -220,16 +239,19 @@ export default function RunCountDiagnosticModal({
                       </div>
                     )}
                   </div>
-                  
+
                   {diagnostic.lastRunStatus === "running" && (
                     <div className="mt-4 pt-4 border-t border-white/10 rounded-lg border-yellow-500/40 bg-yellow-500/10 p-4">
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5" />
                         <div className="flex-1">
-                          <div className="text-sm font-semibold text-yellow-300 mb-1">Warning: Stuck Run</div>
+                          <div className="text-sm font-semibold text-yellow-300 mb-1">
+                            Warning: Stuck Run
+                          </div>
                           <div className="text-xs text-yellow-200/80">
-                            Your last run is still marked as &quot;running&quot;. This might prevent the count from updating correctly.
-                            The run may have completed but failed to update its status in the database.
+                            Your last run is still marked as &quot;running&quot;. This might prevent
+                            the count from updating correctly. The run may have completed but failed
+                            to update its status in the database.
                           </div>
                         </div>
                       </div>
@@ -259,14 +281,20 @@ export default function RunCountDiagnosticModal({
               {tracking && (
                 <div className="rounded-xl border-2 border-cyan-500/30 bg-cyan-500/5 p-5 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-white">Why usage isn&apos;t increasing</h3>
+                    <h3 className="text-lg font-semibold text-white">
+                      Why usage isn&apos;t increasing
+                    </h3>
                     <button
                       type="button"
                       onClick={runTestInsert}
                       disabled={testInsertLoading}
                       className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/40 bg-cyan-400/10 hover:bg-cyan-400/20 px-3 py-1.5 text-sm font-medium text-cyan-300 transition-all disabled:opacity-50"
                     >
-                      {testInsertLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      {testInsertLoading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
                       Test insert + update
                     </button>
                   </div>
@@ -274,13 +302,25 @@ export default function RunCountDiagnosticModal({
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <span className="text-white/50">Service role key: </span>
-                      <span className={tracking.envCheck.serviceRoleKey === "missing" ? "text-red-400 font-medium" : "text-green-400"}>
+                      <span
+                        className={
+                          tracking.envCheck.serviceRoleKey === "missing"
+                            ? "text-red-400 font-medium"
+                            : "text-green-400"
+                        }
+                      >
                         {tracking.envCheck.serviceRoleKey}
                       </span>
                     </div>
                     <div>
                       <span className="text-white/50">Supabase URL: </span>
-                      <span className={tracking.envCheck.supabaseUrl === "missing" ? "text-red-400" : "text-green-400"}>
+                      <span
+                        className={
+                          tracking.envCheck.supabaseUrl === "missing"
+                            ? "text-red-400"
+                            : "text-green-400"
+                        }
+                      >
                         {tracking.envCheck.supabaseUrl}
                       </span>
                     </div>
@@ -290,7 +330,9 @@ export default function RunCountDiagnosticModal({
                     <div className="rounded-lg bg-white/5 p-3">
                       <div className="text-white/50 mb-1">Count (RPC)</div>
                       {tracking.countRpc.error ? (
-                        <div className="text-red-400 font-mono text-xs break-all">{tracking.countRpc.error}</div>
+                        <div className="text-red-400 font-mono text-xs break-all">
+                          {tracking.countRpc.error}
+                        </div>
                       ) : (
                         <div className="text-white font-mono">{tracking.countRpc.value ?? "—"}</div>
                       )}
@@ -298,9 +340,13 @@ export default function RunCountDiagnosticModal({
                     <div className="rounded-lg bg-white/5 p-3">
                       <div className="text-white/50 mb-1">Count (direct query)</div>
                       {tracking.countDirect.error ? (
-                        <div className="text-red-400 font-mono text-xs break-all">{tracking.countDirect.error}</div>
+                        <div className="text-red-400 font-mono text-xs break-all">
+                          {tracking.countDirect.error}
+                        </div>
                       ) : (
-                        <div className="text-white font-mono">{tracking.countDirect.value ?? "—"}</div>
+                        <div className="text-white font-mono">
+                          {tracking.countDirect.value ?? "—"}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -308,9 +354,13 @@ export default function RunCountDiagnosticModal({
                   <div>
                     <div className="text-white/50 text-sm mb-2">Recent runs (last 20)</div>
                     {tracking.recentRuns.error ? (
-                      <div className="text-red-400 text-sm font-mono">{tracking.recentRuns.error}</div>
+                      <div className="text-red-400 text-sm font-mono">
+                        {tracking.recentRuns.error}
+                      </div>
                     ) : tracking.recentRuns.rows.length === 0 ? (
-                      <div className="text-white/60 text-sm">No rows — inserts may be failing (RLS or missing key).</div>
+                      <div className="text-white/60 text-sm">
+                        No rows — inserts may be failing (RLS or missing key).
+                      </div>
                     ) : (
                       <div className="rounded-lg border border-white/10 overflow-hidden">
                         <table className="w-full text-xs">
@@ -325,12 +375,22 @@ export default function RunCountDiagnosticModal({
                             {tracking.recentRuns.rows.slice(0, 10).map((r) => (
                               <tr key={r.id} className="border-t border-white/5 text-white/80">
                                 <td className="p-2">
-                                  <span className={r.status === "completed" || r.status === "failed" ? "text-green-400" : "text-yellow-400"}>
+                                  <span
+                                    className={
+                                      r.status === "completed" || r.status === "failed"
+                                        ? "text-green-400"
+                                        : "text-yellow-400"
+                                    }
+                                  >
                                     {r.status}
                                   </span>
                                 </td>
-                                <td className="p-2 font-mono">{r.completed_at ? new Date(r.completed_at).toLocaleString() : "—"}</td>
-                                <td className="p-2 font-mono">{new Date(r.created_at).toLocaleString()}</td>
+                                <td className="p-2 font-mono">
+                                  {r.completed_at ? new Date(r.completed_at).toLocaleString() : "—"}
+                                </td>
+                                <td className="p-2 font-mono">
+                                  {new Date(r.created_at).toLocaleString()}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -354,12 +414,27 @@ export default function RunCountDiagnosticModal({
                             <span className="text-green-400">OK</span>
                           ) : (
                             <div className="mt-1">
-                              <div className="text-red-400 font-mono text-xs break-all">{tracking.testInsertResult.createError}</div>
+                              <div className="text-red-400 font-mono text-xs break-all">
+                                {tracking.testInsertResult.createError}
+                              </div>
                               {tracking.testInsertResult.createErrorDetails && (
                                 <div className="mt-1 text-red-300/80 text-xs">
-                                  {tracking.testInsertResult.createErrorDetails.code && <div>Code: {tracking.testInsertResult.createErrorDetails.code}</div>}
-                                  {tracking.testInsertResult.createErrorDetails.details && <div>Details: {tracking.testInsertResult.createErrorDetails.details}</div>}
-                                  {tracking.testInsertResult.createErrorDetails.hint && <div>Hint: {tracking.testInsertResult.createErrorDetails.hint}</div>}
+                                  {tracking.testInsertResult.createErrorDetails.code && (
+                                    <div>
+                                      Code: {tracking.testInsertResult.createErrorDetails.code}
+                                    </div>
+                                  )}
+                                  {tracking.testInsertResult.createErrorDetails.details && (
+                                    <div>
+                                      Details:{" "}
+                                      {tracking.testInsertResult.createErrorDetails.details}
+                                    </div>
+                                  )}
+                                  {tracking.testInsertResult.createErrorDetails.hint && (
+                                    <div>
+                                      Hint: {tracking.testInsertResult.createErrorDetails.hint}
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -373,12 +448,27 @@ export default function RunCountDiagnosticModal({
                             <div className="mt-1">
                               {tracking.testInsertResult.updateError ? (
                                 <>
-                                  <div className="text-red-400 font-mono text-xs break-all">{tracking.testInsertResult.updateError}</div>
+                                  <div className="text-red-400 font-mono text-xs break-all">
+                                    {tracking.testInsertResult.updateError}
+                                  </div>
                                   {tracking.testInsertResult.updateErrorDetails && (
                                     <div className="mt-1 text-red-300/80 text-xs">
-                                      {tracking.testInsertResult.updateErrorDetails.code && <div>Code: {tracking.testInsertResult.updateErrorDetails.code}</div>}
-                                      {tracking.testInsertResult.updateErrorDetails.details && <div>Details: {tracking.testInsertResult.updateErrorDetails.details}</div>}
-                                      {tracking.testInsertResult.updateErrorDetails.hint && <div>Hint: {tracking.testInsertResult.updateErrorDetails.hint}</div>}
+                                      {tracking.testInsertResult.updateErrorDetails.code && (
+                                        <div>
+                                          Code: {tracking.testInsertResult.updateErrorDetails.code}
+                                        </div>
+                                      )}
+                                      {tracking.testInsertResult.updateErrorDetails.details && (
+                                        <div>
+                                          Details:{" "}
+                                          {tracking.testInsertResult.updateErrorDetails.details}
+                                        </div>
+                                      )}
+                                      {tracking.testInsertResult.updateErrorDetails.hint && (
+                                        <div>
+                                          Hint: {tracking.testInsertResult.updateErrorDetails.hint}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </>
@@ -395,11 +485,15 @@ export default function RunCountDiagnosticModal({
                   <div className="pt-2 border-t border-white/10">
                     <div className="text-white/50 text-sm mb-2">Summary</div>
                     {tracking.summary.length === 0 ? (
-                      <div className="text-white/60 text-sm">No issues detected from this diagnostic.</div>
+                      <div className="text-white/60 text-sm">
+                        No issues detected from this diagnostic.
+                      </div>
                     ) : (
                       <ul className="list-disc list-inside space-y-1 text-sm text-white/80">
                         {tracking.summary.map((s, i) => (
-                          <li key={i} className="text-amber-200/90">{s}</li>
+                          <li key={i} className="text-amber-200/90">
+                            {s}
+                          </li>
                         ))}
                       </ul>
                     )}
@@ -410,20 +504,32 @@ export default function RunCountDiagnosticModal({
               {/* Fallback why count might not update (when tracking not loaded) */}
               {!tracking && (
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
-                  <h3 className="text-lg font-semibold text-white mb-4">Why Count Might Not Update</h3>
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    Why Count Might Not Update
+                  </h3>
                   <div className="space-y-3 text-sm text-white/70">
                     <div className="flex items-start gap-3">
                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-2 shrink-0" />
                       <div>
-                        <div className="font-medium text-white/90 mb-1">Runs only count when status is &quot;completed&quot; or &quot;failed&quot;</div>
-                        <div className="text-xs text-white/50">If a run is stuck in &quot;running&quot; or &quot;pending&quot;, it won&apos;t be counted.</div>
+                        <div className="font-medium text-white/90 mb-1">
+                          Runs only count when status is &quot;completed&quot; or &quot;failed&quot;
+                        </div>
+                        <div className="text-xs text-white/50">
+                          If a run is stuck in &quot;running&quot; or &quot;pending&quot;, it
+                          won&apos;t be counted.
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-2 shrink-0" />
                       <div>
-                        <div className="font-medium text-white/90 mb-1">Database update must succeed</div>
-                        <div className="text-xs text-white/50">If the database update fails after workflow execution, the count won&apos;t increment.</div>
+                        <div className="font-medium text-white/90 mb-1">
+                          Database update must succeed
+                        </div>
+                        <div className="text-xs text-white/50">
+                          If the database update fails after workflow execution, the count
+                          won&apos;t increment.
+                        </div>
                       </div>
                     </div>
                   </div>

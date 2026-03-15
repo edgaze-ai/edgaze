@@ -9,7 +9,10 @@ export type WorkflowVersionRow = {
   created_at: string;
 };
 
-export async function createWorkflowVersion(workflowId: string, graph: { nodes: unknown[]; edges: unknown[] }): Promise<WorkflowVersionRow> {
+export async function createWorkflowVersion(
+  workflowId: string,
+  graph: { nodes: unknown[]; edges: unknown[] },
+): Promise<WorkflowVersionRow> {
   const supabase = createSupabaseAdminClient();
   const versionHash = computeWorkflowVersionHash(graph);
   const { data, error } = await supabase
@@ -25,16 +28,28 @@ export async function createWorkflowVersion(workflowId: string, graph: { nodes: 
   return data as WorkflowVersionRow;
 }
 
-export async function getWorkflowVersionById(versionId: string): Promise<WorkflowVersionRow | null> {
+export async function getWorkflowVersionById(
+  versionId: string,
+): Promise<WorkflowVersionRow | null> {
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase.from("workflow_versions").select("*").eq("id", versionId).maybeSingle();
+  const { data, error } = await supabase
+    .from("workflow_versions")
+    .select("*")
+    .eq("id", versionId)
+    .maybeSingle();
   if (error) throw error;
   return data as WorkflowVersionRow | null;
 }
 
-export async function setWorkflowActiveVersion(workflowId: string, versionId: string): Promise<void> {
+export async function setWorkflowActiveVersion(
+  workflowId: string,
+  versionId: string,
+): Promise<void> {
   const supabase = createSupabaseAdminClient();
-  const { error } = await supabase.from("workflows").update({ active_version_id: versionId }).eq("id", workflowId);
+  const { error } = await supabase
+    .from("workflows")
+    .update({ active_version_id: versionId })
+    .eq("id", workflowId);
   if (error) throw error;
 }
 

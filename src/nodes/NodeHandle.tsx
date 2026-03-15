@@ -40,8 +40,7 @@ export function NodeHandle({
       ? edges.some((e) => e.source === nodeId && (e.sourceHandle == null || e.sourceHandle === id))
       : edges.some((e) => e.target === nodeId && (e.targetHandle == null || e.targetHandle === id));
 
-  const handleColor =
-    variant === "true" ? "#22c55e" : variant === "false" ? "#ef4444" : nodeColor;
+  const handleColor = variant === "true" ? "#22c55e" : variant === "false" ? "#ef4444" : nodeColor;
 
   const isLeft = position === Position.Left;
 
@@ -64,29 +63,29 @@ export function NodeHandle({
       }}
     >
       <Handle
-          id={id}
-          type={type}
-          position={position}
-          isConnectable={isConnectable}
-          className="node-handle-custom"
-          style={{
-            width: 10,
-            height: 10,
-            minWidth: 10,
-            minHeight: 10,
-            borderRadius: "50%",
-            background: isConnected ? handleColor : "#141414",
-            border: `2px solid ${isConnected ? handleColor : "#383838"}`,
-            padding: 0,
-            margin: 0,
-            cursor: "crosshair",
-            transition: "all 120ms",
-            zIndex: 10,
-            boxShadow: isConnected ? `0 0 5px ${handleColor}44` : "none",
-            ...(isLeft ? { left: -5 } : { right: -5 }),
-            ...style,
-          }}
-        />
+        id={id}
+        type={type}
+        position={position}
+        isConnectable={isConnectable}
+        className="node-handle-custom"
+        style={{
+          width: 10,
+          height: 10,
+          minWidth: 10,
+          minHeight: 10,
+          borderRadius: "50%",
+          background: isConnected ? handleColor : "#141414",
+          border: `2px solid ${isConnected ? handleColor : "#383838"}`,
+          padding: 0,
+          margin: 0,
+          cursor: "crosshair",
+          transition: "all 120ms",
+          zIndex: 10,
+          boxShadow: isConnected ? `0 0 5px ${handleColor}44` : "none",
+          ...(isLeft ? { left: -5 } : { right: -5 }),
+          ...style,
+        }}
+      />
     </div>
   );
 }

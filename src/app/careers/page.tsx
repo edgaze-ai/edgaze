@@ -40,7 +40,11 @@ function NoJobsAnimation() {
         <motion.div
           className="relative flex h-16 w-16 items-center justify-center rounded-xl bg-white/[0.03] ring-1 ring-white/[0.08]"
           animate={{
-            boxShadow: ["0 0 0 0 rgba(34,211,238,0)", "0 0 24px 0 rgba(34,211,238,0.08)", "0 0 0 0 rgba(34,211,238,0)"],
+            boxShadow: [
+              "0 0 0 0 rgba(34,211,238,0)",
+              "0 0 24px 0 rgba(34,211,238,0.08)",
+              "0 0 0 0 rgba(34,211,238,0)",
+            ],
           }}
           transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
         >
@@ -76,9 +80,9 @@ export default function CareersPage() {
   const [type, setType] = useState<string | null>(null);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
-  const pillActive =
-    "bg-white/[0.08] text-white ring-1 ring-white/15";
-  const pillInactive = "text-white/50 hover:bg-white/[0.04] hover:text-white/80 ring-1 ring-white/[0.06]";
+  const pillActive = "bg-white/[0.08] text-white ring-1 ring-white/15";
+  const pillInactive =
+    "text-white/50 hover:bg-white/[0.04] hover:text-white/80 ring-1 ring-white/[0.06]";
 
   const activeCount = [level, location, type].filter(Boolean).length;
 
@@ -139,7 +143,7 @@ export default function CareersPage() {
                     onClick={() => setSort(opt)}
                     className={cn(
                       "rounded-lg px-3 py-2 text-[12px] font-medium transition-all",
-                      sort === opt ? pillActive : pillInactive
+                      sort === opt ? pillActive : pillInactive,
                     )}
                   >
                     {opt}
@@ -151,11 +155,16 @@ export default function CareersPage() {
                 onClick={() => setFiltersExpanded((e) => !e)}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium transition-all",
-                  filtersExpanded || activeCount > 0 ? pillActive : pillInactive
+                  filtersExpanded || activeCount > 0 ? pillActive : pillInactive,
                 )}
               >
                 Filters {activeCount > 0 && `(${activeCount})`}
-                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", filtersExpanded && "rotate-180")} />
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform",
+                    filtersExpanded && "rotate-180",
+                  )}
+                />
               </button>
             </div>
 
@@ -171,7 +180,9 @@ export default function CareersPage() {
                 >
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3.5 pt-3">
                     <div>
-                      <span className="text-[10px] font-semibold tracking-widest text-white/40 uppercase block mb-2">Level</span>
+                      <span className="text-[10px] font-semibold tracking-widest text-white/40 uppercase block mb-2">
+                        Level
+                      </span>
                       <div className="flex flex-wrap gap-1.5">
                         {LEVEL_FILTERS.map((l) => (
                           <button
@@ -180,7 +191,7 @@ export default function CareersPage() {
                             onClick={() => setLevel((p) => (p === l ? null : l))}
                             className={cn(
                               "rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all",
-                              level === l ? pillActive : pillInactive
+                              level === l ? pillActive : pillInactive,
                             )}
                           >
                             {l}
@@ -189,7 +200,9 @@ export default function CareersPage() {
                       </div>
                     </div>
                     <div>
-                      <span className="text-[10px] font-semibold tracking-widest text-white/40 uppercase block mb-2">Location</span>
+                      <span className="text-[10px] font-semibold tracking-widest text-white/40 uppercase block mb-2">
+                        Location
+                      </span>
                       <div className="flex flex-wrap gap-1.5">
                         {LOCATION_FILTERS.map((loc) => (
                           <button
@@ -198,7 +211,7 @@ export default function CareersPage() {
                             onClick={() => setLocation((p) => (p === loc ? null : loc))}
                             className={cn(
                               "rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all",
-                              location === loc ? pillActive : pillInactive
+                              location === loc ? pillActive : pillInactive,
                             )}
                           >
                             {loc}
@@ -207,7 +220,9 @@ export default function CareersPage() {
                       </div>
                     </div>
                     <div>
-                      <span className="text-[10px] font-semibold tracking-widest text-white/40 uppercase block mb-2">Type</span>
+                      <span className="text-[10px] font-semibold tracking-widest text-white/40 uppercase block mb-2">
+                        Type
+                      </span>
                       <div className="flex flex-wrap gap-1.5">
                         {TYPE_FILTERS.map((t) => (
                           <button
@@ -216,7 +231,7 @@ export default function CareersPage() {
                             onClick={() => setType((p) => (p === t ? null : t))}
                             className={cn(
                               "rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all",
-                              type === t ? pillActive : pillInactive
+                              type === t ? pillActive : pillInactive,
                             )}
                           >
                             {t}
@@ -238,9 +253,14 @@ export default function CareersPage() {
 
         {/* About Edgaze */}
         <section className="mb-16 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 sm:p-8">
-          <h2 className="text-[11px] font-semibold tracking-[0.2em] text-white/45 uppercase mb-4">About Edgaze</h2>
+          <h2 className="text-[11px] font-semibold tracking-[0.2em] text-white/45 uppercase mb-4">
+            About Edgaze
+          </h2>
           <p className="text-[15px] leading-relaxed text-white/65 max-w-2xl">
-            Edgaze is a marketplace for AI prompts and workflows. Creators build once, publish a clean product page, and share one link. We&apos;re building the infrastructure for the AI creator economy—making it easy to create, sell, and distribute AI products with clarity and trust.
+            Edgaze is a marketplace for AI prompts and workflows. Creators build once, publish a
+            clean product page, and share one link. We&apos;re building the infrastructure for the
+            AI creator economy—making it easy to create, sell, and distribute AI products with
+            clarity and trust.
           </p>
           <Link
             href="/about"

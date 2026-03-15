@@ -29,8 +29,12 @@ function MergeNodeImpl(props: NodeProps) {
 
   const isHandleConnected = (handleId: string, isSource: boolean) =>
     isSource
-      ? edges.some((e) => e.source === id && (e.sourceHandle == null || e.sourceHandle === handleId))
-      : edges.some((e) => e.target === id && (e.targetHandle == null || e.targetHandle === handleId));
+      ? edges.some(
+          (e) => e.source === id && (e.sourceHandle == null || e.sourceHandle === handleId),
+        )
+      : edges.some(
+          (e) => e.target === id && (e.targetHandle == null || e.targetHandle === handleId),
+        );
 
   return (
     <div

@@ -72,9 +72,7 @@ type AuthContextValue = {
   refresh: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 
-  updateProfile: (
-    patch: Partial<Profile>
-  ) => Promise<{ ok: boolean; error?: string }>;
+  updateProfile: (patch: Partial<Profile>) => Promise<{ ok: boolean; error?: string }>;
 
   signOut: () => Promise<void>;
 
@@ -91,6 +89,9 @@ type AuthContextValue = {
 
   // Get access token for API calls
   getAccessToken: () => Promise<string | null>;
+
+  // Refresh the auth session (e.g. before checkout to avoid 401)
+  refreshAuthSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -116,10 +117,10 @@ function normalizeHandle(input: string) {
  */
 function cleanPath(path: string): string | null {
   if (!path || typeof path !== "string") return null;
-  
+
   let cleaned = path.trim();
   if (!cleaned) return null;
-  
+
   // If it's a full URL, extract just the path part
   if (cleaned.includes("http://") || cleaned.includes("https://")) {
     try {
@@ -135,16 +136,16 @@ function cleanPath(path: string): string | null {
       }
     }
   }
-  
+
   // Must be a relative path starting with /
   if (!cleaned.startsWith("/")) return null;
   if (cleaned.startsWith("//")) return null;
-  
+
   // Don't allow redirect to auth pages or root (to avoid loops)
   // But allow query params and hash
   const pathOnly = cleaned.split("?")[0]?.split("#")[0];
   if (!pathOnly || pathOnly === "/" || pathOnly.startsWith("/auth/")) return null;
-  
+
   return cleaned;
 }
 
@@ -154,7 +155,7 @@ function cleanPath(path: string): string | null {
  */
 function saveReturnPath(path: string) {
   if (typeof window === "undefined") return;
-  
+
   try {
     const cleaned = cleanPath(path);
     if (cleaned) {
@@ -174,12 +175,19 @@ function saveReturnPath(path: string) {
  */
 function getReturnPath(): string | null {
   if (typeof window === "undefined") return null;
-  
+
   try {
     const fromLocal = localStorage.getItem("edgaze:returnTo");
     const fromSession = sessionStorage.getItem("edgaze:returnTo");
     const result = fromLocal || fromSession;
-    console.warn("[getReturnPath] Retrieved:", result, "from localStorage:", !!fromLocal, "from sessionStorage:", !!fromSession);
+    console.warn(
+      "[getReturnPath] Retrieved:",
+      result,
+      "from localStorage:",
+      !!fromLocal,
+      "from sessionStorage:",
+      !!fromSession,
+    );
     return result;
   } catch (err) {
     console.error("[getReturnPath] Error reading path:", err);
@@ -192,16 +200,14 @@ function getReturnPath(): string | null {
  */
 function clearReturnPath() {
   if (typeof window === "undefined") return;
-  
+
   try {
     localStorage.removeItem("edgaze:returnTo");
     sessionStorage.removeItem("edgaze:returnTo");
   } catch {}
 }
 
-function isStillBannedRow(
-  row: { is_banned?: boolean; ban_expires_at?: string | null } | null
-) {
+function isStillBannedRow(row: { is_banned?: boolean; ban_expires_at?: string | null } | null) {
   if (!row?.is_banned) return false;
   const expires = row.ban_expires_at ?? null;
   if (!expires) return true;
@@ -253,26 +259,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Prevent duplicate identify/alias loops
   const lastIdentifiedRef = useRef<string | null>(null);
-  
+
   // Track if we've just signed in to handle redirect
   const justSignedInRef = useRef(false);
 
-    const openSignIn = useCallback(() => {
+  const openSignIn = useCallback(() => {
     if (modalOpenRef.current) return;
-    
-    // Save current path BEFORE opening modal
-    // CRITICAL: This includes query params and hash (action=run, action=purchase, etc.)
-    if (typeof window !== "undefined") {
-      const currentPath = window.location.pathname + window.location.search + window.location.hash;
-      console.warn("[openSignIn] Saving current path:", currentPath);
-      // Only save if it's a valid path (not root, not auth pages)
+
+    if (typeof window === "undefined") return;
+
+    const currentPath = window.location.pathname + window.location.search + window.location.hash;
+
+    // Product page: /p/owner/code (prompts+workflows) or /owner/code (workflow storefront)
+    // Send to full-screen sign-in-to-buy with product on side and conversion copy (never use modal here)
+    const pathSegments = window.location.pathname
+      .replace(/^\/+|\/+$/g, "")
+      .split("/")
+      .filter(Boolean);
+    const isProductPageP = pathSegments[0] === "p" && pathSegments.length >= 3;
+    const isProductPageWorkflow =
+      pathSegments.length === 2 &&
+      ![
+        "auth",
+        "marketplace",
+        "library",
+        "builder",
+        "creators",
+        "admin",
+        "settings",
+        "profile",
+        "store",
+        "apply",
+        "dashboard",
+      ].includes(pathSegments[0] ?? "");
+    if (isProductPageP || isProductPageWorkflow) {
+      const type = isProductPageP ? "prompt" : "workflow";
       if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
-        saveReturnPath(currentPath);
-      } else {
-        console.warn("[openSignIn] Not saving path (invalid):", currentPath);
+        safeTrack("Sign In To Buy Redirect", {
+          surface: "auth_context",
+          from_product_page: true,
+          type,
+        });
+        window.location.href = `/auth/sign-in-to-buy?return=${encodeURIComponent(currentPath)}&type=${type}`;
       }
+      return;
     }
-    
+
+    // Save current path BEFORE opening modal (non-product pages)
+    if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
+      saveReturnPath(currentPath);
+    }
+
     modalOpenRef.current = true;
     setModalOpen(true);
     safeTrack("Sign In Modal Opened", {
@@ -309,7 +346,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       surface: "auth_context",
       user_type: "anonymous",
     });
-    
+
     // Track anonymous user activity
     safeTrack("Anonymous User Active", {
       surface: "auth_context",
@@ -322,7 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,country,plan,email_verified,is_founding_creator,can_receive_payments"
+          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,country,plan,email_verified,is_founding_creator,can_receive_payments",
         )
         .eq("id", uid)
         .maybeSingle();
@@ -333,7 +370,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setProfile((data as Profile) ?? null);
     },
-    [supabase]
+    [supabase],
   );
 
   const loadModeration = useCallback(
@@ -365,7 +402,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return stillBanned;
     },
-    [supabase]
+    [supabase],
   );
 
   const loadAdmin = useCallback(
@@ -384,7 +421,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAdmin(ok);
       return ok;
     },
-    [supabase]
+    [supabase],
   );
 
   const applyUser = useCallback(
@@ -420,11 +457,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Load profile immediately (critical for UI) - but don't block on it
       loadProfile(user.id).catch(() => setProfile(null));
-      
+
       // Defer non-critical checks to improve initial load time
       // Use requestIdleCallback for better performance, fallback to setTimeout
       const scheduleTask = (fn: () => void, delay: number) => {
-        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        if (typeof window !== "undefined" && "requestIdleCallback" in window) {
           (window as any).requestIdleCallback(fn, { timeout: delay });
         } else {
           setTimeout(fn, delay);
@@ -442,10 +479,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .then((stillBanned) => {
             if (stillBanned) {
               safeTrack("User Banned Redirect", { surface: "auth_context" });
-              if (
-                typeof window !== "undefined" &&
-                window.location.pathname !== "/banned"
-              ) {
+              if (typeof window !== "undefined" && window.location.pathname !== "/banned") {
                 window.location.href = "/banned";
               }
             }
@@ -457,7 +491,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           });
       }, 200);
     },
-    [applyNoUser, loadAdmin, loadModeration, loadProfile]
+    [applyNoUser, loadAdmin, loadModeration, loadProfile],
   );
 
   const refresh = useCallback(async () => {
@@ -512,12 +546,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const payload: any = { ...patch };
       const previousHandle = profile?.handle ?? undefined;
-      if (typeof payload.handle === "string")
-        payload.handle = normalizeHandle(payload.handle);
+      if (typeof payload.handle === "string") payload.handle = normalizeHandle(payload.handle);
 
       // Use backend API endpoint that enforces 60-day cooldown for handle changes
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`;
 
@@ -565,7 +600,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, error: e.message || "Network error" };
       }
     },
-    [loadProfile, supabase, userId, profile?.handle]
+    [loadProfile, supabase, userId, profile?.handle],
   );
 
   useEffect(() => {
@@ -582,7 +617,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await applyUser(session?.user ?? null);
       setLoading(false);
       setAuthReady(true);
-      
+
       // Track anonymous user activity if no session
       if (!session?.user) {
         safeTrack("Anonymous User Active", {
@@ -590,41 +625,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           user_type: "anonymous",
         });
       }
-      
+
       // Handle redirect after successful sign-in (for email sign-in, not OAuth)
       // OAuth redirects are handled by the callback handler
       // Check if we transitioned from no user to having a user
       if (!previousUserId && session?.user && typeof window !== "undefined") {
         // Only handle redirect if we're NOT on the callback page (OAuth handles its own redirect)
         const isOnCallback = window.location.pathname.startsWith("/auth/callback");
-        
+
         if (!isOnCallback) {
           justSignedInRef.current = true;
-          
+
           // Small delay to ensure state is updated and modal is closed
           setTimeout(() => {
             try {
               const returnPath = getReturnPath();
-              
-              console.warn("[Auth State Change] Email sign-in detected, checking return path:", returnPath);
-              
+
+              console.warn(
+                "[Auth State Change] Email sign-in detected, checking return path:",
+                returnPath,
+              );
+
               if (returnPath) {
                 const cleaned = cleanPath(returnPath);
-                
+
                 if (cleaned && pathname !== cleaned) {
                   console.warn("[Auth State Change] Redirecting to:", cleaned);
                   // Clear storage and redirect
                   clearReturnPath();
                   router.push(cleaned);
                 } else {
-                  console.warn("[Auth State Change] Invalid path or already on target, clearing storage");
+                  console.warn(
+                    "[Auth State Change] Invalid path or already on target, clearing storage",
+                  );
                   // Invalid path or already on that path - just clear storage
                   clearReturnPath();
                 }
               } else {
                 console.warn("[Auth State Change] No return path found, staying on current page");
               }
-              
+
               justSignedInRef.current = false;
             } catch (err) {
               console.error("[Auth State Change] Redirect error:", err);
@@ -633,7 +673,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }, 300);
         } else {
-          console.warn("[Auth State Change] On callback page, letting callback handler manage redirect");
+          console.warn(
+            "[Auth State Change] On callback page, letting callback handler manage redirect",
+          );
         }
       }
     });
@@ -663,7 +705,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = async (redirectPath?: string) => {
     // Get the path we want to redirect to after OAuth
     let returnPath: string | null = null;
-    
+
     if (redirectPath) {
       // Explicit path provided
       returnPath = cleanPath(redirectPath);
@@ -671,19 +713,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Use saved path from when modal was opened
       returnPath = getReturnPath();
     }
-    
+
     // CRITICAL: Always use current origin (window.location.origin)
     // This ensures localhost uses localhost, production uses production
     const currentOrigin = window.location.origin;
     const callbackUrl = `${currentOrigin}/auth/callback`;
-    
+
     // Build redirectTo URL for Supabase (must be full URL)
     // CRITICAL: Always pass returnPath as query param, even if it's null
     // This ensures the callback handler can always find it, even if localStorage is cleared
     const redirectTo = returnPath
       ? `${callbackUrl}?next=${encodeURIComponent(returnPath)}`
       : callbackUrl;
-    
+
     console.warn("[signInWithGoogle] Prepared redirect:", {
       returnPath,
       callbackUrl,
@@ -706,7 +748,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         currentOrigin,
         redirectTo,
       });
-      throw new Error("Redirect URL mismatch: localhost detected but redirectTo contains production domain");
+      throw new Error(
+        "Redirect URL mismatch: localhost detected but redirectTo contains production domain",
+      );
     }
 
     safeTrack("OAuth Started", {
@@ -721,7 +765,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider: "google",
       options: {
         redirectTo,
-        queryParams: { 
+        queryParams: {
           prompt: "select_account",
         },
         // Skip browser redirect - we'll handle it manually if needed
@@ -852,8 +896,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const getAccessToken = useCallback(async (): Promise<string | null> => {
     try {
       // First try to get the current session
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+
       if (error) {
         console.warn("Error getting session in getAccessToken:", error);
         return null;
@@ -869,7 +916,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (expiresAt) {
         const now = Math.floor(Date.now() / 1000);
         const expiresIn = expiresAt - now;
-        
+
         // If token expires within 60 seconds, refresh it
         if (expiresIn < 60) {
           // Token is expired or about to expire, try to refresh
@@ -893,7 +940,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return refreshData?.session?.access_token ?? session.access_token;
         }
       }
-      
+
       // Token is still valid
       return session.access_token;
     } catch (error) {
@@ -901,6 +948,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
   }, [supabase, applyNoUser]);
+
+  const refreshAuthSession = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        applyNoUser();
+      } else if (data?.session?.user) {
+        await applyUser(data.session.user);
+      }
+    } catch {
+      applyNoUser();
+    }
+  }, [supabase, applyNoUser, applyUser]);
 
   const user: AuthUser | null =
     userId && profile
@@ -945,6 +1005,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUpWithEmail,
 
     getAccessToken,
+    refreshAuthSession,
   };
 
   return (

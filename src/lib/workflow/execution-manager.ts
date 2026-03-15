@@ -52,7 +52,7 @@ export class WorkflowExecutionManager {
     workflowName: string,
     nodes: GraphNode[],
     edges: GraphEdge[],
-    onUpdate?: (state: WorkflowRunState) => void
+    onUpdate?: (state: WorkflowRunState) => void,
   ) {
     const inputs = extractWorkflowInputs(nodes);
     const outputs = extractWorkflowOutputs(nodes);
@@ -127,16 +127,13 @@ export class WorkflowExecutionManager {
     return [];
   }
 
-  private async runWorkflow(
-    inputs: Record<string, any>,
-    signal: AbortSignal
-  ): Promise<any> {
+  private async runWorkflow(inputs: Record<string, any>, signal: AbortSignal): Promise<any> {
     // This will call the actual API endpoint
     const workflowId = this.state.workflowId;
-    
+
     // Get the graph from somewhere (would need to be passed in)
     // For now, we'll make a placeholder call
-    
+
     const response = await fetch("/api/flow/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -157,7 +154,7 @@ export class WorkflowExecutionManager {
 
   private processResults(result: any) {
     const outputs = this.state.outputs || [];
-    
+
     // Map results to outputs
     if (result.result?.finalOutputs) {
       for (const finalOutput of result.result.finalOutputs) {

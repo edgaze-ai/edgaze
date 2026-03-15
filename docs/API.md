@@ -2,7 +2,7 @@
 
 This document provides a comprehensive reference for Edgaze's internal API routes.
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 ---
 

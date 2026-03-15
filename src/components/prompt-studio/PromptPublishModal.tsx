@@ -54,9 +54,7 @@ export default function PromptPublishModal({
 
         <form onSubmit={handleSubmit} className="space-y-3 text-sm">
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-white/70">
-              Prompt name
-            </label>
+            <label className="text-[11px] font-medium text-white/70">Prompt name</label>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -67,9 +65,7 @@ export default function PromptPublishModal({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-white/70">
-              Short description
-            </label>
+            <label className="text-[11px] font-medium text-white/70">Short description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -81,9 +77,7 @@ export default function PromptPublishModal({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-white/70">
-              Thumbnail URL
-            </label>
+            <label className="text-[11px] font-medium text-white/70">Thumbnail URL</label>
             <input
               value={thumbnailUrl}
               onChange={(e) => setThumbnailUrl(e.target.value)}
@@ -96,9 +90,7 @@ export default function PromptPublishModal({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium text-white/70">
-              SEO tags / keywords
-            </label>
+            <label className="text-[11px] font-medium text-white/70">SEO tags / keywords</label>
             <input
               value={seoTags}
               onChange={(e) => setSeoTags(e.target.value)}
@@ -110,16 +102,8 @@ export default function PromptPublishModal({
             </p>
           </div>
 
-          {error && (
-            <p className="text-[11px] text-amber-300">
-              {error}
-            </p>
-          )}
-          {success && (
-            <p className="text-[11px] text-emerald-300">
-              {success}
-            </p>
-          )}
+          {error && <p className="text-[11px] text-amber-300">{error}</p>}
+          {success && <p className="text-[11px] text-emerald-300">{success}</p>}
 
           <div className="mt-3 flex justify-end gap-2 text-xs">
             <button

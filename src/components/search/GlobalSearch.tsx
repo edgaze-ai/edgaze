@@ -49,9 +49,7 @@ export default function GlobalSearch({ placeholder }: Props) {
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(
-          `/api/search?q=${encodeURIComponent(query.trim())}`
-        );
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`);
 
         // Don’t throw – just handle gracefully
         if (!res.ok) {
@@ -113,9 +111,7 @@ export default function GlobalSearch({ placeholder }: Props) {
                 <Link
                   key={p.id}
                   href={
-                    p.handle
-                      ? `/profile/@${p.handle}`
-                      : `/profile?id=${encodeURIComponent(p.id)}`
+                    p.handle ? `/profile/@${p.handle}` : `/profile?id=${encodeURIComponent(p.id)}`
                   }
                   className="flex items-center gap-3 px-3 py-2 text-sm text-white/85 hover:bg-white/5"
                   onClick={() => setOpen(false)}
@@ -158,22 +154,14 @@ export default function GlobalSearch({ placeholder }: Props) {
               {results!.workflows.map((w) => (
                 <Link
                   key={w.id}
-                  href={
-                    w.slug
-                      ? `/workflow/${w.slug}`
-                      : `/workflow?id=${encodeURIComponent(w.id)}`
-                  }
+                  href={w.slug ? `/workflow/${w.slug}` : `/workflow?id=${encodeURIComponent(w.id)}`}
                   className="flex items-center gap-3 px-3 py-2 text-sm text-white/85 hover:bg-white/5"
                   onClick={() => setOpen(false)}
                 >
                   <div className="h-8 w-8 rounded-lg bg-white/5 overflow-hidden flex-shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {}
                     {w.bannerUrl && (
-                      <img
-                        src={w.bannerUrl}
-                        alt={w.title}
-                        className="h-full w-full object-cover"
-                      />
+                      <img src={w.bannerUrl} alt={w.title} className="h-full w-full object-cover" />
                     )}
                   </div>
                   <div className="flex flex-col">

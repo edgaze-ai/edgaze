@@ -55,7 +55,7 @@ export default function MobileSidebarDrawer() {
       <div
         className={cn(
           "fixed inset-0 z-[80] bg-black/60 transition-opacity",
-          mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none",
         )}
         onClick={closeMobile}
       />
@@ -66,7 +66,7 @@ export default function MobileSidebarDrawer() {
           "fixed left-0 top-0 z-[90] h-full w-[86vw] max-w-[340px]",
           "bg-[#050505] border-r border-gray-600/50",
           "transform transition-transform duration-200 ease-out",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
         aria-hidden={!mobileOpen}
       >
@@ -77,9 +77,7 @@ export default function MobileSidebarDrawer() {
               <div className="relative h-7 w-7">
                 <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="28px" />
               </div>
-              <span className="text-[16px] font-semibold tracking-tight text-white">
-                edgaze
-              </span>
+              <span className="text-[16px] font-semibold tracking-tight text-white">edgaze</span>
             </div>
 
             <button
@@ -126,19 +124,14 @@ function NavSection({
         const active = isActive(item.href);
 
         return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className="block"
-          >
+          <Link key={item.href} href={item.href} onClick={onNavigate} className="block">
             <div
               className={cn(
                 "flex items-center gap-3 rounded-2xl px-3.5 py-3",
                 "transition-colors duration-150",
                 active
                   ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.45)]"
-                  : "border border-gray-600/50 bg-white/[0.03] text-white/80 hover:bg-white/[0.08] hover:border-gray-500/60"
+                  : "border border-gray-600/50 bg-white/[0.03] text-white/80 hover:bg-white/[0.08] hover:border-gray-500/60",
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />

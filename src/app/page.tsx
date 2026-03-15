@@ -6,7 +6,15 @@ import Image from "next/image";
 import { useAuth } from "src/components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, BadgeCheck, ChevronDown, Compass, Link2, Search, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  ChevronDown,
+  Compass,
+  Link2,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import FoundingCreatorBadge from "src/components/ui/FoundingCreatorBadge";
 import Footer from "src/components/layout/Footer";
 import TrendingThisWeekSection from "src/components/home/TrendingThisWeekSection";
@@ -54,13 +62,7 @@ function Container({
   wide?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        "mx-auto w-full",
-        wide ? "max-w-[1400px]" : "max-w-7xl",
-        className
-      )}
-    >
+    <div className={cn("mx-auto w-full", wide ? "max-w-[1400px]" : "max-w-7xl", className)}>
       {children}
     </div>
   );
@@ -190,25 +192,23 @@ function NavDropdown({
   }, [isOpen, onClose]);
 
   return (
-    <div
-      ref={ref}
-      className="relative"
-      onMouseEnter={onOpen}
-      onMouseLeave={onClose}
-    >
+    <div ref={ref} className="relative" onMouseEnter={onOpen} onMouseLeave={onClose}>
       <button
         type="button"
         onClick={() => (isOpen ? onClose() : onOpen())}
         className={cn(
           "flex items-center gap-0.5 py-2 text-[13px] text-white/75 hover:text-white",
-          "transition-colors duration-200"
+          "transition-colors duration-200",
         )}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
         {label}
         <ChevronDown
-          className={cn("h-3.5 w-3.5 text-white/50 transition-transform duration-200", isOpen && "rotate-180")}
+          className={cn(
+            "h-3.5 w-3.5 text-white/50 transition-transform duration-200",
+            isOpen && "rotate-180",
+          )}
         />
       </button>
 
@@ -226,7 +226,7 @@ function NavDropdown({
                 "min-w-[200px] rounded-2xl py-2",
                 "bg-white/[0.04] backdrop-blur-2xl",
                 "border border-white/[0.06]",
-                "shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset,0_0_0_1px_rgba(255,255,255,0.02),0_24px_48px_-12px_rgba(0,0,0,0.5),0_8px_24px_-8px_rgba(0,0,0,0.3)]"
+                "shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset,0_0_0_1px_rgba(255,255,255,0.02),0_24px_48px_-12px_rgba(0,0,0,0.5),0_8px_24px_-8px_rgba(0,0,0,0.3)]",
               )}
             >
               {links.map(({ href, label: linkLabel }) => (
@@ -252,10 +252,7 @@ function Nav({ onTop }: { onTop: boolean }) {
 
   return (
     <header
-      className={cn(
-        "fixed left-0 right-0 top-0 z-50 pt-4 md:pt-5",
-        "transition-all duration-300"
-      )}
+      className={cn("fixed left-0 right-0 top-0 z-50 pt-4 md:pt-5", "transition-all duration-300")}
       role="banner"
     >
       <Container wide className="px-5 md:max-w-[1500px]">
@@ -267,7 +264,8 @@ function Nav({ onTop }: { onTop: boolean }) {
             "bg-white/[0.06] backdrop-blur-2xl border border-white/[0.06]",
             "shadow-[0_0_0_1px_rgba(255,255,255,0.05)_inset,0_0_0_1px_rgba(255,255,255,0.03),0_4px_24px_-4px_rgba(0,0,0,0.25)]",
             "transition-all duration-300 ease-out",
-            !onTop && "bg-white/[0.08] border-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.07)_inset,0_0_0_1px_rgba(255,255,255,0.04),0_8px_32px_-4px_rgba(0,0,0,0.35)]"
+            !onTop &&
+              "bg-white/[0.08] border-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.07)_inset,0_0_0_1px_rgba(255,255,255,0.04),0_8px_32px_-4px_rgba(0,0,0,0.35)]",
           )}
         >
           {/* Logo */}
@@ -309,10 +307,11 @@ function Nav({ onTop }: { onTop: boolean }) {
             href="/marketplace"
             className={cn(
               "shrink-0 ml-auto inline-flex items-center justify-center",
+              "md:-ml-px",
               "rounded-full px-5 py-2 text-[13px] font-medium text-white",
               "bg-white/10 hover:bg-white/15",
               "border border-white/10",
-              "active:scale-[0.98] transition-all duration-200"
+              "active:scale-[0.98] transition-all duration-200",
             )}
           >
             Open marketplace
@@ -387,7 +386,7 @@ function CardFrame({ className, children }: { className?: string; children: Reac
     <div
       className={cn(
         "rounded-3xl bg-[#0b0c11] ring-1 ring-white/10 shadow-[0_24px_80px_rgba(0,0,0,0.55)]",
-        className
+        className,
       )}
     >
       {children}
@@ -535,7 +534,7 @@ function IlluHeroCollectToBox_Legacy() {
   const cy = H / 2;
 
   // Illustration subcomponents: defined here to close over phase/canvas state; stable in practice
-  // eslint-disable-next-line react-hooks/static-components -- hero animation closure
+
   const SolidCard = ({ w, children }: { w: number; children: React.ReactNode }) => (
     <div
       className="relative rounded-3xl border border-white/10 bg-[#0b0f16] shadow-[0_18px_60px_rgba(0,0,0,0.55)]"
@@ -552,8 +551,17 @@ function IlluHeroCollectToBox_Legacy() {
     </div>
   );
 
-  // eslint-disable-next-line react-hooks/static-components -- hero animation closure
-  const WorkflowNode = ({ label, x, y, delay = 0 }: { label: string; x: number; y: number; delay?: number }) => {
+  const WorkflowNode = ({
+    label,
+    x,
+    y,
+    delay = 0,
+  }: {
+    label: string;
+    x: number;
+    y: number;
+    delay?: number;
+  }) => {
     const drift =
       reduce || isMobileCanvas
         ? undefined
@@ -565,7 +573,9 @@ function IlluHeroCollectToBox_Legacy() {
     const targetXVacuum = cx - x - 80;
     const targetYVacuum = cy - y - 36;
 
-    const showAnimate = isMobileCanvas ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, ...drift };
+    const showAnimate = isMobileCanvas
+      ? { opacity: 1, scale: 1 }
+      : { opacity: 1, scale: 1, ...drift };
 
     return (
       <motion.div
@@ -576,14 +586,19 @@ function IlluHeroCollectToBox_Legacy() {
           reduce
             ? undefined
             : show
-            ? showAnimate
-            : vacuum
-            ? { opacity: [1, 0.75, 0], scale: [1, 0.65, 0.16], x: [0, targetXVacuum], y: [0, targetYVacuum] }
-            : glaze
-            ? { opacity: 0, scale: 0.12 }
-            : returnBack
-            ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
-            : { opacity: 1, scale: 1 }
+              ? showAnimate
+              : vacuum
+                ? {
+                    opacity: [1, 0.75, 0],
+                    scale: [1, 0.65, 0.16],
+                    x: [0, targetXVacuum],
+                    y: [0, targetYVacuum],
+                  }
+                : glaze
+                  ? { opacity: 0, scale: 0.12 }
+                  : returnBack
+                    ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
+                    : { opacity: 1, scale: 1 }
         }
         transition={
           show
@@ -591,10 +606,10 @@ function IlluHeroCollectToBox_Legacy() {
               ? { duration: 0.25, ease: "easeOut" }
               : { duration: 4.2, ease: "easeInOut", repeat: Infinity, delay }
             : vacuum
-            ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
-            : returnBack
-            ? { type: "spring", stiffness: 180, damping: 22, mass: 0.9 }
-            : { duration: 0.35, ease: "easeOut" }
+              ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
+              : returnBack
+                ? { type: "spring", stiffness: 180, damping: 22, mass: 0.9 }
+                : { duration: 0.35, ease: "easeOut" }
         }
       >
         <SolidCard w={160}>
@@ -605,8 +620,17 @@ function IlluHeroCollectToBox_Legacy() {
     );
   };
 
-  // eslint-disable-next-line react-hooks/static-components -- hero animation closure
-  const PromptCard = ({ text, x, y, delay = 0 }: { text: string; x: number; y: number; delay?: number }) => {
+  const PromptCard = ({
+    text,
+    x,
+    y,
+    delay = 0,
+  }: {
+    text: string;
+    x: number;
+    y: number;
+    delay?: number;
+  }) => {
     const parts = text.split(/(\{\{[^}]+\}\})/g);
 
     const targetXVacuum = cx - x - 160;
@@ -625,14 +649,19 @@ function IlluHeroCollectToBox_Legacy() {
           reduce
             ? undefined
             : show
-            ? showAnimate
-            : vacuum
-            ? { opacity: [1, 0.75, 0], scale: [1, 0.65, 0.16], x: [0, targetXVacuum], y: [0, targetYVacuum] }
-            : glaze
-            ? { opacity: 0, scale: 0.14 }
-            : returnBack
-            ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
-            : { opacity: 1, scale: 1 }
+              ? showAnimate
+              : vacuum
+                ? {
+                    opacity: [1, 0.75, 0],
+                    scale: [1, 0.65, 0.16],
+                    x: [0, targetXVacuum],
+                    y: [0, targetYVacuum],
+                  }
+                : glaze
+                  ? { opacity: 0, scale: 0.14 }
+                  : returnBack
+                    ? { opacity: [0, 1], scale: [0.92, 1], x: [0, 0], y: [0, 0] }
+                    : { opacity: 1, scale: 1 }
         }
         transition={
           show
@@ -640,10 +669,10 @@ function IlluHeroCollectToBox_Legacy() {
               ? { duration: 0.25, ease: "easeOut" }
               : { duration: 4.6, ease: "easeInOut", repeat: Infinity, delay }
             : vacuum
-            ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
-            : returnBack
-            ? { type: "spring", stiffness: 170, damping: 22, mass: 0.95 }
-            : { duration: 0.35, ease: "easeOut" }
+              ? { duration: 1.15, ease: [0.2, 0.85, 0.2, 1] }
+              : returnBack
+                ? { type: "spring", stiffness: 170, damping: 22, mass: 0.95 }
+                : { duration: 0.35, ease: "easeOut" }
         }
       >
         <SolidCard w={320}>
@@ -656,7 +685,7 @@ function IlluHeroCollectToBox_Legacy() {
                 </span>
               ) : (
                 <span key={i}>{part}</span>
-              )
+              ),
             )}
           </div>
         </SolidCard>
@@ -699,10 +728,10 @@ function IlluHeroCollectToBox_Legacy() {
             reduce
               ? undefined
               : vacuum
-              ? { scale: [1, 1.03, 1], opacity: [1, 1, 1] }
-              : glaze
-              ? { scale: 1.02 }
-              : { scale: 1 }
+                ? { scale: [1, 1.03, 1], opacity: [1, 1, 1] }
+                : glaze
+                  ? { scale: 1.02 }
+                  : { scale: 1 }
           }
           transition={{ duration: 0.9, ease: [0.2, 0.8, 0.2, 1] }}
         >
@@ -717,7 +746,13 @@ function IlluHeroCollectToBox_Legacy() {
               <div className="relative">
                 <div className="absolute -inset-5 rounded-full blur-2xl opacity-70 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.26),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.22),transparent_62%)]" />
                 <div className="relative">
-                  <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={48} height={48} className="h-12 w-12" />
+                  <Image
+                    src="/brand/edgaze-mark.png"
+                    alt="Edgaze"
+                    width={48}
+                    height={48}
+                    className="h-12 w-12"
+                  />
                 </div>
               </div>
 
@@ -725,8 +760,7 @@ function IlluHeroCollectToBox_Legacy() {
               <div className="mt-1 text-xs text-white/60">Collect → publish → share</div>
             </div>
 
-           {/* removed corner chip */}
-
+            {/* removed corner chip */}
           </div>
 
           {/* ✅ Replace glitter with a premium glaze sheen */}
@@ -769,7 +803,13 @@ function IlluHeroCollectToBox_Legacy() {
 
         {/* Connectors (ONLY on desktop + only when visible) */}
         {connectorsVisible && !isMobileCanvas ? (
-          <svg className="absolute inset-0" width={W} height={H} style={{ overflow: "visible" }} aria-hidden>
+          <svg
+            className="absolute inset-0"
+            width={W}
+            height={H}
+            style={{ overflow: "visible" }}
+            aria-hidden
+          >
             {layout.nodes.map((n, i) => {
               const x1 = n.x + 80;
               const y1 = n.y + 40;
@@ -826,10 +866,17 @@ function IlluCodeOpensProduct() {
                 <motion.div
                   className="absolute left-4 top-1/2 -translate-y-1/2 h-4 rounded-full bg-white/10"
                   animate={{ width: [30, 160, 160] }}
-                  transition={{ duration: 1.4, repeat: Infinity, repeatDelay: 1.0, ease: "easeInOut" }}
+                  transition={{
+                    duration: 1.4,
+                    repeat: Infinity,
+                    repeatDelay: 1.0,
+                    ease: "easeInOut",
+                  }}
                 />
               ) : null}
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white/60">@arjun/essay</div>
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white/60">
+                @arjun/essay
+              </div>
             </div>
 
             <div className="relative h-11 w-24 rounded-2xl overflow-hidden">
@@ -840,11 +887,14 @@ function IlluCodeOpensProduct() {
                   animate={{ opacity: [0.18, 0.5, 0.18] }}
                   transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
                   style={{
-                    backgroundImage: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 60%)",
+                    backgroundImage:
+                      "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 60%)",
                   }}
                 />
               ) : null}
-              <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white">Open</div>
+              <div className="absolute inset-0 flex items-center justify-center text-sm font-semibold text-white">
+                Open
+              </div>
             </div>
           </div>
 
@@ -869,9 +919,15 @@ function IlluCodeOpensProduct() {
                   <div className="relative rounded-3xl bg-[#0b0c11] ring-1 ring-white/12 p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-[11px] font-semibold tracking-widest text-white/55">PROMPT</div>
-                        <div className="mt-2 text-lg font-semibold text-white">Scholarship essay helper</div>
-                        <div className="mt-1 text-sm text-white/65">Clean structure, stronger clarity, faster drafts.</div>
+                        <div className="text-[11px] font-semibold tracking-widest text-white/55">
+                          PROMPT
+                        </div>
+                        <div className="mt-2 text-lg font-semibold text-white">
+                          Scholarship essay helper
+                        </div>
+                        <div className="mt-1 text-sm text-white/65">
+                          Clean structure, stronger clarity, faster drafts.
+                        </div>
                       </div>
                       <div className="rounded-2xl bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))] px-3 py-2 text-sm font-semibold text-white">
                         $9
@@ -911,13 +967,25 @@ function IlluWorkflowGraph() {
       { id: "d", x: 240, y: 190, w: 160, label: "Transform" },
       { id: "e", x: 420, y: 220, w: 150, label: "Output" },
     ],
-    []
+    [],
   );
 
-  const visible = scene === 0 ? ["a", "b", "c"] : scene === 1 ? ["a", "b", "c", "d"] : ["a", "b", "c", "d", "e"];
+  const visible =
+    scene === 0 ? ["a", "b", "c"] : scene === 1 ? ["a", "b", "c", "d"] : ["a", "b", "c", "d", "e"];
 
-  // eslint-disable-next-line react-hooks/static-components -- illustration scene closure
-  function Node({ id, x, y, w, label }: { id: string; x: number; y: number; w: number; label: string }) {
+  function Node({
+    id,
+    x,
+    y,
+    w,
+    label,
+  }: {
+    id: string;
+    x: number;
+    y: number;
+    w: number;
+    label: string;
+  }) {
     const show = visible.includes(id);
     return (
       <AnimatePresence>
@@ -942,8 +1010,15 @@ function IlluWorkflowGraph() {
     );
   }
 
-  // eslint-disable-next-line react-hooks/static-components -- illustration scene closure
-  function Edge({ from, to, show }: { from: { x: number; y: number }; to: { x: number; y: number }; show: boolean }) {
+  function Edge({
+    from,
+    to,
+    show,
+  }: {
+    from: { x: number; y: number };
+    to: { x: number; y: number };
+    show: boolean;
+  }) {
     if (!show) return null;
     const dx = to.x - from.x;
     const dy = to.y - from.y;
@@ -971,7 +1046,10 @@ function IlluWorkflowGraph() {
   const d = nodes[3]!;
   const e = nodes[4]!;
 
-  const centerRight = (n: { x: number; y: number; w: number }) => ({ x: n.x + n.w - 14, y: n.y + 40 });
+  const centerRight = (n: { x: number; y: number; w: number }) => ({
+    x: n.x + n.w - 14,
+    y: n.y + 40,
+  });
   const centerLeft = (n: { x: number; y: number }) => ({ x: n.x + 14, y: n.y + 40 });
 
   return (
@@ -979,14 +1057,26 @@ function IlluWorkflowGraph() {
       {/* eslint-disable react-hooks/static-components */}
       <div className="absolute inset-0 flex items-center justify-start md:justify-center pl-6 sm:pl-14 -translate-x-4 sm:-translate-x-8">
         <div className="relative h-[320px] w-[560px] max-w-full">
-          <Edge from={centerRight(a)} to={centerLeft(b)} show={visible.includes("a") && visible.includes("b")} />
-          <Edge from={centerRight(b)} to={centerLeft(c)} show={visible.includes("b") && visible.includes("c")} />
+          <Edge
+            from={centerRight(a)}
+            to={centerLeft(b)}
+            show={visible.includes("a") && visible.includes("b")}
+          />
+          <Edge
+            from={centerRight(b)}
+            to={centerLeft(c)}
+            show={visible.includes("b") && visible.includes("c")}
+          />
           <Edge
             from={{ x: b.x + 70, y: b.y + 80 }}
             to={{ x: d.x + 20, y: d.y + 20 }}
             show={visible.includes("b") && visible.includes("d")}
           />
-          <Edge from={centerRight(d)} to={centerLeft(e)} show={visible.includes("d") && visible.includes("e")} />
+          <Edge
+            from={centerRight(d)}
+            to={centerLeft(e)}
+            show={visible.includes("d") && visible.includes("e")}
+          />
 
           <Node id="a" x={a.x} y={a.y} w={a.w} label={a.label} />
           <Node id="b" x={b.x} y={b.y} w={b.w} label={b.label} />
@@ -1021,7 +1111,7 @@ function IlluMarketplaceSearch() {
         title: i % 3 === 0 ? "Resume rewrite" : i % 3 === 1 ? "Content repurpose" : "Study planner",
         price: i % 4 === 0 ? "$0" : i % 4 === 1 ? "$7" : i % 4 === 2 ? "$12" : "$19",
       })),
-    []
+    [],
   );
 
   return (
@@ -1055,7 +1145,9 @@ function IlluMarketplaceSearch() {
 
             <motion.div
               className="absolute"
-              animate={reduce ? undefined : { x: [40, 160, 220, 120, 40], y: [40, 60, 140, 170, 40] }}
+              animate={
+                reduce ? undefined : { x: [40, 160, 220, 120, 40], y: [40, 60, 140, 170, 40] }
+              }
               transition={{ duration: 6.0, repeat: Infinity, ease: "easeInOut" }}
               style={{ left: 0, top: 0 }}
             >
@@ -1146,9 +1238,13 @@ function IlluClarityZoomGlitter() {
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-base font-semibold text-white">Highlighted prompt</div>
-                    <div className="mt-1 text-sm text-white/65">The clean, polished page users trust.</div>
+                    <div className="mt-1 text-sm text-white/65">
+                      The clean, polished page users trust.
+                    </div>
                   </div>
-                  <div className="rounded-2xl bg-white/6 ring-1 ring-white/10 px-3 py-2 text-sm font-semibold text-white">$12</div>
+                  <div className="rounded-2xl bg-white/6 ring-1 ring-white/10 px-3 py-2 text-sm font-semibold text-white">
+                    $12
+                  </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-3 gap-2">
@@ -1207,7 +1303,10 @@ function IlluCrowdToCreators() {
           return (
             <motion.div
               key={i}
-              className={cn("absolute rounded-full ring-1 ring-white/10", isFocus ? "bg-white/10" : "bg-white/6")}
+              className={cn(
+                "absolute rounded-full ring-1 ring-white/10",
+                isFocus ? "bg-white/10" : "bg-white/6",
+              )}
               style={{ left: p.x, top: p.y, width: 44, height: 44 }}
               animate={
                 reduce
@@ -1291,7 +1390,12 @@ function IlluStorefrontRevenue() {
             <div className="rounded-3xl bg-white/5 ring-1 ring-white/10 p-5">
               <div className="text-[10px] tracking-widest text-white/55">TOTAL EARNED</div>
               <div className="mt-2 text-2xl font-semibold text-white">
-                ${reduce ? "1787.89" : <AnimatedNumber key={cycle} target={1787.89} durationMs={2200} decimals={2} />}
+                $
+                {reduce ? (
+                  "1787.89"
+                ) : (
+                  <AnimatedNumber key={cycle} target={1787.89} durationMs={2200} decimals={2} />
+                )}
               </div>
 
               <div className="mt-4 h-16 rounded-2xl bg-white/4 ring-1 ring-white/10 overflow-hidden">
@@ -1332,7 +1436,14 @@ function IlluStorefrontRevenue() {
   );
 }
 
-type IllustrationKind = "hero" | "prompt" | "workflow" | "market" | "clarity" | "crowd" | "storefront";
+type IllustrationKind =
+  | "hero"
+  | "prompt"
+  | "workflow"
+  | "market"
+  | "clarity"
+  | "crowd"
+  | "storefront";
 
 function Illustration({ kind }: { kind: IllustrationKind }) {
   if (kind === "hero") return <HeroCollectToBox />;
@@ -1348,7 +1459,7 @@ function Illustration({ kind }: { kind: IllustrationKind }) {
 // Using dynamic import with no SSR for better performance
 const LazyIllustration = dynamic<{ kind: IllustrationKind }>(
   () => Promise.resolve({ default: Illustration }),
-  { 
+  {
     ssr: false,
     loading: () => (
       <div className="h-[320px] sm:h-[360px] w-full rounded-3xl bg-white/4 ring-1 ring-white/10 overflow-hidden">
@@ -1363,8 +1474,8 @@ const LazyIllustration = dynamic<{ kind: IllustrationKind }>(
           </div>
         </div>
       </div>
-    )
-  }
+    ),
+  },
 );
 
 function FeatureSplit({ kind, children }: { kind: IllustrationKind; children: React.ReactNode }) {
@@ -1528,6 +1639,7 @@ function CodeEntry() {
     }, 180);
 
     return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchSuggestions is debounced; avoid deps that would reset debounce
   }, [code, dismissed]);
 
   const closePanel = () => {
@@ -1645,7 +1757,7 @@ function CodeEntry() {
         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1",
         kind === "prompt"
           ? "bg-cyan-500/10 text-cyan-200 ring-cyan-400/20"
-          : "bg-pink-500/10 text-pink-200 ring-pink-400/20"
+          : "bg-pink-500/10 text-pink-200 ring-pink-400/20",
       )}
     >
       {kind === "prompt" ? "Prompt" : "Workflow"}
@@ -1696,7 +1808,9 @@ function CodeEntry() {
                   className="absolute left-0 right-0 mt-2 overflow-hidden rounded-2xl bg-[#0b0c11] ring-1 ring-white/12 shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
                 >
                   <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-                    <div className="text-[11px] font-semibold tracking-widest text-white/55">SUGGESTIONS</div>
+                    <div className="text-[11px] font-semibold tracking-widest text-white/55">
+                      SUGGESTIONS
+                    </div>
                     <button
                       type="button"
                       onClick={closePanel}
@@ -1708,11 +1822,14 @@ function CodeEntry() {
                   </div>
 
                   <div className="max-h-[260px] overflow-auto p-2">
-                    {status === "searching" ? <div className="px-3 py-2 text-xs text-white/55">Searching…</div> : null}
+                    {status === "searching" ? (
+                      <div className="px-3 py-2 text-xs text-white/55">Searching…</div>
+                    ) : null}
 
                     {visibleList.map((s, i) => {
                       const active = i === activeIdx;
-                      const price = s.is_paid ? `$${Number(s.price_usd || 0).toFixed(0)}` : "$0";
+                      const isFree = !s.is_paid;
+                      const price = isFree ? "Free" : `$${Number(s.price_usd || 0).toFixed(2)}`;
                       return (
                         <button
                           key={`${s.kind}:${s.owner_handle}:${s.edgaze_code}:${i}`}
@@ -1721,7 +1838,7 @@ function CodeEntry() {
                           onClick={() => router.push(buildHref(s))}
                           className={cn(
                             "w-full text-left rounded-xl px-3 py-2 transition-colors",
-                            active ? "bg-white/8" : "hover:bg-white/6"
+                            active ? "bg-white/8" : "hover:bg-white/6",
                           )}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -1729,15 +1846,26 @@ function CodeEntry() {
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge kind={s.kind} />
                                 <div className="flex flex-wrap items-center gap-2 min-w-0">
-                                  <span className="truncate text-xs text-white/60">@{s.owner_handle}</span>
+                                  <span className="truncate text-xs text-white/60">
+                                    @{s.owner_handle}
+                                  </span>
                                   <FoundingCreatorBadge size="sm" className="shrink-0" />
                                 </div>
                                 <div className="text-xs text-white/40">·</div>
-                                <div className="text-xs font-semibold text-white/70 truncate">{s.edgaze_code}</div>
+                                <div className="text-xs font-semibold text-white/70 truncate">
+                                  {s.edgaze_code}
+                                </div>
                               </div>
                               <div className="mt-1 text-sm font-semibold text-white">{s.title}</div>
                             </div>
-                            <div className="shrink-0 rounded-xl bg-white/6 ring-1 ring-white/10 px-2.5 py-1 text-xs font-semibold text-white">
+                            <div
+                              className={cn(
+                                "shrink-0 rounded-xl px-2.5 py-1 text-xs font-semibold tabular-nums",
+                                isFree
+                                  ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/30"
+                                  : "bg-white/6 ring-1 ring-white/10 text-white",
+                              )}
+                            >
                               {price}
                             </div>
                           </div>
@@ -1746,7 +1874,9 @@ function CodeEntry() {
                     })}
 
                     {!suggestions.length && status !== "searching" ? (
-                      <div className="px-3 pt-2 pb-3 text-xs text-white/55">No results found for this Edgaze code.</div>
+                      <div className="px-3 pt-2 pb-3 text-xs text-white/55">
+                        No results found for this Edgaze code.
+                      </div>
                     ) : null}
                   </div>
                 </motion.div>
@@ -1761,7 +1891,7 @@ function CodeEntry() {
             className={cn(
               "shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white",
               "bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))]",
-              status === "going" ? "opacity-70" : "hover:opacity-95"
+              status === "going" ? "opacity-70" : "hover:opacity-95",
             )}
           >
             Open
@@ -1815,8 +1945,14 @@ function Section({
       <Container wide={wide}>
         {(eyebrow || title || desc) && (
           <div className="max-w-2xl">
-            {eyebrow ? <div className="text-xs font-semibold tracking-widest text-white/55">{eyebrow}</div> : null}
-            {title ? <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{title}</h2> : null}
+            {eyebrow ? (
+              <div className="text-xs font-semibold tracking-widest text-white/55">{eyebrow}</div>
+            ) : null}
+            {title ? (
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                {title}
+              </h2>
+            ) : null}
             {desc ? <p className="mt-3 text-base leading-relaxed text-white/70">{desc}</p> : null}
           </div>
         )}
@@ -1835,8 +1971,18 @@ export default function EdgazeLandingPage() {
   const [onTop, setOnTop] = useState(true);
 
   const sectionIds = useMemo(
-    () => ["top", "prompt", "workflows", "marketplace", "features", "better", "anyone", "creators", "beta"],
-    []
+    () => [
+      "top",
+      "prompt",
+      "workflows",
+      "marketplace",
+      "features",
+      "better",
+      "anyone",
+      "creators",
+      "beta",
+    ],
+    [],
   );
 
   useEffect(() => {
@@ -1844,7 +1990,7 @@ export default function EdgazeLandingPage() {
     if (!userId) return;
     // Only redirect from root "/" to marketplace - don't redirect from other pages
     if (pathname !== "/") return;
-    
+
     // Default: redirect logged-in users from root to marketplace
     router.replace("/marketplace");
   }, [authReady, loading, pathname, router, userId]);
@@ -1980,7 +2126,9 @@ export default function EdgazeLandingPage() {
     if (withPlaceholder.length) console.warn("Found placeholder attributes.");
 
     const codeInput = document.querySelector('input[aria-label="Edgaze code"]');
-    const openButton = Array.from(document.querySelectorAll("button")).find((b) => (b.textContent || "").trim() === "Open");
+    const openButton = Array.from(document.querySelectorAll("button")).find(
+      (b) => (b.textContent || "").trim() === "Open",
+    );
     if (!codeInput) console.warn("Missing code input");
     if (!openButton) console.warn("Missing Open button");
   }, [sectionIds]);
@@ -1995,9 +2143,9 @@ export default function EdgazeLandingPage() {
           <div className="relative">
             <div className="absolute -inset-8 rounded-full blur-3xl opacity-60 animate-pulse [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.35),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.28),transparent_62%)]" />
             <div className="relative h-16 w-16 sm:h-20 sm:w-20">
-              <Image 
-                src="/brand/edgaze-mark.png" 
-                alt="Edgaze" 
+              <Image
+                src="/brand/edgaze-mark.png"
+                alt="Edgaze"
                 width={80}
                 height={80}
                 className="h-full w-full"
@@ -2024,77 +2172,77 @@ export default function EdgazeLandingPage() {
       {
         "@type": "WebSite",
         "@id": "https://edgaze.ai/#website",
-        "url": "https://edgaze.ai",
-        "name": "Edgaze",
-        "description": "Create, sell, and distribute AI products.",
-        "potentialAction": {
+        url: "https://edgaze.ai",
+        name: "Edgaze",
+        description: "Create, sell, and distribute AI products.",
+        potentialAction: {
           "@type": "SearchAction",
-          "target": {
+          target: {
             "@type": "EntryPoint",
-            "urlTemplate": "https://edgaze.ai/marketplace?q={search_term_string}"
+            urlTemplate: "https://edgaze.ai/marketplace?q={search_term_string}",
           },
-          "query-input": "required name=search_term_string"
-        }
+          "query-input": "required name=search_term_string",
+        },
       },
       {
         "@type": "SiteLinksSearchBox",
-        "target": "https://edgaze.ai/marketplace?q={search_term_string}",
-        "potentialAction": [
+        target: "https://edgaze.ai/marketplace?q={search_term_string}",
+        potentialAction: [
           {
             "@type": "SearchAction",
-            "target": "https://edgaze.ai/marketplace?q={search_term_string}",
-            "query-input": "required name=search_term_string"
-          }
-        ]
+            target: "https://edgaze.ai/marketplace?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        ],
       },
       {
         "@type": "ItemList",
-        "name": "Edgaze Site Navigation",
-        "itemListElement": [
+        name: "Edgaze Site Navigation",
+        itemListElement: [
           {
             "@type": "SiteLinksSearchBox",
-            "name": "Marketplace",
-            "url": "https://edgaze.ai/marketplace"
+            name: "Marketplace",
+            url: "https://edgaze.ai/marketplace",
           },
           {
             "@type": "ListItem",
-            "position": 1,
-            "name": "Marketplace",
-            "url": "https://edgaze.ai/marketplace"
+            position: 1,
+            name: "Marketplace",
+            url: "https://edgaze.ai/marketplace",
           },
           {
             "@type": "ListItem",
-            "position": 2,
-            "name": "Prompt Studio",
-            "url": "https://edgaze.ai/prompt-studio"
+            position: 2,
+            name: "Prompt Studio",
+            url: "https://edgaze.ai/prompt-studio",
           },
           {
             "@type": "ListItem",
-            "position": 3,
-            "name": "Docs",
-            "url": "https://edgaze.ai/docs"
+            position: 3,
+            name: "Docs",
+            url: "https://edgaze.ai/docs",
           },
           {
             "@type": "ListItem",
-            "position": 4,
-            "name": "Creator Program",
-            "url": "https://edgaze.ai/creators"
+            position: 4,
+            name: "Creator Program",
+            url: "https://edgaze.ai/creators",
           },
           {
             "@type": "ListItem",
-            "position": 5,
-            "name": "Help",
-            "url": "https://edgaze.ai/help"
+            position: 5,
+            name: "Help",
+            url: "https://edgaze.ai/help",
           },
           {
             "@type": "ListItem",
-            "position": 6,
-            "name": "Feedback",
-            "url": "https://edgaze.ai/feedback"
-          }
-        ]
-      }
-    ]
+            position: 6,
+            name: "Feedback",
+            url: "https://edgaze.ai/feedback",
+          },
+        ],
+      },
+    ],
   };
 
   return (
@@ -2118,7 +2266,10 @@ export default function EdgazeLandingPage() {
           <div id="top" className="pt-28 md:snap-start" />
 
           {/* ✅ FIX: snap-start only on md+; wide container so workflow diagram has room to shine */}
-          <section className="px-5 pt-14 sm:pt-20 pb-16 sm:pb-20 md:snap-start" style={{ scrollMarginTop: 92 }}>
+          <section
+            className="px-5 pt-14 sm:pt-20 pb-16 sm:pb-20 md:snap-start"
+            style={{ scrollMarginTop: 92 }}
+          >
             <Container wide>
               <div className="grid grid-cols-1 gap-12 md:grid-cols-2 md:gap-16 md:items-start">
                 <div className="max-w-xl">
@@ -2135,7 +2286,8 @@ export default function EdgazeLandingPage() {
                   </Reveal>
                   <Reveal delay={0.12}>
                     <p className="mt-4 text-base leading-relaxed text-white/70">
-                      Edgaze is a marketplace for prompts and workflows. You build once. You publish a clean page. You share one link.
+                      Edgaze is a marketplace for prompts and workflows. You build once. You publish
+                      a clean page. You share one link.
                     </p>
                   </Reveal>
                   <Reveal delay={0.16}>
@@ -2165,12 +2317,18 @@ export default function EdgazeLandingPage() {
               <div className="space-y-5">
                 <Reveal>
                   <TextCard title="Build like an asset">
-                    <p>Write prompts with structure. Add inputs. Save versions. Publish prompt packs that people can reuse.</p>
+                    <p>
+                      Write prompts with structure. Add inputs. Save versions. Publish prompt packs
+                      that people can reuse.
+                    </p>
                   </TextCard>
                 </Reveal>
                 <Reveal delay={0.05}>
                   <TextCard title="Share a clean page">
-                    <p>Every prompt gets a product page. Users can view, like, and run it. The page works in one tap on mobile.</p>
+                    <p>
+                      Every prompt gets a product page. Users can view, like, and run it. The page
+                      works in one tap on mobile.
+                    </p>
                   </TextCard>
                 </Reveal>
               </div>
@@ -2188,24 +2346,37 @@ export default function EdgazeLandingPage() {
               <div className="space-y-5">
                 <Reveal>
                   <TextCard title="Build a flow">
-                    <p>Connect inputs, prompts, tools, and outputs. Save it once. Run it forever.</p>
+                    <p>
+                      Connect inputs, prompts, tools, and outputs. Save it once. Run it forever.
+                    </p>
                   </TextCard>
                 </Reveal>
                 <Reveal delay={0.05}>
                   <TextCard title="Publish and share">
-                    <p>Each workflow has a page. Users can open with a code or link. No confusion.</p>
+                    <p>
+                      Each workflow has a page. Users can open with a code or link. No confusion.
+                    </p>
                   </TextCard>
                 </Reveal>
               </div>
             </FeatureSplit>
           </Section>
 
-          <Section id="marketplace" wide eyebrow="Marketplace" title="Discovery built in." desc="A huge marketplace, fast search, and pages that convert.">
+          <Section
+            id="marketplace"
+            wide
+            eyebrow="Marketplace"
+            title="Discovery built in."
+            desc="A huge marketplace, fast search, and pages that convert."
+          >
             <FeatureSplit kind="market">
               <div className="space-y-5">
                 <Reveal>
                   <TextCard title="Search what you need">
-                    <p>Users search a large library of prompts and workflows. The best result is obvious.</p>
+                    <p>
+                      Users search a large library of prompts and workflows. The best result is
+                      obvious.
+                    </p>
                   </TextCard>
                 </Reveal>
                 <Reveal delay={0.05}>
@@ -2217,37 +2388,62 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="features" wide eyebrow="Everything" title="Everything in one product." desc="Prompt Studio is the base. Workflows add power. Marketplace adds reach.">
+          <Section
+            id="features"
+            wide
+            eyebrow="Everything"
+            title="Everything in one product."
+            desc="Prompt Studio is the base. Workflows add power. Marketplace adds reach."
+          >
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <Reveal>
                 <TextCard title="Prompt Studio">
-                  <p>Create prompts with templates, inputs, and versions. Publish single prompts or prompt packs.</p>
+                  <p>
+                    Create prompts with templates, inputs, and versions. Publish single prompts or
+                    prompt packs.
+                  </p>
                 </TextCard>
               </Reveal>
               <Reveal delay={0.05}>
                 <TextCard title="Workflow Builder">
-                  <p>Build repeatable flows when prompts are not enough. Inputs, steps, outputs. Clear and sharable.</p>
+                  <p>
+                    Build repeatable flows when prompts are not enough. Inputs, steps, outputs.
+                    Clear and sharable.
+                  </p>
                 </TextCard>
               </Reveal>
               <Reveal delay={0.1}>
                 <TextCard title="Marketplace">
-                  <p>Discovery, clean product pages, and sharing built in. This is how your work spreads.</p>
+                  <p>
+                    Discovery, clean product pages, and sharing built in. This is how your work
+                    spreads.
+                  </p>
                 </TextCard>
               </Reveal>
             </div>
           </Section>
 
-          <Section id="better" wide eyebrow="Why it’s better" title="Built for clarity." desc="A marketplace that feels clean. A product page that feels trustworthy.">
+          <Section
+            id="better"
+            wide
+            eyebrow="Why it’s better"
+            title="Built for clarity."
+            desc="A marketplace that feels clean. A product page that feels trustworthy."
+          >
             <FeatureSplit kind="clarity">
               <div className="space-y-5">
                 <Reveal>
                   <TextCard title="Clear pages">
-                    <p>Users should know what they get in one screen. No walls of text. No confusion.</p>
+                    <p>
+                      Users should know what they get in one screen. No walls of text. No confusion.
+                    </p>
                   </TextCard>
                 </Reveal>
                 <Reveal delay={0.05}>
                   <TextCard title="Clean discovery">
-                    <p>Marketplace browsing stays fast. Then it zooms into the one prompt that fits.</p>
+                    <p>
+                      Marketplace browsing stays fast. Then it zooms into the one prompt that fits.
+                    </p>
                   </TextCard>
                 </Reveal>
                 <Reveal delay={0.1}>
@@ -2259,7 +2455,13 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="anyone" wide eyebrow="Creators" title="Anyone can become an Edgaze creator." desc="If you can write something useful, you can publish.">
+          <Section
+            id="anyone"
+            wide
+            eyebrow="Creators"
+            title="Anyone can become an Edgaze creator."
+            desc="If you can write something useful, you can publish."
+          >
             <FeatureSplit kind="crowd">
               <div className="space-y-5">
                 <Reveal>
@@ -2274,14 +2476,23 @@ export default function EdgazeLandingPage() {
                 </Reveal>
                 <Reveal delay={0.1}>
                   <TextCard title="Join in simple steps">
-                    <p>Join the beta and you&apos;re in. Get distribution on your assets that were not productive.</p>
+                    <p>
+                      Join the beta and you&apos;re in. Get distribution on your assets that were
+                      not productive.
+                    </p>
                   </TextCard>
                 </Reveal>
               </div>
             </FeatureSplit>
           </Section>
 
-          <Section id="creators" wide eyebrow="Storefront" title="Your work becomes a storefront." desc="Publish products. Track performance. Get paid later.">
+          <Section
+            id="creators"
+            wide
+            eyebrow="Storefront"
+            title="Your work becomes a storefront."
+            desc="Publish products. Track performance. Get paid later."
+          >
             <FeatureSplit kind="storefront">
               <div className="space-y-5">
                 <Reveal>
@@ -2298,7 +2509,13 @@ export default function EdgazeLandingPage() {
             </FeatureSplit>
           </Section>
 
-          <Section id="beta" wide eyebrow="Beta" title="Join the beta." desc="Creators can set prices now. Users run for free in beta. Payments activate later.">
+          <Section
+            id="beta"
+            wide
+            eyebrow="Beta"
+            title="Join the beta."
+            desc="Creators set prices. Buy workflows and prompts. Payments flow through Stripe—no gatekeeping."
+          >
             <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start">
               <Reveal>
                 <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-7 sm:p-8">

@@ -1,6 +1,10 @@
 import type { ExecutionSnapshot, NodeStatus, WorkflowStatus } from "./types";
 
-type TransitionHook<T> = (current: T, next: T, context?: Record<string, unknown>) => void | Promise<void>;
+type TransitionHook<T> = (
+  current: T,
+  next: T,
+  context?: Record<string, unknown>,
+) => void | Promise<void>;
 
 const WORKFLOW_TRANSITIONS: Record<WorkflowStatus, WorkflowStatus[]> = {
   pending: ["running", "cancelled"],
@@ -29,7 +33,7 @@ function ensureTransition<T extends string>(
   allowed: Record<T, T[]>,
   current: T,
   next: T,
-  label: string
+  label: string,
 ) {
   const options = allowed[current] ?? [];
   if (!options.includes(next)) {
@@ -40,7 +44,7 @@ function ensureTransition<T extends string>(
 export function transitionWorkflow(
   current: WorkflowStatus,
   next: WorkflowStatus,
-  opts?: { hook?: TransitionHook<WorkflowStatus>; context?: Record<string, unknown> }
+  opts?: { hook?: TransitionHook<WorkflowStatus>; context?: Record<string, unknown> },
 ): WorkflowStatus {
   ensureTransition(WORKFLOW_TRANSITIONS, current, next, "workflow");
   if (opts?.hook) {
@@ -52,7 +56,7 @@ export function transitionWorkflow(
 export function transitionNode(
   current: NodeStatus,
   next: NodeStatus,
-  opts?: { hook?: TransitionHook<NodeStatus>; context?: Record<string, unknown> }
+  opts?: { hook?: TransitionHook<NodeStatus>; context?: Record<string, unknown> },
 ): NodeStatus {
   ensureTransition(NODE_TRANSITIONS, current, next, "node");
   if (opts?.hook) {
@@ -84,7 +88,7 @@ export function initializeSnapshot(params: {
 
 export function withUpdatedSnapshot(
   snapshot: ExecutionSnapshot,
-  updates: Partial<ExecutionSnapshot>
+  updates: Partial<ExecutionSnapshot>,
 ): ExecutionSnapshot {
   return {
     ...snapshot,
@@ -94,4 +98,3 @@ export function withUpdatedSnapshot(
     updatedAt: Date.now(),
   };
 }
-

@@ -3,10 +3,7 @@
  * Tries progressively lower quality and smaller dimensions.
  * Throws only if the image cannot fit even at minimum quality and size.
  */
-export async function compressImageToMaxSize(
-  file: File,
-  maxBytes: number
-): Promise<Blob> {
+export async function compressImageToMaxSize(file: File, maxBytes: number): Promise<Blob> {
   if (typeof document === "undefined")
     throw new Error("compressImageToMaxSize requires browser environment");
   if (!file.type.startsWith("image/")) return file as unknown as Blob;
@@ -30,7 +27,7 @@ export async function compressImageToMaxSize(
   }
 
   throw new Error(
-    `Image is too large. Even after maximum compression it exceeds the ${Math.round(maxBytes / 1024 / 1024)}MB limit. Try a smaller or simpler image.`
+    `Image is too large. Even after maximum compression it exceeds the ${Math.round(maxBytes / 1024 / 1024)}MB limit. Try a smaller or simpler image.`,
   );
 }
 
@@ -53,7 +50,7 @@ function loadImage(file: File): Promise<HTMLImageElement> {
 function compressToBlob(
   img: HTMLImageElement,
   maxDimension: number,
-  quality: number
+  quality: number,
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     let w = img.width;
@@ -84,7 +81,7 @@ function compressToBlob(
         else reject(new Error("Compression failed"));
       },
       "image/jpeg",
-      quality
+      quality,
     );
   });
 }

@@ -1,5 +1,5 @@
-import GlobalLoadingScreen from "../components/loading/GlobalLoadingScreen";
+import RouteAwareLoading from "../components/loading/RouteAwareLoading";
 
 export default function Loading() {
-  return <GlobalLoadingScreen />;
+  return <RouteAwareLoading />;
 }

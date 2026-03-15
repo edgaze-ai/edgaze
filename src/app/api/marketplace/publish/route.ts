@@ -42,8 +42,30 @@ function slugifyHandle(raw: string): string {
   );
 }
 
-const WORDS_A = ["neon", "turbo", "rapid", "cosmic", "prime", "flux", "delta", "quantum", "shadow", "nova"] as const;
-const WORDS_B = ["draft", "script", "hooks", "titles", "ideas", "flow", "engine", "prompt", "builder", "wizard"] as const;
+const WORDS_A = [
+  "neon",
+  "turbo",
+  "rapid",
+  "cosmic",
+  "prime",
+  "flux",
+  "delta",
+  "quantum",
+  "shadow",
+  "nova",
+] as const;
+const WORDS_B = [
+  "draft",
+  "script",
+  "hooks",
+  "titles",
+  "ideas",
+  "flow",
+  "engine",
+  "prompt",
+  "builder",
+  "wizard",
+] as const;
 
 function normaliseCode(input: string): string {
   return input
@@ -54,7 +76,11 @@ function normaliseCode(input: string): string {
 }
 
 async function isCodeTaken(supabase: any, code: string): Promise<boolean> {
-  const { data, error } = await supabase.from("prompts").select("id").eq("edgaze_code", code).limit(1);
+  const { data, error } = await supabase
+    .from("prompts")
+    .select("id")
+    .eq("edgaze_code", code)
+    .limit(1);
   if (error) {
     console.error("Code check failed", error);
     return true; // fail-safe
@@ -126,10 +152,13 @@ export async function POST(req: NextRequest) {
       .eq("id", userId)
       .maybeSingle();
 
-    const ownerName = (profileRow as any)?.full_name ?? (user.user_metadata as any)?.full_name ?? "";
-    const ownerHandle = slugifyHandle((profileRow as any)?.handle ?? user.email?.split("@")[0] ?? "user");
+    const ownerName =
+      (profileRow as any)?.full_name ?? (user.user_metadata as any)?.full_name ?? "";
+    const ownerHandle = slugifyHandle(
+      (profileRow as any)?.handle ?? user.email?.split("@")[0] ?? "user",
+    );
 
-    const userPlan = (((profileRow as any)?.plan ?? "Free") as "Free" | "Pro" | "Team");
+    const userPlan = ((profileRow as any)?.plan ?? "Free") as "Free" | "Pro" | "Team";
 
     const monetisationMode: MonetisationMode =
       meta.monetisationMode === "both"
@@ -162,22 +191,13 @@ export async function POST(req: NextRequest) {
       monetisationMode === "paywall+subscription";
 
     if (isPaid) {
-      const canReceive = Boolean((profileRow as any)?.can_receive_payments);
-      if (!canReceive) {
-        return NextResponse.json(
-          { error: "Connect your payout account in the Edgaze Creator Program to enable paid listings." },
-          { status: 400 }
-        );
-      }
       const productType = type === "workflow" ? "workflow" : "prompt";
-      const validation = productType === "prompt"
-        ? validatePromptPrice(priceNumber)
-        : validateWorkflowPrice(priceNumber);
+      const validation =
+        productType === "prompt"
+          ? validatePromptPrice(priceNumber)
+          : validateWorkflowPrice(priceNumber);
       if (!validation.valid) {
-        return NextResponse.json(
-          { error: validation.error },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: validation.error }, { status: 400 });
       }
     }
 
@@ -216,7 +236,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       { id: data.id, edgazeCode: data.edgaze_code, ownerHandle, urlPath },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (err) {
     console.error("Unexpected publish error", err);

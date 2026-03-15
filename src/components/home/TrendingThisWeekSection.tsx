@@ -24,8 +24,9 @@ function formatRelativeTime(iso: string | null | undefined) {
   const diff = ms - Date.now();
   const abs = Math.abs(diff);
   const rtf =
-    typeof Intl !== "undefined" && (Intl as { RelativeTimeFormat?: new (locale: string, opts: object) => Intl.RelativeTimeFormat }
-    ).RelativeTimeFormat
+    typeof Intl !== "undefined" &&
+    (Intl as { RelativeTimeFormat?: new (locale: string, opts: object) => Intl.RelativeTimeFormat })
+      .RelativeTimeFormat
       ? new Intl.RelativeTimeFormat("en", { numeric: "always" })
       : null;
   const minute = 60 * 1000;
@@ -50,11 +51,7 @@ function formatRelativeTime(iso: string | null | undefined) {
 
 function BlurredPromptThumbnail({ text }: { text: string }) {
   const snippet =
-    (text || "EDGAZE")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 28)
-      .toUpperCase() || "EDGAZE";
+    (text || "EDGAZE").replace(/\s+/g, " ").trim().slice(0, 28).toUpperCase() || "EDGAZE";
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-slate-950/80">
@@ -80,14 +77,17 @@ function TrendCard({ item }: TrendCardProps) {
   const router = useRouter();
   const isFree = item.monetisation_mode === "free" || item.is_paid === false;
   const priceLabel =
-    isFree || item.price_usd == null ? (isFree ? "Free" : "Paid") : `$${Number(item.price_usd).toFixed(2)}`;
+    isFree || item.price_usd == null
+      ? isFree
+        ? "Free"
+        : "Paid"
+      : `$${Number(item.price_usd).toFixed(2)}`;
   const badgeLabel = item.type === "workflow" ? "Workflow" : "Prompt";
   const desc = clampText(item.description, 140);
   const publishedLabel = formatRelativeTime(item.published_at ?? item.created_at ?? null);
 
   const displayHandle = (item.owner_handle || "").replace(/^@/, "");
-  const creatorName =
-    item.owner_name ?? (displayHandle ? `@${displayHandle}` : "Creator");
+  const creatorName = item.owner_name ?? (displayHandle ? `@${displayHandle}` : "Creator");
 
   const detailPath =
     item.edgaze_code && displayHandle
@@ -110,7 +110,6 @@ function TrendCard({ item }: TrendCardProps) {
     <div className="group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20 hover:bg-white/[0.04]">
       <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl">
         {item.thumbnail_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.thumbnail_url}
             alt={item.title || "Listing thumbnail"}
@@ -126,13 +125,20 @@ function TrendCard({ item }: TrendCardProps) {
             className={cn(
               "rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur",
               badgeClass,
-              badgeGlow
+              badgeGlow,
             )}
           >
             {badgeLabel}
           </span>
 
-          <span className="rounded-full border border-white/12 bg-black/55 px-2.5 py-1 text-[10px] font-semibold text-white/85 backdrop-blur">
+          <span
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[10px] font-semibold tabular-nums backdrop-blur",
+              isFree
+                ? "border-emerald-400/30 bg-emerald-500/20 text-emerald-300"
+                : "border-white/12 bg-black/55 text-white/85",
+            )}
+          >
             {priceLabel}
           </span>
         </div>
@@ -150,11 +156,17 @@ function TrendCard({ item }: TrendCardProps) {
         </div>
 
         <div className="min-w-0 flex-1 overflow-hidden">
-          <h3 className="truncate text-sm font-semibold leading-snug text-white/95" title={item.title || undefined}>
+          <h3
+            className="truncate text-sm font-semibold leading-snug text-white/95"
+            title={item.title || undefined}
+          >
             {item.title || "Untitled listing"}
           </h3>
 
-          <div className="mt-1 flex items-center gap-2 text-xs text-white/60 min-w-0" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="mt-1 flex items-center gap-2 text-xs text-white/60 min-w-0"
+            onClick={(e) => e.stopPropagation()}
+          >
             <ProfileLink
               name={creatorName}
               handle={displayHandle || undefined}
@@ -165,7 +177,10 @@ function TrendCard({ item }: TrendCardProps) {
           </div>
 
           {desc ? (
-            <div className="mt-1.5 truncate text-[12px] leading-snug text-white/55" title={item.description || undefined}>
+            <div
+              className="mt-1.5 truncate text-[12px] leading-snug text-white/55"
+              title={item.description || undefined}
+            >
               {desc}
             </div>
           ) : (
@@ -189,7 +204,8 @@ function TrendCard({ item }: TrendCardProps) {
     </div>
   );
 
-  const cardClass = "flex h-[280px] min-h-[280px] w-[280px] min-w-[280px] shrink-0 flex-col overflow-hidden cursor-pointer";
+  const cardClass =
+    "flex h-[280px] min-h-[280px] w-[280px] min-w-[280px] shrink-0 flex-col overflow-hidden cursor-pointer";
 
   if (detailPath) {
     return (
@@ -239,7 +255,13 @@ type TrendingRowProps = {
   direction?: "right" | "left";
 };
 
-function TrendingRow({ label, items, loading, exploreHref, direction = "right" }: TrendingRowProps) {
+function TrendingRow({
+  label,
+  items,
+  loading,
+  exploreHref,
+  direction = "right",
+}: TrendingRowProps) {
   const loopItems = items.length > 0 ? [...items, ...items, ...items] : [];
   const trackClass =
     direction === "right" ? "infinite-carousel-track" : "infinite-carousel-track-reverse";
@@ -279,33 +301,33 @@ function TrendingRow({ label, items, loading, exploreHref, direction = "right" }
           <div
             className={cn(
               "flex flex-nowrap gap-4 w-max",
-              !loading && items.length > 0 && trackClass
+              !loading && items.length > 0 && trackClass,
             )}
             style={{ minHeight: 280 }}
           >
-            {loading
-              ? Array.from({ length: 10 }).map((_, i) => <CardSkeleton key={i} />)
-              : items.length === 0
-                ? (
-                  <div className="flex min-w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02] py-12 text-center">
-                    <div>
-                      <Zap className="mx-auto h-10 w-10 text-white/30" />
-                      <p className="mt-2 text-sm text-white/55">
-                        No top items yet – publish the first one
-                      </p>
-                      <Link
-                        href="/marketplace"
-                        className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 hover:bg-white/10"
-                      >
-                        Publish a workflow
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </div>
-                  </div>
-                )
-                : loopItems.map((item, i) => (
-                    <TrendCard key={`${item.type}-${item.id}-${i}`} item={item} />
-                  ))}
+            {loading ? (
+              Array.from({ length: 10 }).map((_, i) => <CardSkeleton key={i} />)
+            ) : items.length === 0 ? (
+              <div className="flex min-w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02] py-12 text-center">
+                <div>
+                  <Zap className="mx-auto h-10 w-10 text-white/30" />
+                  <p className="mt-2 text-sm text-white/55">
+                    No top items yet – publish the first one
+                  </p>
+                  <Link
+                    href="/marketplace"
+                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white/80 hover:bg-white/10"
+                  >
+                    Publish a workflow
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              loopItems.map((item, i) => (
+                <TrendCard key={`${item.type}-${item.id}-${i}`} item={item} />
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -358,19 +380,13 @@ export default function TrendingThisWeekSection() {
   if (error && !data) return null;
 
   return (
-    <section
-      id="trending"
-      className="px-5 py-16 sm:py-20"
-      style={{ scrollMarginTop: 92 }}
-    >
+    <section id="trending" className="px-5 py-16 sm:py-20" style={{ scrollMarginTop: 92 }}>
       <div className="mx-auto max-w-[1400px]">
         <div className="mb-8">
           <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             Trending on Edgaze
           </h2>
-          <p className="mt-2 text-sm text-white/60">
-            Top picks from the last 7 days
-          </p>
+          <p className="mt-2 text-sm text-white/60">Top picks from the last 7 days</p>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur-sm sm:p-8">

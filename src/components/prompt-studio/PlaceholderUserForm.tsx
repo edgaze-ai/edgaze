@@ -41,7 +41,10 @@ export default function PlaceholderUserForm({ placeholders }: Props) {
       ) : (
         <div className="space-y-2">
           {placeholders.map((ph) => (
-            <div key={ph.name} className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+            <div
+              key={ph.name}
+              className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
+            >
               <div className="mb-1 flex items-center justify-between gap-2">
                 <span className="text-[11px] font-medium text-white/85">
                   {ph.question || ph.name}

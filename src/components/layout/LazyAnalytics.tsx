@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 const LazyMixpanelInit = dynamic(() => import("../../app/MixpanelInit"), { ssr: false });
 const LazyAnalytics = dynamic(
   () => import("@vercel/analytics/react").then((mod) => ({ default: mod.Analytics })),
-  { ssr: false }
+  { ssr: false },
 );
 
 export default function LazyAnalyticsWrapper() {

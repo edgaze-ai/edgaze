@@ -17,12 +17,12 @@ const MAX_TOKENS_PER_WORKFLOW = DEFAULT_MAX_TOKENS_PER_WORKFLOW;
  */
 export function estimateTokens(text: string): number {
   if (!text || typeof text !== "string") return 0;
-  
+
   // Simple heuristic: ~4 chars per token for English
   // This is a conservative estimate
   const charCount = text.length;
   const estimatedTokens = Math.ceil(charCount / 4);
-  
+
   return estimatedTokens;
 }
 
@@ -31,7 +31,7 @@ export function estimateTokens(text: string): number {
  */
 export function countMessageTokens(messages: Array<{ role: string; content: string }>): number {
   if (!Array.isArray(messages)) return 0;
-  
+
   let total = 0;
   for (const msg of messages) {
     if (msg.content && typeof msg.content === "string") {
@@ -40,7 +40,7 @@ export function countMessageTokens(messages: Array<{ role: string; content: stri
     // Add overhead for role and message structure (~3 tokens per message)
     total += 3;
   }
-  
+
   return total;
 }
 
@@ -54,7 +54,7 @@ export function countChatTokens(config: {
   maxTokens?: number;
 }): { input: number; output: number; total: number } {
   let inputTokens = 0;
-  
+
   if (config.messages && Array.isArray(config.messages)) {
     inputTokens = countMessageTokens(config.messages);
   } else {
@@ -65,10 +65,10 @@ export function countChatTokens(config: {
       inputTokens += estimateTokens(config.prompt);
     }
   }
-  
+
   // Output tokens (max_tokens setting)
   const outputTokens = config.maxTokens || 2000;
-  
+
   return {
     input: inputTokens,
     output: outputTokens,
@@ -98,7 +98,7 @@ export function validateNodeTokenLimit(
   nodeId: string,
   tokenCount: number,
   nodeType: "chat" | "embeddings" | "image",
-  maxTokensPerNode?: number
+  maxTokensPerNode?: number,
 ): { valid: boolean; error?: string } {
   const limit = maxTokensPerNode || MAX_TOKENS_PER_NODE;
   if (tokenCount > limit) {
@@ -107,7 +107,7 @@ export function validateNodeTokenLimit(
       error: `Token limit exceeded for node "${nodeId}". Maximum ${limit.toLocaleString()} tokens per node, but ${tokenCount.toLocaleString()} tokens would be used. Please reduce the input size or max_tokens setting.`,
     };
   }
-  
+
   return { valid: true };
 }
 
@@ -116,7 +116,7 @@ export function validateNodeTokenLimit(
  */
 export function validateWorkflowTokenLimit(
   totalTokens: number,
-  maxTokensPerWorkflow?: number
+  maxTokensPerWorkflow?: number,
 ): { valid: boolean; error?: string } {
   const limit = maxTokensPerWorkflow || MAX_TOKENS_PER_WORKFLOW;
   if (totalTokens > limit) {
@@ -125,7 +125,7 @@ export function validateWorkflowTokenLimit(
       error: `Workflow token limit exceeded. Maximum ${limit.toLocaleString()} tokens per workflow, but ${totalTokens.toLocaleString()} tokens would be used. Please reduce the number of nodes or their token usage.`,
     };
   }
-  
+
   return { valid: true };
 }
 

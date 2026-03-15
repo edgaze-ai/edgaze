@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * Storefront - Products for a connected account
@@ -7,11 +7,11 @@
  * and resolve handle → stripe_account_id via your DB.
  */
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { Package, Loader2, ShoppingCart } from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Package, Loader2, ShoppingCart } from "lucide-react";
 
 export default function StorefrontPage() {
   const params = useParams();
@@ -21,20 +21,16 @@ export default function StorefrontPage() {
   const [error, setError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (accountId) loadProducts();
-  }, [accountId]);
-
-  async function loadProducts() {
+  const loadProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(
-        `/api/stripe/v2/products/list?accountId=${encodeURIComponent(accountId)}&limit=50`
+        `/api/stripe/v2/products/list?accountId=${encodeURIComponent(accountId)}&limit=50`,
       );
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to load products');
+        throw new Error(data.error || "Failed to load products");
       }
       const data = await res.json();
       setProducts(data.products || []);
@@ -43,32 +39,19 @@ export default function StorefrontPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [accountId]);
 
-  async function handleBuy(productId: string, priceId: string | undefined) {
+  useEffect(() => {
+    if (accountId) loadProducts();
+  }, [accountId, loadProducts]);
+
+  function handleBuy(productId: string, priceId: string | undefined) {
     setCheckoutLoading(productId);
-    try {
-      const res = await fetch('/api/stripe/v2/checkout/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          connectedAccountId: accountId,
-          productId: priceId ? undefined : productId,
-          priceId: priceId || undefined,
-          quantity: 1,
-          metadata: { product_id: productId },
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Checkout failed');
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setCheckoutLoading(null);
-    }
+    // Use embedded checkout (heavy Edgaze theme) instead of redirect to Stripe hosted page
+    const params = new URLSearchParams({ productId });
+    if (priceId) params.set("priceId", priceId);
+    window.location.href = `/store/${accountId}/checkout?${params.toString()}`;
+    setCheckoutLoading(null);
   }
 
   function formatCents(cents: number): string {
@@ -98,11 +81,7 @@ export default function StorefrontPage() {
   return (
     <div className="min-h-screen bg-black p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <h1 className="text-4xl font-bold mb-2">
             <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
               Store
@@ -110,21 +89,35 @@ export default function StorefrontPage() {
           </h1>
           <p className="text-white/60">Browse and purchase products</p>
           <p className="mt-2 text-sm text-white/45">
-            By purchasing, you agree to our{' '}
-            <Link href="/docs/terms-of-service" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4">Terms of Service</Link>
-            ,{' '}
-            <Link href="/docs/privacy-policy" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4">Privacy Policy</Link>
-            , and{' '}
-            <Link href="/docs/refund-policy" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4">Refund Policy</Link>.
+            By purchasing, you agree to our{" "}
+            <Link
+              href="/docs/terms-of-service"
+              className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4"
+            >
+              Terms of Service
+            </Link>
+            ,{" "}
+            <Link
+              href="/docs/privacy-policy"
+              className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4"
+            >
+              Privacy Policy
+            </Link>
+            , and{" "}
+            <Link
+              href="/docs/refund-policy"
+              className="text-cyan-400 hover:text-cyan-300 underline underline-offset-4"
+            >
+              Refund Policy
+            </Link>
+            .
           </p>
         </motion.div>
 
         {products.length === 0 ? (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center">
             <Package className="w-16 h-16 text-white/40 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-white mb-2">
-              No products yet
-            </h2>
+            <h2 className="text-xl font-semibold text-white mb-2">No products yet</h2>
             <p className="text-white/60">This store has no active products.</p>
           </div>
         ) : (
@@ -139,11 +132,7 @@ export default function StorefrontPage() {
               >
                 {p.images?.[0] ? (
                   <div className="aspect-video bg-white/5">
-                    <img
-                      src={p.images[0]}
-                      alt={p.name}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
                   </div>
                 ) : (
                   <div className="aspect-video bg-white/5 flex items-center justify-center">
@@ -151,24 +140,16 @@ export default function StorefrontPage() {
                   </div>
                 )}
                 <div className="p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    {p.name}
-                  </h3>
+                  <h3 className="text-lg font-semibold text-white mb-2">{p.name}</h3>
                   {p.description && (
-                    <p className="text-white/60 text-sm mb-4 line-clamp-2">
-                      {p.description}
-                    </p>
+                    <p className="text-white/60 text-sm mb-4 line-clamp-2">{p.description}</p>
                   )}
                   <div className="flex items-center justify-between">
                     <span className="text-cyan-400 font-bold">
-                      {p.default_price
-                        ? formatCents(p.default_price.unit_amount || 0)
-                        : '—'}
+                      {p.default_price ? formatCents(p.default_price.unit_amount || 0) : "—"}
                     </span>
                     <button
-                      onClick={() =>
-                        handleBuy(p.id, p.default_price?.id)
-                      }
+                      onClick={() => handleBuy(p.id, p.default_price?.id)}
                       disabled={!!checkoutLoading}
                       className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
                     >

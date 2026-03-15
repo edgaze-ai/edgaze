@@ -29,12 +29,7 @@ function Avatar({
       style={{ width: px, height: px }}
     >
       {url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={url}
-          alt={name}
-          className="h-full w-full object-cover"
-        />
+        <img src={url} alt={name} className="h-full w-full object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-[11px] font-semibold text-white/80">
           {name?.[0]?.toUpperCase() ?? "E"}
@@ -79,17 +74,9 @@ export default function MobileTopbar() {
 
         <div className="flex items-center gap-1">
           <div className="relative h-7 w-7">
-            <Image
-              src="/brand/edgaze-mark.png"
-              alt="Edgaze"
-              fill
-              priority
-              sizes="28px"
-            />
+            <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="28px" />
           </div>
-          <span className="text-[16px] font-semibold tracking-tight text-white">
-            edgaze
-          </span>
+          <span className="text-[16px] font-semibold tracking-tight text-white">edgaze</span>
         </div>
       </div>
 

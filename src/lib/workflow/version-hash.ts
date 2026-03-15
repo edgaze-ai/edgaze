@@ -5,7 +5,10 @@
 
 import crypto from "crypto";
 
-export function computeWorkflowVersionHash(graph: { nodes?: unknown[]; edges?: unknown[] }): string {
+export function computeWorkflowVersionHash(graph: {
+  nodes?: unknown[];
+  edges?: unknown[];
+}): string {
   const canonical = JSON.stringify({
     nodes: (graph?.nodes ?? []).map((n: any) => ({
       id: n?.id,

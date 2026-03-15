@@ -14,18 +14,18 @@ export type CreatorListing = {
   edgaze_code?: string | null;
   created_at?: string | null;
   published_at?: string | null;
-  
+
   // counts (varies by table)
   views_count?: number | null;
   view_count?: number | null;
   likes_count?: number | null;
   like_count?: number | null;
-  
+
   // pricing
   is_paid?: boolean | null;
   price_usd?: number | null;
   monetisation_mode?: string | null;
-  
+
   // legacy
   popularityLabel?: string;
 };
@@ -48,12 +48,15 @@ export async function fetchCreatorListings(args: FetchArgs): Promise<CreatorList
   const wantPrompts = args.tab === "all" || args.tab === "prompts";
   const wantWorkflows = args.tab === "all" || args.tab === "workflows";
 
-  const perTypeLimit =
-    args.tab === "all" ? Math.max(6, Math.ceil(totalLimit / 2)) : totalLimit;
+  const perTypeLimit = args.tab === "all" ? Math.max(6, Math.ceil(totalLimit / 2)) : totalLimit;
 
   const [prompts, workflows] = await Promise.all([
-    wantPrompts ? fetchPrompts(supabase, args.creatorId, args.sort, perTypeLimit) : Promise.resolve([]),
-    wantWorkflows ? fetchWorkflows(supabase, args.creatorId, args.sort, perTypeLimit) : Promise.resolve([]),
+    wantPrompts
+      ? fetchPrompts(supabase, args.creatorId, args.sort, perTypeLimit)
+      : Promise.resolve([]),
+    wantWorkflows
+      ? fetchWorkflows(supabase, args.creatorId, args.sort, perTypeLimit)
+      : Promise.resolve([]),
   ]);
 
   if (args.tab === "prompts") return prompts.slice(0, totalLimit);
@@ -81,7 +84,7 @@ async function fetchPrompts(
   supabase: ReturnType<typeof createSupabasePublicBrowserClient>,
   creatorId: string,
   sort: ListingSort,
-  limit: number
+  limit: number,
 ): Promise<CreatorListing[]> {
   let builder = supabase
     .from("prompts")
@@ -104,7 +107,7 @@ async function fetchPrompts(
         "view_count",
         "like_count",
         "created_at",
-      ].join(",")
+      ].join(","),
     )
     .eq("owner_id", creatorId)
     .in("type", ["prompt", "workflow"])
@@ -150,7 +153,7 @@ async function fetchWorkflows(
   supabase: ReturnType<typeof createSupabasePublicBrowserClient>,
   creatorId: string,
   sort: ListingSort,
-  limit: number
+  limit: number,
 ): Promise<CreatorListing[]> {
   const baseSelect = [
     "id",

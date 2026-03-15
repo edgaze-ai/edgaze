@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { ConnectNotificationBanner } from '@stripe/react-connect-js';
-import { ConnectDashboardShell } from '../components/ConnectDashboardShell';
+import { ConnectNotificationBanner } from "@stripe/react-connect-js";
+import { ConnectDashboardShell } from "../components/ConnectDashboardShell";
 
 export default function NotificationBannerPage() {
   return (

@@ -47,7 +47,7 @@ async function selectWithFallback(selects: string[]) {
   for (const sel of selects) {
     const q = supabase.from("workflows").select(sel);
     const res = await q;
-    if (!res.error) return { data: ((res.data ?? []) as unknown) as WorkflowRow[] };
+    if (!res.error) return { data: (res.data ?? []) as unknown as WorkflowRow[] };
     lastErr = res.error;
     if (!isMissingColumn(res.error)) break;
   }
@@ -58,7 +58,7 @@ async function singleWithFallback(selects: string[], id: string) {
   let lastErr: any = null;
   for (const sel of selects) {
     const res = await supabase.from("workflows").select(sel).eq("id", id).single();
-    if (!res.error) return { data: (res.data as unknown) as WorkflowRow };
+    if (!res.error) return { data: res.data as unknown as WorkflowRow };
     lastErr = res.error;
     if (!isMissingColumn(res.error)) break;
   }
@@ -138,7 +138,7 @@ export async function getWorkflowById(id: string) {
       "id,name,updated_at,last_opened_at,published_at,canvas",
       "id,name,updated_at,last_opened_at,published_at,data",
     ],
-    id
+    id,
   );
 
   return {
@@ -200,5 +200,10 @@ export async function touchWorkflowOpened(id: string) {
 
 export async function updateWorkflowGraph(id: string, graph: any) {
   const safeGraph = stripGraphSecrets(graph) as any;
-  await updateWithFallback(id, [{ graph: safeGraph }, { graph_json: safeGraph }, { canvas: safeGraph }, { data: safeGraph }]);
+  await updateWithFallback(id, [
+    { graph: safeGraph },
+    { graph_json: safeGraph },
+    { canvas: safeGraph },
+    { data: safeGraph },
+  ]);
 }

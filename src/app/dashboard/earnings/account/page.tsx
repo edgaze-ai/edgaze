@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { ConnectAccountManagement } from '@stripe/react-connect-js';
-import { ConnectDashboardShell } from '../components/ConnectDashboardShell';
+import { ConnectAccountManagement } from "@stripe/react-connect-js";
+import { ConnectDashboardShell } from "../components/ConnectDashboardShell";
 
 export default function AccountManagementPage() {
   return (

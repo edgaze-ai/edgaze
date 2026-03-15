@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { motion } from "framer-motion";
+import { ArrowRight, Sparkles } from "lucide-react";
 
 interface WelcomeStepProps {
   creatorName: string;
@@ -9,7 +9,11 @@ interface WelcomeStepProps {
   onContinue: () => void;
 }
 
-export default function WelcomeStep({ creatorName, creatorPhotoUrl, onContinue }: WelcomeStepProps) {
+export default function WelcomeStep({
+  creatorName,
+  creatorPhotoUrl,
+  onContinue,
+}: WelcomeStepProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -40,7 +44,7 @@ export default function WelcomeStep({ creatorName, creatorPhotoUrl, onContinue }
               <div className="relative">
                 {/* Subtle glow behind avatar */}
                 <div className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-cyan-400/20 via-sky-500/20 to-pink-500/20 blur-3xl" />
-                
+
                 {/* Avatar */}
                 <div className="relative">
                   <img
@@ -48,7 +52,7 @@ export default function WelcomeStep({ creatorName, creatorPhotoUrl, onContinue }
                     alt={creatorName}
                     className="h-32 w-32 rounded-full border-2 border-white/10 object-cover"
                   />
-                  
+
                   {/* Sparkle badge */}
                   <div className="absolute -right-2 -top-2 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-r from-cyan-400 to-pink-500">
                     <Sparkles className="h-5 w-5 text-white" />

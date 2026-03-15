@@ -2,13 +2,7 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ChevronUp,
-  ChevronDown,
-  Wrench,
-  Sparkles,
-  ArrowRight,
-} from "lucide-react";
+import { ChevronUp, ChevronDown, Wrench, Sparkles, ArrowRight } from "lucide-react";
 import type { ValidationResult, ValidationIssue } from "../../lib/workflow/validation";
 
 function IssueRow({
@@ -90,8 +84,7 @@ export default function CanvasValidationBanner({
   const errorCount = validation.errors.length;
   const warningCount = validation.warnings.length;
   const total = errorCount + warningCount;
-  const label =
-    total === 1 ? "1 issue" : `${total} issues`;
+  const label = total === 1 ? "1 issue" : `${total} issues`;
 
   const handleCollapse = () => {
     setExpanded(false);
@@ -102,8 +95,7 @@ export default function CanvasValidationBanner({
     background: "rgba(10, 10, 12, 0.75)",
     backdropFilter: "blur(20px) saturate(160%)",
     border: "1px solid rgba(255,255,255,0.08)",
-    boxShadow:
-      "0 0 0 1px rgba(0,0,0,0.3), 0 20px 50px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3)",
+    boxShadow: "0 0 0 1px rgba(0,0,0,0.3), 0 20px 50px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3)",
   };
 
   return (
@@ -119,63 +111,59 @@ export default function CanvasValidationBanner({
             className="mb-2 w-[min(400px,92vw)] rounded-2xl overflow-hidden"
             style={glass}
           >
-          <div className="px-4 py-4">
-            <div className="flex items-center gap-2 mb-4">
-              <div
-                className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{
-                  background: hasErrors
-                    ? "rgba(239,68,68,0.15)"
-                    : "rgba(245,158,11,0.15)",
-                  border: `1px solid ${hasErrors ? "rgba(239,68,68,0.3)" : "rgba(245,158,11,0.3)"}`,
-                }}
-              >
-                <Wrench
-                  className="h-4 w-4"
-                  style={{ color: hasErrors ? "#ef4444" : "#f59e0b" }}
-                />
-              </div>
-              <div>
-                <div className="text-[13px] font-semibold text-white">
-                  Fix workflow issues
+            <div className="px-4 py-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div
+                  className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    background: hasErrors ? "rgba(239,68,68,0.15)" : "rgba(245,158,11,0.15)",
+                    border: `1px solid ${hasErrors ? "rgba(239,68,68,0.3)" : "rgba(245,158,11,0.3)"}`,
+                  }}
+                >
+                  <Wrench
+                    className="h-4 w-4"
+                    style={{ color: hasErrors ? "#ef4444" : "#f59e0b" }}
+                  />
                 </div>
-                <div className="text-[11px]" style={{ color: "#888" }}>
-                  I’ll help you fix these {total} issue{total === 1 ? "" : "s"}
+                <div>
+                  <div className="text-[13px] font-semibold text-white">Fix workflow issues</div>
+                  <div className="text-[11px]" style={{ color: "#888" }}>
+                    I’ll help you fix these {total} issue{total === 1 ? "" : "s"}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-              {validation.errors.map((issue: ValidationIssue, i: number) => (
-                <IssueRow
-                  key={`e-${i}`}
-                  issue={issue}
-                  isError
-                  onFocusNode={onFocusNode}
-                  onExpand={() => setExpanded(false)}
-                />
-              ))}
-              {validation.warnings.map((issue: ValidationIssue, i: number) => (
-                <IssueRow
-                  key={`w-${i}`}
-                  issue={issue}
-                  isError={false}
-                  onFocusNode={onFocusNode}
-                  onExpand={() => setExpanded(false)}
-                />
-              ))}
-            </div>
+              <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                {validation.errors.map((issue: ValidationIssue, i: number) => (
+                  <IssueRow
+                    key={`e-${i}`}
+                    issue={issue}
+                    isError
+                    onFocusNode={onFocusNode}
+                    onExpand={() => setExpanded(false)}
+                  />
+                ))}
+                {validation.warnings.map((issue: ValidationIssue, i: number) => (
+                  <IssueRow
+                    key={`w-${i}`}
+                    issue={issue}
+                    isError={false}
+                    onFocusNode={onFocusNode}
+                    onExpand={() => setExpanded(false)}
+                  />
+                ))}
+              </div>
 
-            <div className="mt-4 flex flex-wrap gap-2 justify-end">
-              <button
-                onClick={handleCollapse}
-                className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[12px] font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 transition-all ml-auto"
-              >
-                <ChevronDown className="h-3.5 w-3.5" />
-                Collapse
-              </button>
+              <div className="mt-4 flex flex-wrap gap-2 justify-end">
+                <button
+                  onClick={handleCollapse}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[12px] font-medium bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 transition-all ml-auto"
+                >
+                  <ChevronDown className="h-3.5 w-3.5" />
+                  Collapse
+                </button>
+              </div>
             </div>
-          </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -192,9 +180,7 @@ export default function CanvasValidationBanner({
           style={{ color: hasErrors ? "#ef4444" : "#f59e0b" }}
         >
           <Sparkles className="h-4 w-4" />
-          <span className="text-[12px] font-medium">
-            {expanded ? "Collapse" : label}
-          </span>
+          <span className="text-[12px] font-medium">{expanded ? "Collapse" : label}</span>
         </div>
         <div className="flex items-center gap-1.5">
           {errorCount > 0 && (

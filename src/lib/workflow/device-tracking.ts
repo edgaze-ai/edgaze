@@ -55,14 +55,14 @@ export function generateDeviceFingerprintHash(): string {
   const fp = getDeviceFingerprint();
   // Include more characteristics for better uniqueness
   const str = `${fp.userAgent}|${fp.language}|${fp.platform}|${fp.screenResolution}|${fp.timezone}|${fp.hardwareConcurrency || 0}|${fp.maxTouchPoints || 0}`;
-  
+
   // Use a more robust hash function (similar to djb2)
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) + hash) + char;
+    hash = (hash << 5) + hash + char;
   }
-  
+
   // Return a longer hash for better uniqueness
   return `fp_${Math.abs(hash).toString(36)}_${str.length}`;
 }
@@ -72,7 +72,7 @@ export function generateDeviceFingerprintHash(): string {
  */
 export function getDeviceFingerprintHash(): string {
   if (typeof window === "undefined") return "unknown";
-  
+
   try {
     let fingerprintHash = localStorage.getItem(DEVICE_ID_KEY);
     if (!fingerprintHash) {
@@ -92,10 +92,10 @@ export function getDeviceFingerprintHash(): string {
  */
 export async function canRunDemoServer(workflowId: string): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  
+
   try {
     const fingerprintHash = getDeviceFingerprintHash();
-    
+
     // Check server-side
     const response = await fetch("/api/demo-runs/check", {
       method: "POST",
@@ -114,7 +114,7 @@ export async function canRunDemoServer(workflowId: string): Promise<boolean> {
     }
 
     const data = await response.json();
-    
+
     // Cache the result in localStorage for optimistic UI
     if (data.ok && typeof data.allowed === "boolean") {
       try {
@@ -140,10 +140,10 @@ export async function canRunDemoServer(workflowId: string): Promise<boolean> {
  */
 export async function trackDemoRunServer(workflowId: string): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  
+
   try {
     const fingerprintHash = getDeviceFingerprintHash();
-    
+
     // Record on server
     const response = await fetch("/api/demo-runs/track", {
       method: "POST",
@@ -163,14 +163,14 @@ export async function trackDemoRunServer(workflowId: string): Promise<boolean> {
     }
 
     const data = await response.json();
-    
+
     if (data.ok && data.allowed) {
       // Update local cache
       try {
         const cache = JSON.parse(localStorage.getItem(DEMO_CHECK_CACHE_KEY) || "{}");
         cache[workflowId] = { allowed: false, timestamp: Date.now() };
         localStorage.setItem(DEMO_CHECK_CACHE_KEY, JSON.stringify(cache));
-        
+
         // Also update legacy localStorage tracking for backwards compatibility
         trackDemoRunLocal(workflowId);
       } catch {
@@ -191,7 +191,7 @@ export async function trackDemoRunServer(workflowId: string): Promise<boolean> {
  */
 function canRunDemoLocal(workflowId: string): boolean {
   if (typeof window === "undefined") return false;
-  
+
   try {
     // Check cache first
     const cache = JSON.parse(localStorage.getItem(DEMO_CHECK_CACHE_KEY) || "{}");
@@ -202,7 +202,7 @@ function canRunDemoLocal(workflowId: string): boolean {
         return cached.allowed;
       }
     }
-    
+
     // Fallback to legacy localStorage check
     const count = getDemoRunCount(workflowId);
     return count < 1;
@@ -224,11 +224,11 @@ export async function trackDemoRun(workflowId: string): Promise<boolean> {
  */
 function trackDemoRunLocal(workflowId: string): boolean {
   if (typeof window === "undefined") return false;
-  
+
   try {
     const fingerprintHash = getDeviceFingerprintHash();
     const runs = getDemoRunCount(workflowId);
-    
+
     // Increment run count
     const newCount = runs + 1;
     setDemoRunCount(workflowId, newCount);
@@ -243,7 +243,7 @@ function trackDemoRunLocal(workflowId: string): boolean {
  */
 function getDemoRunCount(workflowId: string): number {
   if (typeof window === "undefined") return 0;
-  
+
   try {
     const fingerprintHash = getDeviceFingerprintHash();
     const runs = getAllDemoRuns();
@@ -259,7 +259,7 @@ function getDemoRunCount(workflowId: string): number {
  */
 function setDemoRunCount(workflowId: string, count: number): void {
   if (typeof window === "undefined") return;
-  
+
   try {
     const fingerprintHash = getDeviceFingerprintHash();
     const runs = getAllDemoRuns();
@@ -275,18 +275,21 @@ function setDemoRunCount(workflowId: string, count: number): void {
  * Check if demo run is allowed for this device
  * For product page: strict one-time (server-side enforced)
  * For builder/preview: allows 5 runs (local only)
- * 
+ *
  * Note: For product page (strictOneTime=true), this checks server-side.
  * For builder (strictOneTime=false), this uses local tracking.
  */
-export async function canRunDemo(workflowId: string, strictOneTime: boolean = false): Promise<boolean> {
+export async function canRunDemo(
+  workflowId: string,
+  strictOneTime: boolean = false,
+): Promise<boolean> {
   if (typeof window === "undefined") return false;
-  
+
   // For strict one-time (product page), use server-side check
   if (strictOneTime) {
     return canRunDemoServer(workflowId);
   }
-  
+
   // For builder/preview (5 runs), use local tracking
   return canRunDemoLocal(workflowId);
 }
@@ -297,12 +300,12 @@ export async function canRunDemo(workflowId: string, strictOneTime: boolean = fa
  */
 export function canRunDemoSync(workflowId: string, strictOneTime: boolean = false): boolean {
   if (typeof window === "undefined") return false;
-  
+
   if (strictOneTime) {
     // Check cache first
     return canRunDemoLocal(workflowId);
   }
-  
+
   try {
     const count = getDemoRunCount(workflowId);
     return count < 5; // Builder allows 5 runs
@@ -315,14 +318,17 @@ export function canRunDemoSync(workflowId: string, strictOneTime: boolean = fals
  * Get remaining demo runs for a workflow
  * For strict one-time, checks server-side cache
  */
-export async function getRemainingDemoRuns(workflowId: string, strictOneTime: boolean = false): Promise<number> {
+export async function getRemainingDemoRuns(
+  workflowId: string,
+  strictOneTime: boolean = false,
+): Promise<number> {
   if (typeof window === "undefined") return 0;
-  
+
   if (strictOneTime) {
     const allowed = await canRunDemoServer(workflowId);
     return allowed ? 1 : 0;
   }
-  
+
   try {
     const count = getDemoRunCount(workflowId);
     return Math.max(0, 5 - count); // Builder allows 5 runs
@@ -334,9 +340,12 @@ export async function getRemainingDemoRuns(workflowId: string, strictOneTime: bo
 /**
  * Synchronous version for backwards compatibility
  */
-export function getRemainingDemoRunsSync(workflowId: string, strictOneTime: boolean = false): number {
+export function getRemainingDemoRunsSync(
+  workflowId: string,
+  strictOneTime: boolean = false,
+): number {
   if (typeof window === "undefined") return 0;
-  
+
   try {
     if (strictOneTime) {
       // Check cache
@@ -349,7 +358,7 @@ export function getRemainingDemoRunsSync(workflowId: string, strictOneTime: bool
       const count = getDemoRunCount(workflowId);
       return count < 1 ? 1 : 0;
     }
-    
+
     const count = getDemoRunCount(workflowId);
     return Math.max(0, 5 - count);
   } catch {
@@ -362,7 +371,7 @@ export function getRemainingDemoRunsSync(workflowId: string, strictOneTime: bool
  */
 function getAllDemoRuns(): Map<string, number> {
   if (typeof window === "undefined") return new Map();
-  
+
   try {
     const stored = localStorage.getItem(DEMO_RUNS_KEY);
     if (!stored) return new Map();

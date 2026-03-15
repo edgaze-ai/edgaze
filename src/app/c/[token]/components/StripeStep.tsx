@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import { useState } from 'react';
-import Link from 'next/link';
-import { DollarSign, Settings } from 'lucide-react';
+import { motion } from "framer-motion";
+import { useState } from "react";
+import Link from "next/link";
+import { DollarSign, Settings } from "lucide-react";
 
 interface StripeStepProps {
   userId: string;
@@ -11,23 +11,19 @@ interface StripeStepProps {
   onContinue: () => void;
 }
 
-const CHIPS = [
-  'Stripe-powered payouts',
-  '~3 minutes to connect',
-  'Start earning immediately',
-];
+const CHIPS = ["Stripe-powered payouts", "~3 minutes to connect", "Start earning immediately"];
 
 export default function StripeStep({ userId, inviteToken, onContinue }: StripeStepProps) {
   const [loading, setLoading] = useState(false);
 
   const handleDoLater = async () => {
     try {
-      await fetch('/api/onboarding', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/onboarding", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          step: 'done',
-          stripe_choice: 'later',
+          step: "done",
+          stripe_choice: "later",
         }),
       });
     } catch {
@@ -58,14 +54,14 @@ export default function StripeStep({ userId, inviteToken, onContinue }: StripeSt
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring', stiffness: 200, damping: 22 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200, damping: 22 }}
               className="mb-8 flex justify-center"
             >
               <div className="relative">
                 <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-cyan-500/10 to-pink-500/10 blur-2xl" />
                 <motion.div
                   animate={{ scale: [1, 1.02, 1] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                   className="relative flex h-24 w-24 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] sm:h-28 sm:w-28"
                 >
                   <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 via-sky-500 to-pink-500 sm:h-16 sm:w-16">
@@ -155,7 +151,7 @@ export default function StripeStep({ userId, inviteToken, onContinue }: StripeSt
               transition={{ delay: 0.6 }}
               className="mt-8 text-center text-[13px] text-white/40"
             >
-              Connect anytime from{' '}
+              Connect anytime from{" "}
               <Link
                 href="/settings"
                 className="font-medium text-cyan-400/90 underline-offset-2 transition-colors hover:text-cyan-400"

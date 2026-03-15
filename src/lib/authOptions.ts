@@ -11,7 +11,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    })
+    }),
   );
 }
 
@@ -20,31 +20,25 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET) {
     AppleProvider({
       clientId: process.env.APPLE_CLIENT_ID,
       clientSecret: process.env.APPLE_CLIENT_SECRET,
-    })
+    }),
   );
 }
 
-if (
-  process.env.LINKEDIN_CLIENT_ID &&
-  process.env.LINKEDIN_CLIENT_SECRET
-) {
+if (process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET) {
   providers.push(
     LinkedInProvider({
       clientId: process.env.LINKEDIN_CLIENT_ID,
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-    })
+    }),
   );
 }
 
-if (
-  process.env.FACEBOOK_CLIENT_ID &&
-  process.env.FACEBOOK_CLIENT_SECRET
-) {
+if (process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET) {
   providers.push(
     FacebookProvider({
       clientId: process.env.FACEBOOK_CLIENT_ID,
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
-    })
+    }),
   );
 }
 
@@ -70,6 +64,5 @@ export const authOptions: NextAuthOptions = {
         plan: typeof token.plan === "string" ? token.plan : "Free",
       } as any;
     },
-    
   },
 };

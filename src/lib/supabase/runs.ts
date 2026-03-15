@@ -73,11 +73,7 @@ export async function createRun(params: CreateRunParams): Promise<RunRow> {
   if (params.versionId) row.version_id = params.versionId;
   if (params.workflowRunId) row.workflow_run_id = params.workflowRunId;
 
-  const { data, error } = await supabase
-    .from("runs")
-    .insert(row)
-    .select()
-    .single();
+  const { data, error } = await supabase.from("runs").insert(row).select().single();
 
   if (error) throw error;
   return data as RunRow;

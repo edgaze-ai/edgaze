@@ -3,15 +3,9 @@
 import React, { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  loadConnectAndInitialize,
-} from "@stripe/connect-js";
-import {
-  ConnectComponentsProvider,
-  ConnectAccountOnboarding,
-} from "@stripe/react-connect-js";
+import { loadConnectAndInitialize } from "@stripe/connect-js/pure";
+import { ConnectComponentsProvider, ConnectAccountOnboarding } from "@stripe/react-connect-js";
 import {
   Shield,
   CheckCircle2,
@@ -40,19 +34,6 @@ type PageState =
   | "incomplete"
   | "logged_out";
 
-const TRUST_CHIPS = [
-  "Secure payout onboarding",
-  "Powered by Stripe Connect",
-  "Usually takes a few minutes",
-  "Required to receive earnings",
-];
-
-const STEPS = [
-  { id: "profile", label: "Creator profile", done: true },
-  { id: "payout", label: "Payout setup", done: false, current: true },
-  { id: "publish", label: "Ready to sell", done: false },
-];
-
 function SupportPanel() {
   return (
     <motion.div
@@ -62,9 +43,7 @@ function SupportPanel() {
       className="space-y-4"
     >
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white/90 mb-2">
-          Why this is required
-        </h3>
+        <h3 className="text-sm font-semibold text-white/90 mb-2">Why this is required</h3>
         <ul className="space-y-2 text-sm text-white/60">
           <li className="flex items-start gap-2">
             <CreditCard className="h-4 w-4 text-cyan-400/80 shrink-0 mt-0.5" />
@@ -82,9 +61,7 @@ function SupportPanel() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white/90 mb-2">
-          What you may need
-        </h3>
+        <h3 className="text-sm font-semibold text-white/90 mb-2">What you may need</h3>
         <ul className="space-y-2 text-sm text-white/60">
           <li className="flex items-start gap-2">
             <Building2 className="h-4 w-4 text-cyan-400/80 shrink-0 mt-0.5" />
@@ -102,12 +79,10 @@ function SupportPanel() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white/90 mb-2">
-          What happens next
-        </h3>
+        <h3 className="text-sm font-semibold text-white/90 mb-2">What happens next</h3>
         <p className="text-sm text-white/60 leading-relaxed">
-          Finish payout setup, then start publishing and selling workflows. Edgaze
-          takes 20% platform fee; you keep 80% of each sale.
+          Finish payout setup, then start publishing and selling workflows. Edgaze takes 20%
+          platform fee; you keep 80% of each sale.
         </p>
       </div>
 
@@ -126,7 +101,6 @@ function EmbeddedOnboardingContent({
   connectInstance,
   onExit,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   connectInstance: any;
   onExit: () => void;
 }) {
@@ -145,7 +119,16 @@ function EmbeddedOnboardingContent({
 function CreatorsOnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { userId, profile, authReady, loading, openSignIn, refreshProfile, getAccessToken, updateProfile } = useAuth();
+  const {
+    userId,
+    profile,
+    authReady,
+    loading,
+    openSignIn,
+    refreshProfile,
+    getAccessToken,
+    updateProfile,
+  } = useAuth();
   const [pageState, setPageState] = useState<PageState>("loading");
   const [gateChecked, setGateChecked] = useState(false);
 
@@ -166,9 +149,7 @@ function CreatorsOnboardingPageContent() {
   const [selectedCountry, setSelectedCountry] = useState("");
 
   const publishableKey =
-    typeof window !== "undefined"
-      ? (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string)
-      : "";
+    typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string) : "";
 
   const fetchClientSecret = useCallback(async (): Promise<{
     clientSecret: string;
@@ -248,7 +229,8 @@ function CreatorsOnboardingPageContent() {
       } catch (err: unknown) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : "Something went wrong";
-        const needsCountry = /country|select your country/i.test(msg) || /identity\.country is required/i.test(msg);
+        const needsCountry =
+          /country|select your country/i.test(msg) || /identity\.country is required/i.test(msg);
         if (needsCountry) {
           setPageState("country_picker");
           return;
@@ -262,7 +244,16 @@ function CreatorsOnboardingPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [gateChecked, hasValidRef, loading, authReady, userId, publishableKey, hasValidCountry, fetchClientSecret]);
+  }, [
+    gateChecked,
+    hasValidRef,
+    loading,
+    authReady,
+    userId,
+    publishableKey,
+    hasValidCountry,
+    fetchClientSecret,
+  ]);
 
   const handleCountrySubmit = useCallback(
     async (countryCode: string) => {
@@ -280,7 +271,7 @@ function CreatorsOnboardingPageContent() {
         setCountrySaving(false);
       }
     },
-    [updateProfile, refreshProfile]
+    [updateProfile, refreshProfile],
   );
 
   const handleOnboardingExit = useCallback(async () => {
@@ -361,7 +352,10 @@ function CreatorsOnboardingPageContent() {
       <div className="min-h-screen flex items-center justify-center px-6 bg-[#0d0d0d]">
         <div className="text-center">
           <p className="text-white/60 text-[15px]">Redirecting to Creator Program…</p>
-          <Link href="/creators" className="mt-4 inline-block text-cyan-400 hover:underline text-sm">
+          <Link
+            href="/creators"
+            className="mt-4 inline-block text-cyan-400 hover:underline text-sm"
+          >
             Click here if not redirected
           </Link>
         </div>
@@ -416,9 +410,7 @@ function CreatorsOnboardingPageContent() {
               onChange={(e) => setSelectedCountry(e.target.value)}
               disabled={countrySaving}
             >
-              <option value="">
-                Choose your country
-              </option>
+              <option value="">Choose your country</option>
               {ALLOWED_PAYOUT_COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
                   {c.name}
@@ -443,9 +435,7 @@ function CreatorsOnboardingPageContent() {
                 </>
               )}
             </button>
-            {error && (
-              <p className="mt-4 text-sm text-red-400">{error}</p>
-            )}
+            {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
             {countrySaving && (
               <p className="mt-4 text-sm text-white/55 flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -453,13 +443,32 @@ function CreatorsOnboardingPageContent() {
               </p>
             )}
             <p className="mt-6 text-xs text-white/45">
-              By continuing, you agree to Stripe&apos;s{' '}
-              <a href="https://stripe.com/legal/connect-account" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Connected Account Agreement</a>
-              {' '}and Edgaze&apos;s{' '}
-              <Link href="/docs/creator-terms" className="text-cyan-400 hover:underline">Creator Terms</Link>
-              , <Link href="/docs/terms-of-service" className="text-cyan-400 hover:underline">Terms of Service</Link>
-              , <Link href="/docs/privacy-policy" className="text-cyan-400 hover:underline">Privacy Policy</Link>
-              , and <Link href="/docs/payments-overview" className="text-cyan-400 hover:underline">Payment Policies</Link>.
+              By continuing, you agree to Stripe&apos;s{" "}
+              <a
+                href="https://stripe.com/legal/connect-account"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-400 hover:underline"
+              >
+                Connected Account Agreement
+              </a>{" "}
+              and Edgaze&apos;s{" "}
+              <Link href="/docs/creator-terms" className="text-cyan-400 hover:underline">
+                Creator Terms
+              </Link>
+              ,{" "}
+              <Link href="/docs/terms-of-service" className="text-cyan-400 hover:underline">
+                Terms of Service
+              </Link>
+              ,{" "}
+              <Link href="/docs/privacy-policy" className="text-cyan-400 hover:underline">
+                Privacy Policy
+              </Link>
+              , and{" "}
+              <Link href="/docs/payments-overview" className="text-cyan-400 hover:underline">
+                Payment Policies
+              </Link>
+              .
             </p>
             <Link
               href="/creators"
@@ -519,95 +528,18 @@ function CreatorsOnboardingPageContent() {
 
   return (
     <div className="min-h-screen overflow-y-auto bg-[#0d0d0d]">
-      <div
-        className="fixed inset-0 pointer-events-none overflow-hidden"
-        aria-hidden
-      >
+      <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-cyan-500/[0.06] blur-[120px]" />
         <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-pink-500/[0.04] blur-[100px]" />
       </div>
 
-      <header className="relative z-10 shrink-0 border-b border-white/10 bg-[#0d0d0d]/80 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2">
-              <Image
-                src="/brand/edgaze-mark.png"
-                alt="Edgaze"
-                width={28}
-                height={28}
-                className="h-7 w-auto"
-              />
-              <span className="font-semibold text-white">Edgaze</span>
-            </Link>
-            <span className="text-white/40 text-sm hidden sm:inline">
-              Creator Program / Payout Setup
-            </span>
-          </div>
-          <Link
-            href="/creators"
-            className="flex items-center gap-2 text-sm text-white/60 hover:text-white/80 transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to creators
-          </Link>
-        </div>
-      </header>
-
       <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16 sm:pt-8 sm:pb-20">
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            {STEPS.map((step, i) => (
-              <React.Fragment key={step.id}>
-                <span
-                  className={`text-xs font-medium ${
-                    step.current
-                      ? "text-cyan-400"
-                      : step.done
-                      ? "text-white/50"
-                      : "text-white/30"
-                  }`}
-                >
-                  {step.label}
-                </span>
-                {i < STEPS.length - 1 && (
-                  <span className="text-white/20">/</span>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-          <motion.h1
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="text-xl sm:text-2xl font-semibold text-white tracking-tight"
-          >
-            Set up payouts to start selling
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.05 }}
-            className="mt-1.5 text-white/60 max-w-xl text-sm sm:text-base"
-          >
-            Complete secure payout setup through Stripe to start receiving
-            earnings when your workflows sell on Edgaze. Marketplace: 20%
-            platform fee, 80% to you.
-          </motion.p>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {TRUST_CHIPS.map((chip) => (
-              <span
-                key={chip}
-                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70"
-              >
-                <Shield className="h-3.5 w-3.5 text-cyan-400/80" />
-                {chip}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className={`grid gap-6 lg:gap-8 ${pageState === "complete" ? "grid-cols-1" : "lg:grid-cols-[1fr,320px]"}`}>
+        <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mb-6">
+          Creator Onboarding
+        </h1>
+        <div
+          className={`grid gap-6 lg:gap-8 ${pageState === "complete" ? "grid-cols-1" : "lg:grid-cols-[1fr,320px]"}`}
+        >
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -623,9 +555,7 @@ function CreatorsOnboardingPageContent() {
                 >
                   <div className="animate-pulse flex flex-col items-center gap-4">
                     <div className="h-10 w-10 rounded-full bg-cyan-500/20 border border-cyan-500/30" />
-                    <p className="text-white/60 text-sm">
-                      Preparing secure payout setup...
-                    </p>
+                    <p className="text-white/60 text-sm">Preparing secure payout setup...</p>
                     <div className="h-2 w-48 rounded-full bg-white/10 overflow-hidden">
                       <div
                         className="h-full bg-cyan-500/40 rounded-full animate-[shimmer_1.5s_ease-in-out_infinite]"
@@ -683,14 +613,45 @@ function CreatorsOnboardingPageContent() {
                     ) : null}
                   </div>
                   <p className="px-4 sm:px-6 pb-4 text-xs text-white/40 bg-[#14171D]">
-                    Your information is processed securely by Stripe for identity
-                    and payout verification. By completing setup, you agree to Stripe&apos;s{' '}
-                    <a href="https://stripe.com/legal/connect-account" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Connected Account Agreement</a>
-                    {' '}and Edgaze&apos;s{' '}
-                    <Link href="/docs/creator-terms" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Creator Terms</Link>
-                    , <Link href="/docs/terms-of-service" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Terms of Service</Link>
-                    , <Link href="/docs/privacy-policy" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Privacy Policy</Link>
-                    , and <Link href="/docs/payments-overview" className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2">Payment Policies</Link>.
+                    Your information is processed securely by Stripe for identity and payout
+                    verification. By completing setup, you agree to Stripe&apos;s{" "}
+                    <a
+                      href="https://stripe.com/legal/connect-account"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                    >
+                      Connected Account Agreement
+                    </a>{" "}
+                    and Edgaze&apos;s{" "}
+                    <Link
+                      href="/docs/creator-terms"
+                      className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                    >
+                      Creator Terms
+                    </Link>
+                    ,{" "}
+                    <Link
+                      href="/docs/terms-of-service"
+                      className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                    >
+                      Terms of Service
+                    </Link>
+                    ,{" "}
+                    <Link
+                      href="/docs/privacy-policy"
+                      className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                    >
+                      Privacy Policy
+                    </Link>
+                    , and{" "}
+                    <Link
+                      href="/docs/payments-overview"
+                      className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                    >
+                      Payment Policies
+                    </Link>
+                    .
                   </p>
                 </motion.div>
               )}
@@ -715,10 +676,16 @@ function CreatorsOnboardingPageContent() {
                       transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
                       className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full flex items-center justify-center mx-auto mb-8"
                     >
-                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400 via-pink-400 to-cyan-400 opacity-90 animate-pulse" style={{ animationDuration: "2s" }} />
+                      <div
+                        className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400 via-pink-400 to-cyan-400 opacity-90 animate-pulse"
+                        style={{ animationDuration: "2s" }}
+                      />
                       <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-400/50 via-pink-400/50 to-cyan-400/50 blur-2xl" />
                       <div className="absolute inset-1 rounded-full bg-[#0d0d0d] flex items-center justify-center">
-                        <CheckCircle2 className="w-12 h-12 sm:w-14 sm:h-14 text-cyan-400 drop-shadow-[0_0_24px_rgba(34,211,238,0.6)]" strokeWidth={2} />
+                        <CheckCircle2
+                          className="w-12 h-12 sm:w-14 sm:h-14 text-cyan-400 drop-shadow-[0_0_24px_rgba(34,211,238,0.6)]"
+                          strokeWidth={2}
+                        />
                       </div>
                     </motion.div>
                     <motion.h2
@@ -756,9 +723,14 @@ function CreatorsOnboardingPageContent() {
                       transition={{ delay: 0.5 }}
                       className="mt-8 text-xs text-white/40"
                     >
-                      Need help? <Link href="/help" className="text-cyan-400 hover:underline">Help center</Link>
+                      Need help?{" "}
+                      <Link href="/help" className="text-cyan-400 hover:underline">
+                        Help center
+                      </Link>
                       {" · "}
-                      <a href="mailto:support@edgaze.ai" className="text-cyan-400 hover:underline">support@edgaze.ai</a>
+                      <a href="mailto:support@edgaze.ai" className="text-cyan-400 hover:underline">
+                        support@edgaze.ai
+                      </a>
                     </motion.p>
                   </div>
                 </motion.div>

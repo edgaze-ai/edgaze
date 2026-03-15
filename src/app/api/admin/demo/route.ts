@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
       (() => {
         let query = supabase
           .from("prompts")
-          .select("id, owner_handle, edgaze_code, title, type, visibility, demo_mode_enabled, demo_token, removed_at, updated_at")
+          .select(
+            "id, owner_handle, edgaze_code, title, type, visibility, demo_mode_enabled, demo_token, removed_at, updated_at",
+          )
           .in("visibility", ["public", "unlisted"])
           .in("type", ["prompt", "workflow"])
           .is("removed_at", null)
@@ -48,7 +50,9 @@ export async function GET(req: NextRequest) {
       (() => {
         let query = supabase
           .from("workflows")
-          .select("id, owner_handle, edgaze_code, title, visibility, demo_mode_enabled, demo_token, removed_at, updated_at")
+          .select(
+            "id, owner_handle, edgaze_code, title, visibility, demo_mode_enabled, demo_token, removed_at, updated_at",
+          )
           .eq("is_published", true)
           .is("removed_at", null)
           .order("updated_at", { ascending: false })
@@ -71,7 +75,7 @@ export async function GET(req: NextRequest) {
     }));
 
     const merged = [...prompts, ...workflows].sort(
-      (a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime()
+      (a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime(),
     );
 
     return NextResponse.json({ products: merged });
@@ -79,7 +83,7 @@ export async function GET(req: NextRequest) {
     console.error("Admin demo list error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -129,8 +133,13 @@ export async function POST(req: NextRequest) {
     }
 
     const base = process.env.NEXT_PUBLIC_APP_URL || "https://edgaze.ai";
-    const path = target_type === "prompt" ? `/p/${data.owner_handle}/${data.edgaze_code}` : `/${data.owner_handle}/${data.edgaze_code}`;
-    const demoUrl = data.demo_token ? `${base}${path}?demo=${encodeURIComponent(data.demo_token)}` : null;
+    const path =
+      target_type === "prompt"
+        ? `/p/${data.owner_handle}/${data.edgaze_code}`
+        : `/${data.owner_handle}/${data.edgaze_code}`;
+    const demoUrl = data.demo_token
+      ? `${base}${path}?demo=${encodeURIComponent(data.demo_token)}`
+      : null;
 
     return NextResponse.json({
       ok: true,
@@ -142,7 +151,7 @@ export async function POST(req: NextRequest) {
     console.error("Admin demo toggle error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

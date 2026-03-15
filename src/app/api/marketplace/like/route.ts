@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { itemId, itemType } = body;
-    
+
     if (itemType !== "prompt" && itemType !== "workflow") {
       return NextResponse.json({ error: "Invalid item type" }, { status: 400 });
     }
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const itemsTable = itemType === "workflow" ? "workflows" : "prompts";
     const likesCountColumn = "likes_count";
     const itemIdColumn = itemType === "workflow" ? "workflow_id" : "prompt_id";
-    
+
     // Convert UUID to text for user_id (schema uses text, not uuid)
     const userIdStr = String(user.id);
 
@@ -50,8 +50,13 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (checkError) {
-      if (checkError.message.includes("does not exist") || checkError.message.includes("relation")) {
-        console.error(`Table ${likesTable} does not exist. Run the database migration for like tracking.`);
+      if (
+        checkError.message.includes("does not exist") ||
+        checkError.message.includes("relation")
+      ) {
+        console.error(
+          `Table ${likesTable} does not exist. Run the database migration for like tracking.`,
+        );
         return NextResponse.json(
           {
             error: "Like tracking is not configured. Please run the database migration.",
@@ -60,16 +65,16 @@ export async function POST(req: NextRequest) {
           {
             status: 503,
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
       }
       console.error("Error checking existing like:", checkError);
       return NextResponse.json(
         { error: "Failed to check like status", details: checkError.message },
-        { 
+        {
           status: 500,
-          headers: { "Content-Type": "application/json" }
-        }
+          headers: { "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -89,10 +94,10 @@ export async function POST(req: NextRequest) {
         // Return error instead of falling back
         return NextResponse.json(
           { error: "Failed to remove like", details: deleteError.message },
-          { 
+          {
             status: 500,
-            headers: { "Content-Type": "application/json" }
-          }
+            headers: { "Content-Type": "application/json" },
+          },
         );
       } else {
         // Successfully deleted like - decrement count
@@ -113,17 +118,20 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // User hasn't liked - add the like directly (RLS will enforce security)
-      const insertData = itemType === "workflow" 
-        ? { user_id: userIdStr, workflow_id: itemId }
-        : { user_id: userIdStr, prompt_id: itemId };
-        
-      const { error: insertError } = await supabase
-        .from(likesTable)
-        .insert(insertData);
-        
+      const insertData =
+        itemType === "workflow"
+          ? { user_id: userIdStr, workflow_id: itemId }
+          : { user_id: userIdStr, prompt_id: itemId };
+
+      const { error: insertError } = await supabase.from(likesTable).insert(insertData);
+
       if (insertError) {
         // Check if it's a duplicate (user already liked)
-        if (insertError.message.includes("unique") || insertError.message.includes("duplicate") || insertError.message.includes("already")) {
+        if (
+          insertError.message.includes("unique") ||
+          insertError.message.includes("duplicate") ||
+          insertError.message.includes("already")
+        ) {
           // User already liked - get current count
           const { data: item } = await supabase
             .from(itemsTable)
@@ -133,25 +141,25 @@ export async function POST(req: NextRequest) {
 
           newLikesCount = (item as any)?.[likesCountColumn] ?? 0;
           isLiked = true;
-          
+
           return NextResponse.json(
             {
               success: true,
               likesCount: newLikesCount,
               isLiked,
             },
-            { status: 200 }
+            { status: 200 },
           );
         }
-        
+
         // Other error
         console.error("Error inserting like:", insertError);
         return NextResponse.json(
           { error: "Failed to add like", details: insertError.message },
-          { status: 500 }
+          { status: 500 },
         );
       }
-      
+
       // Successfully inserted like - increment count
       const { data: item } = await supabase
         .from(itemsTable)
@@ -175,25 +183,25 @@ export async function POST(req: NextRequest) {
         likesCount: newLikesCount,
         isLiked,
       },
-      { 
+      {
         status: 200,
-        headers: { "Content-Type": "application/json" }
-      }
+        headers: { "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
     console.error("Unexpected like error", err);
     const errorMessage = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { 
-        error: "Internal server error", 
-        details: errorMessage 
+      {
+        error: "Internal server error",
+        details: errorMessage,
       },
-      { 
+      {
         status: 500,
         headers: {
-          "Content-Type": "application/json"
-        }
-      }
+          "Content-Type": "application/json",
+        },
+      },
     );
   }
 }
@@ -217,7 +225,7 @@ export async function GET(req: NextRequest) {
 
     const likesTable = itemType === "workflow" ? "workflow_likes" : "prompt_likes";
     const itemIdColumn = itemType === "workflow" ? "workflow_id" : "prompt_id";
-    
+
     // Convert UUID to text for user_id (schema uses text, not uuid)
     const userIdStr = String(user.id);
 
@@ -232,10 +240,7 @@ export async function GET(req: NextRequest) {
       console.error("Error checking like status:", error);
     }
 
-    return NextResponse.json(
-      { isLiked: !!existingLike },
-      { status: 200 }
-    );
+    return NextResponse.json({ isLiked: !!existingLike }, { status: 200 });
   } catch (err) {
     console.error("Unexpected error checking like", err);
     return NextResponse.json({ isLiked: false }, { status: 200 });

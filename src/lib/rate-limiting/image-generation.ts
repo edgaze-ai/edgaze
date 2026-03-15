@@ -23,9 +23,9 @@ export function extractClientIdentifier(req: Request): {
   const forwardedFor = req.headers.get("x-forwarded-for");
   const realIp = req.headers.get("x-real-ip");
   const cfConnectingIp = req.headers.get("cf-connecting-ip"); // Cloudflare
-  
+
   let ip: string | null = null;
-  
+
   if (cfConnectingIp) {
     ip = cfConnectingIp.split(",")[0]?.trim() ?? null;
   } else if (realIp) {
@@ -33,17 +33,17 @@ export function extractClientIdentifier(req: Request): {
   } else if (forwardedFor) {
     ip = forwardedFor.split(",")[0]?.trim() ?? null;
   }
-  
+
   // Try device fingerprint from headers (if client sends it)
   const deviceFingerprint = req.headers.get("x-device-fingerprint");
-  
+
   if (deviceFingerprint && deviceFingerprint.length > 10) {
     return {
       identifier: deviceFingerprint,
       type: "device",
     };
   }
-  
+
   // Fall back to IP (or a default if no IP found)
   if (ip && ip !== "::1" && ip !== "127.0.0.1") {
     return {
@@ -51,7 +51,7 @@ export function extractClientIdentifier(req: Request): {
       type: "ip",
     };
   }
-  
+
   // Last resort: use a default identifier (shouldn't happen in production)
   return {
     identifier: "unknown",
@@ -67,7 +67,7 @@ export async function checkImageGenerationAllowed(
   identifier: string,
   identifierType: IdentifierType,
   userId?: string | null,
-  hasApiKey: boolean = false
+  hasApiKey: boolean = false,
 ): Promise<ImageGenerationCheck> {
   try {
     // If no user ID, require API key (anonymous users must BYOK)
@@ -87,13 +87,13 @@ export async function checkImageGenerationAllowed(
     }
 
     const supabase = await createServerClient();
-    
+
     // Call the database function to check free tier limits
     const { data, error } = await supabase.rpc("can_generate_image_free", {
       p_user_id: userId,
       p_has_api_key: hasApiKey,
     });
-    
+
     if (error) {
       const msg = error.message || String(error);
       console.error("Error checking image generation limit:", error);
@@ -105,7 +105,7 @@ export async function checkImageGenerationAllowed(
           : "Unable to verify image generation limits. Please provide your OpenAI API key.",
       };
     }
-    
+
     if (!data) {
       return {
         allowed: false,
@@ -123,7 +123,7 @@ export async function checkImageGenerationAllowed(
       reason?: string;
       error?: string;
     };
-    
+
     return {
       allowed: result.allowed === true,
       requiresApiKey: result.requires_api_key === true,
@@ -155,11 +155,11 @@ export async function recordImageGeneration(
   nodeId: string | null | undefined,
   imageUrl: string | null | undefined,
   usedFreeTier: boolean = true,
-  apiKeyProvided: boolean = false
+  apiKeyProvided: boolean = false,
 ): Promise<void> {
   try {
     const supabase = await createServerClient();
-    
+
     const { error } = await supabase.rpc("record_image_generation", {
       p_identifier: identifier,
       p_identifier_type: identifierType,
@@ -170,7 +170,7 @@ export async function recordImageGeneration(
       p_used_free_tier: usedFreeTier,
       p_api_key_provided: apiKeyProvided,
     });
-    
+
     if (error) {
       console.error("Error recording image generation:", error);
       // Don't throw - recording failure shouldn't block the response

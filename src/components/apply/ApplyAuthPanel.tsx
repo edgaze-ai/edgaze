@@ -38,7 +38,9 @@ function normalizeHandle(input: string) {
 }
 
 function randomSuffix(len = 4) {
-  return Math.random().toString(36).slice(2, 2 + len);
+  return Math.random()
+    .toString(36)
+    .slice(2, 2 + len);
 }
 
 function persistApplyDraft(patch: Record<string, any>) {
@@ -232,8 +234,8 @@ export default function ApplyAuthPanel({
               {mode === "signin"
                 ? "Sign in to submit"
                 : mode === "signup"
-                ? "Create your account"
-                : "Verify your email"}
+                  ? "Create your account"
+                  : "Verify your email"}
             </div>
             <div className="mt-2 text-sm text-white/70">
               {mode === "verify"
@@ -260,7 +262,7 @@ export default function ApplyAuthPanel({
               className={cn(
                 "mt-7 w-full rounded-2xl bg-white text-black py-3 font-semibold",
                 "shadow-[0_18px_55px_rgba(255,255,255,0.10)] hover:opacity-95 active:opacity-90",
-                busy && "opacity-60 cursor-not-allowed"
+                busy && "opacity-60 cursor-not-allowed",
               )}
             >
               <span className="flex items-center justify-center gap-3">
@@ -334,7 +336,10 @@ export default function ApplyAuthPanel({
                       {Array.from({ length: 5 }).map((_, i) => (
                         <div
                           key={i}
-                          className={cn("h-1 rounded-full", pw.score > i ? "bg-emerald-400/80" : "bg-white/10")}
+                          className={cn(
+                            "h-1 rounded-full",
+                            pw.score > i ? "bg-emerald-400/80" : "bg-white/10",
+                          )}
                         />
                       ))}
                     </div>
@@ -347,7 +352,7 @@ export default function ApplyAuthPanel({
                             "text-[11px] rounded-lg border px-2 py-1",
                             r.ok
                               ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
-                              : "border-white/10 bg-white/[0.03] text-white/55"
+                              : "border-white/10 bg-white/[0.03] text-white/55",
                           )}
                         >
                           {r.label}
@@ -364,7 +369,7 @@ export default function ApplyAuthPanel({
                 className={cn(
                   "w-full rounded-2xl py-3 text-sm font-semibold",
                   "bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))] text-black",
-                  (busy || (mode === "signup" && !pw.valid)) && "opacity-60 cursor-not-allowed"
+                  (busy || (mode === "signup" && !pw.valid)) && "opacity-60 cursor-not-allowed",
                 )}
               >
                 {mode === "signup" ? "Create account" : "Sign in"}
@@ -409,11 +414,17 @@ export default function ApplyAuthPanel({
 
             <div className="mt-5 text-xs text-white/45 leading-relaxed">
               By continuing, you agree to our{" "}
-              <Link href="/docs/terms-of-service" className="text-white/70 hover:text-white underline underline-offset-4">
+              <Link
+                href="/docs/terms-of-service"
+                className="text-white/70 hover:text-white underline underline-offset-4"
+              >
                 Terms of Service
-              </Link>
-              {" "}and{" "}
-              <Link href="/docs/privacy-policy" className="text-white/70 hover:text-white underline underline-offset-4">
+              </Link>{" "}
+              and{" "}
+              <Link
+                href="/docs/privacy-policy"
+                className="text-white/70 hover:text-white underline underline-offset-4"
+              >
                 Privacy Policy
               </Link>
               .
@@ -425,8 +436,8 @@ export default function ApplyAuthPanel({
           <div className="mt-7 rounded-3xl bg-white/4 ring-1 ring-white/10 p-6">
             <div className="text-sm font-semibold text-white">Verify your email</div>
             <div className="mt-2 text-sm text-white/70">
-              We sent a verification link to <span className="text-white/90">{email}</span>. Open it, then return here
-              and sign in.
+              We sent a verification link to <span className="text-white/90">{email}</span>. Open
+              it, then return here and sign in.
             </div>
 
             <button
@@ -442,11 +453,17 @@ export default function ApplyAuthPanel({
 
             <div className="mt-5 text-xs text-white/45 leading-relaxed">
               By continuing, you agree to our{" "}
-              <Link href="/docs/terms-of-service" className="text-white/70 hover:text-white underline underline-offset-4">
+              <Link
+                href="/docs/terms-of-service"
+                className="text-white/70 hover:text-white underline underline-offset-4"
+              >
                 Terms of Service
-              </Link>
-              {" "}and{" "}
-              <Link href="/docs/privacy-policy" className="text-white/70 hover:text-white underline underline-offset-4">
+              </Link>{" "}
+              and{" "}
+              <Link
+                href="/docs/privacy-policy"
+                className="text-white/70 hover:text-white underline underline-offset-4"
+              >
                 Privacy Policy
               </Link>
               .

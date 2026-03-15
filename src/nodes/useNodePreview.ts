@@ -8,7 +8,10 @@ type NodeData = {
   config?: Record<string, unknown>;
 };
 
-export function useNodePreview(specId: string | undefined, config: Record<string, unknown> | undefined): string {
+export function useNodePreview(
+  specId: string | undefined,
+  config: Record<string, unknown> | undefined,
+): string {
   return useMemo(() => getPreviewForSpec(specId ?? "", config ?? {}), [specId, config]);
 }
 
@@ -35,8 +38,10 @@ export function getPreviewForSpec(specId: string, config: Record<string, unknown
       if (human) return `if: ${human.length > 40 ? human.slice(0, 40) + "…" : human}`;
       if (op === "truthy") return "if: is truthy";
       if (op === "falsy") return "if: is falsy";
-      if (op === "equals" && val) return `if: equals "${val.slice(0, 20)}${val.length > 20 ? "…" : ""}"`;
-      if (op === "notEquals" && val) return `if: not equals "${val.slice(0, 20)}${val.length > 20 ? "…" : ""}"`;
+      if (op === "equals" && val)
+        return `if: equals "${val.slice(0, 20)}${val.length > 20 ? "…" : ""}"`;
+      if (op === "notEquals" && val)
+        return `if: not equals "${val.slice(0, 20)}${val.length > 20 ? "…" : ""}"`;
       return `if: ${op}`;
     }
     case "delay": {

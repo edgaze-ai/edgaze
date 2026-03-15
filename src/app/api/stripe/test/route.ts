@@ -1,10 +1,12 @@
-import { stripe } from "@/lib/stripe/client"
+import { stripe } from "@/lib/stripe/client";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const balance = await stripe.balance.retrieve()
+  const balance = await stripe.balance.retrieve();
 
   return Response.json({
     success: true,
-    balance
-  })
+    balance,
+  });
 }

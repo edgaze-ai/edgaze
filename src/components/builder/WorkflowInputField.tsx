@@ -34,7 +34,7 @@ export function WorkflowInputField({
             const maxSize = 5 * 1024 * 1024; // 5MB in bytes
             if (file.size > maxSize) {
               setFileError(
-                `File size exceeds 5MB limit. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`
+                `File size exceeds 5MB limit. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`,
               );
               onChange(null);
               return;
@@ -52,16 +52,12 @@ export function WorkflowInputField({
           onClick={() => fileInputRef.current?.click()}
           className="w-full rounded-xl bg-black/40 border border-white/10 px-4 py-3 text-sm text-white/80 hover:border-cyan-500/50 hover:bg-black/50 transition-all flex items-center justify-between"
         >
-          <span>
-            {value instanceof File ? value.name : "Choose file (max 5MB)"}
-          </span>
+          <span>{value instanceof File ? value.name : "Choose file (max 5MB)"}</span>
           <Download className="h-4 w-4" />
         </button>
         {fileError && <p className="text-xs text-red-400">{fileError}</p>}
         {value instanceof File && (
-          <p className="text-xs text-white/50">
-            Size: {(value.size / 1024).toFixed(2)} KB
-          </p>
+          <p className="text-xs text-white/50">Size: {(value.size / 1024).toFixed(2)} KB</p>
         )}
       </div>
     );

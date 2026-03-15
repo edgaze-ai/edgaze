@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect, useCallback } from 'react';
-import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
-import { Upload, Check, X, Loader2 } from 'lucide-react';
-import debounce from 'lodash.debounce';
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useCallback } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { Upload, Check, X, Loader2 } from "lucide-react";
+import debounce from "lodash.debounce";
 
 interface ProfileStepProps {
   userId: string;
@@ -12,8 +12,8 @@ interface ProfileStepProps {
 }
 
 export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
-  const [displayName, setDisplayName] = useState('');
-  const [handle, setHandle] = useState('');
+  const [displayName, setDisplayName] = useState("");
+  const [handle, setHandle] = useState("");
   const [handleAvailable, setHandleAvailable] = useState<boolean | null>(null);
   const [handleChecking, setHandleChecking] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -30,9 +30,9 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
   useEffect(() => {
     const loadProfile = async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, handle, avatar_url, banner_url')
-        .eq('id', userId)
+        .from("profiles")
+        .select("full_name, handle, avatar_url, banner_url")
+        .eq("id", userId)
         .maybeSingle();
 
       if (!error && data) {
@@ -43,9 +43,11 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
       }
     };
     loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchInvite equivalent runs once per userId; supabase is stable
   }, [userId]);
 
-  // Check handle availability
+  // Check handle availability (debounce identity is intentional)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce return value is stable per mount
   const checkHandleAvailability = useCallback(
     debounce(async (handleValue: string) => {
       if (!handleValue || handleValue.length < 3) {
@@ -56,21 +58,21 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
       setHandleChecking(true);
       try {
         const { data, error } = await supabase
-          .from('profiles')
-          .select('handle')
-          .ilike('handle', handleValue)
-          .neq('id', userId)
+          .from("profiles")
+          .select("handle")
+          .ilike("handle", handleValue)
+          .neq("id", userId)
           .maybeSingle();
 
         setHandleAvailable(!data);
       } catch (err) {
-        console.error('Handle check error:', err);
+        console.error("Handle check error:", err);
         setHandleAvailable(null);
       } finally {
         setHandleChecking(false);
       }
     }, 400),
-    [userId]
+    [userId],
   );
 
   useEffect(() => {
@@ -104,7 +106,9 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
 
     if (error) throw error;
 
-    const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(bucket).getPublicUrl(data.path);
     return publicUrl;
   };
 
@@ -119,44 +123,44 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
 
       // Upload avatar if new file
       if (avatarFile) {
-        const ext = avatarFile.name.split('.').pop();
+        const ext = avatarFile.name.split(".").pop();
         const path = `${userId}/avatar-${Date.now()}.${ext}`;
-        finalAvatarUrl = await uploadToStorage(avatarFile, 'avatars', path);
+        finalAvatarUrl = await uploadToStorage(avatarFile, "avatars", path);
       }
 
       // Upload banner if new file
       if (bannerFile) {
-        const ext = bannerFile.name.split('.').pop();
+        const ext = bannerFile.name.split(".").pop();
         const path = `${userId}/banner-${Date.now()}.${ext}`;
-        finalBannerUrl = await uploadToStorage(bannerFile, 'banners', path);
+        finalBannerUrl = await uploadToStorage(bannerFile, "banners", path);
       }
 
       // Update profile
       const { error: updateError } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({
           full_name: displayName,
           handle: handle.toLowerCase(),
           avatar_url: finalAvatarUrl,
           banner_url: finalBannerUrl,
         })
-        .eq('id', userId);
+        .eq("id", userId);
 
       if (updateError) throw updateError;
 
       // Update onboarding state
-      await fetch('/api/onboarding', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/onboarding", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          step: 'stripe',
+          step: "stripe",
           profile_completed: true,
         }),
       });
 
       onContinue();
     } catch (err: any) {
-      setError(err.message || 'Failed to save profile');
+      setError(err.message || "Failed to save profile");
       setLoading(false);
     }
   };
@@ -170,8 +174,12 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
       exit="exit"
       variants={{
         enter: { opacity: 0, y: 24 },
-        center: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] } },
-        exit: { opacity: 0, y: -16, transition: { duration: 0.3, ease: 'easeIn' } },
+        center: {
+          opacity: 1,
+          y: 0,
+          transition: { duration: 0.45, ease: [0.25, 0.46, 0.45, 0.94] },
+        },
+        exit: { opacity: 0, y: -16, transition: { duration: 0.3, ease: "easeIn" } },
       }}
       className="min-h-[100dvh] px-4 py-12"
     >
@@ -197,10 +205,14 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
               </label>
               <div
                 className="group relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-white/[0.12] bg-black/40 transition-all hover:border-cyan-400/50 hover:bg-black/60"
-                onClick={() => document.getElementById('avatar-upload')?.click()}
+                onClick={() => document.getElementById("avatar-upload")?.click()}
               >
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar preview" className="h-full w-full object-cover" />
+                  <img
+                    src={avatarUrl}
+                    alt="Avatar preview"
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="h-6 w-6 text-white/40" />
@@ -219,9 +231,7 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
 
             {/* Display Name */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-white/70">
-                Display Name *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-white/70">Display Name *</label>
               <input
                 type="text"
                 value={displayName}
@@ -229,15 +239,13 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
                 required
                 className="w-full rounded-lg border border-white/[0.12] bg-black/40 px-4 py-3 text-sm text-white transition-all focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/50"
                 placeholder="Your name"
-                style={{ fontSize: '16px' }}
+                style={{ fontSize: "16px" }}
               />
             </div>
 
             {/* Handle */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-white/70">
-                Handle *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-white/70">Handle *</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-white/40">
                   @
@@ -245,12 +253,14 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
                 <input
                   type="text"
                   value={handle}
-                  onChange={(e) => setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  onChange={(e) =>
+                    setHandle(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))
+                  }
                   required
                   minLength={3}
                   className="w-full rounded-lg border border-white/[0.12] bg-black/40 px-4 py-3 pl-8 text-sm text-white transition-all focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/50"
                   placeholder="yourhandle"
-                  style={{ fontSize: '16px' }}
+                  style={{ fontSize: "16px" }}
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2">
                   {handleChecking && <Loader2 className="h-4 w-4 animate-spin text-white/40" />}
@@ -277,10 +287,14 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
               </label>
               <div
                 className="group relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-white/[0.12] bg-black/40 transition-all hover:border-cyan-400/50 hover:bg-black/60"
-                onClick={() => document.getElementById('banner-upload')?.click()}
+                onClick={() => document.getElementById("banner-upload")?.click()}
               >
                 {bannerUrl ? (
-                  <img src={bannerUrl} alt="Banner preview" className="h-full w-full object-cover" />
+                  <img
+                    src={bannerUrl}
+                    alt="Banner preview"
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="h-6 w-6 text-white/40" />
@@ -301,9 +315,9 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
               type="submit"
               disabled={!isFormValid || loading}
               className="w-full rounded-lg bg-cyan-500 px-6 py-3 text-sm font-semibold text-white transition-all hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
-              style={{ minHeight: '52px' }}
+              style={{ minHeight: "52px" }}
             >
-              {loading ? 'Saving...' : 'Save & Continue →'}
+              {loading ? "Saving..." : "Save & Continue →"}
             </button>
           </form>
         </div>
@@ -319,7 +333,10 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
               className="overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.03]"
             >
               {/* Banner */}
-              <motion.div layout className="relative h-32 bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
+              <motion.div
+                layout
+                className="relative h-32 bg-gradient-to-br from-cyan-500/20 to-purple-500/20"
+              >
                 {bannerUrl && (
                   <img src={bannerUrl} alt="Banner" className="h-full w-full object-cover" />
                 )}
@@ -340,10 +357,10 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
                 </motion.div>
 
                 <motion.h3 layout className="mb-1 text-lg font-semibold text-white">
-                  {displayName || 'Your Name'}
+                  {displayName || "Your Name"}
                 </motion.h3>
                 <motion.p layout className="text-sm text-white/50">
-                  @{handle || 'yourhandle'}
+                  @{handle || "yourhandle"}
                 </motion.p>
               </div>
             </motion.div>
@@ -356,14 +373,14 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
             onClick={() => setShowPreview(!showPreview)}
             className="w-full rounded-lg border border-white/[0.12] bg-black/40 px-4 py-3 text-sm font-medium text-white/70"
           >
-            {showPreview ? 'Hide' : 'Preview your profile'}
+            {showPreview ? "Hide" : "Preview your profile"}
           </button>
 
           <AnimatePresence>
             {showPreview && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
+                animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 className="mt-4 overflow-hidden"
               >
@@ -371,7 +388,10 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
                   layout
                   className="overflow-hidden rounded-lg border border-white/[0.08] bg-white/[0.03]"
                 >
-                  <motion.div layout className="relative h-32 bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
+                  <motion.div
+                    layout
+                    className="relative h-32 bg-gradient-to-br from-cyan-500/20 to-purple-500/20"
+                  >
                     {bannerUrl && (
                       <img src={bannerUrl} alt="Banner" className="h-full w-full object-cover" />
                     )}
@@ -381,7 +401,11 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
                     <motion.div layout className="-mt-12 mb-4">
                       <div className="h-24 w-24 overflow-hidden rounded-full border-4 border-[#070708] bg-black">
                         {avatarUrl ? (
-                          <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                          <img
+                            src={avatarUrl}
+                            alt="Avatar"
+                            className="h-full w-full object-cover"
+                          />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-cyan-500/10">
                             <span className="text-2xl text-cyan-400/40">?</span>
@@ -391,10 +415,10 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
                     </motion.div>
 
                     <motion.h3 layout className="mb-1 text-lg font-semibold text-white">
-                      {displayName || 'Your Name'}
+                      {displayName || "Your Name"}
                     </motion.h3>
                     <motion.p layout className="text-sm text-white/50">
-                      @{handle || 'yourhandle'}
+                      @{handle || "yourhandle"}
                     </motion.p>
                   </div>
                 </motion.div>

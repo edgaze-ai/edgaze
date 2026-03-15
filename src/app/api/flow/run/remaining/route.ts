@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
-import { getUserWorkflowRunCount, isAdmin, workflowExists, getWorkflowDraftId } from "@lib/supabase/executions";
+import {
+  getUserWorkflowRunCount,
+  isAdmin,
+  workflowExists,
+  getWorkflowDraftId,
+} from "@lib/supabase/executions";
 
 const BUILDER_TEST_RUN_LIMIT = 10;
 
@@ -13,8 +18,10 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const workflowId = searchParams.get("workflowId");
-    const isBuilderTest = searchParams.get("isBuilderTest") === "1" || searchParams.get("isBuilderTest") === "true";
-    const isPreview = searchParams.get("isPreview") === "1" || searchParams.get("isPreview") === "true";
+    const isBuilderTest =
+      searchParams.get("isBuilderTest") === "1" || searchParams.get("isBuilderTest") === "true";
+    const isPreview =
+      searchParams.get("isPreview") === "1" || searchParams.get("isPreview") === "true";
 
     if (!workflowId) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
@@ -24,7 +31,7 @@ export async function GET(req: Request) {
     if (!user) {
       return NextResponse.json(
         { ok: false, error: authError ?? "Sign in required" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -64,9 +71,6 @@ export async function GET(req: Request) {
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

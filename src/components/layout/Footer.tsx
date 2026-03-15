@@ -56,7 +56,11 @@ export default function Footer() {
           {/* Top: Brand + grid */}
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-8 sm:gap-10">
             <div className="flex items-center gap-3 min-w-0">
-              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-10 w-10 sm:h-11 sm:w-11 shrink-0" />
+              <img
+                src="/brand/edgaze-mark.png"
+                alt="Edgaze"
+                className="h-10 w-10 sm:h-11 sm:w-11 shrink-0"
+              />
               <div>
                 <div className="text-sm font-semibold text-white">Edgaze</div>
                 <div className="mt-0.5 text-xs sm:text-sm text-white/55 sm:text-white/60">

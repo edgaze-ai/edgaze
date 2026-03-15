@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 
 export default function CreatorFinalCta() {
@@ -23,13 +24,12 @@ export default function CreatorFinalCta() {
               <br />
               Start your creator journey on Edgaze.
             </p>
-            <button
-              type="button"
-              disabled
-              className="mt-10 group inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400/60 via-sky-500/60 to-pink-500/60 px-12 py-5 text-lg font-semibold text-white/90 shadow-[0_0_32px_rgba(56,189,248,0.2)] cursor-not-allowed opacity-90"
+            <Link
+              href="/creators/onboarding?from=creators"
+              className="mt-10 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-12 py-5 text-lg font-semibold text-white shadow-[0_0_32px_rgba(56,189,248,0.35)] hover:shadow-[0_0_40px_rgba(56,189,248,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
-              Coming soon
-            </button>
+              Join the Creator Program
+            </Link>
           </div>
         </motion.div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { List, X } from "lucide-react";
 import type { TOCItem } from "../utils/extractToc";
 
@@ -17,6 +17,8 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
   useEffect(() => {
     itemRefs.current = itemRefs.current.slice(0, items.length);
   }, [items.length]);
+
+  const itemsKey = useMemo(() => items.map((i) => i.id).join("|"), [items]);
 
   // All visible headings: span the full viewport, generous margins for ultra smooth feel
   useEffect(() => {
@@ -56,7 +58,7 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
           }
           updateActive();
         },
-        { root: null, rootMargin: "120px 0px 80px 0px", threshold: 0 }
+        { root: null, rootMargin: "120px 0px 80px 0px", threshold: 0 },
       );
 
       sorted.forEach((el) => observer.observe(el));
@@ -86,11 +88,12 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
       clearTimeout(t);
       dispose?.();
     };
-  }, [items.map((i) => i.id).join("|")]);
+  }, [items, itemsKey]);
 
   // Grey default track: bent path for ALL items (spans full TOC)
   const [trackPath, setTrackPath] = useState<{
     segments: { top: number; bottom: number; level: number }[];
+    height: number;
   } | null>(null);
 
   useLayoutEffect(() => {
@@ -115,16 +118,19 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
           level: item.level,
         });
       }
-      if (segments.length > 0) setTrackPath({ segments });
+      if (segments.length > 0) {
+        setTrackPath({
+          segments,
+          height: Math.max(trackRect.height, 1),
+        });
+      }
     };
     const run = () => {
       compute();
       requestAnimationFrame(compute);
     };
     run();
-    const ro = trackRef.current
-      ? new ResizeObserver(() => setScrollTick((t) => t + 1))
-      : null;
+    const ro = trackRef.current ? new ResizeObserver(() => setScrollTick((t) => t + 1)) : null;
     if (trackRef.current) ro?.observe(trackRef.current);
     return () => {
       ro?.disconnect();
@@ -132,7 +138,9 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
   }, [items, scrollTick]);
 
   // Progress: firstIdx and lastIdx into trackPath (gradient flows ON the track via dash)
-  const [progressRange, setProgressRange] = useState<{ firstIdx: number; lastIdx: number } | null>(null);
+  const [progressRange, setProgressRange] = useState<{ firstIdx: number; lastIdx: number } | null>(
+    null,
+  );
 
   useLayoutEffect(() => {
     if (activeIds.length === 0) {
@@ -150,7 +158,7 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
       setProgressRange({
         firstIdx: Math.min(...indices),
         lastIdx: Math.max(...indices),
-      })
+      }),
     );
   }, [activeIds, items]);
 
@@ -235,8 +243,7 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
             <div className="h-[calc(100%-56px)] overflow-auto p-4">
               <nav className="flex flex-col gap-0.5">
                 {items.map((t, idx) => {
-                  const indentClass =
-                    t.level === 2 ? "pl-3" : t.level === 3 ? "pl-5" : "pl-7";
+                  const indentClass = t.level === 2 ? "pl-3" : t.level === 3 ? "pl-5" : "pl-7";
                   return (
                     <a
                       key={`${idx}-${t.id}`}
@@ -278,8 +285,7 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
                 {items.map((t, idx) => {
                   const isActive = activeIds.includes(t.id);
                   const isPrimary = t.id === primaryId;
-                  const indentClass =
-                    t.level === 2 ? "pl-4" : t.level === 3 ? "pl-6" : "pl-8";
+                  const indentClass = t.level === 2 ? "pl-4" : t.level === 3 ? "pl-6" : "pl-8";
                   return (
                     <a
                       key={`${idx}-${t.id}`}
@@ -302,109 +308,114 @@ export default function DocTOC({ items }: { items: TOCItem[] }) {
                 })}
               </nav>
               {/* Single track: grey base; gradient flows ON it via stroke-dash (no separate layer) */}
-              {trackPath && trackPath.segments.length > 0 && (() => {
-                const X_STEM = 1;
-                const X_INDENT = 10;
-                const STROKE = 2;
-                const segs = trackPath.segments;
+              {trackPath &&
+                trackPath.segments.length > 0 &&
+                (() => {
+                  const X_STEM = 1;
+                  const X_INDENT = 10;
+                  const STROKE = 2;
+                  const segs = trackPath.segments;
+                  const viewHeight = Math.max(trackPath.height, 1);
 
-                const { path: fullPath, lengthAtEnd } = (() => {
-                  const parts: string[] = [];
-                  const lens: number[] = [];
-                  let x = X_STEM;
-                  let y = segs[0]!.top;
-                  let total = 0;
+                  const { path: fullPath, lengthAtEnd } = (() => {
+                    const parts: string[] = [];
+                    const lens: number[] = [];
+                    let x = X_STEM;
+                    let y = segs[0]!.top;
+                    let total = 0;
 
-                  const add = (nx: number, ny: number) => {
-                    const d = Math.hypot(nx - x, ny - y);
-                    total += d;
-                    parts.push(`L ${nx} ${ny}`);
-                    x = nx;
-                    y = ny;
-                  };
+                    const add = (nx: number, ny: number) => {
+                      const d = Math.hypot(nx - x, ny - y);
+                      total += d;
+                      parts.push(`L ${nx} ${ny}`);
+                      x = nx;
+                      y = ny;
+                    };
 
-                  parts.push(`M ${X_STEM} ${segs[0]!.top}`);
-                  let onStem = true;
+                    parts.push(`M ${X_STEM} ${segs[0]!.top}`);
+                    let onStem = true;
 
-                  for (let i = 0; i < segs.length; i++) {
-                    const s = segs[i]!;
-                    if (s.level === 2) {
-                      if (onStem) add(X_STEM, s.bottom);
-                      else {
-                        add(X_STEM, s.top);
-                        add(X_STEM, s.bottom);
-                        onStem = true;
+                    for (let i = 0; i < segs.length; i++) {
+                      const s = segs[i]!;
+                      if (s.level === 2) {
+                        if (onStem) add(X_STEM, s.bottom);
+                        else {
+                          add(X_STEM, s.top);
+                          add(X_STEM, s.bottom);
+                          onStem = true;
+                        }
+                      } else {
+                        if (onStem) {
+                          add(X_STEM, s.top);
+                          add(X_INDENT, s.top);
+                          add(X_INDENT, s.bottom);
+                          onStem = false;
+                        } else add(X_INDENT, s.bottom);
                       }
-                    } else {
-                      if (onStem) {
-                        add(X_STEM, s.top);
-                        add(X_INDENT, s.top);
-                        add(X_INDENT, s.bottom);
-                        onStem = false;
-                      } else add(X_INDENT, s.bottom);
+                      lens.push(total);
                     }
-                    lens.push(total);
+                    if (!onStem) {
+                      add(X_STEM, segs[segs.length - 1]!.bottom);
+                      lens.push(total);
+                    }
+
+                    return { path: parts.join(" "), lengthAtEnd: lens };
+                  })();
+
+                  const totalLen = lengthAtEnd[lengthAtEnd.length - 1] ?? 1;
+                  let dashStart = 0;
+                  let dashLen = totalLen;
+                  const range =
+                    progressRange ??
+                    (segs.length > 0 ? { firstIdx: 0, lastIdx: segs.length - 1 } : null);
+                  if (range && totalLen > 0) {
+                    const { firstIdx, lastIdx } = range;
+                    const safeLast = Math.min(Math.max(lastIdx, 0), lengthAtEnd.length - 1);
+                    dashStart = firstIdx > 0 ? (lengthAtEnd[firstIdx - 1] ?? 0) : 0;
+                    dashLen = (lengthAtEnd[safeLast] ?? totalLen) - dashStart;
+                    dashLen = Math.max(0, Math.min(dashLen, totalLen - dashStart));
+                    if (dashLen <= 0) dashLen = totalLen;
                   }
-                  if (!onStem) {
-                    add(X_STEM, segs[segs.length - 1]!.bottom);
-                    lens.push(total);
-                  }
 
-                  return { path: parts.join(" "), lengthAtEnd: lens };
-                })();
-
-                const totalLen = lengthAtEnd[lengthAtEnd.length - 1] ?? 1;
-                let dashStart = 0;
-                let dashLen = totalLen;
-                const range = progressRange ?? (segs.length > 0 ? { firstIdx: 0, lastIdx: segs.length - 1 } : null);
-                if (range && totalLen > 0) {
-                  const { firstIdx, lastIdx } = range;
-                  const safeLast = Math.min(Math.max(lastIdx, 0), lengthAtEnd.length - 1);
-                  dashStart = firstIdx > 0 ? (lengthAtEnd[firstIdx - 1] ?? 0) : 0;
-                  dashLen = (lengthAtEnd[safeLast] ?? totalLen) - dashStart;
-                  dashLen = Math.max(0, Math.min(dashLen, totalLen - dashStart));
-                  if (dashLen <= 0) dashLen = totalLen;
-                }
-
-                return (
-                  <svg
-                    className="absolute left-0 top-0 w-6 h-full pointer-events-none z-10 overflow-hidden"
-                    aria-hidden
-                  >
-                    <defs>
-                      <linearGradient id={trackGradId} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="rgb(34, 211, 238)" />
-                        <stop offset="50%" stopColor="rgb(56, 189, 248)" />
-                        <stop offset="100%" stopColor="rgb(236, 72, 153)" />
-                      </linearGradient>
-                    </defs>
-                    <path
-                      d={fullPath}
-                      fill="none"
-                      stroke="rgba(255,255,255,0.12)"
-                      strokeWidth={STROKE}
-                      strokeLinecap="butt"
-                      strokeLinejoin="miter"
-                    />
-                    <path
-                      d={fullPath}
-                      fill="none"
-                      stroke={`url(#${trackGradId})`}
-                      strokeWidth={STROKE}
-                      strokeLinecap="butt"
-                      strokeLinejoin="miter"
-                      strokeDasharray={dashLen > 0 ? `${dashLen} ${totalLen + 10}` : "0 9999"}
-                      strokeDashoffset={dashLen > 0 ? -dashStart : 0}
-                      style={{ transform: "translateZ(0)" }}
-                    />
-                  </svg>
-                );
-              })()}
+                  return (
+                    <svg
+                      className="absolute left-0 top-0 w-6 h-full pointer-events-none z-10 overflow-hidden"
+                      viewBox={`0 0 24 ${viewHeight}`}
+                      preserveAspectRatio="none"
+                      aria-hidden
+                    >
+                      <defs>
+                        <linearGradient id={trackGradId} x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stopColor="rgb(34, 211, 238)" />
+                          <stop offset="50%" stopColor="rgb(56, 189, 248)" />
+                          <stop offset="100%" stopColor="rgb(236, 72, 153)" />
+                        </linearGradient>
+                      </defs>
+                      <path
+                        d={fullPath}
+                        fill="none"
+                        stroke="rgba(255,255,255,0.12)"
+                        strokeWidth={STROKE}
+                        strokeLinecap="butt"
+                        strokeLinejoin="miter"
+                      />
+                      <path
+                        d={fullPath}
+                        fill="none"
+                        stroke={`url(#${trackGradId})`}
+                        strokeWidth={STROKE}
+                        strokeLinecap="butt"
+                        strokeLinejoin="miter"
+                        strokeDasharray={dashLen > 0 ? `${dashLen} ${totalLen + 10}` : "0 9999"}
+                        strokeDashoffset={dashLen > 0 ? -dashStart : 0}
+                        style={{ transform: "translateZ(0)" }}
+                      />
+                    </svg>
+                  );
+                })()}
             </div>
           ) : (
-            <div className="text-sm text-white/35 italic">
-              No sections available
-            </div>
+            <div className="text-sm text-white/35 italic">No sections available</div>
           )}
         </div>
       </aside>

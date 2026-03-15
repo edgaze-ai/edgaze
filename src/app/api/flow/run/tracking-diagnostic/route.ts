@@ -26,7 +26,8 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const workflowId = searchParams.get("workflowId");
-    const testInsert = searchParams.get("testInsert") === "1" || searchParams.get("testInsert") === "true";
+    const testInsert =
+      searchParams.get("testInsert") === "1" || searchParams.get("testInsert") === "true";
 
     if (!workflowId) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
@@ -36,7 +37,7 @@ export async function GET(req: Request) {
     if (!user) {
       return NextResponse.json(
         { ok: false, error: authError ?? "Sign in required" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -92,13 +93,13 @@ export async function GET(req: Request) {
         .eq("user_id", userId)
         .in("status", terminalStatuses)
         .not("completed_at", "is", null);
-      
+
       if (draftId) {
         query = query.eq("draft_id", draftId);
       } else {
         query = query.eq("workflow_id", workflowId);
       }
-      
+
       const { count, error } = await query;
       if (error) {
         countDirect.error = error.message || String(error);
@@ -110,7 +111,10 @@ export async function GET(req: Request) {
     }
 
     // 4) Recent runs (last 20)
-    let recentRuns: { rows: TrackingDiagnosticRow[]; error: string | null } = { rows: [], error: null };
+    let recentRuns: { rows: TrackingDiagnosticRow[]; error: string | null } = {
+      rows: [],
+      error: null,
+    };
     try {
       let query = supabase
         .from("workflow_runs")
@@ -118,13 +122,13 @@ export async function GET(req: Request) {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(20);
-      
+
       if (draftId) {
         query = query.eq("draft_id", draftId);
       } else {
         query = query.eq("workflow_id", workflowId);
       }
-      
+
       const { data, error } = await query;
       if (error) {
         recentRuns.error = error.message || String(error);
@@ -169,9 +173,18 @@ export async function GET(req: Request) {
           metadata: { diagnostic: true, testInsert: true },
         });
         runId = run.id;
-        testInsertResult = { createOk: true, createError: null, updateOk: false, updateError: null, runId };
+        testInsertResult = {
+          createOk: true,
+          createError: null,
+          updateOk: false,
+          updateError: null,
+          runId,
+        };
       } catch (err: unknown) {
-        const errObj = err && typeof err === "object" ? (err as { code?: string; details?: string; hint?: string }) : {};
+        const errObj =
+          err && typeof err === "object"
+            ? (err as { code?: string; details?: string; hint?: string })
+            : {};
         testInsertResult = {
           createOk: false,
           createError: extractError(err),
@@ -191,9 +204,13 @@ export async function GET(req: Request) {
           if (testInsertResult) testInsertResult.updateOk = true;
         } catch (err: unknown) {
           if (testInsertResult) {
-            const errObj = err && typeof err === "object" ? (err as { code?: string; details?: string; hint?: string }) : {};
+            const errObj =
+              err && typeof err === "object"
+                ? (err as { code?: string; details?: string; hint?: string })
+                : {};
             testInsertResult.updateError = extractError(err);
-            testInsertResult.updateErrorDetails = errObj.code || errObj.details || errObj.hint ? errObj : undefined;
+            testInsertResult.updateErrorDetails =
+              errObj.code || errObj.details || errObj.hint ? errObj : undefined;
           }
         }
       }
@@ -202,43 +219,84 @@ export async function GET(req: Request) {
     // 6) Build summary: why usage might not be increasing
     const summary: string[] = [];
     if (envCheck.serviceRoleKey === "missing") {
-      summary.push("SUPABASE_SERVICE_ROLE_KEY is missing. Run tracking uses the admin client; without it, inserts/updates/counts will fail.");
+      summary.push(
+        "SUPABASE_SERVICE_ROLE_KEY is missing. Run tracking uses the admin client; without it, inserts/updates/counts will fail.",
+      );
     }
     if (countRpc.error && countDirect.error) {
-      summary.push(`Count failed: RPC error "${countRpc.error}", direct query error "${countDirect.error}". This may be RLS or missing grants (e.g. grant execute to service_role).`);
+      summary.push(
+        `Count failed: RPC error "${countRpc.error}", direct query error "${countDirect.error}". This may be RLS or missing grants (e.g. grant execute to service_role).`,
+      );
     } else if (countRpc.error && !countDirect.error) {
-      summary.push(`RPC get_user_workflow_run_count failed: ${countRpc.error}. Direct count works (${countDirect.value}). Grant EXECUTE on the function to service_role.`);
+      summary.push(
+        `RPC get_user_workflow_run_count failed: ${countRpc.error}. Direct count works (${countDirect.value}). Grant EXECUTE on the function to service_role.`,
+      );
     } else if (!countRpc.error && countDirect.error) {
-      summary.push(`Direct count failed: ${countDirect.error}. RPC works (${countRpc.value}). Likely RLS blocking the direct query.`);
+      summary.push(
+        `Direct count failed: ${countDirect.error}. RPC works (${countRpc.value}). Likely RLS blocking the direct query.`,
+      );
     }
     const rows = recentRuns.rows;
     const stuck = rows.filter((r) => r.status === "running" || r.status === "pending");
-    const counted = rows.filter((r) => (terminalStatuses as readonly string[]).includes(r.status) && r.completed_at);
+    const counted = rows.filter(
+      (r) => (terminalStatuses as readonly string[]).includes(r.status) && r.completed_at,
+    );
     if (recentRuns.error) {
-      summary.push(`Fetching recent runs failed: ${recentRuns.error}. This may be RLS blocking SELECT.`);
+      summary.push(
+        `Fetching recent runs failed: ${recentRuns.error}. This may be RLS blocking SELECT.`,
+      );
     } else if (rows.length === 0) {
-      summary.push("No runs in the database for this user/workflow. Inserts are likely failing (e.g. RLS on INSERT, or missing service role key).");
+      summary.push(
+        "No runs in the database for this user/workflow. Inserts are likely failing (e.g. RLS on INSERT, or missing service role key).",
+      );
     } else if (stuck.length > 0 && counted.length === 0) {
-      summary.push(`${stuck.length} run(s) are stuck in "running" or "pending". Updates to terminal status (completed/failed/timeout/cancelled) are likely failing. Only terminal runs with completed_at are counted.`);
-    } else if (counted.length > 0 && (countRpc.value ?? 0) === 0 && (countDirect.value ?? 0) === 0) {
-      summary.push("There are terminal runs (completed/failed/timeout/cancelled) in the table but count is 0. Count query or RPC may be wrong (e.g. wrong status filter or completed_at check).");
-    } else if (counted.length > 0 && (countRpc.value ?? countDirect.value ?? 0) !== counted.length) {
-      summary.push(`Count (${countRpc.value ?? countDirect.value}) does not match number of terminal rows with completed_at (${counted.length}). Check get_user_workflow_run_count logic.`);
+      summary.push(
+        `${stuck.length} run(s) are stuck in "running" or "pending". Updates to terminal status (completed/failed/timeout/cancelled) are likely failing. Only terminal runs with completed_at are counted.`,
+      );
+    } else if (
+      counted.length > 0 &&
+      (countRpc.value ?? 0) === 0 &&
+      (countDirect.value ?? 0) === 0
+    ) {
+      summary.push(
+        "There are terminal runs (completed/failed/timeout/cancelled) in the table but count is 0. Count query or RPC may be wrong (e.g. wrong status filter or completed_at check).",
+      );
+    } else if (
+      counted.length > 0 &&
+      (countRpc.value ?? countDirect.value ?? 0) !== counted.length
+    ) {
+      summary.push(
+        `Count (${countRpc.value ?? countDirect.value}) does not match number of terminal rows with completed_at (${counted.length}). Check get_user_workflow_run_count logic.`,
+      );
     }
     if (testInsertResult && !testInsertResult.createOk) {
-      summary.push(`Test insert failed: ${testInsertResult.createError || "Unknown error"}. This is why new runs are not being recorded (e.g. RLS INSERT policy, FK violation, or missing table).`);
+      summary.push(
+        `Test insert failed: ${testInsertResult.createError || "Unknown error"}. This is why new runs are not being recorded (e.g. RLS INSERT policy, FK violation, or missing table).`,
+      );
       if (testInsertResult.createErrorDetails?.code) {
-        summary.push(`Error code: ${testInsertResult.createErrorDetails.code}. ${testInsertResult.createErrorDetails.details || ""} ${testInsertResult.createErrorDetails.hint || ""}`);
+        summary.push(
+          `Error code: ${testInsertResult.createErrorDetails.code}. ${testInsertResult.createErrorDetails.details || ""} ${testInsertResult.createErrorDetails.hint || ""}`,
+        );
       }
     } else if (testInsertResult && testInsertResult.createOk && !testInsertResult.updateOk) {
-      summary.push(`Test insert succeeded but update to "failed" failed: ${testInsertResult.updateError || "Unknown error"}. Runs are created but never marked completed/failed, so they are not counted.`);
+      summary.push(
+        `Test insert succeeded but update to "failed" failed: ${testInsertResult.updateError || "Unknown error"}. Runs are created but never marked completed/failed, so they are not counted.`,
+      );
       if (testInsertResult.updateErrorDetails?.code) {
-        summary.push(`Update error code: ${testInsertResult.updateErrorDetails.code}. ${testInsertResult.updateErrorDetails.details || ""} ${testInsertResult.updateErrorDetails.hint || ""}`);
+        summary.push(
+          `Update error code: ${testInsertResult.updateErrorDetails.code}. ${testInsertResult.updateErrorDetails.details || ""} ${testInsertResult.updateErrorDetails.hint || ""}`,
+        );
       }
     }
 
-    if (summary.length === 0 && rows.length > 0 && (countRpc.value != null || countDirect.value != null)) {
-      summary.push("No obvious issue from this diagnostic. Count and recent runs look consistent. If usage still does not increase, check server logs when you run a workflow (createWorkflowRun / updateWorkflowRun errors).");
+    if (
+      summary.length === 0 &&
+      rows.length > 0 &&
+      (countRpc.value != null || countDirect.value != null)
+    ) {
+      summary.push(
+        "No obvious issue from this diagnostic. Count and recent runs look consistent. If usage still does not increase, check server logs when you run a workflow (createWorkflowRun / updateWorkflowRun errors).",
+      );
     }
 
     return NextResponse.json({

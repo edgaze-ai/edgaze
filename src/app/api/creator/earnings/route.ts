@@ -1,51 +1,74 @@
-import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { NextResponse } from "next/server";
+import { createServerClient } from "@/lib/supabase/server";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
     const supabase = await createServerClient();
-    
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('total_earnings_cents, available_balance_cents')
-      .eq('id', user.id)
+      .from("profiles")
+      .select("total_earnings_cents, available_balance_cents")
+      .eq("id", user.id)
       .single();
 
     const { data: earnings } = await supabase
-      .from('creator_earnings')
-      .select('*')
-      .eq('creator_id', user.id)
-      .order('created_at', { ascending: false });
+      .from("creator_earnings")
+      .select("*")
+      .eq("creator_id", user.id)
+      .order("created_at", { ascending: false });
+
+    const pendingClaimRows = (earnings || []).filter(
+      (e: { status: string }) => e.status === "pending_claim",
+    );
+    const pendingClaimCents = pendingClaimRows.reduce(
+      (sum: number, e: { net_amount_cents?: number }) => sum + (e.net_amount_cents || 0),
+      0,
+    );
+    const earliestDeadline =
+      pendingClaimRows.length > 0
+        ? pendingClaimRows.reduce(
+            (min: string | null, e: { claim_deadline_at?: string | null }) => {
+              const d = e.claim_deadline_at;
+              if (!d) return min;
+              return !min || d < min ? d : min;
+            },
+            null as string | null,
+          )
+        : null;
+    const now = new Date();
+    const daysRemaining = earliestDeadline
+      ? Math.max(
+          0,
+          Math.ceil((new Date(earliestDeadline).getTime() - now.getTime()) / (24 * 60 * 60 * 1000)),
+        )
+      : 0;
 
     const { data: payouts } = await supabase
-      .from('creator_payouts')
-      .select('*')
-      .eq('creator_id', user.id)
-      .order('created_at', { ascending: false })
+      .from("creator_payouts")
+      .select("*")
+      .eq("creator_id", user.id)
+      .order("created_at", { ascending: false })
       .limit(5);
 
     const totalSales = earnings?.length || 0;
-    const avgSaleCents = totalSales > 0 
-      ? Math.round((profile?.total_earnings_cents || 0) / totalSales)
-      : 0;
+    const avgSaleCents =
+      totalSales > 0 ? Math.round((profile?.total_earnings_cents || 0) / totalSales) : 0;
 
     const last30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const recentEarnings = earnings?.filter(e => 
-      new Date(e.created_at) >= last30Days
-    ) || [];
+    const recentEarnings = earnings?.filter((e) => new Date(e.created_at) >= last30Days) || [];
 
-    const nextPayout = payouts?.find(p => p.status === 'pending');
+    const nextPayout = payouts?.find((p) => p.status === "pending");
 
     return NextResponse.json({
       totalEarningsCents: profile?.total_earnings_cents || 0,
@@ -53,18 +76,22 @@ export async function GET(req: Request) {
       totalSales,
       avgSaleCents,
       recentEarnings: recentEarnings.length,
-      nextPayout: nextPayout ? {
-        amountCents: nextPayout.amount_cents,
-        arrivalDate: nextPayout.arrival_date
-      } : null,
-      recentPayouts: payouts || []
+      nextPayout: nextPayout
+        ? {
+            amountCents: nextPayout.amount_cents,
+            arrivalDate: nextPayout.arrival_date,
+          }
+        : null,
+      recentPayouts: payouts || [],
+      pendingClaimCents: pendingClaimCents || 0,
+      claimDeadline: earliestDeadline,
+      daysRemaining,
     });
-
   } catch (error: any) {
-    console.error('[CREATOR EARNINGS] Error:', error);
+    console.error("[CREATOR EARNINGS] Error:", error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch earnings' },
-      { status: 500 }
+      { error: error.message || "Failed to fetch earnings" },
+      { status: 500 },
     );
   }
 }

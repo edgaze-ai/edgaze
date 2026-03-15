@@ -29,7 +29,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
     }
 
-    const ownerId = (wf as { owner_id?: string; user_id?: string }).owner_id ?? (wf as { user_id?: string }).user_id;
+    const ownerId =
+      (wf as { owner_id?: string; user_id?: string }).owner_id ??
+      (wf as { user_id?: string }).user_id;
     if (String(ownerId) !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -43,6 +45,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ versionId: version.id, versionHash: version.version_hash });
   } catch (e: unknown) {
     console.error("[publish-version]", e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to publish version" }, { status: 500 });
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Failed to publish version" },
+      { status: 500 },
+    );
   }
 }

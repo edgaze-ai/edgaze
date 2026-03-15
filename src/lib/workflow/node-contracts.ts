@@ -6,10 +6,20 @@ import { z } from "zod";
 import { coerceToType, type ValueType } from "./value-types";
 
 const KNOWN_SPEC_IDS = new Set([
-  "input", "merge", "merge-json", "output",
-  "openai-chat", "openai-embeddings", "openai-image",
-  "http-request", "json-parse", "condition", "delay", "loop",
-  "template", "map",
+  "input",
+  "merge",
+  "merge-json",
+  "output",
+  "openai-chat",
+  "openai-embeddings",
+  "openai-image",
+  "http-request",
+  "json-parse",
+  "condition",
+  "delay",
+  "loop",
+  "template",
+  "map",
 ]);
 
 export const VALUE_TYPES = ["string", "number", "boolean", "json", "array", "binary"] as const;
@@ -34,7 +44,9 @@ const anySchema = z.unknown();
 const commonConfig = z.object({
   timeout: z.number().optional(),
   retries: z.number().optional(),
-  failurePolicy: z.enum(["fail_fast", "continue", "skip_downstream", "use_fallback_value"]).optional(),
+  failurePolicy: z
+    .enum(["fail_fast", "continue", "skip_downstream", "use_fallback_value"])
+    .optional(),
   fallbackValue: z.unknown().optional(),
 });
 
@@ -89,7 +101,10 @@ const CONTRACTS: Record<string, NodeContract> = {
     specId: "openai-embeddings",
     inputTypes: ["string"],
     outputType: "array",
-    configSchema: commonConfig.extend({ text: z.string().optional(), model: z.string().optional() }),
+    configSchema: commonConfig.extend({
+      text: z.string().optional(),
+      model: z.string().optional(),
+    }),
     resourceClass: "llm",
   },
   "openai-image": {
@@ -185,7 +200,10 @@ export function coerceInbound(specId: string, portIndex: number, value: unknown)
   return coerceToType(value, target);
 }
 
-export function validateNodeConfig(specId: string, config: unknown): { valid: boolean; error?: string } {
+export function validateNodeConfig(
+  specId: string,
+  config: unknown,
+): { valid: boolean; error?: string } {
   const contract = getContract(specId);
   if (!contract) return { valid: true }; // Unknown spec - will fail elsewhere
   try {
@@ -198,7 +216,9 @@ export function validateNodeConfig(specId: string, config: unknown): { valid: bo
   }
 }
 
-export function validateWorkflowOnPublish(nodes: { id?: string; data?: { specId?: string; config?: unknown } }[]): {
+export function validateWorkflowOnPublish(
+  nodes: { id?: string; data?: { specId?: string; config?: unknown } }[],
+): {
   valid: boolean;
   errors: string[];
 } {
@@ -216,10 +236,19 @@ export function validateWorkflowOnPublish(nodes: { id?: string; data?: { specId?
     if (specId === "map") {
       const cfg = (node.data?.config ?? {}) as Record<string, unknown>;
       if (typeof cfg === "object" && cfg !== null && "transform" in cfg && cfg.transform != null) {
-        errors.push(`Node ${node.id ?? "?"} (map): Map node no longer supports transform/expression. Use template interpolation only.`);
+        errors.push(
+          `Node ${node.id ?? "?"} (map): Map node no longer supports transform/expression. Use template interpolation only.`,
+        );
       }
-      if (typeof cfg === "object" && cfg !== null && "expression" in cfg && cfg.expression != null) {
-        errors.push(`Node ${node.id ?? "?"} (map): Map node no longer supports transform/expression. Use template interpolation only.`);
+      if (
+        typeof cfg === "object" &&
+        cfg !== null &&
+        "expression" in cfg &&
+        cfg.expression != null
+      ) {
+        errors.push(
+          `Node ${node.id ?? "?"} (map): Map node no longer supports transform/expression. Use template interpolation only.`,
+        );
       }
     }
     const result = validateNodeConfig(specId, node.data?.config);

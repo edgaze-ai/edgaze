@@ -39,7 +39,8 @@ export default function HandleCooldownBanner({
             </span>
           </div>
           <p className="text-[13px] text-white/70 leading-relaxed mb-3">
-            You changed your handle recently and need to wait 60 days before changing it again. This cooldown period helps maintain consistency and trust with your audience.
+            You changed your handle recently and need to wait 60 days before changing it again. This
+            cooldown period helps maintain consistency and trust with your audience.
           </p>
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-[12px]">
@@ -51,12 +52,13 @@ export default function HandleCooldownBanner({
               <span className="text-white/80 font-medium">{formatDate(nextAllowedDate)}</span>
             </div>
           </div>
-          
+
           <div className="mt-4 pt-4 border-t border-amber-500/10">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-amber-400/70 shrink-0 mt-0.5" />
               <p className="text-[12px] text-white/60 leading-relaxed">
-                The cooldown prevents frequent handle changes that could confuse your followers and disrupt your brand identity. Plan your handle changes carefully.
+                The cooldown prevents frequent handle changes that could confuse your followers and
+                disrupt your brand identity. Plan your handle changes carefully.
               </p>
             </div>
           </div>

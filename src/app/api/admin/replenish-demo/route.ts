@@ -9,10 +9,7 @@ export async function POST(req: NextRequest) {
     // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>)
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
-      return NextResponse.json(
-        { error: authError ?? "Not authenticated" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: authError ?? "Not authenticated" }, { status: 401 });
     }
 
     // Check if user is admin

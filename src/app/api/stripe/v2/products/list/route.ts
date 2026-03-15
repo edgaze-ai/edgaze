@@ -8,26 +8,29 @@
  * In production, use a slug/handle instead of raw accountId for store URLs.
  */
 
-import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
-import { stripe } from '@/lib/stripe/client';
+import { NextResponse } from "next/server";
+import { createServerClient } from "@/lib/supabase/server";
+import { stripe } from "@/lib/stripe/client";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    let accountId = searchParams.get('accountId');
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    let accountId = searchParams.get("accountId");
+    const limit = parseInt(searchParams.get("limit") || "20", 10);
 
     if (!accountId) {
       const supabase = await createServerClient();
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
       if (!error && user) {
         const { data } = await supabase
-          .from('stripe_connect_accounts')
-          .select('stripe_account_id')
-          .eq('user_id', user.id)
+          .from("stripe_connect_accounts")
+          .select("stripe_account_id")
+          .eq("user_id", user.id)
           .single();
         accountId = data?.stripe_account_id ?? null;
       }
@@ -35,8 +38,8 @@ export async function GET(req: Request) {
 
     if (!accountId) {
       return NextResponse.json(
-        { error: 'accountId required (query or authenticated creator)' },
-        { status: 400 }
+        { error: "accountId required (query or authenticated creator)" },
+        { status: 400 },
       );
     }
 
@@ -44,11 +47,11 @@ export async function GET(req: Request) {
       {
         limit: Math.min(limit, 100),
         active: true,
-        expand: ['data.default_price'],
+        expand: ["data.default_price"],
       },
       {
         stripeAccount: accountId,
-      }
+      },
     );
 
     return NextResponse.json({
@@ -58,7 +61,7 @@ export async function GET(req: Request) {
         description: p.description,
         images: p.images,
         default_price:
-          typeof p.default_price === 'object' && p.default_price
+          typeof p.default_price === "object" && p.default_price
             ? {
                 id: p.default_price.id,
                 unit_amount: p.default_price.unit_amount,
@@ -69,10 +72,10 @@ export async function GET(req: Request) {
       })),
     });
   } catch (error: any) {
-    console.error('[STRIPE V2] List products error:', error);
+    console.error("[STRIPE V2] List products error:", error);
     return NextResponse.json(
-      { error: error.message || 'Failed to list products' },
-      { status: 500 }
+      { error: error.message || "Failed to list products" },
+      { status: 500 },
     );
   }
 }

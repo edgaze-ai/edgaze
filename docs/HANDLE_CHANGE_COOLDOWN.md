@@ -2,7 +2,7 @@
 
 ## Overview
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
+Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 The handle change cooldown system restricts users from changing their profile handle more than once every 60 days (2 months). This feature helps maintain consistency, prevents confusion among followers, and protects brand identity.
 

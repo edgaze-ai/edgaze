@@ -3,14 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  ArrowRight,
-  CheckCircle2,
-  Loader2,
-  User,
-  DollarSign,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2, User, DollarSign, Sparkles } from "lucide-react";
 import { useAuth } from "src/components/auth/AuthContext";
 import ProfileImageUploader from "src/components/profile/ProfileImageUploader";
 import ProfileAvatar from "src/components/ui/ProfileAvatar";
@@ -33,6 +26,7 @@ export default function CreatorOnboardingPanel() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [pendingClaimCents, setPendingClaimCents] = useState<number | null>(null);
 
   const fetchStatus = useCallback(async () => {
     if (!userId) {
@@ -56,6 +50,7 @@ export default function CreatorOnboardingPanel() {
       queueMicrotask(() => {
         setLoading(false);
         setConnectStatus(null);
+        setPendingClaimCents(null);
       });
       return;
     }
@@ -64,6 +59,21 @@ export default function CreatorOnboardingPanel() {
       fetchStatus().finally(() => setLoading(false));
     });
   }, [authReady, userId, fetchStatus]);
+
+  useEffect(() => {
+    if (!userId || connectStatus?.readyToProcessPayments) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/creator/earnings");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pendingClaimCents > 0) setPendingClaimCents(data.pendingClaimCents);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [userId, connectStatus?.readyToProcessPayments]);
 
   const state: State = (() => {
     if (!authReady || loading) return "loading";
@@ -75,10 +85,7 @@ export default function CreatorOnboardingPanel() {
     return "ready_stripe";
   })();
 
-  const joinDisabled = true; // temporary: Creator Program joining closed
-
   async function handleCta() {
-    if (joinDisabled && state !== "complete") return;
     switch (state) {
       case "logged_out":
         openSignIn();
@@ -167,9 +174,15 @@ export default function CreatorOnboardingPanel() {
                 <h3 className="text-xl sm:text-2xl font-semibold tracking-tight text-white">
                   {c.title}
                 </h3>
-                <p className="mt-2 text-sm text-white/60 leading-relaxed max-w-xl">
-                  {c.desc}
-                </p>
+                <p className="mt-2 text-sm text-white/60 leading-relaxed max-w-xl">{c.desc}</p>
+                {pendingClaimCents != null &&
+                  pendingClaimCents > 0 &&
+                  (state === "ready_stripe" || state === "stripe_in_progress") && (
+                    <p className="mt-3 text-sm font-medium text-cyan-300">
+                      You have ${(pendingClaimCents / 100).toFixed(2)} pending. Complete setup
+                      within 90 days to withdraw.
+                    </p>
+                  )}
               </motion.div>
             </AnimatePresence>
 
@@ -191,10 +204,7 @@ export default function CreatorOnboardingPanel() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-white/90 mb-2">Add a profile photo</p>
                   <p className="text-xs text-white/50 mb-3">PNG, JPG, or WebP. Max 5MB.</p>
-                  <ProfileImageUploader
-                    kind="avatar"
-                    onDone={() => refreshProfile()}
-                  />
+                  <ProfileImageUploader kind="avatar" onDone={() => refreshProfile()} />
                 </div>
               </motion.div>
             )}
@@ -203,17 +213,11 @@ export default function CreatorOnboardingPanel() {
               <button
                 type="button"
                 onClick={handleCta}
-                disabled={state === "loading" || stripeLoading || (joinDisabled && state !== "complete")}
-                className={`group inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:hover:scale-100 ${
-                  joinDisabled && state !== "complete"
-                    ? "bg-gradient-to-r from-cyan-400/60 via-sky-500/60 to-pink-500/60 text-white/90 opacity-90"
-                    : "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_24px_rgba(56,189,248,0.35)] hover:shadow-[0_0_32px_rgba(56,189,248,0.45)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60"
-                }`}
+                disabled={state === "loading" || stripeLoading}
+                className="group inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-semibold transition-all bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_24px_rgba(56,189,248,0.35)] hover:shadow-[0_0_32px_rgba(56,189,248,0.45)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 {state === "loading" || stripeLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : joinDisabled && state !== "complete" ? (
-                  "Coming soon"
                 ) : (
                   <>
                     {c.cta}
@@ -237,9 +241,7 @@ export default function CreatorOnboardingPanel() {
               ) : (
                 <Icon
                   className={`h-8 w-8 ${
-                    state === "complete"
-                      ? "text-emerald-400"
-                      : "text-cyan-400/90"
+                    state === "complete" ? "text-emerald-400" : "text-cyan-400/90"
                   }`}
                 />
               )}

@@ -1,14 +1,61 @@
 /* src/styles/globals.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-edge-bg: #0a0a0a;
+  --color-edge-fg: #ffffff;
+  --color-edge-border: rgba(255, 255, 255, 0.12);
+  --color-onboarding-bg: #0a0a0b;
+  --color-onboarding-surface: #111113;
+  --color-onboarding-border: rgba(255, 255, 255, 0.06);
+  --color-onboarding-teal: #00e5cc;
+  --color-onboarding-teal-glow: rgba(0, 229, 204, 0.3);
+  --shadow-glow: 0 10px 30px rgba(34, 211, 238, 0.15);
+  --shadow-premium: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 24px 48px rgba(0, 0, 0, 0.4);
+  --shadow-teal-glow: 0 0 20px rgba(0, 229, 204, 0.3);
+  --font-instrument: var(--font-instrument-serif), serif;
+  --font-dm-sans: var(--font-dm-sans), sans-serif;
+  --font-jetbrains: var(--font-jetbrains-mono), monospace;
+  --animate-breathing: breathing 4s ease-in-out infinite;
+  --animate-shimmer: shimmer 3s ease-in-out infinite;
+  @keyframes breathing {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.15);
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -200% center;
+    }
+    100% {
+      background-position: 200% center;
+    }
+  }
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 /* =========================
    Loading screen animations
    ========================= */
 
 @keyframes edgaze-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
@@ -43,10 +90,79 @@
   html {
     scroll-behavior: smooth;
   }
-  
   body {
     transition: opacity 0.2s ease-in;
   }
+}
+
+/* =========================
+   Earnings Dashboard — premium
+   ========================= */
+
+.bg-earnings-page {
+  background-color: #08090b;
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(34, 211, 238, 0.06), transparent 50%),
+    radial-gradient(ellipse 80% 50% at 100% 50%, rgba(139, 92, 246, 0.04), transparent 45%),
+    radial-gradient(ellipse 60% 40% at 0% 80%, rgba(34, 211, 238, 0.03), transparent 40%);
+}
+
+.earnings-section-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.earnings-card {
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(145deg, rgba(20, 23, 29, 0.95) 0%, rgba(15, 17, 22, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 24px 48px -24px rgba(0, 0, 0, 0.5);
+}
+
+.earnings-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.earnings-card-pending {
+  border-radius: 1rem;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.08) 0%, rgba(139, 92, 246, 0.06) 100%);
+  box-shadow:
+    0 0 0 1px rgba(34, 211, 238, 0.08),
+    0 20px 40px -20px rgba(0, 0, 0, 0.4);
+  padding: 1.5rem 1.75rem;
+}
+
+.earnings-card-cta {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.earnings-btn-primary {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.9) 0%, rgba(139, 92, 246, 0.85) 100%);
+  transition:
+    box-shadow 0.2s ease,
+    opacity 0.2s ease,
+    filter 0.2s ease;
+  box-shadow: 0 4px 20px -4px rgba(34, 211, 238, 0.35);
+}
+
+.earnings-btn-primary:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 6px 28px -4px rgba(34, 211, 238, 0.45);
 }
 
 /* =========================
@@ -80,14 +196,14 @@ body.library-mobile-scroll {
     height: auto !important;
     min-height: 100vh !important;
   }
-  
+
   /* Override AppShell content wrapper */
   body.library-mobile-scroll .library-page-content {
     overflow-y: auto !important;
     overflow-x: hidden !important;
     height: auto !important;
   }
-  
+
   /* Override AppShell main element */
   body.library-mobile-scroll .library-page-main {
     overflow-y: visible !important;
@@ -113,7 +229,7 @@ input,
 textarea,
 select,
 button {
-  font-size: 16px;
+  font-size: 16px !important;
 }
 
 /* If you have full-screen sections, DO NOT use 100vh on mobile.
@@ -151,7 +267,8 @@ svg {
   --edgaze-sidebar-width: 300px;
 
   /* Emoji-capable font fallback (helps Windows/Linux emoji rendering) */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
@@ -238,7 +355,9 @@ input:-webkit-autofill:active {
 /* Base node hover — premium feel */
 .base-node:hover {
   border-color: #333 !important;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Node mount animation */
@@ -255,7 +374,8 @@ input:-webkit-autofill:active {
 
 /* Edge selected dot pulse */
 @keyframes edgeDotPulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -278,7 +398,9 @@ input:-webkit-autofill:active {
 
 /* Smooth node selection */
 .react-flow__node {
-  transition: transform 0.15s ease-out, filter 0.15s ease-out;
+  transition:
+    transform 0.15s ease-out,
+    filter 0.15s ease-out;
 }
 
 .react-flow__node.selected {
@@ -390,7 +512,9 @@ input:-webkit-autofill:active {
   background: #0c0c0c;
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
 }
 .edge-card-dark {
   position: relative;
@@ -398,7 +522,9 @@ input:-webkit-autofill:active {
   background: #0c0c0c;
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
 }
 .edge-card-header {
   display: flex;
@@ -531,12 +657,15 @@ input:-webkit-autofill:active {
   font-size: 12px;
 }
 .edge-toggle-btn.is-active {
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* Buttons hover motion */
 .button-fade {
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 .button-fade:hover {
   transform: translateY(-1px);

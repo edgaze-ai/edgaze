@@ -84,7 +84,6 @@ export default function PromptPreviewCard(props: Props) {
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/25 via-sky-500/10 to-pink-500/25" />
         <div className="relative m-3 rounded-2xl bg-black/45 p-0.5 backdrop-blur-xl">
           {finalThumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img src={finalThumb} alt="" className="h-36 w-full rounded-2xl object-cover" />
           ) : (
             <div className="flex h-36 w-full items-center justify-center rounded-2xl bg-slate-900/80 text-[10px] text-white/50">

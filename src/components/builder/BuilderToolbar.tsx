@@ -148,12 +148,7 @@ export function BuilderToolbar({
             />
           ) : (
             <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/5 border border-white/10 grid place-items-center">
-              <Image
-                src="/brand/edgaze-mark.png"
-                alt="Edgaze"
-                width={18}
-                height={18}
-              />
+              <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={18} height={18} />
             </div>
           )}
         </div>
@@ -182,10 +177,7 @@ export function BuilderToolbar({
               {name || "Untitled Workflow"}
             </button>
           )}
-          <div
-            className="text-[10px] mt-0.5"
-            style={{ color: tokens.text.tertiary }}
-          >
+          <div className="text-[10px] mt-0.5" style={{ color: tokens.text.tertiary }}>
             {stats.nodes} nodes · {stats.edges} edges
           </div>
         </div>
@@ -216,7 +208,7 @@ export function BuilderToolbar({
           onClick={onToggleGrid}
           className={cx(
             "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-            showGrid && "border"
+            showGrid && "border",
           )}
           style={{
             color: showGrid ? tokens.text.primary : tokens.text.tertiary,
@@ -231,7 +223,7 @@ export function BuilderToolbar({
           onClick={onToggleLock}
           className={cx(
             "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-            locked && "border"
+            locked && "border",
           )}
           style={{
             color: locked ? tokens.text.primary : tokens.text.tertiary,
@@ -246,7 +238,7 @@ export function BuilderToolbar({
           onClick={onFullscreen}
           className={cx(
             "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-            isFullscreen && "border"
+            isFullscreen && "border",
           )}
           style={{
             color: isFullscreen ? tokens.text.primary : tokens.text.tertiary,
@@ -255,11 +247,7 @@ export function BuilderToolbar({
           }}
           title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
         >
-          {isFullscreen ? (
-            <Minimize2 size={16} />
-          ) : (
-            <Maximize2 size={16} />
-          )}
+          {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
         </button>
       </div>
 
@@ -269,7 +257,7 @@ export function BuilderToolbar({
           onClick={onToggleBlocks}
           className={cx(
             "hidden md:flex w-8 h-8 rounded-lg items-center justify-center transition-colors",
-            windowsBlocksVisible && "border"
+            windowsBlocksVisible && "border",
           )}
           style={{
             color: windowsBlocksVisible ? tokens.text.primary : tokens.text.tertiary,
@@ -284,7 +272,7 @@ export function BuilderToolbar({
           onClick={onToggleInspector}
           className={cx(
             "hidden md:flex w-8 h-8 rounded-lg items-center justify-center transition-colors",
-            windowsInspectorVisible && "border"
+            windowsInspectorVisible && "border",
           )}
           style={{
             color: windowsInspectorVisible ? tokens.text.primary : tokens.text.tertiary,
@@ -316,20 +304,17 @@ export function BuilderToolbar({
           disabled={!activeDraftId || wfLoading}
           className={cx(
             "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors",
-            !activeDraftId || wfLoading ? "opacity-50 cursor-not-allowed" : ""
+            !activeDraftId || wfLoading ? "opacity-50 cursor-not-allowed" : "",
           )}
           style={{
-            background: "linear-gradient(135deg, rgba(34,211,238,0.2) 0%, rgba(139,92,246,0.2) 100%)",
+            background:
+              "linear-gradient(135deg, rgba(34,211,238,0.2) 0%, rgba(139,92,246,0.2) 100%)",
             border: "1px solid rgba(34,211,238,0.3)",
             color: "#fff",
           }}
           title="Run"
         >
-          {wfLoading ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Play size={14} />
-          )}
+          {wfLoading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
           <span className="hidden sm:inline">Run</span>
         </button>
         <button
@@ -337,7 +322,7 @@ export function BuilderToolbar({
           disabled={!activeDraftId}
           className={cx(
             "inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors",
-            !activeDraftId ? "opacity-50 cursor-not-allowed" : ""
+            !activeDraftId ? "opacity-50 cursor-not-allowed" : "",
           )}
           style={{
             background: tokens.bg.elevated,

@@ -1,22 +1,20 @@
 title = "DMCA and Intellectual Property Takedown Policy"
 description = "Procedure for reporting copyright and intellectual property infringement on Edgaze."
 
----
+# DMCA and Intellectual Property Takedown Policy
 
-1. Purpose of This Policy
+## Purpose of This Policy
 
 This DMCA and Intellectual Property Takedown Policy (“Policy”) outlines the process for submitting notices of alleged copyright or intellectual property infringement in connection with content hosted on the Edgaze platform (the “Platform”).
 
-The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware C Corporation.
-
+The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
 
 Edge Platforms operates as a neutral intermediary and hosting provider and does not actively monitor or pre-screen user-generated content.
 
----
-
-2. Scope
+## Scope
 
 This Policy applies to all content made available on the Platform, including but not limited to:
+
 - Prompts
 - Workflows
 - Text, code, and documentation
@@ -25,17 +23,15 @@ This Policy applies to all content made available on the Platform, including but
 
 This Policy supplements the Terms of Service and Acceptable Use Policy.
 
----
-
-3. Copyright and Intellectual Property Responsibility
+## Copyright and Intellectual Property Responsibility
 
 Users are solely responsible for ensuring that content they upload, publish, or distribute does not infringe the intellectual property rights of any third party.
 
 Edge Platforms does not guarantee the accuracy, legality, or ownership status of user-generated content.
 
----
+## Submitting a Takedown Notice
 
-4. Submitting a Takedown Notice
+### Required Information
 
 If you believe that content hosted on the Platform infringes your copyright or other intellectual property rights, you may submit a written notice containing the following information:
 
@@ -49,9 +45,9 @@ If you believe that content hosted on the Platform infringes your copyright or o
 
 Incomplete or inaccurate notices may not be processed.
 
----
+## Submission Method
 
-5. Submission Method
+### How to Submit
 
 Takedown notices must be submitted via email to:
 
@@ -59,11 +55,12 @@ support@edgaze.ai
 
 Edge Platforms does not accept notices submitted through other channels.
 
----
+## Review and Action
 
-6. Review and Action
+### Possible Actions
 
 Upon receipt of a valid notice, Edge Platforms may, at its sole discretion:
+
 - Remove or disable access to the allegedly infringing content
 - Restrict or suspend the associated user account
 - Request additional information
@@ -71,70 +68,60 @@ Upon receipt of a valid notice, Edge Platforms may, at its sole discretion:
 
 Edge Platforms makes no guarantees regarding timing, outcome, or specific actions taken.
 
----
-
-7. Counter-Notification
+## Counter-Notification
 
 Where applicable, a user whose content has been removed may submit a counter-notification in accordance with applicable law.
 
 Edge Platforms reserves the right to determine whether a counter-notification is legally sufficient and whether to restore content.
 
----
-
-8. Repeat Infringers
+## Repeat Infringers
 
 Edge Platforms may, at its sole discretion:
+
 - Terminate accounts of users deemed to be repeat infringers
 - Restrict future access or publishing privileges
 
 No specific threshold or enforcement timeline is guaranteed.
 
----
-
-9. Misrepresentation
+## Misrepresentation
 
 Submitting false or misleading takedown notices or counter-notifications may result in liability under applicable law.
 
 Edge Platforms reserves the right to take action against parties who abuse the takedown process.
 
----
-
-10. No Obligation to Monitor
+## No Obligation to Monitor
 
 Edge Platforms:
+
 - Does not actively monitor content for infringement
 - Does not guarantee detection of infringing material
 - Is not obligated to proactively enforce intellectual property rights
 
----
+## Limitation of Liability
 
-11. Limitation of Liability
+### What Edge Platforms Is Not Liable For
 
 To the maximum extent permitted by law, Edge Platforms shall not be liable for:
+
 - Removal or non-removal of content
 - Delays in processing notices
 - Actions taken in response to takedown requests
 - Any damages arising from the takedown or restoration of content
 
----
-
-12. Reservation of Rights
+## Reservation of Rights
 
 Edgaze reserves all rights not expressly granted under this Policy, including the right to modify, suspend, or terminate access to the Platform to protect legal, operational, or reputational interests.
 
----
-
-13. Changes to This Policy
+## Changes to This Policy
 
 This Policy may be updated at any time.
 
 Changes become effective upon publication. Continued use of the Platform constitutes acceptance of the updated Policy.
 
----
-
-14. Relationship to Other Policies
+## Relationship to Other Policies
 
 This Policy operates in conjunction with:
+
 - Terms of Service
 - Privacy Policy
 - Acceptable Use Policy
@@ -142,9 +129,7 @@ This Policy operates in conjunction with:
 
 In the event of conflict, the Terms of Service control.
 
----
-
-15. Contact
+## Contact
 
 For intellectual property or takedown inquiries, contact:
 support@edgaze.ai

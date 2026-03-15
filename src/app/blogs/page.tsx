@@ -27,11 +27,7 @@ export default function BlogsHomePage() {
       {/* Blog list */}
       <section className="space-y-8 sm:space-y-10">
         {blogs.map((blog) => (
-          <Link
-            key={blog.slug}
-            href={`/blogs/${blog.slug}`}
-            className="block group"
-          >
+          <Link key={blog.slug} href={`/blogs/${blog.slug}`} className="block group">
             <article className="rounded-2xl p-8 sm:p-10 border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-300 group-hover:shadow-[0_0_40px_-12px_rgba(34,211,238,0.08),0_0_40px_-12px_rgba(236,72,153,0.06)]">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 {blog.date && (

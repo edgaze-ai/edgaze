@@ -69,7 +69,8 @@ export const PREMIUM_NODES: NodeSpec[] = [
           { label: "o1-mini — reasoning lite", value: "o1-mini" },
           { label: "GPT-3.5 Turbo", value: "gpt-3.5-turbo" },
         ],
-        helpText: "With your API key in the run modal, this model is used. Free runs use gpt-4o-mini.",
+        helpText:
+          "With your API key in the run modal, this model is used. Free runs use gpt-4o-mini.",
       },
       {
         key: "temperature",
@@ -200,7 +201,8 @@ export const PREMIUM_NODES: NodeSpec[] = [
     label: "HTTP Request",
     version: "1.0.0",
     category: "http",
-    summary: "Make HTTP requests with full control over method, headers, and body. Safe by default with host restrictions.",
+    summary:
+      "Make HTTP requests with full control over method, headers, and body. Safe by default with host restrictions.",
     nodeType: "edgCard",
     icon: "Globe",
     requiresUserKeys: false,
@@ -217,9 +219,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
       denyHosts: ["127.0.0.1", "localhost", "0.0.0.0"],
       followRedirects: true,
     },
-    inlineToggles: [
-      { key: "followRedirects", label: "Follow Redirects", icon: "ArrowRight" },
-    ],
+    inlineToggles: [{ key: "followRedirects", label: "Follow Redirects", icon: "ArrowRight" }],
     inspector: [
       {
         key: "url",
@@ -299,7 +299,8 @@ export const PREMIUM_NODES: NodeSpec[] = [
         label: "Condition (Human Language)",
         type: "textarea",
         rows: 2,
-        helpText: "Describe the condition in plain English (e.g., 'The user's age is greater than 18'). AI will evaluate this. Leave empty to use operator-based evaluation.",
+        helpText:
+          "Describe the condition in plain English (e.g., 'The user's age is greater than 18'). AI will evaluate this. Leave empty to use operator-based evaluation.",
         placeholder: "e.g., The input contains the word 'approved'",
       },
       {
@@ -314,7 +315,8 @@ export const PREMIUM_NODES: NodeSpec[] = [
           { label: "Greater Than", value: "gt" },
           { label: "Less Than", value: "lt" },
         ],
-        helpText: "Used if human-readable condition is not provided. How should the condition be evaluated?",
+        helpText:
+          "Used if human-readable condition is not provided. How should the condition be evaluated?",
       },
       {
         key: "compareValue",

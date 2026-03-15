@@ -23,7 +23,17 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
     "template",
   ],
   output: [], // no outputs
-  merge: ["output", "openai-chat", "openai-image", "condition", "json-parse", "delay", "loop", "template", "http-request"],
+  merge: [
+    "output",
+    "openai-chat",
+    "openai-image",
+    "condition",
+    "json-parse",
+    "delay",
+    "loop",
+    "template",
+    "http-request",
+  ],
   "openai-chat": ["output", "merge", "condition", "json-parse"],
   "openai-embeddings": ["output", "merge", "condition"],
   "openai-image": ["output", "merge", "condition"],
@@ -60,7 +70,11 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
 };
 
 export type GetNodes = () => Array<{ id: string; data?: { specId?: string } }>;
-export type GetEdges = () => Array<{ source: string; target: string; targetHandle?: string | null }>;
+export type GetEdges = () => Array<{
+  source: string;
+  target: string;
+  targetHandle?: string | null;
+}>;
 
 /**
  * Returns true if the connection is valid per ALLOWED_CONNECTIONS.
@@ -69,7 +83,7 @@ export type GetEdges = () => Array<{ source: string; target: string; targetHandl
 export function isValidConnection(
   connection: Connection | Edge,
   getNodes: GetNodes,
-  getEdges: GetEdges
+  getEdges: GetEdges,
 ): boolean {
   const { source, target } = connection;
   if (!source || !target) return false;
@@ -127,7 +141,7 @@ export function isValidConnection(
   const existingToSameHandle = edges.filter(
     (e) =>
       e.target === target &&
-      ((e as { targetHandle?: string | null }).targetHandle ?? null) === targetHandle
+      ((e as { targetHandle?: string | null }).targetHandle ?? null) === targetHandle,
   );
   if (existingToSameHandle.length >= 1) return false;
 

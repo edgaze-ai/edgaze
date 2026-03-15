@@ -1,30 +1,28 @@
 title = "Creator Earnings"
 description = "How creators earn, view, and receive payouts on Edgaze"
 
----
+# Creator Earnings
 
-## 1. Revenue Share
-
-*Last Updated: March 13, 2026*
+_Last Updated: March 13, 2026_
 
 Creators receive **80% of the product price** for every sale. This is your gross earnings before any platform or processing fees—those are handled separately by Edgaze and Stripe.
 
----
+## What You Earn From
 
-## 2. What You Earn From
+### Revenue Sources
 
 - **Workflow sales** — 80% of each workflow purchase
 - **Prompt sales** — 80% of each prompt purchase
 
----
+## Revenue Accumulation
 
-## 3. Revenue Accumulation
+### Stripe Connect Balance
 
 Earnings accumulate in your **Stripe Connect balance**. Stripe manages your balance, payouts, and tax reporting.
 
----
+## What You Can View
 
-## 4. What You Can View
+### Dashboard Sections
 
 Inside the creator dashboard you can view:
 
@@ -33,9 +31,9 @@ Inside the creator dashboard you can view:
 - **Refunds** — Refunded transactions and adjusted amounts
 - **Payout schedule** — When payouts are processed and expected arrival dates
 
----
+## Payouts
 
-## 5. Payouts
+### Schedule and Onboarding
 
 Payouts are managed by Stripe and follow Stripe's standard schedule (typically weekly). You must complete Stripe onboarding and identity verification before payouts are enabled.
 
@@ -43,9 +41,9 @@ Payouts are managed by Stripe and follow Stripe's standard schedule (typically w
 - Revenue will accumulate in your Stripe balance
 - Payouts remain pending until verification is finished
 
----
+## Refunds and Adjustments
 
-## 6. Refunds and Adjustments
+### How Refunds Affect Your Earnings
 
 If a customer receives a refund:
 
@@ -53,9 +51,9 @@ If a customer receives a refund:
 - The refund amount is deducted from your balance
 - If the refund occurs after you've been paid out, it may be deducted from future earnings
 
----
+## Taxes
 
-## 7. Taxes
+### Tax Forms and Reporting
 
 Creators are responsible for paying taxes in their jurisdiction. Stripe may collect tax forms:
 
@@ -64,9 +62,9 @@ Creators are responsible for paying taxes in their jurisdiction. Stripe may coll
 
 Edgaze does not provide tax advice. Consult a tax professional for guidance on your obligations.
 
----
+## Chargebacks
 
-## 8. Chargebacks
+### How Chargebacks Work
 
 If a customer disputes a payment (chargeback):
 

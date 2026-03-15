@@ -58,7 +58,9 @@ export default function HandleChangeWarningDialog({
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="text-[11px] text-white/40 mb-0.5">Current</div>
-                <div className="text-[14px] text-white/90 font-medium truncate">@{currentHandle}</div>
+                <div className="text-[14px] text-white/90 font-medium truncate">
+                  @{currentHandle}
+                </div>
               </div>
               <div className="text-white/30 text-[16px]">→</div>
               <div className="min-w-0 flex-1">
@@ -87,7 +89,9 @@ export default function HandleChangeWarningDialog({
             <div className="flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <div className="text-[13px] font-semibold text-amber-400 mb-0.5">Links Will Change</div>
+                <div className="text-[13px] font-semibold text-amber-400 mb-0.5">
+                  Links Will Change
+                </div>
                 <div className="text-[12px] text-white/70 leading-relaxed">
                   All your profile and product URLs will be updated. Old links will redirect.
                 </div>
