@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Press",
-  description:
-    "Media inquiries and press resources for Edgaze. Contact press@edgaze.ai.",
+  description: "Media inquiries and press resources for Edgaze. Contact press@edgaze.ai.",
 };
 
 export default function PressLayout({ children }: { children: React.ReactNode }) {
