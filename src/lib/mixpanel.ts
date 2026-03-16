@@ -14,6 +14,17 @@ let initPromise: Promise<void> | null = null;
 let initialized = false;
 let consoleErrorInterceptor: ((...args: any[]) => void) | null = null;
 
+function isInternalDevice(): boolean {
+  if (!canUseBrowserApis()) return false;
+  try {
+    const flag = window.localStorage.getItem("edgaze:disable_mixpanel");
+    if (flag === "true") return true;
+  } catch {
+    // ignore storage errors
+  }
+  return false;
+}
+
 // Session tracking to prevent duplicate events
 let sessionId: string | null = null;
 let lastPageView: string | null = null;
@@ -211,6 +222,7 @@ function suppressMutexErrors<T>(fn: () => T): T | undefined {
  * Initialize Mixpanel with premium configuration
  */
 async function ensureInit(): Promise<void> {
+  if (isInternalDevice()) return;
   // If already initialized, return immediately
   if (initialized) return;
 
@@ -300,6 +312,7 @@ export const initMixpanel = () => {
  */
 export const track = (event: string, properties?: Properties) => {
   if (!hasToken()) return;
+  if (isInternalDevice()) return;
 
   ensureInit()
     .then(() => {
@@ -326,6 +339,7 @@ export const track = (event: string, properties?: Properties) => {
  */
 export const trackPageView = (properties?: Properties) => {
   if (!hasToken()) return;
+  if (isInternalDevice()) return;
 
   const now = Date.now();
   const currentPath = window.location?.pathname + window.location?.search;
@@ -364,6 +378,7 @@ export const trackPageView = (properties?: Properties) => {
  */
 export const identifyUser = (userId: string, props?: Record<string, any>) => {
   if (!hasToken()) return;
+  if (isInternalDevice()) return;
 
   ensureInit()
     .then(() => {
@@ -439,6 +454,7 @@ export const identifyUser = (userId: string, props?: Record<string, any>) => {
  */
 export const resetIdentity = () => {
   if (!hasToken()) return;
+  if (isInternalDevice()) return;
 
   ensureInit()
     .then(() => {
@@ -471,6 +487,7 @@ export const resetIdentity = () => {
  */
 export const setUserProperties = (props: Record<string, any>) => {
   if (!hasToken()) return;
+  if (isInternalDevice()) return;
 
   ensureInit()
     .then(() => {
@@ -502,6 +519,7 @@ export const setUserProperties = (props: Record<string, any>) => {
  */
 export const incrementUserProperty = (property: string, value: number = 1) => {
   if (!hasToken()) return;
+  if (isInternalDevice()) return;
 
   ensureInit()
     .then(() => {
@@ -519,6 +537,7 @@ export const incrementUserProperty = (property: string, value: number = 1) => {
  */
 export const timeEvent = (eventName: string) => {
   if (!hasToken()) return;
+  if (isInternalDevice()) return;
 
   ensureInit()
     .then(() => {

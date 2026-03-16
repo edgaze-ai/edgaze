@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   CheckCircle2,
@@ -403,15 +402,9 @@ function PausedPanel() {
 }
 
 export default function ApplyPage() {
-  const router = useRouter();
   const reduce = useReducedMotion();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { userId, authReady } = useAuth();
-
-  // Redirect everyone who visits /apply to marketplace (no closed beta application)
-  useEffect(() => {
-    router.replace("/marketplace");
-  }, [router]);
 
   const [step, setStep] = useState<Step>("details");
 

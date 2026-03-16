@@ -38,7 +38,8 @@ export const metadata: Metadata = {
     default: "Edgaze",
     template: "%s | Edgaze",
   },
-  description: "Creators build with AI",
+  description:
+    "Edgaze is the marketplace for AI prompts and workflows. Build once, publish a clean page, share one link. Creators monetize; buyers discover and run.",
   applicationName: "Edgaze",
   referrer: "origin-when-cross-origin",
   openGraph: {
@@ -46,7 +47,8 @@ export const metadata: Metadata = {
     url: "https://edgaze.ai",
     siteName: "Edgaze",
     title: "Edgaze",
-    description: "Creators build with AI",
+    description:
+      "Edgaze is the marketplace for AI prompts and workflows. Build once, publish a clean page, share one link. Creators monetize; buyers discover and run.",
     images: [
       {
         url: "/og.png",
@@ -59,7 +61,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Edgaze",
-    description: "Creators build with AI",
+    description:
+      "Edgaze is the marketplace for AI prompts and workflows. Build once, publish a clean page, share one link. Creators monetize; buyers discover and run.",
     images: ["/og.png"],
   },
   icons: {

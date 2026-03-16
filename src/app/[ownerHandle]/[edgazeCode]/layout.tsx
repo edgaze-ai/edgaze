@@ -16,7 +16,7 @@ async function getWorkflowListing(ownerHandle: string, edgazeCode: string) {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("workflows")
-      .select("title, description, thumbnail_url, banner_url")
+      .select("title, description, thumbnail_url, banner_url, price_usd, is_paid")
       .eq("owner_handle", ownerHandle)
       .eq("edgaze_code", edgazeCode)
       .eq("is_published", true)
@@ -28,6 +28,8 @@ async function getWorkflowListing(ownerHandle: string, edgazeCode: string) {
       description: string | null;
       thumbnail_url: string | null;
       banner_url: string | null;
+      price_usd: number | null;
+      is_paid: boolean | null;
     };
     return row;
   } catch {
@@ -75,6 +77,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const imageUrl = absoluteImageUrl(listing.thumbnail_url) || absoluteImageUrl(listing.banner_url);
   const pageUrl = `${METADATA_BASE}/${ownerHandle}/${edgazeCode}`;
+  const dynamicOgUrl = `${METADATA_BASE}/api/og/workflow?ownerHandle=${encodeURIComponent(ownerHandle)}&edgazeCode=${encodeURIComponent(edgazeCode)}`;
+  const ogImages = [
+    { url: dynamicOgUrl, width: 1200, height: 630, alt: title },
+    ...(imageUrl ? [{ url: imageUrl, width: 1200, height: 630, alt: title }] : []),
+    { url: "/og.png", width: 1200, height: 630, alt: title },
+  ].filter((_, i, a) => a.findIndex((x) => x.url === (a[i] as (typeof a)[0]).url) === i);
 
   return {
     title,
@@ -86,17 +94,59 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "website",
       url: pageUrl,
       siteName: "Edgaze",
-      title: `${title} | Edgaze`, // Explicit for OG
+      title: `${title} | Edgaze`,
       description,
-      ...(imageUrl && {
-        images: [{ url: imageUrl, width: 1200, height: 630, alt: title }],
-      }),
+      images: ogImages,
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} | Edgaze`, // Explicit for Twitter
+      title: `${title} | Edgaze`,
       description,
-      ...(imageUrl && { images: [imageUrl] }),
+      images: [dynamicOgUrl, ...(imageUrl ? [imageUrl] : []), "/og.png"].filter(
+        (u, i, a) => a.indexOf(u) === i
+      ),
+    },
+  };
+}
+
+function buildWorkflowProductJsonLd(
+  ownerHandle: string,
+  edgazeCode: string,
+  listing: {
+    title: string | null;
+    description: string | null;
+    thumbnail_url: string | null;
+    banner_url: string | null;
+    price_usd: number | null;
+    is_paid: boolean | null;
+  },
+): Record<string, unknown> {
+  const name = listing.title?.trim() || "Workflow";
+  const description =
+    listing.description?.trim()?.slice(0, 500) ||
+    "Discover and use this AI workflow on Edgaze. Build powerful automation with AI.";
+  const imageUrl =
+    absoluteImageUrl(listing.thumbnail_url) || absoluteImageUrl(listing.banner_url) || undefined;
+  const price =
+    listing.is_paid && listing.price_usd != null && listing.price_usd > 0
+      ? String(listing.price_usd)
+      : "0";
+  const pageUrl = `${METADATA_BASE}/${ownerHandle}/${edgazeCode}`;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name,
+    description,
+    ...(imageUrl && { image: imageUrl }),
+    url: pageUrl,
+    brand: { "@type": "Brand", name: "Edgaze" },
+    offers: {
+      "@type": "Offer",
+      price,
+      priceCurrency: "USD",
+      availability: "https://schema.org/InStock",
+      url: pageUrl,
     },
   };
 }
@@ -108,5 +158,21 @@ export default async function WorkflowProductLayout({ children, params }: Props)
     const redirectPath = await getWorkflowRedirectPath(ownerHandle, edgazeCode);
     if (redirectPath) redirect(redirectPath);
   }
-  return <>{children}</>;
+
+  const productJsonLd =
+    listing != null
+      ? buildWorkflowProductJsonLd(ownerHandle, edgazeCode, listing)
+      : null;
+
+  return (
+    <>
+      {productJsonLd != null && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        />
+      )}
+      {children}
+    </>
+  );
 }
