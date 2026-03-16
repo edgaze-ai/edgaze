@@ -59,86 +59,84 @@ export async function GET(request: NextRequest) {
   }
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        height: "100%",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "space-between",
+        backgroundColor: "#0a0a0a",
+        padding: "48px 56px",
+        fontFamily: "system-ui, sans-serif",
+      }}
+    >
       <div
         style={{
-          height: "100%",
-          width: "100%",
           display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
+          width: "100%",
           justifyContent: "space-between",
-          backgroundColor: "#0a0a0a",
-          padding: "48px 56px",
-          fontFamily: "system-ui, sans-serif",
+          alignItems: "center",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            width: "100%",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span style={{ fontSize: 24, fontWeight: 600, color: "#22d3ee" }}>Edgaze</span>
-          <span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{priceLabel}</span>
-        </div>
+        <span style={{ fontSize: 24, fontWeight: 600, color: "#22d3ee" }}>Edgaze</span>
+        <span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{priceLabel}</span>
+      </div>
 
-        <div
-          style={{
-            display: "flex",
-            flex: 1,
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "100%",
-            gap: 16,
-          }}
-        >
-          {imageUrl ? (
-            <div
-              style={{
-                display: "flex",
-                width: 280,
-                height: 280,
-                borderRadius: 12,
-                overflow: "hidden",
-                flexShrink: 0,
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imageUrl}
-                alt=""
-                width={280}
-                height={280}
-                style={{ objectFit: "cover", width: 280, height: 280 }}
-              />
-            </div>
-          ) : null}
+      <div
+        style={{
+          display: "flex",
+          flex: 1,
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          gap: 16,
+        }}
+      >
+        {imageUrl ? (
           <div
             style={{
-              fontSize: 42,
-              fontWeight: 700,
-              color: "white",
-              textAlign: "center",
-              maxWidth: 900,
+              display: "flex",
+              width: 280,
+              height: 280,
+              borderRadius: 12,
               overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              flexShrink: 0,
             }}
           >
-            {title}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt=""
+              width={280}
+              height={280}
+              style={{ objectFit: "cover", width: 280, height: 280 }}
+            />
           </div>
-          <div style={{ fontSize: 22, color: "rgba(255,255,255,0.6)" }}>by {creatorName}</div>
+        ) : null}
+        <div
+          style={{
+            fontSize: 42,
+            fontWeight: 700,
+            color: "white",
+            textAlign: "center",
+            maxWidth: 900,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {title}
         </div>
-
-        <div style={{ fontSize: 16, color: "rgba(255,255,255,0.4)" }}>
-          Create, sell, and distribute AI products
-        </div>
+        <div style={{ fontSize: 22, color: "rgba(255,255,255,0.6)" }}>by {creatorName}</div>
       </div>
-    ),
-    { width: 1200, height: 630 }
+
+      <div style={{ fontSize: 16, color: "rgba(255,255,255,0.4)" }}>
+        Create, sell, and distribute AI products
+      </div>
+    </div>,
+    { width: 1200, height: 630 },
   );
 }

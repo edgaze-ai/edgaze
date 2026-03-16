@@ -59,10 +59,7 @@ export async function GET() {
   }
 
   // All profiles with a handle — new profiles are included on next revalidate
-  const { data: profiles } = await sb
-    .from("profiles")
-    .select("handle")
-    .not("handle", "is", null);
+  const { data: profiles } = await sb.from("profiles").select("handle").not("handle", "is", null);
 
   for (const row of (profiles ?? []) as ProfileRow[]) {
     const handle = row.handle?.trim();

@@ -49,7 +49,7 @@ export default async function MarketplaceCategoryPage({ params }: Props) {
   try {
     const res = await fetch(
       `${base}/api/marketplace/listings?topic=${encodeURIComponent(category)}&sort=newest`,
-      { next: { revalidate: 3600 } }
+      { next: { revalidate: 3600 } },
     );
     const json = (await res.json()) as {
       prompts?: { owner_handle?: string; edgaze_code?: string }[];

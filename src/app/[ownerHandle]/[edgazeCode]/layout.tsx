@@ -103,7 +103,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: `${title} | Edgaze`,
       description,
       images: [dynamicOgUrl, ...(imageUrl ? [imageUrl] : []), "/og.png"].filter(
-        (u, i, a) => a.indexOf(u) === i
+        (u, i, a) => a.indexOf(u) === i,
       ),
     },
   };
@@ -160,9 +160,7 @@ export default async function WorkflowProductLayout({ children, params }: Props)
   }
 
   const productJsonLd =
-    listing != null
-      ? buildWorkflowProductJsonLd(ownerHandle, edgazeCode, listing)
-      : null;
+    listing != null ? buildWorkflowProductJsonLd(ownerHandle, edgazeCode, listing) : null;
 
   return (
     <>
