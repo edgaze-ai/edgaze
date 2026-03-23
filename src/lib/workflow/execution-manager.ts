@@ -188,9 +188,11 @@ export class WorkflowExecutionManager {
       }
     }
 
+    const wfStatus = result.result?.workflowStatus;
+    const isSuccess = wfStatus === "completed" || wfStatus === "completed_with_skips";
     this.update({
       phase: "output",
-      status: result.result?.workflowStatus === "completed" ? "success" : "error",
+      status: isSuccess ? "success" : "error",
       steps,
       logs,
       outputs,
@@ -207,6 +209,8 @@ export class WorkflowExecutionManager {
       failed: "error",
       timeout: "error",
       skipped: "skipped",
+      blocked: "skipped",
+      retrying: "running",
     };
     return map[status] || "queued";
   }

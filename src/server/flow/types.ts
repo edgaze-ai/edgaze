@@ -81,7 +81,7 @@ export type NodeRuntimeHandler = (
 ) => Promise<unknown> | unknown;
 
 export type RunLogEntry = {
-  type: "start" | "success" | "error" | "retry";
+  type: "start" | "success" | "error" | "retry" | "warn";
   nodeId: string;
   specId: string;
   message: string;

@@ -1640,7 +1640,11 @@ export default function WorkflowProductPage() {
       setDemoRunState({
         ...demoRunState,
         phase: "output",
-        status: executionResult.workflowStatus === "completed" ? "success" : "error",
+        status:
+          executionResult.workflowStatus === "completed" ||
+          executionResult.workflowStatus === "completed_with_skips"
+            ? "success"
+            : "error",
         steps,
         logs,
         outputs,
@@ -2051,17 +2055,8 @@ export default function WorkflowProductPage() {
             )}
             <span className="flex items-center gap-1.5">
               {isOwned ? "Open" : primaryCtaLabel}
-              {!isOwned && (
-                <span
-                  className={cn(
-                    "tabular-nums",
-                    isNaturallyFree
-                      ? "text-white/95 font-semibold drop-shadow-[0_0_1px_rgba(0,0,0,0.15)]"
-                      : "text-black/80 opacity-90",
-                  )}
-                >
-                  · {paidLabel}
-                </span>
+              {!isOwned && !isNaturallyFree && (
+                <span className="tabular-nums text-black/80 opacity-90">· {paidLabel}</span>
               )}
             </span>
           </button>

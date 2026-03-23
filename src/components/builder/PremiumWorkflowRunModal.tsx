@@ -958,6 +958,13 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
   if (value === null || value === undefined) {
     return <div className={cx("text-sm italic", textColorMuted)}>No value</div>;
   }
+
+  // Recovery: if the value is literally "[object Object]" (leaked from server-side String() coercion),
+  // try to parse it as something useful, or silently drop it
+  if (typeof value === "string" && /^\[object\s+\w+\]$/.test(value.trim())) {
+    return <div className={cx("text-sm italic", textColorMuted)}>No output was produced.</div>;
+  }
+
   if (typeof value === "string") {
     // Check if it's an image URL (including DALL-E URLs)
     if (isImageUrl(value)) {
@@ -1276,7 +1283,7 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
       );
     }
 
-    // Filter out OpenAI API metadata fields (no finishReason / finish_reason in UI)
+    // Last resort for objects: find any string value, skipping metadata
     const metadataFields = new Set([
       "model",
       "usage",
@@ -1291,40 +1298,55 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
       "object",
       "created",
       "system_fingerprint",
+      "timestamp",
+      "count",
     ]);
 
-    const entries = Object.entries(value as Record<string, unknown>).filter(([k, v]) => {
-      if (metadataFields.has(k.toLowerCase())) return false;
-      return v !== undefined && v !== null;
-    });
-
-    if (entries.length === 0) {
-      return <div className={cx("text-sm italic", textColorMuted)}>No content</div>;
+    const obj = value as Record<string, unknown>;
+    // Try to find a single string value by scanning all non-metadata keys
+    for (const [k, v] of Object.entries(obj)) {
+      if (metadataFields.has(k.toLowerCase())) continue;
+      if (typeof v === "string" && v.trim()) {
+        return (
+          <div className={cx("text-base leading-[1.85] [&>p+p]:mt-5 [&>p]:mb-4", textColor)}>
+            {renderMarkdown(v)}
+          </div>
+        );
+      }
     }
 
-    return (
-      <div className="space-y-5 [&>div]:mt-5">
-        {entries.map(([k, v]) => (
-          <div key={k} className={cx("rounded-lg border overflow-hidden", borderColor, bgColor)}>
-            <div
-              className={cx(
-                "px-4 py-3 border-b text-xs font-semibold uppercase tracking-wider",
-                bgColorHeader,
-                borderColor,
-                textColorMuted,
-              )}
-            >
-              {k}
-            </div>
-            <div className="px-4 py-4">
-              <PremiumOutputDisplay value={v} isOpenAI={isOpenAI} />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
+    // If the object has a results array, try to render that
+    if (Array.isArray(obj.results) && obj.results.length > 0) {
+      return (
+        <div className="space-y-5">
+          {obj.results.map((item: unknown, i: number) => (
+            <PremiumOutputDisplay key={i} value={item} isOpenAI={isOpenAI} />
+          ))}
+        </div>
+      );
+    }
+
+    // Truly unrecognized object: JSON.stringify it cleanly
+    const jsonStr = (() => {
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch {
+        return null;
+      }
+    })();
+
+    if (jsonStr && jsonStr !== "{}") {
+      return (
+        <div className={cx("text-sm font-mono leading-[1.85] whitespace-pre-wrap", textColor)}>
+          {jsonStr}
+        </div>
+      );
+    }
+
+    return <div className={cx("text-sm italic", textColorMuted)}>No output was produced.</div>;
   }
-  // Safety net: never show "[object Object]" - use JSON.stringify for objects
+
+  // Non-object, non-string, non-number/boolean: stringify safely
   const display =
     value !== null && typeof value === "object" ? JSON.stringify(value, null, 2) : String(value);
   return (
@@ -1678,8 +1700,8 @@ export default function PremiumWorkflowRunModal({
 
           {/* Header */}
           <div className="px-6 py-4 border-b border-white/10 shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-semibold text-white truncate">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1 text-lg font-semibold text-white max-sm:line-clamp-2 sm:truncate">
                 {state?.phase === "executing" ? (
                   <span className="text-[11px] font-medium uppercase tracking-widest text-white/50">
                     Edgaze Run
@@ -1907,7 +1929,7 @@ export default function PremiumWorkflowRunModal({
                             {sanitizeErrorForDisplay(state.error)}
                           </p>
                         </div>
-                        <div className="flex items-center justify-center gap-3 pt-2">
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-2 sm:gap-3 pt-2 w-full max-w-sm sm:max-w-none mx-auto">
                           {onRerun && (
                             <button
                               onClick={() => {
@@ -1917,7 +1939,7 @@ export default function PremiumWorkflowRunModal({
                                 });
                                 onRerun();
                               }}
-                              className="h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors"
+                              className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 w-full sm:w-auto whitespace-nowrap"
                             >
                               Run again
                             </button>
@@ -1932,7 +1954,7 @@ export default function PremiumWorkflowRunModal({
                               });
                               onClose();
                             }}
-                            className="h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors"
+                            className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center w-full sm:w-auto whitespace-nowrap"
                           >
                             Close
                           </button>
@@ -2001,22 +2023,22 @@ export default function PremiumWorkflowRunModal({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-center gap-3 pt-6">
+                      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-2 sm:gap-3 pt-6 w-full max-w-md sm:max-w-none mx-auto">
                         <button
                           onClick={() => {
                             const firstOutput = state.outputs?.[0];
                             if (firstOutput) handleCopyOutput(firstOutput.value, 0);
                           }}
-                          className="h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center gap-2"
+                          className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 w-full sm:w-auto shrink-0 whitespace-nowrap"
                         >
                           {copiedOutput === "output-0" ? (
                             <>
-                              <Check className="h-4 w-4" />
+                              <Check className="h-4 w-4 shrink-0" />
                               Copied
                             </>
                           ) : (
                             <>
-                              <Copy className="h-4 w-4" />
+                              <Copy className="h-4 w-4 shrink-0" />
                               Copy
                             </>
                           )}
@@ -2055,9 +2077,9 @@ export default function PremiumWorkflowRunModal({
                             a.click();
                             URL.revokeObjectURL(url);
                           }}
-                          className="h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center gap-2"
+                          className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 w-full sm:w-auto shrink-0 whitespace-nowrap"
                         >
-                          <Download className="h-4 w-4" />
+                          <Download className="h-4 w-4 shrink-0" />
                           Download
                         </button>
                         {onRerun && (
@@ -2069,9 +2091,9 @@ export default function PremiumWorkflowRunModal({
                               });
                               onRerun();
                             }}
-                            className="h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center gap-2"
+                            className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 w-full sm:w-auto shrink-0 whitespace-nowrap"
                           >
-                            <Play className="h-4 w-4" />
+                            <Play className="h-4 w-4 shrink-0" />
                             Run again
                           </button>
                         )}

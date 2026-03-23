@@ -24,31 +24,44 @@ export function isRetryableError(
   response?: { status?: number; headers?: Headers },
 ): boolean {
   const msg = err instanceof Error ? err.message : String(err);
+  const msgLower = msg.toLowerCase();
+
+  // Network / timeout errors are always retryable
   if (
-    msg.includes("timeout") ||
-    msg.includes("Timeout") ||
-    msg.includes("ETIMEDOUT") ||
-    msg.includes("ECONNRESET")
+    msgLower.includes("timeout") ||
+    msgLower.includes("etimedout") ||
+    msgLower.includes("econnreset") ||
+    msgLower.includes("econnrefused") ||
+    msgLower.includes("enotfound") ||
+    msgLower.includes("socket hang up") ||
+    msgLower.includes("network") ||
+    msgLower.includes("fetch failed") ||
+    msgLower.includes("aborted")
   ) {
     return true;
   }
+
+  // HTTP status-based classification
   if (response?.status) {
     if (response.status === 429) return true;
     if (response.status >= 500 && response.status < 600) return true;
-    if (response.status === 408) return true; // Request Timeout
+    if (response.status === 408) return true;
   }
-  if (msg.includes("429") || msg.includes("rate limit")) return true;
-  if (
-    msg.includes("5") &&
-    (msg.includes("Internal Server") ||
-      msg.includes("Bad Gateway") ||
-      msg.includes("Service Unavailable"))
-  )
-    return true;
+
+  // Error message patterns from providers (OpenAI, etc.)
+  if (msgLower.includes("429") || msgLower.includes("rate limit")) return true;
+  if (msgLower.includes("500") || msgLower.includes("internal server")) return true;
+  if (msgLower.includes("502") || msgLower.includes("bad gateway")) return true;
+  if (msgLower.includes("503") || msgLower.includes("service unavailable")) return true;
+  if (msgLower.includes("overloaded") || msgLower.includes("capacity")) return true;
+  if (msgLower.includes("server_error") || msgLower.includes("server error")) return true;
+
+  // NOT retryable: auth errors, bad requests, content policy, etc.
+  // These are explicit non-retryable patterns (return false by default)
   return false;
 }
 
-/** Compute retry delay: use Retry-After if present, else exponential backoff */
+/** Compute retry delay: use Retry-After if present, else exponential backoff with jitter */
 export function getRetryDelay(
   err: unknown,
   attempt: number,
@@ -57,11 +70,14 @@ export function getRetryDelay(
   const retryAfter = response?.headers?.get?.(RETRY_AFTER_HEADER) ?? null;
   const parsed = parseRetryAfter(retryAfter);
   if (parsed !== null && parsed > 0) {
-    return Math.min(parsed, 60000); // Cap at 60s
+    return Math.min(parsed, 60000);
   }
   const base = 250;
   const max = 8000;
-  return Math.min(max, base * 2 ** (attempt - 1));
+  const exponential = Math.min(max, base * 2 ** (attempt - 1));
+  // Add ±25% jitter to prevent thundering herd when multiple nodes retry simultaneously
+  const jitter = exponential * (0.75 + Math.random() * 0.5);
+  return Math.round(Math.min(max, jitter));
 }
 
 export function shouldRetry(
@@ -80,7 +96,7 @@ export function shouldRetry(
   return { retry: true, delayMs };
 }
 
-/** Circuit breaker: too many failures in a run = stop retrying */
+/** Circuit breaker: too many consecutive failures = stop retrying */
 export class RunCircuitBreaker {
   private failureCount = 0;
   private readonly threshold: number;
@@ -91,6 +107,11 @@ export class RunCircuitBreaker {
 
   recordFailure(): void {
     this.failureCount += 1;
+  }
+
+  recordSuccess(): void {
+    // Successful execution reduces failure pressure (but doesn't fully reset)
+    this.failureCount = Math.max(0, this.failureCount - 1);
   }
 
   isOpen(): boolean {

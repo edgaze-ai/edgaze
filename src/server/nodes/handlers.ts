@@ -25,6 +25,58 @@ import {
 } from "../../lib/rate-limiting/image-generation";
 import { evaluateConditionWithAI } from "../../lib/ai/condition-evaluator";
 
+/**
+ * Safely convert any value to a displayable string.
+ * Objects get JSON.stringify'd (with content extraction for known shapes like OpenAI results).
+ * Never returns "[object Object]".
+ */
+function safeToString(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+
+  if (typeof v === "object") {
+    const obj = v as Record<string, unknown>;
+
+    // Extract content from known API response shapes (OpenAI { content, model, usage }, etc.)
+    if (typeof obj.content === "string") return obj.content;
+    if (typeof obj.text === "string") return obj.text;
+    if (typeof obj.output === "string") return obj.output;
+    if (typeof obj.message === "string") return obj.message;
+    if (typeof obj.value === "string") return obj.value;
+    if (typeof obj.result === "string") return obj.result;
+    if (typeof obj.response === "string") return obj.response;
+    if (typeof obj.answer === "string") return obj.answer;
+    if (typeof obj.prompt === "string") return obj.prompt;
+
+    // Input node shape { value, question }
+    if ("question" in obj && "value" in obj) {
+      return obj.value === undefined || obj.value === null
+        ? ""
+        : typeof obj.value === "string"
+          ? obj.value
+          : safeToString(obj.value);
+    }
+
+    // Condition passthrough: extract the wrapped value
+    if (CONDITION_RESULT_KEY in obj && CONDITION_PASSTHROUGH_KEY in obj) {
+      return safeToString(obj[CONDITION_PASSTHROUGH_KEY]);
+    }
+
+    if (Array.isArray(v)) {
+      return v.map((item) => safeToString(item)).join(" ");
+    }
+
+    try {
+      return JSON.stringify(v, null, 2);
+    } catch {
+      return "[complex object]";
+    }
+  }
+
+  return String(v);
+}
+
 const inputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   // Input node: accepts workflow-level input data
   const external = ctx.inputs?.[node.id];
@@ -87,34 +139,7 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
 
   // Helper: convert one value to string for merging (handles condition passthrough, input node { value, question }, etc.)
   const toMergeString = (v: unknown): string => {
-    const content = extractPipelineContent(v);
-    if (typeof content === "string") return content;
-    if (content !== null && typeof content === "object" && !Array.isArray(content)) {
-      const obj = content as any;
-      if (typeof obj.question === "string" && "value" in obj) {
-        const answer =
-          obj.value === undefined || obj.value === null
-            ? ""
-            : typeof obj.value === "string"
-              ? obj.value
-              : JSON.stringify(obj.value);
-        return answer;
-      }
-      if (typeof obj.content === "string") return obj.content;
-      if (typeof obj.text === "string") return obj.text;
-      if (typeof obj.message === "string") return obj.message;
-      if (typeof obj.value === "string") return obj.value;
-      try {
-        return JSON.stringify(content);
-      } catch {
-        return String(content);
-      }
-    }
-    if (Array.isArray(content))
-      return content
-        .map((item) => (typeof item === "string" ? item : JSON.stringify(item)))
-        .join(" ");
-    return String(content);
+    return safeToString(extractPipelineContent(v));
   };
 
   // If only one input, pass it through directly (no merging needed)
@@ -140,11 +165,104 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
   return merged;
 };
 
+/**
+ * Normalize any value into a clean displayable output.
+ * Deep-traverses objects to extract meaningful text content.
+ * This is the last line of defense — it should NEVER return an opaque object or "[object Object]".
+ */
+function normalizeToDisplayable(v: unknown): unknown {
+  if (v === null || v === undefined) return v;
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return v;
+
+  if (Array.isArray(v)) {
+    // Array of strings: join them
+    if (v.every((item) => typeof item === "string")) return v.join("\n\n");
+    // Array of objects: normalize each
+    const normalized = v.map(normalizeToDisplayable);
+    if (normalized.every((item) => typeof item === "string")) {
+      return (normalized as string[]).join("\n\n");
+    }
+    return normalized;
+  }
+
+  if (typeof v === "object") {
+    const obj = v as Record<string, unknown>;
+
+    // Try extracting from known shapes (prioritized)
+    for (const key of [
+      "content",
+      "text",
+      "output",
+      "message",
+      "value",
+      "result",
+      "response",
+      "answer",
+      "reply",
+      "body",
+      "summary",
+      "data",
+    ]) {
+      const val = obj[key];
+      if (typeof val === "string" && val.trim()) return val;
+    }
+
+    // Nested: { message: { content: "..." } }
+    if (obj.message && typeof obj.message === "object") {
+      const inner = normalizeToDisplayable(obj.message);
+      if (typeof inner === "string" && inner.trim()) return inner;
+    }
+
+    // { choices: [{ message: { content: "..." }}] } — OpenAI response shape
+    if (Array.isArray(obj.choices) && obj.choices[0]) {
+      const c0 = obj.choices[0] as Record<string, unknown>;
+      const msg = c0?.message as Record<string, unknown> | undefined;
+      if (typeof msg?.content === "string") return msg.content;
+      if (typeof c0?.text === "string") return c0.text;
+    }
+
+    // { results: ["...", "..."] }
+    if (Array.isArray(obj.results)) {
+      const inner = normalizeToDisplayable(obj.results);
+      if (typeof inner === "string" && inner.trim()) return inner;
+    }
+
+    // Last resort: find ANY string value in the top-level keys (skip metadata)
+    const SKIP_KEYS = new Set([
+      "model",
+      "usage",
+      "id",
+      "object",
+      "created",
+      "system_fingerprint",
+      "finish_reason",
+      "finishReason",
+      "prompt_tokens",
+      "completion_tokens",
+      "total_tokens",
+      "timestamp",
+      "count",
+    ]);
+    for (const [key, val] of Object.entries(obj)) {
+      if (SKIP_KEYS.has(key)) continue;
+      if (typeof val === "string" && val.trim()) return val;
+    }
+
+    // Truly opaque object: JSON.stringify so the user at least sees the data
+    try {
+      return JSON.stringify(v, null, 2);
+    } catch {
+      return "[complex result]";
+    }
+  }
+
+  return String(v);
+}
+
 const outputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
-  // Output node: combines all connected inputs into final result
   const inbound = ctx.getInboundValues(node.id);
 
-  // Filter out undefined/null and unwrap condition passthrough for pipeline flow
   const valid = inbound
     .filter((v) => v !== undefined && v !== null)
     .map((v) => extractPipelineContent(v));
@@ -154,32 +272,20 @@ const outputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCo
     return null;
   }
 
-  // If single input, return unwrapped content
   if (valid.length === 1) {
-    ctx.setNodeOutput(node.id, valid[0]);
-    return valid[0];
+    const output = normalizeToDisplayable(valid[0]);
+    ctx.setNodeOutput(node.id, output);
+    return output;
   }
 
-  // Multiple inputs: merge intelligently
-  const config = node.data?.config ?? {};
-  const format = config.format || "json";
-
-  if (format === "text") {
-    // Join all as text
-    const text = valid.map((v) => String(v)).join("\n");
-    ctx.setNodeOutput(node.id, text);
-    return text;
-  }
-
-  // Default: return as structured object
-  const result = {
-    results: valid,
-    count: valid.length,
-    timestamp: Date.now(),
-  };
-
-  ctx.setNodeOutput(node.id, result);
-  return result;
+  // Multiple inputs: always normalize each value and merge as text
+  const parts = valid.map((v) => {
+    const normalized = normalizeToDisplayable(v);
+    return typeof normalized === "string" ? normalized : safeToString(normalized);
+  });
+  const merged = parts.filter((p) => p.trim()).join("\n\n");
+  ctx.setNodeOutput(node.id, merged);
+  return merged;
 };
 
 // Premium Node Handlers
@@ -278,37 +384,8 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   const configPrompt =
     typeof config.prompt === "string" ? config.prompt.trim() || undefined : undefined;
 
-  /** Convert one inbound value to a string for the Inputs section (handles condition passthrough, input node { value, question }) */
   const oneInboundToInputSegment = (val: unknown): string => {
-    const content = extractPipelineContent(val);
-    if (content === null || content === undefined) return "";
-    if (typeof content === "string") return content;
-    if (typeof content === "object" && !Array.isArray(content)) {
-      const obj = content as any;
-      if (typeof obj.question === "string" && "value" in obj) {
-        const answer =
-          obj.value === undefined || obj.value === null
-            ? ""
-            : typeof obj.value === "string"
-              ? obj.value
-              : JSON.stringify(obj.value);
-        return answer;
-      }
-      if (typeof obj.prompt === "string") return obj.prompt;
-      if (typeof obj.content === "string") return obj.content;
-      if (typeof obj.text === "string") return obj.text;
-      if (typeof obj.message === "string") return obj.message;
-      if (typeof obj.value === "string") return obj.value;
-      try {
-        return JSON.stringify(content);
-      } catch {
-        return String(content);
-      }
-    }
-    if (Array.isArray(content)) {
-      return content.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(" ");
-    }
-    return String(content);
+    return safeToString(extractPipelineContent(val));
   };
 
   let prompt: string | undefined;
@@ -348,15 +425,21 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   const messages = inboundMessages;
 
   // Server-side enforced system prompt: env + output format rules always work together
-  const outputFormatRules = `CRITICAL - Output format:
-- Respond with plain text or markdown only. Your first character must be the start of the actual content (a letter, number, or markdown).
-- Never wrap your response in JSON (e.g. {"response": "..."} or {"answer": "..."}) unless the user explicitly asks for JSON.
-- Never wrap your response in code blocks (\`\`\`) unless the user explicitly asked for code.
-- Output the requested content directly so it displays correctly in the workflow.`;
+  const outputFormatRules = `CRITICAL - Output format rules (you MUST follow these):
+1. Respond ONLY with plain text or markdown. Start your response with the actual content immediately.
+2. NEVER wrap your response in JSON like {"response": "..."}, {"answer": "..."}, {"result": "..."}, or any object/array structure — unless the user's prompt EXPLICITLY asks for JSON output.
+3. NEVER wrap your response in code blocks (\`\`\`) unless the user EXPLICITLY asked for code.
+4. NEVER prefix your response with labels like "Response:", "Answer:", "Output:", "Here is", "Sure!", etc.
+5. If the user asks you to write an email, letter, or document — output the content directly, not wrapped in any structure.
+6. Output EXACTLY the requested content so it displays correctly in the workflow pipeline. Nothing more, nothing less.`;
 
-  const basePrompt = `You are a helpful AI assistant running in Edgaze workflows. Be concise, accurate, and follow user instructions carefully.
+  const basePrompt = `You are a precise AI assistant running inside an automated Edgaze workflow pipeline. Your output is displayed directly to end users — it must be clean, complete, and ready to use.
 
-Do not echo or repeat the input values in your response. Just provide the requested output directly.`;
+Rules:
+- Be concise and accurate. Follow user instructions exactly.
+- Do not echo, repeat, or summarize the input values. Just produce the requested output.
+- Do not add commentary about what you're doing. Just output the result.
+- If the input is unclear or empty, produce the best output you can from the context available.`;
 
   const serverSystemPrompt = process.env.EDGAZE_SERVER_SYSTEM_PROMPT
     ? `${process.env.EDGAZE_SERVER_SYSTEM_PROMPT.trim()}\n\n${basePrompt}\n\n${outputFormatRules}`
@@ -508,20 +591,10 @@ Do not echo or repeat the input values in your response. Just provide the reques
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content ?? "";
 
-    // Store result with content and usage only (no finish_reason in run modal)
-    const result = {
-      content,
-      model: data.model,
-      usage: data.usage,
-    };
-
-    // Set output - downstream nodes can access both the full object and extract content easily
-    // The getInboundValues will pass this object, and nodes can extract .content if needed
-    ctx.setNodeOutput(node.id, result);
-
-    // Also store content separately for easier access (nodes can check for both)
-    // This ensures backward compatibility and makes data flow smoother
-    return result;
+    // Always output the clean content string — downstream nodes and the final display
+    // need a usable string, not a wrapper object. Usage metadata is tracked in traces.
+    ctx.setNodeOutput(node.id, content);
+    return content;
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === "AbortError") {
@@ -1178,7 +1251,7 @@ const templateHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtime
   }
   const result = String(template).replace(/\{\{(\w+)\}\}/g, (_, key) => {
     const val = data[key];
-    return val === undefined || val === null ? "" : String(val);
+    return val === undefined || val === null ? "" : safeToString(val);
   });
   ctx.setNodeOutput(node.id, result);
   return result;
@@ -1204,7 +1277,7 @@ const mapHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeConte
     };
     return String(template).replace(/\{\{(\w+)\}\}/g, (_, key) => {
       const val = data[key];
-      return val === undefined || val === null ? "" : String(val);
+      return val === undefined || val === null ? "" : safeToString(val);
     });
   });
   ctx.setNodeOutput(node.id, result);

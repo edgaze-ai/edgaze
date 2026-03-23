@@ -2141,7 +2141,11 @@ export default function PromptProductPage() {
       setWorkflowRunState({
         ...workflowRunState,
         phase: "output",
-        status: executionResult.workflowStatus === "completed" ? "success" : "error",
+        status:
+          executionResult.workflowStatus === "completed" ||
+          executionResult.workflowStatus === "completed_with_skips"
+            ? "success"
+            : "error",
         steps,
         logs,
         outputs,

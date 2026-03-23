@@ -48,7 +48,15 @@ function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
       if ((indeg.get(v) ?? 0) === 0) q.push(v);
     }
   }
-  return order.length === nodes.length ? order : nodes.map((n) => n.id);
+  if (order.length !== nodes.length) {
+    const cycleNodes = nodes.filter((n) => !order.includes(n.id)).map((n) => n.id);
+    throw new Error(
+      `Workflow contains a cycle involving node(s): ${cycleNodes.join(", ")}. ` +
+        `Please remove circular connections and try again.`,
+    );
+  }
+
+  return order;
 }
 
 import {
@@ -322,7 +330,17 @@ export async function runFlow(
   });
 
   const poolManager = createResourcePoolManager();
-  const circuitBreaker = new RunCircuitBreaker(5);
+  const runBreaker = new RunCircuitBreaker(8); // Global safety: stop entire run after 8 total failures
+  const nodeBreakers = new Map<string, RunCircuitBreaker>(); // Per-node: stop retrying one node after 3 failures
+
+  const getNodeBreaker = (nodeId: string): RunCircuitBreaker => {
+    let breaker = nodeBreakers.get(nodeId);
+    if (!breaker) {
+      breaker = new RunCircuitBreaker(3);
+      nodeBreakers.set(nodeId, breaker);
+    }
+    return breaker;
+  };
 
   const runNode = async (nodeId: string) => {
     const node = nodeById.get(nodeId);
@@ -333,7 +351,7 @@ export async function runFlow(
     const resourceClass = getResourceClass(specId);
     await poolManager.acquire(resourceClass);
     try {
-      return await runNodeInner(nodeId, node, specId, circuitBreaker);
+      return await runNodeInner(nodeId, node, specId, getNodeBreaker(nodeId), runBreaker);
     } finally {
       poolManager.release(resourceClass);
     }
@@ -343,7 +361,8 @@ export async function runFlow(
     nodeId: string,
     node: GraphNode,
     specId: string,
-    circuitBreaker: RunCircuitBreaker,
+    nodeBreaker: RunCircuitBreaker,
+    runBreaker: RunCircuitBreaker,
   ) => {
     const nodeTitle = node.data?.title;
     const ts = Date.now();
@@ -355,7 +374,10 @@ export async function runFlow(
 
     const handler: NodeRuntimeHandler | undefined = runtimeRegistry[specId];
     const config = node.data?.config ?? {};
-    const timeoutMs = Number(config.timeout ?? 0);
+    const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes — no node should run unbounded
+    const configTimeout = Number(config.timeout ?? 0);
+    const timeoutMs =
+      configTimeout > 0 && !Number.isNaN(configTimeout) ? configTimeout : DEFAULT_TIMEOUT_MS;
     const hasSideEffects = nodeHasSideEffects(specId, config);
     const retries = hasSideEffects
       ? typeof config.retries === "number"
@@ -376,15 +398,20 @@ export async function runFlow(
     };
 
     const execWithTimeout = async (): Promise<void> => {
-      if (!timeoutMs || Number.isNaN(timeoutMs) || timeoutMs <= 0) {
-        return runOnce();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          runOnce(),
+          new Promise<never>((_r, rej) => {
+            timer = setTimeout(
+              () => rej(new Error(`Node "${specId}" timed out after ${timeoutMs}ms`)),
+              timeoutMs,
+            );
+          }),
+        ]);
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
       }
-      return Promise.race([
-        runOnce(),
-        new Promise<void>((_r, rej) => {
-          setTimeout(() => rej(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs);
-        }),
-      ]);
     };
 
     const failurePolicy = getFailurePolicy(node);
@@ -417,11 +444,12 @@ export async function runFlow(
           });
           return;
         }
-        circuitBreaker.recordFailure();
+        nodeBreaker.recordFailure();
+        runBreaker.recordFailure();
         attempt += 1;
         nodeTraceData.get(nodeId)!.retries = attempt;
         const decision = shouldRetry(err, attempt, retries, undefined);
-        if (!decision.retry || circuitBreaker.isOpen()) {
+        if (!decision.retry || nodeBreaker.isOpen() || runBreaker.isOpen()) {
           throw err;
         }
         logs.push({
@@ -435,6 +463,10 @@ export async function runFlow(
         await new Promise((r) => setTimeout(r, decision.delayMs));
       }
     }
+
+    // Record success: reduce circuit breaker pressure
+    nodeBreaker.recordSuccess();
+    runBreaker.recordSuccess();
 
     state.setNodeStatus(nodeId, "success");
     const doneTs = Date.now();
@@ -459,8 +491,10 @@ export async function runFlow(
   while (ready.length > 0 && !shouldStop) {
     const batch = ready.splice(0, ready.length);
 
-    await Promise.all(
+    await Promise.allSettled(
       batch.map(async (nodeId) => {
+        if (shouldStop) return;
+
         try {
           await runNode(nodeId);
         } catch (err: any) {
@@ -502,16 +536,32 @@ export async function runFlow(
             shouldStop = true;
           }
         } finally {
-          const policy = getFailurePolicy(nodeById.get(nodeId) ?? { data: {} });
-          const skipDownstream = policy === "skip_downstream" || policy === "fail_fast";
+          const node = nodeById.get(nodeId);
+          const policy = getFailurePolicy(node ?? { data: {} });
           const downstream = outboundByNode.get(nodeId) ?? [];
           const nodeFailed = state.getSnapshot().nodeStatus[nodeId] === "failed";
 
-          if (!skipDownstream || !nodeFailed) {
+          // Only block downstream propagation for explicit skip/fail policies on failure
+          // "continue" policy MUST propagate to downstream even on failure
+          const blockDownstream =
+            nodeFailed && (policy === "skip_downstream" || policy === "fail_fast");
+
+          if (!blockDownstream) {
             downstream.forEach((v) => {
               indeg.set(v, (indeg.get(v) ?? 0) - 1);
               tryMarkReady(v, ready, indeg);
             });
+          } else if (nodeFailed && policy === "skip_downstream") {
+            // Mark all downstream as skipped so they don't hang as "idle"
+            const markSkipped = (nid: string, visited = new Set<string>()) => {
+              if (visited.has(nid)) return;
+              visited.add(nid);
+              state.setNodeStatus(nid, "skipped");
+              for (const child of outboundByNode.get(nid) ?? []) {
+                markSkipped(child, visited);
+              }
+            };
+            downstream.forEach((v) => markSkipped(v));
           }
         }
       }),
@@ -520,10 +570,29 @@ export async function runFlow(
 
   const snapshot = state.getSnapshot();
 
+  // Detect stuck nodes: any node still "idle" or "ready" after execution loop means
+  // the dependency graph had an issue (should have been caught by cycle detection,
+  // but this is a safety net)
+  const stuckNodes = Object.entries(snapshot.nodeStatus).filter(
+    ([, s]) => s === "idle" || s === "ready",
+  );
+  if (stuckNodes.length > 0) {
+    for (const [stuckId] of stuckNodes) {
+      state.setNodeStatus(stuckId, "skipped");
+      const stuckNode = nodeById.get(stuckId);
+      logs.push({
+        type: "warn",
+        nodeId: stuckId,
+        specId: stuckNode?.data?.specId ?? "unknown",
+        timestamp: Date.now(),
+        message: `Node "${stuckNode?.data?.specId ?? stuckId}" was never reached — likely blocked by an upstream failure or condition.`,
+      });
+    }
+  }
+
   // Only Output nodes can be "final" for display. Sink nodes like Merge are never shown as workflow output.
   const outputNodes = nodes.filter((n) => n.data?.specId === "output");
 
-  // Processing nodes: produce real output (LLM, API, etc). Input/Merge are passthrough.
   const PROCESSING_SPECS = new Set([
     "openai-chat",
     "openai-embeddings",
@@ -544,13 +613,13 @@ export async function runFlow(
     return false;
   };
 
-  // Only include Output nodes that have processing upstream (exclude passthrough: Input/Merge only)
   const meaningfulFinals = outputNodes.filter((n) => hasProcessingUpstream(n.id));
 
-  const hasFailure = Object.values(snapshot.nodeStatus).some(
+  const finalSnapshot = state.getSnapshot();
+  const hasFailure = Object.values(finalSnapshot.nodeStatus).some(
     (s) => s === "failed" || s === "timeout",
   );
-  const hasBlocked = blockedNodes.length > 0;
+  const hasBlocked = blockedNodes.length > 0 || stuckNodes.length > 0;
   if (hasFailure) {
     state.setWorkflowStatus("failed");
   } else if (hasBlocked) {
@@ -560,13 +629,13 @@ export async function runFlow(
   }
 
   return {
-    outputsByNode: snapshot.outputsByNode,
+    outputsByNode: finalSnapshot.outputsByNode,
     finalOutputs: meaningfulFinals.map((n) => ({
       nodeId: n.id,
-      value: snapshot.outputsByNode[n.id],
+      value: finalSnapshot.outputsByNode[n.id],
     })),
     logs,
-    nodeStatus: snapshot.nodeStatus,
+    nodeStatus: state.getSnapshot().nodeStatus,
     workflowStatus: state.getSnapshot().workflowStatus,
     blockedNodes: hasBlocked ? blockedNodes : undefined,
     blockedReasons: hasBlocked ? blockedReasons : undefined,
