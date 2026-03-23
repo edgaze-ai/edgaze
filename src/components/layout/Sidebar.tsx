@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 
 import { useSidebar } from "./SidebarContext";
-import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import { useAuth } from "../auth/AuthContext";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
@@ -141,52 +140,58 @@ export default function Sidebar() {
 
         {/* ACCOUNT CHIP (expanded only) */}
         {!collapsed && (
-          <div className="rounded-xl border border-gray-600/50 bg-white/5 px-3 py-2.5">
+          <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset] px-3.5 py-3">
             {loading ? (
-              <div className="text-xs text-white/60">Loading account…</div>
-            ) : userId && profile ? (
               <div className="flex items-center gap-3">
+                <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/10" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-24 rounded bg-white/10" />
+                  <div className="h-3 w-16 rounded bg-white/5" />
+                </div>
+              </div>
+            ) : userId && profile ? (
+              <div className="flex items-center gap-3 min-w-0">
                 <ProfileAvatar
                   name={displayName}
                   avatarUrl={profile?.avatar_url || null}
-                  size={32}
+                  size={36}
                   handle={profile?.handle}
                   userId={userId}
                 />
 
-                <div className="flex flex-1 flex-col min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+                  <div className="flex min-w-0 items-center gap-2 overflow-hidden">
                     <ProfileLink
                       name={displayName}
                       handle={profile?.handle}
                       userId={userId}
-                      showBadge={true}
-                      badgeSize="md"
-                      className="min-w-0 truncate text-xs font-medium text-white/90"
+                      showBadge={false}
+                      linkClassName="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
+                      className="truncate text-[13px] font-semibold text-white/95"
                     />
                   </div>
-                  <span className="text-[11px] text-white/50">{planLabel}</span>
+                  <span className="truncate text-[11px] text-white/50">{planLabel}</span>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => signOut()}
-                  className="text-[11px] text-white/60 hover:text-white"
+                  className="shrink-0 rounded-lg border border-white/12 bg-white/[0.04] px-3 py-2 text-[11px] font-medium text-white/70 transition-all duration-200 hover:bg-white/[0.08] hover:border-white/20 hover:text-white/90 active:scale-[0.98]"
                 >
                   Sign out
                 </button>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium text-white/90">Not signed in</span>
-                  <span className="text-[11px] text-white/50">Sign in to save and publish</span>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+                  <span className="truncate text-[13px] font-semibold text-white/95">Not signed in</span>
+                  <span className="truncate text-[11px] text-white/50">Sign in to save and publish</span>
                 </div>
 
                 <button
                   type="button"
                   onClick={openSignIn}
-                  className="rounded-xl border border-white/14 bg-black/40 px-3 py-1.5 text-[11px] text-white/80 hover:bg-black/60"
+                  className="shrink-0 whitespace-nowrap rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-[12px] font-semibold text-white/95 transition-all duration-200 hover:bg-white/15 hover:border-white/25 active:scale-[0.98]"
                 >
                   Sign in
                 </button>

@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Apply",
+  title: "Beta",
   description:
-    "Join the Edgaze marketplace. Create and sell AI prompts and workflows. One link to share, one tap to run.",
+    "Join the Edgaze beta.",
   openGraph: {
-    title: "Apply | Edgaze",
+    title: "Beta | Edgaze",
     description:
-      "Join the Edgaze marketplace. Create and sell AI prompts and workflows. One link to share, one tap to run.",
+      "Join the Edgaze beta.",
     url: "https://edgaze.ai/apply",
     images: ["/og.png"],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Apply | Edgaze",
+    title: "Beta | Edgaze",
     description:
-      "Join the Edgaze marketplace. Create and sell AI prompts and workflows. One link to share, one tap to run.",
+      "Join the Edgaze beta.",
     images: ["/og.png"],
   },
 };

@@ -1766,7 +1766,17 @@ export default function PromptProductPage() {
       return;
     }
 
-    if (isOwned) {
+    // Re-check ownership right before acting (prevents stale `purchase` state
+    // during auto-trigger after auth redirect).
+    let isOwnedNow = isOwned || isOwner;
+    if (!isOwner && userId) {
+      const uid = userId;
+      const row = await loadPurchaseRow(listing.id, uid);
+      setPurchase(row);
+      isOwnedNow = Boolean(row && (row.status === "paid" || row.status === "beta"));
+    }
+
+    if (isOwnedNow) {
       safeTrack("Run Button Clicked", {
         surface: "product_page",
         listing_id: listing.id,
@@ -2054,9 +2064,21 @@ export default function PromptProductPage() {
       const deviceFingerprint =
         !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
 
+      // Signed-in users must send Bearer token - API uses getUserFromRequest (Bearer only)
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (userId) {
+        let token = await getAccessToken();
+        if (!token) {
+          await refreshAuthSession();
+          token = await getAccessToken();
+        }
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch("/api/flow/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
+        credentials: "include",
         body: JSON.stringify({
           workflowId: listing.id,
           nodes: workflowGraph.nodes || [],

@@ -216,25 +216,25 @@ export default function MarketplaceFiltersBar({
 
   // Keep inactive chips softly boxed in grey, but with more readable text.
   const pillInactive =
-    "bg-zinc-900/75 border border-zinc-800 text-zinc-300 hover:bg-zinc-900 hover:border-zinc-700 hover:text-zinc-100";
+    "bg-zinc-900/35 border border-zinc-800/60 text-zinc-300 hover:bg-zinc-900/50 hover:border-zinc-700/70 hover:text-zinc-100";
   // Darker active state so the selection feels more intentional.
   const pillActive =
-    "bg-zinc-800/95 border border-zinc-600 text-zinc-100 ring-1 ring-zinc-500/25 shadow-sm";
+    "bg-white text-black border border-transparent hover:bg-white/95 hover:border-transparent";
 
   return (
-    <section className="relative z-[70] mb-4">
-      <div className="rounded-lg border border-zinc-800/60 bg-zinc-950/90 backdrop-blur-xl overflow-hidden">
-        <div className="flex items-center px-3 py-2 sm:px-4 sm:py-2" style={{ minHeight: 0 }}>
+    <section className="relative z-[10] mb-3">
+      <div className="rounded-xl bg-zinc-950/35 backdrop-blur-xl overflow-hidden">
+        <div className="flex items-center px-2 py-1 sm:px-3 sm:py-1" style={{ minHeight: 0 }}>
           {/* Scroll container — compact 25% smaller, more topics fit */}
           <div
             className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth flex items-center"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            <div className="flex flex-nowrap items-center gap-2 sm:gap-2.5 min-w-max">
+            <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-max">
               {/* Sort */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-zinc-600 shrink-0" />
-                <span className="text-[10px] font-semibold tracking-[0.08em] text-zinc-600 uppercase hidden sm:inline">
+              <div className="hidden flex items-center gap-1.5 shrink-0">
+                <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-zinc-600 shrink-0" />
+                <span className="text-[7.5px] font-semibold tracking-[0.08em] text-zinc-600 uppercase hidden sm:inline">
                   Sort
                 </span>
               </div>
@@ -248,13 +248,13 @@ export default function MarketplaceFiltersBar({
                       type="button"
                       onClick={() => updateFilters({ sort: opt.value })}
                       className={cn(
-                        "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-[11px] font-medium transition-all duration-200 border",
+                        "inline-flex shrink-0 items-center gap-0 rounded-md h-6 px-2 text-[8.25px] font-medium transition-all duration-200 border leading-none",
                         active ? pillActive : pillInactive,
                       )}
                     >
                       <Icon
                         className={cn(
-                          "h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0",
+                          "hidden h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0",
                           active ? "text-zinc-300" : "text-zinc-600",
                         )}
                       />
@@ -264,10 +264,10 @@ export default function MarketplaceFiltersBar({
                 })}
               </div>
               {/* Divider */}
-              <div className="h-4 w-px bg-zinc-800/50 shrink-0 mx-1" aria-hidden />
+              <div className="hidden h-4 w-px bg-zinc-800/50 shrink-0 mx-1" aria-hidden />
               {/* Topics */}
-              <div className="flex items-center gap-1.5 shrink-0 min-w-0">
-                <Tag className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-zinc-600 shrink-0" />
+              <div className="hidden flex items-center gap-1.5 shrink-0 min-w-0">
+                <Tag className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-zinc-600 shrink-0" />
                 <span className="text-[10px] font-semibold tracking-[0.08em] text-zinc-600 uppercase hidden lg:inline shrink-0">
                   Topics
                 </span>
@@ -277,7 +277,7 @@ export default function MarketplaceFiltersBar({
                   (topicScrollRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
                   (topicMeasureRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
                 }}
-                className="flex gap-1.5 sm:gap-2 min-w-max shrink-0"
+                className="flex gap-1.5 min-w-max shrink-0"
               >
                 {TOPIC_OPTIONS.map((t) => {
                   const isAll = t === "All";
@@ -288,8 +288,8 @@ export default function MarketplaceFiltersBar({
                       type="button"
                       onClick={() => setTopic(t)}
                       className={cn(
-                        "shrink-0 rounded-md border font-medium transition-all duration-200",
-                        "text-[10px] sm:text-[11px] px-2.5 py-1.5 sm:px-3 sm:py-1.5",
+                        "shrink-0 rounded-md border font-medium transition-all duration-200 h-6 leading-none",
+                        "text-[7.5px] px-2",
                         selected ? pillActive : pillInactive,
                       )}
                     >
@@ -366,19 +366,20 @@ export default function MarketplaceFiltersBar({
             </div>
           </div>
           {/* Filters — fixed to the right */}
-          <div className="shrink-0 border-l border-zinc-800/50 pl-2 pr-3 sm:pr-4 py-2 sm:py-2">
+          <div className="shrink-0 pl-1 pr-1 py-1">
             <button
               type="button"
               onClick={() => setCustomOpen((o) => !o)}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 sm:px-3 sm:py-1.5 text-[10px] sm:text-[11px] font-medium transition-all duration-200 border",
-                customOpen || activeFilterCount > 0 ? pillActive : pillInactive,
+                "inline-flex items-center gap-1 rounded-md h-6 px-1.5 text-[7.5px] font-medium transition-all duration-200 border leading-none",
+                // Always keep the Filters control white to match the premium chip style.
+                pillActive,
               )}
             >
-              <SlidersHorizontal className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+              <SlidersHorizontal className="hidden h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
               <span className="whitespace-nowrap hidden sm:inline">Filters</span>
               {activeFilterCount > 0 && (
-                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-zinc-600 px-1 text-[9px] font-bold text-zinc-200">
+                <span className="flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-zinc-600 px-0.5 text-[9px] font-bold text-zinc-200">
                   {activeFilterCount}
                 </span>
               )}

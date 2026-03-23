@@ -1535,7 +1535,7 @@ export default function MarketplacePage() {
   const [codeSugLoading, setCodeSugLoading] = useState(false);
 
   const [filters, setFilters] = useState<MarketplaceFilters>({
-    sort: "newest",
+    sort: "popular",
     topic: null,
     contentType: "all",
     priceRange: { min: null, max: null },

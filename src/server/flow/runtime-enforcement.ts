@@ -54,8 +54,12 @@ export async function enforceRuntimeLimits(params: {
       : FREE_BETA_RUNS;
 
   try {
-    // For anonymous demo users, allow the run and use Edgaze key
-    if (userId === "anonymous_demo_user" || isDemo) {
+    // Demo users bypass enforcement entirely - no DB lookups needed
+    if (
+      userId === "anonymous_demo_user" ||
+      userId === "admin_demo_user" ||
+      isDemo
+    ) {
       const premiumNodeSpecs = ["openai-chat", "openai-embeddings", "openai-image", "http-request"];
       const premiumNodes = nodes.filter((n) => premiumNodeSpecs.includes(n.data?.specId ?? ""));
       const shouldUseEdgazeKey = hasEdgazeApiKey() && premiumNodes.length > 0;
@@ -193,12 +197,14 @@ export async function enforceRuntimeLimits(params: {
       useEdgazeKey: false, // After free runs, user must provide their own keys
     };
   } catch (err: any) {
+    const msg = err?.message ?? String(err) ?? "Unknown error";
+    console.error("[RuntimeEnforcement] Check failed:", msg, { userId, workflowId });
     return {
       allowed: false,
       requiresApiKeys: [],
       freeRunsRemaining: 0,
       useEdgazeKey: false,
-      error: `Enforcement check failed: ${err?.message ?? "Unknown error"}`,
+      error: "Unable to verify run limits. Please sign in and try again, or try the one-time demo.",
     };
   }
 }

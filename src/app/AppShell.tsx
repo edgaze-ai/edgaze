@@ -7,7 +7,14 @@ import dynamic from "next/dynamic";
 // Lazy load heavy components for better initial performance
 const Sidebar = dynamic(() => import("../components/layout/Sidebar"), {
   ssr: false,
-  loading: () => <div className="w-[300px] bg-[#0b0b0b] border-r border-white/10" />,
+  // Match desktop sidebar default "collapsed" width to avoid a transition blink
+  // when navigating to routes where the sidebar mounts.
+  loading: () => (
+    <div
+      className="w-[76px] bg-[#0b0b0b] border-r border-white/10 transition-[width] duration-250 ease-out"
+      aria-hidden
+    />
+  ),
 });
 
 const MobileTopbar = dynamic(() => import("../components/layout/MobileTopbar"), {

@@ -11,6 +11,7 @@ type ProfileLinkProps = {
   userId?: string | null;
   href?: string | null;
   className?: string;
+  linkClassName?: string;
   showBadge?: boolean;
   badgeSize?: "xs" | "sm" | "md" | "lg";
   badgeCompact?: boolean;
@@ -24,6 +25,7 @@ export default function ProfileLink({
   userId,
   href,
   className,
+  linkClassName,
   showBadge = false,
   badgeSize = "sm",
   badgeCompact = false,
@@ -39,20 +41,25 @@ export default function ProfileLink({
 
   const content = (
     <>
-      {children || <span className={cn("min-w-0 truncate", className)}>{name || "Creator"}</span>}
+      {children || (
+        <span className={cn("min-w-0 truncate", showBadge && "flex-1", className)}>
+          {name || "Creator"}
+        </span>
+      )}
       {showBadge && (
         <FoundingCreatorBadge size={badgeSize} compact={badgeCompact} className="shrink-0" />
       )}
     </>
   );
 
+  const linkClasses = cn(
+    "cursor-pointer hover:opacity-80 transition-opacity",
+    linkClassName,
+  );
+
   if (onClick) {
     return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="cursor-pointer hover:opacity-80 transition-opacity"
-      >
+      <button type="button" onClick={onClick} className={linkClasses}>
         {content}
       </button>
     );
@@ -60,7 +67,7 @@ export default function ProfileLink({
 
   if (profileHref) {
     return (
-      <Link href={profileHref} className="cursor-pointer hover:opacity-80 transition-opacity">
+      <Link href={profileHref} className={linkClasses}>
         {content}
       </Link>
     );

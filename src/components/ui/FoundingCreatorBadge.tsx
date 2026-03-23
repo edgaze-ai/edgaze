@@ -13,15 +13,15 @@ const baseStyles = [
   "bg-white/5",
   "border border-white/10",
   "text-cyan-300",
-  "px-2 py-[1px]",
-  "text-xs font-medium leading-tight",
+  "px-1.5 py-[1px]",
+  "text-[10px] font-medium leading-tight",
 ].join(" ");
 
 const sizeClasses: Record<Size, string> = {
-  xs: "text-[10px] px-1.5 py-[1px]",
-  sm: "text-[11px] px-2 py-[1px]",
-  md: "text-xs px-2 py-[1px]",
-  lg: "text-xs px-2.5 py-[1px]",
+  xs: "text-[9px] px-1 py-[0.5px]",
+  sm: "text-[9px] px-1.5 py-[1px]",
+  md: "text-[10px] px-1.5 py-[1px]",
+  lg: "text-[10px] px-2 py-[1px]",
 };
 
 /** Compact (pill): subtle glass with tighter padding */
@@ -30,7 +30,8 @@ const compactStyles = [
   "bg-white/5",
   "border border-white/10",
   "text-cyan-300",
-  "px-1.5 py-[1px]",
+  "px-1 py-[0.5px]",
+  "text-[9px]",
 ].join(" ");
 
 /**

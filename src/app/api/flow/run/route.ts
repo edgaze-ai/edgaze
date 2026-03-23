@@ -18,6 +18,7 @@ import {
   getWorkflowVersionById,
 } from "@lib/supabase/workflow-versions";
 import { getEdgazeApiKey } from "@lib/workflow/edgaze-api-key";
+import { simplifyWorkflowError } from "@lib/workflow/simplify-error";
 import type { GraphPayload } from "src/server/flow/types";
 import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
@@ -555,7 +556,7 @@ export async function POST(req: Request) {
             write({
               type: "complete",
               ok: false,
-              error: err?.message || "Unknown error",
+              error: simplifyWorkflowError(err?.message || "Unknown error"),
               freeRunsRemaining: updatedFreeRunsRemaining,
               runId,
             });
@@ -751,7 +752,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error: redactSecrets(errorMessage) as string,
+          error: simplifyWorkflowError(redactSecrets(errorMessage) as string),
           runId,
           freeRunsRemaining: updatedFreeRunsRemaining,
         },
@@ -760,7 +761,10 @@ export async function POST(req: Request) {
     }
   } catch (e: any) {
     return NextResponse.json(
-      { ok: false, error: redactSecrets(e?.message || "Unknown error") as string },
+      {
+        ok: false,
+        error: simplifyWorkflowError(redactSecrets(e?.message || "Unknown error") as string),
+      },
       { status: 500 },
     );
   }

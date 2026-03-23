@@ -347,10 +347,20 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     typeof config.system === "string" ? config.system.trim() || undefined : undefined;
   const messages = inboundMessages;
 
-  // Server-side enforced system prompt (from env or default)
-  const serverSystemPrompt =
-    process.env.EDGAZE_SERVER_SYSTEM_PROMPT ||
-    "You are a helpful AI assistant running in Edgaze workflows. Be concise, accurate, and follow user instructions carefully.\n\nDo not echo or repeat the input values in your response. Just provide the requested output directly.";
+  // Server-side enforced system prompt: env + output format rules always work together
+  const outputFormatRules = `CRITICAL - Output format:
+- Respond with plain text or markdown only. Your first character must be the start of the actual content (a letter, number, or markdown).
+- Never wrap your response in JSON (e.g. {"response": "..."} or {"answer": "..."}) unless the user explicitly asks for JSON.
+- Never wrap your response in code blocks (\`\`\`) unless the user explicitly asked for code.
+- Output the requested content directly so it displays correctly in the workflow.`;
+
+  const basePrompt = `You are a helpful AI assistant running in Edgaze workflows. Be concise, accurate, and follow user instructions carefully.
+
+Do not echo or repeat the input values in your response. Just provide the requested output directly.`;
+
+  const serverSystemPrompt = process.env.EDGAZE_SERVER_SYSTEM_PROMPT
+    ? `${process.env.EDGAZE_SERVER_SYSTEM_PROMPT.trim()}\n\n${basePrompt}\n\n${outputFormatRules}`
+    : `${basePrompt}\n\n${outputFormatRules}`;
 
   // Combine server system prompt with user's system prompt (server first, then user)
   const system = userSystem

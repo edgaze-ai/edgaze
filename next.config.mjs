@@ -72,54 +72,27 @@ const nextConfig = (() => {
         },
       ];
     },
-    // Headers for performance
+    // Headers for performance (skip aggressive caching in dev so you see changes immediately)
     async headers() {
-      return [
+      const isDev = process.env.NODE_ENV === 'development';
+      const headers = [
         {
           source: '/:path*',
           headers: [
-            {
-              key: 'X-DNS-Prefetch-Control',
-              value: 'on'
-            },
-            {
-              key: 'X-Frame-Options',
-              value: 'SAMEORIGIN'
-            },
-            {
-              key: 'X-Content-Type-Options',
-              value: 'nosniff'
-            },
-          ],
-        },
-        {
-          source: '/:path*\\.(jpg|jpeg|png|gif|ico|svg|webp|avif)',
-          headers: [
-            {
-              key: 'Cache-Control',
-              value: 'public, max-age=31536000, immutable',
-            },
-          ],
-        },
-        {
-          source: '/:path*\\.(js|css|woff|woff2|ttf|otf)',
-          headers: [
-            {
-              key: 'Cache-Control',
-              value: 'public, max-age=31536000, immutable',
-            },
-          ],
-        },
-        {
-          source: '/brand/:path*',
-          headers: [
-            {
-              key: 'Cache-Control',
-              value: 'public, max-age=31536000, immutable',
-            },
+            { key: 'X-DNS-Prefetch-Control', value: 'on' },
+            { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+            { key: 'X-Content-Type-Options', value: 'nosniff' },
           ],
         },
       ];
+      if (!isDev) {
+        headers.push(
+          { source: '/:path*\\.(jpg|jpeg|png|gif|ico|svg|webp|avif)', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
+          { source: '/:path*\\.(js|css|woff|woff2|ttf|otf)', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
+          { source: '/brand/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] }
+        );
+      }
+      return headers;
     },
   };
 })();

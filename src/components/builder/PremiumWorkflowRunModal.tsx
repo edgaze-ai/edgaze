@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { cx } from "../../lib/cx";
 import { track } from "../../lib/mixpanel";
+import { simplifyWorkflowError } from "../../lib/workflow/simplify-error";
 import { WorkflowInputField } from "./WorkflowInputField";
 import RunCountDiagnosticModal from "./RunCountDiagnosticModal";
 
@@ -118,66 +119,6 @@ function humanReadableStep(specId: string, nodeTitle?: string): string {
   return map[specId] || `Executing ${title}`;
 }
 
-/** Human-friendly message for workflow/OpenAI errors. Used for all user-facing error text. */
-function simplifyError(error: string): string {
-  const e = error.trim();
-  // Image / limit verification – keep full message so user knows the cause
-  if (
-    e.includes("Image limit check") ||
-    e.includes("image generation limits") ||
-    e.includes("Unable to verify image generation")
-  ) {
-    return e;
-  }
-  // OpenAI / API key
-  if (/invalid.*api.*key|incorrect API key|401|authentication/i.test(e)) {
-    return "The API key is invalid or expired. Check your key in the run modal or in the node settings.";
-  }
-  if (e.includes("API key required") || e.includes("API key is required")) {
-    return "An API key is needed to run this workflow. Please add your API key in the run modal.";
-  }
-  // Rate limits
-  if (/rate limit|429|too many requests/i.test(e)) {
-    return "Too many requests right now. Wait a moment and try again.";
-  }
-  // Context / token limits
-  if (/token limit|context length|maximum context length|context_length_exceeded/i.test(e)) {
-    return "The input or output is too long for this step. Try shorter text or fewer items.";
-  }
-  if (e.includes("Token limit exceeded")) {
-    return "The workflow uses too many tokens. Try reducing the size of your inputs or prompts.";
-  }
-  // Content / safety
-  if (/content filter|content_policy|safety/i.test(e)) {
-    return "The content was blocked by safety filters. Try rephrasing or using different input.";
-  }
-  // Model / request
-  if (/invalid_request|invalid request|model.*not found|404/i.test(e)) {
-    return "The request to the AI service was invalid. Check that the model name and settings are correct.";
-  }
-  if (e.includes("Prompt or messages array required")) {
-    return "The AI chat node needs a prompt or message. Connect an input node and make sure it has a value.";
-  }
-  // Server / timeout
-  if (/timeout|timed out|ETIMEDOUT/i.test(e)) {
-    return "The request took too long. Try again or simplify the workflow.";
-  }
-  if (/500|server error|internal error/i.test(e)) {
-    return "The AI service had a temporary problem. Try again in a moment.";
-  }
-  // Workflow / nodes
-  if (e.includes("Invalid node transition")) {
-    return "A step in the workflow failed unexpectedly. Check that all required inputs are connected.";
-  }
-  if (e.includes("free runs") || e.includes("5 free runs")) {
-    return "You've used all your free demo runs. Add your API key or purchase to continue.";
-  }
-  // Fallback: first sentence, no "Error:" prefix, cap length
-  const cleaned = e.replace(/^Error:\s*/i, "").trim();
-  const first = cleaned.split(/[.!?]/)[0]?.trim() || cleaned;
-  return first.length > 140 ? first.slice(0, 137) + "…" : first;
-}
-
 /** Human-friendly title: remove tech, trim, limit. Fallback "Next step". */
 function humanizeTitle(title?: string): string {
   if (!title || typeof title !== "string") return "Next step";
@@ -204,9 +145,9 @@ function toVerb(title: string): string {
 }
 
 /** User-facing error text: human-friendly, no technical jargon. */
-function sanitizeErrorForDisplay(error?: string): string {
-  if (!error || typeof error !== "string") return "Try again in a moment.";
-  return simplifyError(error);
+function sanitizeErrorForDisplay(error?: string | unknown): string {
+  if (!error) return "Something went wrong. Try again.";
+  return simplifyWorkflowError(error);
 }
 
 function getFailedNodeIds(state: WorkflowRunState | null): Set<string> {
@@ -420,15 +361,14 @@ function extractOpenAIDisplayContent(
   if (value === null || value === undefined) return null;
   const v = value as Record<string, unknown>;
 
-  // choices[0].message.content (string or array of parts)
-  if (
-    Array.isArray(v?.choices) &&
-    v.choices[0] &&
-    typeof (v.choices[0] as any)?.message === "object"
-  ) {
-    const msg = (v.choices[0] as any).message;
-    const content = msg?.content;
+  // choices[0].message.content or choices[0].text (OpenAI / Anthropic-style)
+  if (Array.isArray(v?.choices) && v.choices[0]) {
+    const c0 = v.choices[0] as Record<string, unknown>;
+    const msg = c0?.message;
+    const content = msg && typeof msg === "object" ? (msg as Record<string, unknown>).content : null;
+    const textDirect = typeof c0?.text === "string" ? c0.text : null;
     if (typeof content === "string" && content.trim()) return { kind: "string", text: content };
+    if (textDirect && textDirect.trim()) return { kind: "string", text: textDirect };
     if (Array.isArray(content)) {
       const parts: Array<{ type: "text"; text: string } | { type: "image"; url: string }> = [];
       for (const part of content) {
@@ -512,6 +452,93 @@ function extractOpenAIDisplayContent(
   }
 
   return null;
+}
+
+/** Common keys that typically hold displayable text in API/LLM responses. */
+const DISPLAY_TEXT_KEYS = [
+  "content",
+  "text",
+  "output",
+  "result",
+  "message",
+  "value",
+  "response",
+  "answer",
+  "reply",
+  "body",
+  "summary",
+] as const;
+
+function getStringFrom(obj: unknown, key: string): string | null {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
+  const v = (obj as Record<string, unknown>)[key];
+  return typeof v === "string" && v.trim() ? v : null;
+}
+
+/** Extract displayable text from common API/object shapes (not OpenAI-specific). */
+function extractGenericDisplayContent(obj: Record<string, unknown>): string | null {
+  if (!obj || typeof obj !== "object") return null;
+  const v = obj;
+
+  for (const key of DISPLAY_TEXT_KEYS) {
+    const s = getStringFrom(v, key);
+    if (s) return s;
+  }
+
+  // Nested: message.content, message.text
+  const msg = v.message;
+  if (msg && typeof msg === "object" && !Array.isArray(msg)) {
+    const m = msg as Record<string, unknown>;
+    for (const key of DISPLAY_TEXT_KEYS) {
+      const s = getStringFrom(m, key);
+      if (s) return s;
+    }
+  }
+
+  // Nested: data.content, data.text, result.content
+  for (const outer of ["data", "result", "response"] as const) {
+    const inner = v[outer];
+    if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+      for (const key of DISPLAY_TEXT_KEYS) {
+        const s = getStringFrom(inner, key);
+        if (s) return s;
+      }
+    }
+  }
+
+  // Array with single object: [{}] - take first element
+  if (Array.isArray(v.results) && v.results.length === 1) {
+    const first = v.results[0];
+    if (first && typeof first === "object" && !Array.isArray(first)) {
+      for (const key of DISPLAY_TEXT_KEYS) {
+        const s = getStringFrom(first, key);
+        if (s) return s;
+      }
+    }
+  }
+
+  return null;
+}
+
+/** If the model returned a string that is actually JSON with a text field, extract it. */
+function extractFromJsonString(str: string): string | null {
+  let t = str.trim();
+  // Strip markdown code block: ```json\n...\n``` or ```\n...\n```
+  const codeBlockMatch = t.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+  const captured = codeBlockMatch?.[1];
+  if (captured !== undefined) t = captured.trim();
+  if (!t || (t[0] !== "{" && t[0] !== "[")) return null;
+  try {
+    const parsed = JSON.parse(t) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    for (const key of DISPLAY_TEXT_KEYS) {
+      const s = getStringFrom(parsed, key);
+      if (s) return s;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function PremiumStepView({
@@ -1076,19 +1103,27 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
         </div>
       );
     }
-    // Extract just the content/text from ChatGPT responses (remove metadata)
-    let displayValue = value;
-    if (isOpenAI && typeof value === "string") {
-      // Try to extract message content if it's a structured response
+    // Extract content from JSON-wrapped strings (model sometimes returns {"response":"..."} etc.)
+    let displayValue: string = value;
+    const unwrapped = extractFromJsonString(value);
+    if (unwrapped) {
+      displayValue = unwrapped;
+    } else if (isOpenAI) {
+      // Try to extract message content from structured API response
       try {
-        const parsed = JSON.parse(value);
-        if (parsed.choices && parsed.choices[0]?.message?.content) {
-          displayValue = parsed.choices[0].message.content;
-        } else if (parsed.content) {
-          displayValue = parsed.content;
-        } else if (parsed.message) {
+        const parsed = JSON.parse(value) as Record<string, unknown>;
+        const choices = parsed?.choices as Array<{ message?: { content?: string } }> | undefined;
+        if (choices?.[0] && typeof choices[0]?.message === "object") {
+          const content = choices[0].message?.content;
+          if (typeof content === "string" && content.trim()) displayValue = content;
+        } else if (typeof parsed?.content === "string" && parsed.content.trim()) {
+          displayValue = parsed.content as string;
+        } else if (parsed?.message) {
+          const m = parsed.message as Record<string, unknown>;
           displayValue =
-            typeof parsed.message === "string" ? parsed.message : parsed.message.content || value;
+            typeof m === "string"
+              ? m
+              : (typeof m?.content === "string" ? m.content : displayValue) as string;
         }
       } catch {
         // Not JSON, use as-is
@@ -1182,53 +1217,62 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
     );
   }
   if (typeof value === "object") {
-    // For OpenAI responses, extract displayable content first (avoids gibberish; supports all response shapes)
-    if (isOpenAI) {
-      const extracted = extractOpenAIDisplayContent(value);
-      if (extracted) {
-        if (extracted.kind === "string") {
-          return (
-            <div className={cx("text-base leading-7", textColor)}>
-              {renderMarkdown(extracted.text)}
-            </div>
-          );
-        }
-        if (extracted.kind === "parts") {
-          return (
-            <div className="space-y-4">
-              {extracted.parts.map((part, i) => {
-                if (part.type === "text" && part.text.trim()) {
-                  return (
-                    <div key={i} className={cx("text-base leading-7", textColor)}>
-                      {renderMarkdown(part.text)}
-                    </div>
-                  );
-                }
-                if (part.type === "image") {
-                  return (
-                    <div
-                      key={i}
-                      className={cx(
-                        "rounded-xl overflow-hidden border",
-                        borderColor,
-                        bgColor,
-                        "relative group",
-                      )}
-                    >
-                      <img
-                        src={part.url}
-                        alt="Response"
-                        className="w-full max-h-[500px] object-contain"
-                      />
-                    </div>
-                  );
-                }
-                return null;
-              })}
-            </div>
-          );
-        }
+    // Always try to extract displayable content from API-style objects (OpenAI, etc.)
+    // Workflow outputs often pass through raw API responses - extract text to avoid "[object Object]"
+    const extracted = extractOpenAIDisplayContent(value);
+    if (extracted) {
+      if (extracted.kind === "string") {
+        return (
+          <div className={cx("text-base leading-7", textColor)}>
+            {renderMarkdown(extracted.text)}
+          </div>
+        );
       }
+      if (extracted.kind === "parts") {
+        return (
+          <div className="space-y-4">
+            {extracted.parts.map((part, i) => {
+              if (part.type === "text" && part.text.trim()) {
+                return (
+                  <div key={i} className={cx("text-base leading-7", textColor)}>
+                    {renderMarkdown(part.text)}
+                  </div>
+                );
+              }
+              if (part.type === "image") {
+                return (
+                  <div
+                    key={i}
+                    className={cx(
+                      "rounded-xl overflow-hidden border",
+                      borderColor,
+                      bgColor,
+                      "relative group",
+                    )}
+                  >
+                    <img
+                      src={part.url}
+                      alt="Response"
+                      className="w-full max-h-[500px] object-contain"
+                    />
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+        );
+      }
+    }
+
+    // Try common API shapes: { content }, { text }, { output }, { message }, etc.
+    const genericText = extractGenericDisplayContent(value as Record<string, unknown>);
+    if (genericText) {
+      return (
+        <div className={cx("text-base leading-[1.85] [&>p+p]:mt-5 [&>p]:mb-4", textColor)}>
+          {renderMarkdown(genericText)}
+        </div>
+      );
     }
 
     // Filter out OpenAI API metadata fields (no finishReason / finish_reason in UI)
@@ -1279,7 +1323,12 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
       </div>
     );
   }
-  return <div className={cx("text-sm font-mono leading-[1.85]", textColor)}>{String(value)}</div>;
+  // Safety net: never show "[object Object]" - use JSON.stringify for objects
+  const display =
+    value !== null && typeof value === "object"
+      ? JSON.stringify(value, null, 2)
+      : String(value);
+  return <div className={cx("text-sm font-mono leading-[1.85] whitespace-pre-wrap", textColor)}>{display}</div>;
 }
 
 export type BuilderRunLimit = { used: number; limit: number; isAdmin?: boolean };

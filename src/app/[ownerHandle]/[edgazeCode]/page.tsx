@@ -882,6 +882,16 @@ export default function WorkflowProductPage() {
   const [turnstileModalOpen, setTurnstileModalOpen] = useState(false);
   const [turnstileVerifying, setTurnstileVerifying] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [demoVerificationPhase, setDemoVerificationPhase] = useState<
+    "idle" | "checking" | "turnstile"
+  >("idle");
+
+  // Reset verification phase when Turnstile modal closes
+  useEffect(() => {
+    if (!turnstileModalOpen) {
+      setDemoVerificationPhase("idle");
+    }
+  }, [turnstileModalOpen]);
 
   const [upNext, setUpNext] = useState<WorkflowListing[]>([]);
   const [upNextLoading, setUpNextLoading] = useState(false);
@@ -1073,11 +1083,6 @@ export default function WorkflowProductPage() {
     return listing.price_usd != null ? `$${Number(listing.price_usd).toFixed(2)}` : "Paid";
   }, [listing, isNaturallyFree]);
 
-  const primaryCtaLabel = useMemo(() => {
-    if (isNaturallyFree) return "Open in Workflow Studio";
-    return "Buy access";
-  }, [isNaturallyFree]);
-
   const isOwner = useMemo(() => {
     if (!listing || !currentUserId) return false;
     return String(listing.owner_id ?? "") === String(currentUserId);
@@ -1090,6 +1095,12 @@ export default function WorkflowProductPage() {
     // Require purchase row for everyone else (even free items need to be "purchased" to show in library)
     return Boolean(purchase && (purchase.status === "paid" || purchase.status === "beta"));
   }, [listing, isOwner, purchase]);
+
+  const primaryCtaLabel = useMemo(() => {
+    if (isNaturallyFree) return "Open in Workflow Studio";
+    if (isDemoModeActive && !isOwned) return "Try demo";
+    return "Buy access";
+  }, [isNaturallyFree, isDemoModeActive, isOwned]);
 
   function openWorkflowStudio() {
     if (!listing) return;
@@ -1207,7 +1218,12 @@ export default function WorkflowProductPage() {
     } catch {}
 
     // For paid items when not logged in: full-screen sign-in-to-buy page (conversion-optimized)
+    // Exception: in demo mode (admin demo link), skip sign-in and run demo directly
     if (!userId && !isNaturallyFree) {
+      if (isDemoModeActive) {
+        await handleDemoButtonClick();
+        return;
+      }
       const returnPath =
         window.location.pathname + (window.location.search ? window.location.search : "");
       window.location.href = `/auth/sign-in-to-buy?return=${encodeURIComponent(returnPath)}&type=workflow`;
@@ -1218,7 +1234,17 @@ export default function WorkflowProductPage() {
       return;
     }
 
-    if (isOwned) {
+    // Re-check ownership right before acting (prevents stale `purchase` state
+    // during auto-trigger after auth redirect).
+    let isOwnedNow = isOwned || isOwner;
+    if (!isOwner && userId) {
+      const uid = userId;
+      const row = await loadPurchaseRow(listing.id, uid);
+      setPurchase(row);
+      isOwnedNow = Boolean(row && (row.status === "paid" || row.status === "beta"));
+    }
+
+    if (isOwnedNow) {
       openWorkflowStudio();
       return;
     }
@@ -1437,27 +1463,38 @@ export default function WorkflowProductPage() {
     }
   }
 
-  // Handle demo button click - skip Turnstile when admin demo link, else open Turnstile first
+  // Handle demo button click - show checking screen first, then Turnstile
   async function handleDemoButtonClick() {
     if (!listing) return;
     setPurchaseError(null);
 
-    // Admin demo link: skip Turnstile and device limit
+    // Admin demo link: skip checking + Turnstile, go straight to run
     if (isDemoModeActive) {
       await startDemoRun();
       return;
     }
 
-    const canRun = await canRunDemo(listing.id, true);
-    if (!canRun) {
-      setPurchaseError(
-        "You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.",
-      );
-      return;
-    }
+    // Phase 1: Show checking screen and verify demo eligibility
+    setDemoVerificationPhase("checking");
 
-    setTurnstileModalOpen(true);
-    setTurnstileToken(null);
+    try {
+      const canRun = await canRunDemo(listing.id, true);
+      if (!canRun) {
+        setPurchaseError(
+          "You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.",
+        );
+        setDemoVerificationPhase("idle");
+        return;
+      }
+
+      // Phase 2: Checks passed - show Turnstile modal
+      setDemoVerificationPhase("turnstile");
+      setTurnstileModalOpen(true);
+      setTurnstileToken(null);
+    } catch (err) {
+      setPurchaseError("Failed to verify demo eligibility. Please try again.");
+      setDemoVerificationPhase("idle");
+    }
   }
 
   // Handle demo input submission
@@ -1507,9 +1544,20 @@ export default function WorkflowProductPage() {
       const deviceFingerprint =
         !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
 
+      // Signed-in users must send Bearer token - API uses getUserFromRequest (Bearer only)
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (userId) {
+        let token = await getAccessToken();
+        if (!token) {
+          await refreshAuthSession();
+          token = await getAccessToken();
+        }
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch("/api/flow/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         credentials: "include",
         body: JSON.stringify({
           workflowId: listing.id,
@@ -1775,7 +1823,20 @@ export default function WorkflowProductPage() {
         targetOwnerName={listing.owner_name}
       />
 
-      {/* Turnstile Verification Modal */}
+      {/* Checking screen - enforcement/preflight before Turnstile */}
+      {demoVerificationPhase === "checking" && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80">
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-[#0b0c10] px-8 py-8">
+            <Loader2 className="h-10 w-10 animate-spin text-amber-400" />
+            <div className="text-[15px] font-medium text-white">Checking demo eligibility…</div>
+            <div className="text-[12px] text-white/55">
+              Verifying device and usage limits
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Turnstile Verification Modal - key forces fresh mount each open for reliability */}
       {turnstileModalOpen && (
         <div className="fixed inset-0 z-[130]">
           <div
@@ -1824,7 +1885,7 @@ export default function WorkflowProductPage() {
                     workflow.
                   </div>
 
-                  <div className="flex justify-center">
+                  <div className="flex min-h-[120px] justify-center" key="turnstile-container">
                     <TurnstileWidget onToken={handleTurnstileToken} />
                   </div>
 
@@ -1995,8 +2056,10 @@ export default function WorkflowProductPage() {
               {!isOwned && (
                 <span
                   className={cn(
-                    "tabular-nums opacity-90",
-                    isNaturallyFree ? "text-emerald-700" : "text-black/80",
+                    "tabular-nums",
+                    isNaturallyFree
+                      ? "text-white/95 font-semibold drop-shadow-[0_0_1px_rgba(0,0,0,0.15)]"
+                      : "text-black/80 opacity-90",
                   )}
                 >
                   · {paidLabel}

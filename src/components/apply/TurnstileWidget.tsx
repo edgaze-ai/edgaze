@@ -47,10 +47,24 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
     document.body.appendChild(s);
   }, []);
 
+  // Ensure container is in DOM before rendering (modal/parent may need a tick to lay out)
+  const [containerReady, setContainerReady] = useState(false);
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const raf = requestAnimationFrame(() => {
+      timeoutId = setTimeout(() => setContainerReady(true), 80);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timeoutId);
+    };
+  }, []);
+
   // render widget once, with retry until window.turnstile is actually available
   useEffect(() => {
     const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
     if (!siteKey) return;
+    if (!containerReady) return;
     if (!mountRef.current) return;
     if (widgetIdRef.current) return;
 
@@ -62,7 +76,7 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
 
       // If script is blocked by adblock/CSP, we will never get window.turnstile
       if (!window.turnstile) {
-        if (tries >= 40) {
+        if (tries >= 60) {
           setStatus("blocked");
           return;
         }
@@ -71,8 +85,10 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
       }
 
       try {
+        const el = mountRef.current;
+        if (!el) return;
         setStatus("ready");
-        widgetIdRef.current = window.turnstile.render(mountRef.current, {
+        widgetIdRef.current = window.turnstile.render(el, {
           sitekey: siteKey,
           theme: "dark",
           callback: (token: string) => cbRef.current(token),
@@ -81,7 +97,7 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
         });
         setStatus("rendered");
       } catch {
-        if (tries >= 40) {
+        if (tries >= 60) {
           setStatus("blocked");
           return;
         }
@@ -100,7 +116,7 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
       } catch {}
       widgetIdRef.current = null;
     };
-  }, [status]);
+  }, [status, containerReady]);
 
   if (status === "missing_key") {
     return (

@@ -33,6 +33,9 @@ export default function SignInToBuyPage() {
   const returnPath = searchParams.get("return") || "";
   const typeParam = searchParams.get("type") || "prompt";
 
+  // Demo mode: return path contains ?demo=TOKEN — offer "try demo without signing in" link
+  const isDemoReturn = /[?&]demo=/.test(returnPath);
+
   const [listing, setListing] = useState<Listing | null>(null);
   const [listingLoading, setListingLoading] = useState(true);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -270,6 +273,15 @@ export default function SignInToBuyPage() {
                 Sign in so we can attribute this purchase to your account and you can come back and
                 use it anytime.
               </p>
+
+              {isDemoReturn && (
+                <Link
+                  href={returnPath}
+                  className="mb-6 md:mb-8 block rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-center text-sm font-medium text-amber-200 hover:bg-amber-500/20 transition"
+                >
+                  Try demo without signing in →
+                </Link>
+              )}
 
               <button
                 type="button"

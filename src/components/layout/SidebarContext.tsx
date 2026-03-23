@@ -36,10 +36,16 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   // - collapse desktop sidebar (max space)
   // - close mobile drawer (prevent stale open drawer after navigation)
   useEffect(() => {
-    queueMicrotask(() => {
+    // Mobile drawer should close immediately.
+    // Desktop sidebar collapse is slightly delayed so it feels animated
+    // (width transitions) instead of snapping.
+    setMobileOpen(false);
+
+    const t = window.setTimeout(() => {
       setCollapsed(true);
-      setMobileOpen(false);
-    });
+    }, 120);
+
+    return () => window.clearTimeout(t);
   }, [pathname]);
 
   const value = useMemo(

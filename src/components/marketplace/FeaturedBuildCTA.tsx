@@ -56,7 +56,7 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
             "group relative w-full cursor-pointer rounded-2xl text-left",
             "flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between",
             "border border-white/10 px-5 py-4 sm:px-6 sm:py-4",
-            "bg-[#0a0b0f]/95 backdrop-blur-xl",
+            "bg-[#0a0b0f]/95 backdrop-blur-[0px] sm:backdrop-blur-xl",
             "shadow-[0_12px_40px_rgba(0,0,0,0.4)]",
             "transition-all duration-300 ease-out",
             "hover:border-white/15 hover:shadow-[0_16px_48px_rgba(0,0,0,0.45)]",
@@ -82,7 +82,7 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
             />
           </div>
           <div
-            className="absolute inset-[1px] rounded-[15px] border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm"
+            className="absolute inset-[1px] rounded-[15px] border border-white/[0.06] bg-white/[0.02] backdrop-blur-[0px] sm:backdrop-blur-sm"
             aria-hidden
           />
 
@@ -129,7 +129,7 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
           "group relative w-full cursor-pointer rounded-2xl text-left",
           "min-h-[280px] sm:min-h-[300px]",
           "border border-white/10",
-          "bg-[#0a0b0f]/95 backdrop-blur-xl",
+          "bg-[#0a0b0f]/95 backdrop-blur-[0px] sm:backdrop-blur-xl",
           "shadow-[0_24px_60px_rgba(0,0,0,0.45)]",
           "transition-all duration-300 ease-out",
           "hover:border-white/20 hover:shadow-[0_28px_70px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.06)]",
@@ -158,14 +158,14 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
 
         {/* Soft glass surface */}
         <div
-          className="absolute inset-[1px] rounded-[15px] border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm"
+          className="absolute inset-[1px] rounded-[15px] border border-white/[0.06] bg-white/[0.02] backdrop-blur-[0px] sm:backdrop-blur-sm"
           aria-hidden
         />
 
         {/* Content */}
         <div className="relative flex min-h-[280px] sm:min-h-[300px] flex-col justify-between p-6 sm:p-8">
           <div className="flex-1">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 backdrop-blur">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 backdrop-blur-[0px] sm:backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-cyan-300/80" />
               <span>Your space</span>
             </div>
@@ -187,7 +187,7 @@ export default function FeaturedBuildCTA({ variant = "featured" }: { variant?: V
 
         {/* Hover glow */}
         <div
-          className="pointer-events-none absolute -inset-1 rounded-[18px] opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-100"
+          className="pointer-events-none absolute -inset-1 rounded-[18px] opacity-0 blur-xl transition-opacity duration-300 sm:group-hover:opacity-100"
           aria-hidden
           style={{
             background:
@@ -236,14 +236,14 @@ function ExploreBuildersModal({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm cursor-default"
+        className="absolute inset-0 bg-black/70 backdrop-blur-[0px] sm:backdrop-blur-sm cursor-default"
         onClick={onClose}
         aria-label="Close modal"
       />
       <div
         className={cn(
           "relative w-full max-w-md rounded-2xl border border-white/10",
-          "bg-[#0a0b0f]/98 backdrop-blur-xl",
+          "bg-[#0a0b0f]/98 backdrop-blur-[0px] sm:backdrop-blur-xl",
           "shadow-[0_24px_60px_rgba(0,0,0,0.5)]",
           "overflow-hidden",
         )}
