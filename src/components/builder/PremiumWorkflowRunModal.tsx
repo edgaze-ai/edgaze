@@ -365,7 +365,8 @@ function extractOpenAIDisplayContent(
   if (Array.isArray(v?.choices) && v.choices[0]) {
     const c0 = v.choices[0] as Record<string, unknown>;
     const msg = c0?.message;
-    const content = msg && typeof msg === "object" ? (msg as Record<string, unknown>).content : null;
+    const content =
+      msg && typeof msg === "object" ? (msg as Record<string, unknown>).content : null;
     const textDirect = typeof c0?.text === "string" ? c0.text : null;
     if (typeof content === "string" && content.trim()) return { kind: "string", text: content };
     if (textDirect && textDirect.trim()) return { kind: "string", text: textDirect };
@@ -1123,7 +1124,7 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
           displayValue =
             typeof m === "string"
               ? m
-              : (typeof m?.content === "string" ? m.content : displayValue) as string;
+              : ((typeof m?.content === "string" ? m.content : displayValue) as string);
         }
       } catch {
         // Not JSON, use as-is
@@ -1325,10 +1326,12 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
   }
   // Safety net: never show "[object Object]" - use JSON.stringify for objects
   const display =
-    value !== null && typeof value === "object"
-      ? JSON.stringify(value, null, 2)
-      : String(value);
-  return <div className={cx("text-sm font-mono leading-[1.85] whitespace-pre-wrap", textColor)}>{display}</div>;
+    value !== null && typeof value === "object" ? JSON.stringify(value, null, 2) : String(value);
+  return (
+    <div className={cx("text-sm font-mono leading-[1.85] whitespace-pre-wrap", textColor)}>
+      {display}
+    </div>
+  );
 }
 
 export type BuilderRunLimit = { used: number; limit: number; isAdmin?: boolean };

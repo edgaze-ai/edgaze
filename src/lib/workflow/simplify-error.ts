@@ -18,9 +18,7 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // API key
-  if (
-    /invalid.*api.*key|incorrect API key|401|authentication|unauthorized/i.test(e)
-  ) {
+  if (/invalid.*api.*key|incorrect API key|401|authentication|unauthorized/i.test(e)) {
     return "The API key is invalid or expired. Add or update your key in the run modal or node settings.";
   }
   if (e.includes("API key required") || e.includes("API key is required")) {
@@ -33,9 +31,7 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // Token / context limits
-  if (
-    /token limit|context length|maximum context length|context_length_exceeded/i.test(e)
-  ) {
+  if (/token limit|context length|maximum context length|context_length_exceeded/i.test(e)) {
     return "The input or output is too long. Try shorter text or fewer items.";
   }
   if (e.includes("Token limit exceeded")) {
@@ -48,9 +44,7 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // Model / request
-  if (
-    /invalid_request|invalid request|model.*not found|404|bad request/i.test(e)
-  ) {
+  if (/invalid_request|invalid request|model.*not found|404|bad request/i.test(e)) {
     return "The request was invalid. Check the model name and node settings.";
   }
   if (e.includes("Prompt or messages array required")) {
@@ -106,9 +100,7 @@ export function simplifyWorkflowError(error: string | unknown): string {
   const first = cleaned.split(/[.!?]/)[0]?.trim() || cleaned;
 
   // If it still looks technical (has error codes, stack traces, etc), use generic message
-  if (
-    /^[A-Za-z]+Error:|^\[object|:\d+:\d+|at\s+\w+\.|\.ts:\d|\.js:\d/i.test(first)
-  ) {
+  if (/^[A-Za-z]+Error:|^\[object|:\d+:\d+|at\s+\w+\.|\.ts:\d|\.js:\d/i.test(first)) {
     return "Something went wrong. Try again.";
   }
   if (first.includes("OpenAI API error:") || first.includes("OpenAI")) {

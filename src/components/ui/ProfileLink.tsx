@@ -52,10 +52,7 @@ export default function ProfileLink({
     </>
   );
 
-  const linkClasses = cn(
-    "cursor-pointer hover:opacity-80 transition-opacity",
-    linkClassName,
-  );
+  const linkClasses = cn("cursor-pointer hover:opacity-80 transition-opacity", linkClassName);
 
   if (onClick) {
     return (

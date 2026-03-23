@@ -1829,9 +1829,7 @@ export default function WorkflowProductPage() {
           <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-[#0b0c10] px-8 py-8">
             <Loader2 className="h-10 w-10 animate-spin text-amber-400" />
             <div className="text-[15px] font-medium text-white">Checking demo eligibility…</div>
-            <div className="text-[12px] text-white/55">
-              Verifying device and usage limits
-            </div>
+            <div className="text-[12px] text-white/55">Verifying device and usage limits</div>
           </div>
         </div>
       )}

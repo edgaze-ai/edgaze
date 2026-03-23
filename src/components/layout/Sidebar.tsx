@@ -184,8 +184,12 @@ export default function Sidebar() {
             ) : (
               <div className="flex items-center gap-3 min-w-0">
                 <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-                  <span className="truncate text-[13px] font-semibold text-white/95">Not signed in</span>
-                  <span className="truncate text-[11px] text-white/50">Sign in to save and publish</span>
+                  <span className="truncate text-[13px] font-semibold text-white/95">
+                    Not signed in
+                  </span>
+                  <span className="truncate text-[11px] text-white/50">
+                    Sign in to save and publish
+                  </span>
                 </div>
 
                 <button

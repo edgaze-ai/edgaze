@@ -55,11 +55,7 @@ export async function enforceRuntimeLimits(params: {
 
   try {
     // Demo users bypass enforcement entirely - no DB lookups needed
-    if (
-      userId === "anonymous_demo_user" ||
-      userId === "admin_demo_user" ||
-      isDemo
-    ) {
+    if (userId === "anonymous_demo_user" || userId === "admin_demo_user" || isDemo) {
       const premiumNodeSpecs = ["openai-chat", "openai-embeddings", "openai-image", "http-request"];
       const premiumNodes = nodes.filter((n) => premiumNodeSpecs.includes(n.data?.specId ?? ""));
       const shouldUseEdgazeKey = hasEdgazeApiKey() && premiumNodes.length > 0;
