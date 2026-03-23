@@ -106,7 +106,6 @@ export async function GET(request: NextRequest) {
               flexShrink: 0,
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageUrl}
               alt=""
