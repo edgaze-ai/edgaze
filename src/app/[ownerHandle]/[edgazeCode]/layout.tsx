@@ -86,7 +86,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         title: "Workflow | Edgaze",
         description: "View this AI workflow on Edgaze. Build powerful automation with AI.",
         url: `${METADATA_BASE}/${ownerHandle}/${edgazeCode}`,
-        images: [{ url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: "Edgaze" }],
+        images: [
+          { url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: "Edgaze" },
+        ],
       },
       twitter: {
         card: "summary_large_image",

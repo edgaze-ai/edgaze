@@ -33,8 +33,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 /** Meta Sharing Debugger / OG: numeric App ID (same as Facebook Login app id). */
-const fbAppId =
-  process.env.FACEBOOK_APP_ID?.trim() || process.env.FACEBOOK_CLIENT_ID?.trim() || "";
+const fbAppId = process.env.FACEBOOK_APP_ID?.trim() || process.env.FACEBOOK_CLIENT_ID?.trim() || "";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://edgaze.ai"),

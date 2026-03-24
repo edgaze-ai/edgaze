@@ -19,7 +19,9 @@ async function getListing(ownerHandle: string, edgazeCode: string) {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("prompts")
-      .select("title, description, thumbnail_url, demo_images, output_demo_urls, type, price_usd, is_paid")
+      .select(
+        "title, description, thumbnail_url, demo_images, output_demo_urls, type, price_usd, is_paid",
+      )
       .eq("owner_handle", ownerHandle)
       .eq("edgaze_code", edgazeCode)
       .maybeSingle();
@@ -82,7 +84,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         title: "Product | Edgaze",
         description: "View this prompt or workflow on Edgaze",
         url: `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`,
-        images: [{ url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: "Edgaze" }],
+        images: [
+          { url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: "Edgaze" },
+        ],
       },
       twitter: {
         card: "summary_large_image",
