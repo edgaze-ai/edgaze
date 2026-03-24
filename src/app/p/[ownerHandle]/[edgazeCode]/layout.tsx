@@ -38,7 +38,8 @@ async function getListing(ownerHandle: string, edgazeCode: string) {
 function absoluteImageUrl(url: string | null | undefined): string | undefined {
   if (!url || !url.trim()) return undefined;
   const u = url.trim();
-  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  if (u.startsWith("https://")) return u;
+  if (u.startsWith("http://")) return `https://${u.slice("http://".length)}`;
   const base = METADATA_BASE.replace(/\/+$/, "");
   return u.startsWith("/") ? `${base}${u}` : `${base}/${u}`;
 }
@@ -46,6 +47,8 @@ function absoluteImageUrl(url: string | null | undefined): string | undefined {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ownerHandle, edgazeCode } = await params;
   const listing = await getListing(ownerHandle, edgazeCode);
+
+  const fallbackOg = `${METADATA_BASE}/og.png`;
 
   if (!listing) {
     return {
@@ -55,11 +58,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         title: "Product | Edgaze",
         description: "View this prompt or workflow on Edgaze",
         url: `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`,
+        images: [{ url: fallbackOg, width: 1200, height: 630, alt: "Edgaze" }],
       },
       twitter: {
         card: "summary_large_image",
         title: "Product | Edgaze",
         description: "View this prompt or workflow on Edgaze",
+        images: [fallbackOg],
       },
     };
   }
@@ -77,12 +82,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const imageUrl = absoluteImageUrl(listing.thumbnail_url);
   const pageUrl = `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`;
-  const dynamicOgUrl = `${METADATA_BASE}/api/og/prompt?ownerHandle=${encodeURIComponent(ownerHandle)}&edgazeCode=${encodeURIComponent(edgazeCode)}`;
-  const ogImages = [
-    { url: dynamicOgUrl, width: 1200, height: 630, alt: title },
-    ...(imageUrl ? [{ url: imageUrl, width: 1200, height: 630, alt: title }] : []),
-    { url: "/og.png", width: 1200, height: 630, alt: title },
-  ].filter((_, i, a) => a.findIndex((x) => x.url === (a[i] as (typeof a)[0]).url) === i);
+  // Social crawlers (Meta/WhatsApp, X, LinkedIn) mostly fetch the first og:image only.
+  // Use the public CDN thumbnail first — not /api/og/* (Edge + ImageResponse + remote fetch),
+  // which often times out or fails for bots and breaks previews entirely.
+  const ogImages = imageUrl
+    ? [
+        { url: imageUrl, alt: title },
+        { url: fallbackOg, width: 1200, height: 630, alt: title },
+      ]
+    : [{ url: fallbackOg, width: 1200, height: 630, alt: title }];
+
+  const twitterImageUrls = imageUrl ? [imageUrl, fallbackOg] : [fallbackOg];
 
   return {
     title,
@@ -102,9 +112,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title: `${title} | Edgaze`,
       description,
-      images: [dynamicOgUrl, ...(imageUrl ? [imageUrl] : []), "/og.png"].filter(
-        (u, i, a) => a.indexOf(u) === i,
-      ),
+      images: twitterImageUrls,
     },
   };
 }
