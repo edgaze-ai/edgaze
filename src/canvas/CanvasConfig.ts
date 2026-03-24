@@ -25,6 +25,7 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
   output: [], // no outputs
   merge: [
     "output",
+    "merge",
     "openai-chat",
     "openai-image",
     "condition",
