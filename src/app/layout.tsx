@@ -32,6 +32,10 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+/** Meta Sharing Debugger / OG: numeric App ID (same as Facebook Login app id). */
+const fbAppId =
+  process.env.FACEBOOK_APP_ID?.trim() || process.env.FACEBOOK_CLIENT_ID?.trim() || "";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://edgaze.ai"),
   title: {
@@ -63,8 +67,9 @@ export const metadata: Metadata = {
     title: "Edgaze",
     description:
       "Edgaze is the marketplace for AI prompts and workflows. Build once, publish a clean page, share one link. Creators monetize; buyers discover and run.",
-    images: ["/og.png"],
+    images: "/og.png",
   },
+  ...(fbAppId ? { other: { "fb:app_id": fbAppId } } : {}),
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
