@@ -2764,26 +2764,28 @@ export default function PromptProductPage() {
                   </h1>
                   <div
                     className={cn(
-                      "flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2.5 lg:hidden",
+                      "flex w-full shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border px-4 py-3.5 text-center lg:hidden",
                       isNaturallyFree
-                        ? "border-emerald-400/25 bg-emerald-500/15"
+                        ? "border-emerald-400/30 bg-emerald-950/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_24px_-8px_rgba(52,211,153,0.25)]"
                         : "border-white/15 bg-white/[0.06]",
                     )}
                   >
-                    <span className="text-[11px] font-medium text-white/55 uppercase tracking-wide">
+                    <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/45">
                       Price
                     </span>
-                    <span
-                      className={cn(
-                        "text-lg font-bold tabular-nums",
-                        isNaturallyFree ? "text-emerald-400" : "text-white",
+                    <div className="flex flex-wrap items-baseline justify-center gap-x-2 gap-y-0.5">
+                      <span
+                        className={cn(
+                          "text-[22px] font-semibold leading-none tracking-tight tabular-nums",
+                          isNaturallyFree ? "text-emerald-400" : "text-white",
+                        )}
+                      >
+                        {paidLabel}
+                      </span>
+                      {!isNaturallyFree && paidLabel !== "Paid" && (
+                        <span className="text-[11px] font-medium text-white/45">one-time</span>
                       )}
-                    >
-                      {paidLabel}
-                    </span>
-                    {!isNaturallyFree && paidLabel !== "Paid" && (
-                      <span className="text-[11px] text-white/50">one-time</span>
-                    )}
+                    </div>
                   </div>
                 </div>
 
