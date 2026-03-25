@@ -1,6 +1,7 @@
 // src/app/[ownerHandle]/[edgazeCode]/layout.tsx
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { workflowPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowRedirectPath } from "@lib/supabase/handle-redirect";
 
@@ -43,36 +44,6 @@ async function getWorkflowListing(ownerHandle: string, edgazeCode: string) {
   }
 }
 
-function absoluteImageUrl(url: string | null | undefined): string | undefined {
-  if (!url || !url.trim()) return undefined;
-  const u = url.trim();
-  if (u.startsWith("https://")) return u;
-  if (u.startsWith("http://")) return `https://${u.slice("http://".length)}`;
-  const base = METADATA_BASE.replace(/\/+$/, "");
-  return u.startsWith("/") ? `${base}${u}` : `${base}/${u}`;
-}
-
-function firstJsonbImageUrl(arr: unknown): string | undefined {
-  if (!Array.isArray(arr) || arr.length === 0) return undefined;
-  const s = arr[0];
-  return typeof s === "string" && s.trim() ? s.trim() : undefined;
-}
-
-/** Same priority as workflow product page hero: demos → outputs → banner → thumbnail. */
-function workflowSocialImageUrl(listing: {
-  thumbnail_url: string | null;
-  banner_url: string | null;
-  demo_images: unknown;
-  output_demo_urls: unknown;
-}): string | undefined {
-  return (
-    absoluteImageUrl(firstJsonbImageUrl(listing.demo_images)) ??
-    absoluteImageUrl(firstJsonbImageUrl(listing.output_demo_urls)) ??
-    absoluteImageUrl(listing.banner_url) ??
-    absoluteImageUrl(listing.thumbnail_url)
-  );
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ownerHandle, edgazeCode } = await params;
   const listing = await getWorkflowListing(ownerHandle, edgazeCode);
@@ -108,12 +79,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? rawDescription.slice(0, 160).replace(/\s+$/, "") // Trim trailing whitespace
       : "Discover and use this AI workflow on Edgaze. Build powerful automation with AI.";
 
-  const imageUrl = workflowSocialImageUrl(listing);
   const pageUrl = `${METADATA_BASE}/${ownerHandle}/${edgazeCode}`;
-  const primaryOg = imageUrl
-    ? { url: imageUrl, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: title }
-    : { url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: title };
-  const twitterImage: string = imageUrl ?? fallbackOg;
+  const dynamicOg = `${METADATA_BASE}/api/og/workflow?${new URLSearchParams({ ownerHandle, edgazeCode }).toString()}`;
+  const primaryOg = {
+    url: dynamicOg,
+    width: OG_IMAGE_WIDTH,
+    height: OG_IMAGE_HEIGHT,
+    alt: title,
+  };
+  const twitterImage = dynamicOg;
 
   return {
     title,
@@ -156,7 +130,7 @@ function buildWorkflowProductJsonLd(
   const description =
     listing.description?.trim()?.slice(0, 500) ||
     "Discover and use this AI workflow on Edgaze. Build powerful automation with AI.";
-  const imageUrl = workflowSocialImageUrl(listing);
+  const imageUrl = workflowPreviewImageUrl(listing);
   const price =
     listing.is_paid && listing.price_usd != null && listing.price_usd > 0
       ? String(listing.price_usd)

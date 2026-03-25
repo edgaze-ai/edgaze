@@ -1,151 +1,137 @@
 "use client";
 
-import React, { useRef } from "react";
+import React from "react";
 import Link from "next/link";
-import { motion, useInView, useReducedMotion } from "framer-motion";
 import { ArrowRight, Blocks, FileEdit, Globe, Linkedin, Play, Zap } from "lucide-react";
 import Footer from "src/components/layout/Footer";
 
-function SectionReveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.15 });
-  const reduce = useReducedMotion();
+/** One combined background (deep base + cyan/pink washes — no stacked black layers). */
+const PAGE_BG_STYLE: React.CSSProperties = {
+  backgroundColor: "#07080b",
+  backgroundImage: [
+    "radial-gradient(ellipse 130% 100% at 8% 15%, rgba(34,211,238,0.22), transparent 58%)",
+    "radial-gradient(ellipse 120% 90% at 92% 12%, rgba(236,72,153,0.18), transparent 55%)",
+    "radial-gradient(ellipse 100% 70% at 50% 100%, rgba(34,211,238,0.10), transparent 52%)",
+  ].join(", "),
+};
 
+/**
+ * Full-viewport-style hero illustration — landing-adjacent look, entirely static (no timers / motion libs).
+ * No overflow clipping: the whole scene scrolls with the document.
+ */
+function AboutHeroIllustration() {
   return (
-    <motion.div
-      ref={ref}
-      initial={reduce ? false : { opacity: 0, y: 28 }}
-      animate={inView ? { opacity: 1, y: 0 } : reduce ? undefined : { opacity: 0, y: 28 }}
-      transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1], delay }}
-    >
-      {children}
-    </motion.div>
-  );
-}
+    <div className="relative mx-auto w-full max-w-[640px] min-h-[min(76dvh,680px)] md:min-h-[520px] md:max-w-none">
+      {/* Local wash only inside the hero art (not a second full-page black). */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-[2rem] opacity-90 md:rounded-3xl [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.06)]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 35% 30%, rgba(34,211,238,0.14), transparent 58%), radial-gradient(circle at 70% 40%, rgba(236,72,153,0.11), transparent 56%)",
+        }}
+        aria-hidden
+      />
 
-function HeroAnimation() {
-  const reduce = useReducedMotion();
-
-  return (
-    <div className="relative h-[300px] sm:h-[320px] md:h-[400px] lg:h-[460px] flex items-center justify-center md:justify-center px-1 md:px-2 overflow-x-hidden">
-      {/* Central composition — overflow hidden keeps glow / cards inside the column on narrow screens */}
-      <div className="relative w-full max-w-[min(100%,400px)] aspect-square flex items-center justify-center overflow-hidden md:overflow-visible">
-        {/* Outer glow ring */}
-        <motion.div
-          className="absolute inset-0 rounded-full border border-white/[0.06]"
-          style={{
-            background:
-              "radial-gradient(circle at 50% 50%, transparent 45%, rgba(34,211,238,0.04) 55%, rgba(236,72,153,0.03) 70%, transparent 75%)",
-          }}
-          animate={reduce ? undefined : { rotate: 360 }}
-          transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+      <svg
+        className="absolute inset-0 h-full w-full"
+        viewBox="0 0 520 520"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden
+      >
+        <path
+          d="M 72 120 Q 180 100 260 258"
+          stroke="rgba(255,255,255,0.14)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
         />
-        {/* Edgaze logo — large, with gradient aura */}
-        <motion.div
-          className="relative z-10"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
-        >
-          <motion.div
-            className="absolute -inset-8 sm:-inset-12 md:-inset-16 rounded-full opacity-50 blur-3xl"
-            style={{
-              background:
-                "radial-gradient(circle at 50% 50%, rgba(34,211,238,0.2), rgba(236,72,153,0.12) 40%, transparent 65%)",
-            }}
-            animate={reduce ? undefined : { scale: [1, 1.08, 1], opacity: [0.4, 0.6, 0.4] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <div className="relative flex items-center justify-center w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-white/[0.02] backdrop-blur-2xl border border-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset,0_24px_80px_-24px_rgba(0,0,0,0.5)]">
-            <img
-              src="/brand/edgaze-mark.png"
-              alt=""
-              className="w-20 h-20 md:w-24 md:h-24 object-contain"
-              aria-hidden
-            />
-          </div>
-        </motion.div>
+        <path
+          d="M 448 96 Q 340 140 260 258"
+          stroke="rgba(255,255,255,0.14)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 420 396 Q 360 320 260 258"
+          stroke="rgba(255,255,255,0.14)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M 88 384 Q 170 310 260 258"
+          stroke="rgba(255,255,255,0.12)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
 
-        {/* Glass card 1 — top right */}
-        <motion.div
-          className="absolute right-1 top-[8%] w-[6.5rem] sm:w-28 md:w-36 rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl px-3 py-2.5 sm:px-4 sm:py-3 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] max-[380px]:right-0 max-[380px]:scale-[0.92] origin-top-right"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.7, delay: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
-          style={{ boxShadow: "0 8px 32px -8px rgba(0,0,0,0.4)" }}
-        >
-          <motion.div
-            className="h-2 w-12 rounded-full bg-gradient-to-r from-cyan-500/40 to-pink-500/30"
-            animate={reduce ? undefined : { opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <div className="mt-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">
-            Build
-          </div>
-        </motion.div>
-
-        {/* Glass card 2 — bottom left */}
-        <motion.div
-          className="absolute left-1 bottom-[12%] w-[6.5rem] sm:w-28 md:w-36 rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl px-3 py-2.5 sm:px-4 sm:py-3 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] max-[380px]:left-0 max-[380px]:scale-[0.92] origin-bottom-left"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.7, delay: 0.45, ease: [0.2, 0.8, 0.2, 1] }}
-          style={{ boxShadow: "0 8px 32px -8px rgba(0,0,0,0.4)" }}
-        >
-          <motion.div
-            className="h-2 w-10 rounded-full bg-gradient-to-r from-pink-500/40 to-cyan-500/30"
-            animate={reduce ? undefined : { opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-          />
-          <div className="mt-2 text-[10px] font-medium tracking-widest text-white/40 uppercase">
-            Publish
-          </div>
-        </motion.div>
-
-        {/* Glass card 3 — top left */}
-        <motion.div
-          className="absolute left-[5%] top-[15%] w-24 md:w-32 rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl px-3 py-2.5"
-          initial={{ opacity: 0, y: -15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
-        >
-          <div className="flex gap-1.5">
-            {[1, 2, 3].map((i) => (
-              <motion.div
-                key={i}
-                className="h-1.5 w-1.5 rounded-full bg-white/30"
-                animate={reduce ? undefined : { opacity: [0.3, 0.8, 0.3], scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }}
-              />
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Glass card 4 — bottom right */}
-        <motion.div
-          className="absolute right-[8%] bottom-[20%] w-24 md:w-32 rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl px-3 py-2.5"
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.55, ease: [0.2, 0.8, 0.2, 1] }}
-        >
-          <div className="text-[9px] font-semibold tracking-wider text-white/35">Workflow</div>
-        </motion.div>
-
-        {/* Subtle floating nodes */}
+      {/* Peripheral nodes — percentages keep layout stable at any size */}
+      <div
+        className="pointer-events-none absolute left-[6%] top-[14%] w-[30%] max-w-[9.5rem] rounded-2xl border border-white/10 bg-[#0b0f16]/90 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
+        aria-hidden
+      >
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/45">
+          Input
+        </div>
+        <div className="mt-1 h-1.5 w-2/3 rounded-full bg-gradient-to-r from-cyan-400/50 to-white/20" />
+      </div>
+      <div
+        className="pointer-events-none absolute right-[5%] top-[10%] w-[34%] max-w-[11rem] rounded-2xl border border-white/10 bg-[#0b0f16]/90 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
+        aria-hidden
+      >
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/45">
+          Prompt
+        </div>
+        <div className="mt-1 space-y-1">
+          <div className="h-1 rounded bg-white/10" />
+          <div className="h-1 w-4/5 rounded bg-white/10" />
+        </div>
+      </div>
+      <div
+        className="pointer-events-none absolute bottom-[16%] right-[7%] w-[28%] max-w-[8.5rem] rounded-xl border border-white/10 bg-[#0b0f16]/90 px-3 py-2 shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
+        aria-hidden
+      >
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/45">
+          Tool
+        </div>
+      </div>
+      <div className="pointer-events-none absolute bottom-[18%] left-[8%] flex gap-1" aria-hidden>
         {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full border border-white/[0.04] bg-white/[0.02]"
-            style={{
-              width: 8 + i * 4,
-              height: 8 + i * 4,
-              left: `${25 + i * 20}%`,
-              top: `${30 + (i % 2) * 35}%`,
-            }}
-            animate={reduce ? undefined : { y: [0, -6, 0], opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 3 + i, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
-          />
+          <span key={i} className="h-1.5 w-1.5 rounded-full bg-white/35" />
         ))}
+      </div>
+
+      {/* Center — same vocabulary as landing hero box */}
+      <div className="absolute left-1/2 top-1/2 w-[min(82%,320px)] -translate-x-1/2 -translate-y-1/2">
+        <div className="rounded-3xl border border-white/12 bg-[#0b0c11]/95 p-7 shadow-[0_26px_90px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.07]">
+          <div
+            className="pointer-events-none absolute inset-0 rounded-3xl opacity-90"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 25% 25%, rgba(34,211,238,0.18), transparent 62%), radial-gradient(circle at 75% 35%, rgba(236,72,153,0.12), transparent 64%)",
+            }}
+            aria-hidden
+          />
+          <div className="relative flex flex-col items-center text-center">
+            <div className="relative">
+              <div
+                className="pointer-events-none absolute -inset-6 rounded-full blur-2xl opacity-80"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 35% 35%, rgba(34,211,238,0.35), transparent 62%), radial-gradient(circle at 70% 55%, rgba(236,72,153,0.28), transparent 62%)",
+                }}
+                aria-hidden
+              />
+              <img
+                src="/brand/edgaze-mark.png"
+                alt="Edgaze"
+                className="relative h-16 w-16 object-contain md:h-[4.5rem] md:w-[4.5rem]"
+              />
+            </div>
+            <div className="mt-4 text-lg font-semibold tracking-tight text-white/95">Edgaze</div>
+            <div className="mt-1 text-xs text-white/55">Collect → publish → share</div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -153,43 +139,10 @@ function HeroAnimation() {
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-[#07080b] text-white font-dm-sans">
-      {/* Background layers — clip so blurred orbs cannot widen the document on mobile */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-[#07080b]" />
-        <div className="absolute inset-0 opacity-60 [background-image:radial-gradient(circle_at_18%_10%,rgba(34,211,238,0.14),transparent_46%),radial-gradient(circle_at_82%_18%,rgba(236,72,153,0.11),transparent_46%),radial-gradient(circle_at_55%_90%,rgba(34,211,238,0.06),transparent_52%)]" />
-        <div className="absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:92px_92px]" />
-        {/* Animated gradient orbs */}
-        <motion.div
-          className="absolute left-[15%] top-[20%] h-96 w-96 rounded-full opacity-30 blur-[120px]"
-          style={{
-            background: "radial-gradient(circle, rgba(34,211,238,0.4) 0%, transparent 70%)",
-          }}
-          animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
-          transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          className="absolute right-[20%] top-[30%] h-80 w-80 rounded-full opacity-25 blur-[100px]"
-          style={{
-            background: "radial-gradient(circle, rgba(236,72,153,0.4) 0%, transparent 70%)",
-          }}
-          animate={{ x: [0, -25, 0], y: [0, 25, 0] }}
-          transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div
-          className="absolute bottom-[25%] left-[40%] h-64 w-64 rounded-full opacity-15 blur-[80px]"
-          style={{
-            background: "radial-gradient(circle, rgba(34,211,238,0.35) 0%, transparent 70%)",
-          }}
-          animate={{ x: [0, 20, 0], y: [0, -15, 0] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
-
-      {/* Simple header — safe-area + compact nav on narrow screens so the pill never overflows */}
-      <header className="fixed left-0 right-0 top-0 z-50 pt-[max(1rem,env(safe-area-inset-top))] md:pt-5">
+    <div className="min-h-screen w-full text-white font-dm-sans" style={PAGE_BG_STYLE}>
+      <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/[0.07] pt-[max(0.75rem,env(safe-area-inset-top))] [background-color:rgba(7,8,11,0.92)] md:border-transparent md:bg-transparent md:pt-5">
         <div className="mx-auto max-w-[1440px] px-4 sm:px-5 md:px-8">
-          <div className="flex min-w-0 items-center rounded-full pl-3 pr-3 py-2 sm:pl-4 sm:pr-4 sm:py-2.5 md:pl-6 md:py-2.5 bg-white/[0.06] backdrop-blur-2xl border border-white/[0.06] shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset]">
+          <div className="flex min-w-0 items-center rounded-full py-2 pl-3 pr-3 sm:pl-4 sm:pr-4 md:border md:border-white/[0.08] md:bg-white/[0.06] md:py-2.5 md:pl-6 md:shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset]">
             <Link
               href="/"
               className="flex min-w-0 items-center gap-1.5 sm:gap-2 shrink-0 text-white hover:opacity-90 transition-opacity"
@@ -229,166 +182,109 @@ export default function AboutPage() {
       </header>
 
       <main className="pt-[calc(5rem+env(safe-area-inset-top))] md:pt-28">
-        <div className="mx-auto max-w-[1440px] px-5 md:px-8 pb-20">
-          {/* Hero */}
-          <section className="py-16 md:py-24">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 lg:gap-16 items-center min-w-0 w-full md:max-w-6xl lg:max-w-7xl md:mx-auto">
-              {/* Left: Premium animation — Edgaze logo + glass elements */}
-              <div className="order-2 md:order-1 min-w-0 mt-8 md:mt-0">
-                <HeroAnimation />
-              </div>
-              {/* Right: Copy */}
-              <div className="order-1 md:order-2 relative min-w-0">
-                <motion.div
-                  className="absolute -left-8 -top-8 w-64 h-64 rounded-full opacity-30 blur-3xl pointer-events-none hidden md:block"
-                  style={{
-                    background:
-                      "radial-gradient(circle, rgba(34,211,238,0.12), transparent 60%), radial-gradient(circle, rgba(236,72,153,0.08), transparent 60%)",
-                  }}
-                  animate={{ opacity: [0.2, 0.4, 0.2] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                />
-                <motion.h1
-                  className="relative text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-                >
-                  About Edgaze
-                </motion.h1>
-                <motion.p
-                  className="relative mt-4 md:mt-5 text-lg text-white/80 md:text-xl leading-relaxed"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.1, ease: [0.2, 0.8, 0.2, 1] }}
-                >
-                  Most AI workflows never leave the person who built them. They live in private
-                  Notion pages, screenshot folders, or long threads that nobody else can follow. The
-                  person who built them knows exactly how powerful they are. Everyone else has no
-                  idea they exist.
-                </motion.p>
-                <motion.div
-                  className="relative mt-6 md:mt-8 space-y-4 text-sm md:text-base text-white/65 leading-relaxed"
-                  initial={{ opacity: 0, y: 24 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
-                >
-                  <p>
-                    Edgaze is a platform where creators build, publish, and distribute AI workflows
-                    as real products. Not screenshots. Not copy-paste prompts. Actual runnable tools
-                    that anyone can use with a single link.
-                  </p>
-                </motion.div>
+        {/* Hero: full-bleed width like landing, single column scroll (no inner scrollport). */}
+        <section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen px-5 md:px-8 pb-16 md:pb-24">
+          <div className="mx-auto grid max-w-[1440px] grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-16 lg:gap-20">
+            <div className="order-2 min-w-0 md:order-1">
+              <AboutHeroIllustration />
+            </div>
+            <div className="order-1 min-w-0 md:order-2 md:pt-4">
+              <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
+                About Edgaze
+              </h1>
+              <p className="mt-4 md:mt-5 text-lg text-white/80 md:text-xl leading-relaxed">
+                Most AI workflows never leave the person who built them. They live in private Notion
+                pages, screenshot folders, or long threads that nobody else can follow. The person
+                who built them knows exactly how powerful they are. Everyone else has no idea they
+                exist.
+              </p>
+              <div className="mt-6 md:mt-8 space-y-4 text-sm md:text-base text-white/65 leading-relaxed">
+                <p>
+                  Edgaze is a platform where creators build, publish, and distribute AI workflows as
+                  real products. Not screenshots. Not copy-paste prompts. Actual runnable tools that
+                  anyone can use with a single link.
+                </p>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
+        <div className="mx-auto max-w-[1440px] px-5 md:px-8 pb-20">
           {/* What Edgaze Is */}
-          <section className="py-20 md:py-28">
-            <SectionReveal>
-              <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-                What Edgaze Is
-              </h2>
-            </SectionReveal>
+          <section className="py-16 md:py-28">
+            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
+              What Edgaze Is
+            </h2>
             <div className="mt-12 grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
               <div className="space-y-6">
-                <SectionReveal delay={0.05}>
-                  <p className="text-base text-white/70 leading-relaxed">
-                    Edgaze is two things: a builder and a marketplace.
-                  </p>
-                </SectionReveal>
-                <SectionReveal delay={0.1}>
-                  <p className="text-base text-white/70 leading-relaxed">
-                    The builder is a visual editor where you design workflows using nodes—
-                    <span className="text-cyan-300">Input</span>,{" "}
-                    <span className="text-cyan-300">Prompt</span>,{" "}
-                    <span className="text-cyan-300">Tool</span>, and{" "}
-                    <span className="text-cyan-300">Logic</span>. You connect them, configure them,
-                    and turn a sequence of AI steps into something reusable. No code required.
-                  </p>
-                </SectionReveal>
-                <SectionReveal delay={0.15}>
-                  <p className="text-base text-white/70 leading-relaxed">
-                    The marketplace is where those workflows live publicly. Every published workflow
-                    gets its own page. Visitors land on it, enter their input, and run it instantly.
-                    No setup, no prompt engineering, no explanation needed. The workflow just works.
-                  </p>
-                </SectionReveal>
-                <SectionReveal delay={0.2}>
-                  <p className="text-base text-white/70 leading-relaxed">
-                    Together, these two sides let a creator go from idea to published AI product in
-                    one place.
-                  </p>
-                </SectionReveal>
+                <p className="text-base text-white/70 leading-relaxed">
+                  Edgaze is two things: a builder and a marketplace.
+                </p>
+                <p className="text-base text-white/70 leading-relaxed">
+                  The builder is a visual editor where you design workflows using nodes—
+                  <span className="text-cyan-300">Input</span>,{" "}
+                  <span className="text-cyan-300">Prompt</span>,{" "}
+                  <span className="text-cyan-300">Tool</span>, and{" "}
+                  <span className="text-cyan-300">Logic</span>. You connect them, configure them,
+                  and turn a sequence of AI steps into something reusable. No code required.
+                </p>
+                <p className="text-base text-white/70 leading-relaxed">
+                  The marketplace is where those workflows live publicly. Every published workflow
+                  gets its own page. Visitors land on it, enter their input, and run it instantly.
+                  No setup, no prompt engineering, no explanation needed. The workflow just works.
+                </p>
+                <p className="text-base text-white/70 leading-relaxed">
+                  Together, these two sides let a creator go from idea to published AI product in
+                  one place.
+                </p>
               </div>
-              {/* Node mock visual */}
-              <SectionReveal delay={0.1}>
-                <div className="relative rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl p-8 min-h-[280px] flex items-center justify-center overflow-hidden">
-                  <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.12),transparent_50%),radial-gradient(circle_at_70%_70%,rgba(236,72,153,0.08),transparent_50%)]" />
-                  <svg className="absolute inset-0 w-full h-full" style={{ overflow: "visible" }}>
-                    <motion.path
-                      d="M 80 80 Q 140 80, 200 100"
-                      stroke="rgba(255,255,255,0.2)"
-                      strokeWidth="1.5"
-                      fill="none"
-                      animate={{ opacity: [0.15, 0.35, 0.15] }}
-                      transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                    />
-                    <motion.path
-                      d="M 200 100 Q 260 120, 320 140"
-                      stroke="rgba(255,255,255,0.2)"
-                      strokeWidth="1.5"
-                      fill="none"
-                      animate={{ opacity: [0.15, 0.35, 0.15] }}
-                      transition={{
-                        duration: 2.5,
-                        repeat: Infinity,
-                        delay: 0.3,
-                        ease: "easeInOut",
-                      }}
-                    />
-                    <motion.path
-                      d="M 200 100 Q 180 180, 200 220"
-                      stroke="rgba(255,255,255,0.2)"
-                      strokeWidth="1.5"
-                      fill="none"
-                      animate={{ opacity: [0.15, 0.35, 0.15] }}
-                      transition={{
-                        duration: 2.5,
-                        repeat: Infinity,
-                        delay: 0.6,
-                        ease: "easeInOut",
-                      }}
-                    />
-                  </svg>
-                  <div className="relative flex flex-wrap gap-4 items-center justify-center">
-                    {["Input", "Prompt", "Tool", "Logic"].map((label, i) => (
-                      <motion.div
-                        key={label}
-                        className="rounded-xl border border-white/[0.1] bg-white/[0.05] backdrop-blur px-5 py-3 shadow-lg"
-                        whileHover={{ scale: 1.03, borderColor: "rgba(34,211,238,0.3)" }}
-                        transition={{ duration: 0.2 }}
-                        style={{ animationDelay: `${i * 0.1}s` }}
-                      >
-                        <span className="text-xs font-semibold tracking-widest text-white/50">
-                          {label.toUpperCase()}
-                        </span>
-                      </motion.div>
-                    ))}
-                  </div>
+              <div className="relative rounded-2xl border border-white/[0.10] bg-white/[0.03] p-8 min-h-[240px] flex items-center justify-center">
+                <svg
+                  className="absolute inset-0 h-full w-full text-white/14"
+                  preserveAspectRatio="none"
+                  aria-hidden
+                >
+                  <path
+                    d="M 80 80 Q 140 80, 200 100"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    fill="none"
+                  />
+                  <path
+                    d="M 200 100 Q 260 120, 320 140"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    fill="none"
+                  />
+                  <path
+                    d="M 200 100 Q 180 180, 200 220"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    fill="none"
+                  />
+                </svg>
+                <div className="relative flex flex-wrap gap-3 items-center justify-center">
+                  {["Input", "Prompt", "Tool", "Logic"].map((label) => (
+                    <div
+                      key={label}
+                      className="rounded-xl border border-white/[0.1] bg-white/[0.05] px-4 py-2.5 md:px-5 md:py-3"
+                    >
+                      <span className="text-xs font-semibold tracking-widest text-white/50">
+                        {label.toUpperCase()}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              </SectionReveal>
+              </div>
             </div>
           </section>
 
           {/* How Edgaze Works */}
-          <section className="py-20 md:py-28">
-            <SectionReveal>
-              <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-                How Edgaze Works
-              </h2>
-            </SectionReveal>
-            <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          <section className="py-16 md:py-28">
+            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
+              How Edgaze Works
+            </h2>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
               {[
                 {
                   step: 1,
@@ -408,65 +304,48 @@ export default function AboutPage() {
                   title: "Run",
                   desc: "Users land on your page, enter their input, and hit run. The workflow executes instantly. No API keys, no setup, no reading a tutorial first.",
                 },
-              ].map((item, i) => (
-                <SectionReveal key={item.step} delay={i * 0.08}>
-                  <motion.div
-                    className="rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-8 h-full flex flex-col"
-                    whileHover={{
-                      scale: 1.02,
-                      borderColor: "rgba(255,255,255,0.12)",
-                      boxShadow: "0 0 0 1px rgba(255,255,255,0.06)",
-                    }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 border border-white/10">
-                        <item.icon className="h-5 w-5 text-white/80" />
-                      </div>
-                      <span className="text-xs font-semibold tracking-widest text-white/45">
-                        STEP {item.step}
-                      </span>
+              ].map((item) => (
+                <div
+                  key={item.step}
+                  className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-8 h-full flex flex-col"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 border border-white/10">
+                      <item.icon className="h-5 w-5 text-white/80" />
                     </div>
-                    <h3 className="mt-5 text-lg font-semibold text-white">{item.title}</h3>
-                    <p className="mt-3 text-sm text-white/65 leading-relaxed flex-1">{item.desc}</p>
-                  </motion.div>
-                </SectionReveal>
+                    <span className="text-xs font-semibold tracking-widest text-white/45">
+                      STEP {item.step}
+                    </span>
+                  </div>
+                  <h3 className="mt-5 text-lg font-semibold text-white">{item.title}</h3>
+                  <p className="mt-3 text-sm text-white/65 leading-relaxed flex-1">{item.desc}</p>
+                </div>
               ))}
             </div>
           </section>
 
           {/* Creator Economy */}
-          <section className="py-20 md:py-28">
-            <SectionReveal>
-              <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-                For Creators
-              </h2>
-            </SectionReveal>
+          <section className="py-16 md:py-28">
+            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
+              For Creators
+            </h2>
             <div className="mt-12 space-y-6 max-w-3xl">
-              <SectionReveal delay={0.05}>
-                <p className="text-base text-white/70 leading-relaxed">
-                  YouTube exists for video. Substack exists for writing. Until now, AI workflows had
-                  no equivalent—no dedicated place to publish them, no built-in way for others to
-                  discover and run them, and no clean path to earn from them.
-                </p>
-              </SectionReveal>
-              <SectionReveal delay={0.1}>
-                <p className="text-base text-white/70 leading-relaxed">Edgaze fills that gap.</p>
-              </SectionReveal>
-              <SectionReveal delay={0.15}>
-                <p className="text-base text-white/70 leading-relaxed">
-                  When you publish on Edgaze, your workflow gets a permanent page. You share one
-                  link and users can run it immediately. If you want to monetize, you turn it on.
-                  Edgaze handles the payment infrastructure so you don&apos;t have to.
-                </p>
-              </SectionReveal>
-              <SectionReveal delay={0.2}>
-                <p className="text-base text-white/70 leading-relaxed">
-                  The goal isn&apos;t just distribution. It&apos;s giving AI creators the same
-                  leverage that video creators and writers already have—a platform that does the
-                  infrastructure work so you can focus on building.
-                </p>
-              </SectionReveal>
+              <p className="text-base text-white/70 leading-relaxed">
+                YouTube exists for video. Substack exists for writing. Until now, AI workflows had
+                no equivalent—no dedicated place to publish them, no built-in way for others to
+                discover and run them, and no clean path to earn from them.
+              </p>
+              <p className="text-base text-white/70 leading-relaxed">Edgaze fills that gap.</p>
+              <p className="text-base text-white/70 leading-relaxed">
+                When you publish on Edgaze, your workflow gets a permanent page. You share one link
+                and users can run it immediately. If you want to monetize, you turn it on. Edgaze
+                handles the payment infrastructure so you don&apos;t have to.
+              </p>
+              <p className="text-base text-white/70 leading-relaxed">
+                The goal isn&apos;t just distribution. It&apos;s giving AI creators the same
+                leverage that video creators and writers already have—a platform that does the
+                infrastructure work so you can focus on building.
+              </p>
             </div>
             <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
@@ -485,32 +364,27 @@ export default function AboutPage() {
                   title: "Monetize",
                   desc: "Set a price when you\u2019re ready. Edgaze handles payments through Stripe so earnings go directly to you.",
                 },
-              ].map((item, i) => (
-                <SectionReveal key={item.title} delay={i * 0.08}>
-                  <motion.div
-                    className="rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-6 h-full"
-                    whileHover={{ borderColor: "rgba(255,255,255,0.12)" }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.08]">
-                      <item.icon className="h-5 w-5 text-white/70" />
-                    </div>
-                    <h3 className="mt-4 text-base font-semibold text-white">{item.title}</h3>
-                    <p className="mt-2 text-sm text-white/60 leading-relaxed">{item.desc}</p>
-                  </motion.div>
-                </SectionReveal>
+              ].map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-6 h-full"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.08]">
+                    <item.icon className="h-5 w-5 text-white/70" />
+                  </div>
+                  <h3 className="mt-4 text-base font-semibold text-white">{item.title}</h3>
+                  <p className="mt-2 text-sm text-white/60 leading-relaxed">{item.desc}</p>
+                </div>
               ))}
             </div>
           </section>
 
           {/* Philosophy */}
-          <section className="py-20 md:py-28">
-            <SectionReveal>
-              <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-                Our Philosophy
-              </h2>
-            </SectionReveal>
-            <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+          <section className="py-16 md:py-28">
+            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
+              Our Philosophy
+            </h2>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
               {[
                 {
                   title: "Clarity",
@@ -524,161 +398,138 @@ export default function AboutPage() {
                   title: "Distribution",
                   desc: "Building something great matters less if nobody can find or run it. Creators deserve infrastructure that gets their work in front of people.",
                 },
-              ].map((pillar, i) => (
-                <SectionReveal key={pillar.title} delay={i * 0.08}>
-                  <motion.div
-                    className="rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-8 h-full"
-                    whileHover={{ scale: 1.02, borderColor: "rgba(255,255,255,0.12)" }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-cyan-400/80" />
-                      <h3 className="text-lg font-semibold text-white">{pillar.title}</h3>
-                    </div>
-                    <p className="mt-4 text-sm text-white/65 leading-relaxed">{pillar.desc}</p>
-                  </motion.div>
-                </SectionReveal>
+              ].map((pillar) => (
+                <div
+                  key={pillar.title}
+                  className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-8 h-full"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-cyan-400/80" />
+                    <h3 className="text-lg font-semibold text-white">{pillar.title}</h3>
+                  </div>
+                  <p className="mt-4 text-sm text-white/65 leading-relaxed">{pillar.desc}</p>
+                </div>
               ))}
             </div>
           </section>
 
           {/* Founder */}
-          <section className="py-20 md:py-28">
-            <SectionReveal>
-              <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl text-center">
-                Founder
-              </h2>
-            </SectionReveal>
-            <SectionReveal delay={0.1}>
-              <div className="mt-16 flex flex-col items-center max-w-xl mx-auto text-center">
-                <motion.div
-                  className="relative"
-                  initial={{ opacity: 0, scale: 0.96, y: 20 }}
-                  whileInView={{ opacity: 1, scale: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.3 }}
-                  transition={{ duration: 0.6, ease: [0.2, 0.8, 0.2, 1] }}
-                >
-                  <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-cyan-500/50 via-pink-500/50 to-cyan-500/50 opacity-70 blur-sm" />
-                  <div className="relative rounded-full overflow-hidden w-32 h-32 ring-2 ring-white/10 bg-white/5">
-                    <img
-                      src="/misc/arjun.png"
-                      alt="Arjun Kuttikkat"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const t = e.currentTarget;
-                        t.style.display = "none";
-                        const fallback = t.nextElementSibling as HTMLElement;
-                        if (fallback) {
-                          fallback.classList.remove("hidden");
-                          fallback.classList.add("flex");
-                        }
-                      }}
-                    />
-                    <div
-                      className="hidden absolute inset-0 items-center justify-center text-2xl font-semibold text-white/70"
-                      aria-hidden
-                    >
-                      AK
-                    </div>
+          <section className="py-16 md:py-28">
+            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl text-center">
+              Founder
+            </h2>
+            <div className="mt-12 flex flex-col items-center max-w-xl mx-auto text-center">
+              <div className="relative">
+                <div
+                  className="pointer-events-none absolute -inset-0.5 rounded-full bg-gradient-to-r from-cyan-500/40 via-pink-500/40 to-cyan-500/40 opacity-50 blur-sm"
+                  aria-hidden
+                />
+                <div className="relative rounded-full overflow-hidden w-32 h-32 ring-2 ring-white/10 bg-white/5">
+                  <img
+                    src="/misc/arjun.png"
+                    alt="Arjun Kuttikkat"
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      const t = e.currentTarget;
+                      t.style.display = "none";
+                      const fallback = t.nextElementSibling as HTMLElement;
+                      if (fallback) {
+                        fallback.classList.remove("hidden");
+                        fallback.classList.add("flex");
+                      }
+                    }}
+                  />
+                  <div
+                    className="hidden absolute inset-0 items-center justify-center text-2xl font-semibold text-white/70"
+                    aria-hidden
+                  >
+                    AK
                   </div>
-                </motion.div>
-                <h3 className="mt-6 text-xl font-semibold text-white">Arjun Kuttikkat</h3>
-                <p className="mt-1 text-sm text-white/55">Founder, Edgaze</p>
-                <div className="mt-4 flex items-center justify-center gap-4">
-                  <a
-                    href="https://www.linkedin.com/in/arjun-kuttikkat/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-                    aria-label="Arjun on LinkedIn"
-                  >
-                    <Linkedin className="h-4 w-4" />
-                    LinkedIn
-                  </a>
-                  <a
-                    href="https://x.com/Arjun_kuttikkat"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-                    aria-label="Arjun on X"
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                    </svg>
-                    X
-                  </a>
                 </div>
-                <p className="mt-6 text-base text-white/70 leading-relaxed">
-                  Arjun Kuttikkat is a Robotics and AI student at the University of Birmingham Dubai
-                  and the founder of Edgaze. He started building Edgaze after running into the same
-                  problem repeatedly—his most useful AI workflows lived in private documents and
-                  were impossible to share properly. He wanted one link, one page, and one click to
-                  run. When that didn&apos;t exist, he built it. Edgaze is the platform he needed
-                  and couldn&apos;t find.
-                </p>
               </div>
-            </SectionReveal>
+              <h3 className="mt-6 text-xl font-semibold text-white">Arjun Kuttikkat</h3>
+              <p className="mt-1 text-sm text-white/55">Founder, Edgaze</p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+                <a
+                  href="https://www.linkedin.com/in/arjun-kuttikkat/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  aria-label="Arjun on LinkedIn"
+                >
+                  <Linkedin className="h-4 w-4" />
+                  LinkedIn
+                </a>
+                <a
+                  href="https://x.com/Arjun_kuttikkat"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                  aria-label="Arjun on X"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                  X
+                </a>
+              </div>
+              <p className="mt-6 text-base text-white/70 leading-relaxed">
+                Arjun Kuttikkat is a Robotics and AI student at the University of Birmingham Dubai
+                and the founder of Edgaze. He started building Edgaze after running into the same
+                problem repeatedly—his most useful AI workflows lived in private documents and were
+                impossible to share properly. He wanted one link, one page, and one click to run.
+                When that didn&apos;t exist, he built it. Edgaze is the platform he needed and
+                couldn&apos;t find.
+              </p>
+            </div>
           </section>
 
           {/* Future Vision */}
-          <section className="py-20 md:py-28">
-            <SectionReveal>
-              <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-                The Future of AI Workflows
-              </h2>
-            </SectionReveal>
+          <section className="py-16 md:py-28">
+            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
+              The Future of AI Workflows
+            </h2>
             <div className="mt-12 space-y-6 max-w-3xl">
-              <SectionReveal delay={0.05}>
-                <p className="text-base text-white/70 leading-relaxed">
-                  The limiting factor for AI adoption isn&apos;t model quality anymore. The models
-                  are good. The problem is that the best workflows—the ones that actually solve real
-                  problems—are stuck in private documents, Twitter threads, and Notion pages that
-                  nobody outside a small circle ever sees.
-                </p>
-              </SectionReveal>
-              <SectionReveal delay={0.1}>
-                <p className="text-base text-white/70 leading-relaxed">
-                  Distribution is the bottleneck. Fix that, and the people who&apos;ve been quietly
-                  building powerful AI workflows can finally get them in front of the people who
-                  need them.
-                </p>
-              </SectionReveal>
-              <SectionReveal delay={0.15}>
-                <p className="text-base text-white/70 leading-relaxed">
-                  Edgaze is built around that premise. As more creators publish and more users run
-                  workflows, the platform gets more useful for everyone. Discovery improves. Trust
-                  builds. The gap between building a workflow and having the world use it closes.
-                </p>
-              </SectionReveal>
-              <SectionReveal delay={0.2}>
-                <p className="text-base text-white/70 leading-relaxed">
-                  AI will produce a new generation of creators—people who don&apos;t write code or
-                  make videos, but design workflows. Edgaze is where they publish.
-                </p>
-              </SectionReveal>
+              <p className="text-base text-white/70 leading-relaxed">
+                The limiting factor for AI adoption isn&apos;t model quality anymore. The models are
+                good. The problem is that the best workflows—the ones that actually solve real
+                problems—are stuck in private documents, Twitter threads, and Notion pages that
+                nobody outside a small circle ever sees.
+              </p>
+              <p className="text-base text-white/70 leading-relaxed">
+                Distribution is the bottleneck. Fix that, and the people who&apos;ve been quietly
+                building powerful AI workflows can finally get them in front of the people who need
+                them.
+              </p>
+              <p className="text-base text-white/70 leading-relaxed">
+                Edgaze is built around that premise. As more creators publish and more users run
+                workflows, the platform gets more useful for everyone. Discovery improves. Trust
+                builds. The gap between building a workflow and having the world use it closes.
+              </p>
+              <p className="text-base text-white/70 leading-relaxed">
+                AI will produce a new generation of creators—people who don&apos;t write code or
+                make videos, but design workflows. Edgaze is where they publish.
+              </p>
             </div>
-            <SectionReveal delay={0.2}>
-              <div className="mt-12 flex flex-wrap gap-4">
-                <Link
-                  href="/marketplace"
-                  className="group inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-95 transition-opacity"
-                >
-                  Explore the marketplace
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-                <Link
-                  href="/creators/onboarding?from=about"
-                  className="group inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-95 transition-opacity"
-                >
-                  Join as a creator
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              </div>
-            </SectionReveal>
+            <div className="mt-12 flex flex-wrap gap-4">
+              <Link
+                href="/marketplace"
+                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-95 transition-opacity"
+              >
+                Explore the marketplace
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/creators/onboarding?from=about"
+                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-95 transition-opacity"
+              >
+                Join as a creator
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </section>
 
-          {/* Footer */}
-          <footer className="pt-20">
+          <footer className="pt-16 md:pt-20">
             <Footer />
           </footer>
         </div>

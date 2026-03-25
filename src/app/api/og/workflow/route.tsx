@@ -1,20 +1,12 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
+import { workflowPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 
 export const runtime = "edge";
 export const alt = "Edgaze workflow";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-
-const BASE = "https://edgaze.ai";
-
-function absoluteImageUrl(url: string | null | undefined): string | undefined {
-  if (!url || !url.trim()) return undefined;
-  const u = url.trim();
-  if (u.startsWith("http://") || u.startsWith("https://")) return u;
-  return u.startsWith("/") ? `${BASE}${u}` : `${BASE}/${u}`;
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -31,7 +23,9 @@ export async function GET(request: NextRequest) {
       const supabase = createSupabaseAdminClient();
       const { data } = await supabase
         .from("workflows")
-        .select("title, owner_name, price_usd, is_paid, thumbnail_url, banner_url")
+        .select(
+          "title, owner_name, price_usd, is_paid, thumbnail_url, banner_url, demo_images, output_demo_urls",
+        )
         .eq("owner_handle", ownerHandle)
         .eq("edgaze_code", edgazeCode)
         .eq("is_published", true)
@@ -45,13 +39,15 @@ export async function GET(request: NextRequest) {
           is_paid: boolean | null;
           thumbnail_url: string | null;
           banner_url: string | null;
+          demo_images: unknown;
+          output_demo_urls: unknown;
         };
         title = row.title?.trim() || title;
         creatorName = row.owner_name?.trim() || `@${ownerHandle}` || creatorName;
         if (row.is_paid && row.price_usd != null && row.price_usd > 0) {
           priceLabel = `$${Number(row.price_usd).toFixed(2)}`;
         }
-        imageUrl = absoluteImageUrl(row.thumbnail_url) || absoluteImageUrl(row.banner_url);
+        imageUrl = workflowPreviewImageUrl(row);
       }
     } catch {
       // use defaults

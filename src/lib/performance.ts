@@ -3,8 +3,60 @@
  * Tracks and optimizes loading performance
  */
 
+import { track } from "./mixpanel";
+
+type VitalBucket = { value: number; rating?: string; id?: string };
+const vitalsAccum: Record<string, VitalBucket> = {};
+let vitalsFlushTimer: ReturnType<typeof setTimeout> | null = null;
+const VITALS_DEBOUNCE_MS = 8000;
+let vitalsListenersAttached = false;
+
+function flushVitalsToMixpanel() {
+  if (vitalsFlushTimer) {
+    clearTimeout(vitalsFlushTimer);
+    vitalsFlushTimer = null;
+  }
+  const keys = Object.keys(vitalsAccum);
+  if (keys.length === 0) return;
+
+  const payload: Record<string, string | number | undefined> = {
+    path: typeof window !== "undefined" ? window.location.pathname : undefined,
+  };
+
+  for (const name of keys) {
+    const m = vitalsAccum[name];
+    delete vitalsAccum[name];
+    if (!m) continue;
+    const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+    payload[`${base}_value`] = Math.round(m.value * 1000) / 1000;
+    if (m.rating) payload[`${base}_rating`] = m.rating;
+  }
+
+  try {
+    track("Performance: Web Vitals", payload);
+  } catch {
+    // never block the app
+  }
+}
+
+function scheduleVitalsFlush() {
+  if (vitalsFlushTimer) return;
+  vitalsFlushTimer = setTimeout(flushVitalsToMixpanel, VITALS_DEBOUNCE_MS);
+}
+
+function attachVitalsLifecycleListeners() {
+  if (vitalsListenersAttached || typeof window === "undefined") return;
+  vitalsListenersAttached = true;
+  window.addEventListener("pagehide", () => flushVitalsToMixpanel());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushVitalsToMixpanel();
+  });
+}
+
 export function reportWebVitals(metric: any) {
-  // Log performance metrics in development
+  if (typeof window === "undefined") return;
+  attachVitalsLifecycleListeners();
+
   if (process.env.NODE_ENV === "development") {
     console.warn("[Performance]", {
       name: metric.name,
@@ -13,21 +65,17 @@ export function reportWebVitals(metric: any) {
     });
   }
 
-  // Send to analytics in production
-  if (process.env.NODE_ENV === "production" && typeof window !== "undefined") {
-    try {
-      // Track with Mixpanel if available
-      if ((window as any).mixpanel) {
-        (window as any).mixpanel.track("Web Vitals", {
-          metric: metric.name,
-          value: metric.value,
-          rating: metric.rating,
-          id: metric.id,
-        });
-      }
-    } catch (error) {
-      console.error("[Performance] Failed to report web vitals:", error);
-    }
+  if (process.env.NODE_ENV !== "production") return;
+
+  try {
+    vitalsAccum[metric.name] = {
+      value: metric.value,
+      rating: metric.rating,
+      id: metric.id,
+    };
+    scheduleVitalsFlush();
+  } catch (error) {
+    console.error("[Performance] Failed to buffer web vitals:", error);
   }
 }
 
@@ -54,13 +102,10 @@ export function preloadCriticalAssets() {
 export function getOptimizedImageUrl(src: string, width?: number): string {
   if (typeof window === "undefined") return src;
 
-  // For Next.js Image component, this is handled automatically
-  // This is a fallback for direct image URLs
   const supportsWebP =
     document.createElement("canvas").toDataURL("image/webp").indexOf("data:image/webp") === 0;
 
   if (supportsWebP && !src.includes(".svg")) {
-    // Next.js will handle conversion
     return src;
   }
 
@@ -73,7 +118,6 @@ export function getOptimizedImageUrl(src: string, width?: number): string {
 export function deferNonCriticalScripts() {
   if (typeof window === "undefined") return;
 
-  // Use requestIdleCallback to defer non-critical work
   const scheduleTask = (fn: () => void) => {
     if ("requestIdleCallback" in window) {
       (window as any).requestIdleCallback(fn, { timeout: 2000 });
@@ -83,7 +127,6 @@ export function deferNonCriticalScripts() {
   };
 
   scheduleTask(() => {
-    // Any non-critical initialization can go here
     console.warn("[Performance] Non-critical scripts loaded");
   });
 }

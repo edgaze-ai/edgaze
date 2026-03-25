@@ -1,12 +1,20 @@
 // src/lib/mixpanel.ts
-// Premium Mixpanel implementation with comprehensive error handling,
-// anonymous user tracking, session management, and advanced features
+// Mixpanel: intentional product analytics (not noise). Session replay + lean event payloads.
 import mixpanel from "mixpanel-browser";
 
 type Properties = Record<string, any>;
 
 const token = () => process.env.NEXT_PUBLIC_MIXPANEL_TOKEN;
 const hasToken = () => Boolean(token());
+
+function recordSessionsPercent(): number {
+  const raw = process.env.NEXT_PUBLIC_MIXPANEL_RECORD_PERCENT;
+  if (raw !== undefined && raw !== "") {
+    const n = Number(raw);
+    if (!Number.isNaN(n)) return Math.min(100, Math.max(0, n));
+  }
+  return process.env.NODE_ENV === "production" ? 100 : 0;
+}
 
 // React StrictMode (dev) double-invokes effects. Also multiple imports can race init.
 // Use Promise-based initialization to prevent race conditions.
@@ -107,23 +115,15 @@ function setupConsoleErrorFilter() {
   console.error = consoleErrorInterceptor;
 }
 
-/**
- * Get comprehensive common properties for all events
- * Includes device, browser, and environment information
- */
-function commonProps(): Properties {
+/** Device / environment context registered once as super-properties (not duplicated on every event). */
+function staticRegisterProps(): Properties {
   if (!canUseBrowserApis()) return {};
 
   const { innerWidth, innerHeight, devicePixelRatio } = window;
-  const now = new Date();
-
-  // Extract browser info
   const ua = navigator.userAgent;
   const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
   const isTablet = /iPad|Android/i.test(ua) && !/Mobile/i.test(ua);
-  const isDesktop = !isMobile && !isTablet;
 
-  // Detect browser
   let browser = "unknown";
   if (ua.includes("Chrome") && !ua.includes("Edg")) browser = "chrome";
   else if (ua.includes("Firefox")) browser = "firefox";
@@ -131,7 +131,6 @@ function commonProps(): Properties {
   else if (ua.includes("Edg")) browser = "edge";
   else if (ua.includes("Opera")) browser = "opera";
 
-  // Detect OS
   let os = "unknown";
   if (ua.includes("Windows")) os = "windows";
   else if (ua.includes("Mac OS X") || ua.includes("Macintosh")) os = "macos";
@@ -139,60 +138,46 @@ function commonProps(): Properties {
   else if (ua.includes("Android")) os = "android";
   else if (ua.includes("iPhone") || ua.includes("iPad")) os = "ios";
 
-  // Determine user type based on Mixpanel distinct_id
-  // If distinct_id looks like a UUID (authenticated user), mark as authenticated
-  // Otherwise, it's anonymous
-  let userType = "anonymous";
-  try {
-    if (initialized) {
-      const distinctId = mixpanel.get_distinct_id();
-      // UUIDs are typically 36 characters with dashes
-      // Authenticated users will have their user_id as distinct_id
-      if (distinctId && distinctId.length > 20 && !distinctId.startsWith("session_")) {
-        userType = "authenticated";
-      }
-    }
-  } catch {
-    // If we can't determine, default to anonymous
-    userType = "anonymous";
-  }
-
   return {
-    // Environment
     env: process.env.NODE_ENV,
-
-    // Page information
-    pathname: window.location?.pathname,
-    search: window.location?.search,
-    hash: window.location?.hash,
-    referrer: document.referrer || undefined,
-
-    // Screen/device
     screen_w: innerWidth,
     screen_h: innerHeight,
     dpr: devicePixelRatio,
     device_type: isMobile ? "mobile" : isTablet ? "tablet" : "desktop",
-
-    // Browser
     browser,
     os,
-    user_agent: ua,
-
-    // Session
-    session_id: getSessionId(),
-
-    // User type (critical for accurate active user counts)
-    user_type: userType,
-
-    // Timestamp (ISO format for better Mixpanel handling)
-    timestamp: now.toISOString(),
-
-    // Timezone
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-
-    // Language
     language: navigator.language || navigator.languages?.[0] || "en",
+    user_type: "anonymous",
   };
+}
+
+/**
+ * Small per-event context. Heavy device/UA/session fields live in super-properties + replay.
+ */
+function eventContext(): Properties {
+  if (!canUseBrowserApis()) return {};
+  const ref = document.referrer || "";
+  let ref_host: string | undefined;
+  try {
+    if (ref) ref_host = new URL(ref).hostname;
+  } catch {
+    ref_host = undefined;
+  }
+  return {
+    path: window.location?.pathname || undefined,
+    ...(window.location?.search ? { query: window.location.search.slice(1) } : {}),
+    ...(ref_host ? { ref_host } : {}),
+  };
+}
+
+function registerSuperContext(client: Pick<typeof mixpanel, "register">) {
+  client.register({
+    app: "edgaze",
+    app_version: process.env.NEXT_PUBLIC_APP_VERSION || "1.0.0",
+    session_id: getSessionId(),
+    ...staticRegisterProps(),
+  });
 }
 
 /**
@@ -250,31 +235,42 @@ async function ensureInit(): Promise<void> {
       // This prevents mutex timeout errors from cluttering the console
       setupConsoleErrorFilter();
 
-      // Premium Mixpanel configuration
+      // Intentional analytics: no autocapture flood; session replay optional via env.
       suppressMutexErrors(() => {
         mixpanel.init(token() as string, {
           debug: process.env.NODE_ENV === "development",
-          persistence: "cookie", // Cookie persistence avoids localStorage mutex issues
-          secure_cookie: true, // HTTPS only cookies
-          cross_site_cookie: true, // Support cross-site tracking
-          ignore_dnt: true, // Respect user privacy but still track (DNT is deprecated)
-          track_pageview: false, // We handle page views manually for better control
-          batch_requests: true, // Batch requests for better performance
-          batch_size: 50, // Batch up to 50 events
-          batch_flush_interval_ms: 5000, // Flush every 5 seconds
-          loaded: (mixpanel) => {
-            // Callback when Mixpanel is loaded
-            // Set up automatic session tracking
+          persistence: "cookie",
+          secure_cookie: true,
+          cross_site_cookie: true,
+          ignore_dnt: true,
+          track_pageview: false,
+          autocapture: false,
+          batch_requests: true,
+          batch_size: 50,
+          batch_flush_interval_ms: 5000,
+          record_sessions_percent: recordSessionsPercent(),
+          record_mask_all_inputs: true,
+          record_collect_fonts: true,
+          hooks: {
+            before_send_events: (payload) => {
+              const p = payload.properties;
+              if (p && typeof p === "object") {
+                delete p.user_agent;
+                for (const k of Object.keys(p)) {
+                  const v = p[k];
+                  if (typeof v === "string" && v.length > 800) {
+                    p[k] = `${v.slice(0, 800)}…`;
+                  }
+                }
+              }
+              return payload;
+            },
+          },
+          loaded: (mp) => {
             try {
-              // Register super properties that will be included in all events
-              mixpanel.register({
-                app: "edgaze",
-                app_version: process.env.NEXT_PUBLIC_APP_VERSION || "1.0.0",
-                env: process.env.NODE_ENV,
-                session_id: getSessionId(),
-              });
-            } catch (err) {
-              // Ignore registration errors
+              registerSuperContext(mp);
+            } catch {
+              // ignore
             }
           },
         });
@@ -317,7 +313,7 @@ export const track = (event: string, properties?: Properties) => {
   ensureInit()
     .then(() => {
       suppressMutexErrors(() => {
-        const props = { ...commonProps(), ...(properties ?? {}) };
+        const props = { ...eventContext(), ...(properties ?? {}) };
 
         // Ensure event name is valid (Mixpanel requirement)
         const sanitizedEvent = event.trim() || "Unknown Event";
@@ -356,9 +352,8 @@ export const trackPageView = (properties?: Properties) => {
     .then(() => {
       suppressMutexErrors(() => {
         const props = {
-          ...commonProps(),
+          ...eventContext(),
           ...(properties ?? {}),
-          // Additional page view specific properties
           page_title: document.title || undefined,
           page_url: window.location?.href || undefined,
         };
@@ -428,14 +423,7 @@ export const identifyUser = (userId: string, props?: Record<string, any>) => {
               handle: peopleProps.handle ?? undefined,
               plan: peopleProps.plan ?? undefined,
               email_verified: peopleProps.email_verified ?? undefined,
-              user_type: "authenticated", // Mark as authenticated for all future events
-            });
-
-            // Track identification event
-            mixpanel.track("User Identified", {
-              ...commonProps(),
-              user_id: userId,
-              identification_method: "login",
+              user_type: "authenticated",
             });
           } catch (err) {
             // Ignore property setting errors
@@ -461,20 +449,14 @@ export const resetIdentity = () => {
       suppressMutexErrors(() => {
         // Track logout event before resetting
         mixpanel.track("User Logged Out", {
-          ...commonProps(),
+          ...eventContext(),
         });
 
-        // Reset to anonymous state
         mixpanel.reset();
 
-        // Generate new session ID for anonymous session
         sessionId = generateSessionId();
 
-        // Update session ID and user_type in super properties
-        mixpanel.register({
-          session_id: sessionId,
-          user_type: "anonymous", // Mark as anonymous for all future events
-        });
+        registerSuperContext(mixpanel);
       });
     })
     .catch(() => {

@@ -216,6 +216,12 @@ function isStillBannedRow(row: { is_banned?: boolean; ban_expires_at?: string | 
   return t > Date.now();
 }
 
+/**
+ * Rare auth-side events only. Sign-in → "Login Completed"; sign-out → "User Logged Out" + "Logout Started".
+ * Skip INITIAL_SESSION, TOKEN_REFRESHED, SIGNED_IN, SIGNED_OUT (noisy or covered elsewhere).
+ */
+const TRACKED_AUTH_BRIDGE_EVENTS = new Set(["USER_UPDATED", "PASSWORD_RECOVERY"]);
+
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
     track(event, props);
@@ -338,20 +344,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     lastIdentifiedRef.current = null;
 
     // Critical: clears Mixpanel distinct_id to avoid cross-account contamination
-    // This resets to anonymous tracking
     safeResetIdentity();
-
-    // Track logout and transition to anonymous
-    safeTrack("Logout", {
-      surface: "auth_context",
-      user_type: "anonymous",
-    });
-
-    // Track anonymous user activity
-    safeTrack("Anonymous User Active", {
-      surface: "auth_context",
-      user_type: "anonymous",
-    });
   }, []);
 
   const loadProfile = useCallback(
@@ -607,24 +600,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refresh();
 
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-      safeTrack("Auth State Changed", {
-        event,
-        hasSession: Boolean(session),
-        user_type: session?.user ? "authenticated" : "anonymous",
-      });
+      if (TRACKED_AUTH_BRIDGE_EVENTS.has(event)) {
+        safeTrack("Auth Lifecycle", {
+          auth_event: event,
+          has_session: Boolean(session),
+        });
+      }
 
       const previousUserId = userId;
       await applyUser(session?.user ?? null);
       setLoading(false);
       setAuthReady(true);
-
-      // Track anonymous user activity if no session
-      if (!session?.user) {
-        safeTrack("Anonymous User Active", {
-          surface: "auth_context",
-          user_type: "anonymous",
-        });
-      }
 
       // Handle redirect after successful sign-in (for email sign-in, not OAuth)
       // OAuth redirects are handled by the callback handler

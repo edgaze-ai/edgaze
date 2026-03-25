@@ -1,6 +1,7 @@
 // src/app/p/[ownerHandle]/[edgazeCode]/layout.tsx
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { promptPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getProductRedirectPath } from "@lib/supabase/handle-redirect";
 
@@ -42,34 +43,6 @@ async function getListing(ownerHandle: string, edgazeCode: string) {
   }
 }
 
-function absoluteImageUrl(url: string | null | undefined): string | undefined {
-  if (!url || !url.trim()) return undefined;
-  const u = url.trim();
-  if (u.startsWith("https://")) return u;
-  if (u.startsWith("http://")) return `https://${u.slice("http://".length)}`;
-  const base = METADATA_BASE.replace(/\/+$/, "");
-  return u.startsWith("/") ? `${base}${u}` : `${base}/${u}`;
-}
-
-/** Same priority as `PromptProductPage` demo hero: demo → outputs → thumbnail (all typically Supabase storage). */
-function firstJsonbImageUrl(arr: unknown): string | undefined {
-  if (!Array.isArray(arr) || arr.length === 0) return undefined;
-  const s = arr[0];
-  return typeof s === "string" && s.trim() ? s.trim() : undefined;
-}
-
-function promptSocialImageUrl(listing: {
-  thumbnail_url: string | null;
-  demo_images: unknown;
-  output_demo_urls: unknown;
-}): string | undefined {
-  return (
-    absoluteImageUrl(firstJsonbImageUrl(listing.demo_images)) ??
-    absoluteImageUrl(firstJsonbImageUrl(listing.output_demo_urls)) ??
-    absoluteImageUrl(listing.thumbnail_url)
-  );
-}
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ownerHandle, edgazeCode } = await params;
   const listing = await getListing(ownerHandle, edgazeCode);
@@ -108,13 +81,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         ? "Discover and use this AI workflow on Edgaze. Build powerful automation with AI."
         : "Discover and use this AI prompt on Edgaze. Create amazing content with AI.";
 
-  const imageUrl = promptSocialImageUrl(listing);
   const pageUrl = `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`;
-  // Exactly one preview image: Supabase public URL when present (no second og.png — scrapers disagree on multi-value tags).
-  const primaryOg = imageUrl
-    ? { url: imageUrl, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: title }
-    : { url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: title };
-  const twitterImage: string = imageUrl ?? fallbackOg;
+  // Social crawlers reliably fetch same-origin /api/og/* (composed 1200×630 with listing art); raw storage URLs often fail or get skipped.
+  const dynamicOg = `${METADATA_BASE}/api/og/prompt?${new URLSearchParams({ ownerHandle, edgazeCode }).toString()}`;
+  const primaryOg = {
+    url: dynamicOg,
+    width: OG_IMAGE_WIDTH,
+    height: OG_IMAGE_HEIGHT,
+    alt: title,
+  };
+  const twitterImage = dynamicOg;
 
   return {
     title,
@@ -159,7 +135,7 @@ function buildPromptProductJsonLd(
     (listing.type === "workflow"
       ? "Discover and use this AI workflow on Edgaze. Build powerful automation with AI."
       : "Discover and use this AI prompt on Edgaze. Create amazing content with AI.");
-  const imageUrl = promptSocialImageUrl(listing);
+  const imageUrl = promptPreviewImageUrl(listing);
   const price =
     listing.is_paid && listing.price_usd != null && listing.price_usd > 0
       ? String(listing.price_usd)
