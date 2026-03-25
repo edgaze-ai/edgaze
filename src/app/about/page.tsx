@@ -195,7 +195,11 @@ export default function AboutPage() {
               className="flex min-w-0 items-center gap-1.5 sm:gap-2 shrink-0 text-white hover:opacity-90 transition-opacity"
               aria-label="Edgaze home"
             >
-              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8 md:h-9 md:w-9 shrink-0" />
+              <img
+                src="/brand/edgaze-mark.png"
+                alt="Edgaze"
+                className="h-8 w-8 md:h-9 md:w-9 shrink-0"
+              />
               <span className="text-[13px] sm:text-[14px] font-semibold tracking-tight md:text-[15px] truncate">
                 Edgaze
               </span>
