@@ -27,9 +27,9 @@ function HeroAnimation() {
   const reduce = useReducedMotion();
 
   return (
-    <div className="relative h-[320px] md:h-[400px] lg:h-[460px] flex items-center justify-center md:justify-center pr-0 md:px-2">
-      {/* Central composition */}
-      <div className="relative w-full max-w-[400px] aspect-square flex items-center justify-center">
+    <div className="relative h-[300px] sm:h-[320px] md:h-[400px] lg:h-[460px] flex items-center justify-center md:justify-center px-1 md:px-2 overflow-x-hidden">
+      {/* Central composition — overflow hidden keeps glow / cards inside the column on narrow screens */}
+      <div className="relative w-full max-w-[min(100%,400px)] aspect-square flex items-center justify-center overflow-hidden md:overflow-visible">
         {/* Outer glow ring */}
         <motion.div
           className="absolute inset-0 rounded-full border border-white/[0.06]"
@@ -48,7 +48,7 @@ function HeroAnimation() {
           transition={{ duration: 0.8, ease: [0.2, 0.8, 0.2, 1] }}
         >
           <motion.div
-            className="absolute -inset-16 rounded-full opacity-50 blur-3xl"
+            className="absolute -inset-8 sm:-inset-12 md:-inset-16 rounded-full opacity-50 blur-3xl"
             style={{
               background:
                 "radial-gradient(circle at 50% 50%, rgba(34,211,238,0.2), rgba(236,72,153,0.12) 40%, transparent 65%)",
@@ -68,7 +68,7 @@ function HeroAnimation() {
 
         {/* Glass card 1 — top right */}
         <motion.div
-          className="absolute right-0 top-[8%] w-28 md:w-36 rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl px-4 py-3 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset]"
+          className="absolute right-1 top-[8%] w-[6.5rem] sm:w-28 md:w-36 rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl px-3 py-2.5 sm:px-4 sm:py-3 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] max-[380px]:right-0 max-[380px]:scale-[0.92] origin-top-right"
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, delay: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
@@ -86,7 +86,7 @@ function HeroAnimation() {
 
         {/* Glass card 2 — bottom left */}
         <motion.div
-          className="absolute left-0 bottom-[12%] w-28 md:w-36 rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl px-4 py-3 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset]"
+          className="absolute left-1 bottom-[12%] w-[6.5rem] sm:w-28 md:w-36 rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl px-3 py-2.5 sm:px-4 sm:py-3 shadow-[0_0_0_1px_rgba(255,255,255,0.03)_inset] max-[380px]:left-0 max-[380px]:scale-[0.92] origin-bottom-left"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, delay: 0.45, ease: [0.2, 0.8, 0.2, 1] }}
@@ -153,9 +153,9 @@ function HeroAnimation() {
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen w-full overflow-y-auto overflow-x-hidden bg-[#07080b] text-white font-dm-sans">
-      {/* Background layers */}
-      <div className="pointer-events-none fixed inset-0 -z-10">
+    <div className="min-h-screen w-full overflow-x-hidden bg-[#07080b] text-white font-dm-sans">
+      {/* Background layers — clip so blurred orbs cannot widen the document on mobile */}
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-[#07080b]" />
         <div className="absolute inset-0 opacity-60 [background-image:radial-gradient(circle_at_18%_10%,rgba(34,211,238,0.14),transparent_46%),radial-gradient(circle_at_82%_18%,rgba(236,72,153,0.11),transparent_46%),radial-gradient(circle_at_55%_90%,rgba(34,211,238,0.06),transparent_52%)]" />
         <div className="absolute inset-0 opacity-[0.06] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:92px_92px]" />
@@ -186,36 +186,36 @@ export default function AboutPage() {
         />
       </div>
 
-      {/* Simple header */}
-      <header className="fixed left-0 right-0 top-0 z-50 pt-4 md:pt-5">
-        <div className="mx-auto max-w-[1440px] px-5 md:px-8">
-          <div className="flex items-center rounded-full pl-4 pr-4 py-2.5 md:pl-6 md:py-2.5 bg-white/[0.06] backdrop-blur-2xl border border-white/[0.06] shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset]">
+      {/* Simple header — safe-area + compact nav on narrow screens so the pill never overflows */}
+      <header className="fixed left-0 right-0 top-0 z-50 pt-[max(1rem,env(safe-area-inset-top))] md:pt-5">
+        <div className="mx-auto max-w-[1440px] px-4 sm:px-5 md:px-8">
+          <div className="flex min-w-0 items-center rounded-full pl-3 pr-3 py-2 sm:pl-4 sm:pr-4 sm:py-2.5 md:pl-6 md:py-2.5 bg-white/[0.06] backdrop-blur-2xl border border-white/[0.06] shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset]">
             <Link
               href="/"
-              className="flex items-center gap-2 shrink-0 text-white hover:opacity-90 transition-opacity"
+              className="flex min-w-0 items-center gap-1.5 sm:gap-2 shrink-0 text-white hover:opacity-90 transition-opacity"
               aria-label="Edgaze home"
             >
-              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8 md:h-9 md:w-9" />
-              <span className="text-[14px] font-semibold tracking-tight md:text-[15px]">
+              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8 md:h-9 md:w-9 shrink-0" />
+              <span className="text-[13px] sm:text-[14px] font-semibold tracking-tight md:text-[15px] truncate">
                 Edgaze
               </span>
             </Link>
-            <nav className="ml-auto flex items-center gap-6">
+            <nav className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4 md:gap-6">
               <Link
                 href="/marketplace"
-                className="text-[13px] text-white/70 hover:text-white transition-colors"
+                className="hidden sm:inline text-[13px] text-white/70 hover:text-white transition-colors whitespace-nowrap"
               >
                 Marketplace
               </Link>
               <Link
                 href="/docs"
-                className="text-[13px] text-white/70 hover:text-white transition-colors"
+                className="hidden sm:inline text-[13px] text-white/70 hover:text-white transition-colors whitespace-nowrap"
               >
                 Docs
               </Link>
               <Link
                 href="/marketplace"
-                className="rounded-full px-4 py-2 text-[13px] font-medium text-white bg-white/10 hover:bg-white/15 border border-white/10 transition-colors"
+                className="rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-[13px] font-medium text-white bg-white/10 hover:bg-white/15 border border-white/10 transition-colors whitespace-nowrap"
               >
                 Get started
               </Link>
@@ -224,7 +224,7 @@ export default function AboutPage() {
         </div>
       </header>
 
-      <main className="pt-24 md:pt-28">
+      <main className="pt-[calc(5rem+env(safe-area-inset-top))] md:pt-28">
         <div className="mx-auto max-w-[1440px] px-5 md:px-8 pb-20">
           {/* Hero */}
           <section className="py-16 md:py-24">
