@@ -1,10 +1,20 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect } from "react";
 import Footer from "src/components/layout/Footer";
 
 const PDF_PATH = "/brand/edgaze-pitch-deck.pdf";
+
+const PitchDeckViewer = dynamic(() => import("src/components/invest/PitchDeckViewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex min-h-[240px] w-full items-center justify-center rounded-[10px] bg-white/[0.04] sm:min-h-[280px]">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-cyan-400" />
+    </div>
+  ),
+});
 
 export default function InvestPage() {
   /* Same pattern as /creators: AppShell’s <main> can stay overflow-hidden on some navigations; force vertical scroll. */
@@ -61,7 +71,7 @@ export default function InvestPage() {
           className="mx-auto max-w-[1100px] px-4 sm:px-6 md:px-8 pt-10 sm:pt-8 md:pt-14 lg:pt-16 pb-10 md:pb-14 text-center"
         >
           <h1 className="text-[1.65rem] font-semibold tracking-tight text-white sm:text-4xl md:text-5xl max-w-4xl mx-auto leading-[1.15]">
-            Edgaze — The Distribution Layer for AI Workflows
+            The Distribution Layer for AI Workflows
           </h1>
           <p className="mt-3.5 text-sm sm:text-base md:text-lg text-white/65 max-w-2xl mx-auto leading-relaxed">
             A marketplace and execution layer where AI workflows become products
@@ -89,12 +99,8 @@ export default function InvestPage() {
         >
           <div className="mx-auto w-full max-w-[min(100%,920px)] lg:max-w-[880px] xl:max-w-[900px]">
             <div className="relative rounded-xl sm:rounded-2xl p-[1px] bg-gradient-to-r from-cyan-400/45 via-sky-500/35 to-pink-500/45 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]">
-              <div className="overflow-hidden rounded-[10px] sm:rounded-[14px] bg-[#0a0a0a] ring-1 ring-white/[0.09]">
-                <iframe
-                  title="Edgaze pitch deck"
-                  src={`${PDF_PATH}#view=FitH`}
-                  className="block h-[42vh] min-h-[240px] max-h-[420px] w-full border-0 bg-black sm:h-[48vh] sm:min-h-[280px] sm:max-h-[520px] md:h-[56vh] md:max-h-[600px] lg:h-[54vh] lg:max-h-[580px]"
-                />
+              <div className="overflow-hidden rounded-[10px] sm:rounded-[14px] bg-[#0a0a0a] px-1 py-2 sm:px-2 sm:py-3 ring-1 ring-white/[0.09]">
+                <PitchDeckViewer pdfPath={PDF_PATH} />
               </div>
             </div>
           </div>

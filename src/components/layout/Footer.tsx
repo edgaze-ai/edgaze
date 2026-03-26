@@ -6,10 +6,12 @@ const FOOTER_SECTIONS = [
   {
     title: "Product",
     links: [
-      { label: "Builder", href: "/builder" },
-      { label: "Explore Workflows", href: "/marketplace" },
-      { label: "Pricing", href: "/pricing" },
+      { label: "Marketplace", href: "/marketplace" },
+      { label: "Workflow Studio", href: "/builder" },
+      { label: "Prompt Studio", href: "/prompt-studio" },
       { label: "Creator Program", href: "/creators" },
+      { label: "Pricing", href: "/pricing" },
+      { label: "Library", href: "/library" },
     ],
   },
   {

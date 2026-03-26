@@ -15,7 +15,15 @@ const config = [
   },
 
   {
-    ignores: [".next/**", "dist/**", "build/**", "out/**", "node_modules/**", ".claude/**"],
+    ignores: [
+      ".next/**",
+      "dist/**",
+      "build/**",
+      "out/**",
+      "node_modules/**",
+      ".claude/**",
+      "public/pdf.worker.min.mjs",
+    ],
   },
 ];
 
