@@ -1,27 +1,21 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
-import {
-  getUserWorkflowRunCount,
-  isAdmin,
-  workflowExists,
-  getWorkflowDraftId,
-} from "@lib/supabase/executions";
+import { getUserWorkflowRunCount, isAdmin } from "@lib/supabase/executions";
+import { getAuthenticatedRunEntitlement } from "src/server/flow/marketplace-entitlement";
 
 const BUILDER_TEST_RUN_LIMIT = 10;
+const MARKETPLACE_KEY_RUN_LIMIT = 10;
 
 /**
- * GET /api/flow/run/remaining?workflowId=...&isBuilderTest=1
- * Returns { used, limit, freeRunsRemaining } for builder test runs.
- * Requires auth via Authorization: Bearer <accessToken>.
+ * GET /api/flow/run/remaining?workflowId=...&isBuilderTest=1&isPreview=1
+ * Requires auth. isBuilderTest / isPreview are hints; effective caps come from server entitlement.
  */
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const workflowId = searchParams.get("workflowId");
-    const isBuilderTest =
+    const isBuilderTestParam =
       searchParams.get("isBuilderTest") === "1" || searchParams.get("isBuilderTest") === "true";
-    const isPreview =
-      searchParams.get("isPreview") === "1" || searchParams.get("isPreview") === "true";
 
     if (!workflowId) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
@@ -37,21 +31,22 @@ export async function GET(req: Request) {
 
     const userId = user.id;
 
-    // Always fetch actual usage so the UI shows real run counts (used goes up)
-    // Check drafts if workflow doesn't exist (builder test runs)
-    let draftId: string | null = null;
-    if (isBuilderTest) {
-      const exists = await workflowExists(workflowId);
-      if (!exists) {
-        draftId = await getWorkflowDraftId(workflowId, userId);
-      }
+    const entitlement = await getAuthenticatedRunEntitlement(
+      userId,
+      workflowId,
+      isBuilderTestParam,
+    );
+    if (!entitlement.ok) {
+      return NextResponse.json({ ok: false, error: entitlement.message }, { status: 403 });
     }
-    // Builder test: 10 runs. Purchased workflow preview: 10 runs. Else: 5.
-    const limit = isBuilderTest || isPreview ? BUILDER_TEST_RUN_LIMIT : 5;
+
+    const draftId = entitlement.draftIdForCount;
+    const limit = entitlement.effectiveIsBuilderTest
+      ? BUILDER_TEST_RUN_LIMIT
+      : MARKETPLACE_KEY_RUN_LIMIT;
     const used = await getUserWorkflowRunCount(userId, workflowId, draftId);
     const freeRunsRemaining = Math.max(0, limit - used);
 
-    // Admins get unlimited limit but we still return real usage for display
     const userIsAdmin = await isAdmin(userId);
     if (userIsAdmin) {
       return NextResponse.json({

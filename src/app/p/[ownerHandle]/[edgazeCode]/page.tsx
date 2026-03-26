@@ -1342,54 +1342,25 @@ export default function PromptProductPage() {
     async function load() {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from("prompts")
-        .select(
-          [
-            "id",
-            "owner_id",
-            "owner_name",
-            "owner_handle",
-            "type",
-            "edgaze_code",
-            "title",
-            "description",
-            "tags",
-            "thumbnail_url",
-            "prompt_text",
-            "placeholders",
-            "demo_images",
-            "output_demo_urls",
-            "visibility",
-            "monetisation_mode",
-            "is_paid",
-            "price_usd",
-            "view_count",
-            "like_count",
-            "demo_mode_enabled",
-            "demo_token",
-          ].join(","),
-        )
-        .eq("owner_handle", ownerHandle)
-        .eq("edgaze_code", edgazeCode)
-        .maybeSingle();
+      let record: PromptListing | null = null;
+      try {
+        const res = await fetch(
+          `/api/prompt/storefront-detail?owner_handle=${encodeURIComponent(ownerHandle)}&edgaze_code=${encodeURIComponent(edgazeCode)}`,
+        );
+        const json = await res.json().catch(() => ({}));
+        record = (json?.listing as PromptListing | null) ?? null;
+      } catch (e) {
+        console.error("Listing load error", e);
+        record = null;
+      }
 
       if (cancelled) return;
 
-      if (error) {
-        console.error("Listing load error", error);
+      if (!record) {
         setListing(null);
         setLoading(false);
         return;
       }
-
-      if (!data) {
-        setListing(null);
-        setLoading(false);
-        return;
-      }
-
-      const record = data as unknown as PromptListing;
       setListing(record);
       setLoading(false);
 
@@ -1630,6 +1601,66 @@ export default function PromptProductPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing?.id, userId]);
+
+  useEffect(() => {
+    if (!listing?.id || !userId) return;
+    const isFree = listing.monetisation_mode === "free" || listing.is_paid === false;
+    if (isFree) return;
+    if (listing.prompt_text) return;
+    const isOwner = String(listing.owner_id) === String(userId);
+    const hasAccess =
+      isOwner || (purchase && (purchase.status === "paid" || purchase.status === "beta"));
+    if (!hasAccess) return;
+
+    let alive = true;
+    (async () => {
+      try {
+        let token = await getAccessToken();
+        if (!token) {
+          await refreshAuthSession();
+          token = await getAccessToken();
+        }
+        if (!token) return;
+        const res = await fetch(
+          `/api/prompt/resolve-content?prompt_id=${encodeURIComponent(listing.id)}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (!res.ok) return;
+        const j = (await res.json()) as {
+          prompt_text?: string | null;
+          placeholders?: unknown;
+        };
+        if (!alive) return;
+        setListing((prev) =>
+          prev
+            ? {
+                ...prev,
+                prompt_text: j.prompt_text ?? prev.prompt_text,
+                placeholders:
+                  j.placeholders !== undefined
+                    ? (j.placeholders as typeof prev.placeholders)
+                    : prev.placeholders,
+              }
+            : null,
+        );
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [
+    listing?.id,
+    listing?.monetisation_mode,
+    listing?.is_paid,
+    listing?.prompt_text,
+    listing?.owner_id,
+    userId,
+    purchase,
+    getAccessToken,
+    refreshAuthSession,
+  ]);
 
   // Auto-trigger purchase/run flow only after auth redirect (not on shared links or back navigation)
   useEffect(() => {
@@ -1942,18 +1973,33 @@ export default function PromptProductPage() {
     });
 
     try {
-      // Load workflow graph
-      const { data: workflowData, error: workflowError } = await supabase
-        .from("workflows")
-        .select("id,title,graph")
-        .eq("id", listing.id)
-        .maybeSingle();
-
-      if (workflowError || !workflowData) {
-        throw new Error("Failed to load workflow");
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const payload: Record<string, unknown> = { workflowId: listing.id };
+      if (!userId) {
+        payload.deviceFingerprint = getDeviceFingerprintHash();
+      } else {
+        let token = await getAccessToken();
+        if (!token) {
+          await refreshAuthSession();
+          token = await getAccessToken();
+        }
+        if (!token) throw new Error("Sign in required");
+        headers["Authorization"] = `Bearer ${token}`;
       }
-
-      const graph = workflowData.graph || { nodes: [], edges: [] };
+      const res = await fetch("/api/workflow/resolve-run-graph", {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const payloadJson = await res.json().catch(() => ({}));
+      if (!res.ok || !payloadJson.ok) {
+        throw new Error(payloadJson.error || "Failed to load workflow");
+      }
+      const graph = {
+        nodes: payloadJson.nodes || [],
+        edges: payloadJson.edges || [],
+      };
 
       // Validate workflow graph before execution
       const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);

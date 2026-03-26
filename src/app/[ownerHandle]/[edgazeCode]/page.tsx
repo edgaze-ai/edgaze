@@ -900,6 +900,11 @@ export default function WorkflowProductPage() {
   const upNextSentinelRef = useRef<HTMLDivElement | null>(null);
   const autoActionTriggeredRef = useRef(false);
 
+  const [demoExecutionGraph, setDemoExecutionGraph] = useState<{
+    nodes: any[];
+    edges: any[];
+  } | null>(null);
+
   // Load creator profile for avatar
   const [creatorProfile, setCreatorProfile] = useState<PublicProfileLite | null>(null);
 
@@ -930,57 +935,25 @@ export default function WorkflowProductPage() {
     async function load() {
       setLoading(true);
 
-      const { data, error } = await supabase
-        .from("workflows")
-        .select(
-          [
-            "id",
-            "owner_id",
-            "owner_name",
-            "owner_handle",
-            "title",
-            "description",
-            "tags",
-            "banner_url",
-            "thumbnail_url",
-            "edgaze_code",
-            "is_public",
-            "is_published",
-            "monetisation_mode",
-            "is_paid",
-            "price_usd",
-            "views_count",
-            "likes_count",
-            "demo_images",
-            "output_demo_urls",
-            "graph_json",
-            "graph",
-            "demo_mode_enabled",
-            "demo_token",
-          ].join(","),
-        )
-        .eq("owner_handle", ownerHandle)
-        .eq("edgaze_code", edgazeCode)
-        .eq("is_published", true)
-        .maybeSingle();
+      let record: WorkflowListing | null = null;
+      try {
+        const res = await fetch(
+          `/api/workflow/storefront-detail?owner_handle=${encodeURIComponent(ownerHandle)}&edgaze_code=${encodeURIComponent(edgazeCode)}`,
+        );
+        const json = await res.json().catch(() => ({}));
+        record = (json?.listing as WorkflowListing | null) ?? null;
+      } catch (e) {
+        console.error("Workflow listing load error", e);
+        record = null;
+      }
 
       if (cancelled) return;
 
-      if (error) {
-        console.error("Workflow listing load error", error);
+      if (!record) {
         setListing(null);
         setLoading(false);
         return;
       }
-
-      if (!data) {
-        setListing(null);
-        setLoading(false);
-        return;
-      }
-
-      // TS build fix: cast through unknown to avoid GenericStringError overlap type.
-      const record = data as unknown as WorkflowListing;
 
       // Basic guard: don’t show private.
       if (record.is_public === false) {
@@ -1420,18 +1393,45 @@ export default function WorkflowProductPage() {
         edgaze_code: listing.edgaze_code,
       });
 
-      // Load workflow graph
-      const { data: workflowData, error: workflowError } = await supabase
-        .from("workflows")
-        .select("id,title,graph_json,graph")
-        .eq("id", listing.id)
-        .maybeSingle();
-
-      if (workflowError || !workflowData) {
-        throw new Error("Failed to load workflow");
+      let graph: { nodes: any[]; edges: any[] };
+      if (listing.graph_json || listing.graph) {
+        const raw = (listing.graph_json || listing.graph) as {
+          nodes?: any[];
+          edges?: any[];
+        };
+        graph = { nodes: raw.nodes || [], edges: raw.edges || [] };
+      } else {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        const payload: Record<string, unknown> = { workflowId: listing.id };
+        if (isDemoModeActive && listing.demo_token) {
+          payload.adminDemoToken = listing.demo_token;
+        } else if (!userId) {
+          payload.deviceFingerprint = getDeviceFingerprintHash();
+        } else {
+          let token = await getAccessToken();
+          if (!token) {
+            await refreshAuthSession();
+            token = await getAccessToken();
+          }
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+        }
+        const res = await fetch("/api/workflow/resolve-run-graph", {
+          method: "POST",
+          headers,
+          credentials: "include",
+          body: JSON.stringify(payload),
+        });
+        const payloadJson = await res.json().catch(() => ({}));
+        if (!res.ok || !payloadJson.ok) {
+          throw new Error(payloadJson.error || "Failed to load workflow");
+        }
+        graph = {
+          nodes: payloadJson.nodes || [],
+          edges: payloadJson.edges || [],
+        };
       }
 
-      const graph = workflowData.graph_json || workflowData.graph || { nodes: [], edges: [] };
+      setDemoExecutionGraph(graph);
 
       // Validate workflow
       const validation = validateWorkflowGraph(graph.nodes || [], graph.edges || []);
@@ -1501,7 +1501,10 @@ export default function WorkflowProductPage() {
   async function handleDemoSubmitInputs(inputValues: Record<string, any>) {
     if (!listing || !demoRunState) return;
 
-    const graph = listing.graph_json || listing.graph || { nodes: [], edges: [] };
+    const graph = demoExecutionGraph || {
+      nodes: (listing.graph_json || listing.graph)?.nodes || [],
+      edges: (listing.graph_json || listing.graph)?.edges || [],
+    };
 
     // Convert File objects to base64
     const processedInputs: Record<string, any> = {};
@@ -1924,6 +1927,7 @@ export default function WorkflowProductPage() {
           if (demoRunState?.status !== "running" && demoRunState?.phase !== "executing") {
             setDemoRunModalOpen(false);
             setDemoRunState(null);
+            setDemoExecutionGraph(null);
           }
         }}
         state={demoRunState}

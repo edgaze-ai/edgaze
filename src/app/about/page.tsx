@@ -5,133 +5,290 @@ import Link from "next/link";
 import { ArrowRight, Blocks, FileEdit, Globe, Linkedin, Play, Zap } from "lucide-react";
 import Footer from "src/components/layout/Footer";
 
-/** One combined background (deep base + cyan/pink washes — no stacked black layers). */
-const PAGE_BG_STYLE: React.CSSProperties = {
-  backgroundColor: "#07080b",
-  backgroundImage: [
-    "radial-gradient(ellipse 130% 100% at 8% 15%, rgba(34,211,238,0.22), transparent 58%)",
-    "radial-gradient(ellipse 120% 90% at 92% 12%, rgba(236,72,153,0.18), transparent 55%)",
-    "radial-gradient(ellipse 100% 70% at 50% 100%, rgba(34,211,238,0.10), transparent 52%)",
-  ].join(", "),
+const NODE_TX = {
+  fill: "#101014",
+  stroke: "rgba(255,255,255,0.11)",
+  label: "rgba(255,255,255,0.48)",
+  line: "rgba(255,255,255,0.20)",
 };
 
-/**
- * Full-viewport-style hero illustration — landing-adjacent look, entirely static (no timers / motion libs).
- * No overflow clipping: the whole scene scrolls with the document.
- */
+function AboutSectionTitle({
+  children,
+  align = "left",
+}: {
+  children: React.ReactNode;
+  align?: "left" | "center";
+}) {
+  return (
+    <h2
+      className={
+        align === "center"
+          ? "text-center text-2xl font-semibold tracking-[-0.02em] text-white sm:text-3xl md:text-[2.125rem] md:leading-snug"
+          : "text-2xl font-semibold tracking-[-0.02em] text-white sm:text-3xl md:text-[2.125rem] md:leading-snug"
+      }
+    >
+      {children}
+    </h2>
+  );
+}
+
+/** Single SVG: nodes + edges share one coordinate system so connectors never miss the boxes. */
 function AboutHeroIllustration() {
   return (
-    <div className="relative mx-auto w-full max-w-[640px] min-h-[min(76dvh,680px)] md:min-h-[520px] md:max-w-none">
-      {/* Local wash only inside the hero art (not a second full-page black). */}
-      <div
-        className="pointer-events-none absolute inset-0 rounded-[2rem] opacity-90 md:rounded-3xl [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.06)]"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 35% 30%, rgba(34,211,238,0.14), transparent 58%), radial-gradient(circle at 70% 40%, rgba(236,72,153,0.11), transparent 56%)",
-        }}
-        aria-hidden
-      />
-
+    <div className="relative mx-auto w-full max-w-[440px] min-h-[min(72dvh,560px)] md:min-h-[480px] md:max-w-[480px]">
       <svg
-        className="absolute inset-0 h-full w-full"
-        viewBox="0 0 520 520"
+        className="h-auto w-full"
+        viewBox="0 0 400 400"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden
+        preserveAspectRatio="xMidYMid meet"
       >
-        <path
-          d="M 72 120 Q 180 100 260 258"
-          stroke="rgba(255,255,255,0.14)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M 448 96 Q 340 140 260 258"
-          stroke="rgba(255,255,255,0.14)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M 420 396 Q 360 320 260 258"
-          stroke="rgba(255,255,255,0.14)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M 88 384 Q 170 310 260 258"
-          stroke="rgba(255,255,255,0.12)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
+        <defs>
+          <radialGradient id="about-hero-center-glow" cx="50%" cy="50%" r="55%">
+            <stop offset="0%" stopColor="rgba(34,211,238,0.32)" />
+            <stop offset="40%" stopColor="rgba(236,72,153,0.18)" />
+            <stop offset="68%" stopColor="rgba(255,255,255,0.06)" />
+            <stop offset="100%" stopColor="transparent" />
+          </radialGradient>
+          <linearGradient id="about-edge-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="rgba(34,211,238,0.55)" />
+            <stop offset="48%" stopColor="rgba(255,255,255,0.22)" />
+            <stop offset="100%" stopColor="rgba(236,72,153,0.55)" />
+          </linearGradient>
+        </defs>
 
-      {/* Peripheral nodes — percentages keep layout stable at any size */}
-      <div
-        className="pointer-events-none absolute left-[6%] top-[14%] w-[30%] max-w-[9.5rem] rounded-2xl border border-white/10 bg-[#0b0f16]/90 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
-        aria-hidden
-      >
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/45">
-          Input
-        </div>
-        <div className="mt-1 h-1.5 w-2/3 rounded-full bg-gradient-to-r from-cyan-400/50 to-white/20" />
-      </div>
-      <div
-        className="pointer-events-none absolute right-[5%] top-[10%] w-[34%] max-w-[11rem] rounded-2xl border border-white/10 bg-[#0b0f16]/90 p-3 shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
-        aria-hidden
-      >
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/45">
-          Prompt
-        </div>
-        <div className="mt-1 space-y-1">
-          <div className="h-1 rounded bg-white/10" />
-          <div className="h-1 w-4/5 rounded bg-white/10" />
-        </div>
-      </div>
-      <div
-        className="pointer-events-none absolute bottom-[16%] right-[7%] w-[28%] max-w-[8.5rem] rounded-xl border border-white/10 bg-[#0b0f16]/90 px-3 py-2 shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
-        aria-hidden
-      >
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/45">
-          Tool
-        </div>
-      </div>
-      <div className="pointer-events-none absolute bottom-[18%] left-[8%] flex gap-1" aria-hidden>
-        {[0, 1, 2].map((i) => (
-          <span key={i} className="h-1.5 w-1.5 rounded-full bg-white/35" />
-        ))}
-      </div>
+        <circle
+          cx={200}
+          cy={200}
+          r={102}
+          fill="url(#about-hero-center-glow)"
+          className="about-hero-glow-pulse"
+        />
 
-      {/* Center — same vocabulary as landing hero box */}
-      <div className="absolute left-1/2 top-1/2 w-[min(82%,320px)] -translate-x-1/2 -translate-y-1/2">
-        <div className="rounded-3xl border border-white/12 bg-[#0b0c11]/95 p-7 shadow-[0_26px_90px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.07]">
+        {/* Edges: anchor to box midpoints, meet hub faces */}
+        <path
+          d="M 112 74 C 102 125 105 175 118 200"
+          stroke="url(#about-edge-accent)"
+          strokeOpacity={0.85}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+        <path
+          d="M 288 68 C 250 68 222 88 200 118"
+          stroke="url(#about-edge-accent)"
+          strokeOpacity={0.85}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+        <path
+          d="M 335 292 C 335 248 315 215 282 200"
+          stroke="url(#about-edge-accent)"
+          strokeOpacity={0.85}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+        <path
+          d="M 68 288 C 68 258 118 282 200 282"
+          stroke="url(#about-edge-accent)"
+          strokeOpacity={0.75}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+
+        {/* INPUT */}
+        <g className="about-hero-node-float" style={{ animationDelay: "0s" }}>
+          <g transform="translate(20, 48)">
+            <rect width={92} height={52} rx={12} fill={NODE_TX.fill} stroke={NODE_TX.stroke} />
+            <text
+              x={46}
+              y={21}
+              textAnchor="middle"
+              fill={NODE_TX.label}
+              fontSize={9}
+              fontWeight={600}
+              letterSpacing="0.14em"
+              fontFamily="ui-sans-serif,system-ui,sans-serif"
+            >
+              INPUT
+            </text>
+            <rect x={18} y={34} width={56} height={4} rx={2} fill="rgba(255,255,255,0.2)" />
+          </g>
+        </g>
+
+        {/* PROMPT */}
+        <g className="about-hero-node-float" style={{ animationDelay: "0.35s" }}>
+          <g transform="translate(288, 42)">
+            <rect width={92} height={52} rx={12} fill={NODE_TX.fill} stroke={NODE_TX.stroke} />
+            <text
+              x={46}
+              y={21}
+              textAnchor="middle"
+              fill={NODE_TX.label}
+              fontSize={9}
+              fontWeight={600}
+              letterSpacing="0.14em"
+              fontFamily="ui-sans-serif,system-ui,sans-serif"
+            >
+              PROMPT
+            </text>
+            <rect x={16} y={30} width={60} height={3} rx={1.5} fill="rgba(255,255,255,0.10)" />
+            <rect x={16} y={37} width={48} height={3} rx={1.5} fill="rgba(255,255,255,0.08)" />
+          </g>
+        </g>
+
+        {/* TOOL */}
+        <g className="about-hero-node-float" style={{ animationDelay: "0.7s" }}>
+          <g transform="translate(292, 292)">
+            <rect width={86} height={44} rx={11} fill={NODE_TX.fill} stroke={NODE_TX.stroke} />
+            <text
+              x={43}
+              y={26}
+              textAnchor="middle"
+              fill={NODE_TX.label}
+              fontSize={9}
+              fontWeight={600}
+              letterSpacing="0.14em"
+              fontFamily="ui-sans-serif,system-ui,sans-serif"
+            >
+              TOOL
+            </text>
+          </g>
+        </g>
+
+        {/* LOGIC */}
+        <g className="about-hero-node-float" style={{ animationDelay: "0.5s" }}>
+          <g transform="translate(24, 288)">
+            <rect width={88} height={44} rx={11} fill={NODE_TX.fill} stroke={NODE_TX.stroke} />
+            <text
+              x={44}
+              y={26}
+              textAnchor="middle"
+              fill={NODE_TX.label}
+              fontSize={9}
+              fontWeight={600}
+              letterSpacing="0.14em"
+              fontFamily="ui-sans-serif,system-ui,sans-serif"
+            >
+              LOGIC
+            </text>
+          </g>
+        </g>
+
+        {/* Center card (HTML for crisp logo + type) */}
+        <foreignObject x={118} y={118} width={164} height={164}>
           <div
-            className="pointer-events-none absolute inset-0 rounded-3xl opacity-90"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 25% 25%, rgba(34,211,238,0.18), transparent 62%), radial-gradient(circle at 75% 35%, rgba(236,72,153,0.12), transparent 64%)",
-            }}
-            aria-hidden
-          />
-          <div className="relative flex flex-col items-center text-center">
-            <div className="relative">
-              <div
-                className="pointer-events-none absolute -inset-6 rounded-full blur-2xl opacity-80"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(circle at 35% 35%, rgba(34,211,238,0.35), transparent 62%), radial-gradient(circle at 70% 55%, rgba(236,72,153,0.28), transparent 62%)",
-                }}
-                aria-hidden
-              />
-              <img
-                src="/brand/edgaze-mark.png"
-                alt="Edgaze"
-                className="relative h-16 w-16 object-contain md:h-[4.5rem] md:w-[4.5rem]"
-              />
+            className="about-hero-node-float flex h-full w-full flex-col items-center justify-center rounded-[1.25rem] border border-white/[0.14] bg-[#0b0c11] bg-clip-padding px-4 py-5 shadow-[0_0_0_1px_rgba(34,211,238,0.12)_inset,0_26px_90px_rgba(0,0,0,0.55),0_0_72px_-28px_rgba(34,211,238,0.2),0_0_72px_-28px_rgba(236,72,153,0.14)]"
+            style={{ boxSizing: "border-box", animationDuration: "6.8s", animationDelay: "0.12s" }}
+          >
+            <img
+              src="/brand/edgaze-mark.png"
+              alt="Edgaze"
+              className="h-[3.25rem] w-[3.25rem] object-contain md:h-14 md:w-14"
+            />
+            <div className="mt-3 text-[15px] font-semibold tracking-tight text-white/95">
+              Edgaze
             </div>
-            <div className="mt-4 text-lg font-semibold tracking-tight text-white/95">Edgaze</div>
-            <div className="mt-1 text-xs text-white/55">Collect → publish → share</div>
+            <div className="mt-1 text-[10px] text-white/45">Collect, publish, share</div>
           </div>
-        </div>
+        </foreignObject>
+      </svg>
+    </div>
+  );
+}
+
+/** Builder diagram: Input, Prompt, Tool on one row; Logic under Prompt. All edges in-svg. */
+function WorkflowBuilderDiagram() {
+  const W = 520;
+  const H = 280;
+  const input = { x: 36, y: 64, w: 108, h: 52 };
+  const prompt = { x: 206, y: 64, w: 108, h: 52 };
+  const tool = { x: 376, y: 64, w: 108, h: 52 };
+  const logic = { x: 206, y: 156, w: 108, h: 48 };
+
+  const midX = (r: { x: number; y: number; w: number; h: number }) => r.x + r.w / 2;
+  const midY = (r: { x: number; y: number; w: number; h: number }) => r.y + r.h / 2;
+  const rightEdge = (r: { x: number; w: number }) => r.x + r.w;
+  const bottomEdge = (r: { y: number; h: number }) => r.y + r.h;
+
+  const iR = rightEdge(input);
+  const pL = prompt.x;
+  const pR = rightEdge(prompt);
+  const tL = tool.x;
+  const yMid = midY(input);
+  const pMx = midX(prompt);
+  const pBot = bottomEdge(prompt);
+  const lTop = logic.y;
+
+  return (
+    <div className="rounded-[1.15rem] bg-gradient-to-br from-cyan-500/[0.2] via-white/[0.08] to-pink-500/[0.2] p-px shadow-[0_0_64px_-28px_rgba(34,211,238,0.18),0_0_64px_-28px_rgba(236,72,153,0.12)]">
+      <div className="rounded-[1.1rem] bg-black p-4 md:p-6">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="h-auto w-full"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden
+          preserveAspectRatio="xMidYMid meet"
+        >
+          <defs>
+            <linearGradient id="workflow-edge-accent" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="rgba(34,211,238,0.65)" />
+              <stop offset="50%" stopColor="rgba(255,255,255,0.3)" />
+              <stop offset="100%" stopColor="rgba(236,72,153,0.65)" />
+            </linearGradient>
+          </defs>
+          {/* Input → Prompt */}
+          <path
+            d={`M ${iR} ${yMid} L ${pL} ${yMid}`}
+            stroke="url(#workflow-edge-accent)"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+          {/* Prompt → Tool */}
+          <path
+            d={`M ${pR} ${yMid} L ${tL} ${yMid}`}
+            stroke="url(#workflow-edge-accent)"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+          {/* Prompt → Logic */}
+          <path
+            d={`M ${pMx} ${pBot} L ${pMx} ${lTop}`}
+            stroke="url(#workflow-edge-accent)"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+
+          {[input, prompt, tool, logic].map((r, idx) => {
+            const labels = ["INPUT", "PROMPT", "TOOL", "LOGIC"];
+            return (
+              <g key={labels[idx]}>
+                <rect
+                  x={r.x}
+                  y={r.y}
+                  width={r.w}
+                  height={r.h}
+                  rx={12}
+                  fill={NODE_TX.fill}
+                  stroke={NODE_TX.stroke}
+                />
+                <text
+                  x={r.x + r.w / 2}
+                  y={r.y + r.h / 2 + 4}
+                  textAnchor="middle"
+                  fill={NODE_TX.label}
+                  fontSize={10}
+                  fontWeight={600}
+                  letterSpacing="0.12em"
+                  fontFamily="ui-sans-serif,system-ui,sans-serif"
+                >
+                  {labels[idx]}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
       </div>
     </div>
   );
@@ -139,57 +296,61 @@ function AboutHeroIllustration() {
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen w-full text-white font-dm-sans" style={PAGE_BG_STYLE}>
-      <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/[0.07] pt-[max(0.75rem,env(safe-area-inset-top))] [background-color:rgba(7,8,11,0.92)] md:border-transparent md:bg-transparent md:pt-5">
+    <div className="min-h-screen w-full bg-black text-white font-dm-sans">
+      <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/[0.07] bg-black/95 pt-[max(0.75rem,env(safe-area-inset-top))] md:border-transparent md:bg-transparent md:pt-5">
         <div className="mx-auto max-w-[1440px] px-4 sm:px-5 md:px-8">
-          <div className="flex min-w-0 items-center rounded-full py-2 pl-3 pr-3 sm:pl-4 sm:pr-4 md:border md:border-white/[0.08] md:bg-white/[0.06] md:py-2.5 md:pl-6 md:shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset]">
-            <Link
-              href="/"
-              className="flex min-w-0 items-center gap-1.5 sm:gap-2 shrink-0 text-white hover:opacity-90 transition-opacity"
-              aria-label="Edgaze home"
-            >
-              <img
-                src="/brand/edgaze-mark.png"
-                alt="Edgaze"
-                className="h-8 w-8 md:h-9 md:w-9 shrink-0"
-              />
-              <span className="text-[13px] sm:text-[14px] font-semibold tracking-tight md:text-[15px] truncate">
-                Edgaze
-              </span>
-            </Link>
-            <nav className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4 md:gap-6">
+          <div className="flex min-w-0 items-center rounded-full py-2 pl-3 pr-3 sm:pl-4 sm:pr-4 md:bg-gradient-to-r md:from-cyan-500/25 md:via-white/10 md:to-pink-500/25 md:p-px md:shadow-[0_0_48px_-16px_rgba(34,211,238,0.22),0_0_48px_-16px_rgba(236,72,153,0.15)]">
+            <div className="flex w-full min-w-0 flex-1 items-center rounded-full md:border md:border-white/[0.07] md:bg-black/90 md:py-2.5 md:pl-6 md:pr-4 md:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
               <Link
-                href="/marketplace"
-                className="hidden sm:inline text-[13px] text-white/70 hover:text-white transition-colors whitespace-nowrap"
+                href="/"
+                className="flex min-w-0 items-center gap-1.5 sm:gap-2 shrink-0 text-white hover:opacity-90 transition-opacity"
+                aria-label="Edgaze home"
               >
-                Marketplace
+                <img
+                  src="/brand/edgaze-mark.png"
+                  alt="Edgaze"
+                  className="h-8 w-8 md:h-9 md:w-9 shrink-0"
+                />
+                <span className="text-[13px] sm:text-[14px] font-semibold tracking-tight md:text-[15px] truncate">
+                  Edgaze
+                </span>
               </Link>
-              <Link
-                href="/docs"
-                className="hidden sm:inline text-[13px] text-white/70 hover:text-white transition-colors whitespace-nowrap"
-              >
-                Docs
-              </Link>
-              <Link
-                href="/marketplace"
-                className="rounded-full px-3 py-1.5 sm:px-4 sm:py-2 text-[12px] sm:text-[13px] font-medium text-white bg-white/10 hover:bg-white/15 border border-white/10 transition-colors whitespace-nowrap"
-              >
-                Get started
-              </Link>
-            </nav>
+              <nav className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4 md:gap-6">
+                <Link
+                  href="/marketplace"
+                  className="hidden sm:inline text-[13px] text-white/70 hover:text-white transition-colors whitespace-nowrap"
+                >
+                  Marketplace
+                </Link>
+                <Link
+                  href="/docs"
+                  className="hidden sm:inline text-[13px] text-white/70 hover:text-white transition-colors whitespace-nowrap"
+                >
+                  Docs
+                </Link>
+                <Link
+                  href="/marketplace"
+                  className="rounded-full bg-gradient-to-r from-cyan-500/25 via-white/10 to-pink-500/25 p-[1px] whitespace-nowrap transition-opacity hover:opacity-95"
+                >
+                  <span className="flex items-center rounded-full bg-black/90 px-3 py-1.5 text-[12px] font-medium text-white sm:px-4 sm:py-2 sm:text-[13px]">
+                    Get started
+                  </span>
+                </Link>
+              </nav>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="pt-[calc(5rem+env(safe-area-inset-top))] md:pt-28">
         {/* Hero: full-bleed width like landing, single column scroll (no inner scrollport). */}
-        <section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen px-5 md:px-8 pb-16 md:pb-24">
+        <section className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen px-5 pt-6 md:px-8 md:pt-10 pb-16 md:pb-24">
           <div className="mx-auto grid max-w-[1440px] grid-cols-1 items-center gap-12 md:grid-cols-2 md:gap-16 lg:gap-20">
             <div className="order-2 min-w-0 md:order-1">
               <AboutHeroIllustration />
             </div>
-            <div className="order-1 min-w-0 md:order-2 md:pt-4">
-              <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-5xl">
+            <div className="order-1 min-w-0 md:order-2 pt-10 sm:pt-16 md:pt-20 lg:pt-28">
+              <h1 className="text-3xl font-semibold tracking-[-0.03em] text-white sm:text-4xl md:text-5xl md:leading-[1.08]">
                 About Edgaze
               </h1>
               <p className="mt-4 md:mt-5 text-lg text-white/80 md:text-xl leading-relaxed">
@@ -201,7 +362,7 @@ export default function AboutPage() {
               <div className="mt-6 md:mt-8 space-y-4 text-sm md:text-base text-white/65 leading-relaxed">
                 <p>
                   Edgaze is a platform where creators build, publish, and distribute AI workflows as
-                  real products. Not screenshots. Not copy-paste prompts. Actual runnable tools that
+                  real products. Not screenshots. Not pasted prompts. Actual runnable tools that
                   anyone can use with a single link.
                 </p>
               </div>
@@ -212,21 +373,20 @@ export default function AboutPage() {
         <div className="mx-auto max-w-[1440px] px-5 md:px-8 pb-20">
           {/* What Edgaze Is */}
           <section className="py-16 md:py-28">
-            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-              What Edgaze Is
-            </h2>
-            <div className="mt-12 grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
+            <AboutSectionTitle>What Edgaze Is</AboutSectionTitle>
+            <div className="mt-12 grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16 md:mt-14">
               <div className="space-y-6">
                 <p className="text-base text-white/70 leading-relaxed">
                   Edgaze is two things: a builder and a marketplace.
                 </p>
                 <p className="text-base text-white/70 leading-relaxed">
-                  The builder is a visual editor where you design workflows using nodes—
-                  <span className="text-cyan-300">Input</span>,{" "}
-                  <span className="text-cyan-300">Prompt</span>,{" "}
-                  <span className="text-cyan-300">Tool</span>, and{" "}
-                  <span className="text-cyan-300">Logic</span>. You connect them, configure them,
-                  and turn a sequence of AI steps into something reusable. No code required.
+                  The builder is a visual editor where you design workflows using nodes:{" "}
+                  <span className="font-medium text-white/90">Input</span>,{" "}
+                  <span className="font-medium text-white/90">Prompt</span>,{" "}
+                  <span className="font-medium text-white/90">Tool</span>, and{" "}
+                  <span className="font-medium text-white/90">Logic</span>. You connect them,
+                  configure them, and turn a sequence of AI steps into something reusable. No code
+                  required.
                 </p>
                 <p className="text-base text-white/70 leading-relaxed">
                   The marketplace is where those workflows live publicly. Every published workflow
@@ -238,53 +398,14 @@ export default function AboutPage() {
                   one place.
                 </p>
               </div>
-              <div className="relative rounded-2xl border border-white/[0.10] bg-white/[0.03] p-8 min-h-[240px] flex items-center justify-center">
-                <svg
-                  className="absolute inset-0 h-full w-full text-white/14"
-                  preserveAspectRatio="none"
-                  aria-hidden
-                >
-                  <path
-                    d="M 80 80 Q 140 80, 200 100"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    fill="none"
-                  />
-                  <path
-                    d="M 200 100 Q 260 120, 320 140"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    fill="none"
-                  />
-                  <path
-                    d="M 200 100 Q 180 180, 200 220"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    fill="none"
-                  />
-                </svg>
-                <div className="relative flex flex-wrap gap-3 items-center justify-center">
-                  {["Input", "Prompt", "Tool", "Logic"].map((label) => (
-                    <div
-                      key={label}
-                      className="rounded-xl border border-white/[0.1] bg-white/[0.05] px-4 py-2.5 md:px-5 md:py-3"
-                    >
-                      <span className="text-xs font-semibold tracking-widest text-white/50">
-                        {label.toUpperCase()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <WorkflowBuilderDiagram />
             </div>
           </section>
 
           {/* How Edgaze Works */}
           <section className="py-16 md:py-28">
-            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-              How Edgaze Works
-            </h2>
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            <AboutSectionTitle>How Edgaze Works</AboutSectionTitle>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 md:mt-14">
               {[
                 {
                   step: 1,
@@ -307,13 +428,13 @@ export default function AboutPage() {
               ].map((item) => (
                 <div
                   key={item.step}
-                  className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-8 h-full flex flex-col"
+                  className="rounded-2xl border border-white/[0.09] bg-white/[0.03] p-8 h-full flex flex-col shadow-[0_24px_50px_-28px_rgba(0,0,0,0.55)]"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-pink-500/20 border border-white/10">
-                      <item.icon className="h-5 w-5 text-white/80" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-white/[0.07]">
+                      <item.icon className="h-5 w-5 text-white/85" />
                     </div>
-                    <span className="text-xs font-semibold tracking-widest text-white/45">
+                    <span className="text-xs font-semibold tracking-[0.14em] text-white/38">
                       STEP {item.step}
                     </span>
                   </div>
@@ -326,13 +447,11 @@ export default function AboutPage() {
 
           {/* Creator Economy */}
           <section className="py-16 md:py-28">
-            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-              For Creators
-            </h2>
-            <div className="mt-12 space-y-6 max-w-3xl">
+            <AboutSectionTitle>For Creators</AboutSectionTitle>
+            <div className="mt-12 space-y-6 max-w-3xl md:mt-14">
               <p className="text-base text-white/70 leading-relaxed">
                 YouTube exists for video. Substack exists for writing. Until now, AI workflows had
-                no equivalent—no dedicated place to publish them, no built-in way for others to
+                no equivalent: no dedicated place to publish them, no built-in way for others to
                 discover and run them, and no clean path to earn from them.
               </p>
               <p className="text-base text-white/70 leading-relaxed">Edgaze fills that gap.</p>
@@ -343,7 +462,7 @@ export default function AboutPage() {
               </p>
               <p className="text-base text-white/70 leading-relaxed">
                 The goal isn&apos;t just distribution. It&apos;s giving AI creators the same
-                leverage that video creators and writers already have—a platform that does the
+                leverage that video creators and writers already have: a platform that does the
                 infrastructure work so you can focus on building.
               </p>
             </div>
@@ -369,8 +488,8 @@ export default function AboutPage() {
                   key={item.title}
                   className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-6 h-full"
                 >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.06] border border-white/[0.08]">
-                    <item.icon className="h-5 w-5 text-white/70" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-white/[0.06]">
+                    <item.icon className="h-5 w-5 text-white/80" />
                   </div>
                   <h3 className="mt-4 text-base font-semibold text-white">{item.title}</h3>
                   <p className="mt-2 text-sm text-white/60 leading-relaxed">{item.desc}</p>
@@ -381,10 +500,8 @@ export default function AboutPage() {
 
           {/* Philosophy */}
           <section className="py-16 md:py-28">
-            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-              Our Philosophy
-            </h2>
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            <AboutSectionTitle>Our Philosophy</AboutSectionTitle>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 md:mt-14">
               {[
                 {
                   title: "Clarity",
@@ -404,7 +521,7 @@ export default function AboutPage() {
                   className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-8 h-full"
                 >
                   <div className="flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-cyan-400/80" />
+                    <Zap className="h-5 w-5 text-white/50" />
                     <h3 className="text-lg font-semibold text-white">{pillar.title}</h3>
                   </div>
                   <p className="mt-4 text-sm text-white/65 leading-relaxed">{pillar.desc}</p>
@@ -415,35 +532,31 @@ export default function AboutPage() {
 
           {/* Founder */}
           <section className="py-16 md:py-28">
-            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl text-center">
-              Founder
-            </h2>
-            <div className="mt-12 flex flex-col items-center max-w-xl mx-auto text-center">
-              <div className="relative">
-                <div
-                  className="pointer-events-none absolute -inset-0.5 rounded-full bg-gradient-to-r from-cyan-500/40 via-pink-500/40 to-cyan-500/40 opacity-50 blur-sm"
-                  aria-hidden
-                />
-                <div className="relative rounded-full overflow-hidden w-32 h-32 ring-2 ring-white/10 bg-white/5">
-                  <img
-                    src="/misc/arjun.png"
-                    alt="Arjun Kuttikkat"
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      const t = e.currentTarget;
-                      t.style.display = "none";
-                      const fallback = t.nextElementSibling as HTMLElement;
-                      if (fallback) {
-                        fallback.classList.remove("hidden");
-                        fallback.classList.add("flex");
-                      }
-                    }}
-                  />
-                  <div
-                    className="hidden absolute inset-0 items-center justify-center text-2xl font-semibold text-white/70"
-                    aria-hidden
-                  >
-                    AK
+            <AboutSectionTitle align="center">Founder</AboutSectionTitle>
+            <div className="mt-12 flex flex-col items-center max-w-xl mx-auto text-center md:mt-14">
+              <div className="rounded-full bg-gradient-to-br from-cyan-400/65 via-white/30 to-pink-500/65 p-[2px] shadow-[0_0_40px_-12px_rgba(34,211,238,0.4),0_0_40px_-12px_rgba(236,72,153,0.28)]">
+                <div className="rounded-full overflow-hidden bg-black p-[2px]">
+                  <div className="relative overflow-hidden rounded-full w-32 h-32 bg-white/5">
+                    <img
+                      src="/misc/arjun.png"
+                      alt="Arjun Kuttikkat"
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        const t = e.currentTarget;
+                        t.style.display = "none";
+                        const fallback = t.nextElementSibling as HTMLElement;
+                        if (fallback) {
+                          fallback.classList.remove("hidden");
+                          fallback.classList.add("flex");
+                        }
+                      }}
+                    />
+                    <div
+                      className="hidden absolute inset-0 items-center justify-center text-2xl font-semibold text-white/70"
+                      aria-hidden
+                    >
+                      AK
+                    </div>
                   </div>
                 </div>
               </div>
@@ -476,7 +589,7 @@ export default function AboutPage() {
               <p className="mt-6 text-base text-white/70 leading-relaxed">
                 Arjun Kuttikkat is a Robotics and AI student at the University of Birmingham Dubai
                 and the founder of Edgaze. He started building Edgaze after running into the same
-                problem repeatedly—his most useful AI workflows lived in private documents and were
+                problem repeatedly. His most useful AI workflows lived in private documents and were
                 impossible to share properly. He wanted one link, one page, and one click to run.
                 When that didn&apos;t exist, he built it. Edgaze is the platform he needed and
                 couldn&apos;t find.
@@ -486,14 +599,12 @@ export default function AboutPage() {
 
           {/* Future Vision */}
           <section className="py-16 md:py-28">
-            <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
-              The Future of AI Workflows
-            </h2>
-            <div className="mt-12 space-y-6 max-w-3xl">
+            <AboutSectionTitle>The Future of AI Workflows</AboutSectionTitle>
+            <div className="mt-12 space-y-6 max-w-3xl md:mt-14">
               <p className="text-base text-white/70 leading-relaxed">
                 The limiting factor for AI adoption isn&apos;t model quality anymore. The models are
-                good. The problem is that the best workflows—the ones that actually solve real
-                problems—are stuck in private documents, Twitter threads, and Notion pages that
+                good. The problem is that the best workflows, the ones that actually solve real
+                problems, are stuck in private documents, Twitter threads, and Notion pages that
                 nobody outside a small circle ever sees.
               </p>
               <p className="text-base text-white/70 leading-relaxed">
@@ -507,24 +618,24 @@ export default function AboutPage() {
                 builds. The gap between building a workflow and having the world use it closes.
               </p>
               <p className="text-base text-white/70 leading-relaxed">
-                AI will produce a new generation of creators—people who don&apos;t write code or
+                AI will produce a new generation of creators, people who don&apos;t write code or
                 make videos, but design workflows. Edgaze is where they publish.
               </p>
             </div>
-            <div className="mt-12 flex flex-wrap gap-4">
+            <div className="mt-12 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
                 href="/marketplace"
-                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-95 transition-opacity"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-white px-8 py-3.5 text-sm font-medium tracking-tight text-black shadow-[0_1px_0_rgba(255,255,255,0.12)_inset,0_16px_40px_-12px_rgba(255,255,255,0.15)] transition-[background-color,transform] hover:bg-white/92 active:scale-[0.99]"
               >
                 Explore the marketplace
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 opacity-55 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
                 href="/creators/onboarding?from=about"
-                className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-cyan-500 to-pink-500 hover:opacity-95 transition-opacity"
+                className="group inline-flex items-center justify-center gap-2 rounded-full border border-white/18 bg-transparent px-8 py-3.5 text-sm font-medium tracking-tight text-white transition-[border-color,background-color] hover:border-white/30 hover:bg-white/[0.05]"
               >
                 Join as a creator
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 opacity-45 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
           </section>

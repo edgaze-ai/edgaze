@@ -22,8 +22,12 @@ import { simplifyWorkflowError } from "@lib/workflow/simplify-error";
 import type { GraphPayload } from "src/server/flow/types";
 import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { getAuthenticatedRunEntitlement } from "src/server/flow/marketplace-entitlement";
+import { loadPublishedWorkflowGraphForExecution } from "src/server/flow/load-workflow-graph";
+import type { GraphEdge, GraphNode } from "src/server/flow/types";
 
 const FREE_BUILDER_RUNS = 10;
+const FREE_MARKETPLACE_KEY_RUNS = 10; // matches FREE_RUNS_PER_PURCHASE in runtime-enforcement
 
 async function finishUnifiedRun(
   unifiedRunId: string | null,
@@ -66,28 +70,57 @@ export async function POST(req: Request) {
     };
 
     const {
-      nodes = [],
-      edges = [],
       inputs = {},
       workflowId,
       userApiKeys = {},
       isDemo = false,
-      isBuilderTest = false,
+      isBuilderTest: clientIsBuilderTest = false,
       openaiApiKey: modalOpenaiKey,
       deviceFingerprint,
       stream: useStream = false,
       adminDemoToken,
     } = body;
 
+    let nodes = (body.nodes ?? []) as GraphNode[];
+    let edges = (body.edges ?? []) as GraphEdge[];
+
     if (!workflowId) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
     }
+
+    let effectiveIsBuilderTest = false;
+    let entitlementDraftId: string | null = null;
+    /** True only for anonymous_demo_user / admin_demo_user — drives runtime demo fast path. */
+    let isRuntimeDemo = false;
 
     // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>). Demo runs and admin demo link allowed without auth.
     const { user, error: authError } = await getUserFromRequest(req);
     let userId: string;
     if (user) {
       userId = user.id;
+      const entitlement = await getAuthenticatedRunEntitlement(
+        userId,
+        workflowId,
+        clientIsBuilderTest,
+      );
+      if (!entitlement.ok) {
+        return NextResponse.json({ ok: false, error: entitlement.message }, { status: 403 });
+      }
+      effectiveIsBuilderTest = entitlement.effectiveIsBuilderTest;
+      entitlementDraftId = entitlement.draftIdForCount;
+      if (entitlement.useServerMarketplaceGraph) {
+        try {
+          const g = await loadPublishedWorkflowGraphForExecution(workflowId);
+          nodes = g.nodes;
+          edges = g.edges;
+        } catch (e) {
+          console.error("[flow/run] server graph load failed:", e);
+          return NextResponse.json(
+            { ok: false, error: "Failed to load workflow for execution." },
+            { status: 500 },
+          );
+        }
+      }
     } else if (
       adminDemoToken &&
       typeof adminDemoToken === "string" &&
@@ -112,6 +145,19 @@ export async function POST(req: Request) {
         );
       }
       userId = "admin_demo_user";
+      isRuntimeDemo = true;
+      effectiveIsBuilderTest = false;
+      try {
+        const g = await loadPublishedWorkflowGraphForExecution(workflowId);
+        nodes = g.nodes;
+        edges = g.edges;
+      } catch (e) {
+        console.error("[flow/run] admin demo graph load failed:", e);
+        return NextResponse.json(
+          { ok: false, error: "Failed to load workflow for demo execution." },
+          { status: 500 },
+        );
+      }
     } else if (isDemo) {
       // For anonymous demo runs, check server-side tracking (device fingerprint + IP)
       if (!deviceFingerprint || deviceFingerprint.length < 10) {
@@ -198,6 +244,19 @@ export async function POST(req: Request) {
       }
 
       userId = "anonymous_demo_user";
+      isRuntimeDemo = true;
+      effectiveIsBuilderTest = false;
+      try {
+        const g = await loadPublishedWorkflowGraphForExecution(workflowId);
+        nodes = g.nodes;
+        edges = g.edges;
+      } catch (e) {
+        console.error("[flow/run] anonymous demo graph load failed:", e);
+        return NextResponse.json(
+          { ok: false, error: "Failed to load workflow for demo execution." },
+          { status: 500 },
+        );
+      }
     } else {
       return NextResponse.json(
         {
@@ -216,7 +275,7 @@ export async function POST(req: Request) {
       workflowId,
       nodes,
       userApiKeys:
-        isBuilderTest && modalOpenaiKey?.trim()
+        effectiveIsBuilderTest && modalOpenaiKey?.trim()
           ? Object.fromEntries(
               (nodes as { id: string; data?: { specId?: string } }[])
                 .filter((n) =>
@@ -227,8 +286,9 @@ export async function POST(req: Request) {
                 .map((n) => [n.id, { apiKey: modalOpenaiKey.trim() }]),
             )
           : userApiKeys,
-      isDemo,
-      isBuilderTest,
+      isDemo: isRuntimeDemo,
+      isBuilderTest: effectiveIsBuilderTest,
+      draftIdForCount: entitlementDraftId,
     });
 
     if (!enforcement.allowed) {
@@ -246,8 +306,10 @@ export async function POST(req: Request) {
     // Inject API keys into inputs for premium nodes
     const enrichedInputs: Record<string, unknown> = { ...inputs };
     const userProvidedKey =
-      isBuilderTest && typeof modalOpenaiKey === "string" && modalOpenaiKey.trim().length > 0;
-    if (isBuilderTest) {
+      effectiveIsBuilderTest &&
+      typeof modalOpenaiKey === "string" &&
+      modalOpenaiKey.trim().length > 0;
+    if (effectiveIsBuilderTest) {
       enrichedInputs["__builder_test"] = true;
       if (userProvidedKey) {
         enrichedInputs["__builder_user_key"] = true; // Premium: use inspector model and normal token limits
@@ -258,7 +320,8 @@ export async function POST(req: Request) {
     for (const node of nodes) {
       const specId = node.data?.specId;
       if (premiumNodeSpecs.includes(specId || "")) {
-        const modalKey = isBuilderTest && modalOpenaiKey?.trim() ? modalOpenaiKey.trim() : null;
+        const modalKey =
+          effectiveIsBuilderTest && modalOpenaiKey?.trim() ? modalOpenaiKey.trim() : null;
         if (modalKey) {
           enrichedInputs[`__api_key_${node.id}`] = modalKey;
         } else if (edgazeKey) {
@@ -281,7 +344,7 @@ export async function POST(req: Request) {
     // Check workflow_drafts if workflow doesn't exist (builder test runs)
     let runId: string | null = null;
     let unifiedRunId: string | null = null; // For runs table (analytics)
-    let draftId: string | null = null; // Store for count recalculation
+    let draftId: string | null = entitlementDraftId;
     const isTrackedUser = userId !== "anonymous_demo_user";
     const isValidRunnerUuid = /^[0-9a-f-]{36}$/i.test(userId ?? "");
     if (isTrackedUser) {
@@ -289,8 +352,7 @@ export async function POST(req: Request) {
         // Check if workflow exists in workflows table
         const workflowExistsInDb = await workflowExists(workflowId);
 
-        if (!workflowExistsInDb && isBuilderTest) {
-          // For builder test runs, check if it's a draft
+        if (!workflowExistsInDb && effectiveIsBuilderTest && !draftId) {
           draftId = await getWorkflowDraftId(workflowId, userId);
           if (!draftId) {
             console.warn(
@@ -302,7 +364,7 @@ export async function POST(req: Request) {
         if (workflowExistsInDb || draftId) {
           let workflowVersionId: string | null = null;
           let workflowVersionHash: string | null = null;
-          if (workflowExistsInDb && !isBuilderTest && workflowId) {
+          if (workflowExistsInDb && !effectiveIsBuilderTest && workflowId) {
             workflowVersionId = await getWorkflowActiveVersionId(workflowId);
             if (workflowVersionId) {
               const versionRow = await getWorkflowVersionById(workflowVersionId);
@@ -318,8 +380,8 @@ export async function POST(req: Request) {
               nodeCount: nodes.length,
               edgeCount: edges.length,
               freeRunsRemaining: enforcement.freeRunsRemaining,
-              isDemo: isDemo,
-              isBuilderTest: isBuilderTest,
+              isDemo: isRuntimeDemo,
+              isBuilderTest: effectiveIsBuilderTest,
               workflow_version_hash: workflowVersionHash ?? undefined,
             },
           });
@@ -340,8 +402,8 @@ export async function POST(req: Request) {
               workflowRunId: run.id,
               metadata: {
                 nodeCount: nodes.length,
-                isBuilderTest,
-                isDemo,
+                isBuilderTest: effectiveIsBuilderTest,
+                isDemo: isRuntimeDemo,
               },
             });
             unifiedRunId = unifiedRun.id;
@@ -397,7 +459,7 @@ export async function POST(req: Request) {
           try {
             result = await runFlow(flowPayload, {
               onProgress: (event) => write(event),
-              runMode: isBuilderTest ? "dev" : "marketplace",
+              runMode: effectiveIsBuilderTest ? "dev" : "marketplace",
             });
             const duration = Date.now() - startTime;
             const finalStatus =
@@ -418,7 +480,9 @@ export async function POST(req: Request) {
                 },
               });
               if (countResult) {
-                const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                const freeRunLimit = effectiveIsBuilderTest
+                  ? FREE_BUILDER_RUNS
+                  : FREE_MARKETPLACE_KEY_RUNS;
                 updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
               } else {
                 try {
@@ -436,7 +500,9 @@ export async function POST(req: Request) {
                     workflowId,
                     draftId,
                   );
-                  const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                  const freeRunLimit = effectiveIsBuilderTest
+                    ? FREE_BUILDER_RUNS
+                    : FREE_MARKETPLACE_KEY_RUNS;
                   updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
                 } catch (e) {
                   console.error("[Flow Stream] Run update failed:", (e as Error)?.message);
@@ -513,7 +579,9 @@ export async function POST(req: Request) {
                 >,
               });
               if (countResult) {
-                const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                const freeRunLimit = effectiveIsBuilderTest
+                  ? FREE_BUILDER_RUNS
+                  : FREE_MARKETPLACE_KEY_RUNS;
                 updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
               } else {
                 try {
@@ -531,7 +599,9 @@ export async function POST(req: Request) {
                     workflowId,
                     draftId,
                   );
-                  const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+                  const freeRunLimit = effectiveIsBuilderTest
+                    ? FREE_BUILDER_RUNS
+                    : FREE_MARKETPLACE_KEY_RUNS;
                   updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
                 } catch {
                   // ignore
@@ -577,7 +647,7 @@ export async function POST(req: Request) {
     // Non-streaming: execute and return JSON
     try {
       result = await runFlow(flowPayload, {
-        runMode: isBuilderTest ? "dev" : "marketplace",
+        runMode: effectiveIsBuilderTest ? "dev" : "marketplace",
       });
 
       const duration = Date.now() - startTime;
@@ -603,7 +673,9 @@ export async function POST(req: Request) {
         });
         if (countResult) {
           updateSuccess = true;
-          const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+          const freeRunLimit = effectiveIsBuilderTest
+            ? FREE_BUILDER_RUNS
+            : FREE_MARKETPLACE_KEY_RUNS;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
           console.warn(
             `[Run Tracking] Atomic complete: run ${runId} → ${finalStatus}, count=${countResult.newCount}/${freeRunLimit}`,
@@ -635,7 +707,9 @@ export async function POST(req: Request) {
         }
         if (updateSuccess && isTrackedUser) {
           const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
-          const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+          const freeRunLimit = effectiveIsBuilderTest
+            ? FREE_BUILDER_RUNS
+            : FREE_MARKETPLACE_KEY_RUNS;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
         }
       }
@@ -707,7 +781,9 @@ export async function POST(req: Request) {
         });
         if (countResult) {
           updateSuccess = true;
-          const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+          const freeRunLimit = effectiveIsBuilderTest
+            ? FREE_BUILDER_RUNS
+            : FREE_MARKETPLACE_KEY_RUNS;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
           console.warn(
             `[Run Tracking] Atomic complete (error): run ${runId} → failed, count=${countResult.newCount}/${freeRunLimit}`,
@@ -729,7 +805,9 @@ export async function POST(req: Request) {
             updateSuccess = true;
             if (isTrackedUser) {
               const updatedRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
-              const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : 5;
+              const freeRunLimit = effectiveIsBuilderTest
+                ? FREE_BUILDER_RUNS
+                : FREE_MARKETPLACE_KEY_RUNS;
               updatedFreeRunsRemaining = Math.max(0, freeRunLimit - updatedRunCount);
             }
             break;

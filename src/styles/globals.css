@@ -166,6 +166,51 @@
 }
 
 /* =========================
+   About page hero — translate + opacity only (cheap on GPU)
+   ========================= */
+
+@keyframes about-hero-float-y {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -4px, 0);
+  }
+}
+
+@keyframes about-hero-glow-opacity {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+.about-hero-node-float {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: about-hero-float-y 5.5s ease-in-out infinite;
+}
+
+.about-hero-glow-pulse {
+  animation: about-hero-glow-opacity 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-hero-node-float,
+  .about-hero-glow-pulse {
+    animation: none !important;
+  }
+
+  .about-hero-glow-pulse {
+    opacity: 0.52;
+  }
+}
+
+/* =========================
    Mobile “wiggle/zoom” fixes
    ========================= */
 

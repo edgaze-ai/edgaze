@@ -9,7 +9,6 @@ import { createSupabaseAdminClient } from "../../lib/supabase/admin";
 import { getEdgazeApiKey, hasEdgazeApiKey } from "../../lib/workflow/edgaze-api-key";
 import type { GraphNode } from "./types";
 
-const FREE_BETA_RUNS = 5; // 5 free runs for product-page demos
 const FREE_BUILDER_RUNS = 10; // 10 free runs in builder test (then BYO OpenAI key)
 const FREE_RUNS_PER_PURCHASE = 10; // 10 free runs per workflow purchase
 const MAX_RUNS_PER_WORKFLOW = 100; // Strict limit per workflow
@@ -35,8 +34,11 @@ export async function enforceRuntimeLimits(params: {
   workflowId: string;
   nodes: GraphNode[];
   userApiKeys?: Record<string, Record<string, string>>; // nodeId -> { apiKey: "...", apiKeyName: "..." }
-  isDemo?: boolean; // One-time demo on product page
-  isBuilderTest?: boolean; // Builder “Test run”: 10 free runs, then BYO key
+  /** Only true for anonymous one-time demo or admin demo link — never trust client for authenticated UUID users. */
+  isDemo?: boolean;
+  isBuilderTest?: boolean; // Builder “Test run”: 10 free runs, then BYO key (server-derived for marketplace)
+  /** When set, run counts use this draft (builder) instead of workflowId. */
+  draftIdForCount?: string | null;
 }): Promise<RuntimeEnforcementResult> {
   const {
     userId,
@@ -45,17 +47,14 @@ export async function enforceRuntimeLimits(params: {
     userApiKeys = {},
     isDemo = false,
     isBuilderTest = false,
+    draftIdForCount = null,
   } = params;
-  // Builder test: 10 runs. Purchased workflow preview (isDemo + authenticated): 10 runs per purchase. Else: 5.
-  const freeRunLimit = isBuilderTest
-    ? FREE_BUILDER_RUNS
-    : isDemo && userId !== "anonymous_demo_user"
-      ? FREE_RUNS_PER_PURCHASE
-      : FREE_BETA_RUNS;
+  // Authenticated entitled users get 10 Edgaze-key runs (same as builder test cap). Anonymous/admin demo bypass below.
+  const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : FREE_RUNS_PER_PURCHASE;
 
   try {
-    // Demo users bypass enforcement entirely - no DB lookups needed
-    if (userId === "anonymous_demo_user" || userId === "admin_demo_user" || isDemo) {
+    // Anonymous one-time demo and admin demo link only — never use client "isDemo" for real accounts.
+    if (userId === "anonymous_demo_user" || userId === "admin_demo_user") {
       const premiumNodeSpecs = ["openai-chat", "openai-embeddings", "openai-image", "http-request"];
       const premiumNodes = nodes.filter((n) => premiumNodeSpecs.includes(n.data?.specId ?? ""));
       const shouldUseEdgazeKey = hasEdgazeApiKey() && premiumNodes.length > 0;
@@ -85,14 +84,16 @@ export async function enforceRuntimeLimits(params: {
       };
     }
 
-    // Check workflow-specific run count (check drafts if workflow doesn't exist)
-    let draftId: string | null = null;
+    // Check workflow-specific run count (draft vs published id)
+    let draftId: string | null = draftIdForCount;
     try {
-      const exists = await workflowExists(workflowId);
-      if (!exists && isBuilderTest) {
-        draftId = await getWorkflowDraftId(workflowId, userId);
+      if (draftId == null) {
+        const exists = await workflowExists(workflowId);
+        if (!exists && isBuilderTest) {
+          draftId = await getWorkflowDraftId(workflowId, userId);
+        }
       }
-    } catch (err) {
+    } catch {
       // If check fails, proceed with workflowId only
     }
     const workflowRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
@@ -147,17 +148,15 @@ export async function enforceRuntimeLimits(params: {
       };
     }
 
-    // Determine if we should use Edgaze API key
-    // Use Edgaze key for: demos or first N free runs (builder: 10, else 5)
+    // Determine if we should use Edgaze API key — first N runs per workflow (or draft)
     const shouldUseEdgazeKey =
-      (isDemo || workflowRunCount < freeRunLimit) && hasEdgazeApiKey() && aiNodes.length > 0;
+      workflowRunCount < freeRunLimit && hasEdgazeApiKey() && aiNodes.length > 0;
 
-    if (workflowRunCount < freeRunLimit || isDemo) {
-      // Under free run limit or demo: allowed, use Edgaze key if available
+    if (workflowRunCount < freeRunLimit) {
       return {
         allowed: true,
         requiresApiKeys: [],
-        freeRunsRemaining: isDemo ? 0 : freeRunsRemaining,
+        freeRunsRemaining,
         useEdgazeKey: shouldUseEdgazeKey,
       };
     }
