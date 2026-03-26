@@ -1,6 +1,13 @@
 // src/nodes/premium.ts
 // Premium node specifications with comprehensive UI metadata
 import type { NodeSpec } from "./types";
+import {
+  DEFAULT_LLM_CHAT_MODEL,
+  DEFAULT_LLM_IMAGE_MODEL,
+  LLM_CHAT_MODEL_OPTIONS,
+  LLM_EMBEDDING_OPTIONS,
+  LLM_IMAGE_MODEL_OPTIONS,
+} from "../lib/workflow/llm-model-catalog";
 
 const makePort = (id: string, kind: "input" | "output", label?: string, type?: string) => ({
   id,
@@ -10,13 +17,14 @@ const makePort = (id: string, kind: "input" | "output", label?: string, type?: s
 });
 
 export const PREMIUM_NODES: NodeSpec[] = [
-  // OpenAI Chat
+  // LLM Chat (unified: OpenAI, Anthropic, Google — same node)
   {
-    id: "openai-chat",
-    label: "OpenAI Chat",
+    id: "llm-chat",
+    label: "LLM Chat",
     version: "1.0.0",
     category: "ai",
-    summary: "Generate text completions using OpenAI's GPT models with streaming support.",
+    summary:
+      "Generate text with GPT, Claude, or Gemini. Default is Claude 3.7 Sonnet for strong creator quality.",
     nodeType: "edgCard",
     icon: "Sparkles",
     requiresUserKeys: true,
@@ -27,12 +35,12 @@ export const PREMIUM_NODES: NodeSpec[] = [
     defaultConfig: {
       prompt: "",
       system: "",
-      model: "gpt-4o-mini",
+      model: DEFAULT_LLM_CHAT_MODEL,
       temperature: 0.7,
       maxTokens: 2000,
       stream: false,
       safeMode: true,
-      timeout: 30000,
+      timeout: 60000,
       retries: 2,
     },
     inlineToggles: [
@@ -56,21 +64,11 @@ export const PREMIUM_NODES: NodeSpec[] = [
       },
       {
         key: "model",
-        label: "Model (Premium)",
+        label: "Model",
         type: "select",
-        options: [
-          { label: "GPT-4o mini — fast, cheap", value: "gpt-4o-mini" },
-          { label: "GPT-4o — flagship", value: "gpt-4o" },
-          { label: "GPT-4o (2024-08-06)", value: "gpt-4o-2024-08-06" },
-          { label: "GPT-4 Turbo", value: "gpt-4-turbo" },
-          { label: "GPT-4 Turbo (preview)", value: "gpt-4-turbo-preview" },
-          { label: "GPT-4", value: "gpt-4" },
-          { label: "o1 — reasoning", value: "o1" },
-          { label: "o1-mini — reasoning lite", value: "o1-mini" },
-          { label: "GPT-3.5 Turbo", value: "gpt-3.5-turbo" },
-        ],
+        options: LLM_CHAT_MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
         helpText:
-          "With your API key in the run modal, this model is used. Free runs use gpt-4o-mini.",
+          "Quality, cost ($ / $$ / $$$), and speed are shown per option. Pick the matching API key in the run modal (OpenAI, Claude, or Gemini).",
       },
       {
         key: "temperature",
@@ -91,10 +89,163 @@ export const PREMIUM_NODES: NodeSpec[] = [
       },
     ],
   },
-  // OpenAI Embeddings
+  // Claude Chat (Anthropic)
   {
-    id: "openai-embeddings",
-    label: "OpenAI Embeddings",
+    id: "claude-chat",
+    label: "Claude Chat",
+    version: "1.0.0",
+    category: "ai",
+    summary: "Generate text with Anthropic Claude. Defaults to Claude 3.7 Sonnet for quality.",
+    nodeType: "edgCard",
+    icon: "Sparkles",
+    requiresUserKeys: true,
+    ports: [
+      makePort("in", "input", "Input", "any"),
+      makePort("out", "output", "Response", "object"),
+    ],
+    defaultConfig: {
+      prompt: "",
+      system: "",
+      model: "claude-3-7-sonnet-20250219",
+      temperature: 0.7,
+      maxTokens: 2000,
+      timeout: 60000,
+      retries: 2,
+    },
+    inspector: [
+      {
+        key: "prompt",
+        label: "Prompt (fallback)",
+        type: "textarea",
+        rows: 4,
+        helpText: "Used when the node input is not connected.",
+      },
+      {
+        key: "system",
+        label: "Style / System (optional)",
+        type: "textarea",
+        rows: 3,
+        helpText: "Optional tone and constraints.",
+      },
+      {
+        key: "model",
+        label: "Model",
+        type: "select",
+        options: [
+          {
+            label: "Claude 3.7 Sonnet — Recommended ⭐ · High quality",
+            value: "claude-3-7-sonnet-20250219",
+          },
+          {
+            label: "Claude 3.5 Haiku — Fast · $",
+            value: "claude-3-5-haiku-20241022",
+          },
+          {
+            label: "Claude 3.5 Sonnet — Balanced · $$",
+            value: "claude-3-5-sonnet-20241022",
+          },
+          {
+            label: "Claude 3 Opus — Premium · $$$",
+            value: "claude-3-opus-20240229",
+          },
+        ],
+        helpText: "Defaults favor output quality. Use Haiku for cheaper runs.",
+      },
+      {
+        key: "temperature",
+        label: "Temperature",
+        type: "slider",
+        min: 0,
+        max: 1,
+        step: 0.1,
+        helpText: "Randomness (0 = more deterministic)",
+      },
+      {
+        key: "maxTokens",
+        label: "Max output tokens",
+        type: "number",
+        min: 1,
+        max: 8192,
+        helpText: "Caps response length and cost.",
+      },
+    ],
+  },
+  // Gemini Chat (Google)
+  {
+    id: "gemini-chat",
+    label: "Gemini Chat",
+    version: "1.0.0",
+    category: "ai",
+    summary:
+      "Generate text with Google Gemini. Defaults to 2.5 Flash for speed; Pro for harder tasks.",
+    nodeType: "edgCard",
+    icon: "Sparkles",
+    requiresUserKeys: true,
+    ports: [
+      makePort("in", "input", "Input", "any"),
+      makePort("out", "output", "Response", "object"),
+    ],
+    defaultConfig: {
+      prompt: "",
+      system: "",
+      model: "gemini-2.5-flash",
+      temperature: 0.7,
+      maxTokens: 2000,
+      timeout: 60000,
+      retries: 2,
+    },
+    inspector: [
+      {
+        key: "prompt",
+        label: "Prompt (fallback)",
+        type: "textarea",
+        rows: 4,
+        helpText: "Used when the node input is not connected.",
+      },
+      {
+        key: "system",
+        label: "Style / System (optional)",
+        type: "textarea",
+        rows: 3,
+        helpText: "Optional tone and constraints.",
+      },
+      {
+        key: "model",
+        label: "Model",
+        type: "select",
+        options: [
+          {
+            label: "Gemini 2.5 Pro (latest) · High · $$$",
+            value: "gemini-2.5-pro-preview-05-06",
+          },
+          { label: "Gemini 2.5 Flash · Fast · $", value: "gemini-2.5-flash" },
+          { label: "Gemini 2.0 Flash — legacy", value: "gemini-2.0-flash" },
+        ],
+        helpText: "Flash models are cheaper; Pro is for harder tasks.",
+      },
+      {
+        key: "temperature",
+        label: "Temperature",
+        type: "slider",
+        min: 0,
+        max: 2,
+        step: 0.1,
+        helpText: "Controls randomness",
+      },
+      {
+        key: "maxTokens",
+        label: "Max output tokens",
+        type: "number",
+        min: 1,
+        max: 8192,
+        helpText: "Caps response length and cost.",
+      },
+    ],
+  },
+  // LLM Embeddings (OpenAI)
+  {
+    id: "llm-embeddings",
+    label: "LLM Embeddings",
     version: "1.0.0",
     category: "ai",
     summary: "Generate vector embeddings for text using OpenAI's embedding models.",
@@ -123,22 +274,20 @@ export const PREMIUM_NODES: NodeSpec[] = [
         key: "model",
         label: "Model",
         type: "select",
-        options: [
-          { label: "text-embedding-3-small", value: "text-embedding-3-small" },
-          { label: "text-embedding-3-large", value: "text-embedding-3-large" },
-          { label: "text-embedding-ada-002", value: "text-embedding-ada-002" },
-        ],
-        helpText: "Embedding model to use",
+        options: LLM_EMBEDDING_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
+        helpText:
+          "Default is small (cheap, good for most RAG). Large is for premium memory workflows.",
       },
     ],
   },
-  // OpenAI Image Generation
+  // LLM Image (Gemini Nano Banana + OpenAI; default Nano Banana 2)
   {
-    id: "openai-image",
-    label: "OpenAI Image",
+    id: "llm-image",
+    label: "LLM Image",
     version: "1.0.0",
     category: "ai",
-    summary: "Generate images using DALL-E with size and quality controls.",
+    summary:
+      "Generate images with Nano Banana (Gemini) or GPT-image / DALL·E. Default is Nano Banana 2 for fast, strong results.",
     nodeType: "edgCard",
     icon: "Image",
     requiresUserKeys: true,
@@ -148,7 +297,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
     ],
     defaultConfig: {
       prompt: "",
-      model: "dall-e-2", // Cheapest DALL-E model by default
+      model: DEFAULT_LLM_IMAGE_MODEL,
       size: "1024x1024",
       quality: "standard",
       n: 1,
@@ -168,29 +317,32 @@ export const PREMIUM_NODES: NodeSpec[] = [
         label: "Model",
         type: "select",
         options: [
+          ...LLM_IMAGE_MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
           { label: "DALL-E 3", value: "dall-e-3" },
           { label: "DALL-E 2", value: "dall-e-2" },
         ],
       },
       {
         key: "size",
-        label: "Size",
+        label: "Size (OpenAI / DALL·E)",
         type: "select",
         options: [
           { label: "1024x1024", value: "1024x1024" },
           { label: "1792x1024", value: "1792x1024" },
           { label: "1024x1792", value: "1024x1792" },
+          { label: "1536x1024 (GPT)", value: "1536x1024" },
+          { label: "1024x1536 (GPT)", value: "1024x1536" },
           { label: "512x512", value: "512x512" },
           { label: "256x256", value: "256x256" },
         ],
       },
       {
         key: "quality",
-        label: "Quality",
+        label: "Quality (DALL·E 3 / GPT-image)",
         type: "select",
         options: [
           { label: "Standard", value: "standard" },
-          { label: "HD", value: "hd" },
+          { label: "HD / high", value: "hd" },
         ],
       },
     ],
@@ -214,10 +366,11 @@ export const PREMIUM_NODES: NodeSpec[] = [
       url: "",
       method: "GET",
       timeout: 30000,
-      retries: 1,
+      retries: 0,
       allowOnly: [],
       denyHosts: ["127.0.0.1", "localhost", "0.0.0.0"],
       followRedirects: true,
+      hasSideEffects: false,
     },
     inlineToggles: [{ key: "followRedirects", label: "Follow Redirects", icon: "ArrowRight" }],
     inspector: [
@@ -226,7 +379,8 @@ export const PREMIUM_NODES: NodeSpec[] = [
         label: "URL",
         type: "text",
         placeholder: "https://api.example.com/endpoint",
-        helpText: "Used when input is not connected. Keep it https.",
+        helpText:
+          "Used when nothing is connected, or as fallback. You can connect Input (URL in the value field) or an object with url / headers / body. HTTPS URLs only for public APIs.",
       },
       {
         key: "method",
@@ -253,6 +407,20 @@ export const PREMIUM_NODES: NodeSpec[] = [
         type: "text",
         placeholder: "localhost,127.0.0.1",
         helpText: "These hosts will be blocked for security.",
+      },
+      {
+        key: "hasSideEffects",
+        label: "Require idempotency (POST/PUT/PATCH)",
+        type: "switch",
+        helpText:
+          "Enable only when you need retry-safe writes. When on, set Idempotency key below or pass idempotencyKey on an inbound object.",
+      },
+      {
+        key: "idempotencyKey",
+        label: "Idempotency key",
+        type: "text",
+        placeholder: "stable-key-per-operation",
+        helpText: "Required when the switch above is on for POST, PUT, or PATCH.",
       },
     ],
   },

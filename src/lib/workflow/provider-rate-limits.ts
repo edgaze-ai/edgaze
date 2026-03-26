@@ -4,10 +4,12 @@
  * Minimal in-memory implementation; can upgrade to Redis/DB later.
  */
 
-export type ProviderKey = "openai";
+export type ProviderKey = "openai" | "anthropic" | "google";
 
 const LIMITS_PER_MINUTE: Record<ProviderKey, number> = {
   openai: 60,
+  anthropic: 50,
+  google: 50,
 };
 
 const WINDOW_MS = 60_000;

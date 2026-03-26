@@ -3,6 +3,8 @@
  * Validates workflow graphs for potential issues that could cause high costs or errors
  */
 
+import { canonicalSpecId } from "./spec-id-aliases";
+
 export type GraphNode = {
   id: string;
   data?: {
@@ -43,6 +45,11 @@ function issue(
 }
 
 const EXPENSIVE_NODE_TYPES = [
+  "llm-chat",
+  "llm-embeddings",
+  "llm-image",
+  "claude-chat",
+  "gemini-chat",
   "openai-chat",
   "openai-embeddings",
   "openai-image",
@@ -60,7 +67,7 @@ function validateOpenAIImageNode(node: GraphNode): ValidationIssue[] {
   const model = config.model || "dall-e-2";
   const quality = config.quality || "standard";
   const size = config.size || "1024x1024";
-  const name = config.name || node.data?.specId || "OpenAI Image";
+  const name = config.name || node.data?.specId || "LLM Image";
   const errs: ValidationIssue[] = [];
   if (model === "dall-e-2" && quality === "hd") {
     errs.push(
@@ -228,13 +235,14 @@ export function validateWorkflowGraph(nodes: GraphNode[], edges: GraphEdge[]): V
     );
   }
 
-  // OpenAI Chat: needs prompt or inbound connection
+  // LLM Chat / Claude / Gemini: needs prompt or inbound connection
   for (const node of nodes) {
-    if (node.data?.specId === "openai-chat") {
+    const c = canonicalSpecId(node.data?.specId ?? "");
+    if (c === "llm-chat" || c === "claude-chat" || c === "gemini-chat") {
       const config = node.data?.config ?? {};
       const hasPrompt = typeof config.prompt === "string" && config.prompt.trim().length > 0;
       const hasInbound = (inboundByNode.get(node.id) ?? []).length > 0;
-      const title = node.data?.title ?? config.name ?? "OpenAI Chat";
+      const title = node.data?.title ?? config.name ?? "LLM Chat";
       if (!hasPrompt && !hasInbound) {
         errors.push(
           issue(
@@ -248,33 +256,34 @@ export function validateWorkflowGraph(nodes: GraphNode[], edges: GraphEdge[]): V
     }
   }
 
-  // HTTP Request: URL required
+  // HTTP Request: URL required when not supplied via an inbound connection
   for (const node of nodes) {
     if (node.data?.specId === "http-request") {
       const config = node.data?.config ?? {};
       const url = config.url ?? config.URL ?? "";
       const hasUrl = typeof url === "string" && url.trim().length > 0;
+      const hasInbound = (inboundByNode.get(node.id) ?? []).length > 0;
       const title = node.data?.title ?? config.name ?? "HTTP Request";
-      if (!hasUrl) {
+      if (!hasUrl && !hasInbound) {
         errors.push(
           issue(
-            `"${title}": URL is required.`,
+            `"${title}": URL is required (set in the inspector or connect a node that provides the URL).`,
             node.id,
             "url",
-            "Inspector → Configuration → URL: enter the request URL",
+            "Inspector → Configuration → URL, or connect Input / upstream output",
           ),
         );
       }
     }
   }
 
-  // OpenAI Embeddings: needs text or inbound
+  // LLM Embeddings: needs text or inbound
   for (const node of nodes) {
-    if (node.data?.specId === "openai-embeddings") {
+    if (canonicalSpecId(node.data?.specId ?? "") === "llm-embeddings") {
       const config = node.data?.config ?? {};
       const hasText = typeof config.text === "string" && config.text.trim().length > 0;
       const hasInbound = (inboundByNode.get(node.id) ?? []).length > 0;
-      const title = node.data?.title ?? config.name ?? "OpenAI Embeddings";
+      const title = node.data?.title ?? config.name ?? "LLM Embeddings";
       if (!hasText && !hasInbound) {
         errors.push(
           issue(
@@ -332,15 +341,17 @@ export function validateWorkflowGraph(nodes: GraphNode[], edges: GraphEdge[]): V
     );
   }
 
-  // Validate OpenAI Image node config
+  // Validate LLM Image node config
   for (const node of nodes) {
-    if (node.data?.specId === "openai-image") {
+    if (canonicalSpecId(node.data?.specId ?? "") === "llm-image") {
       errors.push(...validateOpenAIImageNode(node));
     }
   }
 
   // Check for expensive nodes
-  const expensiveNodes = nodes.filter((n) => EXPENSIVE_NODE_TYPES.includes(n.data?.specId || ""));
+  const expensiveNodes = nodes.filter((n) =>
+    EXPENSIVE_NODE_TYPES.includes(canonicalSpecId(n.data?.specId || "")),
+  );
 
   if (expensiveNodes.length > MAX_EXPENSIVE_NODES) {
     warnings.push(

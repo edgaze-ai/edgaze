@@ -12,7 +12,6 @@ import {
   MAX_JSON_DEPTH,
   exceedsJsonDepth,
 } from "@lib/workflow/domain-allowlist";
-import { nodeHasSideEffects } from "@lib/workflow/node-contracts";
 import {
   checkProviderRateLimit,
   recordProviderUsage,
@@ -24,6 +23,13 @@ import {
   recordImageGeneration,
 } from "../../lib/rate-limiting/image-generation";
 import { evaluateConditionWithAI } from "../../lib/ai/condition-evaluator";
+import { canonicalSpecId, isOpenAiBackedSpec } from "../../lib/workflow/spec-id-aliases";
+import {
+  DEFAULT_LLM_CHAT_MODEL,
+  DEFAULT_LLM_IMAGE_MODEL,
+  resolveLlmChatProvider,
+  resolveLlmImageProvider,
+} from "../../lib/workflow/llm-model-catalog";
 
 /**
  * Safely convert any value to a displayable string.
@@ -306,60 +312,52 @@ const getApiKey = (node: GraphNode, ctx: RuntimeContext): string | null => {
  * Check if the API key being used is the user's own key (not Edgaze's)
  */
 const isUserProvidedApiKey = (node: GraphNode, ctx: RuntimeContext): boolean => {
-  // Check if user provided key in modal (builder test)
-  if ((ctx.inputs as any)?.["__builder_user_key"]) {
-    return true;
+  const inputs = ctx.inputs as Record<string, unknown> | undefined;
+  const specId = node.data?.specId ?? "";
+  const canon = canonicalSpecId(specId);
+  const config = node.data?.config ?? {};
+
+  if (canon === "llm-chat" || specId === "openai-chat") {
+    const m = (config.model as string) || DEFAULT_LLM_CHAT_MODEL;
+    const p = resolveLlmChatProvider(m);
+    if (p === "openai" && inputs?.["__builder_user_key_openai"]) return true;
+    if (p === "anthropic" && inputs?.["__builder_user_key_anthropic"]) return true;
+    if (p === "google" && inputs?.["__builder_user_key_gemini"]) return true;
+  } else if (canon === "llm-image" || specId === "openai-image") {
+    const m = (config.model as string) || DEFAULT_LLM_IMAGE_MODEL;
+    const p = resolveLlmImageProvider(m);
+    if (p === "openai" && inputs?.["__builder_user_key_openai"]) return true;
+    if (p === "google" && inputs?.["__builder_user_key_gemini"]) return true;
+  } else {
+    if (inputs?.["__builder_user_key"]) return true;
+    if (inputs?.["__builder_user_key_openai"] && isOpenAiBackedSpec(specId)) return true;
+    if (inputs?.["__builder_user_key_anthropic"] && specId === "claude-chat") return true;
+    if (inputs?.["__builder_user_key_gemini"] && specId === "gemini-chat") return true;
   }
 
-  // Check if node config has user's stored API key
   const configKey = node.data?.config?.apiKey;
   if (typeof configKey === "string" && configKey.trim().length > 0) {
     return true;
   }
 
-  // Otherwise, it's Edgaze's key (for free tier)
   return false;
 };
 
-const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
-  const apiKey = getApiKey(node, ctx);
-  if (!apiKey) {
-    throw new Error("OpenAI API key required. Please provide your API key in the run modal.");
-  }
-
-  const rateCheck = await checkProviderRateLimit({
-    provider: "openai",
-    userId: ctx.requestMetadata?.userId ?? null,
-    isPlatformKey: !isUserProvidedApiKey(node, ctx),
-  });
-  if (!rateCheck.allowed) {
-    throw new Error(
-      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
-    );
-  }
-
-  const config = node.data?.config ?? {};
+/** Shared inbound → prompt/messages + Edgaze system prompt for LLM Chat, Claude, and Gemini. */
+function buildWorkflowChatPromptParts(
+  node: GraphNode,
+  ctx: RuntimeContext,
+  config: Record<string, unknown>,
+) {
   const inbound = ctx.getInboundValues(node.id);
 
-  // Debug: log inbound values to help diagnose issues
-  console.warn(
-    `[OpenAI Chat] Node ${node.id} received inbound values:`,
-    inbound.length,
-    inbound.map((v) =>
-      typeof v === "string" ? `"${v.substring(0, 50)}${v.length > 50 ? "..." : ""}"` : typeof v,
-    ),
-  );
-
-  // Extract prompt/messages from inbound - BE LENIENT, convert ANYTHING to usable format
   let inboundMessages: any[] | undefined = undefined;
 
-  // First: look for messages array (highest priority); unwrap condition passthrough
   for (const val of inbound) {
     if (val === null || val === undefined) continue;
     const content = extractPipelineContent(val);
 
     if (Array.isArray(content) && content.length > 0) {
-      // Check if it's OpenAI messages format
       if (
         content.every(
           (item: any) => item && typeof item === "object" && ("role" in item || "content" in item),
@@ -380,7 +378,6 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     }
   }
 
-  // Build prompt from ALL inbound values (no dropping): format as "## Inputs" section so OpenAI receives every connected input
   const configPrompt =
     typeof config.prompt === "string" ? config.prompt.trim() || undefined : undefined;
 
@@ -399,32 +396,17 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       prompt = configPrompt
         ? `## Inputs\n\n${inputsSection}\n\n## Prompt\n\n${configPrompt}`
         : `## Inputs\n\n${inputsSection}`;
-      console.warn(
-        `[OpenAI Chat ${node.id}] Built prompt from ${validInbound.length} inbound value(s) (Inputs section):`,
-        prompt.substring(0, 150),
-      );
     } else {
       prompt = configPrompt;
-      console.warn(
-        `[OpenAI Chat ${node.id}] No usable text from inbound, using config prompt only:`,
-        configPrompt?.substring(0, 80),
-      );
     }
   } else {
     prompt = configPrompt;
-    if (inbound.length === 0) {
-      console.warn(
-        `[OpenAI Chat ${node.id}] No inbound connections, using config prompt only:`,
-        configPrompt?.substring(0, 80),
-      );
-    }
   }
 
   const userSystem =
     typeof config.system === "string" ? config.system.trim() || undefined : undefined;
   const messages = inboundMessages;
 
-  // Server-side enforced system prompt: env + output format rules always work together
   const outputFormatRules = `CRITICAL - Output format rules (you MUST follow these):
 1. Respond ONLY with plain text or markdown. Start your response with the actual content immediately.
 2. NEVER wrap your response in JSON like {"response": "..."}, {"answer": "..."}, {"result": "..."}, or any object/array structure — unless the user's prompt EXPLICITLY asks for JSON output.
@@ -445,56 +427,103 @@ Rules:
     ? `${process.env.EDGAZE_SERVER_SYSTEM_PROMPT.trim()}\n\n${basePrompt}\n\n${outputFormatRules}`
     : `${basePrompt}\n\n${outputFormatRules}`;
 
-  // Combine server system prompt with user's system prompt (server first, then user)
   const system = userSystem
     ? `${serverSystemPrompt}\n\nUser context: ${userSystem}`
     : serverSystemPrompt;
 
-  // If we have system but no user content yet, use empty string so we send [system, user: ""] – OpenAI will still respond
   if (prompt === undefined && system) {
     prompt = "";
   }
 
-  // Only error if we have nothing at all – no prompt, no system, no messages, no usable inbound
   if (prompt === undefined && !messages) {
     if (inbound.length === 0) {
       throw new Error(
         "Prompt or messages array required. Please provide a prompt in the node configuration or connect an input node with data.",
       );
     }
-    // Inbound exists but wasn't usable (e.g. merge not run yet, or wrong shape) – still allow config.prompt/system
     const anyConfig =
       (typeof config.prompt === "string" && config.prompt.trim()) ||
       (typeof config.system === "string" && config.system.trim());
     if (!anyConfig) {
       throw new Error(
-        "Connected input node(s) did not provide usable data. Please ensure input nodes have values or set a prompt in the OpenAI Chat node configuration.",
+        "Connected input node(s) did not provide usable data. Please ensure input nodes have values or set a prompt in the node configuration.",
       );
     }
     prompt = (typeof config.prompt === "string" ? config.prompt.trim() : undefined) || "";
   }
 
-  const isBuilderTest = !!(ctx.inputs as any)?.["__builder_test"];
-  const builderUserKey = !!(ctx.inputs as any)?.["__builder_user_key"];
-  const usePremium = !isBuilderTest || builderUserKey; // User's key => use inspector model and normal limits
-  const model = usePremium ? config.model || "gpt-4o-mini" : "gpt-4o-mini";
-  const temperature = config.temperature ?? 0.7;
-  const effectiveMaxTokens = usePremium
-    ? (config.maxTokens ?? 2000)
-    : Math.min(5000, config.maxTokens ?? 2000);
-  const maxTokens = effectiveMaxTokens;
-  const stream = false; // Server run always needs full response; streaming returns SSE and breaks JSON parse
+  return {
+    prompt,
+    messages,
+    userSystem,
+    serverSystemPrompt,
+    system,
+    inbound,
+  };
+}
 
-  // Get token limits (workflow-specific or global)
+/** Unified LLM Chat: routes OpenAI / Anthropic / Gemini from a single model dropdown. */
+const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
+  const config = node.data?.config ?? {};
+  const {
+    prompt: promptRaw,
+    messages,
+    serverSystemPrompt,
+    system,
+  } = buildWorkflowChatPromptParts(node, ctx, config);
+  let prompt = promptRaw;
+
+  const isBuilderTest = !!(ctx.inputs as any)?.["__builder_test"];
+  let model = (config.model as string) || DEFAULT_LLM_CHAT_MODEL;
+  const pInit = resolveLlmChatProvider(model);
+  const builderUserKey =
+    (pInit === "openai" && !!(ctx.inputs as any)?.["__builder_user_key_openai"]) ||
+    (pInit === "anthropic" && !!(ctx.inputs as any)?.["__builder_user_key_anthropic"]) ||
+    (pInit === "google" && !!(ctx.inputs as any)?.["__builder_user_key_gemini"]) ||
+    (!!(ctx.inputs as any)?.["__builder_user_key"] &&
+      isOpenAiBackedSpec(node.data?.specId ?? "") &&
+      canonicalSpecId(node.data?.specId ?? "") !== "llm-chat");
+
+  const hasConfigKey = typeof config.apiKey === "string" && config.apiKey.trim();
+  const usePremium = !isBuilderTest || builderUserKey || !!hasConfigKey;
+
+  const platformForced = (ctx.inputs as any)?.["__platform_llm_chat_model"] as string | undefined;
+  if (!usePremium && platformForced) {
+    model = platformForced;
+  }
+
+  const provider = resolveLlmChatProvider(model);
+  const apiKey = getApiKey(node, ctx);
+  if (!apiKey) {
+    throw new Error(
+      "API key required for LLM Chat. Add the matching provider key in the run modal or node inspector.",
+    );
+  }
+
+  const rateProvider = provider === "google" ? "google" : provider;
+  const rateCheck = await checkProviderRateLimit({
+    provider: rateProvider,
+    userId: ctx.requestMetadata?.userId ?? null,
+    isPlatformKey: !isUserProvidedApiKey(node, ctx),
+  });
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `API rate limit exceeded (${provider}). Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
+    );
+  }
+
+  const temperature = (config.temperature as number) ?? 0.7;
+  const effectiveMaxTokens = usePremium
+    ? ((config.maxTokens as number) ?? 2000)
+    : Math.min(5000, (config.maxTokens as number) ?? 2000);
+  const maxTokens = effectiveMaxTokens;
+
   const workflowId = (ctx.inputs as any)?.["__workflow_id"];
   const tokenLimits = await getTokenLimits(workflowId);
   const nodeTokenCap = usePremium ? tokenLimits.maxTokensPerNode : 5000;
 
-  // Count and validate tokens before making the request
-  // When using messages array, we need to account for server system prompt we'll add
   let messagesForTokenCount = messages;
   if (messages && Array.isArray(messages)) {
-    // Create a temporary messages array with server system prompt included for accurate token counting
     const tempMessages = [{ role: "system", content: serverSystemPrompt } as const];
     const userSystemMsg = messages.find((m: any) => m.role === "system");
     if (userSystemMsg && userSystemMsg.content) {
@@ -511,53 +540,200 @@ Rules:
 
   const tokenCount = countChatTokens({
     prompt,
-    system, // Already includes server prompt + user system
+    system,
     messages: messagesForTokenCount,
     maxTokens,
   });
-
   const tokenValidation = validateNodeTokenLimit(node.id, tokenCount.total, "chat", nodeTokenCap);
   if (!tokenValidation.valid) {
     throw new Error(tokenValidation.error || "Token limit exceeded");
   }
 
-  const requestBody: any = {
-    model,
-    temperature,
-    max_tokens: Math.min(maxTokens, nodeTokenCap - tokenCount.input),
-    stream,
-  };
-
-  if (messages && Array.isArray(messages)) {
-    // Prepend server system prompt to messages array (as first system message)
-    const messageList: any[] = [];
-    messageList.push({ role: "system", content: serverSystemPrompt });
-
-    // If user had a system message in their array, combine it
-    const userSystemMsg = messages.find((m: any) => m.role === "system");
-    if (userSystemMsg && userSystemMsg.content) {
-      messageList[0].content = `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`;
-      // Add remaining messages (excluding the user's system message since we combined it)
-      messageList.push(...messages.filter((m: any) => m.role !== "system"));
-    } else {
-      // No user system message, just prepend server system and add all user messages
-      messageList.push(...messages);
-    }
-
-    requestBody.messages = messageList;
-  } else {
-    const messageList: any[] = [];
-    // Always include server system prompt
-    messageList.push({ role: "system", content: system });
-    messageList.push({ role: "user", content: prompt || "" });
-    requestBody.messages = messageList;
-  }
-
-  const timeout = config.timeout ?? 30000;
+  const timeout = (config.timeout as number) ?? (provider === "openai" ? 30000 : 60000);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    if (provider === "anthropic") {
+      let anthropicMessages: { role: "user" | "assistant"; content: string }[];
+      let systemCombined: string;
+
+      if (messages && Array.isArray(messages)) {
+        const messageList: any[] = [];
+        messageList.push({ role: "system", content: serverSystemPrompt });
+        const userSystemMsg = messages.find((m: any) => m.role === "system");
+        if (userSystemMsg && userSystemMsg.content) {
+          messageList[0].content = `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`;
+          messageList.push(...messages.filter((m: any) => m.role !== "system"));
+        } else {
+          messageList.push(...messages);
+        }
+        systemCombined =
+          messageList.find((m: any) => m.role === "system")?.content ??
+          (typeof system === "string" ? system : serverSystemPrompt);
+        anthropicMessages = messageList
+          .filter((m: any) => m.role === "user" || m.role === "assistant")
+          .map((m: any) => ({
+            role: m.role,
+            content: typeof m.content === "string" ? m.content : safeToString(m.content),
+          }));
+        if (anthropicMessages.length === 0) {
+          anthropicMessages = [{ role: "user", content: prompt || "" }];
+        }
+      } else {
+        systemCombined = typeof system === "string" ? system : serverSystemPrompt;
+        anthropicMessages = [{ role: "user", content: prompt || "" }];
+      }
+
+      const maxOut = Math.min(maxTokens, nodeTokenCap - tokenCount.input, 8192);
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: Math.max(1, maxOut),
+          temperature: Math.min(1, temperature),
+          system: systemCombined,
+          messages: anthropicMessages,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          record429Cooldown({
+            provider: "anthropic",
+            userId: ctx.requestMetadata?.userId ?? null,
+            isPlatformKey: !isUserProvidedApiKey(node, ctx),
+          });
+        }
+        const error = await response.text();
+        throw new Error(`Anthropic API error: ${response.status} ${error}`);
+      }
+
+      await recordProviderUsage({
+        provider: "anthropic",
+        userId: ctx.requestMetadata?.userId ?? null,
+        isPlatformKey: !isUserProvidedApiKey(node, ctx),
+      });
+
+      const data = await response.json();
+      const blocks = data.content;
+      let textOut = "";
+      if (Array.isArray(blocks)) {
+        for (const b of blocks) {
+          if (b?.type === "text" && typeof b.text === "string") textOut += b.text;
+        }
+      }
+      ctx.setNodeOutput(node.id, textOut);
+      return textOut;
+    }
+
+    if (provider === "google") {
+      let userText = "";
+      if (messages && Array.isArray(messages)) {
+        const messageList: any[] = [];
+        messageList.push({ role: "system", content: serverSystemPrompt });
+        const userSystemMsg = messages.find((m: any) => m.role === "system");
+        if (userSystemMsg && userSystemMsg.content) {
+          messageList[0].content = `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`;
+          messageList.push(...messages.filter((m: any) => m.role !== "system"));
+        } else {
+          messageList.push(...messages);
+        }
+        const parts = messageList
+          .filter((m: any) => m.role !== "system")
+          .map(
+            (m: any) =>
+              `${m.role}: ${typeof m.content === "string" ? m.content : safeToString(m.content)}`,
+          );
+        userText = parts.join("\n\n");
+      } else {
+        userText = typeof system === "string" ? `${system}\n\n${prompt || ""}` : prompt || "";
+      }
+
+      const maxOut = Math.min(maxTokens, nodeTokenCap - tokenCount.input, 8192);
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: userText }] }],
+          generationConfig: {
+            maxOutputTokens: Math.max(1, maxOut),
+            temperature,
+          },
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          record429Cooldown({
+            provider: "google",
+            userId: ctx.requestMetadata?.userId ?? null,
+            isPlatformKey: !isUserProvidedApiKey(node, ctx),
+          });
+        }
+        const error = await response.text();
+        throw new Error(`Gemini API error: ${response.status} ${error}`);
+      }
+
+      await recordProviderUsage({
+        provider: "google",
+        userId: ctx.requestMetadata?.userId ?? null,
+        isPlatformKey: !isUserProvidedApiKey(node, ctx),
+      });
+
+      const data = await response.json();
+      const partsOut = data.candidates?.[0]?.content?.parts;
+      let textOut = "";
+      if (Array.isArray(partsOut)) {
+        for (const p of partsOut) {
+          if (typeof p?.text === "string") textOut += p.text;
+        }
+      }
+      ctx.setNodeOutput(node.id, textOut);
+      return textOut;
+    }
+
+    // OpenAI Chat Completions
+    const requestBody: Record<string, unknown> = {
+      model,
+      max_tokens: Math.min(maxTokens, nodeTokenCap - tokenCount.input),
+      stream: false,
+    };
+    if (!/^o\d/i.test(model)) {
+      requestBody.temperature = temperature;
+    }
+
+    if (messages && Array.isArray(messages)) {
+      const messageList: any[] = [];
+      messageList.push({ role: "system", content: serverSystemPrompt });
+      const userSystemMsg = messages.find((m: any) => m.role === "system");
+      if (userSystemMsg && userSystemMsg.content) {
+        messageList[0].content = `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`;
+        messageList.push(...messages.filter((m: any) => m.role !== "system"));
+      } else {
+        messageList.push(...messages);
+      }
+      requestBody.messages = messageList;
+    } else {
+      requestBody.messages = [
+        { role: "system", content: system },
+        { role: "user", content: prompt || "" },
+      ];
+    }
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -590,15 +766,331 @@ Rules:
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content ?? "";
-
-    // Always output the clean content string — downstream nodes and the final display
-    // need a usable string, not a wrapper object. Usage metadata is tracked in traces.
     ctx.setNodeOutput(node.id, content);
     return content;
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === "AbortError") {
-      throw new Error("OpenAI request timeout");
+      throw new Error("LLM Chat request timeout");
+    }
+    throw err;
+  }
+};
+
+const CLAUDE_DEFAULT_QUALITY = "claude-3-7-sonnet-20250219";
+const GEMINI_DEFAULT_FLASH = "gemini-2.5-flash";
+
+const claudeChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
+  const apiKey = getApiKey(node, ctx);
+  if (!apiKey) {
+    throw new Error(
+      "Anthropic API key required for Claude Chat. Add it in the run modal or node inspector.",
+    );
+  }
+
+  const rateCheck = await checkProviderRateLimit({
+    provider: "anthropic",
+    userId: ctx.requestMetadata?.userId ?? null,
+    isPlatformKey: !isUserProvidedApiKey(node, ctx),
+  });
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `Anthropic rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
+    );
+  }
+
+  const config = node.data?.config ?? {};
+  const { prompt, messages, serverSystemPrompt, system } = buildWorkflowChatPromptParts(
+    node,
+    ctx,
+    config,
+  );
+
+  const isBuilderTest = !!(ctx.inputs as any)?.["__builder_test"];
+  const builderUserKey =
+    !!(ctx.inputs as any)?.["__builder_user_key_anthropic"] ||
+    (!!(ctx.inputs as any)?.["__builder_user_key"] && node.data?.specId === "claude-chat");
+  const usePremium = !isBuilderTest || builderUserKey;
+  const model = usePremium
+    ? (config.model as string) || CLAUDE_DEFAULT_QUALITY
+    : CLAUDE_DEFAULT_QUALITY;
+  const temperature = Math.min(1, (config.temperature as number) ?? 0.7);
+  const effectiveMaxTokens = usePremium
+    ? ((config.maxTokens as number) ?? 2000)
+    : Math.min(2048, (config.maxTokens as number) ?? 2000);
+  const maxTokens = effectiveMaxTokens;
+
+  const workflowId = (ctx.inputs as any)?.["__workflow_id"];
+  const tokenLimits = await getTokenLimits(workflowId);
+  const nodeTokenCap = usePremium ? tokenLimits.maxTokensPerNode : 5000;
+
+  let messagesForTokenCount = messages;
+  if (messages && Array.isArray(messages)) {
+    const tempMessages = [{ role: "system", content: serverSystemPrompt } as const];
+    const userSystemMsg = messages.find((m: any) => m.role === "system");
+    if (userSystemMsg && userSystemMsg.content) {
+      tempMessages[0] = {
+        role: "system",
+        content: `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`,
+      };
+      tempMessages.push(...messages.filter((m: any) => m.role !== "system"));
+    } else {
+      tempMessages.push(...messages);
+    }
+    messagesForTokenCount = tempMessages;
+  }
+
+  const tokenCount = countChatTokens({
+    prompt,
+    system,
+    messages: messagesForTokenCount,
+    maxTokens,
+  });
+  const tokenValidation = validateNodeTokenLimit(node.id, tokenCount.total, "chat", nodeTokenCap);
+  if (!tokenValidation.valid) {
+    throw new Error(tokenValidation.error || "Token limit exceeded");
+  }
+
+  let anthropicMessages: { role: "user" | "assistant"; content: string }[];
+  let systemCombined: string;
+
+  if (messages && Array.isArray(messages)) {
+    const messageList: any[] = [];
+    messageList.push({ role: "system", content: serverSystemPrompt });
+    const userSystemMsg = messages.find((m: any) => m.role === "system");
+    if (userSystemMsg && userSystemMsg.content) {
+      messageList[0].content = `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`;
+      messageList.push(...messages.filter((m: any) => m.role !== "system"));
+    } else {
+      messageList.push(...messages);
+    }
+    systemCombined =
+      messageList.find((m: any) => m.role === "system")?.content ??
+      (typeof system === "string" ? system : serverSystemPrompt);
+    anthropicMessages = messageList
+      .filter((m: any) => m.role === "user" || m.role === "assistant")
+      .map((m: any) => ({
+        role: m.role,
+        content: typeof m.content === "string" ? m.content : safeToString(m.content),
+      }));
+    if (anthropicMessages.length === 0) {
+      anthropicMessages = [{ role: "user", content: prompt || "" }];
+    }
+  } else {
+    systemCombined = typeof system === "string" ? system : serverSystemPrompt;
+    anthropicMessages = [{ role: "user", content: prompt || "" }];
+  }
+
+  const maxOut = Math.min(maxTokens, nodeTokenCap - tokenCount.input, 8192);
+  const timeout = (config.timeout as number) ?? 60000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: Math.max(1, maxOut),
+        temperature,
+        system: systemCombined,
+        messages: anthropicMessages,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        record429Cooldown({
+          provider: "anthropic",
+          userId: ctx.requestMetadata?.userId ?? null,
+          isPlatformKey: !isUserProvidedApiKey(node, ctx),
+        });
+      }
+      const error = await response.text();
+      throw new Error(`Anthropic API error: ${response.status} ${error}`);
+    }
+
+    await recordProviderUsage({
+      provider: "anthropic",
+      userId: ctx.requestMetadata?.userId ?? null,
+      isPlatformKey: !isUserProvidedApiKey(node, ctx),
+    });
+
+    const data = await response.json();
+    const blocks = data.content;
+    let textOut = "";
+    if (Array.isArray(blocks)) {
+      for (const b of blocks) {
+        if (b?.type === "text" && typeof b.text === "string") textOut += b.text;
+      }
+    }
+    ctx.setNodeOutput(node.id, textOut);
+    return textOut;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === "AbortError") {
+      throw new Error("Anthropic request timeout");
+    }
+    throw err;
+  }
+};
+
+const geminiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
+  const apiKey = getApiKey(node, ctx);
+  if (!apiKey) {
+    throw new Error(
+      "Google Gemini API key required for Gemini Chat. Add it in the run modal or node inspector.",
+    );
+  }
+
+  const rateCheck = await checkProviderRateLimit({
+    provider: "google",
+    userId: ctx.requestMetadata?.userId ?? null,
+    isPlatformKey: !isUserProvidedApiKey(node, ctx),
+  });
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `Gemini rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
+    );
+  }
+
+  const config = node.data?.config ?? {};
+  const { prompt, messages, serverSystemPrompt, system } = buildWorkflowChatPromptParts(
+    node,
+    ctx,
+    config,
+  );
+
+  const isBuilderTest = !!(ctx.inputs as any)?.["__builder_test"];
+  const builderUserKey =
+    !!(ctx.inputs as any)?.["__builder_user_key_gemini"] ||
+    (!!(ctx.inputs as any)?.["__builder_user_key"] && node.data?.specId === "gemini-chat");
+  const usePremium = !isBuilderTest || builderUserKey;
+  const model = usePremium
+    ? (config.model as string) || GEMINI_DEFAULT_FLASH
+    : GEMINI_DEFAULT_FLASH;
+  const temperature = (config.temperature as number) ?? 0.7;
+  const effectiveMaxTokens = usePremium
+    ? ((config.maxTokens as number) ?? 2000)
+    : Math.min(2048, (config.maxTokens as number) ?? 2000);
+  const maxTokens = effectiveMaxTokens;
+
+  const workflowId = (ctx.inputs as any)?.["__workflow_id"];
+  const tokenLimits = await getTokenLimits(workflowId);
+  const nodeTokenCap = usePremium ? tokenLimits.maxTokensPerNode : 5000;
+
+  let messagesForTokenCount = messages;
+  if (messages && Array.isArray(messages)) {
+    const tempMessages = [{ role: "system", content: serverSystemPrompt } as const];
+    const userSystemMsg = messages.find((m: any) => m.role === "system");
+    if (userSystemMsg && userSystemMsg.content) {
+      tempMessages[0] = {
+        role: "system",
+        content: `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`,
+      };
+      tempMessages.push(...messages.filter((m: any) => m.role !== "system"));
+    } else {
+      tempMessages.push(...messages);
+    }
+    messagesForTokenCount = tempMessages;
+  }
+
+  const tokenCount = countChatTokens({
+    prompt,
+    system,
+    messages: messagesForTokenCount,
+    maxTokens,
+  });
+  const tokenValidation = validateNodeTokenLimit(node.id, tokenCount.total, "chat", nodeTokenCap);
+  if (!tokenValidation.valid) {
+    throw new Error(tokenValidation.error || "Token limit exceeded");
+  }
+
+  let userText = "";
+  if (messages && Array.isArray(messages)) {
+    const messageList: any[] = [];
+    messageList.push({ role: "system", content: serverSystemPrompt });
+    const userSystemMsg = messages.find((m: any) => m.role === "system");
+    if (userSystemMsg && userSystemMsg.content) {
+      messageList[0].content = `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`;
+      messageList.push(...messages.filter((m: any) => m.role !== "system"));
+    } else {
+      messageList.push(...messages);
+    }
+    const parts = messageList
+      .filter((m: any) => m.role !== "system")
+      .map(
+        (m: any) =>
+          `${m.role}: ${typeof m.content === "string" ? m.content : safeToString(m.content)}`,
+      );
+    userText = parts.join("\n\n");
+  } else {
+    userText = typeof system === "string" ? `${system}\n\n${prompt || ""}` : prompt || "";
+  }
+
+  const maxOut = Math.min(maxTokens, nodeTokenCap - tokenCount.input, 8192);
+  const timeout = (config.timeout as number) ?? 60000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: userText }] }],
+        generationConfig: {
+          maxOutputTokens: Math.max(1, maxOut),
+          temperature,
+        },
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        record429Cooldown({
+          provider: "google",
+          userId: ctx.requestMetadata?.userId ?? null,
+          isPlatformKey: !isUserProvidedApiKey(node, ctx),
+        });
+      }
+      const error = await response.text();
+      throw new Error(`Gemini API error: ${response.status} ${error}`);
+    }
+
+    await recordProviderUsage({
+      provider: "google",
+      userId: ctx.requestMetadata?.userId ?? null,
+      isPlatformKey: !isUserProvidedApiKey(node, ctx),
+    });
+
+    const data = await response.json();
+    const partsOut = data.candidates?.[0]?.content?.parts;
+    let textOut = "";
+    if (Array.isArray(partsOut)) {
+      for (const p of partsOut) {
+        if (typeof p?.text === "string") textOut += p.text;
+      }
+    }
+    ctx.setNodeOutput(node.id, textOut);
+    return textOut;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === "AbortError") {
+      throw new Error("Gemini request timeout");
     }
     throw err;
   }
@@ -610,7 +1102,7 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (
 ) => {
   const apiKey = getApiKey(node, ctx);
   if (!apiKey) {
-    throw new Error("OpenAI API key required");
+    throw new Error("OpenAI API key required for LLM Embeddings");
   }
 
   const rateCheck = await checkProviderRateLimit({
@@ -707,66 +1199,10 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (
 };
 
 const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
-  const apiKey = getApiKey(node, ctx);
-  const hasApiKey = !!apiKey;
-
-  // Check if this is user's own API key (not Edgaze's key)
-  const isUserApiKey = isUserProvidedApiKey(node, ctx);
-
-  // RATE LIMITING: Check if image generation is allowed (5 free per user, then BYOK)
-  const requestMeta = ctx.requestMetadata;
-  const userId = requestMeta?.userId || undefined;
-
-  // Only check rate limits if user hasn't provided their own API key
-  // If user provided their own key, they bypass free tier limits
-  if (!isUserApiKey && requestMeta?.identifier && requestMeta?.identifierType) {
-    const rateLimitCheck = await checkImageGenerationAllowed(
-      requestMeta.identifier,
-      requestMeta.identifierType,
-      userId,
-      false, // Not using user's API key, so hasApiKey = false for free tier check
-    );
-
-    if (!rateLimitCheck.allowed) {
-      // If requires API key and user hasn't provided one, throw error
-      if (rateLimitCheck.requiresApiKey) {
-        const freeUsed = rateLimitCheck.freeUsed || 0;
-        const freeRemaining = rateLimitCheck.freeRemaining || 0;
-        throw new Error(
-          rateLimitCheck.error ||
-            `You have used all 5 free images (${freeUsed}/5 used). Please provide your OpenAI API key in the run modal to continue generating images.`,
-        );
-      }
-      // If check failed for other reasons, throw error
-      throw new Error(
-        rateLimitCheck.error ||
-          "Image generation is not allowed at this time. Please provide your OpenAI API key.",
-      );
-    }
-  } else if (!isUserApiKey && !hasApiKey) {
-    // No identifier available and no API key - require API key
-    throw new Error(
-      "OpenAI API key required for image generation. Please provide your API key in the run modal.",
-    );
-  }
-
-  // If no API key at this point, it's an error (should have been caught above)
-  if (!apiKey) {
-    throw new Error("OpenAI API key required. Please provide your API key in the run modal.");
-  }
-
-  const rateCheck = await checkProviderRateLimit({
-    provider: "openai",
-    userId: ctx.requestMetadata?.userId ?? null,
-    isPlatformKey: !isUserProvidedApiKey(node, ctx),
-  });
-  if (!rateCheck.allowed) {
-    throw new Error(
-      `OpenAI rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
-    );
-  }
-
   const config = node.data?.config ?? {};
+  const model = (config.model as string) || DEFAULT_LLM_IMAGE_MODEL;
+  const imageProvider = resolveLlmImageProvider(model);
+
   const inbound = ctx.getInboundValues(node.id);
   const raw = inbound[0];
   const content = extractPipelineContent(raw);
@@ -778,11 +1214,14 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     throw new Error("Prompt required for image generation");
   }
 
-  // Get token limits
+  const apiKey = getApiKey(node, ctx);
+  const hasApiKey = !!apiKey;
+  const isUserApiKey = isUserProvidedApiKey(node, ctx);
+  const requestMeta = ctx.requestMetadata;
+  const userId = requestMeta?.userId || undefined;
+
   const workflowId = (ctx.inputs as any)?.["__workflow_id"] || requestMeta?.workflowId;
   const tokenLimits = await getTokenLimits(workflowId);
-
-  // Count and validate tokens (for prompt)
   const tokenCount = countImageTokens(prompt);
   const tokenValidation = validateNodeTokenLimit(
     node.id,
@@ -794,38 +1233,146 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     throw new Error(tokenValidation.error || "Token limit exceeded");
   }
 
-  const model = config.model || "dall-e-2"; // Cheapest DALL-E model by default
-  const size = config.size || "1024x1024";
-  const quality = config.quality || "standard";
   const timeout = config.timeout ?? 60000;
 
-  // DALL-E 2 does not support "quality" parameter — only DALL-E 3 does. Never send it for dall-e-2.
-  const DALL_E_2_SIZES = ["256x256", "512x512", "1024x1024"];
-  const DALL_E_3_SIZES = ["1024x1024", "1792x1024", "1024x1792"];
-  const validSize =
-    model === "dall-e-3"
-      ? DALL_E_3_SIZES.includes(size)
-        ? size
-        : "1024x1024"
-      : DALL_E_2_SIZES.includes(size)
-        ? size
-        : "1024x1024";
-
-  const body: Record<string, unknown> = {
-    model,
-    prompt,
-    size: validSize,
-    n: 1,
-  };
-  if (model === "dall-e-3") {
-    body.quality = quality === "hd" ? "hd" : "standard";
+  if (imageProvider === "openai") {
+    if (!isUserApiKey && requestMeta?.identifier && requestMeta?.identifierType) {
+      const rateLimitCheck = await checkImageGenerationAllowed(
+        requestMeta.identifier,
+        requestMeta.identifierType,
+        userId,
+        false,
+      );
+      if (!rateLimitCheck.allowed) {
+        if (rateLimitCheck.requiresApiKey) {
+          const freeUsed = rateLimitCheck.freeUsed || 0;
+          throw new Error(
+            rateLimitCheck.error ||
+              `You have used all 5 free images (${freeUsed}/5 used). Please provide your OpenAI API key in the run modal to continue generating images.`,
+          );
+        }
+        throw new Error(
+          rateLimitCheck.error ||
+            "Image generation is not allowed at this time. Please provide your OpenAI API key.",
+        );
+      }
+    } else if (!isUserApiKey && !hasApiKey) {
+      throw new Error(
+        "OpenAI API key required for image generation. Please provide your API key in the run modal.",
+      );
+    }
+  } else if (!hasApiKey) {
+    throw new Error(
+      "Google Gemini API key required for this image model. Add it in the run modal or node inspector.",
+    );
   }
-  // Never send "quality" for dall-e-2 — API returns "Unknown parameter: 'quality'"
+
+  if (!apiKey) {
+    throw new Error("API key required for image generation.");
+  }
+
+  const rateCheck = await checkProviderRateLimit({
+    provider: imageProvider === "google" ? "google" : "openai",
+    userId: ctx.requestMetadata?.userId ?? null,
+    isPlatformKey: !isUserProvidedApiKey(node, ctx),
+  });
+  if (!rateCheck.allowed) {
+    throw new Error(
+      `Image API rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
+    );
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    if (imageProvider === "google") {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const gres = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!gres.ok) {
+        if (gres.status === 429) {
+          record429Cooldown({
+            provider: "google",
+            userId: ctx.requestMetadata?.userId ?? null,
+            isPlatformKey: !isUserProvidedApiKey(node, ctx),
+          });
+        }
+        const error = await gres.text();
+        throw new Error(`Gemini image API error: ${gres.status} ${error}`);
+      }
+
+      await recordProviderUsage({
+        provider: "google",
+        userId: ctx.requestMetadata?.userId ?? null,
+        isPlatformKey: !isUserProvidedApiKey(node, ctx),
+      });
+
+      const gdata = await gres.json();
+      const parts = gdata.candidates?.[0]?.content?.parts;
+      let imageUrl = "";
+      if (Array.isArray(parts)) {
+        for (const p of parts) {
+          if (p.inlineData?.data) {
+            const mime = p.inlineData.mimeType || "image/png";
+            imageUrl = `data:${mime};base64,${p.inlineData.data}`;
+            break;
+          }
+        }
+      }
+      if (!imageUrl) {
+        throw new Error(
+          "Gemini did not return image data. Try another model or simplify the prompt.",
+        );
+      }
+
+      ctx.setNodeOutput(node.id, imageUrl);
+      return imageUrl;
+    }
+
+    const size = (config.size as string) || "1024x1024";
+    const quality = (config.quality as string) || "standard";
+    const DALL_E_2_SIZES = ["256x256", "512x512", "1024x1024"];
+    const DALL_E_3_SIZES = ["1024x1024", "1792x1024", "1024x1792"];
+    const GPT_IMG_SIZES = ["1024x1024", "1536x1024", "1024x1536"];
+
+    const validSize =
+      model === "dall-e-3"
+        ? DALL_E_3_SIZES.includes(size)
+          ? size
+          : "1024x1024"
+        : model === "dall-e-2"
+          ? DALL_E_2_SIZES.includes(size)
+            ? size
+            : "1024x1024"
+          : GPT_IMG_SIZES.includes(size)
+            ? size
+            : "1024x1024";
+
+    const body: Record<string, unknown> = {
+      model,
+      prompt,
+      n: 1,
+    };
+
+    if (model === "dall-e-2" || model === "dall-e-3") {
+      body.size = validSize;
+    } else if (model.startsWith("gpt-image")) {
+      body.size = validSize;
+    }
+
+    if (model === "dall-e-3") {
+      body.quality = quality === "hd" ? "hd" : "standard";
+    }
+
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
@@ -857,12 +1404,11 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     });
 
     const data = await response.json();
-    const imageUrl = data.data?.[0]?.url ?? "";
+    let imageUrl = data.data?.[0]?.url ?? "";
+    if (!imageUrl && data.data?.[0]?.b64_json) {
+      imageUrl = `data:image/png;base64,${data.data[0].b64_json}`;
+    }
 
-    // Record the image generation for rate limiting
-    // Determine if this was a free tier generation:
-    // - Free tier: user didn't provide their own API key (using Edgaze key or no key)
-    // - BYOK: user provided their own API key
     const usedFreeTier = !isUserApiKey && userId !== undefined;
     if (requestMeta?.identifier && requestMeta?.identifierType) {
       await recordImageGeneration(
@@ -882,20 +1428,39 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === "AbortError") {
-      throw new Error("OpenAI image generation timeout");
+      throw new Error("Image generation timeout");
     }
     throw err;
   }
 };
 
+/** Resolve request URL from inbound (string, { url }, or Input node { value, question }) or config. */
+function resolveHttpRequestUrl(inbound0: unknown, configUrl: unknown): string | undefined {
+  if (typeof inbound0 === "string" && inbound0.trim()) return inbound0.trim();
+  if (inbound0 && typeof inbound0 === "object" && !Array.isArray(inbound0)) {
+    const o = inbound0 as Record<string, unknown>;
+    if (typeof o.url === "string" && o.url.trim()) return o.url.trim();
+    if (typeof o.value === "string" && o.value.trim()) return o.value.trim();
+  }
+  if (typeof configUrl === "string" && configUrl.trim()) return configUrl.trim();
+  return undefined;
+}
+
+function normalizeHostList(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map((h) => String(h).trim().toLowerCase()).filter(Boolean);
+  if (typeof raw === "string")
+    return raw
+      .split(",")
+      .map((h) => h.trim().toLowerCase())
+      .filter(Boolean);
+  return [];
+}
+
 const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const config = node.data?.config ?? {};
   const inbound = ctx.getInboundValues(node.id);
   const inbound0 = extractPipelineContent(inbound[0]);
-  const url =
-    (typeof inbound0 === "string" ? (inbound0 as string) : undefined) ||
-    (typeof (inbound0 as any)?.url === "string" ? (inbound0 as any).url : undefined) ||
-    (typeof config.url === "string" ? config.url : undefined);
+  const url = resolveHttpRequestUrl(inbound0, config.url);
   const headers =
     (inbound0 && typeof inbound0 === "object" && !Array.isArray(inbound0)
       ? ((inbound0 as any).headers as Record<string, string> | undefined)
@@ -909,19 +1474,8 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     throw new Error("URL required for HTTP request");
   }
 
-  const allowOnlyRaw = config.allowOnly;
-  const allowOnly = Array.isArray(allowOnlyRaw)
-    ? allowOnlyRaw.map((h) => String(h).trim().toLowerCase()).filter(Boolean)
-    : typeof allowOnlyRaw === "string"
-      ? allowOnlyRaw
-          .split(",")
-          .map((h) => h.trim().toLowerCase())
-          .filter(Boolean)
-      : [];
-  const denyHosts = (config.denyHosts || "")
-    .split(",")
-    .map((h: string) => h.trim().toLowerCase())
-    .filter(Boolean);
+  const allowOnly = normalizeHostList(config.allowOnly);
+  const denyHosts = normalizeHostList(config.denyHosts);
 
   const urlCheck = validateUrlForWorkflow(url, {
     allowOnly: allowOnly.length > 0 ? allowOnly : undefined,
@@ -932,14 +1486,14 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   }
 
   const method = (config.method || "GET").toUpperCase();
-  const hasSideEffects = nodeHasSideEffects("http-request", config);
-  if (hasSideEffects && ["POST", "PUT", "PATCH"].includes(method)) {
+  // Only config.hasSideEffects opts into idempotency enforcement (contract-level hasSideEffects is for retries/pooling).
+  if (config.hasSideEffects === true && ["POST", "PUT", "PATCH"].includes(method)) {
     const idempotencyKey =
       config.idempotencyKey ??
       (inbound0 && typeof inbound0 === "object" && (inbound0 as any).idempotencyKey);
     if (!idempotencyKey || typeof idempotencyKey !== "string" || !idempotencyKey.trim()) {
       throw new Error(
-        "Side-effect HTTP requests (POST/PUT/PATCH) require idempotencyKey in config or input",
+        "POST/PUT/PATCH with hasSideEffects enabled require idempotencyKey in config or inbound object",
       );
     }
   }
@@ -1291,9 +1845,14 @@ export const runtimeRegistry: Record<string, NodeRuntimeHandler> = {
   template: templateHandler,
   map: mapHandler,
   output: outputHandler,
+  "llm-chat": openaiChatHandler,
+  "llm-embeddings": openaiEmbeddingsHandler,
+  "llm-image": openaiImageHandler,
   "openai-chat": openaiChatHandler,
   "openai-embeddings": openaiEmbeddingsHandler,
   "openai-image": openaiImageHandler,
+  "claude-chat": claudeChatHandler,
+  "gemini-chat": geminiChatHandler,
   "http-request": httpRequestHandler,
   "json-parse": jsonParseHandler,
   condition: conditionHandler,

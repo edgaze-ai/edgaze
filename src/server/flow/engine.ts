@@ -22,6 +22,7 @@ import { coerceInbound, nodeHasSideEffects } from "@lib/workflow/node-contracts"
 import { CONDITION_RESULT_KEY } from "../nodes/handlers";
 import { getResourceClass, createResourcePoolManager } from "@lib/workflow/resource-pools";
 import { shouldRetry, RunCircuitBreaker } from "@lib/workflow/retry-classification";
+import { canonicalSpecId } from "@lib/workflow/spec-id-aliases";
 
 /** Kahn’s topological sort (simple) */
 function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
@@ -118,8 +119,8 @@ export async function runFlow(
     const specId = node.data?.specId;
     const config = node.data?.config ?? {};
 
-    if (specId === "openai-chat") {
-      // Estimate based on config defaults
+    const canonical = canonicalSpecId(specId);
+    if (canonical === "llm-chat" || canonical === "claude-chat" || canonical === "gemini-chat") {
       const estimatedPrompt = config.prompt || "";
       const tokenCount = countChatTokens({
         prompt: estimatedPrompt,
@@ -127,11 +128,11 @@ export async function runFlow(
         maxTokens: config.maxTokens || 2000,
       });
       totalEstimatedTokens += tokenCount.total;
-    } else if (specId === "openai-embeddings") {
+    } else if (canonical === "llm-embeddings") {
       const estimatedText = config.text || "";
       const tokenCount = countEmbeddingTokens(estimatedText);
       totalEstimatedTokens += tokenCount;
-    } else if (specId === "openai-image") {
+    } else if (canonical === "llm-image") {
       const estimatedPrompt = config.prompt || "";
       const tokenCount = countImageTokens(estimatedPrompt);
       totalEstimatedTokens += tokenCount;
@@ -372,7 +373,8 @@ export async function runFlow(
     onProgress?.({ type: "node_start", nodeId, specId, nodeTitle, timestamp: ts });
     logs.push({ type: "start", nodeId, specId, timestamp: ts, message: `Starting "${specId}"` });
 
-    const handler: NodeRuntimeHandler | undefined = runtimeRegistry[specId];
+    const handler: NodeRuntimeHandler | undefined =
+      runtimeRegistry[specId] ?? runtimeRegistry[canonicalSpecId(specId)];
     const config = node.data?.config ?? {};
     const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes — no node should run unbounded
     const configTimeout = Number(config.timeout ?? 0);
@@ -594,6 +596,11 @@ export async function runFlow(
   const outputNodes = nodes.filter((n) => n.data?.specId === "output");
 
   const PROCESSING_SPECS = new Set([
+    "llm-chat",
+    "llm-embeddings",
+    "llm-image",
+    "claude-chat",
+    "gemini-chat",
     "openai-chat",
     "openai-embeddings",
     "openai-image",

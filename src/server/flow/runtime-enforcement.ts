@@ -6,35 +6,71 @@ import {
   workflowExists,
 } from "../../lib/supabase/executions";
 import { createSupabaseAdminClient } from "../../lib/supabase/admin";
-import { getEdgazeApiKey, hasEdgazeApiKey } from "../../lib/workflow/edgaze-api-key";
+import {
+  getEdgazeApiKey,
+  hasEdgazeApiKey,
+  hasEdgazeAnthropicApiKey,
+  hasEdgazeGeminiApiKey,
+} from "../../lib/workflow/edgaze-api-key";
+import {
+  PREMIUM_AI_SPEC_IDS,
+  canonicalSpecId,
+  resolvePremiumKeyProvider,
+} from "../../lib/workflow/spec-id-aliases";
 import type { GraphNode } from "./types";
 
-const FREE_BUILDER_RUNS = 10; // 10 free runs in builder test (then BYO OpenAI key)
+function hasLlmChat(nodes: GraphNode[]): boolean {
+  return nodes.some((n) => canonicalSpecId(n.data?.specId ?? "") === "llm-chat");
+}
+
+/** Gemini not needed for unified llm-chat when platform free tier maps to Claude Sonnet instead. */
+function nodeNeedsGeminiKey(n: GraphNode, underFree: boolean): boolean {
+  const p = resolvePremiumKeyProvider(n);
+  if (p !== "google") return false;
+  if (
+    canonicalSpecId(n.data?.specId ?? "") === "llm-chat" &&
+    underFree &&
+    hasEdgazeAnthropicApiKey()
+  ) {
+    return false;
+  }
+  return true;
+}
+
+const FREE_BUILDER_RUNS = 10; // 10 free runs in builder test (then BYO keys)
 const FREE_RUNS_PER_PURCHASE = 10; // 10 free runs per workflow purchase
 const MAX_RUNS_PER_WORKFLOW = 100; // Strict limit per workflow
 const MAX_RUNS_PER_USER = 500; // Strict limit per user
+
+const PREMIUM_WITH_HTTP = [...PREMIUM_AI_SPEC_IDS, "http-request"];
+
+function isAiPremiumNode(specId: string | undefined): boolean {
+  if (!specId) return false;
+  return PREMIUM_AI_SPEC_IDS.includes(specId);
+}
 
 export type RuntimeEnforcementResult = {
   allowed: boolean;
   requiresApiKeys: string[]; // node IDs that need user-supplied API keys
   freeRunsRemaining: number;
-  useEdgazeKey: boolean; // Whether to use Edgaze API key for this run
+  /** True when OpenAI-backed nodes (llm-*) may use EDGAZE_OPENAI_API_KEY on this run */
+  useEdgazeKey: boolean;
+  useEdgazeOpenAI: boolean;
+  useEdgazeAnthropic: boolean;
+  useEdgazeGemini: boolean;
   error?: string;
 };
 
 /**
  * Validates whether a user can run a workflow and which nodes require BYO API keys.
- * Uses Edgaze API key for:
- * - One-time demos (isDemo = true)
- * - First 10 runs after purchase
- * After 10 free runs, users must provide their own API keys for premium nodes.
+ * Uses Edgaze API keys for the first N runs per workflow when platform keys exist for each provider used.
  */
 export async function enforceRuntimeLimits(params: {
   userId: string;
   workflowId: string;
   nodes: GraphNode[];
   userApiKeys?: Record<string, Record<string, string>>; // nodeId -> { apiKey: "...", apiKeyName: "..." }
-  /** Only true for anonymous one-time demo or admin demo link — never trust client for authenticated UUID users. */
+  /** Only true for anonymous one-time demo or admin demo link — never trust client for real UUID users. */
   isDemo?: boolean;
   isBuilderTest?: boolean; // Builder “Test run”: 10 free runs, then BYO key (server-derived for marketplace)
   /** When set, run counts use this draft (builder) instead of workflowId. */
@@ -49,42 +85,64 @@ export async function enforceRuntimeLimits(params: {
     isBuilderTest = false,
     draftIdForCount = null,
   } = params;
-  // Authenticated entitled users get 10 Edgaze-key runs (same as builder test cap). Anonymous/admin demo bypass below.
   const freeRunLimit = isBuilderTest ? FREE_BUILDER_RUNS : FREE_RUNS_PER_PURCHASE;
 
-  try {
-    // Anonymous one-time demo and admin demo link only — never use client "isDemo" for real accounts.
-    if (userId === "anonymous_demo_user" || userId === "admin_demo_user") {
-      const premiumNodeSpecs = ["openai-chat", "openai-embeddings", "openai-image", "http-request"];
-      const premiumNodes = nodes.filter((n) => premiumNodeSpecs.includes(n.data?.specId ?? ""));
-      const shouldUseEdgazeKey = hasEdgazeApiKey() && premiumNodes.length > 0;
+  const emptyPlatform = (): Omit<
+    RuntimeEnforcementResult,
+    "allowed" | "requiresApiKeys" | "error"
+  > => ({
+    freeRunsRemaining: 0,
+    useEdgazeKey: false,
+    useEdgazeOpenAI: false,
+    useEdgazeAnthropic: false,
+    useEdgazeGemini: false,
+  });
 
+  try {
+    // Anonymous one-time demo and admin demo link only
+    if (userId === "anonymous_demo_user" || userId === "admin_demo_user") {
+      const hasAnyAi = nodes.some((n) => isAiPremiumNode(n.data?.specId));
+      const demoUnderFree = true;
       return {
         allowed: true,
         requiresApiKeys: [],
         freeRunsRemaining: 0,
-        useEdgazeKey: shouldUseEdgazeKey,
+        useEdgazeKey: hasEdgazeApiKey() && hasAnyAi,
+        useEdgazeOpenAI:
+          hasEdgazeApiKey() &&
+          (nodes.some((n) => resolvePremiumKeyProvider(n) === "openai") ||
+            (hasLlmChat(nodes) && !hasEdgazeAnthropicApiKey())),
+        useEdgazeAnthropic:
+          hasEdgazeAnthropicApiKey() &&
+          (nodes.some((n) => resolvePremiumKeyProvider(n) === "anthropic") || hasLlmChat(nodes)),
+        useEdgazeGemini:
+          hasEdgazeGeminiApiKey() && nodes.some((n) => nodeNeedsGeminiKey(n, demoUnderFree)),
       };
     }
 
     const supabase = createSupabaseAdminClient();
 
-    // Check if user is admin - admins bypass all limits
     const userIsAdmin = await isAdmin(userId);
     if (userIsAdmin) {
-      const aiNodeSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
-      const aiNodes = nodes.filter((n) => aiNodeSpecs.includes(n.data?.specId ?? ""));
-      const shouldUseEdgazeKey = hasEdgazeApiKey() && aiNodes.length > 0;
-
+      const hasAnyAi = nodes.some((n) => isAiPremiumNode(n.data?.specId));
+      const adminUnderFree = true;
       return {
         allowed: true,
         requiresApiKeys: [],
-        freeRunsRemaining: 999999, // Unlimited for admins
-        useEdgazeKey: shouldUseEdgazeKey,
+        freeRunsRemaining: 999999,
+        useEdgazeKey: hasEdgazeApiKey() && hasAnyAi,
+        useEdgazeOpenAI:
+          hasEdgazeApiKey() &&
+          (nodes.some((n) => resolvePremiumKeyProvider(n) === "openai") ||
+            (hasLlmChat(nodes) && !hasEdgazeAnthropicApiKey())),
+        useEdgazeAnthropic:
+          hasEdgazeAnthropicApiKey() &&
+          (nodes.some((n) => resolvePremiumKeyProvider(n) === "anthropic") || hasLlmChat(nodes)),
+        useEdgazeGemini:
+          hasEdgazeGeminiApiKey() && nodes.some((n) => nodeNeedsGeminiKey(n, adminUnderFree)),
       };
     }
 
-    // Check workflow-specific run count (draft vs published id)
     let draftId: string | null = draftIdForCount;
     try {
       if (draftId == null) {
@@ -94,11 +152,10 @@ export async function enforceRuntimeLimits(params: {
         }
       }
     } catch {
-      // If check fails, proceed with workflowId only
+      // proceed
     }
     const workflowRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
 
-    // Check user's total run count across all workflows
     const { count: userTotalRuns, error: userCountError } = await supabase
       .from("workflow_runs")
       .select("*", { count: "exact", head: true })
@@ -111,13 +168,11 @@ export async function enforceRuntimeLimits(params: {
 
     const totalUserRuns = userTotalRuns ?? 0;
 
-    // Strict limits: block if exceeded
     if (workflowRunCount >= MAX_RUNS_PER_WORKFLOW) {
       return {
         allowed: false,
         requiresApiKeys: [],
-        freeRunsRemaining: 0,
-        useEdgazeKey: false,
+        ...emptyPlatform(),
         error: `Maximum runs (${MAX_RUNS_PER_WORKFLOW}) reached for this workflow. Please contact support for higher limits.`,
       };
     }
@@ -126,46 +181,56 @@ export async function enforceRuntimeLimits(params: {
       return {
         allowed: false,
         requiresApiKeys: [],
-        freeRunsRemaining: 0,
-        useEdgazeKey: false,
+        ...emptyPlatform(),
         error: `Maximum runs (${MAX_RUNS_PER_USER}) reached for your account. Please contact support for higher limits.`,
       };
     }
 
     const freeRunsRemaining = Math.max(0, freeRunLimit - workflowRunCount);
 
-    // Only check for AI nodes (not http-request) - if no AI nodes, allow unlimited runs
-    const aiNodeSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
-    const aiNodes = nodes.filter((n) => aiNodeSpecs.includes(n.data?.specId ?? ""));
+    const aiNodes = nodes.filter((n) => isAiPremiumNode(n.data?.specId));
 
-    // If no AI nodes, allow unlimited runs without API keys
     if (aiNodes.length === 0) {
       return {
         allowed: true,
         requiresApiKeys: [],
         freeRunsRemaining: 0,
         useEdgazeKey: false,
+        useEdgazeOpenAI: false,
+        useEdgazeAnthropic: false,
+        useEdgazeGemini: false,
       };
     }
 
-    // Determine if we should use Edgaze API key — first N runs per workflow (or draft)
-    const shouldUseEdgazeKey =
-      workflowRunCount < freeRunLimit && hasEdgazeApiKey() && aiNodes.length > 0;
+    const underFree = workflowRunCount < freeRunLimit;
 
-    if (workflowRunCount < freeRunLimit) {
+    const needsAnthropic =
+      aiNodes.some((n) => resolvePremiumKeyProvider(n) === "anthropic") ||
+      (underFree && hasLlmChat(nodes) && hasEdgazeAnthropicApiKey());
+    const needsOpenAI =
+      aiNodes.some((n) => resolvePremiumKeyProvider(n) === "openai") ||
+      (underFree && hasLlmChat(nodes) && !hasEdgazeAnthropicApiKey() && hasEdgazeApiKey());
+    const needsGemini = aiNodes.some((n) => nodeNeedsGeminiKey(n, underFree));
+
+    const useEdgazeOpenAI = underFree && needsOpenAI && hasEdgazeApiKey();
+    const useEdgazeAnthropic = underFree && needsAnthropic && hasEdgazeAnthropicApiKey();
+    const useEdgazeGemini = underFree && needsGemini && hasEdgazeGeminiApiKey();
+
+    if (underFree) {
       return {
         allowed: true,
         requiresApiKeys: [],
         freeRunsRemaining,
-        useEdgazeKey: shouldUseEdgazeKey,
+        useEdgazeKey: useEdgazeOpenAI || useEdgazeAnthropic || useEdgazeGemini,
+        useEdgazeOpenAI,
+        useEdgazeAnthropic,
+        useEdgazeGemini,
       };
     }
 
-    // Over free run limit: check for required API keys
     const missingKeys: string[] = [];
     for (const node of aiNodes) {
       const nodeKeys = userApiKeys[node.id];
-      // Also check if API key is stored in node config
       const configKey = node.data?.config?.apiKey;
       if (
         (!nodeKeys || !nodeKeys.apiKey || nodeKeys.apiKey.trim() === "") &&
@@ -181,7 +246,10 @@ export async function enforceRuntimeLimits(params: {
         requiresApiKeys: missingKeys,
         freeRunsRemaining: 0,
         useEdgazeKey: false,
-        error: `You've used your ${freeRunLimit} free runs for this workflow. Please provide your OpenAI API key in the run modal to continue.`,
+        useEdgazeOpenAI: false,
+        useEdgazeAnthropic: false,
+        useEdgazeGemini: false,
+        error: `You've used your ${freeRunLimit} free runs for this workflow. Add the API keys required by your workflow in the run modal (OpenAI, Claude, and/or Gemini) or in each node's inspector.`,
       };
     }
 
@@ -189,7 +257,10 @@ export async function enforceRuntimeLimits(params: {
       allowed: true,
       requiresApiKeys: [],
       freeRunsRemaining: 0,
-      useEdgazeKey: false, // After free runs, user must provide their own keys
+      useEdgazeKey: false,
+      useEdgazeOpenAI: false,
+      useEdgazeAnthropic: false,
+      useEdgazeGemini: false,
     };
   } catch (err: any) {
     const msg = err?.message ?? String(err) ?? "Unknown error";
@@ -197,8 +268,7 @@ export async function enforceRuntimeLimits(params: {
     return {
       allowed: false,
       requiresApiKeys: [],
-      freeRunsRemaining: 0,
-      useEdgazeKey: false,
+      ...emptyPlatform(),
       error: "Unable to verify run limits. Please sign in and try again, or try the one-time demo.",
     };
   }
@@ -223,9 +293,7 @@ function looksLikeUrl(s: string): boolean {
  */
 export function redactSecrets(value: unknown): unknown {
   if (typeof value === "string") {
-    // Never redact URLs - they contain long hex strings (e.g. Azure blob sig) that are not secrets
     if (looksLikeUrl(value)) return value;
-    // Redact API keys only in non-URL strings
     return value
       .replace(/\bsk-[a-zA-Z0-9]{20,}\b/g, "sk-***REDACTED***")
       .replace(/api[_-]?key["\s:=]+([a-zA-Z0-9_-]{20,})/gi, 'api_key="***REDACTED***"');

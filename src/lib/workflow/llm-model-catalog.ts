@@ -1,0 +1,176 @@
+/**
+ * Canonical model IDs + routing for unified LLM Chat / LLM Image nodes.
+ * Defaults bias toward output quality (conversion); free tier uses quality floors, not cheapest nano.
+ */
+
+export type AiKeyProvider = "openai" | "anthropic" | "google";
+
+/** Default LLM Chat: Claude 3.7 Sonnet (quality-first for creators). */
+export const DEFAULT_LLM_CHAT_MODEL = "claude-3-7-sonnet-20250219";
+
+/** Platform-funded builder test (no BYOK): prefer Claude Sonnet when Anthropic env exists, else GPT-5.4 mini — never nano. */
+export const FREE_TIER_LLM_CHAT_ANTHROPIC_MODEL = "claude-3-7-sonnet-20250219";
+export const FREE_TIER_LLM_CHAT_OPENAI_MODEL = "gpt-5.4-mini";
+
+/** Default LLM Image: Nano Banana 2 (Gemini 3.1 Flash Image). */
+export const DEFAULT_LLM_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
+
+const OPENAI_CHAT_PREFIXES = ["gpt-", "o1", "o3", "o4", "chatgpt-"];
+const ANTHROPIC_PREFIXES = ["claude-"];
+const GEMINI_PREFIXES = ["gemini-"];
+
+export function resolveLlmChatProvider(modelId: string): AiKeyProvider {
+  const m = (modelId || "").trim().toLowerCase();
+  if (!m) return "anthropic";
+  if (ANTHROPIC_PREFIXES.some((p) => m.startsWith(p))) return "anthropic";
+  if (GEMINI_PREFIXES.some((p) => m.startsWith(p))) return "google";
+  if (OPENAI_CHAT_PREFIXES.some((p) => m.startsWith(p))) return "openai";
+  // Unknown → assume OpenAI (frontier IDs)
+  return "openai";
+}
+
+/** Image: OpenAI DALL-E / gpt-image-* vs Gemini Nano Banana models. */
+export function resolveLlmImageProvider(modelId: string): AiKeyProvider {
+  const m = (modelId || "").trim().toLowerCase();
+  if (!m) return "google";
+  if (m.startsWith("gemini-") || m.includes("flash-image") || m.includes("image-preview"))
+    return "google";
+  if (m.startsWith("dall-e") || m.startsWith("gpt-image")) return "openai";
+  return "google";
+}
+
+export type CostTier = "$" | "$$" | "$$$";
+export type QualityTier = "fast" | "balanced" | "high";
+
+export type LlmChatOption = {
+  value: string;
+  label: string;
+  provider: AiKeyProvider;
+  quality: QualityTier;
+  cost: CostTier;
+  recommended?: boolean;
+};
+
+/** Single dropdown: all providers; labels include quality + cost. */
+export const LLM_CHAT_MODEL_OPTIONS: LlmChatOption[] = [
+  // Anthropic — default quality path
+  {
+    value: "claude-3-7-sonnet-20250219",
+    label: "Claude 3.7 Sonnet — Recommended ⭐ · High quality",
+    provider: "anthropic",
+    quality: "high",
+    cost: "$$",
+    recommended: true,
+  },
+  {
+    value: "claude-3-opus-20240229",
+    label: "Claude 3 Opus · Premium · $$$",
+    provider: "anthropic",
+    quality: "high",
+    cost: "$$$",
+  },
+  {
+    value: "claude-3-5-haiku-20241022",
+    label: "Claude 3.5 Haiku · Fast · $",
+    provider: "anthropic",
+    quality: "fast",
+    cost: "$",
+  },
+  // OpenAI
+  {
+    value: "gpt-5.4",
+    label: "GPT-5.4 · High quality workflows · $$$",
+    provider: "openai",
+    quality: "high",
+    cost: "$$$",
+  },
+  {
+    value: "gpt-5.4-mini",
+    label: "GPT-5.4 mini · Balanced · $$",
+    provider: "openai",
+    quality: "balanced",
+    cost: "$$",
+  },
+  {
+    value: "gpt-5.4-nano",
+    label: "GPT-5.4 nano · Fast scaling · $",
+    provider: "openai",
+    quality: "fast",
+    cost: "$",
+  },
+  {
+    value: "o3",
+    label: "o3 · Reasoning / agents · $$$",
+    provider: "openai",
+    quality: "high",
+    cost: "$$$",
+  },
+  // Google
+  {
+    value: "gemini-2.5-pro-preview-05-06",
+    label: "Gemini 2.5 Pro (latest) · $$$",
+    provider: "google",
+    quality: "high",
+    cost: "$$$",
+  },
+  {
+    value: "gemini-2.5-flash",
+    label: "Gemini 2.5 Flash · Fast · $",
+    provider: "google",
+    quality: "fast",
+    cost: "$",
+  },
+];
+
+export type LlmImageOption = {
+  value: string;
+  label: string;
+  provider: AiKeyProvider;
+  quality: QualityTier;
+  cost: CostTier;
+  recommended?: boolean;
+};
+
+export const LLM_IMAGE_MODEL_OPTIONS: LlmImageOption[] = [
+  {
+    value: "gemini-3.1-flash-image-preview",
+    label: "Nano Banana 2 — Recommended ⭐ · Fast · good quality",
+    provider: "google",
+    quality: "balanced",
+    cost: "$",
+    recommended: true,
+  },
+  {
+    value: "gemini-3-pro-image-preview",
+    label: "Nano Banana Pro · Premium outputs · $$$",
+    provider: "google",
+    quality: "high",
+    cost: "$$$",
+  },
+  {
+    value: "gpt-image-1",
+    label: "GPT-image-1 (OpenAI) · $$",
+    provider: "openai",
+    quality: "high",
+    cost: "$$",
+  },
+];
+
+export const LLM_EMBEDDING_OPTIONS = [
+  {
+    value: "text-embedding-3-small",
+    label: "text-embedding-3-small — Recommended · $",
+  },
+  {
+    value: "text-embedding-3-large",
+    label: "text-embedding-3-large — Premium RAG · $$",
+  },
+];
+
+export function brandForLlmChatModel(modelId: string | undefined): AiKeyProvider {
+  return resolveLlmChatProvider(modelId || DEFAULT_LLM_CHAT_MODEL);
+}
+
+export function brandForLlmImageModel(modelId: string | undefined): AiKeyProvider {
+  return resolveLlmImageProvider(modelId || DEFAULT_LLM_IMAGE_MODEL);
+}

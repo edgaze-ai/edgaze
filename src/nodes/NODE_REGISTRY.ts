@@ -2,6 +2,8 @@
 // Node metadata for UI: label, category, color, icon
 // Used by BaseNode and NodeHandle. Ports/inspector come from registry.ts + premium.ts.
 
+import { canonicalSpecId } from "@lib/workflow/spec-id-aliases";
+
 export const NODE_REGISTRY: Record<
   string,
   { label: string; category: string; color: string; icon: string; iconImage?: string }
@@ -42,26 +44,35 @@ export const NODE_REGISTRY: Record<
     color: "#f59e0b",
     icon: "Repeat",
   },
-  "openai-chat": {
-    label: "OpenAI Chat",
+  "llm-chat": {
+    label: "LLM Chat",
     category: "ai",
     color: "#8b5cf6",
     icon: "MessageSquare",
-    iconImage: "/misc/chatgpt-white.png",
   },
-  "openai-embeddings": {
-    label: "OpenAI Embeddings",
+  "llm-embeddings": {
+    label: "LLM Embeddings",
     category: "ai",
     color: "#8b5cf6",
     icon: "Braces",
-    iconImage: "/misc/chatgpt-white.png",
   },
-  "openai-image": {
-    label: "OpenAI Image",
+  "llm-image": {
+    label: "LLM Image",
     category: "ai",
     color: "#8b5cf6",
     icon: "Image",
-    iconImage: "/misc/chatgpt-white.png",
+  },
+  "claude-chat": {
+    label: "Claude Chat",
+    category: "ai",
+    color: "#d97757",
+    icon: "MessageSquare",
+  },
+  "gemini-chat": {
+    label: "Gemini Chat",
+    category: "ai",
+    color: "#4285f4",
+    icon: "MessageSquare",
   },
   "http-request": {
     label: "HTTP Request",
@@ -84,5 +95,6 @@ export const NODE_REGISTRY: Record<
 };
 
 export function getNodeRegistryEntry(specId: string) {
-  return NODE_REGISTRY[specId];
+  const canonical = canonicalSpecId(specId);
+  return NODE_REGISTRY[specId] ?? NODE_REGISTRY[canonical];
 }

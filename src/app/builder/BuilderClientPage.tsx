@@ -43,6 +43,7 @@ import PremiumWorkflowRunModal, {
   type WorkflowRunStep,
   type BuilderRunLimit,
 } from "../../components/builder/PremiumWorkflowRunModal";
+import { PREMIUM_AI_SPEC_IDS, providerForAiSpec } from "../../lib/workflow/spec-id-aliases";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
 import {
   canRunDemo,
@@ -1462,8 +1463,9 @@ export default function BuilderPage() {
 
     // Extract inputs from workflow (use current graph - inputs/steps must match live canvas)
     const inputs = extractWorkflowInputs(graph.nodes || []);
-    const aiSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
-    const hasAiNodes = (graph.nodes || []).some((n: any) => aiSpecs.includes(n.data?.specId ?? ""));
+    const hasAiNodes = (graph.nodes || []).some((n: any) =>
+      PREMIUM_AI_SPEC_IDS.includes(n.data?.specId ?? ""),
+    );
     const isBuilderTest = !isPreview;
     const showInputPhase = inputs.length > 0 || (isBuilderTest && hasAiNodes);
 
@@ -1556,8 +1558,9 @@ export default function BuilderPage() {
     const graph = beRef.current?.getGraph?.();
     if (!graph) return;
 
-    const aiSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
-    const hasAiNodes = (graph.nodes || []).some((n: any) => aiSpecs.includes(n.data?.specId ?? ""));
+    const hasAiNodes = (graph.nodes || []).some((n: any) =>
+      PREMIUM_AI_SPEC_IDS.includes(n.data?.specId ?? ""),
+    );
 
     // Builder test requires authentication (unlike preview/demo)
     const isBuilderTest = !isPreview;
@@ -1578,11 +1581,16 @@ export default function BuilderPage() {
 
     const openaiApiKeyFromModal =
       typeof inputValues.__openaiApiKey === "string" ? inputValues.__openaiApiKey.trim() : "";
+    const anthropicApiKeyFromModal =
+      typeof inputValues.__anthropicApiKey === "string" ? inputValues.__anthropicApiKey.trim() : "";
+    const geminiApiKeyFromModal =
+      typeof inputValues.__geminiApiKey === "string" ? inputValues.__geminiApiKey.trim() : "";
 
-    // Convert File objects to base64 for transmission (exclude __openaiApiKey from inputs)
+    // Convert File objects to base64 for transmission (exclude API key fields from inputs)
     const processedInputs: Record<string, any> = {};
     for (const [key, value] of Object.entries(inputValues)) {
-      if (key === "__openaiApiKey") continue;
+      if (key === "__openaiApiKey" || key === "__anthropicApiKey" || key === "__geminiApiKey")
+        continue;
       if (value instanceof File) {
         // Convert file to base64
         try {
@@ -1613,17 +1621,22 @@ export default function BuilderPage() {
 
     // Collect API keys from node configs and from modal (when BYOK required after free runs exhausted)
     const userApiKeys: Record<string, Record<string, string>> = {};
-    const modalApiKey = openaiApiKeyFromModal;
     for (const node of graph.nodes || []) {
       const specId = node.data?.specId;
       const apiKey = node.data?.config?.apiKey;
 
-      // Check if this node requires API keys and has one configured
-      if (specId && ["openai-chat", "openai-embeddings", "openai-image"].includes(specId)) {
+      if (specId && PREMIUM_AI_SPEC_IDS.includes(specId)) {
         if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
           userApiKeys[node.id] = { apiKey: apiKey.trim() };
-        } else if (modalApiKey && requiresApiKeys?.includes(node.id)) {
-          userApiKeys[node.id] = { apiKey: modalApiKey };
+        } else if (requiresApiKeys?.includes(node.id)) {
+          const p = providerForAiSpec(specId, node.data?.config);
+          const k =
+            p === "openai"
+              ? openaiApiKeyFromModal
+              : p === "anthropic"
+                ? anthropicApiKeyFromModal
+                : geminiApiKeyFromModal;
+          if (k) userApiKeys[node.id] = { apiKey: k };
         }
       }
     }
@@ -1662,6 +1675,8 @@ export default function BuilderPage() {
           isDemo: isPreview,
           isBuilderTest: !isPreview,
           openaiApiKey: !isPreview ? openaiApiKeyFromModal || undefined : undefined,
+          anthropicApiKey: !isPreview ? anthropicApiKeyFromModal || undefined : undefined,
+          geminiApiKey: !isPreview ? geminiApiKeyFromModal || undefined : undefined,
           stream: true,
         }),
       });
@@ -1844,6 +1859,8 @@ export default function BuilderPage() {
               ([k]) =>
                 !k.startsWith("__") &&
                 k !== "__openaiApiKey" &&
+                k !== "__anthropicApiKey" &&
+                k !== "__geminiApiKey" &&
                 k !== "__builder_test" &&
                 k !== "__builder_user_key" &&
                 k !== "__workflow_id",
@@ -2085,6 +2102,11 @@ export default function BuilderPage() {
   const getStepIcon = (specId: string): React.ReactNode => {
     const icons: Record<string, React.ReactNode> = {
       input: <ArrowRight className="h-4 w-4" />,
+      "llm-chat": <Play className="h-4 w-4" />,
+      "llm-embeddings": <Play className="h-4 w-4" />,
+      "llm-image": <Play className="h-4 w-4" />,
+      "claude-chat": <Play className="h-4 w-4" />,
+      "gemini-chat": <Play className="h-4 w-4" />,
       "openai-chat": <Play className="h-4 w-4" />,
       "openai-embeddings": <Play className="h-4 w-4" />,
       "openai-image": <Play className="h-4 w-4" />,
@@ -2099,6 +2121,11 @@ export default function BuilderPage() {
   const humanReadableStep = (specId: string): string => {
     const map: Record<string, string> = {
       input: "Collecting input data",
+      "llm-chat": "Processing with AI",
+      "llm-embeddings": "Generating embeddings",
+      "llm-image": "Creating image",
+      "claude-chat": "Processing with Claude",
+      "gemini-chat": "Processing with Gemini",
       "openai-chat": "Processing with AI",
       "openai-embeddings": "Generating embeddings",
       "openai-image": "Creating image",

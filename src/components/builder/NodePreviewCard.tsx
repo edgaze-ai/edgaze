@@ -3,6 +3,7 @@
 import React from "react";
 import type { NodeSpec } from "src/nodes/types";
 import { getNodeRegistryEntry } from "src/nodes/NODE_REGISTRY";
+import { brandIconPathForSpec, canonicalSpecId } from "@lib/workflow/spec-id-aliases";
 import {
   ArrowRight,
   ArrowLeft,
@@ -33,18 +34,21 @@ const ICON_MAP: Record<string, React.ComponentType<{ size?: number; style?: any 
 
 function getPreviewText(specId: string, spec: NodeSpec): string {
   const c = spec.defaultConfig ?? {};
-  switch (specId) {
+  const canon = canonicalSpecId(specId);
+  switch (canon) {
     case "input":
       return `Key: ${c.name ?? "Not set"}`;
     case "output":
       return `Format: ${c.format ?? "json"}`;
     case "merge":
       return "Merging inputs";
-    case "openai-chat":
+    case "llm-chat":
+    case "claude-chat":
+    case "gemini-chat":
       return (c.prompt ?? "").trim() ? String(c.prompt).slice(0, 50) + "…" : "No prompt set";
-    case "openai-image":
+    case "llm-image":
       return `Size: ${c.size ?? "1024x1024"} · ${c.n ?? 1} image(s)`;
-    case "openai-embeddings":
+    case "llm-embeddings":
       return `Model: ${c.model ?? "text-embedding-3-small"}`;
     case "http-request":
       return `${c.method ?? "GET"} ${c.url ?? "Not configured"}`;
@@ -78,6 +82,7 @@ export function NodePreviewCard({
   const nodeColor = registry?.color ?? "#8b5cf6";
   const previewText = getPreviewText(spec.id, spec);
   const iconComp = ICON_MAP[registry?.icon ?? "MessageSquare"] ?? MessageSquare;
+  const brandIcon = brandIconPathForSpec(spec.id);
 
   const cardWrapperStyle: React.CSSProperties = {
     width: 200,
@@ -351,9 +356,9 @@ export function NodePreviewCard({
                 overflow: "hidden",
               }}
             >
-              {registry?.iconImage ? (
+              {brandIcon || registry?.iconImage ? (
                 <img
-                  src={registry.iconImage}
+                  src={brandIcon ?? registry?.iconImage ?? ""}
                   alt=""
                   style={{ width: 12, height: 12, objectFit: "contain" }}
                 />

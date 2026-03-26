@@ -4,12 +4,18 @@
 
 import { z } from "zod";
 import { coerceToType, type ValueType } from "./value-types";
+import { canonicalSpecId } from "./spec-id-aliases";
 
 const KNOWN_SPEC_IDS = new Set([
   "input",
   "merge",
   "merge-json",
   "output",
+  "llm-chat",
+  "llm-embeddings",
+  "llm-image",
+  "claude-chat",
+  "gemini-chat",
   "openai-chat",
   "openai-embeddings",
   "openai-image",
@@ -84,8 +90,8 @@ const CONTRACTS: Record<string, NodeContract> = {
     configSchema: commonConfig.extend({ format: z.string().optional() }),
     resourceClass: "cpu",
   },
-  "openai-chat": {
-    specId: "openai-chat",
+  "llm-chat": {
+    specId: "llm-chat",
     inputTypes: ["string", "json"],
     outputType: "json",
     configSchema: commonConfig.extend({
@@ -97,8 +103,8 @@ const CONTRACTS: Record<string, NodeContract> = {
     }),
     resourceClass: "llm",
   },
-  "openai-embeddings": {
-    specId: "openai-embeddings",
+  "llm-embeddings": {
+    specId: "llm-embeddings",
     inputTypes: ["string"],
     outputType: "array",
     configSchema: commonConfig.extend({
@@ -107,8 +113,8 @@ const CONTRACTS: Record<string, NodeContract> = {
     }),
     resourceClass: "llm",
   },
-  "openai-image": {
-    specId: "openai-image",
+  "llm-image": {
+    specId: "llm-image",
     inputTypes: ["string"],
     outputType: "string",
     configSchema: commonConfig.extend({
@@ -118,6 +124,32 @@ const CONTRACTS: Record<string, NodeContract> = {
       quality: z.string().optional(),
     }),
     resourceClass: "image",
+  },
+  "claude-chat": {
+    specId: "claude-chat",
+    inputTypes: ["string", "json"],
+    outputType: "json",
+    configSchema: commonConfig.extend({
+      prompt: z.string().optional(),
+      system: z.string().optional(),
+      model: z.string().optional(),
+      temperature: z.number().optional(),
+      maxTokens: z.number().optional(),
+    }),
+    resourceClass: "llm",
+  },
+  "gemini-chat": {
+    specId: "gemini-chat",
+    inputTypes: ["string", "json"],
+    outputType: "json",
+    configSchema: commonConfig.extend({
+      prompt: z.string().optional(),
+      system: z.string().optional(),
+      model: z.string().optional(),
+      temperature: z.number().optional(),
+      maxTokens: z.number().optional(),
+    }),
+    resourceClass: "llm",
   },
   "http-request": {
     specId: "http-request",
@@ -187,7 +219,8 @@ const CONTRACTS: Record<string, NodeContract> = {
 };
 
 export function getContract(specId: string): NodeContract | undefined {
-  return CONTRACTS[specId];
+  const canonical = canonicalSpecId(specId);
+  return CONTRACTS[canonical] ?? CONTRACTS[specId];
 }
 
 /** Coerce and validate inbound value for a node's input port. */

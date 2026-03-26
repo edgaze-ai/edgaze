@@ -17,7 +17,20 @@ import {
   getWorkflowActiveVersionId,
   getWorkflowVersionById,
 } from "@lib/supabase/workflow-versions";
-import { getEdgazeApiKey } from "@lib/workflow/edgaze-api-key";
+import {
+  getEdgazeApiKey,
+  getEdgazeAnthropicApiKey,
+  getEdgazeGeminiApiKey,
+} from "@lib/workflow/edgaze-api-key";
+import {
+  PREMIUM_AI_SPEC_IDS,
+  canonicalSpecId,
+  providerForAiSpec,
+} from "@lib/workflow/spec-id-aliases";
+import {
+  FREE_TIER_LLM_CHAT_ANTHROPIC_MODEL,
+  FREE_TIER_LLM_CHAT_OPENAI_MODEL,
+} from "@lib/workflow/llm-model-catalog";
 import { simplifyWorkflowError } from "@lib/workflow/simplify-error";
 import type { GraphPayload } from "src/server/flow/types";
 import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
@@ -64,6 +77,8 @@ export async function POST(req: Request) {
       isDemo?: boolean;
       isBuilderTest?: boolean;
       openaiApiKey?: string;
+      anthropicApiKey?: string;
+      geminiApiKey?: string;
       deviceFingerprint?: string;
       stream?: boolean;
       adminDemoToken?: string;
@@ -72,10 +87,12 @@ export async function POST(req: Request) {
     const {
       inputs = {},
       workflowId,
-      userApiKeys = {},
+      userApiKeys: rawUserApiKeys = {},
       isDemo = false,
       isBuilderTest: clientIsBuilderTest = false,
       openaiApiKey: modalOpenaiKey,
+      anthropicApiKey: modalAnthropicKey,
+      geminiApiKey: modalGeminiKey,
       deviceFingerprint,
       stream: useStream = false,
       adminDemoToken,
@@ -269,23 +286,31 @@ export async function POST(req: Request) {
       );
     }
 
+    const mergedUserApiKeys = { ...rawUserApiKeys };
+    if (effectiveIsBuilderTest) {
+      for (const n of nodes) {
+        const specId = n.data?.specId ?? "";
+        if (!PREMIUM_AI_SPEC_IDS.includes(specId)) continue;
+        const provider = providerForAiSpec(
+          specId,
+          n.data?.config as Record<string, unknown> | undefined,
+        );
+        if (provider === "openai" && modalOpenaiKey?.trim()) {
+          mergedUserApiKeys[n.id] = { apiKey: modalOpenaiKey.trim() };
+        } else if (provider === "anthropic" && modalAnthropicKey?.trim()) {
+          mergedUserApiKeys[n.id] = { apiKey: modalAnthropicKey.trim() };
+        } else if (provider === "google" && modalGeminiKey?.trim()) {
+          mergedUserApiKeys[n.id] = { apiKey: modalGeminiKey.trim() };
+        }
+      }
+    }
+
     // Runtime enforcement: check free runs and BYO keys
     const enforcement = await enforceRuntimeLimits({
       userId,
       workflowId,
       nodes,
-      userApiKeys:
-        effectiveIsBuilderTest && modalOpenaiKey?.trim()
-          ? Object.fromEntries(
-              (nodes as { id: string; data?: { specId?: string } }[])
-                .filter((n) =>
-                  ["openai-chat", "openai-embeddings", "openai-image"].includes(
-                    n.data?.specId ?? "",
-                  ),
-                )
-                .map((n) => [n.id, { apiKey: modalOpenaiKey.trim() }]),
-            )
-          : userApiKeys,
+      userApiKeys: mergedUserApiKeys,
       isDemo: isRuntimeDemo,
       isBuilderTest: effectiveIsBuilderTest,
       draftIdForCount: entitlementDraftId,
@@ -305,36 +330,79 @@ export async function POST(req: Request) {
 
     // Inject API keys into inputs for premium nodes
     const enrichedInputs: Record<string, unknown> = { ...inputs };
-    const userProvidedKey =
+    const userProvidedOpenai =
       effectiveIsBuilderTest &&
       typeof modalOpenaiKey === "string" &&
       modalOpenaiKey.trim().length > 0;
+    const userProvidedAnthropic =
+      effectiveIsBuilderTest &&
+      typeof modalAnthropicKey === "string" &&
+      modalAnthropicKey.trim().length > 0;
+    const userProvidedGemini =
+      effectiveIsBuilderTest &&
+      typeof modalGeminiKey === "string" &&
+      modalGeminiKey.trim().length > 0;
     if (effectiveIsBuilderTest) {
       enrichedInputs["__builder_test"] = true;
-      if (userProvidedKey) {
-        enrichedInputs["__builder_user_key"] = true; // Premium: use inspector model and normal token limits
+      if (userProvidedOpenai) enrichedInputs["__builder_user_key_openai"] = true;
+      if (userProvidedAnthropic) enrichedInputs["__builder_user_key_anthropic"] = true;
+      if (userProvidedGemini) enrichedInputs["__builder_user_key_gemini"] = true;
+      if (userProvidedOpenai || userProvidedAnthropic || userProvidedGemini) {
+        enrichedInputs["__builder_user_key"] = true;
       }
     }
-    const edgazeKey = enforcement.useEdgazeKey ? getEdgazeApiKey() : null;
-    const premiumNodeSpecs = ["openai-chat", "openai-embeddings", "openai-image"];
+    const edgazeOpenAI = enforcement.useEdgazeOpenAI ? getEdgazeApiKey() : null;
+    const edgazeAnthropic = enforcement.useEdgazeAnthropic ? getEdgazeAnthropicApiKey() : null;
+    const edgazeGemini = enforcement.useEdgazeGemini ? getEdgazeGeminiApiKey() : null;
+
+    if (enforcement.useEdgazeAnthropic) {
+      enrichedInputs["__platform_llm_chat_model"] = FREE_TIER_LLM_CHAT_ANTHROPIC_MODEL;
+    } else if (enforcement.useEdgazeOpenAI) {
+      enrichedInputs["__platform_llm_chat_model"] = FREE_TIER_LLM_CHAT_OPENAI_MODEL;
+    }
+
     for (const node of nodes) {
-      const specId = node.data?.specId;
-      if (premiumNodeSpecs.includes(specId || "")) {
-        const modalKey =
-          effectiveIsBuilderTest && modalOpenaiKey?.trim() ? modalOpenaiKey.trim() : null;
-        if (modalKey) {
-          enrichedInputs[`__api_key_${node.id}`] = modalKey;
-        } else if (edgazeKey) {
-          enrichedInputs[`__api_key_${node.id}`] = edgazeKey;
+      const specId = node.data?.specId ?? "";
+      if (!PREMIUM_AI_SPEC_IDS.includes(specId)) continue;
+      const config = node.data?.config ?? {};
+      let provider = providerForAiSpec(specId, config);
+      if (canonicalSpecId(specId) === "llm-chat") {
+        const p0 = providerForAiSpec(specId, config);
+        const userKeyForModel =
+          (p0 === "openai" && modalOpenaiKey?.trim()) ||
+          (p0 === "anthropic" && modalAnthropicKey?.trim()) ||
+          (p0 === "google" && modalGeminiKey?.trim());
+        const configKey = config?.apiKey;
+        if (!userKeyForModel && !(typeof configKey === "string" && configKey.trim())) {
+          if (enforcement.useEdgazeAnthropic) provider = "anthropic";
+          else if (enforcement.useEdgazeOpenAI) provider = "openai";
+        }
+      }
+      let modalKey: string | null = null;
+      if (effectiveIsBuilderTest) {
+        if (provider === "openai" && modalOpenaiKey?.trim()) modalKey = modalOpenaiKey.trim();
+        if (provider === "anthropic" && modalAnthropicKey?.trim())
+          modalKey = modalAnthropicKey.trim();
+        if (provider === "google" && modalGeminiKey?.trim()) modalKey = modalGeminiKey.trim();
+      }
+      let platformKey: string | null = null;
+      if (!modalKey) {
+        if (provider === "openai" && edgazeOpenAI) platformKey = edgazeOpenAI;
+        if (provider === "anthropic" && edgazeAnthropic) platformKey = edgazeAnthropic;
+        if (provider === "google" && edgazeGemini) platformKey = edgazeGemini;
+      }
+      if (modalKey) {
+        enrichedInputs[`__api_key_${node.id}`] = modalKey;
+      } else if (platformKey) {
+        enrichedInputs[`__api_key_${node.id}`] = platformKey;
+      } else {
+        const nodeKeys = mergedUserApiKeys[node.id];
+        if (nodeKeys?.apiKey) {
+          enrichedInputs[`__api_key_${node.id}`] = nodeKeys.apiKey;
         } else {
-          const nodeKeys = userApiKeys[node.id];
-          if (nodeKeys?.apiKey) {
-            enrichedInputs[`__api_key_${node.id}`] = nodeKeys.apiKey;
-          } else {
-            const configKey = node.data?.config?.apiKey;
-            if (configKey && typeof configKey === "string" && configKey.trim()) {
-              enrichedInputs[`__api_key_${node.id}`] = configKey.trim();
-            }
+          const configKey = node.data?.config?.apiKey;
+          if (configKey && typeof configKey === "string" && configKey.trim()) {
+            enrichedInputs[`__api_key_${node.id}`] = configKey.trim();
           }
         }
       }

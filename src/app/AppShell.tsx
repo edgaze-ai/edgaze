@@ -35,13 +35,15 @@ const HIDE_SIDEBAR_ROUTES = new Set([
   "/pricing", // pricing page - full-width marketing
   "/help", // help page - full-width, scrollable
   "/press", // press page - full-width, scrollable
+  "/invest", // investor funnel — full-width, no sidebar
   "/auth/sign-in-to-buy", // full-screen sign-in for purchase — no sidebar/topbar, scrollable
 ]);
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const pathKey = (pathname || "/").replace(/\/+$/, "") || "/";
   const hideSidebar =
-    HIDE_SIDEBAR_ROUTES.has(pathname) ||
+    HIDE_SIDEBAR_ROUTES.has(pathKey) ||
     pathname.startsWith("/blogs") ||
     pathname.startsWith("/auth/sign-in-to-buy");
   const isLibraryPage = pathname === "/library";

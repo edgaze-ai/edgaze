@@ -1,6 +1,6 @@
 /**
  * Quick-start workflow templates for the Block Library.
- * Each template is a prefilled graph using premium nodes (openai-chat, openai-image).
+ * Each template is a prefilled graph using premium nodes (llm-chat, llm-image).
  * Input nodes are empty (user fills at run time). Generous spacing so connections are visible.
  */
 
@@ -69,12 +69,12 @@ export const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
           },
         ),
         node(
-          "openai-chat-1",
-          "openai-chat",
+          "llm-chat-1",
+          "llm-chat",
           { x: NODE_SPACING, y: 0 },
           {
-            title: "OpenAI Chat",
-            summary: "Generate text completions using OpenAI's GPT models.",
+            title: "LLM Chat",
+            summary: "Generate text with OpenAI GPT models.",
             config: {
               system:
                 "Extract structured data from the email. Output valid JSON with keys: from, subject, date, body, summary. If a field is missing, use null.",
@@ -101,8 +101,8 @@ export const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
         ),
       ],
       edges: [
-        edge("input-1", "openai-chat-1", "data", "in"),
-        edge("openai-chat-1", "output-1", "out", "data"),
+        edge("input-1", "llm-chat-1", "data", "in"),
+        edge("llm-chat-1", "output-1", "out", "data"),
       ],
     },
   },
@@ -130,12 +130,12 @@ export const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
           },
         ),
         node(
-          "openai-chat-1",
-          "openai-chat",
+          "llm-chat-1",
+          "llm-chat",
           { x: NODE_SPACING, y: 0 },
           {
-            title: "OpenAI Chat",
-            summary: "Generate text completions using OpenAI's GPT models.",
+            title: "LLM Chat",
+            summary: "Generate text with OpenAI GPT models.",
             config: {
               system:
                 "You are a social media writer. Write engaging, concise posts. Keep tone friendly and actionable.",
@@ -163,8 +163,8 @@ export const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
         ),
       ],
       edges: [
-        edge("input-1", "openai-chat-1", "data", "in"),
-        edge("openai-chat-1", "output-1", "out", "data"),
+        edge("input-1", "llm-chat-1", "data", "in"),
+        edge("llm-chat-1", "output-1", "out", "data"),
       ],
     },
   },
@@ -192,11 +192,11 @@ export const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
           },
         ),
         node(
-          "openai-image-1",
-          "openai-image",
+          "llm-image-1",
+          "llm-image",
           { x: NODE_SPACING, y: 0 },
           {
-            title: "OpenAI Image",
+            title: "LLM Image",
             summary: "Generate images using DALL-E.",
             config: {
               prompt: "A beautiful landscape",
@@ -221,8 +221,8 @@ export const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
         ),
       ],
       edges: [
-        edge("input-1", "openai-image-1", "data", "in"),
-        edge("openai-image-1", "output-1", "out", "data"),
+        edge("input-1", "llm-image-1", "data", "in"),
+        edge("llm-image-1", "output-1", "out", "data"),
       ],
     },
   },

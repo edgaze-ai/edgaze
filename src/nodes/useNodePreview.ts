@@ -2,6 +2,7 @@
 // Hook that returns the preview string per specId based on config
 
 import { useMemo } from "react";
+import { canonicalSpecId } from "@lib/workflow/spec-id-aliases";
 
 type NodeData = {
   specId?: string;
@@ -17,9 +18,12 @@ export function useNodePreview(
 
 export function getPreviewForSpec(specId: string, config: Record<string, unknown>): string {
   const c = config ?? {};
+  const canon = canonicalSpecId(specId);
 
-  switch (specId) {
-    case "openai-chat": {
+  switch (canon) {
+    case "llm-chat":
+    case "claude-chat":
+    case "gemini-chat": {
       const prompt = String(c.prompt ?? "").trim();
       if (!prompt) return "Not configured";
       return prompt.length > 80 ? prompt.slice(0, 80) + "…" : prompt;
@@ -67,11 +71,11 @@ export function getPreviewForSpec(specId: string, config: Record<string, unknown
     case "loop": {
       return "Loop over: array";
     }
-    case "openai-embeddings": {
+    case "llm-embeddings": {
       const model = String(c.model ?? "text-embedding-3-small");
       return `Model: ${model}`;
     }
-    case "openai-image": {
+    case "llm-image": {
       const size = String(c.size ?? "1024x1024");
       const n = Number(c.n ?? 1);
       return `Size: ${size} · ${n} image(s)`;

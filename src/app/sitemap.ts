@@ -21,6 +21,7 @@ const STATIC_ROUTE_PRIORITIES: Record<string, number> = {
   "/careers": 0.8,
   "/press": 0.8,
   "/contact": 0.8,
+  "/invest": 0.78,
   "/builder": 0.8,
 };
 
@@ -41,6 +42,7 @@ const STATIC_ROUTES = [
   "/careers",
   "/press",
   "/contact",
+  "/invest",
   "/builder",
 ] as const;
 

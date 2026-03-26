@@ -5,6 +5,9 @@
  * Uses inline token counting to avoid pulling server-only deps into client bundle.
  */
 
+import { canonicalSpecId } from "./spec-id-aliases";
+import { DEFAULT_LLM_CHAT_MODEL, DEFAULT_LLM_IMAGE_MODEL } from "./llm-model-catalog";
+
 /** Approximate token count for text (~4 chars per token). */
 function estimateTokens(text: string): number {
   if (!text || typeof text !== "string") return 0;
@@ -57,6 +60,19 @@ const CHAT_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> 
   "gpt-4-turbo": { inputPer1M: 10, outputPer1M: 30 },
   "gpt-4": { inputPer1M: 30, outputPer1M: 60 },
   "gpt-3.5-turbo": { inputPer1M: 0.5, outputPer1M: 1.5 },
+  "claude-3-5-haiku-20241022": { inputPer1M: 0.25, outputPer1M: 1.25 },
+  "claude-3-5-sonnet-20241022": { inputPer1M: 3, outputPer1M: 15 },
+  "claude-3-opus-20240229": { inputPer1M: 15, outputPer1M: 75 },
+  "gemini-2.0-flash": { inputPer1M: 0.1, outputPer1M: 0.4 },
+  "gemini-1.5-flash": { inputPer1M: 0.075, outputPer1M: 0.3 },
+  "gemini-1.5-pro": { inputPer1M: 1.25, outputPer1M: 5 },
+  "gemini-2.5-flash": { inputPer1M: 0.075, outputPer1M: 0.3 },
+  "gemini-2.5-pro-preview-05-06": { inputPer1M: 1.25, outputPer1M: 5 },
+  "gpt-5.4": { inputPer1M: 5, outputPer1M: 15 },
+  "gpt-5.4-mini": { inputPer1M: 0.2, outputPer1M: 0.8 },
+  "gpt-5.4-nano": { inputPer1M: 0.05, outputPer1M: 0.2 },
+  o3: { inputPer1M: 10, outputPer1M: 40 },
+  "claude-3-7-sonnet-20250219": { inputPer1M: 3, outputPer1M: 15 },
 };
 
 const EMBEDDING_PRICING: Record<string, number> = {
@@ -79,6 +95,13 @@ const IMAGE_PRICING: Record<string, Record<string, number>> = {
     standard: 0.04,
     hd: 0.08,
   },
+  "gpt-image-1": {
+    "1024x1024": 0.08,
+    "1536x1024": 0.12,
+    "1024x1536": 0.12,
+  },
+  "gemini-3.1-flash-image-preview": { "1024x1024": 0.02 },
+  "gemini-3-pro-image-preview": { "1024x1024": 0.12 },
 };
 
 const DEFAULT_SAMPLE_TEXT =
@@ -187,6 +210,7 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
     if (!node) continue;
 
     const specId = (node.data?.specId ?? (node as GraphNode).specId ?? "").trim();
+    const canon = canonicalSpecId(specId);
     const config = (node.data?.config ?? {}) as Record<string, unknown>;
     const inboundIds = inboundByNode.get(nodeId) ?? [];
     const inboundValues = inboundIds.map((id) => outputsByNode.get(id));
@@ -230,7 +254,7 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
           (tc.input / 1_000_000) * chatPricing.inputPer1M +
           (tc.output / 1_000_000) * chatPricing.outputPer1M;
       }
-    } else if (specId === "openai-chat") {
+    } else if (canon === "llm-chat" || canon === "claude-chat" || canon === "gemini-chat") {
       const configPrompt = (config.prompt ?? "") as string;
       const userSystem = (config.system ?? "") as string;
       const system = userSystem
@@ -258,7 +282,13 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
         maxTokens,
       });
 
-      const model = (config.model ?? "gpt-4o-mini") as string;
+      const defaultModel =
+        canon === "claude-chat"
+          ? "claude-3-7-sonnet-20250219"
+          : canon === "gemini-chat"
+            ? "gemini-2.5-flash"
+            : DEFAULT_LLM_CHAT_MODEL;
+      const model = (config.model ?? defaultModel) as string;
       const defaultChatPricing = { inputPer1M: 0.15, outputPer1M: 0.6 };
       const pricing = CHAT_PRICING[model] ?? defaultChatPricing;
       totalUsd +=
@@ -266,7 +296,7 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
         (tokenCount.output / 1_000_000) * pricing.outputPer1M;
 
       outputsByNode.set(nodeId, { content: "", model });
-    } else if (specId === "openai-embeddings") {
+    } else if (canon === "llm-embeddings") {
       const raw = inboundValues[0];
       const text =
         (typeof raw === "string" ? raw : undefined) ?? ((config.text ?? "") as string) ?? "";
@@ -278,21 +308,27 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
       totalUsd += (tokenCount / 1_000_000) * per1M;
 
       outputsByNode.set(nodeId, []);
-    } else if (specId === "openai-image") {
+    } else if (canon === "llm-image") {
       const raw = inboundValues[0];
       const prompt =
         (typeof raw === "string" ? raw : undefined) ?? ((config.prompt ?? "") as string) ?? "";
       const effectivePrompt = prompt || "Generate an image";
 
-      const model = (config.model ?? "dall-e-2") as string;
+      const model = (config.model ?? DEFAULT_LLM_IMAGE_MODEL) as string;
       const size = ((config.size ?? "1024x1024") as string) || "1024x1024";
       const quality = ((config.quality ?? "standard") as string) || "standard";
 
-      const modelPrices = IMAGE_PRICING[model] ??
-        IMAGE_PRICING["dall-e-2"] ?? { "1024x1024": 0.02 };
-      let cost = modelPrices[size] ?? modelPrices["1024x1024"] ?? 0.02;
-      if (model === "dall-e-3" && quality === "hd") {
-        cost = (modelPrices as Record<string, number>).hd ?? 0.08;
+      let cost = 0.04;
+      if (model.startsWith("gemini-") && model.includes("image")) {
+        const gp = IMAGE_PRICING[model];
+        cost = gp?.["1024x1024"] ?? 0.04;
+      } else {
+        const modelPrices = IMAGE_PRICING[model] ??
+          IMAGE_PRICING["dall-e-2"] ?? { "1024x1024": 0.02 };
+        cost = modelPrices[size] ?? modelPrices["1024x1024"] ?? 0.02;
+        if (model === "dall-e-3" && quality === "hd") {
+          cost = (modelPrices as Record<string, number>).hd ?? 0.08;
+        }
       }
       totalUsd += cost;
 

@@ -42,6 +42,7 @@ import {
   extractWorkflowOutputs,
 } from "../../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../../lib/workflow/validation";
+import { PREMIUM_AI_SPEC_IDS } from "../../../../lib/workflow/spec-id-aliases";
 import FoundingCreatorBadge from "../../../../components/ui/FoundingCreatorBadge";
 import ProfileAvatar from "../../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../../components/ui/ProfileLink";
@@ -2089,7 +2090,7 @@ export default function PromptProductPage() {
       const apiKey = node.data?.config?.apiKey;
 
       // Check if this node requires API keys and has one configured
-      if (specId && ["openai-chat", "openai-embeddings", "openai-image"].includes(specId)) {
+      if (specId && PREMIUM_AI_SPEC_IDS.includes(specId)) {
         if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
           userApiKeys[node.id] = { apiKey: apiKey.trim() };
         }

@@ -11,13 +11,20 @@ import type {
 } from "../../components/builder/PremiumWorkflowRunModal";
 import type { GraphNode, GraphEdge } from "../../server/flow/types";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "./input-extraction";
+import { canonicalSpecId } from "./spec-id-aliases";
 
 // Icon mapping is handled in the component
 
 function humanReadableStep(specId: string, nodeTitle?: string): string {
   const title = nodeTitle || specId;
+  const key = canonicalSpecId(specId);
   const map: Record<string, string> = {
     input: "Collecting input data",
+    "llm-chat": "Processing with AI",
+    "llm-embeddings": "Generating embeddings",
+    "llm-image": "Creating image",
+    "claude-chat": "Processing with Claude",
+    "gemini-chat": "Processing with Gemini",
     "openai-chat": "Processing with AI",
     "openai-embeddings": "Generating embeddings",
     "openai-image": "Creating image",
@@ -26,7 +33,7 @@ function humanReadableStep(specId: string, nodeTitle?: string): string {
     transform: "Transforming data",
     output: "Preparing output",
   };
-  return map[specId] || `Executing ${title}`;
+  return map[key] ?? map[specId] ?? `Executing ${title}`;
 }
 
 export type ExecutionUpdate = {

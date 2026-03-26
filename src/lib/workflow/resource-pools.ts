@@ -3,6 +3,8 @@
  * Limits parallel execution by node class to prevent cost spikes and rate-limit failures.
  */
 
+import { canonicalSpecId } from "./spec-id-aliases";
+
 export type ResourceClass = "llm" | "http" | "image" | "cpu";
 
 const DEFAULT_POOL_LIMITS: Record<ResourceClass, number> = {
@@ -13,6 +15,11 @@ const DEFAULT_POOL_LIMITS: Record<ResourceClass, number> = {
 };
 
 const SPEC_TO_RESOURCE: Record<string, ResourceClass> = {
+  "llm-chat": "llm",
+  "llm-embeddings": "llm",
+  "llm-image": "image",
+  "claude-chat": "llm",
+  "gemini-chat": "llm",
   "openai-chat": "llm",
   "openai-embeddings": "llm",
   "openai-image": "image",
@@ -30,7 +37,8 @@ const SPEC_TO_RESOURCE: Record<string, ResourceClass> = {
 };
 
 export function getResourceClass(specId: string): ResourceClass {
-  return SPEC_TO_RESOURCE[specId] ?? "cpu";
+  const c = canonicalSpecId(specId);
+  return SPEC_TO_RESOURCE[specId] ?? SPEC_TO_RESOURCE[c] ?? "cpu";
 }
 
 export function getPoolLimit(

@@ -6,6 +6,7 @@ import { AlertTriangle } from "lucide-react";
 import { getNodeSpec } from "./registry";
 import { getNodeRegistryEntry } from "./NODE_REGISTRY";
 import { NodeHandle } from "./NodeHandle";
+import { brandIconPathForSpec, canonicalSpecId } from "@lib/workflow/spec-id-aliases";
 
 import {
   ArrowRight,
@@ -38,10 +39,16 @@ const ICON_MAP: Record<
   FileText,
 };
 
+/** @deprecated use brandIconPathForSpec from spec-id-aliases */
+export function resolveBrandIcon(specId: string | undefined): string | null {
+  return brandIconPathForSpec(specId);
+}
+
 function buildPreview(specId: string, config: any, edges: any[], nodeId: string): string {
   if (!config || typeof config !== "object") return "Not configured";
 
-  switch (specId) {
+  const c = canonicalSpecId(specId);
+  switch (c) {
     case "input":
       return `Key: ${config.inputKey ?? config.name ?? "Not set"}`;
     case "output":
@@ -50,13 +57,15 @@ function buildPreview(specId: string, config: any, edges: any[], nodeId: string)
       const inputCount = edges.filter((e) => e.target === nodeId).length;
       return `Merging ${inputCount} inputs`;
     }
-    case "openai-chat": {
+    case "llm-chat":
+    case "claude-chat":
+    case "gemini-chat": {
       const p = String(config.prompt ?? "").trim();
       return p ? (p.length > 70 ? p.slice(0, 70) + "…" : p) : "No prompt set";
     }
-    case "openai-image":
-      return `Size: ${config.size ?? "1024x1024"} · ${config.n ?? 1} image(s)`;
-    case "openai-embeddings":
+    case "llm-image":
+      return `${config.model ?? "image"} · ${config.size ?? "1024x1024"}`;
+    case "llm-embeddings":
       return `Model: ${config.model ?? "text-embedding-3-small"}`;
     case "http-request":
       return `${config.method ?? "GET"} ${config.url ?? "Not configured"}`;
@@ -116,6 +125,7 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
   const outputs = ports.filter((p) => p.kind === "output");
 
   const iconComp = ICON_MAP[registry?.icon ?? "MessageSquare"] ?? MessageSquare;
+  const brandIcon = brandIconPathForSpec(data?.specId, config);
 
   return (
     <div
@@ -197,9 +207,9 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
             boxShadow: `0 0 12px ${nodeColor}15`,
           }}
         >
-          {registry?.iconImage ? (
+          {brandIcon || registry?.iconImage ? (
             <img
-              src={registry.iconImage}
+              src={brandIcon ?? registry?.iconImage ?? ""}
               alt=""
               style={{
                 width: 14,

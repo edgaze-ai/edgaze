@@ -310,8 +310,10 @@ function GeneralPanel({
 
   // Auto-fix OpenAI Image config so invalid model+size/quality are never sent to the API
   useEffect(() => {
-    if (spec?.id !== "openai-image" || !selection.nodeId) return;
+    if (spec?.id !== "llm-image" && spec?.id !== "openai-image") return;
+    if (!selection.nodeId) return;
     const model = cfg.model || "dall-e-2";
+    if (model !== "dall-e-2" && model !== "dall-e-3") return;
     const size = cfg.size || "1024x1024";
     const quality = cfg.quality || "standard";
     const dallE2Sizes = ["256x256", "512x512", "1024x1024"];
@@ -435,7 +437,7 @@ function GeneralPanel({
         );
 
       case "select": {
-        const isOpenAIImage = spec?.id === "openai-image";
+        const isOpenAIImage = spec?.id === "llm-image" || spec?.id === "openai-image";
         const imageModel = cfg.model || "dall-e-2";
         const qualityDisabled =
           isOpenAIImage && field.key === "quality" && imageModel === "dall-e-2";

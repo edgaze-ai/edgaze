@@ -2,6 +2,7 @@
 // Simple in-memory node registry used by BlockLibrary + Canvas
 import type { NodeSpec, Port } from "./types";
 import { PREMIUM_NODES } from "./premium";
+import { canonicalSpecId } from "@lib/workflow/spec-id-aliases";
 
 const makePort = (id: string, kind: "input" | "output", label?: string, type?: string): Port => ({
   id,
@@ -135,7 +136,8 @@ export function listNodeSpecs(): NodeSpec[] {
 }
 
 export function getNodeSpec(id: string): NodeSpec | undefined {
-  return ALL_SPECS.find((s) => s.id === id);
+  const canonical = canonicalSpecId(id);
+  return ALL_SPECS.find((s) => s.id === id) ?? ALL_SPECS.find((s) => s.id === canonical);
 }
 
 export function listNodeSpecsByCategory(): Record<string, NodeSpec[]> {

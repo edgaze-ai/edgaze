@@ -25,6 +25,7 @@ import {
 import { cx } from "../../lib/cx";
 import { track } from "../../lib/mixpanel";
 import { simplifyWorkflowError } from "../../lib/workflow/simplify-error";
+import { PREMIUM_AI_SPEC_IDS, providerForAiSpec } from "../../lib/workflow/spec-id-aliases";
 import { WorkflowInputField } from "./WorkflowInputField";
 import RunCountDiagnosticModal from "./RunCountDiagnosticModal";
 
@@ -90,6 +91,11 @@ export type WorkflowRunState = {
 
 const STEP_ICONS: Record<string, React.ReactNode> = {
   input: <ArrowRight className="h-4 w-4" />,
+  "llm-chat": <Zap className="h-4 w-4" />,
+  "llm-embeddings": <Code className="h-4 w-4" />,
+  "llm-image": <ImageIcon className="h-4 w-4" />,
+  "claude-chat": <Zap className="h-4 w-4" />,
+  "gemini-chat": <Zap className="h-4 w-4" />,
   "openai-chat": <Zap className="h-4 w-4" />,
   "openai-embeddings": <Code className="h-4 w-4" />,
   "openai-image": <ImageIcon className="h-4 w-4" />,
@@ -108,6 +114,11 @@ function humanReadableStep(specId: string, nodeTitle?: string): string {
   const title = nodeTitle || specId;
   const map: Record<string, string> = {
     input: "Collecting input data",
+    "llm-chat": "Processing with AI",
+    "llm-embeddings": "Generating embeddings",
+    "llm-image": "Creating image",
+    "claude-chat": "Processing with Claude",
+    "gemini-chat": "Processing with Gemini",
     "openai-chat": "Processing with AI",
     "openai-embeddings": "Generating embeddings",
     "openai-image": "Creating image",
@@ -614,6 +625,8 @@ function PremiumStepView({
           ([k]) =>
             !k.startsWith("__") &&
             k !== "__openaiApiKey" &&
+            k !== "__anthropicApiKey" &&
+            k !== "__geminiApiKey" &&
             k !== "__builder_test" &&
             k !== "__builder_user_key" &&
             k !== "__workflow_id",
@@ -646,12 +659,18 @@ function PremiumStepView({
   };
 
   const isOpenAIChat = (specId: string) => {
-    return specId === "openai-chat";
+    return specId === "llm-chat" || specId === "openai-chat";
   };
 
   const getNodeIcon = (specId: string) => {
-    if (specId === "openai-chat") {
+    if (specId === "llm-chat" || specId === "openai-chat") {
       return <img src="/misc/chatgpt.png" alt="ChatGPT" className="h-6 w-6 object-contain" />;
+    }
+    if (specId === "claude-chat") {
+      return <img src="/misc/claude.png" alt="Claude" className="h-6 w-6 object-contain" />;
+    }
+    if (specId === "gemini-chat") {
+      return <img src="/misc/gemini.png" alt="Gemini" className="h-6 w-6 object-contain" />;
     }
     return getStepIcon(specId);
   };
@@ -1389,6 +1408,8 @@ export default function PremiumWorkflowRunModal({
   const logEndRef = useRef<HTMLDivElement | null>(null);
   const [inputValues, setInputValues] = useState<Record<string, any>>({});
   const [openaiApiKey, setOpenaiApiKey] = useState("");
+  const [anthropicApiKey, setAnthropicApiKey] = useState("");
+  const [geminiApiKey, setGeminiApiKey] = useState("");
   const [copiedOutput, setCopiedOutput] = useState<string | null>(null);
   const [showTechnicalLogs, setShowTechnicalLogs] = useState(false);
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
@@ -1500,13 +1521,49 @@ export default function PremiumWorkflowRunModal({
     if (openaiApiKey.trim() && (isBuilderTest || requiresApiKeys?.length)) {
       payload.__openaiApiKey = openaiApiKey.trim();
     }
+    if (anthropicApiKey.trim() && (isBuilderTest || requiresApiKeys?.length)) {
+      payload.__anthropicApiKey = anthropicApiKey.trim();
+    }
+    if (geminiApiKey.trim() && (isBuilderTest || requiresApiKeys?.length)) {
+      payload.__geminiApiKey = geminiApiKey.trim();
+    }
     onSubmitInputs(payload);
   };
 
   const needsApiKey =
     (isBuilderTest && (builderRunLimit?.used ?? 0) >= (builderRunLimit?.limit ?? 10)) ||
     (requiresApiKeys && requiresApiKeys.length > 0);
-  const canSubmitBuilder = !needsApiKey || (needsApiKey && openaiApiKey.trim().length > 0);
+
+  const providersRequired = useMemo(() => {
+    const set = new Set<"openai" | "anthropic" | "google">();
+    const nodes = state?.graph?.nodes ?? [];
+    if (requiresApiKeys?.length) {
+      for (const id of requiresApiKeys) {
+        const n = nodes.find((x) => x.id === id);
+        const sid = n?.data?.specId ?? "";
+        if (PREMIUM_AI_SPEC_IDS.includes(sid)) set.add(providerForAiSpec(sid, n?.data?.config));
+      }
+    } else if (isBuilderTest && (builderRunLimit?.used ?? 0) >= (builderRunLimit?.limit ?? 10)) {
+      for (const n of nodes) {
+        const sid = n.data?.specId ?? "";
+        if (PREMIUM_AI_SPEC_IDS.includes(sid)) set.add(providerForAiSpec(sid, n?.data?.config));
+      }
+    }
+    return set;
+  }, [state?.graph, requiresApiKeys, isBuilderTest, builderRunLimit]);
+
+  const effectiveKeyProviders = useMemo(() => {
+    if (needsApiKey && providersRequired.size === 0) {
+      return new Set<"openai" | "anthropic" | "google">(["openai"]);
+    }
+    return providersRequired;
+  }, [needsApiKey, providersRequired]);
+
+  const keysOk =
+    (!effectiveKeyProviders.has("openai") || openaiApiKey.trim().length > 0) &&
+    (!effectiveKeyProviders.has("anthropic") || anthropicApiKey.trim().length > 0) &&
+    (!effectiveKeyProviders.has("google") || geminiApiKey.trim().length > 0);
+  const canSubmitBuilder = !needsApiKey || (needsApiKey && keysOk);
 
   const handleCopyOutput = (value: any, index: number) => {
     const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -1771,10 +1828,10 @@ export default function PremiumWorkflowRunModal({
 
                     {((isBuilderTest && builderRunLimit != null) || requiresApiKeys?.length) &&
                       needsApiKey && (
-                        <div className="rounded-xl border border-white/10 bg-[#0c0c0c] p-5">
-                          <div className="flex items-center justify-between mb-3">
+                        <div className="rounded-xl border border-white/10 bg-[#0c0c0c] p-5 space-y-5">
+                          <div className="flex items-center justify-between">
                             <label className="block text-sm font-semibold text-white/90">
-                              OpenAI API key
+                              API keys
                               <span className="text-red-400 ml-1.5">*</span>
                             </label>
                             {builderRunLimit?.isAdmin ? (
@@ -1787,19 +1844,56 @@ export default function PremiumWorkflowRunModal({
                               <span className="text-xs text-white/50">Free runs used</span>
                             )}
                           </div>
-                          <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                          <p className="text-xs text-white/50 leading-relaxed">
                             {requiresApiKeys?.length
-                              ? "You've used your 10 free runs for this workflow. Add your OpenAI API key to continue running."
-                              : "Free runs use gpt-4o-mini (5k tokens). With your key, the model you chose in the inspector is used (Premium). Stored locally."}
+                              ? "You've used your free runs for this workflow. Add the keys for each provider your workflow uses."
+                              : "Free tier uses lower-cost defaults. With your keys, inspector models apply. Keys stay in this session."}
                           </p>
-                          <input
-                            type="password"
-                            value={openaiApiKey}
-                            onChange={(e) => setOpenaiApiKey(e.target.value)}
-                            placeholder="sk-..."
-                            className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
-                            autoComplete="off"
-                          />
+                          {effectiveKeyProviders.has("openai") && (
+                            <div>
+                              <label className="block text-xs font-medium text-white/70 mb-2">
+                                OpenAI (LLM Chat / Image / Embeddings)
+                              </label>
+                              <input
+                                type="password"
+                                value={openaiApiKey}
+                                onChange={(e) => setOpenaiApiKey(e.target.value)}
+                                placeholder="sk-..."
+                                className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
+                                autoComplete="off"
+                              />
+                            </div>
+                          )}
+                          {effectiveKeyProviders.has("anthropic") && (
+                            <div>
+                              <label className="block text-xs font-medium text-white/70 mb-2">
+                                Anthropic (Claude Chat)
+                              </label>
+                              <input
+                                type="password"
+                                value={anthropicApiKey}
+                                onChange={(e) => setAnthropicApiKey(e.target.value)}
+                                placeholder="sk-ant-..."
+                                className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
+                                autoComplete="off"
+                              />
+                            </div>
+                          )}
+                          {effectiveKeyProviders.has("google") && (
+                            <div>
+                              <label className="block text-xs font-medium text-white/70 mb-2">
+                                Google AI Studio (Gemini)
+                              </label>
+                              <input
+                                type="password"
+                                value={geminiApiKey}
+                                onChange={(e) => setGeminiApiKey(e.target.value)}
+                                placeholder="AIza..."
+                                className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
+                                autoComplete="off"
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
 
