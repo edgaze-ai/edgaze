@@ -43,7 +43,11 @@ import PremiumWorkflowRunModal, {
   type WorkflowRunStep,
   type BuilderRunLimit,
 } from "../../components/builder/PremiumWorkflowRunModal";
-import { PREMIUM_AI_SPEC_IDS, providerForAiSpec } from "../../lib/workflow/spec-id-aliases";
+import {
+  canonicalSpecId,
+  isPremiumAiSpec,
+  providerForAiSpec,
+} from "../../lib/workflow/spec-id-aliases";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
 import {
   canRunDemo,
@@ -61,6 +65,15 @@ import { emit, on } from "../../lib/bus";
 import { track } from "../../lib/mixpanel";
 import { getQuickStartTemplate } from "../../lib/quickStartTemplates";
 import { getDocsLink } from "../../lib/docs-link";
+import {
+  drainReadableStream,
+  streamRunSession,
+} from "../../lib/workflow/run-session";
+import {
+  applyWorkflowRunEventToState,
+  buildWorkflowRunStateFromBootstrap,
+} from "../../lib/workflow/run-session-state";
+import { toRuntimeGraph } from "../../lib/workflow/customer-runtime";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -305,10 +318,15 @@ export default function BuilderPage() {
   const [running, setRunning] = useState(false);
   const [showPreparingToast, setShowPreparingToast] = useState(false);
   const runAbortRef = useRef<AbortController | null>(null);
+  const runSessionPollRef = useRef<AbortController | null>(null);
   const autoExecuteTriggeredRef = useRef(false);
 
   // deep-link guard (prevents repeated opening)
   const openedWorkflowIdRef = useRef<string | null>(null);
+  const activeDraftIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeDraftIdRef.current = activeDraftId;
+  }, [activeDraftId]);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -1138,7 +1156,8 @@ export default function BuilderPage() {
     [requireAuth, userId, supabase, loadGraphAndResetHistory],
   );
 
-  // Auto-open from URL param once auth is ready (preview works on mobile, edit is desktop-only)
+  // Auto-open from URL param once auth is ready (preview works on mobile, edit is desktop-only).
+  // Edit deep-links require the published workflow owner; others are forced back to preview.
   useEffect(() => {
     if (!mounted) return;
     if (!authReady) return;
@@ -1149,18 +1168,63 @@ export default function BuilderPage() {
     // For edit mode, require desktop. Preview mode works on mobile.
     if (!previewParam && !isDesktop) return;
 
-    if (openedWorkflowIdRef.current === wid + (previewParam ? "|p" : "|e")) return;
-    openedWorkflowIdRef.current = wid + (previewParam ? "|p" : "|e");
+    let cancelled = false;
 
-    if (activeDraftId) return;
+    (async () => {
+      if (!previewParam && !userId) {
+        router.replace(
+          `/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any,
+        );
+        return;
+      }
 
-    if (previewParam) {
-      void openMarketplaceWorkflowPreview(wid);
-    } else {
-      void openMarketplaceWorkflowAsDraft(wid);
-    }
+      if (!previewParam && userId) {
+        const { data: wf, error: wfOwnerErr } = await supabase
+          .from("workflows")
+          .select("owner_id")
+          .eq("id", wid)
+          .eq("is_published", true)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (wfOwnerErr || !wf) {
+          // Invalid / unavailable id — let openMarketplaceWorkflowAsDraft surface an error.
+        } else if (String((wf as { owner_id?: string }).owner_id ?? "") !== String(userId)) {
+          router.replace(
+            `/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any,
+          );
+          return;
+        }
+      }
+
+      if (cancelled) return;
+
+      const openKey = `${wid}|${previewParam ? "p" : "e"}`;
+      if (openedWorkflowIdRef.current === openKey) return;
+
+      const currentDraftId = activeDraftIdRef.current;
+      const previewUpgradingToEdit =
+        !previewParam &&
+        currentDraftId === wid &&
+        openedWorkflowIdRef.current === `${wid}|p`;
+
+      if (currentDraftId && !previewUpgradingToEdit) return;
+
+      openedWorkflowIdRef.current = openKey;
+
+      if (previewParam) {
+        void openMarketplaceWorkflowPreview(wid);
+      } else {
+        void openMarketplaceWorkflowAsDraft(wid);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, isDesktop, authReady, previewParam]);
+  }, [mounted, isDesktop, authReady, previewParam, userId, searchParams, supabase, router]);
 
   const createDraft = useCallback(async () => {
     setWfError(null);
@@ -1464,7 +1528,7 @@ export default function BuilderPage() {
     // Extract inputs from workflow (use current graph - inputs/steps must match live canvas)
     const inputs = extractWorkflowInputs(graph.nodes || []);
     const hasAiNodes = (graph.nodes || []).some((n: any) =>
-      PREMIUM_AI_SPEC_IDS.includes(n.data?.specId ?? ""),
+      isPremiumAiSpec(n.data?.specId ?? ""),
     );
     const isBuilderTest = !isPreview;
     const showInputPhase = inputs.length > 0 || (isBuilderTest && hasAiNodes);
@@ -1514,18 +1578,7 @@ export default function BuilderPage() {
       status: "idle",
       steps: [],
       graph: {
-        nodes: (workflowGraph.nodes || []).map((n: any) => ({
-          id: n.id,
-          data: {
-            specId: n.data?.specId,
-            title: n.data?.title,
-            config: n.data?.config,
-          },
-        })),
-        edges: (workflowGraph.edges || []).map((e: any) => ({
-          source: e.source,
-          target: e.target,
-        })),
+        ...(toRuntimeGraph(workflowGraph) ?? { nodes: [], edges: [] }),
       },
       logs: [],
       inputs: showInputPhase ? (inputs.length > 0 ? inputs : []) : undefined,
@@ -1559,7 +1612,7 @@ export default function BuilderPage() {
     if (!graph) return;
 
     const hasAiNodes = (graph.nodes || []).some((n: any) =>
-      PREMIUM_AI_SPEC_IDS.includes(n.data?.specId ?? ""),
+      isPremiumAiSpec(n.data?.specId ?? ""),
     );
 
     // Builder test requires authentication (unlike preview/demo)
@@ -1625,7 +1678,7 @@ export default function BuilderPage() {
       const specId = node.data?.specId;
       const apiKey = node.data?.config?.apiKey;
 
-      if (specId && PREMIUM_AI_SPEC_IDS.includes(specId)) {
+      if (specId && isPremiumAiSpec(specId)) {
         if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
           userApiKeys[node.id] = { apiKey: apiKey.trim() };
         } else if (requiresApiKeys?.includes(node.id)) {
@@ -1648,11 +1701,16 @@ export default function BuilderPage() {
       status: "running",
       inputValues: processedInputs,
       startedAt: Date.now(),
+      connectionState: "connecting",
+      connectionLabel: "Connecting to live updates...",
+      lastEventAt: Date.now(),
     });
 
     try {
       // Get access token from auth context to ensure session is passed
       const accessToken = await getAccessToken();
+      runSessionPollRef.current?.abort();
+      runSessionPollRef.current = null;
 
       // Build headers with auth token if available
       const headers: HeadersInit = { "Content-Type": "application/json" };
@@ -1731,22 +1789,7 @@ export default function BuilderPage() {
       let result: any;
 
       if (isStreaming && response.body) {
-        // Live streaming: consume NDJSON and update runState as nodes execute
-        const execOrder = getExecutionOrder(graph.nodes || [], graph.edges || []);
-        const nodeMap = new Map((graph.nodes || []).map((n: any) => [n.id, n]));
-        const initialSteps: WorkflowRunStep[] = execOrder.map((nodeId) => {
-          const node = nodeMap.get(nodeId);
-          const specId = node?.data?.specId || "default";
-          return {
-            id: nodeId,
-            title: node?.data?.title || node?.data?.config?.name || humanReadableStep(specId),
-            status: "queued" as const,
-            timestamp: Date.now(),
-          };
-        });
-
-        setRunState((prev) => (prev ? { ...prev, steps: initialSteps } : prev));
-
+        let sseHandoffStarted = false;
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -1760,39 +1803,98 @@ export default function BuilderPage() {
             if (!line.trim()) continue;
             try {
               const evt = JSON.parse(line);
-              if (evt.type === "node_start") {
-                setRunState((prev) => {
-                  if (!prev) return prev;
-                  const next = prev.steps.map((s) =>
-                    s.id === evt.nodeId ? { ...s, status: "running" as const } : s,
+              if (evt.type === "run_bootstrap" && typeof evt.runId === "string") {
+                setRunState((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        runId: evt.runId,
+                        runAccessToken:
+                          typeof evt.runAccessToken === "string" ? evt.runAccessToken : prev.runAccessToken,
+                      }
+                    : prev,
+                );
+
+                const sessionController = new AbortController();
+                runSessionPollRef.current = sessionController;
+                void streamRunSession({
+                  runId: evt.runId,
+                  accessToken,
+                  runAccessToken:
+                    typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
+                  signal: sessionController.signal,
+                  onTransportState: async (transportState) => {
+                    setRunState((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            connectionState:
+                              transportState === "connecting"
+                                ? "connecting"
+                                : transportState === "live"
+                                  ? "live"
+                                  : transportState === "reconnecting"
+                                    ? "reconnecting"
+                                    : "degraded",
+                            connectionLabel:
+                              transportState === "connecting"
+                                ? "Connecting to live updates..."
+                                : transportState === "reconnecting"
+                                  ? "Reconnecting to live updates..."
+                                  : transportState === "degraded"
+                                    ? "Live updates are slower right now."
+                                    : undefined,
+                          }
+                        : prev,
+                    );
+                  },
+                  onSnapshot: async (bootstrap) => {
+                    const nextState = buildWorkflowRunStateFromBootstrap({
+                      bootstrap,
+                      workflowId: activeDraftId,
+                      workflowName: name || "Untitled Workflow",
+                      inputValues: processedInputs,
+                      runAccessToken:
+                        typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
+                    sourceGraph: toRuntimeGraph(graph),
+                    });
+                    setRunState((prev) => (prev ? { ...prev, ...nextState } : (nextState as WorkflowRunState)));
+                  },
+                  onEvent: async (event) => {
+                    setRunState((prev) =>
+                      prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
+                    );
+                  },
+                }).catch((error) => {
+                  if (sessionController.signal.aborted) return;
+                  const message =
+                    error instanceof Error ? error.message : "Run session stream disconnected.";
+                  setRunState((prev) =>
+                    prev && prev.status !== "success" && prev.status !== "cancelled"
+                      ? {
+                          ...prev,
+                          connectionState: "degraded",
+                          connectionLabel: message,
+                        }
+                      : prev,
                   );
-                  return { ...prev, steps: next, currentStepId: evt.nodeId };
                 });
-              } else if (evt.type === "node_done") {
-                setRunState((prev) => {
-                  if (!prev) return prev;
-                  const next = prev.steps.map((s) =>
-                    s.id === evt.nodeId ? { ...s, status: "done" as const } : s,
-                  );
-                  return { ...prev, steps: next, currentStepId: null };
-                });
-              } else if (evt.type === "node_failed") {
-                setRunState((prev) => {
-                  if (!prev) return prev;
-                  const next = prev.steps.map((s) =>
-                    s.id === evt.nodeId ? { ...s, status: "error" as const, detail: evt.error } : s,
-                  );
-                  return { ...prev, steps: next, currentStepId: null };
-                });
-              } else if (evt.type === "complete") {
-                result = evt;
+
+                sseHandoffStarted = true;
+                drainReadableStream(reader);
                 break;
+              }
+              if (evt.type === "complete") {
+                result = evt;
               }
             } catch {
               // Skip malformed lines
             }
           }
-          if (result) break;
+          if (sseHandoffStarted || result) break;
+        }
+        if (sseHandoffStarted) {
+          return;
         }
         if (!result || !result.ok) {
           throw new Error(result?.error || "Execution failed");
@@ -2105,8 +2207,6 @@ export default function BuilderPage() {
       "llm-chat": <Play className="h-4 w-4" />,
       "llm-embeddings": <Play className="h-4 w-4" />,
       "llm-image": <Play className="h-4 w-4" />,
-      "claude-chat": <Play className="h-4 w-4" />,
-      "gemini-chat": <Play className="h-4 w-4" />,
       "openai-chat": <Play className="h-4 w-4" />,
       "openai-embeddings": <Play className="h-4 w-4" />,
       "openai-image": <Play className="h-4 w-4" />,
@@ -2115,17 +2215,17 @@ export default function BuilderPage() {
       transform: <Play className="h-4 w-4" />,
       output: <Play className="h-4 w-4" />,
     };
-    return icons[specId] || <Play className="h-4 w-4" />;
+    const c = canonicalSpecId(specId);
+    return icons[specId] || icons[c] || <Play className="h-4 w-4" />;
   };
 
   const humanReadableStep = (specId: string): string => {
+    const c = canonicalSpecId(specId);
     const map: Record<string, string> = {
       input: "Collecting input data",
       "llm-chat": "Processing with AI",
       "llm-embeddings": "Generating embeddings",
       "llm-image": "Creating image",
-      "claude-chat": "Processing with Claude",
-      "gemini-chat": "Processing with Gemini",
       "openai-chat": "Processing with AI",
       "openai-embeddings": "Generating embeddings",
       "openai-image": "Creating image",
@@ -2134,16 +2234,52 @@ export default function BuilderPage() {
       transform: "Transforming data",
       output: "Preparing output",
     };
-    return map[specId] || `Executing ${specId}`;
+    return map[specId] || map[c] || `Executing ${specId}`;
   };
 
-  const handleCancelRun = () => {
+  const handleCancelRun = async () => {
+    if (runState?.runId) {
+      try {
+        const accessToken = await getAccessToken();
+        const headers: HeadersInit = { "Content-Type": "application/json" };
+        if (accessToken) {
+          headers["Authorization"] = `Bearer ${accessToken}`;
+        }
+        await fetch(`/api/runs/${encodeURIComponent(runState.runId)}/cancel`, {
+          method: "POST",
+          headers,
+          credentials: "include",
+        });
+        setRunState((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "cancelling",
+                logs: [
+                  ...(prev.logs || []),
+                  {
+                    t: Date.now(),
+                    level: "warn" as const,
+                    text: "Cancellation requested.",
+                  },
+                ],
+              }
+            : prev,
+        );
+        return;
+      } catch {
+        // Fall through to legacy abort behavior if cancel endpoint fails.
+      }
+    }
+
     runAbortRef.current?.abort();
-    setRunState((prev) => (prev ? { ...prev, status: "error", error: "Cancelled by user" } : null));
+    setRunState((prev) => (prev ? { ...prev, status: "cancelled", error: undefined } : null));
     setRunning(false);
   };
 
   const handleRerun = () => {
+    runSessionPollRef.current?.abort();
+    runSessionPollRef.current = null;
     setRunState(null);
     setRunModalOpen(false);
     setRequiresApiKeys(null);
@@ -2153,6 +2289,22 @@ export default function BuilderPage() {
   };
 
   // Auto-execute when modal opens with no inputs (phase "executing" from start) - otherwise it would prepare forever
+  useEffect(() => {
+    return () => {
+      runSessionPollRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      runState?.status === "success" ||
+      runState?.status === "error" ||
+      runState?.status === "cancelled"
+    ) {
+      setRunning(false);
+    }
+  }, [runState?.status]);
+
   useEffect(() => {
     if (
       !runModalOpen ||
@@ -2288,7 +2440,7 @@ export default function BuilderPage() {
                 <div className="text-[14px] md:text-[18px] font-semibold text-white truncate">
                   {name || "Untitled Workflow"}
                 </div>
-                <div className="hidden md:flex items-center gap-2 mt-0.5">
+                <div className="hidden lg:flex items-center gap-2 mt-0.5">
                   <span className="text-[10px] text-white/45">
                     {stats.nodes} nodes · {stats.edges} edges
                   </span>
@@ -2670,7 +2822,9 @@ export default function BuilderPage() {
       <PremiumWorkflowRunModal
         open={runModalOpen}
         onClose={() => {
-          if (runState?.status !== "running" && runState?.phase !== "executing") {
+          if (runState?.status !== "running" && runState?.status !== "cancelling") {
+            runSessionPollRef.current?.abort();
+            runSessionPollRef.current = null;
             setRunModalOpen(false);
             setRunState(null);
             setRequiresApiKeys(null);
@@ -2693,6 +2847,7 @@ export default function BuilderPage() {
         isBuilderTest={!isPreview}
         builderRunLimit={builderRunLimit ?? undefined}
         requiresApiKeys={requiresApiKeys ?? undefined}
+        allowProjectionToggle={!isPreview}
       />
 
       {/* Publish modal (disabled in preview) */}

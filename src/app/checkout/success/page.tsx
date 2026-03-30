@@ -1,16 +1,18 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle2, Loader2, ExternalLink } from "lucide-react";
 import confetti from "canvas-confetti";
+import { useAuth } from "@/components/auth/AuthContext";
 
 function CheckoutSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { getAccessToken, refreshAuthSession } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [purchase, setPurchase] = useState<any>(null);
@@ -32,60 +34,129 @@ function CheckoutSuccessContent() {
     return;
   }, []);
 
-  const pollForConfirmation = useCallback(async () => {
-    const maxAttempts = 30;
-    let attempts = 0;
-
-    const interval = setInterval(async () => {
-      attempts++;
-
-      try {
-        const res = await fetch(
-          `/api/stripe/checkout/confirm?session_id=${sessionId}&resource_id=${resourceId}&type=${type}`,
-        );
-
-        if (res.ok) {
-          const data = await res.json();
-
-          if (data.confirmed) {
-            clearInterval(interval);
-            setPurchase(data);
-            setLoading(false);
-            triggerConfetti();
-          } else if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            setError(
-              "Payment processing is taking longer than expected. Please contact support if you don't receive access within 5 minutes.",
-            );
-            setLoading(false);
-          }
-        } else if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          setError("Failed to confirm purchase. Please contact support.");
-          setLoading(false);
-        }
-      } catch (err) {
-        if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          setError(
-            "Network error. Please check your connection and contact support if the issue persists.",
-          );
-          setLoading(false);
-        }
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [sessionId, resourceId, type]);
-
   useEffect(() => {
     if (!sessionId || !resourceId || !type) {
       setError("Invalid checkout session");
       setLoading(false);
       return;
     }
-    pollForConfirmation();
-  }, [sessionId, resourceId, type, pollForConfirmation]);
+
+    const maxAttempts = 30;
+    let attempts = 0;
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+
+    const confirmUrl = `/api/stripe/checkout/confirm?session_id=${encodeURIComponent(sessionId)}&resource_id=${encodeURIComponent(resourceId)}&type=${encodeURIComponent(type)}`;
+
+    void (async () => {
+      let token = await getAccessToken();
+      if (!token) {
+        await refreshAuthSession();
+        token = await getAccessToken();
+      }
+      if (cancelled) return;
+      if (!token) {
+        setError("Please sign in to verify your purchase. Your payment may still complete — check Library after signing in.");
+        setLoading(false);
+        return;
+      }
+
+      const pollOnce = async (accessToken: string) => {
+        const res = await fetch(confirmUrl, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          credentials: "include",
+        });
+        if (!res.ok && res.status === 401) {
+          await refreshAuthSession();
+          const next = await getAccessToken();
+          if (next) {
+            return fetch(confirmUrl, {
+              headers: { Authorization: `Bearer ${next}` },
+              credentials: "include",
+            });
+          }
+        }
+        return res;
+      };
+
+      const tick = async () => {
+        if (cancelled) return;
+        attempts += 1;
+        try {
+          let tokenNow = await getAccessToken();
+          if (!tokenNow) {
+            await refreshAuthSession();
+            tokenNow = await getAccessToken();
+          }
+          if (!tokenNow) {
+            if (attempts >= maxAttempts) {
+              if (intervalId) clearInterval(intervalId);
+              if (!cancelled) {
+                setError(
+                  "Session expired. Sign in and open Library — your purchase should appear if payment succeeded.",
+                );
+                setLoading(false);
+              }
+            }
+            return;
+          }
+
+          const res = await pollOnce(tokenNow);
+          if (cancelled || !res) return;
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.confirmed) {
+              if (intervalId) clearInterval(intervalId);
+              if (!cancelled) {
+                setPurchase(data);
+                setLoading(false);
+                triggerConfetti();
+              }
+              return;
+            }
+            if (attempts >= maxAttempts) {
+              if (intervalId) clearInterval(intervalId);
+              if (!cancelled) {
+                setError(
+                  "Payment processing is taking longer than expected. Please contact support if you don't receive access within 5 minutes.",
+                );
+                setLoading(false);
+              }
+            }
+            return;
+          }
+
+          if (attempts >= maxAttempts) {
+            if (intervalId) clearInterval(intervalId);
+            if (!cancelled) {
+              setError("Failed to confirm purchase. Please contact support.");
+              setLoading(false);
+            }
+          }
+        } catch {
+          if (attempts >= maxAttempts) {
+            if (intervalId) clearInterval(intervalId);
+            if (!cancelled) {
+              setError(
+                "Network error. Please check your connection and contact support if the issue persists.",
+              );
+              setLoading(false);
+            }
+          }
+        }
+      };
+
+      await tick();
+      if (cancelled) return;
+      intervalId = setInterval(() => void tick(), 1000);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [sessionId, resourceId, type, getAccessToken, refreshAuthSession]);
 
   function triggerConfetti() {
     const duration = 3000;

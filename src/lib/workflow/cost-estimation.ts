@@ -6,7 +6,12 @@
  */
 
 import { canonicalSpecId } from "./spec-id-aliases";
-import { DEFAULT_LLM_CHAT_MODEL, DEFAULT_LLM_IMAGE_MODEL } from "./llm-model-catalog";
+import {
+  DEFAULT_LLM_CHAT_MODEL,
+  DEFAULT_LLM_IMAGE_MODEL,
+  resolveAnthropicApiModel,
+  resolveLlmChatProvider,
+} from "./llm-model-catalog";
 
 /** Approximate token count for text (~4 chars per token). */
 function estimateTokens(text: string): number {
@@ -73,6 +78,7 @@ const CHAT_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> 
   "gpt-5.4-nano": { inputPer1M: 0.05, outputPer1M: 0.2 },
   o3: { inputPer1M: 10, outputPer1M: 40 },
   "claude-3-7-sonnet-20250219": { inputPer1M: 3, outputPer1M: 15 },
+  "claude-sonnet-4-6": { inputPer1M: 3, outputPer1M: 15 },
 };
 
 const EMBEDDING_PRICING: Record<string, number> = {
@@ -237,24 +243,22 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
     } else if (specId === "condition") {
       const passthrough = inboundValues[0];
       outputsByNode.set(nodeId, passthrough);
-      // Worst case: both branches may run downstream AI. We count condition as
-      // potentially triggering AI eval (humanCondition) - use small chat cost.
-      if (
-        config.humanCondition &&
-        typeof config.humanCondition === "string" &&
-        config.humanCondition.trim()
-      ) {
-        const tc = countChatTokens({
-          prompt: String(passthrough ?? ""),
-          system: config.humanCondition as string,
-          maxTokens: 50,
-        });
-        const chatPricing = CHAT_PRICING["gpt-4o-mini"] ?? { inputPer1M: 0.15, outputPer1M: 0.6 };
-        totalUsd +=
-          (tc.input / 1_000_000) * chatPricing.inputPer1M +
-          (tc.output / 1_000_000) * chatPricing.outputPer1M;
-      }
-    } else if (canon === "llm-chat" || canon === "claude-chat" || canon === "gemini-chat") {
+      // Condition always calls gpt-4o-mini once.
+      const systemParts = [
+        typeof config.humanCondition === "string" ? config.humanCondition : "",
+        String(config.operator ?? "truthy"),
+        String(config.compareValue ?? ""),
+      ].filter((s) => s.trim().length > 0);
+      const tc = countChatTokens({
+        prompt: String(passthrough ?? ""),
+        system: systemParts.join(" | ") || "truthy",
+        maxTokens: 50,
+      });
+      const chatPricing = CHAT_PRICING["gpt-4o-mini"] ?? { inputPer1M: 0.15, outputPer1M: 0.6 };
+      totalUsd +=
+        (tc.input / 1_000_000) * chatPricing.inputPer1M +
+        (tc.output / 1_000_000) * chatPricing.outputPer1M;
+    } else if (canon === "llm-chat") {
       const configPrompt = (config.prompt ?? "") as string;
       const userSystem = (config.system ?? "") as string;
       const system = userSystem
@@ -282,15 +286,13 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
         maxTokens,
       });
 
-      const defaultModel =
-        canon === "claude-chat"
-          ? "claude-3-7-sonnet-20250219"
-          : canon === "gemini-chat"
-            ? "gemini-2.5-flash"
-            : DEFAULT_LLM_CHAT_MODEL;
-      const model = (config.model ?? defaultModel) as string;
+      const model = (config.model ?? DEFAULT_LLM_CHAT_MODEL) as string;
       const defaultChatPricing = { inputPer1M: 0.15, outputPer1M: 0.6 };
-      const pricing = CHAT_PRICING[model] ?? defaultChatPricing;
+      const pricingKey =
+        resolveLlmChatProvider(model) === "anthropic"
+          ? resolveAnthropicApiModel(model)
+          : model;
+      const pricing = CHAT_PRICING[model] ?? CHAT_PRICING[pricingKey] ?? defaultChatPricing;
       totalUsd +=
         (tokenCount.input / 1_000_000) * pricing.inputPer1M +
         (tokenCount.output / 1_000_000) * pricing.outputPer1M;

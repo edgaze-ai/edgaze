@@ -22,11 +22,22 @@ import {
   checkImageGenerationAllowed,
   recordImageGeneration,
 } from "../../lib/rate-limiting/image-generation";
-import { evaluateConditionWithAI } from "../../lib/ai/condition-evaluator";
-import { canonicalSpecId, isOpenAiBackedSpec } from "../../lib/workflow/spec-id-aliases";
+import {
+  buildConditionEvaluationInstruction,
+  evaluateConditionWithAI,
+} from "../../lib/ai/condition-evaluator";
+import {
+  canonicalSpecId,
+  isOpenAiBackedSpec,
+  LEGACY_OPENAI_CHAT_CONFIG_FLAG,
+  LEGACY_OPENAI_IMAGE_CONFIG_FLAG,
+} from "../../lib/workflow/spec-id-aliases";
 import {
   DEFAULT_LLM_CHAT_MODEL,
   DEFAULT_LLM_IMAGE_MODEL,
+  LEGACY_OPENAI_CHAT_MODEL,
+  LEGACY_OPENAI_IMAGE_MODEL,
+  resolveAnthropicApiModel,
   resolveLlmChatProvider,
   resolveLlmImageProvider,
 } from "../../lib/workflow/llm-model-catalog";
@@ -36,7 +47,7 @@ import {
  * Objects get JSON.stringify'd (with content extraction for known shapes like OpenAI results).
  * Never returns "[object Object]".
  */
-function safeToString(v: unknown): string {
+export function safeToString(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);
@@ -81,6 +92,66 @@ function safeToString(v: unknown): string {
   }
 
   return String(v);
+}
+
+function abortError(message: string): Error {
+  const error = new Error(message);
+  error.name = "AbortError";
+  return error;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  if (signal.reason instanceof Error) {
+    throw signal.reason;
+  }
+  throw abortError("Operation aborted");
+}
+
+function createTimeoutAbortController(timeoutMs: number, parentSignal?: AbortSignal) {
+  const controller = new AbortController();
+  const handleParentAbort = () => {
+    controller.abort(parentSignal?.reason ?? abortError("Operation aborted"));
+  };
+
+  if (parentSignal) {
+    if (parentSignal.aborted) {
+      handleParentAbort();
+    } else {
+      parentSignal.addEventListener("abort", handleParentAbort, { once: true });
+    }
+  }
+
+  const timeoutId = setTimeout(() => controller.abort(abortError("Operation timed out")), timeoutMs);
+
+  return {
+    controller,
+    dispose() {
+      clearTimeout(timeoutId);
+      if (parentSignal) {
+        parentSignal.removeEventListener("abort", handleParentAbort);
+      }
+    },
+  };
+}
+
+async function waitWithAbort(durationMs: number, signal?: AbortSignal): Promise<void> {
+  throwIfAborted(signal);
+
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, durationMs);
+
+    const onAbort = () => {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", onAbort);
+      reject(signal?.reason instanceof Error ? signal.reason : abortError("Operation aborted"));
+    };
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 const inputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
@@ -176,7 +247,7 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
  * Deep-traverses objects to extract meaningful text content.
  * This is the last line of defense — it should NEVER return an opaque object or "[object Object]".
  */
-function normalizeToDisplayable(v: unknown): unknown {
+export function normalizeToDisplayable(v: unknown): unknown {
   if (v === null || v === undefined) return v;
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean") return v;
@@ -194,6 +265,16 @@ function normalizeToDisplayable(v: unknown): unknown {
 
   if (typeof v === "object") {
     const obj = v as Record<string, unknown>;
+
+    // Input node shape { value, question } — unwrap before anything else
+    if ("value" in obj && "question" in obj) {
+      return normalizeToDisplayable(obj.value);
+    }
+
+    // Condition passthrough shape
+    if (CONDITION_RESULT_KEY in obj && CONDITION_PASSTHROUGH_KEY in obj) {
+      return normalizeToDisplayable(obj[CONDITION_PASSTHROUGH_KEY]);
+    }
 
     // Try extracting from known shapes (prioritized)
     for (const key of [
@@ -296,6 +377,18 @@ const outputHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCo
 
 // Premium Node Handlers
 
+function isLegacyOpenAiChatNode(node: GraphNode): boolean {
+  const specId = node.data?.specId ?? "";
+  if (specId === "openai-chat") return true;
+  return node.data?.config?.[LEGACY_OPENAI_CHAT_CONFIG_FLAG] === true;
+}
+
+function isLegacyOpenAiImageNode(node: GraphNode): boolean {
+  const specId = node.data?.specId ?? "";
+  if (specId === "openai-image") return true;
+  return node.data?.config?.[LEGACY_OPENAI_IMAGE_CONFIG_FLAG] === true;
+}
+
 const getApiKey = (node: GraphNode, ctx: RuntimeContext): string | null => {
   // First check if API key is provided via inputs (from run modal or Edgaze)
   const key = ctx.inputs?.[`__api_key_${node.id}`];
@@ -318,21 +411,27 @@ const isUserProvidedApiKey = (node: GraphNode, ctx: RuntimeContext): boolean => 
   const config = node.data?.config ?? {};
 
   if (canon === "llm-chat" || specId === "openai-chat") {
-    const m = (config.model as string) || DEFAULT_LLM_CHAT_MODEL;
+    const legacy =
+      specId === "openai-chat" || config[LEGACY_OPENAI_CHAT_CONFIG_FLAG] === true;
+    const m = legacy
+      ? LEGACY_OPENAI_CHAT_MODEL
+      : ((config.model as string) || DEFAULT_LLM_CHAT_MODEL);
     const p = resolveLlmChatProvider(m);
     if (p === "openai" && inputs?.["__builder_user_key_openai"]) return true;
     if (p === "anthropic" && inputs?.["__builder_user_key_anthropic"]) return true;
     if (p === "google" && inputs?.["__builder_user_key_gemini"]) return true;
   } else if (canon === "llm-image" || specId === "openai-image") {
-    const m = (config.model as string) || DEFAULT_LLM_IMAGE_MODEL;
+    const legacy =
+      specId === "openai-image" || config[LEGACY_OPENAI_IMAGE_CONFIG_FLAG] === true;
+    const m = legacy
+      ? LEGACY_OPENAI_IMAGE_MODEL
+      : ((config.model as string) || DEFAULT_LLM_IMAGE_MODEL);
     const p = resolveLlmImageProvider(m);
     if (p === "openai" && inputs?.["__builder_user_key_openai"]) return true;
     if (p === "google" && inputs?.["__builder_user_key_gemini"]) return true;
   } else {
     if (inputs?.["__builder_user_key"]) return true;
     if (inputs?.["__builder_user_key_openai"] && isOpenAiBackedSpec(specId)) return true;
-    if (inputs?.["__builder_user_key_anthropic"] && specId === "claude-chat") return true;
-    if (inputs?.["__builder_user_key_gemini"] && specId === "gemini-chat") return true;
   }
 
   const configKey = node.data?.config?.apiKey;
@@ -343,7 +442,7 @@ const isUserProvidedApiKey = (node: GraphNode, ctx: RuntimeContext): boolean => 
   return false;
 };
 
-/** Shared inbound → prompt/messages + Edgaze system prompt for LLM Chat, Claude, and Gemini. */
+/** Shared inbound → prompt/messages + Edgaze system prompt for unified LLM Chat. */
 function buildWorkflowChatPromptParts(
   node: GraphNode,
   ctx: RuntimeContext,
@@ -462,6 +561,130 @@ Rules:
   };
 }
 
+async function readSsePayloads(
+  response: Response,
+  onData: (payload: string) => void | Promise<void>,
+): Promise<void> {
+  if (!response.body) return;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop() ?? "";
+
+    for (const chunk of chunks) {
+      const lines = chunk.split("\n");
+      const dataLines = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim());
+      if (dataLines.length === 0) continue;
+      const payload = dataLines.join("\n");
+      await onData(payload);
+    }
+  }
+}
+
+async function streamOpenAiChatCompletion(params: {
+  response: Response;
+  nodeId: string;
+  ctx: RuntimeContext;
+}): Promise<string> {
+  let textOut = "";
+  await params.ctx.streamNodeOutput?.(params.nodeId, {
+    status: "started",
+    format: "markdown",
+  });
+  await readSsePayloads(params.response, async (payload) => {
+    if (payload === "[DONE]") return;
+    const chunk = JSON.parse(payload) as Record<string, any>;
+    const delta = chunk.choices?.[0]?.delta?.content;
+    if (typeof delta === "string" && delta.length > 0) {
+      textOut += delta;
+      await params.ctx.streamNodeOutput?.(params.nodeId, {
+        status: "streaming",
+        delta,
+        format: "markdown",
+      });
+    }
+  });
+  await params.ctx.streamNodeOutput?.(params.nodeId, {
+    status: "finished",
+    text: textOut,
+    format: "markdown",
+  });
+  return textOut;
+}
+
+async function streamAnthropicChatCompletion(params: {
+  response: Response;
+  nodeId: string;
+  ctx: RuntimeContext;
+}): Promise<string> {
+  let textOut = "";
+  await params.ctx.streamNodeOutput?.(params.nodeId, {
+    status: "started",
+    format: "markdown",
+  });
+  await readSsePayloads(params.response, async (payload) => {
+    const chunk = JSON.parse(payload) as Record<string, any>;
+    const delta =
+      chunk?.type === "content_block_delta" && typeof chunk.delta?.text === "string"
+        ? chunk.delta.text
+        : "";
+    if (delta) {
+      textOut += delta;
+      await params.ctx.streamNodeOutput?.(params.nodeId, {
+        status: "streaming",
+        delta,
+        format: "markdown",
+      });
+    }
+  });
+  await params.ctx.streamNodeOutput?.(params.nodeId, {
+    status: "finished",
+    text: textOut,
+    format: "markdown",
+  });
+  return textOut;
+}
+
+async function streamGeminiChatCompletion(params: {
+  response: Response;
+  nodeId: string;
+  ctx: RuntimeContext;
+}): Promise<string> {
+  let textOut = "";
+  await params.ctx.streamNodeOutput?.(params.nodeId, {
+    status: "started",
+    format: "markdown",
+  });
+  await readSsePayloads(params.response, async (payload) => {
+    const chunk = JSON.parse(payload) as Record<string, any>;
+    const deltaParts = chunk.candidates?.[0]?.content?.parts;
+    if (!Array.isArray(deltaParts)) return;
+    const delta = deltaParts
+      .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+      .join("");
+    if (delta) {
+      textOut += delta;
+      await params.ctx.streamNodeOutput?.(params.nodeId, {
+        status: "streaming",
+        delta,
+        format: "markdown",
+      });
+    }
+  });
+  await params.ctx.streamNodeOutput?.(params.nodeId, {
+    status: "finished",
+    text: textOut,
+    format: "markdown",
+  });
+  return textOut;
+}
+
 /** Unified LLM Chat: routes OpenAI / Anthropic / Gemini from a single model dropdown. */
 const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const config = node.data?.config ?? {};
@@ -490,6 +713,9 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   const platformForced = (ctx.inputs as any)?.["__platform_llm_chat_model"] as string | undefined;
   if (!usePremium && platformForced) {
     model = platformForced;
+  }
+  if (isLegacyOpenAiChatNode(node)) {
+    model = LEGACY_OPENAI_CHAT_MODEL;
   }
 
   const provider = resolveLlmChatProvider(model);
@@ -549,9 +775,13 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     throw new Error(tokenValidation.error || "Token limit exceeded");
   }
 
-  const timeout = (config.timeout as number) ?? (provider === "openai" ? 30000 : 60000);
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const LLM_CHAT_DEFAULT_TIMEOUT_MS = 120_000;
+  const configuredTimeout =
+    typeof config.timeout === "number" && Number.isFinite(config.timeout) && config.timeout > 0
+      ? config.timeout
+      : 0;
+  const timeout = Math.max(configuredTimeout, LLM_CHAT_DEFAULT_TIMEOUT_MS);
+  const { controller, dispose } = createTimeoutAbortController(timeout, ctx.abortSignal);
 
   try {
     if (provider === "anthropic") {
@@ -586,6 +816,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       }
 
       const maxOut = Math.min(maxTokens, nodeTokenCap - tokenCount.input, 8192);
+      const anthropicModel = resolveAnthropicApiModel(model);
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -594,16 +825,17 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model,
+          model: anthropicModel,
           max_tokens: Math.max(1, maxOut),
           temperature: Math.min(1, temperature),
           system: systemCombined,
           messages: anthropicMessages,
+          stream: Boolean(ctx.streamNodeOutput),
         }),
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
+      dispose();
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -623,12 +855,20 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
         isPlatformKey: !isUserProvidedApiKey(node, ctx),
       });
 
-      const data = await response.json();
-      const blocks = data.content;
       let textOut = "";
-      if (Array.isArray(blocks)) {
-        for (const b of blocks) {
-          if (b?.type === "text" && typeof b.text === "string") textOut += b.text;
+      if (ctx.streamNodeOutput) {
+        textOut = await streamAnthropicChatCompletion({
+          response,
+          nodeId: node.id,
+          ctx,
+        });
+      } else {
+        const data = await response.json();
+        const blocks = data.content;
+        if (Array.isArray(blocks)) {
+          for (const b of blocks) {
+            if (b?.type === "text" && typeof b.text === "string") textOut += b.text;
+          }
         }
       }
       ctx.setNodeOutput(node.id, textOut);
@@ -659,7 +899,9 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       }
 
       const maxOut = Math.min(maxTokens, nodeTokenCap - tokenCount.input, 8192);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const url = ctx.streamNodeOutput
+        ? `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
       const response = await fetch(url, {
         method: "POST",
@@ -674,7 +916,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
+      dispose();
 
       if (!response.ok) {
         if (response.status === 429) {
@@ -694,12 +936,20 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
         isPlatformKey: !isUserProvidedApiKey(node, ctx),
       });
 
-      const data = await response.json();
-      const partsOut = data.candidates?.[0]?.content?.parts;
       let textOut = "";
-      if (Array.isArray(partsOut)) {
-        for (const p of partsOut) {
-          if (typeof p?.text === "string") textOut += p.text;
+      if (ctx.streamNodeOutput) {
+        textOut = await streamGeminiChatCompletion({
+          response,
+          nodeId: node.id,
+          ctx,
+        });
+      } else {
+        const data = await response.json();
+        const partsOut = data.candidates?.[0]?.content?.parts;
+        if (Array.isArray(partsOut)) {
+          for (const p of partsOut) {
+            if (typeof p?.text === "string") textOut += p.text;
+          }
         }
       }
       ctx.setNodeOutput(node.id, textOut);
@@ -710,7 +960,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     const requestBody: Record<string, unknown> = {
       model,
       max_tokens: Math.min(maxTokens, nodeTokenCap - tokenCount.input),
-      stream: false,
+      stream: Boolean(ctx.streamNodeOutput),
     };
     if (!/^o\d/i.test(model)) {
       requestBody.temperature = temperature;
@@ -744,7 +994,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
+    dispose();
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -764,333 +1014,19 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       isPlatformKey: !isUserProvidedApiKey(node, ctx),
     });
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content ?? "";
+    const content = ctx.streamNodeOutput
+      ? await streamOpenAiChatCompletion({
+          response,
+          nodeId: node.id,
+          ctx,
+        })
+      : ((await response.json()).choices?.[0]?.message?.content ?? "");
     ctx.setNodeOutput(node.id, content);
     return content;
   } catch (err: any) {
-    clearTimeout(timeoutId);
+    dispose();
     if (err.name === "AbortError") {
       throw new Error("LLM Chat request timeout");
-    }
-    throw err;
-  }
-};
-
-const CLAUDE_DEFAULT_QUALITY = "claude-3-7-sonnet-20250219";
-const GEMINI_DEFAULT_FLASH = "gemini-2.5-flash";
-
-const claudeChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
-  const apiKey = getApiKey(node, ctx);
-  if (!apiKey) {
-    throw new Error(
-      "Anthropic API key required for Claude Chat. Add it in the run modal or node inspector.",
-    );
-  }
-
-  const rateCheck = await checkProviderRateLimit({
-    provider: "anthropic",
-    userId: ctx.requestMetadata?.userId ?? null,
-    isPlatformKey: !isUserProvidedApiKey(node, ctx),
-  });
-  if (!rateCheck.allowed) {
-    throw new Error(
-      `Anthropic rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
-    );
-  }
-
-  const config = node.data?.config ?? {};
-  const { prompt, messages, serverSystemPrompt, system } = buildWorkflowChatPromptParts(
-    node,
-    ctx,
-    config,
-  );
-
-  const isBuilderTest = !!(ctx.inputs as any)?.["__builder_test"];
-  const builderUserKey =
-    !!(ctx.inputs as any)?.["__builder_user_key_anthropic"] ||
-    (!!(ctx.inputs as any)?.["__builder_user_key"] && node.data?.specId === "claude-chat");
-  const usePremium = !isBuilderTest || builderUserKey;
-  const model = usePremium
-    ? (config.model as string) || CLAUDE_DEFAULT_QUALITY
-    : CLAUDE_DEFAULT_QUALITY;
-  const temperature = Math.min(1, (config.temperature as number) ?? 0.7);
-  const effectiveMaxTokens = usePremium
-    ? ((config.maxTokens as number) ?? 2000)
-    : Math.min(2048, (config.maxTokens as number) ?? 2000);
-  const maxTokens = effectiveMaxTokens;
-
-  const workflowId = (ctx.inputs as any)?.["__workflow_id"];
-  const tokenLimits = await getTokenLimits(workflowId);
-  const nodeTokenCap = usePremium ? tokenLimits.maxTokensPerNode : 5000;
-
-  let messagesForTokenCount = messages;
-  if (messages && Array.isArray(messages)) {
-    const tempMessages = [{ role: "system", content: serverSystemPrompt } as const];
-    const userSystemMsg = messages.find((m: any) => m.role === "system");
-    if (userSystemMsg && userSystemMsg.content) {
-      tempMessages[0] = {
-        role: "system",
-        content: `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`,
-      };
-      tempMessages.push(...messages.filter((m: any) => m.role !== "system"));
-    } else {
-      tempMessages.push(...messages);
-    }
-    messagesForTokenCount = tempMessages;
-  }
-
-  const tokenCount = countChatTokens({
-    prompt,
-    system,
-    messages: messagesForTokenCount,
-    maxTokens,
-  });
-  const tokenValidation = validateNodeTokenLimit(node.id, tokenCount.total, "chat", nodeTokenCap);
-  if (!tokenValidation.valid) {
-    throw new Error(tokenValidation.error || "Token limit exceeded");
-  }
-
-  let anthropicMessages: { role: "user" | "assistant"; content: string }[];
-  let systemCombined: string;
-
-  if (messages && Array.isArray(messages)) {
-    const messageList: any[] = [];
-    messageList.push({ role: "system", content: serverSystemPrompt });
-    const userSystemMsg = messages.find((m: any) => m.role === "system");
-    if (userSystemMsg && userSystemMsg.content) {
-      messageList[0].content = `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`;
-      messageList.push(...messages.filter((m: any) => m.role !== "system"));
-    } else {
-      messageList.push(...messages);
-    }
-    systemCombined =
-      messageList.find((m: any) => m.role === "system")?.content ??
-      (typeof system === "string" ? system : serverSystemPrompt);
-    anthropicMessages = messageList
-      .filter((m: any) => m.role === "user" || m.role === "assistant")
-      .map((m: any) => ({
-        role: m.role,
-        content: typeof m.content === "string" ? m.content : safeToString(m.content),
-      }));
-    if (anthropicMessages.length === 0) {
-      anthropicMessages = [{ role: "user", content: prompt || "" }];
-    }
-  } else {
-    systemCombined = typeof system === "string" ? system : serverSystemPrompt;
-    anthropicMessages = [{ role: "user", content: prompt || "" }];
-  }
-
-  const maxOut = Math.min(maxTokens, nodeTokenCap - tokenCount.input, 8192);
-  const timeout = (config.timeout as number) ?? 60000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: Math.max(1, maxOut),
-        temperature,
-        system: systemCombined,
-        messages: anthropicMessages,
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        record429Cooldown({
-          provider: "anthropic",
-          userId: ctx.requestMetadata?.userId ?? null,
-          isPlatformKey: !isUserProvidedApiKey(node, ctx),
-        });
-      }
-      const error = await response.text();
-      throw new Error(`Anthropic API error: ${response.status} ${error}`);
-    }
-
-    await recordProviderUsage({
-      provider: "anthropic",
-      userId: ctx.requestMetadata?.userId ?? null,
-      isPlatformKey: !isUserProvidedApiKey(node, ctx),
-    });
-
-    const data = await response.json();
-    const blocks = data.content;
-    let textOut = "";
-    if (Array.isArray(blocks)) {
-      for (const b of blocks) {
-        if (b?.type === "text" && typeof b.text === "string") textOut += b.text;
-      }
-    }
-    ctx.setNodeOutput(node.id, textOut);
-    return textOut;
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    if (err.name === "AbortError") {
-      throw new Error("Anthropic request timeout");
-    }
-    throw err;
-  }
-};
-
-const geminiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
-  const apiKey = getApiKey(node, ctx);
-  if (!apiKey) {
-    throw new Error(
-      "Google Gemini API key required for Gemini Chat. Add it in the run modal or node inspector.",
-    );
-  }
-
-  const rateCheck = await checkProviderRateLimit({
-    provider: "google",
-    userId: ctx.requestMetadata?.userId ?? null,
-    isPlatformKey: !isUserProvidedApiKey(node, ctx),
-  });
-  if (!rateCheck.allowed) {
-    throw new Error(
-      `Gemini rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
-    );
-  }
-
-  const config = node.data?.config ?? {};
-  const { prompt, messages, serverSystemPrompt, system } = buildWorkflowChatPromptParts(
-    node,
-    ctx,
-    config,
-  );
-
-  const isBuilderTest = !!(ctx.inputs as any)?.["__builder_test"];
-  const builderUserKey =
-    !!(ctx.inputs as any)?.["__builder_user_key_gemini"] ||
-    (!!(ctx.inputs as any)?.["__builder_user_key"] && node.data?.specId === "gemini-chat");
-  const usePremium = !isBuilderTest || builderUserKey;
-  const model = usePremium
-    ? (config.model as string) || GEMINI_DEFAULT_FLASH
-    : GEMINI_DEFAULT_FLASH;
-  const temperature = (config.temperature as number) ?? 0.7;
-  const effectiveMaxTokens = usePremium
-    ? ((config.maxTokens as number) ?? 2000)
-    : Math.min(2048, (config.maxTokens as number) ?? 2000);
-  const maxTokens = effectiveMaxTokens;
-
-  const workflowId = (ctx.inputs as any)?.["__workflow_id"];
-  const tokenLimits = await getTokenLimits(workflowId);
-  const nodeTokenCap = usePremium ? tokenLimits.maxTokensPerNode : 5000;
-
-  let messagesForTokenCount = messages;
-  if (messages && Array.isArray(messages)) {
-    const tempMessages = [{ role: "system", content: serverSystemPrompt } as const];
-    const userSystemMsg = messages.find((m: any) => m.role === "system");
-    if (userSystemMsg && userSystemMsg.content) {
-      tempMessages[0] = {
-        role: "system",
-        content: `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`,
-      };
-      tempMessages.push(...messages.filter((m: any) => m.role !== "system"));
-    } else {
-      tempMessages.push(...messages);
-    }
-    messagesForTokenCount = tempMessages;
-  }
-
-  const tokenCount = countChatTokens({
-    prompt,
-    system,
-    messages: messagesForTokenCount,
-    maxTokens,
-  });
-  const tokenValidation = validateNodeTokenLimit(node.id, tokenCount.total, "chat", nodeTokenCap);
-  if (!tokenValidation.valid) {
-    throw new Error(tokenValidation.error || "Token limit exceeded");
-  }
-
-  let userText = "";
-  if (messages && Array.isArray(messages)) {
-    const messageList: any[] = [];
-    messageList.push({ role: "system", content: serverSystemPrompt });
-    const userSystemMsg = messages.find((m: any) => m.role === "system");
-    if (userSystemMsg && userSystemMsg.content) {
-      messageList[0].content = `${serverSystemPrompt}\n\nUser context: ${userSystemMsg.content}`;
-      messageList.push(...messages.filter((m: any) => m.role !== "system"));
-    } else {
-      messageList.push(...messages);
-    }
-    const parts = messageList
-      .filter((m: any) => m.role !== "system")
-      .map(
-        (m: any) =>
-          `${m.role}: ${typeof m.content === "string" ? m.content : safeToString(m.content)}`,
-      );
-    userText = parts.join("\n\n");
-  } else {
-    userText = typeof system === "string" ? `${system}\n\n${prompt || ""}` : prompt || "";
-  }
-
-  const maxOut = Math.min(maxTokens, nodeTokenCap - tokenCount.input, 8192);
-  const timeout = (config.timeout as number) ?? 60000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: userText }] }],
-        generationConfig: {
-          maxOutputTokens: Math.max(1, maxOut),
-          temperature,
-        },
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        record429Cooldown({
-          provider: "google",
-          userId: ctx.requestMetadata?.userId ?? null,
-          isPlatformKey: !isUserProvidedApiKey(node, ctx),
-        });
-      }
-      const error = await response.text();
-      throw new Error(`Gemini API error: ${response.status} ${error}`);
-    }
-
-    await recordProviderUsage({
-      provider: "google",
-      userId: ctx.requestMetadata?.userId ?? null,
-      isPlatformKey: !isUserProvidedApiKey(node, ctx),
-    });
-
-    const data = await response.json();
-    const partsOut = data.candidates?.[0]?.content?.parts;
-    let textOut = "";
-    if (Array.isArray(partsOut)) {
-      for (const p of partsOut) {
-        if (typeof p?.text === "string") textOut += p.text;
-      }
-    }
-    ctx.setNodeOutput(node.id, textOut);
-    return textOut;
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    if (err.name === "AbortError") {
-      throw new Error("Gemini request timeout");
     }
     throw err;
   }
@@ -1120,9 +1056,15 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (
   const inbound = ctx.getInboundValues(node.id);
   const raw = inbound[0];
   const content = extractPipelineContent(raw);
+  const fromInbound =
+    content === null || content === undefined
+      ? ""
+      : typeof content === "string"
+        ? content.trim()
+        : safeToString(content).trim();
   const text =
-    (typeof content === "string" ? content : undefined) ||
-    (typeof config.text === "string" ? config.text : undefined);
+    fromInbound ||
+    (typeof config.text === "string" ? config.text.trim() : undefined);
 
   if (!text) {
     throw new Error("Text input required for embeddings");
@@ -1147,8 +1089,7 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (
   const model = config.model || "text-embedding-3-small";
   const timeout = config.timeout ?? 15000;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const { controller, dispose } = createTimeoutAbortController(timeout, ctx.abortSignal);
 
   try {
     const response = await fetch("https://api.openai.com/v1/embeddings", {
@@ -1164,7 +1105,7 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
+    dispose();
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -1190,7 +1131,7 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (
     ctx.setNodeOutput(node.id, embedding);
     return embedding;
   } catch (err: any) {
-    clearTimeout(timeoutId);
+    dispose();
     if (err.name === "AbortError") {
       throw new Error("OpenAI embeddings request timeout");
     }
@@ -1200,15 +1141,24 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (
 
 const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const config = node.data?.config ?? {};
-  const model = (config.model as string) || DEFAULT_LLM_IMAGE_MODEL;
+  let model = (config.model as string) || DEFAULT_LLM_IMAGE_MODEL;
+  if (isLegacyOpenAiImageNode(node)) {
+    model = LEGACY_OPENAI_IMAGE_MODEL;
+  }
   const imageProvider = resolveLlmImageProvider(model);
 
   const inbound = ctx.getInboundValues(node.id);
   const raw = inbound[0];
   const content = extractPipelineContent(raw);
+  const fromInbound =
+    content === null || content === undefined
+      ? ""
+      : typeof content === "string"
+        ? content.trim()
+        : safeToString(content).trim();
   const prompt =
-    (typeof content === "string" ? content : undefined) ||
-    (typeof config.prompt === "string" ? config.prompt : undefined);
+    fromInbound ||
+    (typeof config.prompt === "string" ? config.prompt.trim() : undefined);
 
   if (!prompt) {
     throw new Error("Prompt required for image generation");
@@ -1245,10 +1195,9 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
       );
       if (!rateLimitCheck.allowed) {
         if (rateLimitCheck.requiresApiKey) {
-          const freeUsed = rateLimitCheck.freeUsed || 0;
           throw new Error(
             rateLimitCheck.error ||
-              `You have used all 5 free images (${freeUsed}/5 used). Please provide your OpenAI API key in the run modal to continue generating images.`,
+              "Image generation requires your OpenAI API key in the run modal, or sign in to use the platform key.",
           );
         }
         throw new Error(
@@ -1282,8 +1231,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     );
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const { controller, dispose } = createTimeoutAbortController(timeout, ctx.abortSignal);
 
   try {
     if (imageProvider === "google") {
@@ -1296,7 +1244,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         }),
         signal: controller.signal,
       });
-      clearTimeout(timeoutId);
+      dispose();
 
       if (!gres.ok) {
         if (gres.status === 429) {
@@ -1383,7 +1331,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
       signal: controller.signal,
     });
 
-    clearTimeout(timeoutId);
+    dispose();
 
     if (!response.ok) {
       if (response.status === 429) {
@@ -1426,7 +1374,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     ctx.setNodeOutput(node.id, imageUrl);
     return imageUrl;
   } catch (err: any) {
-    clearTimeout(timeoutId);
+    dispose();
     if (err.name === "AbortError") {
       throw new Error("Image generation timeout");
     }
@@ -1516,8 +1464,7 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     requestHeaders["Idempotency-Key"] = idempotencyKey.trim();
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const { controller, dispose } = createTimeoutAbortController(timeout, ctx.abortSignal);
 
   try {
     const fetchOptions: RequestInit = {
@@ -1532,7 +1479,7 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     }
 
     const response = await fetch(url, fetchOptions);
-    clearTimeout(timeoutId);
+    dispose();
 
     const contentLength = response.headers.get("content-length");
     if (contentLength) {
@@ -1595,7 +1542,7 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     ctx.setNodeOutput(node.id, result);
     return result;
   } catch (err: any) {
-    clearTimeout(timeoutId);
+    dispose();
     if (err.name === "AbortError") {
       throw new Error("HTTP request timeout");
     }
@@ -1638,8 +1585,10 @@ export function extractPipelineContent(v: unknown): unknown {
     if (CONDITION_RESULT_KEY in obj && CONDITION_PASSTHROUGH_KEY in obj) {
       return obj[CONDITION_PASSTHROUGH_KEY];
     }
-    // Input node format - return as-is; consumers can extract value
-    if ("value" in obj && "question" in obj) return v;
+    // Input node format { value, question } — unwrap to the actual value
+    if ("value" in obj && "question" in obj) {
+      return obj.value;
+    }
   }
   return v;
 }
@@ -1649,58 +1598,28 @@ const conditionHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runtim
   const inbound = ctx.getInboundValues(node.id);
   const value = inbound[0];
 
-  const operator = config.operator || "truthy";
+  const operator = (config.operator as string) || "truthy";
   const compareValue = config.compareValue;
-  const humanCondition = config.humanCondition; // New: human-readable condition text
+  const humanCondition =
+    typeof config.humanCondition === "string" ? config.humanCondition : undefined;
 
-  let result: boolean | undefined = undefined;
-
-  // If human-readable condition is provided, use AI evaluation
-  if (humanCondition && typeof humanCondition === "string" && humanCondition.trim()) {
-    const apiKey = getApiKey(node, ctx);
-    if (apiKey) {
-      try {
-        const aiResult = await evaluateConditionWithAI(humanCondition.trim(), value, apiKey);
-        result = aiResult.result;
-        console.warn(
-          `[Condition Node ${node.id}] AI evaluation: "${humanCondition}" = ${result} (confidence: ${aiResult.confidence})`,
-        );
-      } catch (err) {
-        console.error(
-          `[Condition Node ${node.id}] AI evaluation failed, falling back to operator:`,
-          err,
-        );
-        // Fall through to operator-based evaluation
-        result = undefined;
-      }
-    }
+  const apiKey = getApiKey(node, ctx);
+  if (!apiKey) {
+    throw new Error(
+      "Condition node needs an OpenAI API key (builder run modal, free-run platform key, or node config).",
+    );
   }
 
-  // Fallback to operator-based evaluation (or if AI evaluation failed)
-  if (result === undefined) {
-    switch (operator) {
-      case "truthy":
-        result = Boolean(value);
-        break;
-      case "falsy":
-        result = !Boolean(value);
-        break;
-      case "equals":
-        result = String(value) === String(compareValue);
-        break;
-      case "notEquals":
-        result = String(value) !== String(compareValue);
-        break;
-      case "gt":
-        result = Number(value) > Number(compareValue);
-        break;
-      case "lt":
-        result = Number(value) < Number(compareValue);
-        break;
-      default:
-        result = Boolean(value);
-    }
-  }
+  const instruction = buildConditionEvaluationInstruction({
+    operator,
+    compareValue,
+    humanCondition,
+  });
+  const aiResult = await evaluateConditionWithAI(instruction, value, apiKey);
+  const result = aiResult.result;
+  console.warn(
+    `[Condition Node ${node.id}] AI evaluation (${operator}) = ${result} (confidence: ${aiResult.confidence})`,
+  );
 
   // Output: { __conditionResult, __passthrough } so routing uses boolean and downstream gets original input
   const output = {
@@ -1716,7 +1635,7 @@ const delayHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
   const inbound = ctx.getInboundValues(node.id);
   const duration = config.duration ?? 1000;
 
-  await new Promise((resolve) => setTimeout(resolve, Math.max(0, Math.min(duration, 600000))));
+  await waitWithAbort(Math.max(0, Math.min(duration, 600000)), ctx.abortSignal);
 
   const value = inbound.length > 0 ? extractPipelineContent(inbound[0]) : null;
   ctx.setNodeOutput(node.id, value);
@@ -1851,8 +1770,6 @@ export const runtimeRegistry: Record<string, NodeRuntimeHandler> = {
   "openai-chat": openaiChatHandler,
   "openai-embeddings": openaiEmbeddingsHandler,
   "openai-image": openaiImageHandler,
-  "claude-chat": claudeChatHandler,
-  "gemini-chat": geminiChatHandler,
   "http-request": httpRequestHandler,
   "json-parse": jsonParseHandler,
   condition: conditionHandler,

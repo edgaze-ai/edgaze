@@ -25,15 +25,12 @@ import {
 import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
 import WorkflowCommentsSection from "../../../components/marketplace/WorkflowCommentsSection";
-import PremiumWorkflowRunModal, {
-  type WorkflowRunState,
-} from "../../../components/builder/PremiumWorkflowRunModal";
+import CustomerWorkflowRunModal from "../../../components/runtime/customer/CustomerWorkflowRunModal";
 import {
   canRunDemo,
   canRunDemoSync,
   getDeviceFingerprintHash,
   getRemainingDemoRunsSync,
-  trackDemoRun,
 } from "../../../lib/workflow/device-tracking";
 import {
   extractWorkflowInputs,
@@ -47,6 +44,13 @@ import TurnstileWidget from "../../../components/apply/TurnstileWidget";
 import ProfileAvatar from "../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../components/ui/ProfileLink";
 import ReportModal from "../../../components/marketplace/ReportModal";
+import {
+  applyWorkflowRunEventToState,
+  buildWorkflowRunStateFromBootstrap,
+} from "../../../lib/workflow/run-session-state";
+import { toRuntimeGraph } from "../../../lib/workflow/customer-runtime";
+import { drainReadableStream, streamRunSession } from "../../../lib/workflow/run-session";
+import type { WorkflowRunState } from "../../../lib/workflow/run-types";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -899,6 +903,8 @@ export default function WorkflowProductPage() {
   const [upNextCursor, setUpNextCursor] = useState(0);
   const upNextSentinelRef = useRef<HTMLDivElement | null>(null);
   const autoActionTriggeredRef = useRef(false);
+  const demoRunAbortRef = useRef<AbortController | null>(null);
+  const demoRunSessionPollRef = useRef<AbortController | null>(null);
 
   const [demoExecutionGraph, setDemoExecutionGraph] = useState<{
     nodes: any[];
@@ -1442,9 +1448,6 @@ export default function WorkflowProductPage() {
       // Extract inputs
       const inputs = extractWorkflowInputs(graph.nodes || []);
 
-      // Track demo run (strict one-time) — skip when admin demo link
-      if (!isDemoModeActive) trackDemoRun(listing.id);
-
       // Initialize run state
       const initialState: WorkflowRunState = {
         workflowId: listing.id,
@@ -1454,6 +1457,7 @@ export default function WorkflowProductPage() {
         steps: [],
         logs: [],
         inputs: inputs.length > 0 ? inputs : undefined,
+        graph: toRuntimeGraph(graph),
       };
 
       setDemoRunState(initialState);
@@ -1539,6 +1543,9 @@ export default function WorkflowProductPage() {
       status: "running",
       inputValues: processedInputs,
       startedAt: Date.now(),
+      connectionState: "connecting",
+      connectionLabel: "Connecting to live updates...",
+      lastEventAt: Date.now(),
     });
     setDemoRunning(true);
 
@@ -1557,11 +1564,15 @@ export default function WorkflowProductPage() {
         }
         if (token) headers["Authorization"] = `Bearer ${token}`;
       }
+      demoRunSessionPollRef.current?.abort();
+      demoRunSessionPollRef.current = null;
+      demoRunAbortRef.current = new AbortController();
 
       const response = await fetch("/api/flow/run", {
         method: "POST",
         headers,
         credentials: "include",
+        signal: demoRunAbortRef.current.signal,
         body: JSON.stringify({
           workflowId: listing.id,
           nodes: graph.nodes || [],
@@ -1571,6 +1582,7 @@ export default function WorkflowProductPage() {
           isDemo: !userId && !isDemoModeActive,
           deviceFingerprint,
           adminDemoToken: isDemoModeActive && listing?.demo_token ? listing.demo_token : undefined,
+          stream: true,
         }),
       });
 
@@ -1579,80 +1591,187 @@ export default function WorkflowProductPage() {
         throw new Error(error.error || `HTTP ${response.status}`);
       }
 
-      const result = await response.json();
-      if (!result.ok) {
-        throw new Error(result.error || "Execution failed");
+      const contentType = response.headers.get("content-type") || "";
+      const isStreaming = contentType.includes("ndjson");
+      let result: any = null;
+
+      if (isStreaming && response.body) {
+        let sseHandoffStarted = false;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const evt = JSON.parse(line);
+            if (evt.type === "run_bootstrap" && typeof evt.runId === "string") {
+              setDemoRunState((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      runId: evt.runId,
+                      runAccessToken:
+                        typeof evt.runAccessToken === "string" ? evt.runAccessToken : prev.runAccessToken,
+                    }
+                  : prev,
+              );
+              const sessionController = new AbortController();
+              demoRunSessionPollRef.current = sessionController;
+              void streamRunSession({
+                runId: evt.runId,
+                accessToken: headers.Authorization
+                  ? String(headers.Authorization).replace(/^Bearer\s+/i, "")
+                  : null,
+                runAccessToken:
+                  typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
+                signal: sessionController.signal,
+                onTransportState: async (transportState) => {
+                  setDemoRunState((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          connectionState:
+                            transportState === "connecting"
+                              ? "connecting"
+                              : transportState === "live"
+                                ? "live"
+                                : transportState === "reconnecting"
+                                  ? "reconnecting"
+                                  : "degraded",
+                          connectionLabel:
+                            transportState === "connecting"
+                              ? "Connecting to live updates..."
+                              : transportState === "reconnecting"
+                                ? "Reconnecting to live updates..."
+                                : transportState === "degraded"
+                                  ? "Live updates are slower right now."
+                                  : undefined,
+                        }
+                      : prev,
+                  );
+                },
+                onSnapshot: async (bootstrap) => {
+                  const nextState = buildWorkflowRunStateFromBootstrap({
+                    bootstrap,
+                    workflowId: listing.id,
+                    workflowName: listing.title || "Workflow",
+                    inputValues: processedInputs,
+                    runAccessToken:
+                      typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
+                    sourceGraph: toRuntimeGraph(graph),
+                  });
+                  setDemoRunState((prev) =>
+                    prev ? { ...prev, ...nextState } : (nextState as WorkflowRunState),
+                  );
+                },
+                onEvent: async (event) => {
+                  setDemoRunState((prev) =>
+                    prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
+                  );
+                },
+              }).catch((error) => {
+                if (sessionController.signal.aborted) return;
+                const message =
+                  error instanceof Error ? error.message : "Run session stream disconnected.";
+                setDemoRunState((prev) =>
+                  prev && prev.status !== "success" && prev.status !== "cancelled"
+                    ? {
+                        ...prev,
+                        connectionState: "degraded",
+                        connectionLabel: message,
+                      }
+                    : prev,
+                );
+              });
+
+              sseHandoffStarted = true;
+              drainReadableStream(reader);
+              break;
+            }
+            if (evt.type === "complete") {
+              result = evt;
+            }
+          }
+          if (sseHandoffStarted || result) break;
+        }
+        if (sseHandoffStarted) {
+          return;
+        }
+        if (!result || !result.ok) {
+          throw new Error(result?.error || "Execution failed");
+        }
+      } else {
+        result = await response.json();
+        if (!result.ok) {
+          throw new Error(result.error || "Execution failed");
+        }
+
+        const executionResult = result.result;
+        const logs = (executionResult.logs || []).map((log: any) => ({
+          t: log.timestamp || Date.now(),
+          level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
+          text: log.message || "",
+          nodeId: log.nodeId,
+          specId: log.specId,
+        }));
+        const steps = Object.entries(executionResult.nodeStatus || {}).map(
+          ([nodeId, status]: [string, any]) => {
+            const node = (graph.nodes || []).find((n: any) => n.id === nodeId);
+            const specId = node?.data?.specId || "default";
+            const nodeTitle = node?.data?.title || node?.data?.config?.name || specId;
+            const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
+            const statusMap: Record<string, "queued" | "running" | "done" | "error" | "skipped"> = {
+              idle: "queued",
+              ready: "queued",
+              running: "running",
+              success: "done",
+              failed: "error",
+              timeout: "error",
+              skipped: "skipped",
+            };
+            return {
+              id: nodeId,
+              title: nodeTitle,
+              detail: errorLog ? errorLog.text : undefined,
+              status: statusMap[status] || "queued",
+              icon: <Play className="h-4 w-4" />,
+              timestamp: Date.now(),
+            };
+          },
+        );
+
+        const outputs = extractWorkflowOutputs(graph.nodes || [])
+          .map((output) => {
+            const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+            if (!finalOutput) return null;
+            return {
+              ...output,
+              value: finalOutput.value,
+              type: typeof finalOutput.value === "string" ? "string" : "json",
+            };
+          })
+          .filter((o): o is NonNullable<typeof o> => o != null);
+
+        setDemoRunState({
+          ...demoRunState,
+          phase: "output",
+          status:
+            executionResult.workflowStatus === "completed" ||
+            executionResult.workflowStatus === "completed_with_skips"
+              ? "success"
+              : "error",
+          steps,
+          logs,
+          outputs,
+          finishedAt: Date.now(),
+        });
       }
-
-      const executionResult = result.result;
-      const logs = (executionResult.logs || []).map((log: any) => ({
-        t: log.timestamp || Date.now(),
-        level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
-        text: log.message || "",
-        nodeId: log.nodeId,
-        specId: log.specId,
-      }));
-
-      // Helper function to map node status
-      const mapNodeStatus = (
-        status: string,
-      ): "queued" | "running" | "done" | "error" | "skipped" => {
-        const map: Record<string, "queued" | "running" | "done" | "error" | "skipped"> = {
-          idle: "queued",
-          ready: "queued",
-          running: "running",
-          success: "done",
-          failed: "error",
-          timeout: "error",
-          skipped: "skipped",
-        };
-        return map[status] || "queued";
-      };
-
-      const steps = Object.entries(executionResult.nodeStatus || {}).map(
-        ([nodeId, status]: [string, any]) => {
-          const node = (graph.nodes || []).find((n: any) => n.id === nodeId);
-          const specId = node?.data?.specId || "default";
-          const nodeTitle = node?.data?.title || node?.data?.config?.name || specId;
-          const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
-          return {
-            id: nodeId,
-            title: nodeTitle,
-            detail: errorLog ? errorLog.text : undefined,
-            status: mapNodeStatus(status) as "queued" | "running" | "done" | "error" | "skipped",
-            icon: <Play className="h-4 w-4" />,
-            timestamp: Date.now(),
-          };
-        },
-      );
-
-      const outputs = extractWorkflowOutputs(graph.nodes || [])
-        .map((output) => {
-          const finalOutput = executionResult.finalOutputs?.find(
-            (fo: any) => fo.nodeId === output.nodeId,
-          );
-          if (!finalOutput) return null;
-          return {
-            ...output,
-            value: finalOutput.value,
-            type: typeof finalOutput.value === "string" ? "string" : "json",
-          };
-        })
-        .filter((o): o is NonNullable<typeof o> => o != null);
-
-      setDemoRunState({
-        ...demoRunState,
-        phase: "output",
-        status:
-          executionResult.workflowStatus === "completed" ||
-          executionResult.workflowStatus === "completed_with_skips"
-            ? "success"
-            : "error",
-        steps,
-        logs,
-        outputs,
-        finishedAt: Date.now(),
-      });
     } catch (error: any) {
       setDemoRunState({
         ...demoRunState,
@@ -1728,6 +1847,23 @@ export default function WorkflowProductPage() {
     loadMoreUpNext(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing?.id]);
+
+  useEffect(() => {
+    return () => {
+      demoRunAbortRef.current?.abort();
+      demoRunSessionPollRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      demoRunState?.status === "success" ||
+      demoRunState?.status === "error" ||
+      demoRunState?.status === "cancelled"
+    ) {
+      setDemoRunning(false);
+    }
+  }, [demoRunState?.status]);
 
   useEffect(() => {
     if (!upNextSentinelRef.current) return;
@@ -1921,20 +2057,38 @@ export default function WorkflowProductPage() {
       )}
 
       {/* Demo Run Modal */}
-      <PremiumWorkflowRunModal
+      <CustomerWorkflowRunModal
         open={demoRunModalOpen}
         onClose={() => {
-          if (demoRunState?.status !== "running" && demoRunState?.phase !== "executing") {
+          if (demoRunState?.status !== "running" && demoRunState?.status !== "cancelling") {
+            demoRunAbortRef.current?.abort();
+            demoRunSessionPollRef.current?.abort();
             setDemoRunModalOpen(false);
             setDemoRunState(null);
             setDemoExecutionGraph(null);
           }
         }}
         state={demoRunState}
-        onCancel={() => {
-          setDemoRunState((prev) =>
-            prev ? { ...prev, status: "error", error: "Cancelled by user" } : null,
-          );
+        onCancel={async () => {
+          if (demoRunState?.runId) {
+            try {
+              const accessToken = userId ? await getAccessToken() : null;
+              const headers: HeadersInit = { "Content-Type": "application/json" };
+              if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+              const query = demoRunState.runAccessToken
+                ? `?runAccessToken=${encodeURIComponent(demoRunState.runAccessToken)}`
+                : "";
+              await fetch(`/api/runs/${encodeURIComponent(demoRunState.runId)}/cancel${query}`, {
+                method: "POST",
+                headers,
+                credentials: "include",
+              });
+              setDemoRunState((prev) => (prev ? { ...prev, status: "cancelling", error: undefined } : null));
+              return;
+            } catch {}
+          }
+          demoRunAbortRef.current?.abort();
+          setDemoRunState((prev) => (prev ? { ...prev, status: "cancelled", error: undefined } : null));
           setDemoRunning(false);
         }}
         onRerun={() => {
@@ -1947,8 +2101,6 @@ export default function WorkflowProductPage() {
           setDemoRunModalOpen(false);
           grantAccessOrOpen();
         }}
-        remainingDemoRuns={listing ? getRemainingDemoRunsSync(listing.id, true) : undefined}
-        workflowId={listing?.id || undefined}
       />
 
       {/* Desktop top bar */}

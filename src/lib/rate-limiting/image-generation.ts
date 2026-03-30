@@ -60,86 +60,45 @@ export function extractClientIdentifier(req: Request): {
 }
 
 /**
- * Check if image generation is allowed for this user
- * Returns: 5 free images per user, then requires BYOK
+ * Check if image generation is allowed for this user (platform key).
+ * Signed-in users may use the platform OpenAI key without a per-user image cap.
+ * Anonymous users must provide their own API key.
  */
 export async function checkImageGenerationAllowed(
-  identifier: string,
-  identifierType: IdentifierType,
+  _identifier: string,
+  _identifierType: IdentifierType,
   userId?: string | null,
   hasApiKey: boolean = false,
 ): Promise<ImageGenerationCheck> {
   try {
-    // If no user ID, require API key (anonymous users must BYOK)
-    if (!userId) {
-      if (hasApiKey) {
-        return {
-          allowed: true,
-          requiresApiKey: false,
-          error: undefined,
-        };
-      }
+    if (hasApiKey) {
       return {
-        allowed: false,
-        requiresApiKey: true,
-        error: "Please sign in to get 5 free images, or provide your OpenAI API key.",
+        allowed: true,
+        requiresApiKey: false,
+        error: undefined,
       };
     }
-
-    const supabase = await createServerClient();
-
-    // Call the database function to check free tier limits
-    const { data, error } = await supabase.rpc("can_generate_image_free", {
-      p_user_id: userId,
-      p_has_api_key: hasApiKey,
-    });
-
-    if (error) {
-      const msg = error.message || String(error);
-      console.error("Error checking image generation limit:", error);
+    if (userId) {
       return {
-        allowed: false,
-        requiresApiKey: true,
-        error: msg
-          ? `Image limit check failed: ${msg}. You can still provide your OpenAI API key to generate images.`
-          : "Unable to verify image generation limits. Please provide your OpenAI API key.",
+        allowed: true,
+        requiresApiKey: false,
+        error: undefined,
       };
     }
-
-    if (!data) {
-      return {
-        allowed: false,
-        requiresApiKey: true,
-        error:
-          "Image limit check returned no data. If the problem persists, provide your OpenAI API key to generate images.",
-      };
-    }
-
-    const result = data as {
-      allowed: boolean;
-      requires_api_key: boolean;
-      free_remaining?: number;
-      free_used?: number;
-      reason?: string;
-      error?: string;
-    };
-
     return {
-      allowed: result.allowed === true,
-      requiresApiKey: result.requires_api_key === true,
-      freeRemaining: result.free_remaining,
-      freeUsed: result.free_used,
-      error: result.error,
+      allowed: false,
+      requiresApiKey: true,
+      error: "Please sign in or provide your OpenAI API key.",
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("Exception checking image generation limit:", err);
+    console.error("Exception checking image generation allowance:", err);
     return {
       allowed: false,
       requiresApiKey: true,
       error: msg
-        ? `Image limit check error: ${msg}. You can provide your OpenAI API key to generate images.`
-        : "Error checking image generation limits. Please provide your OpenAI API key.",
+        ? `Could not verify image generation eligibility: ${msg}. You can provide your OpenAI API key to generate images.`
+        : "Could not verify image generation eligibility. Please provide your OpenAI API key.",
     };
   }
 }

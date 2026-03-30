@@ -405,7 +405,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Sidebar — fixed, doesn't scroll */}
-      <aside className="hidden md:flex w-[240px] lg:w-[280px] shrink-0 border-r border-white/[0.08] bg-[#0a0a0a]/95 flex-col h-full overflow-hidden">
+      <aside className="hidden lg:flex w-[240px] lg:w-[280px] shrink-0 border-r border-white/[0.08] bg-[#0a0a0a]/95 flex-col h-full overflow-hidden">
         <div className="p-6 lg:p-8 border-b border-white/[0.08]">
           <Link
             href="/library"
@@ -458,7 +458,7 @@ export default function SettingsPage() {
       <main className="flex-1 min-w-0 h-full flex flex-col overflow-y-auto overflow-x-hidden">
         <div className="flex-1 w-full max-w-4xl mx-auto px-6 sm:px-8 lg:px-12 py-8 sm:py-12 lg:py-16 pb-16">
           {/* Desktop: show active section only */}
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             {activeSection === "account" && (
               <section id="account" className="space-y-8">
                 <div>
@@ -567,8 +567,8 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Mobile: show all sections vertically with clear separators */}
-          <div className="md:hidden space-y-16">
+          {/* Phone/tablet: show all sections vertically with clear separators */}
+          <div className="lg:hidden space-y-16">
             {/* Account Section */}
             <section id="account-mobile" className="space-y-8">
               <div className="pb-4 border-b border-white/[0.12]">

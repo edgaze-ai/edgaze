@@ -120,7 +120,7 @@ export async function runFlow(
     const config = node.data?.config ?? {};
 
     const canonical = canonicalSpecId(specId);
-    if (canonical === "llm-chat" || canonical === "claude-chat" || canonical === "gemini-chat") {
+    if (canonical === "llm-chat") {
       const estimatedPrompt = config.prompt || "";
       const tokenCount = countChatTokens({
         prompt: estimatedPrompt,
@@ -378,8 +378,14 @@ export async function runFlow(
     const config = node.data?.config ?? {};
     const DEFAULT_TIMEOUT_MS = 120_000; // 2 minutes — no node should run unbounded
     const configTimeout = Number(config.timeout ?? 0);
-    const timeoutMs =
+    let timeoutMs =
       configTimeout > 0 && !Number.isNaN(configTimeout) ? configTimeout : DEFAULT_TIMEOUT_MS;
+    const canonicalForTimeout = canonicalSpecId(specId);
+    const isLlmChatLike = canonicalForTimeout === "llm-chat";
+    // Legacy OpenAI Chat stored 30s; unified LLM calls routinely exceed that.
+    if (isLlmChatLike && timeoutMs < DEFAULT_TIMEOUT_MS) {
+      timeoutMs = DEFAULT_TIMEOUT_MS;
+    }
     const hasSideEffects = nodeHasSideEffects(specId, config);
     const retries = hasSideEffects
       ? typeof config.retries === "number"
@@ -599,8 +605,6 @@ export async function runFlow(
     "llm-chat",
     "llm-embeddings",
     "llm-image",
-    "claude-chat",
-    "gemini-chat",
     "openai-chat",
     "openai-embeddings",
     "openai-image",
@@ -614,7 +618,7 @@ export async function runFlow(
     for (const sid of srcs) {
       const node = nodeById.get(sid);
       const specId = node?.data?.specId ?? "";
-      if (PROCESSING_SPECS.has(specId)) return true;
+      if (PROCESSING_SPECS.has(specId) || PROCESSING_SPECS.has(canonicalSpecId(specId))) return true;
       if (hasProcessingUpstream(sid, visited)) return true;
     }
     return false;

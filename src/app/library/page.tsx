@@ -534,8 +534,8 @@ export default function LibraryPage() {
 
     // Check if mobile - use media query for reliability
     const checkAndSetScrolling = () => {
-      // Use matchMedia for more reliable mobile detection (matches Tailwind sm breakpoint)
-      const isMobile = window.matchMedia("(max-width: 639px)").matches;
+      // Tablet + phone: natural page scroll (matches Tailwind below-lg, same as landing shell)
+      const isMobile = window.matchMedia("(max-width: 1023px)").matches;
 
       if (isMobile) {
         // Mobile: MUST allow natural scrolling - add class for CSS override
@@ -576,7 +576,7 @@ export default function LibraryPage() {
     }, 10);
 
     // Handle resize with media query listener for better reliability
-    const mediaQuery = window.matchMedia("(max-width: 639px)");
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
     const handleMediaChange = () => {
       checkAndSetScrolling();
     };

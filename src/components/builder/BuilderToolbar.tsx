@@ -184,7 +184,7 @@ export function BuilderToolbar({
       </div>
 
       {/* Center: Undo / Redo / Grid / Lock / Fullscreen */}
-      <div className="hidden md:flex items-center gap-1 shrink-0">
+      <div className="hidden lg:flex items-center gap-1 shrink-0">
         <button
           onClick={onUndo}
           disabled={undoStack.length === 0}
@@ -256,7 +256,7 @@ export function BuilderToolbar({
         <button
           onClick={onToggleBlocks}
           className={cx(
-            "hidden md:flex w-8 h-8 rounded-lg items-center justify-center transition-colors",
+            "hidden lg:flex w-8 h-8 rounded-lg items-center justify-center transition-colors",
             windowsBlocksVisible && "border",
           )}
           style={{
@@ -271,7 +271,7 @@ export function BuilderToolbar({
         <button
           onClick={onToggleInspector}
           className={cx(
-            "hidden md:flex w-8 h-8 rounded-lg items-center justify-center transition-colors",
+            "hidden lg:flex w-8 h-8 rounded-lg items-center justify-center transition-colors",
             windowsInspectorVisible && "border",
           )}
           style={{

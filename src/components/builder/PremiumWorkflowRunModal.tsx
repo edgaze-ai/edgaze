@@ -24,10 +24,31 @@ import {
 } from "lucide-react";
 import { cx } from "../../lib/cx";
 import { track } from "../../lib/mixpanel";
+import type {
+  RunStepStatus,
+  WorkflowInput,
+  WorkflowRunLogLine,
+  WorkflowRunState,
+  WorkflowRunStep,
+} from "../../lib/workflow/run-types";
 import { simplifyWorkflowError } from "../../lib/workflow/simplify-error";
-import { PREMIUM_AI_SPEC_IDS, providerForAiSpec } from "../../lib/workflow/spec-id-aliases";
+import {
+  brandIconPathForSpec,
+  canonicalSpecId,
+  isPremiumAiSpec,
+  providerForAiSpec,
+} from "../../lib/workflow/spec-id-aliases";
 import { WorkflowInputField } from "./WorkflowInputField";
 import RunCountDiagnosticModal from "./RunCountDiagnosticModal";
+import CustomerWorkflowRuntimeSurface from "../runtime/customer/CustomerWorkflowRuntimeSurface";
+
+export type {
+  RunStepStatus,
+  WorkflowInput,
+  WorkflowRunLogLine,
+  WorkflowRunState,
+  WorkflowRunStep,
+} from "../../lib/workflow/run-types";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -35,67 +56,11 @@ function safeTrack(event: string, props?: Record<string, any>) {
   } catch {}
 }
 
-export type RunPhase = "input" | "executing" | "output";
-
-export type RunStepStatus = "queued" | "running" | "done" | "error" | "skipped";
-
-export type WorkflowRunStep = {
-  id: string;
-  title: string;
-  detail?: string;
-  status: RunStepStatus;
-  icon?: React.ReactNode;
-  timestamp?: number;
-};
-
-export type WorkflowRunLogLine = {
-  t: number;
-  level: "info" | "warn" | "error";
-  text: string;
-  nodeId?: string;
-  specId?: string;
-};
-
-export type WorkflowInput = {
-  nodeId: string;
-  specId: string;
-  name: string;
-  description?: string;
-  type: "text" | "number" | "textarea" | "url" | "file" | "json";
-  required: boolean;
-  placeholder?: string;
-  defaultValue?: string;
-};
-
-export type WorkflowRunState = {
-  workflowId: string;
-  workflowName: string;
-  phase: RunPhase;
-  status: "idle" | "running" | "success" | "error";
-  startedAt?: number;
-  finishedAt?: number;
-  steps: WorkflowRunStep[];
-  currentStepId?: string | null;
-  logs: WorkflowRunLogLine[];
-  summary?: string;
-  inputs?: WorkflowInput[];
-  inputValues?: Record<string, any>;
-  outputs?: Array<{ nodeId: string; label: string; value: any; type?: string }>;
-  outputsByNode?: Record<string, unknown>;
-  error?: string;
-  graph?: {
-    nodes: Array<{ id: string; data: { specId?: string; title?: string; config?: any } }>;
-    edges: Array<{ source: string; target: string }>;
-  };
-};
-
 const STEP_ICONS: Record<string, React.ReactNode> = {
   input: <ArrowRight className="h-4 w-4" />,
   "llm-chat": <Zap className="h-4 w-4" />,
   "llm-embeddings": <Code className="h-4 w-4" />,
   "llm-image": <ImageIcon className="h-4 w-4" />,
-  "claude-chat": <Zap className="h-4 w-4" />,
-  "gemini-chat": <Zap className="h-4 w-4" />,
   "openai-chat": <Zap className="h-4 w-4" />,
   "openai-embeddings": <Code className="h-4 w-4" />,
   "openai-image": <ImageIcon className="h-4 w-4" />,
@@ -107,18 +72,18 @@ const STEP_ICONS: Record<string, React.ReactNode> = {
 };
 
 function getStepIcon(specId: string): React.ReactNode {
-  return STEP_ICONS[specId] || STEP_ICONS.default;
+  const c = canonicalSpecId(specId);
+  return STEP_ICONS[specId] || STEP_ICONS[c] || STEP_ICONS.default;
 }
 
 function humanReadableStep(specId: string, nodeTitle?: string): string {
   const title = nodeTitle || specId;
+  const c = canonicalSpecId(specId);
   const map: Record<string, string> = {
     input: "Collecting input data",
     "llm-chat": "Processing with AI",
     "llm-embeddings": "Generating embeddings",
     "llm-image": "Creating image",
-    "claude-chat": "Processing with Claude",
-    "gemini-chat": "Processing with Gemini",
     "openai-chat": "Processing with AI",
     "openai-embeddings": "Generating embeddings",
     "openai-image": "Creating image",
@@ -127,7 +92,7 @@ function humanReadableStep(specId: string, nodeTitle?: string): string {
     transform: "Transforming data",
     output: "Preparing output",
   };
-  return map[specId] || `Executing ${title}`;
+  return map[specId] || map[c] || `Executing ${title}`;
 }
 
 /** Human-friendly title: remove tech, trim, limit. Fallback "Next step". */
@@ -234,11 +199,12 @@ function CinematicRunView({ state, isStopping }: { state: WorkflowRunState; isSt
   }, [displayStepTitle, isFinalizing]);
 
   useEffect(() => {
-    if (viewPhase === "live") return;
-    const hasActive = steps.some((s) => s.status === "running");
-    const timer = setTimeout(() => setViewPhase("live"), hasActive ? 0 : 1200);
-    return () => clearTimeout(timer);
-  }, [viewPhase, steps]);
+    const hasRuntimeSignal =
+      Boolean(state.startedAt) ||
+      (state.lastEventSequence ?? 0) > 0 ||
+      steps.some((step) => step.status === "running" || step.status === "queued" || step.status === "done");
+    queueMicrotask(() => setViewPhase(hasRuntimeSignal ? "live" : "preparing"));
+  }, [state.startedAt, state.lastEventSequence, steps]);
 
   useEffect(() => {
     if (viewPhase !== "preparing") return;
@@ -658,21 +624,14 @@ function PremiumStepView({
     return raw;
   };
 
-  const isOpenAIChat = (specId: string) => {
-    return specId === "llm-chat" || specId === "openai-chat";
-  };
-
-  const getNodeIcon = (specId: string) => {
-    if (specId === "llm-chat" || specId === "openai-chat") {
-      return <img src="/misc/chatgpt.png" alt="ChatGPT" className="h-6 w-6 object-contain" />;
+  const getNodeIcon = (nodeId: string) => {
+    const sid = getNodeSpecId(nodeId);
+    const cfg = nodeMap.get(nodeId)?.data?.config as Record<string, unknown> | undefined;
+    const path = brandIconPathForSpec(sid, cfg);
+    if (path) {
+      return <img src={path} alt="" className="h-6 w-6 object-contain" />;
     }
-    if (specId === "claude-chat") {
-      return <img src="/misc/claude.png" alt="Claude" className="h-6 w-6 object-contain" />;
-    }
-    if (specId === "gemini-chat") {
-      return <img src="/misc/gemini.png" alt="Gemini" className="h-6 w-6 object-contain" />;
-    }
-    return getStepIcon(specId);
+    return getStepIcon(sid);
   };
 
   // Determine which steps should be visible (one by one as they execute)
@@ -731,9 +690,14 @@ function PremiumStepView({
           >
             <StepBox
               title={getNodeTitle(nodeId)}
-              icon={getNodeIcon(specId)}
+              icon={getNodeIcon(nodeId)}
               output={isExecuting ? output : output} // Show output during execution if available
-              isOpenAI={isOpenAIChat(specId)}
+              isOpenAI={
+                providerForAiSpec(
+                  specId,
+                  nodeMap.get(nodeId)?.data?.config as Record<string, unknown> | undefined,
+                ) === "openai"
+              }
               status={status}
               onCopy={
                 output !== undefined && !isExecuting ? () => onCopyOutput(output, idx) : undefined
@@ -978,10 +942,18 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
     return <div className={cx("text-sm italic", textColorMuted)}>No value</div>;
   }
 
-  // Recovery: if the value is literally "[object Object]" (leaked from server-side String() coercion),
-  // try to parse it as something useful, or silently drop it
-  if (typeof value === "string" && /^\[object\s+\w+\]$/.test(value.trim())) {
-    return <div className={cx("text-sm italic", textColorMuted)}>No output was produced.</div>;
+  // Recovery: strip "[object Object]" lines leaked from server-side String() coercion.
+  // Handles both standalone and mixed-in cases (e.g. "[object Object]\n\nfrance\n\n[object Object]").
+  if (typeof value === "string" && value.includes("[object Object]")) {
+    const cleaned = value
+      .split(/\n+/)
+      .filter((line) => !/^\[object\s+\w+\]$/.test(line.trim()))
+      .join("\n\n")
+      .trim();
+    if (!cleaned) {
+      return <div className={cx("text-sm italic", textColorMuted)}>No output was produced.</div>;
+    }
+    return <PremiumOutputDisplay value={cleaned} isOpenAI={isOpenAI} />;
   }
 
   if (typeof value === "string") {
@@ -1244,6 +1216,27 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
     );
   }
   if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    // Workflow input node shape { question, value } — value may be non-string (never render as [object Object])
+    if (
+      !Array.isArray(value) &&
+      "value" in obj &&
+      "question" in obj &&
+      typeof obj.question === "string"
+    ) {
+      const inner = obj.value;
+      return (
+        <div className={cx("space-y-2 rounded-lg border p-3", borderColor, bgColor)}>
+          <div className={cx("text-[11px] font-medium uppercase tracking-wider", textColorMuted)}>
+            {obj.question}
+          </div>
+          <div className={textColor}>
+            <PremiumOutputDisplay value={inner} isOpenAI={isOpenAI} />
+          </div>
+        </div>
+      );
+    }
+
     // Always try to extract displayable content from API-style objects (OpenAI, etc.)
     // Workflow outputs often pass through raw API responses - extract text to avoid "[object Object]"
     const extracted = extractOpenAIDisplayContent(value);
@@ -1321,7 +1314,6 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
       "count",
     ]);
 
-    const obj = value as Record<string, unknown>;
     // Try to find a single string value by scanning all non-metadata keys
     for (const [k, v] of Object.entries(obj)) {
       if (metadataFields.has(k.toLowerCase())) continue;
@@ -1377,6 +1369,752 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
 
 export type BuilderRunLimit = { used: number; limit: number; isAdmin?: boolean };
 
+type ExecutionNodeView = {
+  id: string;
+  title: string;
+  specId: string;
+  status: RunStepStatus;
+  detail?: string;
+  config?: unknown;
+  output?: unknown;
+  input?: unknown;
+  attempts?: Array<{
+    attemptNumber: number;
+    status: string;
+    materializedInput?: unknown;
+    outputPayload?: unknown;
+    errorPayload?: unknown;
+    startedAt?: string | null;
+    endedAt?: string | null;
+    durationMs?: number | null;
+  }>;
+  dependencyState?: Array<{ dependencyNodeId: string; status: string }>;
+  logs: WorkflowRunLogLine[];
+  step?: WorkflowRunStep;
+};
+
+type ExecutionTimelineEntry = {
+  id: string;
+  t: number;
+  text: string;
+  level: "info" | "warn" | "error";
+  nodeId?: string;
+};
+
+function formatDurationMs(durationMs: number): string {
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return "0s";
+  if (durationMs < 1000) return `${durationMs}ms`;
+  const seconds = Math.floor(durationMs / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+function formatRelativeClock(timestamp?: number): string {
+  if (!timestamp || !Number.isFinite(timestamp)) return "Pending";
+  return new Date(timestamp).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function readSessionPayloadValue(reference: unknown): unknown {
+  if (
+    reference &&
+    typeof reference === "object" &&
+    !Array.isArray(reference) &&
+    "storageKind" in (reference as Record<string, unknown>)
+  ) {
+    return (reference as Record<string, unknown>).value;
+  }
+  return reference;
+}
+
+/** Strip nested inline payload envelopes (flow v2) so UI shows real data, not opaque refs. */
+function unwrapInlinePayloadDeep(reference: unknown): unknown {
+  let cur: unknown = reference;
+  while (
+    cur &&
+    typeof cur === "object" &&
+    !Array.isArray(cur) &&
+    "storageKind" in (cur as Record<string, unknown>)
+  ) {
+    cur = readSessionPayloadValue(cur);
+  }
+  if (Array.isArray(cur)) return cur.map(unwrapInlinePayloadDeep);
+  return cur;
+}
+
+/**
+ * Unwrap input-node { value, question } and condition { __conditionResult, __passthrough }
+ * shapes so the UI shows the actual user-facing data, not opaque wrapper objects.
+ */
+function unwrapNodeValueForDisplay(v: unknown): unknown {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return v;
+  const obj = v as Record<string, unknown>;
+  if ("value" in obj && "question" in obj) {
+    return obj.value;
+  }
+  if ("__conditionResult" in obj && "__passthrough" in obj) {
+    return unwrapNodeValueForDisplay(obj.__passthrough);
+  }
+  return v;
+}
+
+/**
+ * Frozen materialized input from the runner wraps port values; flatten to the actual prompt/data
+ * so "Resolved input" matches what handlers see (avoids confusing port metadata trees).
+ */
+function unwrapMaterializedInputForDisplay(materialized: unknown): unknown {
+  const v = unwrapInlinePayloadDeep(readSessionPayloadValue(materialized));
+  if (!v || typeof v !== "object" || Array.isArray(v)) return v;
+  const rec = v as Record<string, unknown>;
+  const ports = rec.ports;
+  if (ports && typeof ports === "object" && !Array.isArray(ports)) {
+    const portMap = ports as Record<string, unknown>;
+    const keys = Object.keys(portMap);
+    if (keys.length === 1) {
+      const pdata = portMap[keys[0]!];
+      if (pdata && typeof pdata === "object" && !Array.isArray(pdata) && "value" in pdata) {
+        return unwrapNodeValueForDisplay(
+          unwrapInlinePayloadDeep((pdata as Record<string, unknown>).value),
+        );
+      }
+    }
+    const out: Record<string, unknown> = {};
+    for (const [pid, pdata] of Object.entries(portMap)) {
+      if (pdata && typeof pdata === "object" && !Array.isArray(pdata) && "value" in pdata) {
+        out[pid] = unwrapNodeValueForDisplay(
+          unwrapInlinePayloadDeep((pdata as Record<string, unknown>).value),
+        );
+      }
+    }
+    return Object.keys(out).length > 0 ? out : v;
+  }
+  return unwrapNodeValueForDisplay(v);
+}
+
+function sortNodeIdsStable(ids: string[]): string[] {
+  return [...ids].sort((a, b) => a.localeCompare(b));
+}
+
+function getDeterministicNodeOrder(state: WorkflowRunState): string[] {
+  const graphNodes = state.graph?.nodes ?? [];
+  const graphEdges = state.graph?.edges ?? [];
+  if (!graphNodes.length) {
+    return state.steps.map((step) => step.id);
+  }
+
+  const nodeIds = graphNodes.map((node) => node.id);
+  const indegree = new Map<string, number>();
+  const outgoing = new Map<string, string[]>();
+
+  for (const nodeId of nodeIds) {
+    indegree.set(nodeId, 0);
+    outgoing.set(nodeId, []);
+  }
+
+  for (const edge of graphEdges) {
+    if (!indegree.has(edge.source) || !indegree.has(edge.target)) continue;
+    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
+    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge.target]);
+  }
+
+  const ready = sortNodeIdsStable(
+    nodeIds.filter((nodeId) => (indegree.get(nodeId) ?? 0) === 0),
+  );
+  const order: string[] = [];
+
+  while (ready.length > 0) {
+    const current = ready.shift();
+    if (!current) break;
+    order.push(current);
+
+    const nextTargets = sortNodeIdsStable(outgoing.get(current) ?? []);
+    for (const target of nextTargets) {
+      const nextDegree = (indegree.get(target) ?? 1) - 1;
+      indegree.set(target, nextDegree);
+      if (nextDegree === 0) {
+        ready.push(target);
+        ready.sort((a, b) => a.localeCompare(b));
+      }
+    }
+  }
+
+  const remaining = nodeIds.filter((nodeId) => !order.includes(nodeId));
+  if (remaining.length > 0) {
+    order.push(...sortNodeIdsStable(remaining));
+  }
+
+  return order;
+}
+
+function getNodeStatusForExecution(
+  state: WorkflowRunState,
+  nodeId: string,
+  specId?: string,
+): RunStepStatus {
+  const step = state.steps.find((item) => item.id === nodeId);
+  if (step?.status) return step.status;
+
+  if (specId === "input" && state.phase !== "input") {
+    const hasInputValue =
+      state.inputValues && Object.prototype.hasOwnProperty.call(state.inputValues, nodeId);
+    return hasInputValue ? "done" : "queued";
+  }
+
+  if (state.status === "success" && state.phase === "output") {
+    return "done";
+  }
+
+  return "queued";
+}
+
+function getNodeOutputValue(state: WorkflowRunState, nodeId: string): unknown {
+  const sessionNode = state.session?.nodesById?.[nodeId];
+  const sessionOutput = readSessionPayloadValue(sessionNode?.outputPayload);
+  if (sessionOutput !== undefined) {
+    return unwrapNodeValueForDisplay(sessionOutput);
+  }
+  if (state.outputsByNode && Object.prototype.hasOwnProperty.call(state.outputsByNode, nodeId)) {
+    return unwrapNodeValueForDisplay(state.outputsByNode[nodeId]);
+  }
+  const outputMatch = state.outputs?.find((output) => output.nodeId === nodeId);
+  return outputMatch ? unwrapNodeValueForDisplay(outputMatch.value) : undefined;
+}
+
+function getNodeResolvedInput(state: WorkflowRunState, nodeId: string, specId?: string): unknown {
+  const latestAttempt = state.session?.attemptsByNodeId?.[nodeId]?.slice(-1)[0];
+  const materializedInput = readSessionPayloadValue(latestAttempt?.materializedInput);
+  if (materializedInput !== undefined) {
+    return unwrapMaterializedInputForDisplay(materializedInput);
+  }
+  const sessionNodeInput = readSessionPayloadValue(state.session?.nodesById?.[nodeId]?.inputPayload);
+  if (sessionNodeInput !== undefined) {
+    return unwrapMaterializedInputForDisplay(sessionNodeInput);
+  }
+  if (specId === "input") {
+    const fromForm = state.inputValues?.[nodeId];
+    if (fromForm !== undefined) return fromForm;
+    return state.session?.runInput?.[nodeId];
+  }
+
+  const edges = state.graph?.edges ?? [];
+  const nodes = state.graph?.nodes ?? [];
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+  const inbound = [...edges]
+    .filter((edge) => edge.target === nodeId)
+    .sort((a, b) =>
+      `${a.source}:${a.target}`.localeCompare(`${b.source}:${b.target}`),
+    );
+
+  if (inbound.length === 0) {
+    return undefined;
+  }
+
+  const resolved: Record<string, unknown> = {};
+  for (const edge of inbound) {
+    const sourceNode = nodeMap.get(edge.source);
+    const key =
+      sourceNode?.data?.title ||
+      sourceNode?.data?.config?.name ||
+      sourceNode?.data?.specId ||
+      edge.source;
+
+    let rawVal: unknown;
+    if (state.outputsByNode && Object.prototype.hasOwnProperty.call(state.outputsByNode, edge.source)) {
+      rawVal = state.outputsByNode[edge.source];
+    } else {
+      const upstreamOutput = state.outputs?.find((output) => output.nodeId === edge.source);
+      if (upstreamOutput) {
+        rawVal = upstreamOutput.value;
+      }
+    }
+    if (rawVal !== undefined) {
+      resolved[key] = unwrapNodeValueForDisplay(rawVal);
+    }
+  }
+
+  return Object.keys(resolved).length > 0 ? resolved : undefined;
+}
+
+function buildExecutionNodes(state: WorkflowRunState): ExecutionNodeView[] {
+  const nodeMap = new Map((state.graph?.nodes ?? []).map((node) => [node.id, node]));
+  const stepMap = new Map(state.steps.map((step) => [step.id, step]));
+  const graphOrder = getDeterministicNodeOrder(state);
+  const supplementalIds = state.steps
+    .map((step) => step.id)
+    .filter((stepId) => !graphOrder.includes(stepId));
+  const orderedIds = [...graphOrder, ...supplementalIds];
+
+  return orderedIds.map((nodeId) => {
+    const graphNode = nodeMap.get(nodeId);
+    const specId = graphNode?.data?.specId || "default";
+    const step = stepMap.get(nodeId);
+    const logs = (state.logs ?? []).filter((log) => log.nodeId === nodeId);
+    const detail = step?.detail || logs.find((log) => log.level === "error")?.text;
+
+    return {
+      id: nodeId,
+      title:
+        graphNode?.data?.title ||
+        graphNode?.data?.config?.name ||
+        step?.title ||
+        humanReadableStep(specId),
+      specId,
+      status: getNodeStatusForExecution(state, nodeId, specId),
+      detail,
+      config: graphNode?.data?.config,
+      output: getNodeOutputValue(state, nodeId),
+      input: getNodeResolvedInput(state, nodeId, specId),
+      attempts: state.session?.attemptsByNodeId?.[nodeId] ?? [],
+      dependencyState: state.session?.dependencyStateByNodeId?.[nodeId] ?? [],
+      logs,
+      step,
+    };
+  });
+}
+
+function buildTimelineEntries(
+  state: WorkflowRunState,
+  nodes: ExecutionNodeView[],
+): ExecutionTimelineEntry[] {
+  const items: ExecutionTimelineEntry[] = [];
+
+  for (const node of nodes) {
+    if (!node.step?.timestamp) continue;
+    const text =
+      node.status === "running"
+        ? `${node.title} started`
+        : node.status === "done"
+          ? `${node.title} completed`
+          : node.status === "error"
+            ? `${node.title} failed`
+            : node.status === "cancelled"
+              ? `${node.title} cancelled`
+            : node.status === "skipped"
+              ? `${node.title} skipped`
+              : `${node.title} queued`;
+
+    items.push({
+      id: `step-${node.id}-${node.status}`,
+      t: node.step.timestamp,
+      text,
+      level: node.status === "error" ? "error" : "info",
+      nodeId: node.id,
+    });
+  }
+
+  for (const [index, log] of (state.logs ?? []).entries()) {
+    items.push({
+      id: `log-${index}-${log.nodeId ?? "global"}`,
+      t: log.t ?? state.startedAt ?? Date.now(),
+      text: log.text,
+      level: log.level,
+      nodeId: log.nodeId,
+    });
+  }
+
+  return items.sort((a, b) => b.t - a.t);
+}
+
+function getStatusBadge(status: RunStepStatus, statusLabel?: string) {
+  if (status === "running") {
+    return {
+      label: statusLabel || "Running",
+      className: "border-cyan-400/30 bg-cyan-400/10 text-cyan-200",
+    };
+  }
+  if (status === "done") {
+    return {
+      label: statusLabel || "Completed",
+      className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
+    };
+  }
+  if (status === "error") {
+    return {
+      label: statusLabel || "Failed",
+      className: "border-red-400/30 bg-red-400/10 text-red-200",
+    };
+  }
+  if (status === "skipped") {
+    return {
+      label: statusLabel || "Skipped",
+      className: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+    };
+  }
+  if (status === "cancelled") {
+    return {
+      label: statusLabel || "Cancelled",
+      className: "border-amber-400/30 bg-amber-400/10 text-amber-200",
+    };
+  }
+  return {
+    label: statusLabel || "Queued",
+    className: "border-white/10 bg-white/5 text-white/65",
+  };
+}
+
+function JsonValueCard({
+  title,
+  value,
+  emptyLabel = "Not available for this run.",
+}: {
+  title: string;
+  value: unknown;
+  emptyLabel?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+        {title}
+      </div>
+      <div className="mt-3">
+        {value === undefined ? (
+          <div className="text-sm text-white/40">{emptyLabel}</div>
+        ) : (
+          <PremiumOutputDisplay value={value} isOpenAI={false} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LiveExecutionViewer({
+  state,
+  isStopping,
+}: {
+  state: WorkflowRunState;
+  isStopping: boolean;
+}) {
+  const nodes = useMemo(() => buildExecutionNodes(state), [state]);
+  const timeline = useMemo(() => buildTimelineEntries(state, nodes), [state, nodes]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  const selectedFallbackNodeId = useMemo(() => {
+    return (
+      state.currentStepId ||
+      nodes.find((node) => node.status === "error")?.id ||
+      nodes.find((node) => node.status === "running")?.id ||
+      nodes[0]?.id ||
+      null
+    );
+  }, [nodes, state.currentStepId]);
+
+  useEffect(() => {
+    if (!selectedNodeId || !nodes.some((node) => node.id === selectedNodeId)) {
+      setSelectedNodeId(selectedFallbackNodeId);
+      return;
+    }
+
+    if (state.currentStepId && state.currentStepId !== selectedNodeId) {
+      const currentNode = nodes.find((node) => node.id === state.currentStepId);
+      if (currentNode?.status === "running") {
+        setSelectedNodeId(state.currentStepId);
+      }
+    }
+  }, [nodes, selectedFallbackNodeId, selectedNodeId, state.currentStepId]);
+
+  const selectedNode =
+    nodes.find((node) => node.id === selectedNodeId) ?? nodes[0] ?? null;
+  const completedCount = nodes.filter((node) => node.status === "done").length;
+  const failedCount = nodes.filter((node) => node.status === "error").length;
+  const runningNode = nodes.find((node) => node.status === "running");
+  const durationMs = state.startedAt
+    ? (state.finishedAt ?? Date.now()) - state.startedAt
+    : 0;
+  const runError = sanitizeErrorForDisplay(state.error);
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="border-b border-white/10 px-6 py-5">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+              Status
+            </div>
+            <div className="mt-2 text-lg font-semibold text-white">
+              {isStopping
+                ? "Stopping after current step"
+                : state.status === "running"
+                  ? "Live execution"
+                  : state.status === "success"
+                    ? "Run completed"
+                    : "Run failed"}
+            </div>
+            <div className="mt-1 text-sm text-white/55">
+              {runningNode
+                ? `Currently executing ${runningNode.title}`
+                : state.status === "success"
+                  ? "All terminal nodes finished."
+                  : state.status === "error"
+                    ? runError
+                    : "Waiting for workflow activity."}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+              Progress
+            </div>
+            <div className="mt-2 text-lg font-semibold text-white">
+              {completedCount} / {nodes.length} nodes completed
+            </div>
+            <div className="mt-1 text-sm text-white/55">
+              {failedCount > 0
+                ? `${failedCount} node${failedCount === 1 ? "" : "s"} failed`
+                : `${nodes.filter((node) => node.status === "queued").length} queued`}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+              Runtime
+            </div>
+            <div className="mt-2 text-lg font-semibold text-white">
+              {formatDurationMs(durationMs)}
+            </div>
+            <div className="mt-1 text-sm text-white/55">
+              Started {formatRelativeClock(state.startedAt)}
+            </div>
+          </div>
+        </div>
+
+        {state.status === "error" && (
+          <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
+            {runError}
+          </div>
+        )}
+      </div>
+
+      <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+        <div className="min-h-0 overflow-auto px-6 py-5">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 px-4 py-3">
+              <div className="text-sm font-semibold text-white">Execution graph</div>
+              <div className="text-xs text-white/45">
+                Every node is shown in deterministic order.
+              </div>
+            </div>
+            <div className="divide-y divide-white/8">
+              {nodes.map((node, index) => {
+                const badge = getStatusBadge(node.status, node.step?.statusLabel);
+                const isSelected = node.id === selectedNode?.id;
+                const outputPreview =
+                  typeof node.output === "string" && node.output.trim()
+                    ? node.output.trim().slice(0, 96)
+                    : null;
+
+                return (
+                  <button
+                    key={node.id}
+                    type="button"
+                    onClick={() => setSelectedNodeId(node.id)}
+                    className={cx(
+                      "w-full px-4 py-4 text-left transition-colors",
+                      isSelected ? "bg-white/[0.06]" : "hover:bg-white/[0.03]",
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-black/30 text-xs font-semibold text-white/70">
+                        {index + 1}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="truncate text-sm font-semibold text-white">
+                            {node.title}
+                          </div>
+                          <span
+                            className={cx(
+                              "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                              badge.className,
+                            )}
+                          >
+                            {node.status === "running" && (
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            )}
+                            {badge.label}
+                          </span>
+                        </div>
+
+                        <div className="mt-1 text-xs text-white/45">
+                          {node.specId} · {formatRelativeClock(node.step?.timestamp)}
+                        </div>
+
+                        {node.detail && (
+                          <div className="mt-2 text-sm text-white/65 line-clamp-2">{node.detail}</div>
+                        )}
+
+                        {!node.detail && outputPreview && (
+                          <div className="mt-2 text-sm text-white/55 line-clamp-2">
+                            {outputPreview}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03]">
+            <div className="border-b border-white/10 px-4 py-3">
+              <div className="text-sm font-semibold text-white">Activity timeline</div>
+              <div className="text-xs text-white/45">Newest event first.</div>
+            </div>
+            <div className="max-h-[360px] overflow-auto px-4 py-3">
+              {timeline.length === 0 ? (
+                <div className="text-sm text-white/40">No activity has been recorded yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {timeline.map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="rounded-xl border border-white/8 bg-black/20 px-3 py-2"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div
+                          className={cx(
+                            "text-sm",
+                            entry.level === "error"
+                              ? "text-red-200"
+                              : entry.level === "warn"
+                                ? "text-amber-100"
+                                : "text-white/80",
+                          )}
+                        >
+                          {entry.text}
+                        </div>
+                        <div className="shrink-0 text-[11px] text-white/35">
+                          {formatRelativeClock(entry.t)}
+                        </div>
+                      </div>
+                      {entry.nodeId && (
+                        <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-white/30">
+                          {entry.nodeId}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-0 border-t border-white/10 lg:border-l lg:border-t-0">
+          <div className="h-full overflow-auto px-6 py-5">
+            {selectedNode ? (
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                    Node detail
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="text-xl font-semibold text-white">{selectedNode.title}</div>
+                    <span
+                      className={cx(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                        getStatusBadge(selectedNode.status, selectedNode.step?.statusLabel).className,
+                      )}
+                    >
+                      {selectedNode.status === "running" && (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      )}
+                      {getStatusBadge(selectedNode.status, selectedNode.step?.statusLabel).label}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm text-white/45">
+                    {selectedNode.specId} · {selectedNode.id}
+                  </div>
+                </div>
+
+                <JsonValueCard title="Resolved input" value={selectedNode.input} />
+                <JsonValueCard title="Node config" value={selectedNode.config} />
+                <JsonValueCard title="Node output" value={selectedNode.output} />
+                <JsonValueCard
+                  title="Dependency satisfaction"
+                  value={
+                    selectedNode.dependencyState && selectedNode.dependencyState.length > 0
+                      ? selectedNode.dependencyState
+                      : undefined
+                  }
+                  emptyLabel="No upstream dependencies."
+                />
+
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                    Attempts and timing
+                  </div>
+                  <div className="mt-3 space-y-2 text-sm text-white/65">
+                    <div>Last state change: {formatRelativeClock(selectedNode.step?.timestamp)}</div>
+                    <div>
+                      Retries:
+                      {" "}
+                      {Math.max((selectedNode.attempts?.length ?? 1) - 1, 0)}
+                    </div>
+                    <div>
+                      Error:
+                      {" "}
+                      {selectedNode.detail ? sanitizeErrorForDisplay(selectedNode.detail) : "None"}
+                    </div>
+                    {selectedNode.attempts && selectedNode.attempts.length > 0 ? (
+                      <div>Attempts recorded: {selectedNode.attempts.length}</div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                    Node activity
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {selectedNode.logs.length === 0 ? (
+                      <div className="text-sm text-white/40">No node-specific logs recorded.</div>
+                    ) : (
+                      selectedNode.logs.map((log, index) => (
+                        <div
+                          key={`${selectedNode.id}-log-${index}`}
+                          className="rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2"
+                        >
+                          <div
+                            className={cx(
+                              "text-sm",
+                              log.level === "error"
+                                ? "text-red-200"
+                                : log.level === "warn"
+                                  ? "text-amber-100"
+                                  : "text-white/80",
+                            )}
+                          >
+                            {log.text}
+                          </div>
+                          <div className="mt-1 text-[11px] text-white/35">
+                            {formatRelativeClock(log.t)}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-white/40">Select a node to inspect its execution data.</div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PremiumWorkflowRunModal({
   open,
   onClose,
@@ -1390,6 +2128,7 @@ export default function PremiumWorkflowRunModal({
   isBuilderTest,
   builderRunLimit,
   requiresApiKeys,
+  allowProjectionToggle,
 }: {
   open: boolean;
   onClose: () => void;
@@ -1403,6 +2142,7 @@ export default function PremiumWorkflowRunModal({
   isBuilderTest?: boolean;
   builderRunLimit?: BuilderRunLimit;
   requiresApiKeys?: string[];
+  allowProjectionToggle?: boolean;
 }) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const logEndRef = useRef<HTMLDivElement | null>(null);
@@ -1413,14 +2153,12 @@ export default function PremiumWorkflowRunModal({
   const [copiedOutput, setCopiedOutput] = useState<string | null>(null);
   const [showTechnicalLogs, setShowTechnicalLogs] = useState(false);
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
-  const [executionStep, setExecutionStep] = useState<"preparing" | "generating" | "finalizing">(
-    "preparing",
-  );
+  const [projectionMode, setProjectionMode] = useState<"builder" | "customer">("builder");
   const [isStopping, setIsStopping] = useState(false);
 
   const canClose = useMemo(() => {
     if (!state) return true;
-    return state.status !== "running" && state.phase !== "executing";
+    return state.status !== "running" && state.status !== "cancelling";
   }, [state]);
 
   useEffect(() => {
@@ -1471,32 +2209,16 @@ export default function PremiumWorkflowRunModal({
     }
   }, [state?.inputValues]);
 
-  // Execution step transitions - advance automatically during running
   useEffect(() => {
-    if (state?.phase === "executing" && state?.status === "running") {
-      queueMicrotask(() => {
-        setExecutionStep("preparing");
-        setIsStopping(false);
-      });
-
-      const timer1 = setTimeout(() => setExecutionStep("generating"), 600);
-      const timer2 = setTimeout(() => setExecutionStep("finalizing"), 2000);
-
-      return () => {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-      };
-    }
-
-    queueMicrotask(() => {
-      setExecutionStep("preparing");
-      setIsStopping(false);
-    });
-    return undefined;
-  }, [state?.phase, state?.status]);
+    queueMicrotask(() => setIsStopping(state?.status === "cancelling"));
+  }, [state?.status]);
 
   // Show loading state immediately even if state is null
   const isLoading = open && !state;
+  // Builder/edit mode only: optional Builder vs Customer projection toggle.
+  // Preview, purchased runs, and product-page demos use customer surface only (no toggle).
+  const showCustomerProjection =
+    allowProjectionToggle === true ? projectionMode === "customer" : true;
 
   const statusPill =
     state?.status === "running"
@@ -1505,12 +2227,24 @@ export default function PremiumWorkflowRunModal({
           icon: <Loader2 className="h-4 w-4 animate-spin" />,
           color: "text-cyan-400",
         }
+      : state?.status === "cancelling"
+        ? {
+            label: "Cancelling",
+            icon: <Loader2 className="h-4 w-4 animate-spin" />,
+            color: "text-amber-300",
+          }
       : state?.status === "success"
         ? {
             label: "Completed",
             icon: <CheckCircle2 className="h-4 w-4" />,
             color: "text-green-400",
           }
+        : state?.status === "cancelled"
+          ? {
+              label: "Cancelled",
+              icon: <AlertTriangle className="h-4 w-4" />,
+              color: "text-amber-300",
+            }
         : state?.status === "error"
           ? { label: "Failed", icon: <AlertTriangle className="h-4 w-4" />, color: "text-red-400" }
           : { label: "Ready", icon: <Sparkles className="h-4 w-4" />, color: "text-purple-400" };
@@ -1541,12 +2275,12 @@ export default function PremiumWorkflowRunModal({
       for (const id of requiresApiKeys) {
         const n = nodes.find((x) => x.id === id);
         const sid = n?.data?.specId ?? "";
-        if (PREMIUM_AI_SPEC_IDS.includes(sid)) set.add(providerForAiSpec(sid, n?.data?.config));
+        if (isPremiumAiSpec(sid)) set.add(providerForAiSpec(sid, n?.data?.config));
       }
     } else if (isBuilderTest && (builderRunLimit?.used ?? 0) >= (builderRunLimit?.limit ?? 10)) {
       for (const n of nodes) {
         const sid = n.data?.specId ?? "";
-        if (PREMIUM_AI_SPEC_IDS.includes(sid)) set.add(providerForAiSpec(sid, n?.data?.config));
+        if (isPremiumAiSpec(sid)) set.add(providerForAiSpec(sid, n?.data?.config));
       }
     }
     return set;
@@ -1719,7 +2453,7 @@ export default function PremiumWorkflowRunModal({
       <div className="absolute inset-0 flex items-center justify-center p-4 md:p-6">
         <div
           className={cx(
-            "w-[min(900px,92vw)] h-[min(700px,88vh)] rounded-2xl overflow-hidden flex flex-col",
+            "w-[min(1220px,96vw)] h-[min(840px,92vh)] rounded-2xl overflow-hidden flex flex-col",
             "border border-white/15 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.4)]",
           )}
         >
@@ -1758,19 +2492,76 @@ export default function PremiumWorkflowRunModal({
           {/* Header */}
           <div className="px-6 py-4 border-b border-white/10 shrink-0">
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1 text-lg font-semibold text-white max-sm:line-clamp-2 sm:truncate">
-                {state?.phase === "executing" ? (
-                  <span className="text-[11px] font-medium uppercase tracking-widest text-white/50">
-                    Edgaze Run
-                  </span>
-                ) : (
-                  state?.workflowName || "Workflow"
+              <div className="min-w-0 flex-1">
+                <div className="text-lg font-semibold text-white max-sm:line-clamp-2 sm:truncate">
+                  {state?.workflowName || "Workflow"}
+                </div>
+                {state && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/45">
+                    <span
+                      className={cx(
+                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5",
+                        state.status === "running"
+                          ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
+                          : state.status === "cancelling"
+                            ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                          : state.status === "success"
+                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                            : state.status === "cancelled"
+                              ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                            : state.status === "error"
+                              ? "border-red-400/30 bg-red-400/10 text-red-200"
+                              : "border-white/10 bg-white/5 text-white/60",
+                      )}
+                    >
+                      {statusPill.icon}
+                      {statusPill.label}
+                    </span>
+                    <span>
+                      {(state.steps?.filter((step) => step.status === "done").length ?? 0)} /
+                      {" "}
+                      {state.graph?.nodes?.length ?? state.steps?.length ?? 0}
+                      {" "}
+                      nodes complete
+                    </span>
+                    {state.currentStepId && !showCustomerProjection && <span>Live step: {state.currentStepId}</span>}
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {state?.status === "running" && state?.phase === "executing" && (
+                {allowProjectionToggle === true && (
+                  <div className="hidden sm:inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] p-1">
+                    <button
+                      type="button"
+                      onClick={() => setProjectionMode("builder")}
+                      className={cx(
+                        "rounded-full px-3 py-1.5 text-xs font-medium transition",
+                        projectionMode === "builder"
+                          ? "bg-white text-black shadow-[0_8px_24px_rgba(255,255,255,0.18)]"
+                          : "text-white/60 hover:text-white/85",
+                      )}
+                    >
+                      Builder view
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setProjectionMode("customer")}
+                      className={cx(
+                        "rounded-full px-3 py-1.5 text-xs font-medium transition",
+                        projectionMode === "customer"
+                          ? "bg-[linear-gradient(135deg,rgba(88,214,255,0.9),rgba(151,112,255,0.92))] text-white shadow-[0_12px_34px_rgba(68,120,255,0.34)]"
+                          : "text-white/60 hover:text-white/85",
+                      )}
+                    >
+                      Customer view
+                    </button>
+                  </div>
+                )}
+                {(state?.status === "running" || state?.status === "cancelling") &&
+                  state?.phase === "executing" && (
                   <button
                     onClick={() => {
+                      if (isStopping || state?.status === "cancelling") return;
                       setIsStopping(true);
                       safeTrack("Workflow Run Cancelled", {
                         surface: "workflow_modal",
@@ -1781,9 +2572,10 @@ export default function PremiumWorkflowRunModal({
                         onCancel?.();
                       }, 400);
                     }}
-                    className="rounded-lg border border-transparent bg-white/[0.04] hover:bg-white/[0.08] px-4 py-2 text-sm font-medium text-white/50 hover:text-white/70 transition-all duration-200"
+                    className="rounded-lg border border-transparent bg-white/[0.04] hover:bg-white/[0.08] px-4 py-2 text-sm font-medium text-white/50 hover:text-white/70 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                    disabled={isStopping || state?.status === "cancelling"}
                   >
-                    {isStopping ? "Stopping…" : "Cancel"}
+                    {isStopping || state?.status === "cancelling" ? "Cancelling…" : "Cancel"}
                   </button>
                 )}
                 <button
@@ -1810,8 +2602,27 @@ export default function PremiumWorkflowRunModal({
           </div>
 
           {/* Body - Phase-based content */}
-          <div className="flex-1 overflow-hidden">
-            {!isLoading &&
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {!isLoading && showCustomerProjection && (
+              <div className="h-full overflow-auto px-5 py-5 md:px-6 md:py-6">
+                <CustomerWorkflowRuntimeSurface
+                  state={state}
+                  onCancel={onCancel}
+                  onClose={canClose ? onClose : undefined}
+                  onRerun={onRerun}
+                  onSubmitInputs={onSubmitInputs}
+                  embedded
+                  hideHeader
+                  hideActionZone
+                  isBuilderTest={isBuilderTest}
+                  builderRunLimit={builderRunLimit}
+                  requiresApiKeys={requiresApiKeys}
+                  onBuyWorkflow={onBuyWorkflow}
+                />
+              </div>
+            )}
+            {!showCustomerProjection &&
+              !isLoading &&
               state?.phase === "input" &&
               (state?.inputs?.length ? true : requiresApiKeys?.length) && (
                 <div className="h-full overflow-auto px-6 py-8">
@@ -1986,223 +2797,118 @@ export default function PremiumWorkflowRunModal({
                 </div>
               )}
 
-            {state?.phase === "executing" && (
-              <div
-                className="h-full overflow-auto flex flex-col items-center justify-center bg-transparent"
-                style={{
-                  background:
-                    "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(56,189,248,0.06) 0%, rgba(99,102,241,0.05) 40%, transparent 70%)",
-                }}
-              >
-                <CinematicRunView state={state} isStopping={isStopping} />
-              </div>
-            )}
+            {!showCustomerProjection && !isLoading && isRunExperience && state && (
+              <>
+                <div
+                  className="flex-1 overflow-hidden bg-transparent"
+                  style={{
+                    background:
+                      "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(56,189,248,0.06) 0%, rgba(99,102,241,0.05) 40%, transparent 70%)",
+                  }}
+                >
+                  <LiveExecutionViewer state={state} isStopping={isStopping} />
+                </div>
 
-            {(state?.phase === "output" ||
-              (state?.status === "error" && state?.phase === "executing")) && (
-              <div
-                className="h-full overflow-auto bg-transparent"
-                style={{
-                  background:
-                    "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(56,189,248,0.06) 0%, rgba(99,102,241,0.05) 40%, transparent 70%)",
-                }}
-              >
-                <div className="max-w-3xl mx-auto px-6 py-12">
-                  {state.status === "error" ? (
-                    /* Error State - Human message only; debug panel for admins only */
-                    <div className="flex flex-col items-center text-center min-h-[320px]">
-                      <div className="space-y-6">
-                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border border-white/10 bg-white/5">
-                          <AlertTriangle className="h-8 w-8 text-white/50" />
-                        </div>
-                        <div className="space-y-3">
-                          <div className="text-xl font-medium text-white">
-                            Something didn&apos;t go through.
-                          </div>
-                          <p className="text-sm text-white/50 max-w-md mx-auto leading-relaxed">
-                            {sanitizeErrorForDisplay(state.error)}
-                          </p>
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-2 sm:gap-3 pt-2 w-full max-w-sm sm:max-w-none mx-auto">
-                          {onRerun && (
-                            <button
-                              onClick={() => {
-                                safeTrack("Workflow Run Again Clicked", {
-                                  surface: "workflow_modal",
-                                  workflow_id: state?.workflowId,
-                                });
-                                onRerun();
-                              }}
-                              className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 w-full sm:w-auto whitespace-nowrap"
-                            >
-                              Run again
-                            </button>
-                          )}
+                {(state.phase !== "executing" || state.status === "error") && (
+                  <div className="shrink-0 border-t border-white/10 px-6 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                      {state.outputs && state.outputs.length > 0 && (
+                        <>
                           <button
                             onClick={() => {
-                              safeTrack("Workflow Run Modal Closed", {
-                                surface: "workflow_modal",
-                                workflow_id: state?.workflowId,
-                                method: "close_button",
-                                final_status: state?.status,
-                              });
-                              onClose();
+                              const firstOutput = state.outputs?.[0];
+                              if (firstOutput) handleCopyOutput(firstOutput.value, 0);
                             }}
-                            className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center w-full sm:w-auto whitespace-nowrap"
+                            className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap"
                           >
-                            Close
+                            {copiedOutput === "output-0" ? (
+                              <>
+                                <Check className="h-4 w-4 shrink-0" />
+                                Copied
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4 shrink-0" />
+                                Copy output
+                              </>
+                            )}
                           </button>
-                        </div>
-                      </div>
-                      {/* Admin-only debug panel – exact errors, full logs. Not shown to non-admins. */}
-                      {builderRunLimit?.isAdmin === true && (
-                        <details className="mt-10 w-full max-w-2xl mx-auto text-left border border-white/10 rounded-xl bg-black/40 overflow-hidden">
-                          <summary className="px-4 py-3 text-xs font-medium text-white/50 uppercase tracking-wider cursor-pointer hover:text-white/70 select-none">
-                            Debug (admin)
-                          </summary>
-                          <div className="px-4 py-4 space-y-4 border-t border-white/10">
-                            {state.error && (
-                              <div>
-                                <div className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">
-                                  Raw error
-                                </div>
-                                <pre className="text-xs text-red-300/90 font-mono whitespace-pre-wrap break-words max-h-40 overflow-auto p-3 rounded-lg bg-red-950/30 border border-red-500/20">
-                                  {state.error}
-                                </pre>
-                              </div>
-                            )}
-                            {state.logs && state.logs.length > 0 && (
-                              <div>
-                                <div className="text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1.5">
-                                  Logs
-                                </div>
-                                <pre className="text-xs text-white/60 font-mono whitespace-pre-wrap break-words max-h-48 overflow-auto p-3 rounded-lg bg-white/5 border border-white/10">
-                                  {state.logs
-                                    .map(
-                                      (l, i) =>
-                                        `[${l.level}] ${l.text}${l.nodeId ? ` (node: ${l.nodeId})` : ""}`,
-                                    )
-                                    .join("\n")}
-                                </pre>
-                              </div>
-                            )}
-                          </div>
-                        </details>
+                          <button
+                            onClick={async () => {
+                              const firstOutput = state.outputs?.[0];
+                              if (!firstOutput) return;
+                              const value = firstOutput.value;
+                              if (typeof value === "string" && isImageUrl(value)) {
+                                try {
+                                  const res = await fetch(value, { mode: "cors" });
+                                  const blob = await res.blob();
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = url;
+                                  a.download = `image-${Date.now()}.png`;
+                                  a.click();
+                                  URL.revokeObjectURL(url);
+                                } catch {
+                                  const a = document.createElement("a");
+                                  a.href = value;
+                                  a.download = `image-${Date.now()}.png`;
+                                  a.target = "_blank";
+                                  a.click();
+                                }
+                                return;
+                              }
+                              const text =
+                                typeof value === "string" ? value : JSON.stringify(value, null, 2);
+                              const blob = new Blob([text], { type: "text/plain" });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `workflow-output-${Date.now()}.txt`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                            className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap"
+                          >
+                            <Download className="h-4 w-4 shrink-0" />
+                            Download
+                          </button>
+                        </>
                       )}
-                    </div>
-                  ) : state?.outputs && state.outputs.length > 0 ? (
-                    /* Result - Premium, minimal */
-                    <div className="space-y-14">
-                      <div className="text-center space-y-5">
-                        <div className="text-2xl font-medium text-white">Done.</div>
-                        <p className="text-sm text-white/50 leading-relaxed">
-                          Here&apos;s what it produced.
-                        </p>
-                      </div>
 
-                      <div className="rounded-2xl border border-white/10 bg-white/5 p-8 md:p-10">
-                        <div className="prose prose-invert max-w-none space-y-10">
-                          {(state.outputs || []).map((output, idx) => (
-                            <div key={output.nodeId || idx} className="space-y-6">
-                              {(state.outputs?.length ?? 0) > 1 && (
-                                <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-4">
-                                  {output.label || "Result"}
-                                </div>
-                              )}
-                              <div className="text-base leading-[1.85] text-white/90">
-                                <PremiumOutputDisplay value={output.value} isOpenAI={false} />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-2 sm:gap-3 pt-6 w-full max-w-md sm:max-w-none mx-auto">
+                      {onRerun && (
                         <button
                           onClick={() => {
-                            const firstOutput = state.outputs?.[0];
-                            if (firstOutput) handleCopyOutput(firstOutput.value, 0);
+                            safeTrack("Workflow Run Again Clicked", {
+                              surface: "workflow_modal",
+                              workflow_id: state?.workflowId,
+                            });
+                            onRerun();
                           }}
-                          className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 w-full sm:w-auto shrink-0 whitespace-nowrap"
+                          className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap"
                         >
-                          {copiedOutput === "output-0" ? (
-                            <>
-                              <Check className="h-4 w-4 shrink-0" />
-                              Copied
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="h-4 w-4 shrink-0" />
-                              Copy
-                            </>
-                          )}
+                          <Play className="h-4 w-4 shrink-0" />
+                          Run again
                         </button>
-                        <button
-                          onClick={async () => {
-                            const firstOutput = state.outputs?.[0];
-                            if (!firstOutput) return;
-                            const value = firstOutput.value;
-                            if (typeof value === "string" && isImageUrl(value)) {
-                              try {
-                                const res = await fetch(value, { mode: "cors" });
-                                const blob = await res.blob();
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement("a");
-                                a.href = url;
-                                a.download = `image-${Date.now()}.png`;
-                                a.click();
-                                URL.revokeObjectURL(url);
-                              } catch {
-                                const a = document.createElement("a");
-                                a.href = value;
-                                a.download = `image-${Date.now()}.png`;
-                                a.target = "_blank";
-                                a.click();
-                              }
-                              return;
-                            }
-                            const text =
-                              typeof value === "string" ? value : JSON.stringify(value, null, 2);
-                            const blob = new Blob([text], { type: "text/plain" });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = `workflow-output-${Date.now()}.txt`;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                          }}
-                          className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 w-full sm:w-auto shrink-0 whitespace-nowrap"
-                        >
-                          <Download className="h-4 w-4 shrink-0" />
-                          Download
-                        </button>
-                        {onRerun && (
-                          <button
-                            onClick={() => {
-                              safeTrack("Workflow Run Again Clicked", {
-                                surface: "workflow_modal",
-                                workflow_id: state?.workflowId,
-                              });
-                              onRerun();
-                            }}
-                            className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 w-full sm:w-auto shrink-0 whitespace-nowrap"
-                          >
-                            <Play className="h-4 w-4 shrink-0" />
-                            Run again
-                          </button>
-                        )}
-                      </div>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          safeTrack("Workflow Run Modal Closed", {
+                            surface: "workflow_modal",
+                            workflow_id: state?.workflowId,
+                            method: "close_button",
+                            final_status: state?.status,
+                          });
+                          onClose();
+                        }}
+                        className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center whitespace-nowrap"
+                      >
+                        Close
+                      </button>
                     </div>
-                  ) : (
-                    <div className="text-center py-14 space-y-3">
-                      <div className="text-2xl font-medium text-white">Done.</div>
-                      <p className="text-sm text-white/50 leading-relaxed">
-                        Your workflow finished successfully.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -3,7 +3,7 @@
  * Extract input requirements from workflow graph
  */
 
-import type { WorkflowInput } from "../../components/builder/PremiumWorkflowRunModal";
+import type { WorkflowInput } from "./run-types";
 
 export type GraphNode = {
   id: string;

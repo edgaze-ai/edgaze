@@ -278,14 +278,14 @@ export default function SignInModal({ open, onClose }: { open: boolean; onClose:
       <div className="w-full max-w-[1040px] overflow-hidden rounded-[34px] border border-white/12 bg-[#050505] shadow-[0_0_90px_rgba(56,189,248,0.16)]">
         <div className="h-1 w-full bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500" />
 
-        <div className="grid grid-cols-1 md:grid-cols-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2">
           {/* Left */}
-          <div className="hidden md:block p-5">
+          <div className="hidden lg:block p-5">
             <LeftShowcase />
           </div>
 
           {/* Right */}
-          <div className="p-6 md:p-9">
+          <div className="p-6 lg:p-9">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="text-xs font-semibold tracking-wide text-white/60">

@@ -62,18 +62,6 @@ export const NODE_REGISTRY: Record<
     color: "#8b5cf6",
     icon: "Image",
   },
-  "claude-chat": {
-    label: "Claude Chat",
-    category: "ai",
-    color: "#d97757",
-    icon: "MessageSquare",
-  },
-  "gemini-chat": {
-    label: "Gemini Chat",
-    category: "ai",
-    color: "#4285f4",
-    icon: "MessageSquare",
-  },
   "http-request": {
     label: "HTTP Request",
     category: "utility",

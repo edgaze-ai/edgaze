@@ -55,7 +55,12 @@ export class ExecutionStateManager {
   }
 
   setWorkflowStatus(next: WorkflowStatus) {
-    const updatedStatus = transitionWorkflow(this.snapshot.workflowStatus, next);
+    const current = this.snapshot.workflowStatus;
+    // Idempotent: fail_fast sets failed mid-run; finalization also sets failed — avoid invalid failed -> failed
+    if (current === next) {
+      return current;
+    }
+    const updatedStatus = transitionWorkflow(current, next);
     this.snapshot = withUpdatedSnapshot(this.snapshot, { workflowStatus: updatedStatus });
     this.persist();
     return updatedStatus;

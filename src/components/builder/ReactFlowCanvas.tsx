@@ -35,8 +35,8 @@ import { getNodeSpec } from "src/nodes/registry";
 import type { NodeSpec } from "src/nodes/types";
 import { isValidConnection as checkAllowedConnection } from "src/canvas/CanvasConfig";
 import { CustomEdge } from "src/edges/CustomEdge";
-import { EdgeGradientDefs } from "src/edges/EdgeGradientDefs";
 import { BaseNode } from "src/nodes/BaseNode";
+import { normalizeGraph } from "./graph-normalize";
 import MergeNode from "./nodes/MergeNode";
 import ConditionNode from "./nodes/ConditionNode";
 import { emit, on } from "../../lib/bus";
@@ -140,65 +140,6 @@ type Props = {
   }) => void;
   onGraphChange?: (graph: { nodes: Node<EdgazeNodeData>[]; edges: Edge[] }) => void;
 };
-
-function safeParseGraph(input: any): any {
-  if (input == null) return null;
-  if (typeof input === "string") {
-    try {
-      return JSON.parse(input);
-    } catch {
-      return null;
-    }
-  }
-  return input;
-}
-
-function normalizeGraph(graphLike: any): { nodes: Node<EdgazeNodeData>[]; edges: Edge[] } {
-  const g0 = safeParseGraph(graphLike);
-  const g =
-    g0?.graph && (Array.isArray(g0.graph.nodes) || Array.isArray(g0.graph.edges)) ? g0.graph : g0;
-
-  const rawNodes = Array.isArray(g?.nodes) ? (g.nodes as Node<EdgazeNodeData>[]) : [];
-  // Normalize node IDs to strings for backwards compat (legacy data may have numeric IDs)
-  const nodes = rawNodes.map((n) => {
-    if (n?.id != null && typeof n.id !== "string") {
-      return { ...n, id: String(n.id) };
-    }
-    return n;
-  });
-
-  // Support both "edges" and "connections" (legacy alias)
-  const rawEdges = Array.isArray(g?.edges)
-    ? (g.edges as Edge[])
-    : Array.isArray(g?.connections)
-      ? (g.connections as Edge[])
-      : [];
-  // Normalize edges: support source/target, sourceId/targetId, sourceNode/targetNode; coerce IDs to strings
-  const edges = rawEdges
-    .map((e: any) => {
-      const src = e?.source ?? e?.sourceId ?? e?.sourceNode?.id ?? e?.sourceNode;
-      const tgt = e?.target ?? e?.targetId ?? e?.targetNode?.id ?? e?.targetNode;
-      const srcId =
-        src != null ? (typeof src === "string" ? src : ((src as any)?.id ?? String(src))) : null;
-      const tgtId =
-        tgt != null ? (typeof tgt === "string" ? tgt : ((tgt as any)?.id ?? String(tgt))) : null;
-      if (srcId == null || tgtId == null) return null;
-      const sh = e?.sourceHandle ?? "";
-      const th = e?.targetHandle ?? "";
-      const suffix = sh || th ? `-${sh}-${th}` : "";
-      return {
-        ...e,
-        id: e?.id ?? `e-${String(srcId)}-${String(tgtId)}${suffix}`,
-        source: String(srcId),
-        target: String(tgtId),
-      };
-    })
-    .filter((e): e is Edge => e != null);
-  // Do NOT filter by nodeIds - pass all edges through. React Flow renders only edges whose
-  // source/target nodes exist; orphan edges are ignored. Filtering here caused valid connections
-  // to disappear (e.g. type coercion 1 vs "1", or different graph shapes).
-  return { nodes, edges };
-}
 
 const EDGE_TYPE = "default" as const;
 
@@ -737,7 +678,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     },
     getGraph: () => ({ nodes: nodesRef.current, edges: edgesRef.current }),
     loadGraph: (graph: any) => {
-      const { nodes: nextNodes, edges: nextEdges } = normalizeGraph(graph);
+      const { nodes: nextNodes, edges: nextEdges } = normalizeGraph<EdgazeNodeData>(graph);
 
       lastSelectionKeyRef.current = "none";
       setBubble(null);
@@ -1082,7 +1023,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      <EdgeGradientDefs />
       {/* Control panel removed - now integrated into top bar */}
 
       {/* Connection error toast — shown when invalid connection attempted */}

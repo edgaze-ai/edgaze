@@ -48,8 +48,6 @@ const EXPENSIVE_NODE_TYPES = [
   "llm-chat",
   "llm-embeddings",
   "llm-image",
-  "claude-chat",
-  "gemini-chat",
   "openai-chat",
   "openai-embeddings",
   "openai-image",
@@ -235,10 +233,10 @@ export function validateWorkflowGraph(nodes: GraphNode[], edges: GraphEdge[]): V
     );
   }
 
-  // LLM Chat / Claude / Gemini: needs prompt or inbound connection
+  // LLM Chat: needs prompt or inbound connection
   for (const node of nodes) {
     const c = canonicalSpecId(node.data?.specId ?? "");
-    if (c === "llm-chat" || c === "claude-chat" || c === "gemini-chat") {
+    if (c === "llm-chat") {
       const config = node.data?.config ?? {};
       const hasPrompt = typeof config.prompt === "string" && config.prompt.trim().length > 0;
       const hasInbound = (inboundByNode.get(node.id) ?? []).length > 0;

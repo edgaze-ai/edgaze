@@ -5,12 +5,34 @@
 
 export type AiKeyProvider = "openai" | "anthropic" | "google";
 
-/** Default LLM Chat: Claude 3.7 Sonnet (quality-first for creators). */
-export const DEFAULT_LLM_CHAT_MODEL = "claude-3-7-sonnet-20250219";
+/** Default LLM Chat: Claude Sonnet 4.6 (Anthropic API alias; quality-first for creators). */
+export const DEFAULT_LLM_CHAT_MODEL = "claude-sonnet-4-6";
 
 /** Platform-funded builder test (no BYOK): prefer Claude Sonnet when Anthropic env exists, else GPT-5.4 mini — never nano. */
-export const FREE_TIER_LLM_CHAT_ANTHROPIC_MODEL = "claude-3-7-sonnet-20250219";
+export const FREE_TIER_LLM_CHAT_ANTHROPIC_MODEL = "claude-sonnet-4-6";
+
+/**
+ * Anthropic retires snapshot model IDs; workflows may still store old values.
+ * Map retired / alias IDs to a current API model so requests do not 404.
+ */
+const RETIRED_ANTHROPIC_CHAT_MODEL: Record<string, string> = {
+  "claude-3-7-sonnet-20250219": "claude-sonnet-4-6",
+  "claude-3-7-sonnet-latest": "claude-sonnet-4-6",
+};
+
+export function resolveAnthropicApiModel(modelId: string): string {
+  const raw = (modelId || "").trim();
+  if (!raw) return DEFAULT_LLM_CHAT_MODEL;
+  const mapped = RETIRED_ANTHROPIC_CHAT_MODEL[raw.toLowerCase()];
+  return mapped ?? raw;
+}
 export const FREE_TIER_LLM_CHAT_OPENAI_MODEL = "gpt-5.4-mini";
+
+/** Legacy "OpenAI Chat" workflow nodes (spec `openai-chat` → canonical `llm-chat`) must stay on OpenAI. */
+export const LEGACY_OPENAI_CHAT_MODEL = "gpt-4o-mini";
+
+/** Legacy "OpenAI Image" nodes must use OpenAI image APIs only (not unified Gemini default). */
+export const LEGACY_OPENAI_IMAGE_MODEL = "dall-e-2";
 
 /** Default LLM Image: Nano Banana 2 (Gemini 3.1 Flash Image). */
 export const DEFAULT_LLM_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
@@ -55,8 +77,8 @@ export type LlmChatOption = {
 export const LLM_CHAT_MODEL_OPTIONS: LlmChatOption[] = [
   // Anthropic — default quality path
   {
-    value: "claude-3-7-sonnet-20250219",
-    label: "Claude 3.7 Sonnet — Recommended ⭐ · High quality",
+    value: "claude-sonnet-4-6",
+    label: "Claude Sonnet 4.6 — Recommended ⭐ · High quality",
     provider: "anthropic",
     quality: "high",
     cost: "$$",

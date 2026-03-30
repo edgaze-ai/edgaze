@@ -183,7 +183,7 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
       }}
       className="min-h-[100dvh] px-4 py-12"
     >
-      <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-2">
+      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
         {/* Left: Form */}
         <div>
           <h2 className="mb-2 text-3xl font-bold text-white">Set up your profile</h2>
@@ -323,7 +323,7 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
         </div>
 
         {/* Right: Live Preview */}
-        <div className="hidden md:block">
+        <div className="hidden lg:block">
           <div className="sticky top-8">
             <p className="mb-4 text-xs uppercase tracking-wider text-white/40">
               Your marketplace card
@@ -368,7 +368,7 @@ export default function ProfileStep({ userId, onContinue }: ProfileStepProps) {
         </div>
 
         {/* Mobile preview toggle */}
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <button
             onClick={() => setShowPreview(!showPreview)}
             className="w-full rounded-lg border border-white/[0.12] bg-black/40 px-4 py-3 text-sm font-medium text-white/70"

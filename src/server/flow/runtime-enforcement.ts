@@ -13,8 +13,8 @@ import {
   hasEdgazeGeminiApiKey,
 } from "../../lib/workflow/edgaze-api-key";
 import {
-  PREMIUM_AI_SPEC_IDS,
   canonicalSpecId,
+  isPremiumAiSpec,
   resolvePremiumKeyProvider,
 } from "../../lib/workflow/spec-id-aliases";
 import type { GraphNode } from "./types";
@@ -42,11 +42,9 @@ const FREE_RUNS_PER_PURCHASE = 10; // 10 free runs per workflow purchase
 const MAX_RUNS_PER_WORKFLOW = 100; // Strict limit per workflow
 const MAX_RUNS_PER_USER = 500; // Strict limit per user
 
-const PREMIUM_WITH_HTTP = [...PREMIUM_AI_SPEC_IDS, "http-request"];
-
 function isAiPremiumNode(specId: string | undefined): boolean {
   if (!specId) return false;
-  return PREMIUM_AI_SPEC_IDS.includes(specId);
+  return isPremiumAiSpec(specId);
 }
 
 export type RuntimeEnforcementResult = {
@@ -288,6 +286,17 @@ function looksLikeUrl(s: string): boolean {
 }
 
 /**
+ * Keys injected by /api/flow/run for execution (stored in workflow_runs.run_input).
+ * `redactSecrets` must not wipe these: the name contains "key" but values are required for the worker
+ * (otherwise OpenAI gets the literal "***REDACTED***" and returns 401).
+ * Rows are server-side only (service role); user-facing exports should still avoid leaking run_input.
+ */
+function shouldPreserveRunInputInjectionField(fieldName: string): boolean {
+  const kl = fieldName.toLowerCase();
+  return kl.startsWith("__api_key_") || kl.startsWith("__builder_user_key");
+}
+
+/**
  * Redacts API keys from logs and error messages to prevent leakage.
  * Never redacts URLs (image URLs, blob storage, etc.) - those are not secrets and must stay intact.
  */
@@ -305,6 +314,10 @@ export function redactSecrets(value: unknown): unknown {
     const obj = value as Record<string, unknown>;
     const redacted: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj)) {
+      if (shouldPreserveRunInputInjectionField(k)) {
+        redacted[k] = v;
+        continue;
+      }
       if (
         k.toLowerCase().includes("key") ||
         k.toLowerCase().includes("secret") ||

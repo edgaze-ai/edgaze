@@ -43,8 +43,6 @@ function getPreviewText(specId: string, spec: NodeSpec): string {
     case "merge":
       return "Merging inputs";
     case "llm-chat":
-    case "claude-chat":
-    case "gemini-chat":
       return (c.prompt ?? "").trim() ? String(c.prompt).slice(0, 50) + "…" : "No prompt set";
     case "llm-image":
       return `Size: ${c.size ?? "1024x1024"} · ${c.n ?? 1} image(s)`;

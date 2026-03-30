@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight, Blocks, FileEdit, Globe, Linkedin, Play, Zap } from "lucide-react";
 import Footer from "src/components/layout/Footer";
@@ -33,6 +33,8 @@ function AboutSectionTitle({
 }
 
 /** Single SVG: nodes + edges share one coordinate system so connectors never miss the boxes. */
+const SECTION_SCROLL_MT = "scroll-mt-[calc(5rem+env(safe-area-inset-top)+16px)]";
+
 function AboutHeroIllustration() {
   return (
     <div className="relative mx-auto w-full max-w-[440px] min-h-[min(72dvh,560px)] md:min-h-[480px] md:max-w-[480px]">
@@ -295,6 +297,15 @@ function WorkflowBuilderDiagram() {
 }
 
 export default function AboutPage() {
+  useEffect(() => {
+    const id = window.location.hash.replace(/^#/, "");
+    if (!id) return;
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, []);
+
   return (
     <div className="min-h-screen w-full bg-black text-white font-dm-sans">
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/[0.07] bg-black/95 pt-[max(0.75rem,env(safe-area-inset-top))] md:border-transparent md:bg-transparent md:pt-5">
@@ -372,7 +383,7 @@ export default function AboutPage() {
 
         <div className="mx-auto max-w-[1440px] px-5 md:px-8 pb-20">
           {/* What Edgaze Is */}
-          <section className="py-16 md:py-28">
+          <section id="about" className={`py-16 md:py-28 ${SECTION_SCROLL_MT}`}>
             <AboutSectionTitle>What Edgaze Is</AboutSectionTitle>
             <div className="mt-12 grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16 md:mt-14">
               <div className="space-y-6">
@@ -498,8 +509,8 @@ export default function AboutPage() {
             </div>
           </section>
 
-          {/* Philosophy */}
-          <section className="py-16 md:py-28">
+          {/* Philosophy / mission */}
+          <section id="mission" className={`py-16 md:py-28 ${SECTION_SCROLL_MT}`}>
             <AboutSectionTitle>Our Philosophy</AboutSectionTitle>
             <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 md:mt-14">
               {[
@@ -531,7 +542,7 @@ export default function AboutPage() {
           </section>
 
           {/* Founder */}
-          <section className="py-16 md:py-28">
+          <section id="founder" className={`py-16 md:py-28 ${SECTION_SCROLL_MT}`}>
             <AboutSectionTitle align="center">Founder</AboutSectionTitle>
             <div className="mt-12 flex flex-col items-center max-w-xl mx-auto text-center md:mt-14">
               <div className="rounded-full bg-gradient-to-br from-cyan-400/65 via-white/30 to-pink-500/65 p-[2px] shadow-[0_0_40px_-12px_rgba(34,211,238,0.4),0_0_40px_-12px_rgba(236,72,153,0.28)]">

@@ -232,8 +232,8 @@ body.library-mobile-scroll {
   overflow-x: hidden !important;
 }
 
-/* Override AppShell overflow-hidden on mobile for library page */
-@media (max-width: 639px) {
+/* Override AppShell overflow-hidden on phone/tablet for library page */
+@media (max-width: 1023px) {
   /* Override AppShell container */
   body.library-mobile-scroll .library-page-container {
     overflow-y: auto !important;

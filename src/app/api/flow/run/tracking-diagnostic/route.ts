@@ -171,6 +171,7 @@ export async function GET(req: Request) {
           draftId: draftId,
           userId,
           metadata: { diagnostic: true, testInsert: true },
+          idempotencyKey: `diagnostic:${userId}:${workflowId}:${draftId ?? "workflow"}`,
         });
         runId = run.id;
         testInsertResult = {

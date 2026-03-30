@@ -27,6 +27,18 @@ function useElementSize<T extends HTMLElement>() {
   return { ref, size };
 }
 
+function useMinWidthLg() {
+  const [matches, setMatches] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const go = () => setMatches(mq.matches);
+    go();
+    mq.addEventListener("change", go);
+    return () => mq.removeEventListener("change", go);
+  }, []);
+  return matches;
+}
+
 export function IlluShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative h-[320px] sm:h-[360px] w-full overflow-hidden rounded-3xl bg-white/4 ring-1 ring-white/10">
@@ -39,11 +51,12 @@ export function IlluShell({ children }: { children: React.ReactNode }) {
 
 export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
   const reduce = useReducedMotion();
+  const layoutLg = useMinWidthLg();
   const { ref, size } = useElementSize<HTMLDivElement>();
 
   const W = size.w || 920;
   const H = size.h || 420;
-  const isMobileCanvas = W < 560 || H < 360;
+  const isMobileCanvas = !layoutLg || W < 560 || H < 360;
 
   const [phase, setPhase] = useState<0 | 1 | 2 | 3>(0);
 
@@ -281,7 +294,7 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
               <img
                 src="/brand/edgaze-mark.png"
                 alt="Edgaze"
-                className="h-16 w-16 md:h-20 md:w-20 object-contain"
+                className="h-16 w-16 lg:h-20 lg:w-20 object-contain"
               />
               {glaze && !reduce && (
                 <motion.div
