@@ -649,7 +649,7 @@ export async function POST(req: Request) {
     let compiledWorkflow: CompiledWorkflowDefinition | null = null;
     const isTrackedUser = userId !== "anonymous_demo_user";
     const isValidRunnerUuid = /^[0-9a-f-]{36}$/i.test(userId ?? "");
-    const runAccessToken = isDemo ? randomUUID() : undefined;
+    const runAccessToken = isDemo || (useStream && isTrackedUser) ? randomUUID() : undefined;
     if (isTrackedUser) {
       try {
         // Check if workflow exists in workflows table

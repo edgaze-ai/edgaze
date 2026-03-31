@@ -50,7 +50,7 @@ import {
 } from "../../../lib/workflow/run-session-state";
 import { toRuntimeGraph } from "../../../lib/workflow/customer-runtime";
 import { drainReadableStream, streamRunSession } from "../../../lib/workflow/run-session";
-import type { WorkflowRunState } from "../../../lib/workflow/run-types";
+import type { WorkflowRunState, WorkflowRunStep } from "../../../lib/workflow/run-types";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -1601,6 +1601,51 @@ export default function WorkflowProductPage() {
         const decoder = new TextDecoder();
         let buffer = "";
 
+        const applyLegacyProgressEvent = (prev: WorkflowRunState, evt: any): WorkflowRunState => {
+          const type = String(evt?.type ?? "");
+          const nodeId = typeof evt?.nodeId === "string" ? evt.nodeId : null;
+          if (!nodeId) return prev;
+
+          const nextSteps = [...(prev.steps ?? [])];
+          const existingIndex = nextSteps.findIndex((s) => s.id === nodeId);
+          const existing = existingIndex >= 0 ? nextSteps[existingIndex] : null;
+          const fallbackSpecId =
+            prev.graph?.nodes?.find((n: any) => n?.id === nodeId)?.data?.specId ?? "default";
+          const title =
+            (typeof evt?.nodeTitle === "string" && evt.nodeTitle.trim()) ||
+            existing?.title ||
+            (prev.graph?.nodes?.find((n: any) => n?.id === nodeId)?.data?.title as string) ||
+            fallbackSpecId;
+
+          const status: WorkflowRunStep["status"] | undefined =
+            type === "node_ready"
+              ? "queued"
+              : type === "node_start"
+                ? "running"
+                : type === "node_done"
+                  ? "done"
+                  : type === "node_failed"
+                    ? "error"
+                    : undefined;
+          if (!status) return prev;
+
+          const nextStep: WorkflowRunStep = { id: nodeId, title, status };
+          if (existingIndex >= 0) nextSteps[existingIndex] = { ...existing!, ...nextStep };
+          else nextSteps.push(nextStep);
+
+          const now = Date.now();
+          return {
+            ...prev,
+            phase: prev.phase === "input" ? "executing" : prev.phase,
+            status: prev.status === "idle" ? "running" : prev.status,
+            steps: nextSteps,
+            currentStepId: status === "running" ? nodeId : prev.currentStepId,
+            connectionState: prev.connectionState === "connecting" ? "live" : prev.connectionState,
+            connectionLabel: undefined,
+            lastEventAt: now,
+          };
+        };
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -1695,6 +1740,15 @@ export default function WorkflowProductPage() {
               sseHandoffStarted = true;
               drainReadableStream(reader);
               break;
+            }
+            if (
+              evt?.type === "node_ready" ||
+              evt?.type === "node_start" ||
+              evt?.type === "node_done" ||
+              evt?.type === "node_failed"
+            ) {
+              setDemoRunState((prev) => (prev ? applyLegacyProgressEvent(prev, evt) : prev));
+              continue;
             }
             if (evt.type === "complete") {
               result = evt;

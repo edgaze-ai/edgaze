@@ -32,12 +32,10 @@ export function drainReadableStream(reader: ReadableStreamDefaultReader<Uint8Arr
   })();
 }
 
-function buildAuthHeaders(accessToken?: string | null): HeadersInit {
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
-  return headers;
+/** Minimal headers for authenticated GETs (bootstrap + SSE). Avoid Content-Type on GET — some proxies/WAFs reject it. */
+function buildRunSessionGetHeaders(accessToken?: string | null): HeadersInit {
+  if (!accessToken) return {};
+  return { Authorization: `Bearer ${accessToken}` };
 }
 
 export async function fetchRunSessionBootstrap(params: {
@@ -57,7 +55,7 @@ export async function fetchRunSessionBootstrap(params: {
   const query = searchParams.toString() ? `?${searchParams.toString()}` : "";
   const response = await fetch(`/api/runs/${params.runId}${query}`, {
     method: "GET",
-    headers: buildAuthHeaders(params.accessToken),
+    headers: buildRunSessionGetHeaders(params.accessToken),
     credentials: "include",
     signal: params.signal,
   });
@@ -87,7 +85,8 @@ function buildStreamRequest(params: {
   return {
     url: `/api/runs/${params.runId}/stream${query.length > 0 ? `?${query}` : ""}`,
     headers: {
-      ...buildAuthHeaders(params.accessToken),
+      Accept: "text/event-stream",
+      ...buildRunSessionGetHeaders(params.accessToken),
       ...(typeof params.afterSequence === "number" && params.afterSequence > 0
         ? { "Last-Event-ID": String(params.afterSequence) }
         : {}),
