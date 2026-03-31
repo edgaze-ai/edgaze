@@ -118,6 +118,7 @@ class NoopRepository implements WorkflowExecutionRepository {
       status: WorkflowRunNodeAttemptStatus | "completed" | "failed" | "timed_out" | "cancelled";
       metrics?: { endedAt: string; durationMs: number };
     };
+    inputPayload?: PayloadReference | null;
     outputPayload: PayloadReference | null;
     errorPayload: PayloadReference | null;
   }): Promise<void> {}

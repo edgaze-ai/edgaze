@@ -98,6 +98,8 @@ export async function GET(
       let afterSequence = initialAfterSequence;
 
       try {
+        controller.enqueue(encoder.encode(encodeSseChunk({ comment: "connected" })));
+
         const bootstrap = await loadWorkflowRunBootstrap({
           runId,
           afterSequence: initialAfterSequence,
@@ -131,17 +133,18 @@ export async function GET(
 
         const pollLoop = async () => {
           while (!req.signal.aborted) {
-            const latest = await loadWorkflowRunBootstrap({
-              runId,
-              afterSequence: 0,
-              eventLimit: 0,
-            });
-
-            const events = await listWorkflowRunEvents({
-              runId,
-              afterSequence,
-              limit: 200,
-            });
+            const [latest, events] = await Promise.all([
+              loadWorkflowRunBootstrap({
+                runId,
+                afterSequence: 0,
+                eventLimit: 0,
+              }),
+              listWorkflowRunEvents({
+                runId,
+                afterSequence,
+                limit: 200,
+              }),
+            ]);
 
             if (events.length > 0) {
               for (const event of events) {

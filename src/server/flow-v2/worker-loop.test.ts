@@ -314,6 +314,7 @@ class FakeExecutionRepository implements WorkflowExecutionRepository {
       status: WorkflowRunNodeAttemptStatus | "completed" | "failed" | "timed_out" | "cancelled";
       metrics?: { endedAt: string; durationMs: number };
     };
+    inputPayload?: PayloadReference | null;
     outputPayload: PayloadReference | null;
     errorPayload: PayloadReference | null;
   }): Promise<void> {
@@ -327,6 +328,7 @@ class FakeExecutionRepository implements WorkflowExecutionRepository {
           : params.result.status === "timed_out"
             ? "timed_out"
             : "failed";
+    node.inputPayload = params.inputPayload ?? node.inputPayload;
     node.outputPayload = params.outputPayload;
     node.errorPayload = params.errorPayload;
     node.endedAt = params.result.metrics?.endedAt ?? new Date().toISOString();

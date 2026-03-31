@@ -9,6 +9,7 @@ import { canonicalSpecId } from "./spec-id-aliases";
 import {
   DEFAULT_LLM_CHAT_MODEL,
   DEFAULT_LLM_IMAGE_MODEL,
+  openaiGptImageQualityParam,
   resolveAnthropicApiModel,
   resolveLlmChatProvider,
 } from "./llm-model-catalog";
@@ -87,25 +88,26 @@ const EMBEDDING_PRICING: Record<string, number> = {
   "text-embedding-ada-002": 0.1,
 };
 
-/** Per image by model/size. */
+/** Per image by model/size (USD approx; GPT Image varies by quality). */
 const IMAGE_PRICING: Record<string, Record<string, number>> = {
-  "dall-e-2": {
-    "256x256": 0.016,
-    "512x512": 0.018,
+  "gpt-image-1-mini": {
     "1024x1024": 0.02,
+    "1536x1024": 0.03,
+    "1024x1536": 0.03,
+    low: 0.015,
+    medium: 0.02,
+    high: 0.04,
   },
-  "dall-e-3": {
-    "1024x1024": 0.04,
-    "1024x1792": 0.08,
-    "1792x1024": 0.08,
-    standard: 0.04,
-    hd: 0.08,
-  },
-  "gpt-image-1": {
+  "gpt-image-1.5": {
     "1024x1024": 0.08,
     "1536x1024": 0.12,
     "1024x1536": 0.12,
+    low: 0.05,
+    medium: 0.08,
+    high: 0.15,
   },
+  "gemini-3.1-flash-image": { "1024x1024": 0.02 },
+  "gemini-2.5-flash-image": { "1024x1024": 0.02 },
   "gemini-3.1-flash-image-preview": { "1024x1024": 0.02 },
   "gemini-3-pro-image-preview": { "1024x1024": 0.12 },
 };
@@ -323,14 +325,16 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
       let cost = 0.04;
       if (model.startsWith("gemini-") && model.includes("image")) {
         const gp = IMAGE_PRICING[model];
-        cost = gp?.["1024x1024"] ?? 0.04;
+        cost = gp?.["1024x1024"] ?? 0.02;
       } else {
-        const modelPrices = IMAGE_PRICING[model] ??
-          IMAGE_PRICING["dall-e-2"] ?? { "1024x1024": 0.02 };
-        cost = modelPrices[size] ?? modelPrices["1024x1024"] ?? 0.02;
-        if (model === "dall-e-3" && quality === "hd") {
-          cost = (modelPrices as Record<string, number>).hd ?? 0.08;
-        }
+        const gptQuality = openaiGptImageQualityParam(quality);
+        const modelPrices =
+          IMAGE_PRICING[model] ?? IMAGE_PRICING["gpt-image-1-mini"] ?? { "1024x1024": 0.02 };
+        cost =
+          (modelPrices as Record<string, number>)[gptQuality] ??
+          modelPrices[size] ??
+          modelPrices["1024x1024"] ??
+          0.02;
       }
       totalUsd += cost;
 

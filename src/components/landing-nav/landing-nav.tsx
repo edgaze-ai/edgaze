@@ -108,16 +108,16 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
 
   return (
     <header
-      className={cn("fixed left-0 right-0 top-0 z-50 pt-4 lg:pt-5", "transition-all duration-300")}
+      className={cn("fixed left-0 right-0 top-0 z-50 pt-4 md:pt-5", "transition-all duration-300")}
       role="banner"
     >
-      <div className="mx-auto w-full min-w-0 max-w-[1400px] px-5 lg:max-w-[1500px]">
+      <div className="mx-auto w-full min-w-0 max-w-[1400px] px-5 md:max-w-[1500px]">
         <div
           className={cn(
-            "flex lg:grid lg:grid-cols-[1fr_auto_1fr] items-center justify-between lg:justify-normal min-w-0",
+            "flex md:grid md:grid-cols-[1fr_auto_1fr] items-center justify-between md:justify-normal min-w-0",
             "rounded-full",
-            "pl-4 pr-[10px] py-2 lg:pl-6 lg:pr-[10px] lg:py-2.5",
-            "gap-3 lg:gap-6 xl:gap-8",
+            "pl-4 pr-[10px] py-2 md:pl-6 md:pr-[10px] md:py-2.5",
+            "gap-3 md:gap-6 xl:gap-8",
             "bg-white/[0.06] backdrop-blur-2xl border border-white/[0.06]",
             "shadow-[0_0_0_1px_rgba(255,255,255,0.05)_inset,0_0_0_1px_rgba(255,255,255,0.03),0_4px_24px_-4px_rgba(0,0,0,0.25)]",
             "transition-all duration-300 ease-out",
@@ -127,16 +127,16 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
         >
           <LogoLink
             href="#top"
-            className="flex items-center gap-2 shrink-0 text-white hover:opacity-90 transition-opacity lg:justify-self-start min-w-0"
+            className="flex items-center gap-2 shrink-0 text-white hover:opacity-90 transition-opacity md:justify-self-start min-w-0"
             aria-label="Edgaze home"
           >
-            <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8 lg:h-9 lg:w-9" />
-            <span className="text-[14px] font-semibold tracking-tight lg:text-[15px]">Edgaze</span>
+            <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8 md:h-9 md:w-9" />
+            <span className="text-[14px] font-semibold tracking-tight md:text-[15px]">Edgaze</span>
           </LogoLink>
 
           <div
             ref={zoneRef}
-            className="relative z-[60] hidden min-w-0 lg:block lg:justify-self-center"
+            className="relative z-[60] hidden min-w-0 md:block md:justify-self-center"
             onMouseLeave={(e) => {
               const next = e.relatedTarget;
               if (next instanceof Node && zoneRef.current?.contains(next)) return;
@@ -221,12 +221,12 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2 lg:justify-self-end">
+          <div className="flex shrink-0 items-center gap-2 md:justify-self-end">
             <a
               href="/marketplace"
               className={cn(
-                "hidden lg:inline-flex items-center justify-center",
-                "rounded-full px-4 py-2 lg:px-5 text-[12px] lg:text-[13px] font-medium text-white",
+                "hidden md:inline-flex items-center justify-center",
+                "rounded-full px-4 py-2 md:px-5 text-[12px] md:text-[13px] font-medium text-white",
                 "bg-white/10 hover:bg-white/15",
                 "border border-white/10",
                 "active:scale-[0.98] transition-all duration-200",
@@ -239,7 +239,7 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
             <button
               type="button"
               className={cn(
-                "inline-flex min-h-11 min-w-11 items-center justify-center lg:hidden",
+                "inline-flex min-h-11 min-w-11 items-center justify-center md:hidden",
                 "-translate-x-[10px] -mr-1.5 pl-1 text-white/85 hover:text-white",
                 "transition-colors duration-200 active:opacity-80",
               )}
@@ -257,7 +257,7 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
       <AnimatePresence>
         {mobileOpen ? (
           <motion.div
-            className="fixed inset-0 z-[80] lg:hidden"
+            className="fixed inset-0 z-[80] md:hidden"
             initial={reduce ? false : { opacity: 0 }}
             animate={reduce ? undefined : { opacity: 1 }}
             exit={reduce ? undefined : { opacity: 0 }}

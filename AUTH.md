@@ -35,11 +35,11 @@ This gives a single, reliable way to get the current user in API routes.
 
 ## Central Helper: `getUserFromRequest`
 
-- **Location:** `src/app/api/flow/_auth.ts`
+- **Location:** `src/lib/auth/server.ts` (re-exported from `src/app/api/flow/_auth.ts` for older imports).
 - **Usage:** Use this in any API route that needs to know the authenticated user.
 
 ```ts
-import { getUserFromRequest } from "../_auth"; // adjust path to _auth.ts
+import { getUserFromRequest } from "@lib/auth/server";
 
 export async function GET(req: NextRequest) {
   const { user, error } = await getUserFromRequest(req);
@@ -198,8 +198,9 @@ These routes use `getUserFromRequest` and expect the client to send the Bearer t
 - `POST /api/bugs` (if/when auth is required)
 - `GET/POST /api/admin/token-limits`
 - `POST /api/admin/replenish-demo`
+- `GET/POST/DELETE /api/user/api-keys` (encrypted BYO provider keys in Settings / builder “Saved keys”)
 
-Client components that call these (e.g. builder run modal, report modal, diagnostic modal) pass the token via `getAccessToken()` and the `Authorization` header.
+Client components that call these (e.g. builder run modal, report modal, diagnostic modal) pass the token via `getAccessToken()` and the `Authorization` header. For repeated calls, you can use `bearerAuthHeaders(getAccessToken)` from `src/lib/auth/bearer-headers.ts`.
 
 ---
 

@@ -205,6 +205,10 @@ describe("materializeNodeInput", () => {
 
 class FakeWorkerRepository {
   materializedInputPayload: PayloadReference | null = null;
+  persistedResultInputPayload: PayloadReference | null = null;
+  persistAttemptMaterializedInputCalls = 0;
+  loadRunInputCalls = 0;
+  loadUpstreamOutputsCalls = 0;
   resultPayloads:
     | {
         result: NodeExecutionResult;
@@ -219,12 +223,14 @@ class FakeWorkerRepository {
   ) {}
 
   async loadRunInput(): Promise<Record<string, SerializableValue>> {
+    this.loadRunInputCalls += 1;
     return this.runInput;
   }
 
   async loadUpstreamOutputs(): Promise<
     Record<string, PayloadReference | SerializableValue | undefined>
   > {
+    this.loadUpstreamOutputsCalls += 1;
     return this.upstreamOutputs;
   }
 
@@ -235,6 +241,7 @@ class FakeWorkerRepository {
     leaseOwner: string;
     inputPayload: PayloadReference;
   }): Promise<void> {
+    this.persistAttemptMaterializedInputCalls += 1;
     this.materializedInputPayload = params.inputPayload;
   }
 
@@ -244,9 +251,11 @@ class FakeWorkerRepository {
     attemptNumber: number;
     leaseOwner: string;
     result: NodeExecutionResult;
+    inputPayload?: PayloadReference | null;
     outputPayload: PayloadReference | null;
     errorPayload: PayloadReference | null;
   }): Promise<void> {
+    this.persistedResultInputPayload = params.inputPayload ?? null;
     this.resultPayloads = {
       result: params.result,
       outputPayload: params.outputPayload,
@@ -280,12 +289,14 @@ describe("executeClaimedNode", () => {
     });
 
     expect(result.status).toBe("completed");
-    expect(repository.materializedInputPayload).not.toBeNull();
+    expect(repository.persistAttemptMaterializedInputCalls).toBe(0);
+    expect(repository.materializedInputPayload).toBeNull();
+    expect(repository.persistedResultInputPayload).not.toBeNull();
     expect(repository.resultPayloads?.outputPayload).not.toBeNull();
     expect(readPayloadReferenceValue(repository.resultPayloads?.outputPayload ?? undefined)).toEqual(
       { "out-right": "hello world" },
     );
-    expect(readPayloadReferenceValue(repository.materializedInputPayload ?? undefined)).toMatchObject({
+    expect(readPayloadReferenceValue(repository.persistedResultInputPayload ?? undefined)).toMatchObject({
       compact: true,
       ports: {
         __input__: {
@@ -294,6 +305,8 @@ describe("executeClaimedNode", () => {
         },
       },
     });
+    expect(repository.loadRunInputCalls).toBe(1);
+    expect(repository.loadUpstreamOutputsCalls).toBe(0);
   });
 
   it("cancels delay execution through the propagated abort signal", async () => {
@@ -322,6 +335,7 @@ describe("executeClaimedNode", () => {
     });
 
     expect(result.status).toBe("cancelled");
+    expect(repository.persistAttemptMaterializedInputCalls).toBe(1);
     expect(repository.resultPayloads?.errorPayload).not.toBeNull();
   });
 
@@ -350,10 +364,11 @@ describe("executeClaimedNode", () => {
     });
 
     expect(result.status).toBe("completed");
+    expect(repository.persistAttemptMaterializedInputCalls).toBe(0);
     expect(readPayloadReferenceValue(repository.resultPayloads?.outputPayload ?? undefined)).toEqual({
       "out-right": "Hello\n\nWorld",
     });
-    expect(readPayloadReferenceValue(repository.materializedInputPayload ?? undefined)).toMatchObject({
+    expect(readPayloadReferenceValue(repository.persistedResultInputPayload ?? undefined)).toMatchObject({
       compact: true,
       ports: {
         "in-left": {
@@ -366,5 +381,7 @@ describe("executeClaimedNode", () => {
         },
       },
     });
+    expect(repository.loadRunInputCalls).toBe(0);
+    expect(repository.loadUpstreamOutputsCalls).toBe(1);
   });
 });

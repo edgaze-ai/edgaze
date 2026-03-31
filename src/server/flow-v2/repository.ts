@@ -98,6 +98,7 @@ export interface WorkflowExecutionRepository {
       status: WorkflowRunNodeAttemptStatus | "completed" | "failed" | "timed_out" | "cancelled";
       metrics?: { endedAt: string; durationMs: number };
     };
+    inputPayload?: PayloadReference | null;
     outputPayload: PayloadReference | null;
     errorPayload: PayloadReference | null;
   }): Promise<void>;
@@ -630,6 +631,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
       status: WorkflowRunNodeAttemptStatus | "completed" | "failed" | "timed_out" | "cancelled";
       metrics?: { endedAt: string; durationMs: number };
     };
+    inputPayload?: PayloadReference | null;
     outputPayload: PayloadReference | null;
     errorPayload: PayloadReference | null;
   }): Promise<void> {
@@ -643,6 +645,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
       .from("workflow_run_node_attempts")
       .update({
         status: attemptStatus,
+        materialized_input_ref: params.inputPayload ?? undefined,
         output_payload_ref: params.outputPayload,
         error_payload_ref: params.errorPayload,
         ended_at: endedAt,
@@ -657,6 +660,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
       .from("workflow_run_nodes")
       .update({
         status: nodeStatus,
+        input_payload_ref: params.inputPayload ?? undefined,
         output_payload_ref: params.outputPayload,
         error_payload_ref: params.errorPayload,
         ended_at: endedAt,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -21,8 +21,13 @@ import {
   formatRunElapsed,
 } from "../../../lib/workflow/customer-runtime";
 import type { WorkflowInput, WorkflowRunState } from "../../../lib/workflow/run-types";
+import { isPremiumAiSpec, providerForAiSpec } from "../../../lib/workflow/spec-id-aliases";
 import { WorkflowInputField } from "../../builder/WorkflowInputField";
 import CustomerRunNodeStage from "./CustomerRunNodeStage";
+import { UserApiKeysDialog } from "../../settings/UserApiKeysDialog";
+import { bearerAuthHeaders } from "../../../lib/auth/bearer-headers";
+import { useAuth } from "../../auth/AuthContext";
+import type { Components } from "react-markdown";
 
 type BuilderRunLimit = {
   used: number;
@@ -75,7 +80,157 @@ function downloadValue(filename: string, value: unknown) {
   URL.revokeObjectURL(url);
 }
 
+function useThrottledValue<T>(value: T, delayMs: number) {
+  const [throttled, setThrottled] = useState(value);
+  const lastSetAt = useRef(0);
+  const timeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const now = Date.now();
+    const elapsed = now - lastSetAt.current;
+    if (elapsed >= delayMs) {
+      lastSetAt.current = now;
+      setThrottled(value);
+      return;
+    }
+    if (timeoutRef.current != null) window.clearTimeout(timeoutRef.current);
+    timeoutRef.current = window.setTimeout(() => {
+      lastSetAt.current = Date.now();
+      setThrottled(value);
+      timeoutRef.current = null;
+    }, delayMs - elapsed);
+    return () => {
+      if (timeoutRef.current != null) window.clearTimeout(timeoutRef.current);
+    };
+  }, [value, delayMs]);
+
+  return throttled;
+}
+
+function isProbablyMarkdown(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (t.includes("```")) return true;
+  if (/(^|\n)#{1,6}\s+\S/.test(t)) return true;
+  if (/(^|\n)>\s+\S/.test(t)) return true;
+  if (/(^|\n)(-|\*|\+)\s+\S/.test(t)) return true;
+  if (/(^|\n)\d+\.\s+\S/.test(t)) return true;
+  if (/\[[^\]]+\]\([^)]+\)/.test(t)) return true;
+  if (/(^|\n)\|(.+\|)+\s*(\n\|[-:\s|]+\|)/.test(t)) return true; // table
+  if (/`[^`\n]+`/.test(t)) return true;
+  return false;
+}
+
+const LazyMarkdown = React.lazy(async () => {
+  const [{ default: ReactMarkdown }, { default: remarkGfm }] = await Promise.all([
+    import("react-markdown"),
+    import("remark-gfm"),
+  ]);
+
+  const components: Components = {
+    a: (props) => (
+      <a
+        {...props}
+        className={cx(
+          "text-cyan-200/90 underline underline-offset-4 decoration-white/20 hover:text-cyan-100",
+          props.className,
+        )}
+        target="_blank"
+        rel="noreferrer"
+      />
+    ),
+    code: (props) => {
+      const inline = !("data-language" in props) && !String(props.className ?? "").includes("language-");
+      if (inline) {
+        return (
+          <code
+            {...props}
+            className={cx(
+              "rounded-md border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-[0.95em] text-white/90",
+              props.className,
+            )}
+          />
+        );
+      }
+      return (
+        <code
+          {...props}
+          className={cx(
+            "block whitespace-pre-wrap break-words rounded-2xl border border-white/10 bg-black/40 p-4 text-[13px] leading-6 text-white/90",
+            props.className,
+          )}
+        />
+      );
+    },
+    pre: (props) => <pre {...props} className={cx("overflow-auto", props.className)} />,
+    h1: (props) => <h1 {...props} className={cx("mt-2 text-[22px] font-semibold text-white", props.className)} />,
+    h2: (props) => <h2 {...props} className={cx("mt-6 text-[18px] font-semibold text-white", props.className)} />,
+    h3: (props) => <h3 {...props} className={cx("mt-5 text-[16px] font-semibold text-white", props.className)} />,
+    p: (props) => <p {...props} className={cx("my-3 text-white/90", props.className)} />,
+    ul: (props) => <ul {...props} className={cx("my-3 list-disc pl-6 text-white/90", props.className)} />,
+    ol: (props) => <ol {...props} className={cx("my-3 list-decimal pl-6 text-white/90", props.className)} />,
+    li: (props) => <li {...props} className={cx("my-1.5", props.className)} />,
+    blockquote: (props) => (
+      <blockquote
+        {...props}
+        className={cx(
+          "my-4 border-l-2 border-white/15 bg-white/[0.03] pl-4 pr-3 py-2 text-white/80",
+          props.className,
+        )}
+      />
+    ),
+    hr: (props) => <hr {...props} className={cx("my-6 border-white/10", props.className)} />,
+    table: (props) => (
+      <div className="my-4 overflow-auto rounded-2xl border border-white/10">
+        <table {...props} className={cx("w-full border-collapse text-sm text-white/88", props.className)} />
+      </div>
+    ),
+    th: (props) => (
+      <th
+        {...props}
+        className={cx("border-b border-white/10 bg-white/[0.04] px-3 py-2 text-left font-semibold", props.className)}
+      />
+    ),
+    td: (props) => <td {...props} className={cx("border-b border-white/5 px-3 py-2 align-top", props.className)} />,
+  };
+
+  function MarkdownRenderer({ text }: { text: string }) {
+    return (
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {text}
+      </ReactMarkdown>
+    );
+  }
+
+  return { default: MarkdownRenderer };
+});
+
+function MarkdownOrText({ text, streaming }: { text: string; streaming?: boolean }) {
+  const shouldRenderMarkdown = useMemo(() => isProbablyMarkdown(text), [text]);
+  const displayText = streaming ? useThrottledValue(text, 120) : text;
+
+  if (!shouldRenderMarkdown) {
+    return <>{displayText}</>;
+  }
+
+  return (
+    <Suspense fallback={<>{displayText}</>}>
+      <LazyMarkdown text={displayText} />
+    </Suspense>
+  );
+}
+
 function ProsePanel({ text, streaming = false }: { text: string; streaming?: boolean }) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const shouldRenderMarkdown = useMemo(() => isProbablyMarkdown(text), [text]);
+
+  useEffect(() => {
+    if (!streaming) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [text, streaming, shouldRenderMarkdown]);
+
   return (
     <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_20px_80px_rgba(0,0,0,0.34)]">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.45),transparent)]" />
@@ -89,9 +244,14 @@ function ProsePanel({ text, streaming = false }: { text: string; streaming?: boo
             </span>
           )}
         </div>
-        <div className="max-h-[52vh] overflow-auto pr-1">
-          <div className="mx-auto max-w-[72ch] whitespace-pre-wrap text-[15px] leading-8 text-white/90 md:text-[16px]">
-            {text}
+        <div ref={scrollRef} className="max-h-[52vh] overflow-auto pr-1">
+          <div
+            className={cx(
+              "mx-auto max-w-[72ch] text-[15px] leading-8 text-white/90 md:text-[16px]",
+              !shouldRenderMarkdown && "whitespace-pre-wrap",
+            )}
+          >
+            <MarkdownOrText text={text} streaming={streaming} />
             {streaming && <span className="ml-1 inline-block h-[1.15em] w-[0.55ch] rounded-sm bg-white/70 align-[-0.08em] runtime-caret" />}
           </div>
         </div>
@@ -114,14 +274,10 @@ function ResultPanel({
   const canExpand = Boolean(onToggleExpand);
 
   if (isImageLike(value)) {
+    const url = String(value);
     return (
-      <div
-        className={cx(
-          "overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_18px_70px_rgba(0,0,0,0.34)] transition-all duration-300",
-          expanded && "fixed inset-[4vh] z-[10010] rounded-[32px] bg-[#07080b]/98 shadow-[0_40px_200px_rgba(0,0,0,0.7)]",
-        )}
-      >
-        <div className="flex items-center justify-between gap-3 px-5 py-4 text-[11px] uppercase tracking-[0.18em] text-white/42">
+      <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.34)]">
+        <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-white/42">
           <span>{label}</span>
           {canExpand && (
             <button
@@ -134,21 +290,16 @@ function ResultPanel({
             </button>
           )}
         </div>
-        <button
-          type="button"
-          onClick={onToggleExpand}
-          className="block w-full cursor-zoom-in disabled:cursor-default"
-          disabled={!canExpand}
+        <div className="mt-3 text-[16px] font-medium text-white/92">Your image is ready</div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09]"
         >
-          <img
-            src={String(value)}
-            alt={label}
-            className={cx(
-              "block w-full bg-black/35 object-contain transition-all duration-300",
-              expanded ? "max-h-[calc(100vh-7rem)]" : "max-h-[68vh]",
-            )}
-          />
-        </button>
+          Open image
+          <ArrowRight className="h-4 w-4" />
+        </a>
       </div>
     );
   }
@@ -284,12 +435,14 @@ function ActionZone({
   onClose,
   onRerun,
   embedded,
+  showClose = true,
 }: {
   state: WorkflowRunState;
   onCancel?: () => void;
   onClose?: () => void;
   onRerun?: () => void;
   embedded?: boolean;
+  showClose?: boolean;
 }) {
   const model = deriveCustomerRuntimeModel(state);
   const [copied, setCopied] = useState(false);
@@ -359,7 +512,7 @@ function ActionZone({
         </button>
       )}
 
-      {onClose && (
+      {showClose && onClose && (
         <button
           type="button"
           onClick={onClose}
@@ -391,6 +544,13 @@ function ReadyStateSurface({
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [showVaultKeysDialog, setShowVaultKeysDialog] = useState(false);
+  const [vaultKeysConfigured, setVaultKeysConfigured] = useState({
+    openai: false,
+    anthropic: false,
+    gemini: false,
+  });
+  const { getAccessToken } = useAuth();
 
   useEffect(() => {
     setValues(state.inputValues ?? {});
@@ -399,13 +559,72 @@ function ReadyStateSurface({
   const inputs = state.inputs ?? [];
   const showFields = inputs.length > 0;
   const needsApiKey =
-    (isBuilderTest && (builderRunLimit?.used ?? 0) >= (builderRunLimit?.limit ?? 10)) ||
+    (isBuilderTest &&
+      !builderRunLimit?.isAdmin &&
+      (builderRunLimit?.used ?? 0) >= (builderRunLimit?.limit ?? 10)) ||
     Boolean(requiresApiKeys?.length);
+
+  const providersRequired = useMemo(() => {
+    const set = new Set<"openai" | "anthropic" | "google">();
+    const nodes = state.graph?.nodes ?? [];
+    if (requiresApiKeys?.length) {
+      for (const id of requiresApiKeys) {
+        const n = nodes.find((x) => x.id === id);
+        const sid = n?.data?.specId ?? "";
+        if (isPremiumAiSpec(sid)) set.add(providerForAiSpec(sid, n?.data?.config));
+      }
+    } else if (isBuilderTest && (builderRunLimit?.used ?? 0) >= (builderRunLimit?.limit ?? 10)) {
+      for (const n of nodes) {
+        const sid = n.data?.specId ?? "";
+        if (isPremiumAiSpec(sid)) set.add(providerForAiSpec(sid, n.data?.config));
+      }
+    }
+    return set;
+  }, [state.graph, requiresApiKeys, isBuilderTest, builderRunLimit]);
+
+  const effectiveKeyProviders = useMemo(() => {
+    if (needsApiKey && providersRequired.size === 0) {
+      return new Set<"openai" | "anthropic" | "google">(["openai"]);
+    }
+    return providersRequired;
+  }, [needsApiKey, providersRequired]);
+
+  useEffect(() => {
+    if (!needsApiKey) return;
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/user/api-keys", {
+        credentials: "include",
+        headers: await bearerAuthHeaders(getAccessToken),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (cancelled) return;
+      const next = { openai: false, anthropic: false, gemini: false };
+      if (res.ok && data.ok && Array.isArray(data.keys)) {
+        for (const k of data.keys) {
+          if (k.provider === "openai" && k.configured) next.openai = true;
+          else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
+          else if (k.provider === "gemini" && k.configured) next.gemini = true;
+        }
+      }
+      setVaultKeysConfigured(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [needsApiKey, getAccessToken]);
+
   const canSubmit =
     !needsApiKey ||
-    openaiApiKey.trim().length > 0 ||
-    anthropicApiKey.trim().length > 0 ||
-    geminiApiKey.trim().length > 0;
+    ((!effectiveKeyProviders.has("openai") ||
+      openaiApiKey.trim().length > 0 ||
+      vaultKeysConfigured.openai) &&
+      (!effectiveKeyProviders.has("anthropic") ||
+        anthropicApiKey.trim().length > 0 ||
+        vaultKeysConfigured.anthropic) &&
+      (!effectiveKeyProviders.has("google") ||
+        geminiApiKey.trim().length > 0 ||
+        vaultKeysConfigured.gemini));
 
   return (
     <div className="rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(113,207,255,0.08),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.03))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.34)] md:p-8">
@@ -422,6 +641,28 @@ function ReadyStateSurface({
             ? "Add the required inputs and start the workflow when you are ready."
             : "This workflow does not need any additional input. Start it whenever you want."}
         </div>
+
+        {isBuilderTest && builderRunLimit && (
+          <div className="mt-6 rounded-[22px] border border-white/10 bg-black/25 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-sm font-medium text-white/90">Free runs</div>
+              {builderRunLimit.isAdmin ? (
+                <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-medium text-amber-200">
+                  Admin bypass enabled
+                </div>
+              ) : (
+                <div className="text-xs text-white/60">
+                  {Math.max(0, builderRunLimit.limit - builderRunLimit.used)} / {builderRunLimit.limit} remaining
+                </div>
+              )}
+            </div>
+            {!builderRunLimit.isAdmin && (builderRunLimit.used ?? 0) >= (builderRunLimit.limit ?? 10) && (
+              <div className="mt-2 text-xs leading-6 text-white/55">
+                You’ve hit the free run limit. Add BYOK (Saved keys or paste below) to keep running.
+              </div>
+            )}
+          </div>
+        )}
 
         {(showFields || needsApiKey) && (
           <div className="mt-8 rounded-[28px] border border-white/10 bg-black/25 p-5 md:p-6">
@@ -441,9 +682,20 @@ function ReadyStateSurface({
 
               {needsApiKey && (
                 <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
-                  <div className="text-sm font-medium text-white/90">Provider keys</div>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm font-medium text-white/90">Provider keys</div>
+                    <button
+                      type="button"
+                      onClick={() => setShowVaultKeysDialog(true)}
+                      className="text-xs font-medium text-cyan-300/90 hover:text-cyan-200 underline underline-offset-2"
+                    >
+                      Saved keys…
+                    </button>
+                  </div>
                   <div className="mt-2 text-sm leading-6 text-white/55">
-                    Add a compatible provider key to continue this run in customer view.
+                    {builderRunLimit?.isAdmin
+                      ? "Admin bypass is enabled. Add keys only if you want to use your own provider billing."
+                      : "Add a key below or use encrypted keys from your account (Saved keys)."}
                   </div>
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
                     <input
@@ -502,6 +754,33 @@ function ReadyStateSurface({
             </button>
           )}
         </div>
+
+        <UserApiKeysDialog
+          open={showVaultKeysDialog}
+          onClose={() => {
+            setShowVaultKeysDialog(false);
+            if (!needsApiKey) return;
+            void (async () => {
+              const res = await fetch("/api/user/api-keys", {
+                credentials: "include",
+                headers: await bearerAuthHeaders(getAccessToken),
+              });
+              return res.json();
+            })()
+              .then((data) => {
+                const next = { openai: false, anthropic: false, gemini: false };
+                if (data?.ok && Array.isArray(data.keys)) {
+                  for (const k of data.keys) {
+                    if (k.provider === "openai" && k.configured) next.openai = true;
+                    else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
+                    else if (k.provider === "gemini" && k.configured) next.gemini = true;
+                  }
+                }
+                setVaultKeysConfigured(next);
+              })
+              .catch(() => {});
+          }}
+        />
       </div>
     </div>
   );
@@ -591,7 +870,8 @@ function ResultsSurface({
             <ProsePanel text={model.primaryLiveText.text} />
           ) : (
             <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-10 text-center text-white/62">
-              No output was produced for this run.
+              <div className="text-[16px] font-medium text-white/86">Workflow executed successfully</div>
+              <div className="mt-2 text-sm leading-6 text-white/58">This workflow did not produce any outputs.</div>
             </div>
           )}
         </div>
@@ -692,7 +972,14 @@ export default function CustomerWorkflowRuntimeSurface({
           {hideHeader && <ExecutionChrome state={state} onCancel={onCancel} onClose={onClose} />}
           <ResultsSurface state={state} />
           {!hideActionZone && (
-            <ActionZone state={state} onCancel={onCancel} onClose={onClose} onRerun={onRerun} embedded={embedded} />
+            <ActionZone
+              state={state}
+              onCancel={onCancel}
+              onClose={onClose}
+              onRerun={onRerun}
+              embedded={embedded}
+              showClose={hideHeader}
+            />
           )}
         </>
       ) : (

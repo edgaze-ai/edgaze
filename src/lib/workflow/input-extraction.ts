@@ -18,6 +18,32 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
   const inputs: WorkflowInput[] = [];
   let index = 0;
 
+  const normalizeDropdownOptions = (config: any): Array<{ label: string; value: string }> => {
+    const raw = config?.options ?? config?.dropdownOptions ?? config?.dropdown ?? undefined;
+    const arr: any[] =
+      Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split("\n").map((s) => s.trim()) : [];
+
+    const opts: Array<{ label: string; value: string }> = [];
+    for (const item of arr) {
+      if (!item) continue;
+      if (typeof item === "string") {
+        opts.push({ label: item, value: item });
+        continue;
+      }
+      if (typeof item === "object") {
+        const label = typeof item.label === "string" ? item.label : undefined;
+        const value =
+          typeof item.value === "string"
+            ? item.value
+            : typeof item.id === "string"
+              ? item.id
+              : label;
+        if (label && value) opts.push({ label, value });
+      }
+    }
+    return opts;
+  };
+
   for (const node of nodes) {
     const specId = node.data?.specId;
     if (specId !== "input") continue;
@@ -43,6 +69,7 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
         url: "url",
         file: "file",
         json: "json",
+        dropdown: "dropdown",
       };
       inputType = typeMap[config.inputType] || "text";
     }
@@ -56,6 +83,7 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
       required: config.required !== false,
       placeholder,
       defaultValue: config.defaultValue || undefined,
+      options: inputType === "dropdown" ? normalizeDropdownOptions(config) : undefined,
     });
     index += 1;
   }

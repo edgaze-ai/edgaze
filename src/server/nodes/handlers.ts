@@ -37,6 +37,8 @@ import {
   DEFAULT_LLM_IMAGE_MODEL,
   LEGACY_OPENAI_CHAT_MODEL,
   LEGACY_OPENAI_IMAGE_MODEL,
+  OPENAI_GPT_IMAGE_SIZES,
+  openaiGptImageQualityParam,
   resolveAnthropicApiModel,
   resolveLlmChatProvider,
   resolveLlmImageProvider,
@@ -1235,6 +1237,12 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
 
   try {
     if (imageProvider === "google") {
+      const LEGACY_GEMINI_LLM_IMAGE_MODEL: Record<string, string> = {
+        "gemini-3.1-flash-image-preview": "gemini-3.1-flash-image",
+        "gemini-3-pro-image-preview": "gemini-3.1-flash-image",
+      };
+      model = LEGACY_GEMINI_LLM_IMAGE_MODEL[model] ?? model;
+
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
       const gres = await fetch(geminiUrl, {
         method: "POST",
@@ -1286,40 +1294,26 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
       return imageUrl;
     }
 
-    const size = (config.size as string) || "1024x1024";
-    const quality = (config.quality as string) || "standard";
-    const DALL_E_2_SIZES = ["256x256", "512x512", "1024x1024"];
-    const DALL_E_3_SIZES = ["1024x1024", "1792x1024", "1024x1792"];
-    const GPT_IMG_SIZES = ["1024x1024", "1536x1024", "1024x1536"];
+    const OPENAI_IMAGE_LEGACY_MODEL: Record<string, string> = {
+      "dall-e-2": "gpt-image-1-mini",
+      "dall-e-3": "gpt-image-1.5",
+      "gpt-image-1": "gpt-image-1.5",
+    };
+    model = OPENAI_IMAGE_LEGACY_MODEL[model] ?? model;
 
-    const validSize =
-      model === "dall-e-3"
-        ? DALL_E_3_SIZES.includes(size)
-          ? size
-          : "1024x1024"
-        : model === "dall-e-2"
-          ? DALL_E_2_SIZES.includes(size)
-            ? size
-            : "1024x1024"
-          : GPT_IMG_SIZES.includes(size)
-            ? size
-            : "1024x1024";
+    const sizeRaw = (config.size as string) || "1024x1024";
+    const validSize = OPENAI_GPT_IMAGE_SIZES.includes(sizeRaw as (typeof OPENAI_GPT_IMAGE_SIZES)[number])
+      ? sizeRaw
+      : "1024x1024";
+    const gptQuality = openaiGptImageQualityParam(config.quality as string | undefined);
 
     const body: Record<string, unknown> = {
       model,
       prompt,
       n: 1,
+      size: validSize,
+      quality: gptQuality,
     };
-
-    if (model === "dall-e-2" || model === "dall-e-3") {
-      body.size = validSize;
-    } else if (model.startsWith("gpt-image")) {
-      body.size = validSize;
-    }
-
-    if (model === "dall-e-3") {
-      body.quality = quality === "hd" ? "hd" : "standard";
-    }
 
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",

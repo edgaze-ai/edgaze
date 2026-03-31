@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { CompiledWorkflowDefinition, SerializableValue } from "./types";
+import type { CompiledWorkflowDefinition, PayloadReference, SerializableValue } from "./types";
 import {
   buildInitialRunNodeRecords,
   buildRunInitializationEvents,
@@ -211,7 +211,19 @@ class FakeRepository implements WorkflowExecutionRepository {
 
   async persistAttemptMaterializedInput(): Promise<void> {}
 
-  async persistAttemptResult(): Promise<void> {}
+  async persistAttemptResult(_: {
+    attemptId: string;
+    runNodeId: string;
+    attemptNumber: number;
+    leaseOwner: string;
+    result: {
+      status: "completed" | "failed" | "timed_out" | "cancelled";
+      metrics?: { endedAt: string; durationMs: number };
+    };
+    inputPayload?: PayloadReference | null;
+    outputPayload: PayloadReference | null;
+    errorPayload: PayloadReference | null;
+  }): Promise<void> {}
 
   async finalizeRun(): Promise<void> {}
 }

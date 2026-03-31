@@ -41,6 +41,9 @@ import {
 import { WorkflowInputField } from "./WorkflowInputField";
 import RunCountDiagnosticModal from "./RunCountDiagnosticModal";
 import CustomerWorkflowRuntimeSurface from "../runtime/customer/CustomerWorkflowRuntimeSurface";
+import { UserApiKeysDialog } from "../settings/UserApiKeysDialog";
+import { bearerAuthHeaders } from "../../lib/auth/bearer-headers";
+import { useAuth } from "../auth/AuthContext";
 
 export type {
   RunStepStatus,
@@ -2153,6 +2156,13 @@ export default function PremiumWorkflowRunModal({
   const [copiedOutput, setCopiedOutput] = useState<string | null>(null);
   const [showTechnicalLogs, setShowTechnicalLogs] = useState(false);
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
+  const [showVaultKeysDialog, setShowVaultKeysDialog] = useState(false);
+  const [vaultKeysConfigured, setVaultKeysConfigured] = useState({
+    openai: false,
+    anthropic: false,
+    gemini: false,
+  });
+  const { getAccessToken } = useAuth();
   const [projectionMode, setProjectionMode] = useState<"builder" | "customer">("builder");
   const [isStopping, setIsStopping] = useState(false);
 
@@ -2293,10 +2303,47 @@ export default function PremiumWorkflowRunModal({
     return providersRequired;
   }, [needsApiKey, providersRequired]);
 
+  useEffect(() => {
+    if (!open) {
+      setVaultKeysConfigured({ openai: false, anthropic: false, gemini: false });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !needsApiKey) return;
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/user/api-keys", {
+        credentials: "include",
+        headers: await bearerAuthHeaders(getAccessToken),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (cancelled) return;
+      const next = { openai: false, anthropic: false, gemini: false };
+      if (res.ok && data.ok && Array.isArray(data.keys)) {
+        for (const k of data.keys) {
+          if (k.provider === "openai" && k.configured) next.openai = true;
+          else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
+          else if (k.provider === "gemini" && k.configured) next.gemini = true;
+        }
+      }
+      setVaultKeysConfigured(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, needsApiKey, getAccessToken]);
+
   const keysOk =
-    (!effectiveKeyProviders.has("openai") || openaiApiKey.trim().length > 0) &&
-    (!effectiveKeyProviders.has("anthropic") || anthropicApiKey.trim().length > 0) &&
-    (!effectiveKeyProviders.has("google") || geminiApiKey.trim().length > 0);
+    (!effectiveKeyProviders.has("openai") ||
+      openaiApiKey.trim().length > 0 ||
+      vaultKeysConfigured.openai) &&
+    (!effectiveKeyProviders.has("anthropic") ||
+      anthropicApiKey.trim().length > 0 ||
+      vaultKeysConfigured.anthropic) &&
+    (!effectiveKeyProviders.has("google") ||
+      geminiApiKey.trim().length > 0 ||
+      vaultKeysConfigured.gemini);
   const canSubmitBuilder = !needsApiKey || (needsApiKey && keysOk);
 
   const handleCopyOutput = (value: any, index: number) => {
@@ -2640,11 +2687,18 @@ export default function PremiumWorkflowRunModal({
                     {((isBuilderTest && builderRunLimit != null) || requiresApiKeys?.length) &&
                       needsApiKey && (
                         <div className="rounded-xl border border-white/10 bg-[#0c0c0c] p-5 space-y-5">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
                             <label className="block text-sm font-semibold text-white/90">
                               API keys
                               <span className="text-red-400 ml-1.5">*</span>
                             </label>
+                            <button
+                              type="button"
+                              onClick={() => setShowVaultKeysDialog(true)}
+                              className="text-xs font-medium text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                            >
+                              Saved keys…
+                            </button>
                             {builderRunLimit?.isAdmin ? (
                               <span className="text-xs text-amber-300 font-medium">Admin</span>
                             ) : builderRunLimit ? (
@@ -2657,8 +2711,8 @@ export default function PremiumWorkflowRunModal({
                           </div>
                           <p className="text-xs text-white/50 leading-relaxed">
                             {requiresApiKeys?.length
-                              ? "You've used your free runs for this workflow. Add the keys for each provider your workflow uses."
-                              : "Free tier uses lower-cost defaults. With your keys, inspector models apply. Keys stay in this session."}
+                              ? "You've used your free runs for this workflow. Paste keys below or open Saved keys to use encrypted keys from your account (Settings → API keys)."
+                              : "Free tier uses lower-cost defaults. With your keys, inspector models apply. You can paste once here or save encrypted keys under Saved keys."}
                           </p>
                           {effectiveKeyProviders.has("openai") && (
                             <div>
@@ -2922,6 +2976,34 @@ export default function PremiumWorkflowRunModal({
         onRefresh={() => {
           // Trigger a refresh of the run limit if parent provides callback
           // This will be handled by the parent component
+        }}
+      />
+
+      <UserApiKeysDialog
+        open={showVaultKeysDialog}
+        onClose={() => {
+          setShowVaultKeysDialog(false);
+          if (needsApiKey) {
+            void (async () => {
+              const res = await fetch("/api/user/api-keys", {
+                credentials: "include",
+                headers: await bearerAuthHeaders(getAccessToken),
+              });
+              return res.json();
+            })()
+              .then((data) => {
+                const next = { openai: false, anthropic: false, gemini: false };
+                if (data?.ok && Array.isArray(data.keys)) {
+                  for (const k of data.keys) {
+                    if (k.provider === "openai" && k.configured) next.openai = true;
+                    else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
+                    else if (k.provider === "gemini" && k.configured) next.gemini = true;
+                  }
+                }
+                setVaultKeysConfigured(next);
+              })
+              .catch(() => {});
+          }
         }}
       />
     </div>

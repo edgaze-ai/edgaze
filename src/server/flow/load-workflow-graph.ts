@@ -2,6 +2,76 @@ import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowVersionById } from "@lib/supabase/workflow-versions";
 import type { GraphEdge, GraphNode } from "./types";
 
+async function workflowRowExists(workflowId: string): Promise<boolean> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("workflows")
+    .select("id")
+    .eq("id", workflowId)
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") {
+    console.warn("[load-workflow-graph] workflowRowExists:", error.message);
+  }
+  return !!data;
+}
+
+/**
+ * Draft graph for builder execution — must match the row the user is allowed to run.
+ * Uses service role — only call after authz checks in API routes.
+ */
+export async function loadWorkflowDraftGraphForExecution(
+  draftId: string,
+  ownerId: string,
+): Promise<{
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}> {
+  const supabase = createSupabaseAdminClient();
+  const { data: draft, error } = await supabase
+    .from("workflow_drafts")
+    .select("graph")
+    .eq("id", draftId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+
+  if (error || !draft) {
+    throw new Error("Draft not found");
+  }
+
+  const raw = draft.graph as { nodes?: GraphNode[]; edges?: GraphEdge[] } | null;
+  return {
+    nodes: (raw?.nodes ?? []) as GraphNode[],
+    edges: (raw?.edges ?? []) as GraphEdge[],
+  };
+}
+
+export type AuthenticatedRunGraphEntitlement = {
+  useServerMarketplaceGraph: boolean;
+  draftIdForCount: string | null;
+};
+
+/**
+ * Resolves nodes/edges from Supabase immediately before a run (same rules as
+ * POST /api/workflow/resolve-run-graph) so execution never relies on a stale client payload.
+ */
+export async function resolveAuthenticatedRunGraphForExecution(params: {
+  userId: string;
+  workflowId: string;
+  entitlement: AuthenticatedRunGraphEntitlement;
+}): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] } | null> {
+  const { userId, workflowId, entitlement } = params;
+  if (entitlement.useServerMarketplaceGraph) {
+    return loadPublishedWorkflowGraphForExecution(workflowId);
+  }
+  if (entitlement.draftIdForCount) {
+    return loadWorkflowDraftGraphForExecution(entitlement.draftIdForCount, userId);
+  }
+  if (await workflowRowExists(workflowId)) {
+    return loadPublishedWorkflowGraphForExecution(workflowId);
+  }
+  return null;
+}
+
 /**
  * Canonical published graph for execution (active workflow version, else workflows row).
  * Uses service role — only call after authz checks in API routes.

@@ -11,8 +11,6 @@ import {
   User,
   HelpCircle,
   Settings,
-  ChevronLeft,
-  ChevronRight,
   Sparkles,
   BookOpen,
   DollarSign,
@@ -76,36 +74,42 @@ export default function Sidebar() {
     profile?.full_name?.trim() || (profile?.handle ? `@${profile.handle}` : "") || "Your account";
 
   const planLabel = (profile?.plan ?? "Free") + " plan";
-
-  const initials =
-    (displayName || "")
-      .split(" ")
-      .filter(Boolean)
-      .map((n) => n[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase() || "U";
-
-  const avatarSrc = profile?.avatar_url || "/brand/edgaze-mark.png";
+  const sidebarRootRef = React.useRef<HTMLElement | null>(null);
 
   const isActive = (href: string) => pathname.startsWith(href);
   const widthClass = collapsed ? "w-[76px]" : "w-[260px]";
 
+  const expandSidebar = () => setCollapsed(false);
+  const collapseSidebar = () => setCollapsed(true);
+  const handleBlur = () => {
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (!(activeElement instanceof Node) || !sidebarRootRef.current?.contains(activeElement)) {
+        collapseSidebar();
+      }
+    });
+  };
+
   return (
     <aside
+      ref={sidebarRootRef}
+      onMouseEnter={expandSidebar}
+      onMouseLeave={collapseSidebar}
+      onFocusCapture={expandSidebar}
+      onBlurCapture={handleBlur}
       className={cn(
-        "relative flex-shrink-0 h-screen border-r border-white/10 bg-[#050505]",
-        "transition-[width] duration-250 ease-out",
+        // z-index: keep sidebar above any page-level fixed/absolute backgrounds in content
+        "relative z-[90] flex-shrink-0 h-screen border-r border-white/10 bg-[#050505]",
+        "transition-[width] duration-200 ease-out will-change-[width]",
         widthClass,
       )}
     >
       <div className="relative flex h-full flex-col px-3 pt-4 pb-3 gap-6">
-        {/* TOP LOGO + TOGGLE */}
+        {/* TOP LOGO */}
         <div
           className={cn(
-            collapsed
-              ? "flex flex-col items-center gap-2"
-              : "flex items-center justify-between gap-2",
+            "flex items-center gap-3 overflow-hidden",
+            collapsed ? "pl-[2px]" : "",
           )}
         >
           <div className="flex items-center gap-3 overflow-hidden">
@@ -118,28 +122,10 @@ export default function Sidebar() {
               </span>
             )}
           </div>
-
-          <button
-            type="button"
-            onClick={() => setCollapsed(!collapsed)}
-            className={cn(
-              "inline-flex items-center justify-center rounded-full border border-white/14",
-              "bg-black/60 hover:bg-black/80 active:scale-95 transition-all",
-              "h-7 w-7 text-white/70",
-              collapsed ? "mt-1 self-center" : "",
-            )}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? (
-              <ChevronRight className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronLeft className="h-3.5 w-3.5" />
-            )}
-          </button>
         </div>
 
         {/* ACCOUNT CHIP (expanded only) */}
-        {!collapsed && (
+        {!collapsed ? (
           <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset] px-3.5 py-3">
             {loading ? (
               <div className="flex items-center gap-3">
@@ -200,6 +186,29 @@ export default function Sidebar() {
                   Sign in
                 </button>
               </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex justify-center rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset] px-3.5 py-2.5">
+            {loading ? (
+              <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
+            ) : userId && profile ? (
+              <ProfileAvatar
+                name={displayName}
+                avatarUrl={profile?.avatar_url || null}
+                size={32}
+                handle={profile?.handle}
+                userId={userId}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={openSignIn}
+                className="block rounded-full transition-opacity hover:opacity-90"
+                aria-label="Sign in"
+              >
+                <ProfileAvatar name="Your account" size={32} showFallback />
+              </button>
             )}
           </div>
         )}

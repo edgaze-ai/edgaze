@@ -29,10 +29,11 @@ export type WorkflowInput = {
   specId: string;
   name: string;
   description?: string;
-  type: "text" | "number" | "textarea" | "url" | "file" | "json";
+  type: "text" | "number" | "textarea" | "url" | "file" | "json" | "dropdown";
   required: boolean;
   placeholder?: string;
   defaultValue?: string;
+  options?: Array<{ label: string; value: string }>;
 };
 
 export type WorkflowRunConnectionState =

@@ -247,6 +247,16 @@ export function deriveCustomerRuntimeModel(state: WorkflowRunState | null): Cust
           : longRunning
             ? "Still progressing through the workflow."
             : undefined;
+  } else if (
+    state.status === "running" &&
+    (connectionState === "live" || connectionState === "reconnecting" || Boolean(state.runId))
+  ) {
+    mode = "queueing";
+    headline = "Initializing your workflow";
+    subline =
+      connectionState === "reconnecting"
+        ? "Reconnecting to live updates..."
+        : "Connected. Waiting for the first step to start.";
   } else {
     mode = "preparing";
     headline = "We are preparing your run";

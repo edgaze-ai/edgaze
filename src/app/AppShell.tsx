@@ -73,11 +73,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         ? "flex-1 overflow-hidden library-page-main"
         : "flex-1 overflow-hidden";
   const containerClasses = isLibraryPage
-    ? "flex h-screen overflow-hidden library-page-container"
-    : "flex h-screen overflow-hidden";
+    ? "relative isolate flex h-screen overflow-hidden library-page-container"
+    : "relative isolate flex h-screen overflow-hidden";
   const contentClasses = isLibraryPage
-    ? "flex-1 flex flex-col overflow-hidden library-page-content"
-    : "flex-1 flex flex-col overflow-hidden";
+    ? "relative z-0 flex-1 flex flex-col overflow-hidden library-page-content"
+    : "relative z-0 flex-1 flex flex-col overflow-hidden";
 
   return (
     <div
@@ -85,7 +85,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       style={{ opacity: mounted ? 1 : 0, transition: "opacity 0.2s ease-in" }}
     >
       {/* Desktop sidebar only */}
-      <div className="hidden md:block">
+      <div className="relative z-[90] hidden md:block">
         <Sidebar />
       </div>
 

@@ -7,6 +7,7 @@ import { useAuth } from "../../components/auth/AuthContext";
 import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import HandleChangeWarningDialog from "../../components/settings/HandleChangeWarningDialog";
 import HandleCooldownBanner from "../../components/settings/HandleCooldownBanner";
+import { UserApiKeysPanel } from "../../components/settings/UserApiKeysPanel";
 import {
   ArrowLeft,
   Shield,
@@ -20,6 +21,7 @@ import {
   Mail,
   BadgeCheck,
   LogIn,
+  KeyRound,
 } from "lucide-react";
 
 function normalizeHandle(input: string) {
@@ -36,6 +38,7 @@ const HANDLE_REGEX = /^[a-z0-9_]{3,24}$/;
 
 const SECTIONS = [
   { id: "account", label: "Account", icon: User },
+  { id: "api-keys", label: "API keys", icon: KeyRound },
   { id: "preferences", label: "Preferences", icon: Bell },
 ] as const;
 
@@ -539,6 +542,26 @@ export default function SettingsPage() {
               </section>
             )}
 
+            {activeSection === "api-keys" && (
+              <section id="api-keys" className="space-y-8">
+                <div>
+                  <h2 className="text-[24px] lg:text-[28px] font-semibold text-white tracking-tight">
+                    API keys
+                  </h2>
+                  <p className="text-[14px] text-white/50 mt-1.5">
+                    Bring your own provider keys for workflow runs
+                  </p>
+                </div>
+
+                <SettingSection
+                  title="Encrypted key vault"
+                  description="Store OpenAI, Anthropic, and Google AI keys for your account. Values are encrypted with AES-256-GCM on the server. After saving, you can rotate or delete a key but never read it back from Edgaze."
+                >
+                  <UserApiKeysPanel showIntro={false} heading="" description="" />
+                </SettingSection>
+              </section>
+            )}
+
             {activeSection === "preferences" && (
               <section id="preferences" className="space-y-8">
                 <div>
@@ -634,6 +657,25 @@ export default function SettingsPage() {
                     <span className="text-[15px] text-amber-400/90 font-medium">Not verified</span>
                   )}
                 </div>
+              </SettingSection>
+            </section>
+
+            <section id="api-keys-mobile" className="space-y-8">
+              <div className="pb-4 border-b border-white/[0.12]">
+                <h2 className="text-[24px] font-semibold text-white tracking-tight flex items-center gap-3">
+                  <KeyRound className="h-6 w-6 text-white/60" />
+                  API keys
+                </h2>
+                <p className="text-[14px] text-white/50 mt-2">
+                  Encrypted provider keys for workflow runs
+                </p>
+              </div>
+
+              <SettingSection
+                title="Encrypted key vault"
+                description="Store OpenAI, Anthropic, and Google AI keys. After saving, you can rotate or delete but not view the secret again."
+              >
+                <UserApiKeysPanel showIntro={false} heading="" description="" />
               </SettingSection>
             </section>
 

@@ -34,11 +34,15 @@ import {
   FREE_TIER_LLM_CHAT_OPENAI_MODEL,
 } from "@lib/workflow/llm-model-catalog";
 import { simplifyWorkflowError } from "@lib/workflow/simplify-error";
+import { loadDecryptedUserApiKeysForRun } from "@lib/user-api-keys/vault";
 import type { GraphPayload } from "src/server/flow/types";
 import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getAuthenticatedRunEntitlement } from "src/server/flow/marketplace-entitlement";
-import { loadPublishedWorkflowGraphForExecution } from "src/server/flow/load-workflow-graph";
+import {
+  loadPublishedWorkflowGraphForExecution,
+  resolveAuthenticatedRunGraphForExecution,
+} from "src/server/flow/load-workflow-graph";
 import type { GraphEdge, GraphNode } from "src/server/flow/types";
 import {
   compileBuilderGraph,
@@ -338,18 +342,25 @@ export async function POST(req: Request) {
       }
       effectiveIsBuilderTest = entitlement.effectiveIsBuilderTest;
       entitlementDraftId = entitlement.draftIdForCount;
-      if (entitlement.useServerMarketplaceGraph) {
-        try {
-          const g = await loadPublishedWorkflowGraphForExecution(workflowId);
+      try {
+        const g = await resolveAuthenticatedRunGraphForExecution({
+          userId,
+          workflowId,
+          entitlement: {
+            useServerMarketplaceGraph: entitlement.useServerMarketplaceGraph,
+            draftIdForCount: entitlement.draftIdForCount,
+          },
+        });
+        if (g) {
           nodes = g.nodes;
           edges = g.edges;
-        } catch (e) {
-          console.error("[flow/run] server graph load failed:", e);
-          return NextResponse.json(
-            { ok: false, error: "Failed to load workflow for execution." },
-            { status: 500 },
-          );
         }
+      } catch (e) {
+        console.error("[flow/run] server graph load failed:", e);
+        return NextResponse.json(
+          { ok: false, error: "Failed to load workflow for execution." },
+          { status: 500 },
+        );
       }
     } else if (
       adminDemoToken &&
@@ -499,22 +510,39 @@ export async function POST(req: Request) {
       );
     }
 
+    const vaultKeys =
+      user && /^[0-9a-f-]{36}$/i.test(userId)
+        ? await loadDecryptedUserApiKeysForRun(userId)
+        : {};
+    const effectiveOpenaiKey =
+      (typeof modalOpenaiKey === "string" && modalOpenaiKey.trim()) ||
+      vaultKeys.openai?.trim() ||
+      "";
+    const effectiveAnthropicKey =
+      (typeof modalAnthropicKey === "string" && modalAnthropicKey.trim()) ||
+      vaultKeys.anthropic?.trim() ||
+      "";
+    const effectiveGeminiKey =
+      (typeof modalGeminiKey === "string" && modalGeminiKey.trim()) ||
+      vaultKeys.gemini?.trim() ||
+      "";
+
     const mergedUserApiKeys = { ...rawUserApiKeys };
-    if (effectiveIsBuilderTest) {
-      for (const n of nodes) {
-        const specId = n.data?.specId ?? "";
-        if (!isPremiumAiSpec(specId)) continue;
-        const provider = providerForAiSpec(
-          specId,
-          n.data?.config as Record<string, unknown> | undefined,
-        );
-        if (provider === "openai" && modalOpenaiKey?.trim()) {
-          mergedUserApiKeys[n.id] = { apiKey: modalOpenaiKey.trim() };
-        } else if (provider === "anthropic" && modalAnthropicKey?.trim()) {
-          mergedUserApiKeys[n.id] = { apiKey: modalAnthropicKey.trim() };
-        } else if (provider === "google" && modalGeminiKey?.trim()) {
-          mergedUserApiKeys[n.id] = { apiKey: modalGeminiKey.trim() };
-        }
+    for (const n of nodes) {
+      const specId = n.data?.specId ?? "";
+      if (!isPremiumAiSpec(specId)) continue;
+      const existing = mergedUserApiKeys[n.id]?.apiKey?.trim();
+      if (existing) continue;
+      const provider = providerForAiSpec(
+        specId,
+        n.data?.config as Record<string, unknown> | undefined,
+      );
+      if (provider === "openai" && effectiveOpenaiKey) {
+        mergedUserApiKeys[n.id] = { apiKey: effectiveOpenaiKey };
+      } else if (provider === "anthropic" && effectiveAnthropicKey) {
+        mergedUserApiKeys[n.id] = { apiKey: effectiveAnthropicKey };
+      } else if (provider === "google" && effectiveGeminiKey) {
+        mergedUserApiKeys[n.id] = { apiKey: effectiveGeminiKey };
       }
     }
 
@@ -543,18 +571,9 @@ export async function POST(req: Request) {
 
     // Inject API keys into inputs for premium nodes
     const enrichedInputs: Record<string, unknown> = { ...inputs };
-    const userProvidedOpenai =
-      effectiveIsBuilderTest &&
-      typeof modalOpenaiKey === "string" &&
-      modalOpenaiKey.trim().length > 0;
-    const userProvidedAnthropic =
-      effectiveIsBuilderTest &&
-      typeof modalAnthropicKey === "string" &&
-      modalAnthropicKey.trim().length > 0;
-    const userProvidedGemini =
-      effectiveIsBuilderTest &&
-      typeof modalGeminiKey === "string" &&
-      modalGeminiKey.trim().length > 0;
+    const userProvidedOpenai = effectiveIsBuilderTest && Boolean(effectiveOpenaiKey);
+    const userProvidedAnthropic = effectiveIsBuilderTest && Boolean(effectiveAnthropicKey);
+    const userProvidedGemini = effectiveIsBuilderTest && Boolean(effectiveGeminiKey);
     if (effectiveIsBuilderTest) {
       enrichedInputs["__builder_test"] = true;
       if (userProvidedOpenai) enrichedInputs["__builder_user_key_openai"] = true;
@@ -586,9 +605,9 @@ export async function POST(req: Request) {
       ) {
         const p0 = providerForAiSpec(specId, config);
         const userKeyForModel =
-          (p0 === "openai" && modalOpenaiKey?.trim()) ||
-          (p0 === "anthropic" && modalAnthropicKey?.trim()) ||
-          (p0 === "google" && modalGeminiKey?.trim());
+          (p0 === "openai" && effectiveOpenaiKey) ||
+          (p0 === "anthropic" && effectiveAnthropicKey) ||
+          (p0 === "google" && effectiveGeminiKey);
         const configKey = config?.apiKey;
         if (!userKeyForModel && !(typeof configKey === "string" && configKey.trim())) {
           if (enforcement.useEdgazeAnthropic) provider = "anthropic";
@@ -597,10 +616,9 @@ export async function POST(req: Request) {
       }
       let modalKey: string | null = null;
       if (effectiveIsBuilderTest) {
-        if (provider === "openai" && modalOpenaiKey?.trim()) modalKey = modalOpenaiKey.trim();
-        if (provider === "anthropic" && modalAnthropicKey?.trim())
-          modalKey = modalAnthropicKey.trim();
-        if (provider === "google" && modalGeminiKey?.trim()) modalKey = modalGeminiKey.trim();
+        if (provider === "openai" && effectiveOpenaiKey) modalKey = effectiveOpenaiKey;
+        if (provider === "anthropic" && effectiveAnthropicKey) modalKey = effectiveAnthropicKey;
+        if (provider === "google" && effectiveGeminiKey) modalKey = effectiveGeminiKey;
       }
       let platformKey: string | null = null;
       if (!modalKey) {
@@ -873,18 +891,6 @@ export async function POST(req: Request) {
                 runAccessToken,
               });
 
-              const initialBootstrap = await loadWorkflowRunBootstrap({
-                runId,
-                afterSequence: 0,
-                eventLimit: 500,
-              });
-
-              for (const event of initialBootstrap.events) {
-                afterSequence = Math.max(afterSequence, event.sequence);
-                const mapped = mapRunEventToLegacyProgressEvent(event, compiledWorkflow);
-                if (mapped) write(mapped);
-              }
-
               const activeWorker = ensureWorkflowRunWorker({
                 runId,
                 repository,
@@ -900,23 +906,24 @@ export async function POST(req: Request) {
 
               const pollNdjsonLoop = async () => {
                 while (!req.signal.aborted) {
-                  const events = await listWorkflowRunEvents({
-                    runId,
-                    afterSequence,
-                    limit: 200,
-                  });
+                  const [events, latestBootstrap] = await Promise.all([
+                    listWorkflowRunEvents({
+                      runId,
+                      afterSequence,
+                      limit: 200,
+                    }),
+                    loadWorkflowRunBootstrap({
+                      runId,
+                      afterSequence: 0,
+                      eventLimit: 0,
+                    }),
+                  ]);
 
                   for (const event of events) {
                     afterSequence = Math.max(afterSequence, event.sequence);
                     const mapped = mapRunEventToLegacyProgressEvent(event, compiledWorkflow);
                     if (mapped) write(mapped);
                   }
-
-                  const latestBootstrap = await loadWorkflowRunBootstrap({
-                    runId,
-                    afterSequence: 0,
-                    eventLimit: 0,
-                  });
                   const isTerminal =
                     latestBootstrap.run.status === "completed" ||
                     latestBootstrap.run.status === "failed" ||

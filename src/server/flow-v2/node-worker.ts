@@ -10,6 +10,8 @@ import type {
 import type { NodeExecutor } from "./node-executor";
 
 const FAST_LOCAL_SNAPSHOT_SPEC_IDS = new Set(["input", "merge", "output"]);
+const FAST_LOCAL_INPUT_ONLY_SPEC_IDS = new Set(["input"]);
+const FAST_LOCAL_UPSTREAM_ONLY_SPEC_IDS = new Set(["merge", "output"]);
 
 function payloadSizeBucket(byteLength: number | null | undefined): string {
   if (!byteLength || byteLength <= 0) return "empty";
@@ -117,6 +119,7 @@ export interface WorkflowNodeWorkerRepository {
     attemptNumber: number;
     leaseOwner: string;
     result: NodeExecutionResult;
+    inputPayload?: PayloadReference | null;
     outputPayload: PayloadReference | null;
     errorPayload: PayloadReference | null;
   }): Promise<void>;
@@ -147,24 +150,39 @@ export async function executeClaimedNode(
   params: ExecuteClaimedNodeParams,
 ): Promise<NodeExecutionResult> {
   const runId = params.workItem.runId;
+  const specId = params.workItem.compiledNode.specId;
+  const isFastLocalNode = FAST_LOCAL_SNAPSHOT_SPEC_IDS.has(specId);
   const phaseMeta = {
     nodeId: params.workItem.compiledNode.id,
     attemptNumber: params.workItem.attemptNumber,
-    specId: params.workItem.compiledNode.specId,
+    specId,
   };
 
-  const runInput = await perfAsync(runId, "node.loadRunInput", () =>
-    params.repository.loadRunInput(params.workItem.runId),
-  phaseMeta);
-  const upstreamOutputs = await perfAsync(runId, "node.loadUpstreamOutputs", () =>
-    params.repository.loadUpstreamOutputs({
-      runId: params.workItem.runId,
-      sourceNodeIds: params.workItem.compiledNode.dependencyNodeIds,
-    }),
-  {
-    ...phaseMeta,
-    dependencyCount: params.workItem.compiledNode.dependencyNodeIds.length,
-  });
+  const runInput = FAST_LOCAL_UPSTREAM_ONLY_SPEC_IDS.has(specId)
+    ? {}
+    : await perfAsync(
+        runId,
+        "node.loadRunInput",
+        () => params.repository.loadRunInput(params.workItem.runId),
+        phaseMeta,
+      );
+  const upstreamOutputs =
+    FAST_LOCAL_INPUT_ONLY_SPEC_IDS.has(specId) ||
+    params.workItem.compiledNode.dependencyNodeIds.length === 0
+      ? {}
+      : await perfAsync(
+          runId,
+          "node.loadUpstreamOutputs",
+          () =>
+            params.repository.loadUpstreamOutputs({
+              runId: params.workItem.runId,
+              sourceNodeIds: params.workItem.compiledNode.dependencyNodeIds,
+            }),
+          {
+            ...phaseMeta,
+            dependencyCount: params.workItem.compiledNode.dependencyNodeIds.length,
+          },
+        );
 
   const materializedInput = perfSync(runId, "node.materializeNodeInput", () =>
     materializeNodeInput({
@@ -195,32 +213,34 @@ export async function executeClaimedNode(
     payloadSizeBucket: payloadSizeBucket(inputPayloadRef.byteLength),
   };
 
-  await perfAsync(runId, "node.persistAttemptMaterializedInput", () =>
-    params.repository.persistAttemptMaterializedInput({
-      attemptId: params.workItem.attemptId,
-      runNodeId: params.workItem.runNodeId,
-      attemptNumber: params.workItem.attemptNumber,
-      leaseOwner: params.workItem.leaseOwner,
-      inputPayload: inputPayloadRef,
-    }),
-  inputPayloadMeta);
-
-  await perfAsync(runId, "node.streamEmit.node_materialized_input", async () => {
-    if (params.repository.appendRunEvent) {
-      await params.repository.appendRunEvent({
-        runId: params.workItem.runId,
-        type: "node_materialized_input",
-        nodeId: params.workItem.compiledNode.id,
+  if (!isFastLocalNode) {
+    await perfAsync(runId, "node.persistAttemptMaterializedInput", () =>
+      params.repository.persistAttemptMaterializedInput({
+        attemptId: params.workItem.attemptId,
+        runNodeId: params.workItem.runNodeId,
         attemptNumber: params.workItem.attemptNumber,
-        payload: {
+        leaseOwner: params.workItem.leaseOwner,
+        inputPayload: inputPayloadRef,
+      }),
+    inputPayloadMeta);
+
+    await perfAsync(runId, "node.streamEmit.node_materialized_input", async () => {
+      if (params.repository.appendRunEvent) {
+        await params.repository.appendRunEvent({
+          runId: params.workItem.runId,
+          type: "node_materialized_input",
           nodeId: params.workItem.compiledNode.id,
           attemptNumber: params.workItem.attemptNumber,
-          status: "running",
-          message: "Node input materialized and frozen for this attempt.",
-        },
-      });
-    }
-  }, phaseMeta);
+          payload: {
+            nodeId: params.workItem.compiledNode.id,
+            attemptNumber: params.workItem.attemptNumber,
+            status: "running",
+            message: "Node input materialized and frozen for this attempt.",
+          },
+        });
+      }
+    }, phaseMeta);
+  }
 
   let streamStarted = false;
   let streamFinished = false;
@@ -366,6 +386,7 @@ export async function executeClaimedNode(
       attemptNumber: params.workItem.attemptNumber,
       leaseOwner: params.workItem.leaseOwner,
       result,
+      inputPayload: isFastLocalNode ? inputPayloadRef : null,
       outputPayload,
       errorPayload,
     }),

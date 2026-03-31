@@ -268,13 +268,14 @@ body {
   touch-action: pan-y;
 }
 
-/* iOS auto-zoom trigger: any input < 16px font-size.
-   Force minimum readable size; make it “look” smaller via padding/scale if needed, not font-size. */
-input,
-textarea,
-select,
-button {
-  font-size: 16px !important;
+/* iOS Safari auto-zoom trigger: form controls < 16px font-size.
+   Apply only on touch / small screens so desktop UIs can use compact typography. */
+@media (max-width: 768px), (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 /* If you have full-screen sections, DO NOT use 100vh on mobile.

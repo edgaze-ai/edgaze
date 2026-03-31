@@ -69,6 +69,29 @@ export function WorkflowInputField({
     "text-[#e0e0e0] placeholder-[#666] " +
     "focus:border-[rgba(6,182,212,0.4)] focus:shadow-[0_0_0_3px_rgba(6,182,212,0.08)]";
 
+  if (input.type === "dropdown") {
+    const options = input.options ?? [];
+    return (
+      <select
+        name={`wf-input-${input.nodeId}`}
+        autoComplete="off"
+        value={value ?? input.defaultValue ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        required={input.required}
+        className={inputBaseClass}
+      >
+        <option value="" disabled={input.required}>
+          {input.placeholder || "Select an option..."}
+        </option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
   if (input.type === "textarea") {
     return (
       <textarea

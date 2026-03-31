@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FaGithub, FaLinkedinIn, FaXTwitter } from "react-icons/fa6";
 
 const FOOTER_SECTIONS = [
   {
@@ -44,10 +45,16 @@ const FOOTER_SECTIONS = [
   },
 ];
 
-const SOCIAL_LINKS = [
-  { label: "X", href: "https://x.com/edgaze_ai", external: true },
-  { label: "GitHub", href: "https://github.com/edgaze-ai", external: true },
-  { label: "LinkedIn", href: "https://www.linkedin.com/company/edgaze-ai/", external: true },
+const SOCIAL_LINKS: Array<{
+  label: string;
+  href: string;
+  external: true;
+  kind: "edgaze" | "x" | "github" | "linkedin";
+}> = [
+  { label: "Edgaze", href: "https://www.edgaze.ai/profile/@edgaze", external: true, kind: "edgaze" },
+  { label: "X", href: "https://x.com/edgaze_ai", external: true, kind: "x" },
+  { label: "GitHub", href: "https://github.com/edgaze-ai", external: true, kind: "github" },
+  { label: "LinkedIn", href: "https://www.linkedin.com/company/edgaze-ai/", external: true, kind: "linkedin" },
 ];
 
 export default function Footer() {
@@ -117,9 +124,23 @@ export default function Footer() {
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-white/55 hover:text-white transition-colors py-0.5 -my-0.5"
+                  aria-label={link.label}
+                  title={link.label}
+                  className="text-white/55 hover:text-white transition-colors py-0.5 -my-0.5"
                 >
-                  {link.label}
+                  {link.kind === "edgaze" ? (
+                    <img
+                      src="/brand/edgaze-mark.png"
+                      alt=""
+                      className="h-[18px] w-[18px] opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-[opacity,filter]"
+                    />
+                  ) : link.kind === "x" ? (
+                    <FaXTwitter className="h-[18px] w-[18px]" aria-hidden />
+                  ) : link.kind === "github" ? (
+                    <FaGithub className="h-[18px] w-[18px]" aria-hidden />
+                  ) : (
+                    <FaLinkedinIn className="h-[18px] w-[18px]" aria-hidden />
+                  )}
                 </a>
               ))}
             </div>

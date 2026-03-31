@@ -163,29 +163,31 @@ export async function loadWorkflowRunBootstrap(params: {
     .single();
   if (runError) throw runError;
 
-  const { data: nodeRows, error: nodeError } = await supabase
-    .from("workflow_run_nodes")
-    .select(
-      "id, workflow_run_id, node_id, spec_id, topo_index, status, failure_policy, latest_attempt_number, input_payload_ref, output_payload_ref, error_payload_ref, queued_at, started_at, ended_at, terminal_attempt_id, is_terminal_node",
-    )
-    .eq("workflow_run_id", params.runId)
-    .order("topo_index", { ascending: true });
+  const [nodeResult, attemptResult, events] = await Promise.all([
+    supabase
+      .from("workflow_run_nodes")
+      .select(
+        "id, workflow_run_id, node_id, spec_id, topo_index, status, failure_policy, latest_attempt_number, input_payload_ref, output_payload_ref, error_payload_ref, queued_at, started_at, ended_at, terminal_attempt_id, is_terminal_node",
+      )
+      .eq("workflow_run_id", params.runId)
+      .order("topo_index", { ascending: true }),
+    supabase
+      .from("workflow_run_node_attempts")
+      .select(
+        "id, workflow_run_id, workflow_run_node_id, node_id, attempt_number, status, materialized_input_ref, output_payload_ref, error_payload_ref, started_at, ended_at, duration_ms, worker_id, lease_owner, lease_expires_at, last_heartbeat_at",
+      )
+      .eq("workflow_run_id", params.runId)
+      .order("created_at", { ascending: true }),
+    listWorkflowRunEvents({
+      runId: params.runId,
+      afterSequence: params.afterSequence,
+      limit: params.eventLimit,
+    }),
+  ]);
+  const { data: nodeRows, error: nodeError } = nodeResult;
   if (nodeError) throw nodeError;
-
-  const { data: attemptRows, error: attemptError } = await supabase
-    .from("workflow_run_node_attempts")
-    .select(
-      "id, workflow_run_id, workflow_run_node_id, node_id, attempt_number, status, materialized_input_ref, output_payload_ref, error_payload_ref, started_at, ended_at, duration_ms, worker_id, lease_owner, lease_expires_at, last_heartbeat_at",
-    )
-    .eq("workflow_run_id", params.runId)
-    .order("created_at", { ascending: true });
+  const { data: attemptRows, error: attemptError } = attemptResult;
   if (attemptError) throw attemptError;
-
-  const events = await listWorkflowRunEvents({
-    runId: params.runId,
-    afterSequence: params.afterSequence,
-    limit: params.eventLimit,
-  });
   const compiled = runRow.compiled_workflow_snapshot as {
     nodes?: Array<{ id: string; dependencyNodeIds?: string[] }>;
   } | null;
