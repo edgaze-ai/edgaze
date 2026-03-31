@@ -21,9 +21,7 @@ export function getPreviewForSpec(specId: string, config: Record<string, unknown
   const canon = canonicalSpecId(specId);
 
   switch (canon) {
-    case "llm-chat":
-    case "claude-chat":
-    case "gemini-chat": {
+    case "llm-chat": {
       const prompt = String(c.prompt ?? "").trim();
       if (!prompt) return "Not configured";
       return prompt.length > 80 ? prompt.slice(0, 80) + "…" : prompt;

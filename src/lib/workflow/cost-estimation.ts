@@ -6,7 +6,13 @@
  */
 
 import { canonicalSpecId } from "./spec-id-aliases";
-import { DEFAULT_LLM_CHAT_MODEL, DEFAULT_LLM_IMAGE_MODEL } from "./llm-model-catalog";
+import {
+  DEFAULT_LLM_CHAT_MODEL,
+  DEFAULT_LLM_IMAGE_MODEL,
+  openaiGptImageQualityParam,
+  resolveAnthropicApiModel,
+  resolveLlmChatProvider,
+} from "./llm-model-catalog";
 
 /** Approximate token count for text (~4 chars per token). */
 function estimateTokens(text: string): number {
@@ -67,12 +73,15 @@ const CHAT_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> 
   "gemini-1.5-flash": { inputPer1M: 0.075, outputPer1M: 0.3 },
   "gemini-1.5-pro": { inputPer1M: 1.25, outputPer1M: 5 },
   "gemini-2.5-flash": { inputPer1M: 0.075, outputPer1M: 0.3 },
+  // Legacy ID stored in older workflows (maps to gemini-2.5-pro at runtime).
   "gemini-2.5-pro-preview-05-06": { inputPer1M: 1.25, outputPer1M: 5 },
+  "gemini-2.5-pro": { inputPer1M: 1.25, outputPer1M: 5 },
   "gpt-5.4": { inputPer1M: 5, outputPer1M: 15 },
   "gpt-5.4-mini": { inputPer1M: 0.2, outputPer1M: 0.8 },
   "gpt-5.4-nano": { inputPer1M: 0.05, outputPer1M: 0.2 },
   o3: { inputPer1M: 10, outputPer1M: 40 },
   "claude-3-7-sonnet-20250219": { inputPer1M: 3, outputPer1M: 15 },
+  "claude-sonnet-4-6": { inputPer1M: 3, outputPer1M: 15 },
 };
 
 const EMBEDDING_PRICING: Record<string, number> = {
@@ -81,25 +90,25 @@ const EMBEDDING_PRICING: Record<string, number> = {
   "text-embedding-ada-002": 0.1,
 };
 
-/** Per image by model/size. */
+/** Per image by model/size (USD approx; GPT Image varies by quality). */
 const IMAGE_PRICING: Record<string, Record<string, number>> = {
-  "dall-e-2": {
-    "256x256": 0.016,
-    "512x512": 0.018,
+  "gpt-image-1-mini": {
     "1024x1024": 0.02,
+    "1536x1024": 0.03,
+    "1024x1536": 0.03,
+    low: 0.015,
+    medium: 0.02,
+    high: 0.04,
   },
-  "dall-e-3": {
-    "1024x1024": 0.04,
-    "1024x1792": 0.08,
-    "1792x1024": 0.08,
-    standard: 0.04,
-    hd: 0.08,
-  },
-  "gpt-image-1": {
+  "gpt-image-1.5": {
     "1024x1024": 0.08,
     "1536x1024": 0.12,
     "1024x1536": 0.12,
+    low: 0.05,
+    medium: 0.08,
+    high: 0.15,
   },
+  "gemini-2.5-flash-image": { "1024x1024": 0.02 },
   "gemini-3.1-flash-image-preview": { "1024x1024": 0.02 },
   "gemini-3-pro-image-preview": { "1024x1024": 0.12 },
 };
@@ -237,24 +246,22 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
     } else if (specId === "condition") {
       const passthrough = inboundValues[0];
       outputsByNode.set(nodeId, passthrough);
-      // Worst case: both branches may run downstream AI. We count condition as
-      // potentially triggering AI eval (humanCondition) - use small chat cost.
-      if (
-        config.humanCondition &&
-        typeof config.humanCondition === "string" &&
-        config.humanCondition.trim()
-      ) {
-        const tc = countChatTokens({
-          prompt: String(passthrough ?? ""),
-          system: config.humanCondition as string,
-          maxTokens: 50,
-        });
-        const chatPricing = CHAT_PRICING["gpt-4o-mini"] ?? { inputPer1M: 0.15, outputPer1M: 0.6 };
-        totalUsd +=
-          (tc.input / 1_000_000) * chatPricing.inputPer1M +
-          (tc.output / 1_000_000) * chatPricing.outputPer1M;
-      }
-    } else if (canon === "llm-chat" || canon === "claude-chat" || canon === "gemini-chat") {
+      // Condition always calls gpt-4o-mini once.
+      const systemParts = [
+        typeof config.humanCondition === "string" ? config.humanCondition : "",
+        String(config.operator ?? "truthy"),
+        String(config.compareValue ?? ""),
+      ].filter((s) => s.trim().length > 0);
+      const tc = countChatTokens({
+        prompt: String(passthrough ?? ""),
+        system: systemParts.join(" | ") || "truthy",
+        maxTokens: 50,
+      });
+      const chatPricing = CHAT_PRICING["gpt-4o-mini"] ?? { inputPer1M: 0.15, outputPer1M: 0.6 };
+      totalUsd +=
+        (tc.input / 1_000_000) * chatPricing.inputPer1M +
+        (tc.output / 1_000_000) * chatPricing.outputPer1M;
+    } else if (canon === "llm-chat") {
       const configPrompt = (config.prompt ?? "") as string;
       const userSystem = (config.system ?? "") as string;
       const system = userSystem
@@ -282,15 +289,11 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
         maxTokens,
       });
 
-      const defaultModel =
-        canon === "claude-chat"
-          ? "claude-3-7-sonnet-20250219"
-          : canon === "gemini-chat"
-            ? "gemini-2.5-flash"
-            : DEFAULT_LLM_CHAT_MODEL;
-      const model = (config.model ?? defaultModel) as string;
+      const model = (config.model ?? DEFAULT_LLM_CHAT_MODEL) as string;
       const defaultChatPricing = { inputPer1M: 0.15, outputPer1M: 0.6 };
-      const pricing = CHAT_PRICING[model] ?? defaultChatPricing;
+      const pricingKey =
+        resolveLlmChatProvider(model) === "anthropic" ? resolveAnthropicApiModel(model) : model;
+      const pricing = CHAT_PRICING[model] ?? CHAT_PRICING[pricingKey] ?? defaultChatPricing;
       totalUsd +=
         (tokenCount.input / 1_000_000) * pricing.inputPer1M +
         (tokenCount.output / 1_000_000) * pricing.outputPer1M;
@@ -321,14 +324,16 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
       let cost = 0.04;
       if (model.startsWith("gemini-") && model.includes("image")) {
         const gp = IMAGE_PRICING[model];
-        cost = gp?.["1024x1024"] ?? 0.04;
+        cost = gp?.["1024x1024"] ?? 0.02;
       } else {
+        const gptQuality = openaiGptImageQualityParam(quality);
         const modelPrices = IMAGE_PRICING[model] ??
-          IMAGE_PRICING["dall-e-2"] ?? { "1024x1024": 0.02 };
-        cost = modelPrices[size] ?? modelPrices["1024x1024"] ?? 0.02;
-        if (model === "dall-e-3" && quality === "hd") {
-          cost = (modelPrices as Record<string, number>).hd ?? 0.08;
-        }
+          IMAGE_PRICING["gpt-image-1-mini"] ?? { "1024x1024": 0.02 };
+        cost =
+          (modelPrices as Record<string, number>)[gptQuality] ??
+          modelPrices[size] ??
+          modelPrices["1024x1024"] ??
+          0.02;
       }
       totalUsd += cost;
 

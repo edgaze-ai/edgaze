@@ -1,0 +1,546 @@
+
+> edgaze-prod@1.0.0 test /Users/arjunkuttikkat/Documents/edgaze-prod
+> vitest run -- src/server/flow-v2/orchestrator.test.ts src/server/flow-v2/node-worker.test.ts src/server/flow-v2/worker-loop.test.ts src/server/flow-v2/worker-runner.test.ts
+
+
+ RUN  v3.0.5 /Users/arjunkuttikkat/Documents/edgaze-prod
+
+ ✓ src/server/flow-v2/orchestrator.test.ts (3 tests) 3ms
+ ✓ src/components/builder/graph-normalize.test.ts (4 tests) 3ms
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.getRunState","ms":0.024}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.041}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.002}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.appendNodeStartedEvents_all","ms":0.054}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadRunInput","ms":0.011,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadUpstreamOutputs","ms":0.013,"nodeId":"input_a","attemptNumber":1,"specId":"input","dependencyCount":0}
+
+ ✓ src/server/flow/security-hardening.smoke.test.ts (3 tests) 2ms
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.materializeNodeInput","ms":0.11,"nodeId":"input_a","attemptNumber":1,"specId":"input","inputPortCount":0,"bindingCount":0}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.input","ms":0.216,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptMaterializedInput","ms":0.044,"nodeId":"input_a","attemptNumber":1,"specId":"input","payloadBytes":292,"payloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.streamEmit.node_materialized_input","ms":0.025,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.output","ms":0.006,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.error","ms":0.008,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptResult","ms":0.045,"nodeId":"input_a","attemptNumber":1,"specId":"input","outputPayloadBytes":0,"outputPayloadSizeBucket":"empty","errorPayloadBytes":0,"errorPayloadSizeBucket":"empty"}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.executeNodesParallel_withLease","ms":1.548}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.sortCompletedWorkTopo","ms":0.018}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.applyTerminalNodeEffects_all","ms":0.108}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.listRunNodes_beforeReevaluate","ms":0.032}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.planTransitions_sync","ms":0.04}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.ready","ms":0.03}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.ready","ms":0.007}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.blocked","ms":0.009}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.blocked","ms":0.006}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.skipped","ms":0.007}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.skipped","ms":0.005}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.cancelled","ms":0.007}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.cancelled","ms":0.007}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.finalizeRunIfTerminal","ms":0.121}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > drains processed work until the run is finalized
+{"tag":"workflow_engine_perf_totals","runId":"run_test","label":"run_finalized","grandMs":2.55,"phases":{"batch.getRunState":{"sumMs":0.02,"count":1,"maxMs":0.02,"avgMs":0.02},"batch.claimNextRunnableNode":{"sumMs":0.04,"count":2,"maxMs":0.04,"avgMs":0.02},"batch.appendNodeStartedEvents_all":{"sumMs":0.05,"count":1,"maxMs":0.05,"avgMs":0.05},"node.loadRunInput":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"node.loadUpstreamOutputs":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"node.materializeNodeInput":{"sumMs":0.11,"count":1,"maxMs":0.11,"avgMs":0.11},"serialization.inlinePayload.input":{"sumMs":0.22,"count":1,"maxMs":0.22,"avgMs":0.22},"node.persistAttemptMaterializedInput":{"sumMs":0.04,"count":1,"maxMs":0.04,"avgMs":0.04},"node.streamEmit.node_materialized_input":{"sumMs":0.02,"count":1,"maxMs":0.02,"avgMs":0.02},"serialization.inlinePayload.output":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"serialization.inlinePayload.error":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"node.persistAttemptResult":{"sumMs":0.05,"count":1,"maxMs":0.05,"avgMs":0.05},"batch.executeNodesParallel_withLease":{"sumMs":1.55,"count":1,"maxMs":1.55,"avgMs":1.55},"batch.sortCompletedWorkTopo":{"sumMs":0.02,"count":1,"maxMs":0.02,"avgMs":0.02},"batch.applyTerminalNodeEffects_all":{"sumMs":0.11,"count":1,"maxMs":0.11,"avgMs":0.11},"batch.listRunNodes_beforeReevaluate":{"sumMs":0.03,"count":1,"maxMs":0.03,"avgMs":0.03},"reevaluate.planTransitions_sync":{"sumMs":0.04,"count":1,"maxMs":0.04,"avgMs":0.04},"reevaluate.db.updateNodeStatuses.ready":{"sumMs":0.03,"count":1,"maxMs":0.03,"avgMs":0.03},"reevaluate.db.appendRunEvents.ready":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"reevaluate.db.updateNodeStatuses.blocked":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"reevaluate.db.appendRunEvents.blocked":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"reevaluate.db.updateNodeStatuses.skipped":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"reevaluate.db.appendRunEvents.skipped":{"sumMs":0,"count":1,"maxMs":0,"avgMs":0},"reevaluate.db.updateNodeStatuses.cancelled":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"reevaluate.db.appendRunEvents.cancelled":{"sumMs":0.01,"count":1,"maxMs":0.01,"avgMs":0.01},"batch.finalizeRunIfTerminal":{"sumMs":0.12,"count":1,"maxMs":0.12,"avgMs":0.12}}}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.getRunState","ms":0.155}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.006}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.idle.listRunNodes","ms":0.008}
+
+stderr | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+[flow-v2] No claimable node (idle cycle) {
+  runId: 'run_test',
+  runStatus: 'queued',
+  cancelRequestedAt: null,
+  nodeStatusCounts: {}
+}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.idle.finalizeRunIfTerminal","ms":0.024}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"runner.idleBackoff_wait","ms":0.019}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.getRunState","ms":0.002}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.001}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.idle.listRunNodes","ms":0.001}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.idle.finalizeRunIfTerminal","ms":0.002}
+
+stdout | src/server/flow-v2/worker-runner.test.ts > runWorkflowToTerminal > fails closed when the run stays idle without finalizing
+{"tag":"workflow_engine_perf_totals","runId":"run_test","label":"runner_stalled_idle","grandMs":0.22,"phases":{"batch.getRunState":{"sumMs":0.16,"count":2,"maxMs":0.16,"avgMs":0.08},"batch.claimNextRunnableNode":{"sumMs":0.01,"count":2,"maxMs":0.01,"avgMs":0},"batch.idle.listRunNodes":{"sumMs":0.01,"count":2,"maxMs":0.01,"avgMs":0},"batch.idle.finalizeRunIfTerminal":{"sumMs":0.03,"count":2,"maxMs":0.02,"avgMs":0.01},"runner.idleBackoff_wait":{"sumMs":0.02,"count":1,"maxMs":0.02,"avgMs":0.02}}}
+
+ ✓ src/server/flow-v2/worker-runner.test.ts (2 tests) 6ms
+ ✓ src/server/flow-v2/compiler.test.ts (9 tests) 11ms
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > persists materialized input before storing result payloads
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadRunInput","ms":0.009,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > persists materialized input before storing result payloads
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadUpstreamOutputs","ms":0.012,"nodeId":"input_a","attemptNumber":1,"specId":"input","dependencyCount":0}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.getRunState","ms":0.019}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > persists materialized input before storing result payloads
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.materializeNodeInput","ms":0.013,"nodeId":"input_a","attemptNumber":1,"specId":"input","inputPortCount":0,"bindingCount":0}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.input","ms":0.206,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > persists materialized input before storing result payloads
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptMaterializedInput","ms":0.047,"nodeId":"input_a","attemptNumber":1,"specId":"input","payloadBytes":325,"payloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > persists materialized input before storing result payloads
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.streamEmit.node_materialized_input","ms":0.012,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.361}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.appendNodeStartedEvents_all","ms":0.062}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadRunInput","ms":0.01,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadUpstreamOutputs","ms":0.022,"nodeId":"input_a","attemptNumber":1,"specId":"input","dependencyCount":0}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > persists materialized input before storing result payloads
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.handler.fast_local","ms":0.043,"nodeId":"input_a","specId":"input","canonicalSpecId":"input","inputPortCount":0,"outputPortCount":1}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.executor.resolveRawOutput","ms":0.005,"nodeId":"input_a","specId":"input","canonicalSpecId":"input","inputPortCount":0,"outputPortCount":1}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.executor.buildOutputsByPort","ms":0.025,"nodeId":"input_a","specId":"input","canonicalSpecId":"input","inputPortCount":0,"outputPortCount":1}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.materializeNodeInput","ms":0.102,"nodeId":"input_a","attemptNumber":1,"specId":"input","inputPortCount":0,"bindingCount":0}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.input","ms":0.198,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptMaterializedInput","ms":0.051,"nodeId":"input_a","attemptNumber":1,"specId":"input","payloadBytes":300,"payloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > persists materialized input before storing result payloads
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.output","ms":0.018,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.error","ms":0.008,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > persists materialized input before storing result payloads
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptResult","ms":0.055,"nodeId":"input_a","attemptNumber":1,"specId":"input","outputPayloadBytes":27,"outputPayloadSizeBucket":"<1kb","errorPayloadBytes":0,"errorPayloadSizeBucket":"empty"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.streamEmit.node_materialized_input","ms":0.017,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > cancels delay execution through the propagated abort signal
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadRunInput","ms":0.001,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > cancels delay execution through the propagated abort signal
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadUpstreamOutputs","ms":0.002,"nodeId":"delay_a","attemptNumber":1,"specId":"delay","dependencyCount":1}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.handler.fast_local","ms":0.041,"nodeId":"input_a","specId":"input","canonicalSpecId":"input","inputPortCount":0,"outputPortCount":1}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.executor.resolveRawOutput","ms":0.005,"nodeId":"input_a","specId":"input","canonicalSpecId":"input","inputPortCount":0,"outputPortCount":1}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.executor.buildOutputsByPort","ms":0.023,"nodeId":"input_a","specId":"input","canonicalSpecId":"input","inputPortCount":0,"outputPortCount":1}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > cancels delay execution through the propagated abort signal
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.materializeNodeInput","ms":0.009,"nodeId":"delay_a","attemptNumber":1,"specId":"delay","inputPortCount":1,"bindingCount":1}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.input","ms":0.036,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > cancels delay execution through the propagated abort signal
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptMaterializedInput","ms":0.029,"nodeId":"delay_a","attemptNumber":1,"specId":"delay","payloadBytes":338,"payloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > cancels delay execution through the propagated abort signal
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.streamEmit.node_materialized_input","ms":0.001,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.output","ms":0.018,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.error","ms":0.008,"nodeId":"input_a","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptResult","ms":0.064,"nodeId":"input_a","attemptNumber":1,"specId":"input","outputPayloadBytes":27,"outputPayloadSizeBucket":"<1kb","errorPayloadBytes":0,"errorPayloadSizeBucket":"empty"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.executeNodesParallel_withLease","ms":1.517}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > cancels delay execution through the propagated abort signal
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.executor.buildInboundValues","ms":0.013,"nodeId":"delay_a","specId":"delay","canonicalSpecId":"delay","inputPortCount":1,"outputPortCount":1}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.executor.spreadRunInput","ms":0.004,"nodeId":"delay_a","specId":"delay","canonicalSpecId":"delay","inputPortCount":1,"outputPortCount":1}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.sortCompletedWorkTopo","ms":0.028}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.applyTerminalNodeEffects_all","ms":0.116}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.listRunNodes_beforeReevaluate","ms":0.014}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.planTransitions_sync","ms":0.111}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.ready","ms":0.047}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.ready","ms":0.008}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.blocked","ms":0.009}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.blocked","ms":0.006}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.skipped","ms":0.007}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.skipped","ms":0.006}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.cancelled","ms":0.008}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.cancelled","ms":0.005}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.listRunNodes_afterTransition","ms":0.007}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > processes a ready node and marks downstream nodes ready deterministically
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.finalizeRunIfTerminal","ms":0.031}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.getRunState","ms":0.004}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.009}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.appendNodeStartedEvents_all","ms":0.014}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadRunInput","ms":0.001,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadUpstreamOutputs","ms":0.009,"nodeId":"delay_a","attemptNumber":1,"specId":"delay","dependencyCount":1}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.materializeNodeInput","ms":0.05,"nodeId":"delay_a","attemptNumber":1,"specId":"delay","inputPortCount":1,"bindingCount":1}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.input","ms":0.036,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptMaterializedInput","ms":0.019,"nodeId":"delay_a","attemptNumber":1,"specId":"delay","payloadBytes":319,"payloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.streamEmit.node_materialized_input","ms":0.004,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.output","ms":0.001,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.error","ms":0.008,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptResult","ms":0.017,"nodeId":"delay_a","attemptNumber":1,"specId":"delay","outputPayloadBytes":0,"outputPayloadSizeBucket":"empty","errorPayloadBytes":63,"errorPayloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.executeNodesParallel_withLease","ms":0.319}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.sortCompletedWorkTopo","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.applyTerminalNodeEffects_all","ms":0.063}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.listRunNodes_beforeReevaluate","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.planTransitions_sync","ms":0.009}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.ready","ms":0.014}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.ready","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.blocked","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.blocked","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.skipped","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.skipped","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.cancelled","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.cancelled","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > finalizes the run as failed when fail_fast leaves no terminal output
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.finalizeRunIfTerminal","ms":0.084}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.getRunState","ms":0.003}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.005}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.appendNodeStartedEvents_all","ms":0.007}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadRunInput","ms":0.002,"nodeId":"condition_a","attemptNumber":1,"specId":"condition"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadUpstreamOutputs","ms":0.002,"nodeId":"condition_a","attemptNumber":1,"specId":"condition","dependencyCount":0}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.materializeNodeInput","ms":0.005,"nodeId":"condition_a","attemptNumber":1,"specId":"condition","inputPortCount":1,"bindingCount":0}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.input","ms":0.011,"nodeId":"condition_a","attemptNumber":1,"specId":"condition"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptMaterializedInput","ms":0.019,"nodeId":"condition_a","attemptNumber":1,"specId":"condition","payloadBytes":105,"payloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.streamEmit.node_materialized_input","ms":0.003,"nodeId":"condition_a","attemptNumber":1,"specId":"condition"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.output","ms":0.006,"nodeId":"condition_a","attemptNumber":1,"specId":"condition"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.error","ms":0,"nodeId":"condition_a","attemptNumber":1,"specId":"condition"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptResult","ms":0.018,"nodeId":"condition_a","attemptNumber":1,"specId":"condition","outputPayloadBytes":52,"outputPayloadSizeBucket":"<1kb","errorPayloadBytes":0,"errorPayloadSizeBucket":"empty"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.executeNodesParallel_withLease","ms":0.23}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.sortCompletedWorkTopo","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.applyTerminalNodeEffects_all","ms":0.082}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.listRunNodes_beforeReevaluate","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.planTransitions_sync","ms":0.046}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.ready","ms":0.014}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.ready","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.blocked","ms":0.003}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.blocked","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.skipped","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.skipped","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.cancelled","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.cancelled","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.listRunNodes_afterTransition","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > marks the untaken condition branch immediately after the condition resolves
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.finalizeRunIfTerminal","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.getRunState","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.011}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.004}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.claimNextRunnableNode","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.appendNodeStartedEvents_all","ms":0.008}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadRunInput","ms":0.104,"nodeId":"in1","attemptNumber":1,"specId":"input"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadRunInput","ms":0.007,"nodeId":"in2","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadUpstreamOutputs","ms":0.018,"nodeId":"in1","attemptNumber":1,"specId":"input","dependencyCount":0}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadUpstreamOutputs","ms":0.006,"nodeId":"in2","attemptNumber":1,"specId":"input","dependencyCount":0}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.materializeNodeInput","ms":0.006,"nodeId":"in1","attemptNumber":1,"specId":"input","inputPortCount":0,"bindingCount":0}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.input","ms":0.014,"nodeId":"in1","attemptNumber":1,"specId":"input"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.materializeNodeInput","ms":0.004,"nodeId":"in2","attemptNumber":1,"specId":"input","inputPortCount":0,"bindingCount":0}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.input","ms":0.042,"nodeId":"in2","attemptNumber":1,"specId":"input"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptMaterializedInput","ms":0.06,"nodeId":"in1","attemptNumber":1,"specId":"input","payloadBytes":286,"payloadSizeBucket":"<1kb"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptMaterializedInput","ms":0.007,"nodeId":"in2","attemptNumber":1,"specId":"input","payloadBytes":286,"payloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.streamEmit.node_materialized_input","ms":0.039,"nodeId":"in1","attemptNumber":1,"specId":"input"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.streamEmit.node_materialized_input","ms":0.006,"nodeId":"in2","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > cancels delay execution through the propagated abort signal
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.handler.external","ms":21.155,"nodeId":"delay_a","specId":"delay","note":"includes_model_and_external_api"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > cancels delay execution through the propagated abort signal
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.output","ms":0.001,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.error","ms":0.025,"nodeId":"delay_a","attemptNumber":1,"specId":"delay"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > cancels delay execution through the propagated abort signal
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptResult","ms":0.029,"nodeId":"delay_a","attemptNumber":1,"specId":"delay","outputPayloadBytes":0,"outputPayloadSizeBucket":"empty","errorPayloadBytes":78,"errorPayloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > fast-path executes merge nodes while storing compact resolved input
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadRunInput","ms":0.002,"nodeId":"merge_a","attemptNumber":1,"specId":"merge"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > fast-path executes merge nodes while storing compact resolved input
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.loadUpstreamOutputs","ms":0.002,"nodeId":"merge_a","attemptNumber":1,"specId":"merge","dependencyCount":2}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > fast-path executes merge nodes while storing compact resolved input
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.materializeNodeInput","ms":5.363,"nodeId":"merge_a","attemptNumber":1,"specId":"merge","inputPortCount":2,"bindingCount":2}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.input","ms":0.048,"nodeId":"merge_a","attemptNumber":1,"specId":"merge"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > fast-path executes merge nodes while storing compact resolved input
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptMaterializedInput","ms":0.054,"nodeId":"merge_a","attemptNumber":1,"specId":"merge","payloadBytes":452,"payloadSizeBucket":"<1kb"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > fast-path executes merge nodes while storing compact resolved input
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.streamEmit.node_materialized_input","ms":0.001,"nodeId":"merge_a","attemptNumber":1,"specId":"merge"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > fast-path executes merge nodes while storing compact resolved input
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.handler.fast_local","ms":0.125,"nodeId":"merge_a","specId":"merge","canonicalSpecId":"merge","inputPortCount":2,"outputPortCount":1}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.executor.resolveRawOutput","ms":0,"nodeId":"merge_a","specId":"merge","canonicalSpecId":"merge","inputPortCount":2,"outputPortCount":1}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.executor.buildOutputsByPort","ms":0.002,"nodeId":"merge_a","specId":"merge","canonicalSpecId":"merge","inputPortCount":2,"outputPortCount":1}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > fast-path executes merge nodes while storing compact resolved input
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.output","ms":0.008,"nodeId":"merge_a","attemptNumber":1,"specId":"merge"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.error","ms":0,"nodeId":"merge_a","attemptNumber":1,"specId":"merge"}
+
+stdout | src/server/flow-v2/node-worker.test.ts > executeClaimedNode > fast-path executes merge nodes while storing compact resolved input
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptResult","ms":0.017,"nodeId":"merge_a","attemptNumber":1,"specId":"merge","outputPayloadBytes":30,"outputPayloadSizeBucket":"<1kb","errorPayloadBytes":0,"errorPayloadSizeBucket":"empty"}
+
+ ✓ src/server/flow-v2/node-worker.test.ts (5 tests) 33ms
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.output","ms":0.051,"nodeId":"in1","attemptNumber":1,"specId":"input"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.error","ms":0.001,"nodeId":"in1","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptResult","ms":0.068,"nodeId":"in1","attemptNumber":1,"specId":"input","outputPayloadBytes":11,"outputPayloadSizeBucket":"<1kb","errorPayloadBytes":0,"errorPayloadSizeBucket":"empty"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.output","ms":0.025,"nodeId":"in2","attemptNumber":1,"specId":"input"}
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"serialization.inlinePayload.error","ms":0.001,"nodeId":"in2","attemptNumber":1,"specId":"input"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"node.persistAttemptResult","ms":0.043,"nodeId":"in2","attemptNumber":1,"specId":"input","outputPayloadBytes":11,"outputPayloadSizeBucket":"<1kb","errorPayloadBytes":0,"errorPayloadSizeBucket":"empty"}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.executeNodesParallel_withLease","ms":47.61}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.sortCompletedWorkTopo","ms":5.14}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.applyTerminalNodeEffects_all","ms":0.059}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.listRunNodes_beforeReevaluate","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.planTransitions_sync","ms":0.016}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.ready","ms":0.014}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.ready","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.blocked","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.blocked","ms":0.003}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.skipped","ms":0.002}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.skipped","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.updateNodeStatuses.cancelled","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"reevaluate.db.appendRunEvents.cancelled","ms":0.001}
+
+stdout | src/server/flow-v2/worker-loop.test.ts > processNextRunNode > executes mutually ready nodes in parallel (batch)
+{"tag":"workflow_engine_perf","runId":"run_test","phase":"batch.finalizeRunIfTerminal","ms":0.02}
+
+ ✓ src/server/flow-v2/worker-loop.test.ts (4 tests) 61ms
+
+ Test Files  7 passed (7)
+      Tests  30 passed (30)
+   Start at  16:27:47
+   Duration  529ms (transform 366ms, setup 0ms, collect 827ms, tests 118ms, environment 1ms, prepare 365ms)
+

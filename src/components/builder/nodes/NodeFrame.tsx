@@ -10,14 +10,16 @@ import { emit } from "src/lib/bus";
 function SelectionRing() {
   return (
     <div
-      className="pointer-events-none absolute -inset-[7px] rounded-[18px]"
+      className="pointer-events-none absolute -inset-[8px] rounded-[18px]"
       style={{
-        background: "linear-gradient(120deg, rgba(56,189,248,0.95), rgba(244,114,182,0.95))",
-        padding: 2.5,
+        background:
+          "linear-gradient(90deg, rgba(120,233,255,0.95), rgba(182,140,255,0.92), rgba(255,109,178,0.95))",
+        padding: 2,
         WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
         WebkitMaskComposite: "xor",
         maskComposite: "exclude",
-        boxShadow: "0 0 26px rgba(56,189,248,0.33), 0 0 26px rgba(244,114,182,0.33)",
+        boxShadow:
+          "0 0 0 1px rgba(255,255,255,0.04) inset, 0 0 22px rgba(120,233,255,0.16), 0 0 22px rgba(255,109,178,0.14)",
       }}
     />
   );
@@ -76,6 +78,15 @@ function NodeFrameImpl(props: NodeProps) {
   const version: string = spec?.version ?? data?.version ?? "1.0.0";
   const summary: string = spec?.summary ?? data?.summary ?? "";
   const status: string | undefined = data?.status;
+  const statusKey = String(status ?? "").toLowerCase();
+  const stateTone =
+    statusKey === "running"
+      ? "running"
+      : statusKey === "success"
+        ? "success"
+        : statusKey === "error" || statusKey === "failed"
+          ? "error"
+          : "idle";
 
   const ports = spec?.ports ?? [];
   const inputs = ports.filter((p) => p.kind === "input");
@@ -247,12 +258,33 @@ function NodeFrameImpl(props: NodeProps) {
       <div
         className={[
           "edge-card relative rounded-2xl overflow-hidden",
+          "transition-[transform,filter] duration-150",
+          selected ? "translate-y-[-1px]" : "translate-y-0",
+          stateTone === "running" ? "ring-1 ring-cyan-300/15" : "",
+          stateTone === "success" ? "ring-1 ring-emerald-400/12" : "",
+          stateTone === "error" ? "ring-1 ring-rose-400/14" : "",
           isOutput ? "min-w-[560px] min-h-[340px]" : "min-w-[260px]",
         ].join(" ")}
       >
-        <div className="edge-card-header">
+        <div className="edge-card-header relative">
+          <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-50" />
           <span className="truncate text-white">{title}</span>
-          <span className="text-[10px] opacity-70 font-mono text-white/60">v{version}</span>
+          <span className="inline-flex items-center gap-2">
+            {stateTone !== "idle" && (
+              <span
+                className={[
+                  "h-1.5 w-1.5 rounded-full",
+                  stateTone === "running"
+                    ? "bg-cyan-300/80"
+                    : stateTone === "success"
+                      ? "bg-emerald-300/80"
+                      : "bg-rose-300/80",
+                ].join(" ")}
+                aria-hidden="true"
+              />
+            )}
+            <span className="text-[10px] opacity-70 font-mono text-white/60">v{version}</span>
+          </span>
         </div>
 
         <div className={isOutput ? "p-6" : "p-4"}>
@@ -284,7 +316,9 @@ function NodeFrameImpl(props: NodeProps) {
                       emit("builder:updateNodeConfig", { nodeId: id, patch: { [t.key]: !on } })
                     }
                     className={[
-                      "rounded-full border px-3 py-1.5 text-[12px] font-semibold transition",
+                      "rounded-full border px-3 py-1.5 text-[12px] font-semibold",
+                      "transition-[transform,background,border-color,color] duration-150",
+                      "active:scale-[0.99]",
                       on
                         ? "border-white/20 bg-white/10 text-white"
                         : "border-white/12 bg-black/30 text-white/70 hover:bg-white/5 hover:text-white/85",
@@ -307,7 +341,7 @@ function NodeFrameImpl(props: NodeProps) {
           {/* Preview - always show for output node when connected, or when selected for others */}
           {(isOutput ? connectedInput && (shouldShowPreview || true) : shouldShowPreview) && (
             <div className={isOutput ? "mt-4" : "mt-4"}>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
                 <div className="text-[11px] uppercase tracking-widest text-white/45 mb-2">
                   Preview
                 </div>

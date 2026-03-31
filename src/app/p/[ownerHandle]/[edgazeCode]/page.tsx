@@ -28,12 +28,9 @@ import { useAuth } from "../../../../components/auth/AuthContext";
 import { track } from "../../../../lib/mixpanel";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../../lib/constants";
 import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
-import PremiumWorkflowRunModal, {
-  type WorkflowRunState,
-} from "../../../../components/builder/PremiumWorkflowRunModal";
+import CustomerWorkflowRunModal from "../../../../components/runtime/customer/CustomerWorkflowRunModal";
 import {
   canRunDemo,
-  trackDemoRun,
   getDeviceFingerprintHash,
   canRunDemoSync,
 } from "../../../../lib/workflow/device-tracking";
@@ -42,11 +39,18 @@ import {
   extractWorkflowOutputs,
 } from "../../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../../lib/workflow/validation";
-import { PREMIUM_AI_SPEC_IDS } from "../../../../lib/workflow/spec-id-aliases";
+import { isPremiumAiSpec } from "../../../../lib/workflow/spec-id-aliases";
 import FoundingCreatorBadge from "../../../../components/ui/FoundingCreatorBadge";
 import ProfileAvatar from "../../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../../components/ui/ProfileLink";
 import ReportModal from "../../../../components/marketplace/ReportModal";
+import {
+  applyWorkflowRunEventToState,
+  buildWorkflowRunStateFromBootstrap,
+} from "../../../../lib/workflow/run-session-state";
+import { toRuntimeGraph } from "../../../../lib/workflow/customer-runtime";
+import { drainReadableStream, streamRunSession } from "../../../../lib/workflow/run-session";
+import type { WorkflowRunState } from "../../../../lib/workflow/run-types";
 const CommentsSection = CommentsSectionRaw as unknown as React.ComponentType<any>;
 
 function safeTrack(event: string, props?: Record<string, any>) {
@@ -1315,6 +1319,9 @@ export default function PromptProductPage() {
   const [upNextCursor, setUpNextCursor] = useState(0);
   const upNextSentinelRef = useRef<HTMLDivElement | null>(null);
   const autoActionTriggeredRef = useRef(false);
+  const workflowRunAbortRef = useRef<AbortController | null>(null);
+  const workflowRunSessionPollRef = useRef<AbortController | null>(null);
+  const workflowRunIsDemoRef = useRef(false);
 
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
@@ -1743,7 +1750,7 @@ export default function PromptProductPage() {
           edgaze_code: listing.edgaze_code,
           demo_mode: true,
         });
-        handleWorkflowRun();
+        handleWorkflowRun({ isDemoRun: false });
         return;
       }
       // Prompt: open run modal (copy prompt)
@@ -1776,7 +1783,7 @@ export default function PromptProductPage() {
         authenticated: false,
       });
 
-      handleWorkflowRun();
+      handleWorkflowRun({ isDemoRun: true });
       return;
     }
 
@@ -1819,7 +1826,7 @@ export default function PromptProductPage() {
 
       // Handle workflows differently
       if (listing.type === "workflow") {
-        handleWorkflowRun();
+        handleWorkflowRun({ isDemoRun: false });
         return;
       }
 
@@ -1947,12 +1954,14 @@ export default function PromptProductPage() {
     setPurchaseError("Unable to grant access. Please try again.");
   }
 
-  async function handleWorkflowRun() {
+  async function handleWorkflowRun(options?: { isDemoRun?: boolean }) {
     if (!listing || listing.type !== "workflow") return;
+    const isDemoRun = options?.isDemoRun === true;
+    workflowRunIsDemoRef.current = isDemoRun;
 
     // Check device-based demo limit (server-side for strict enforcement)
-    // Only check if user is not authenticated (for authenticated users, use their run count)
-    if (!userId) {
+    // Only explicit one-time demo runs should go through demo tracking.
+    if (!userId && isDemoRun) {
       const canRun = await canRunDemo(listing.id, true);
       if (!canRun) {
         safeTrack("Workflow Demo Run Blocked", {
@@ -1976,7 +1985,7 @@ export default function PromptProductPage() {
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       const payload: Record<string, unknown> = { workflowId: listing.id };
-      if (!userId) {
+      if (!userId && isDemoRun) {
         payload.deviceFingerprint = getDeviceFingerprintHash();
       } else {
         let token = await getAccessToken();
@@ -2031,6 +2040,7 @@ export default function PromptProductPage() {
         steps: [],
         logs: [],
         inputs: inputs.length > 0 ? inputs : undefined,
+        graph: toRuntimeGraph(graph),
         summary:
           validation.warnings.length > 0
             ? `${validation.warnings.length} warning(s): ${validation.warnings[0]?.message ?? ""}`
@@ -2046,11 +2056,7 @@ export default function PromptProductPage() {
 
   async function handleSubmitWorkflowInputs(inputValues: Record<string, any>) {
     if (!listing || !workflowGraph || !workflowRunState) return;
-
-    // Track demo run (server-side for non-authenticated users)
-    if (!userId) {
-      await trackDemoRun(listing.id);
-    }
+    const isDemoRun = workflowRunIsDemoRef.current;
 
     // Convert File objects to base64 for transmission
     const processedInputs: Record<string, any> = {};
@@ -2090,7 +2096,7 @@ export default function PromptProductPage() {
       const apiKey = node.data?.config?.apiKey;
 
       // Check if this node requires API keys and has one configured
-      if (specId && PREMIUM_AI_SPEC_IDS.includes(specId)) {
+      if (specId && isPremiumAiSpec(specId)) {
         if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
           userApiKeys[node.id] = { apiKey: apiKey.trim() };
         }
@@ -2104,12 +2110,15 @@ export default function PromptProductPage() {
       status: "running",
       inputValues: processedInputs,
       startedAt: Date.now(),
+      connectionState: "connecting",
+      connectionLabel: "Connecting to live updates...",
+      lastEventAt: Date.now(),
     });
 
     try {
       // Admin demo link: pass token to bypass auth and device limit. Otherwise use device fingerprint for anonymous demo.
       const deviceFingerprint =
-        !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
+        !userId && isDemoRun && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
 
       // Signed-in users must send Bearer token - API uses getUserFromRequest (Bearer only)
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -2121,20 +2130,25 @@ export default function PromptProductPage() {
         }
         if (token) headers["Authorization"] = `Bearer ${token}`;
       }
+      workflowRunSessionPollRef.current?.abort();
+      workflowRunSessionPollRef.current = null;
+      workflowRunAbortRef.current = new AbortController();
 
       const response = await fetch("/api/flow/run", {
         method: "POST",
         headers,
         credentials: "include",
+        signal: workflowRunAbortRef.current.signal,
         body: JSON.stringify({
           workflowId: listing.id,
           nodes: workflowGraph.nodes || [],
           edges: workflowGraph.edges || [],
           inputs: processedInputs,
           userApiKeys,
-          isDemo: !userId && !isDemoModeActive,
+          isDemo: !userId && isDemoRun && !isDemoModeActive,
           deviceFingerprint,
           adminDemoToken: isDemoModeActive && listing?.demo_token ? listing.demo_token : undefined,
+          stream: true,
         }),
       });
 
@@ -2143,61 +2157,179 @@ export default function PromptProductPage() {
         throw new Error(error.error || `HTTP ${response.status}`);
       }
 
-      const result = await response.json();
-      if (!result.ok) {
-        throw new Error(result.error || "Execution failed");
+      const contentType = response.headers.get("content-type") || "";
+      const isStreaming = contentType.includes("ndjson");
+      let result: any = null;
+
+      if (isStreaming && response.body) {
+        let sseHandoffStarted = false;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            const evt = JSON.parse(line);
+            if (evt.type === "run_bootstrap" && typeof evt.runId === "string") {
+              setWorkflowRunState((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      runId: evt.runId,
+                      runAccessToken:
+                        typeof evt.runAccessToken === "string"
+                          ? evt.runAccessToken
+                          : prev.runAccessToken,
+                    }
+                  : prev,
+              );
+              const sessionController = new AbortController();
+              workflowRunSessionPollRef.current = sessionController;
+              void streamRunSession({
+                runId: evt.runId,
+                accessToken: headers.Authorization
+                  ? String(headers.Authorization).replace(/^Bearer\s+/i, "")
+                  : null,
+                runAccessToken:
+                  typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
+                signal: sessionController.signal,
+                onTransportState: async (transportState) => {
+                  setWorkflowRunState((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          connectionState:
+                            transportState === "connecting"
+                              ? "connecting"
+                              : transportState === "live"
+                                ? "live"
+                                : transportState === "reconnecting"
+                                  ? "reconnecting"
+                                  : "degraded",
+                          connectionLabel:
+                            transportState === "connecting"
+                              ? "Connecting to live updates..."
+                              : transportState === "reconnecting"
+                                ? "Reconnecting to live updates..."
+                                : transportState === "degraded"
+                                  ? "Live updates are slower right now."
+                                  : undefined,
+                        }
+                      : prev,
+                  );
+                },
+                onSnapshot: async (bootstrap) => {
+                  const nextState = buildWorkflowRunStateFromBootstrap({
+                    bootstrap,
+                    workflowId: listing.id,
+                    workflowName: listing.title || "Workflow",
+                    inputValues: processedInputs,
+                    runAccessToken:
+                      typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
+                    sourceGraph: toRuntimeGraph(workflowGraph),
+                  });
+                  setWorkflowRunState((prev) =>
+                    prev ? { ...prev, ...nextState } : (nextState as WorkflowRunState),
+                  );
+                },
+                onEvent: async (event) => {
+                  setWorkflowRunState((prev) =>
+                    prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
+                  );
+                },
+              }).catch((error) => {
+                if (sessionController.signal.aborted) return;
+                const message =
+                  error instanceof Error ? error.message : "Run session stream disconnected.";
+                setWorkflowRunState((prev) =>
+                  prev && prev.status !== "success" && prev.status !== "cancelled"
+                    ? {
+                        ...prev,
+                        connectionState: "degraded",
+                        connectionLabel: message,
+                      }
+                    : prev,
+                );
+              });
+
+              sseHandoffStarted = true;
+              drainReadableStream(reader);
+              break;
+            }
+            if (evt.type === "complete") {
+              result = evt;
+            }
+          }
+          if (sseHandoffStarted || result) break;
+        }
+        if (sseHandoffStarted) {
+          return;
+        }
+        if (!result || !result.ok) {
+          throw new Error(result?.error || "Execution failed");
+        }
+      } else {
+        result = await response.json();
+        if (!result.ok) {
+          throw new Error(result.error || "Execution failed");
+        }
+
+        const executionResult = result.result;
+        const logs = (executionResult.logs || []).map((log: any) => ({
+          t: log.timestamp || Date.now(),
+          level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
+          text: log.message || "",
+          nodeId: log.nodeId,
+          specId: log.specId,
+        }));
+
+        const steps = Object.entries(executionResult.nodeStatus || {}).map(
+          ([nodeId, status]: [string, any]) => {
+            const node = workflowGraph.nodes?.find((n: any) => n.id === nodeId);
+            const specId = node?.data?.specId || "default";
+            return {
+              id: nodeId,
+              title: node?.data?.title || node?.data?.config?.name || specId,
+              status: mapNodeStatus(status),
+              timestamp: Date.now(),
+            };
+          },
+        );
+
+        const outputs = extractWorkflowOutputs(workflowGraph.nodes || [])
+          .map((output) => {
+            const finalOutput = executionResult.finalOutputs?.find(
+              (fo: any) => fo.nodeId === output.nodeId,
+            );
+            if (!finalOutput) return null;
+            return {
+              ...output,
+              value: finalOutput.value,
+              type: typeof finalOutput.value === "string" ? "string" : "json",
+            };
+          })
+          .filter((o): o is NonNullable<typeof o> => o != null);
+
+        setWorkflowRunState({
+          ...workflowRunState,
+          phase: "output",
+          status:
+            executionResult.workflowStatus === "completed" ||
+            executionResult.workflowStatus === "completed_with_skips"
+              ? "success"
+              : "error",
+          steps,
+          logs,
+          outputs,
+          finishedAt: Date.now(),
+        });
       }
-
-      // Process results (similar to builder page)
-      const executionResult = result.result;
-      const logs = (executionResult.logs || []).map((log: any) => ({
-        t: log.timestamp || Date.now(),
-        level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
-        text: log.message || "",
-        nodeId: log.nodeId,
-        specId: log.specId,
-      }));
-
-      const steps = Object.entries(executionResult.nodeStatus || {}).map(
-        ([nodeId, status]: [string, any]) => {
-          const node = workflowGraph.nodes?.find((n: any) => n.id === nodeId);
-          const specId = node?.data?.specId || "default";
-          return {
-            id: nodeId,
-            title: node?.data?.title || node?.data?.config?.name || specId,
-            status: mapNodeStatus(status),
-            timestamp: Date.now(),
-          };
-        },
-      );
-
-      const outputs = extractWorkflowOutputs(workflowGraph.nodes || [])
-        .map((output) => {
-          const finalOutput = executionResult.finalOutputs?.find(
-            (fo: any) => fo.nodeId === output.nodeId,
-          );
-          if (!finalOutput) return null;
-          return {
-            ...output,
-            value: finalOutput.value,
-            type: typeof finalOutput.value === "string" ? "string" : "json",
-          };
-        })
-        .filter((o): o is NonNullable<typeof o> => o != null);
-
-      setWorkflowRunState({
-        ...workflowRunState,
-        phase: "output",
-        status:
-          executionResult.workflowStatus === "completed" ||
-          executionResult.workflowStatus === "completed_with_skips"
-            ? "success"
-            : "error",
-        steps,
-        logs,
-        outputs,
-        finishedAt: Date.now(),
-      });
     } catch (error: any) {
       setWorkflowRunState({
         ...workflowRunState,
@@ -2294,6 +2426,13 @@ export default function PromptProductPage() {
   }, [listing?.id]);
 
   useEffect(() => {
+    return () => {
+      workflowRunAbortRef.current?.abort();
+      workflowRunSessionPollRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!upNextSentinelRef.current) return;
     if (!upNextHasMore) return;
 
@@ -2374,19 +2513,47 @@ export default function PromptProductPage() {
     <div className="flex h-full flex-col bg-[#050505] text-white">
       {/* Premium Workflow Run Modal */}
       {listing?.type === "workflow" && (
-        <PremiumWorkflowRunModal
+        <CustomerWorkflowRunModal
           open={workflowRunModalOpen}
           onClose={() => {
-            if (workflowRunState?.status !== "running" && workflowRunState?.phase !== "executing") {
+            if (
+              workflowRunState?.status !== "running" &&
+              workflowRunState?.status !== "cancelling"
+            ) {
+              workflowRunAbortRef.current?.abort();
+              workflowRunSessionPollRef.current?.abort();
               setWorkflowRunModalOpen(false);
               setWorkflowRunState(null);
               setWorkflowGraph(null);
             }
           }}
           state={workflowRunState}
-          onCancel={() => {
+          onCancel={async () => {
+            if (workflowRunState?.runId) {
+              try {
+                const accessToken = userId ? await getAccessToken() : null;
+                const headers: HeadersInit = { "Content-Type": "application/json" };
+                if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+                const query = workflowRunState.runAccessToken
+                  ? `?runAccessToken=${encodeURIComponent(workflowRunState.runAccessToken)}`
+                  : "";
+                await fetch(
+                  `/api/runs/${encodeURIComponent(workflowRunState.runId)}/cancel${query}`,
+                  {
+                    method: "POST",
+                    headers,
+                    credentials: "include",
+                  },
+                );
+                setWorkflowRunState((prev) =>
+                  prev ? { ...prev, status: "cancelling", error: undefined } : null,
+                );
+                return;
+              } catch {}
+            }
+            workflowRunAbortRef.current?.abort();
             setWorkflowRunState((prev) =>
-              prev ? { ...prev, status: "error", error: "Cancelled by user" } : null,
+              prev ? { ...prev, status: "cancelled", error: undefined } : null,
             );
           }}
           onRerun={() => {

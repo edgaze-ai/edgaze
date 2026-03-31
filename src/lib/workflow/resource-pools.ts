@@ -18,8 +18,6 @@ const SPEC_TO_RESOURCE: Record<string, ResourceClass> = {
   "llm-chat": "llm",
   "llm-embeddings": "llm",
   "llm-image": "image",
-  "claude-chat": "llm",
-  "gemini-chat": "llm",
   "openai-chat": "llm",
   "openai-embeddings": "llm",
   "openai-image": "image",

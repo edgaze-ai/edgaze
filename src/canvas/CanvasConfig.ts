@@ -4,9 +4,40 @@
 
 import type { Connection, Edge } from "reactflow";
 
-const CHAT_TARGETS = ["output", "merge", "condition", "json-parse"];
-const EMBED_TARGETS = ["output", "merge", "condition"];
-const IMAGE_TARGETS = ["output", "merge", "condition"];
+// "Data" connections: these targets accept inbound values via the workflow data pipeline.
+// Keep this permissive for LLM chaining (LLM → LLM) while still guarding structural rules below.
+const CHAT_TARGETS = [
+  "output",
+  "merge",
+  "condition",
+  "json-parse",
+  // Allow chaining between LLM nodes
+  "llm-chat",
+  "openai-chat",
+  "llm-embeddings",
+  "openai-embeddings",
+  "llm-image",
+  "openai-image",
+];
+const EMBED_TARGETS = [
+  "output",
+  "merge",
+  "condition",
+  // Allow embeddings → LLM (e.g. stringify vectors, pass IDs/metadata)
+  "llm-chat",
+  "openai-chat",
+  "llm-image",
+  "openai-image",
+];
+const IMAGE_TARGETS = [
+  "output",
+  "merge",
+  "condition",
+  // Allow image results → chat prompts, etc.
+  "llm-chat",
+  "openai-chat",
+  "json-parse",
+];
 
 /**
  * For each source specId, which target specIds it can connect TO.
@@ -20,8 +51,6 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
     "llm-chat",
     "llm-embeddings",
     "llm-image",
-    "claude-chat",
-    "gemini-chat",
     "openai-chat",
     "openai-embeddings",
     "openai-image",
@@ -38,8 +67,6 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
     "merge",
     "llm-chat",
     "llm-image",
-    "claude-chat",
-    "gemini-chat",
     "openai-chat",
     "openai-image",
     "condition",
@@ -50,31 +77,19 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
     "http-request",
   ],
   "llm-chat": CHAT_TARGETS,
-  "claude-chat": CHAT_TARGETS,
-  "gemini-chat": CHAT_TARGETS,
   "openai-chat": CHAT_TARGETS,
   "llm-embeddings": EMBED_TARGETS,
   "openai-embeddings": EMBED_TARGETS,
   "llm-image": IMAGE_TARGETS,
   "openai-image": IMAGE_TARGETS,
   "http-request": ["output", "merge", "json-parse", "condition"],
-  "json-parse": [
-    "output",
-    "merge",
-    "llm-chat",
-    "claude-chat",
-    "gemini-chat",
-    "openai-chat",
-    "condition",
-  ],
+  "json-parse": ["output", "merge", "llm-chat", "openai-chat", "condition"],
   condition: [
     "output",
     "merge",
     "llm-chat",
     "llm-embeddings",
     "llm-image",
-    "claude-chat",
-    "gemini-chat",
     "openai-chat",
     "openai-embeddings",
     "openai-image",
@@ -91,8 +106,6 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
     "llm-chat",
     "llm-embeddings",
     "llm-image",
-    "claude-chat",
-    "gemini-chat",
     "openai-chat",
     "openai-embeddings",
     "openai-image",
@@ -105,8 +118,6 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
   ],
   loop: [
     "llm-chat",
-    "claude-chat",
-    "gemini-chat",
     "openai-chat",
     "http-request",
     "llm-image",
@@ -114,15 +125,7 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
     "merge",
     "condition",
   ],
-  template: [
-    "llm-chat",
-    "claude-chat",
-    "gemini-chat",
-    "openai-chat",
-    "merge",
-    "output",
-    "condition",
-  ],
+  template: ["llm-chat", "openai-chat", "merge", "output", "condition"],
 };
 
 export type GetNodes = () => Array<{ id: string; data?: { specId?: string } }>;

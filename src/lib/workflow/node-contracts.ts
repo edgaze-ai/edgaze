@@ -6,28 +6,6 @@ import { z } from "zod";
 import { coerceToType, type ValueType } from "./value-types";
 import { canonicalSpecId } from "./spec-id-aliases";
 
-const KNOWN_SPEC_IDS = new Set([
-  "input",
-  "merge",
-  "merge-json",
-  "output",
-  "llm-chat",
-  "llm-embeddings",
-  "llm-image",
-  "claude-chat",
-  "gemini-chat",
-  "openai-chat",
-  "openai-embeddings",
-  "openai-image",
-  "http-request",
-  "json-parse",
-  "condition",
-  "delay",
-  "loop",
-  "template",
-  "map",
-]);
-
 export const VALUE_TYPES = ["string", "number", "boolean", "json", "array", "binary"] as const;
 export type { ValueType };
 
@@ -124,32 +102,6 @@ const CONTRACTS: Record<string, NodeContract> = {
       quality: z.string().optional(),
     }),
     resourceClass: "image",
-  },
-  "claude-chat": {
-    specId: "claude-chat",
-    inputTypes: ["string", "json"],
-    outputType: "json",
-    configSchema: commonConfig.extend({
-      prompt: z.string().optional(),
-      system: z.string().optional(),
-      model: z.string().optional(),
-      temperature: z.number().optional(),
-      maxTokens: z.number().optional(),
-    }),
-    resourceClass: "llm",
-  },
-  "gemini-chat": {
-    specId: "gemini-chat",
-    inputTypes: ["string", "json"],
-    outputType: "json",
-    configSchema: commonConfig.extend({
-      prompt: z.string().optional(),
-      system: z.string().optional(),
-      model: z.string().optional(),
-      temperature: z.number().optional(),
-      maxTokens: z.number().optional(),
-    }),
-    resourceClass: "llm",
   },
   "http-request": {
     specId: "http-request",
@@ -262,7 +214,7 @@ export function validateWorkflowOnPublish(
       errors.push(`Node ${node.id ?? "?"} has unknown specId`);
       continue;
     }
-    if (!KNOWN_SPEC_IDS.has(specId)) {
+    if (!getContract(specId)) {
       errors.push(`Node ${node.id ?? "?"} uses unknown specId "${specId}"`);
       continue;
     }

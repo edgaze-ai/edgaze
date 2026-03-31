@@ -3,34 +3,30 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Home,
-  LayoutPanelLeft,
-  Play,
-  Plus,
-  RefreshCw,
-  Rocket,
-  X,
-  ArrowRight,
-  ArrowLeft,
-  ZoomIn,
-  ZoomOut,
-  Grid3X3,
-  Lock,
-  Unlock,
-  Maximize2,
-  Minimize2,
-  Sparkles,
-  Loader2,
-  BookOpen,
-  Undo2,
-  Redo2,
-} from "lucide-react";
+import { ArrowRight, ArrowLeft, Play, Loader2, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "../../components/auth/AuthContext";
 import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
+import {
+  IconBack,
+  IconDocs,
+  IconExitFullscreen,
+  IconFullscreen,
+  IconGrid,
+  IconInspector,
+  IconLock,
+  IconPanels,
+  IconRocket,
+  IconRedo,
+  IconRefresh,
+  IconRun,
+  IconUndo,
+  IconUnlock,
+  IconZoomIn,
+  IconZoomOut,
+} from "../../components/builder/icons/EdgazeIcons";
 
 import ReactFlowCanvas, {
   CanvasRef as BECanvasRef,
@@ -43,7 +39,11 @@ import PremiumWorkflowRunModal, {
   type WorkflowRunStep,
   type BuilderRunLimit,
 } from "../../components/builder/PremiumWorkflowRunModal";
-import { PREMIUM_AI_SPEC_IDS, providerForAiSpec } from "../../lib/workflow/spec-id-aliases";
+import {
+  canonicalSpecId,
+  isPremiumAiSpec,
+  providerForAiSpec,
+} from "../../lib/workflow/spec-id-aliases";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
 import {
   canRunDemo,
@@ -61,6 +61,12 @@ import { emit, on } from "../../lib/bus";
 import { track } from "../../lib/mixpanel";
 import { getQuickStartTemplate } from "../../lib/quickStartTemplates";
 import { getDocsLink } from "../../lib/docs-link";
+import { drainReadableStream, streamRunSession } from "../../lib/workflow/run-session";
+import {
+  applyWorkflowRunEventToState,
+  buildWorkflowRunStateFromBootstrap,
+} from "../../lib/workflow/run-session-state";
+import { toRuntimeGraph } from "../../lib/workflow/customer-runtime";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -140,6 +146,25 @@ function normalizeGraph(raw: any): { nodes: any[]; edges: any[] } {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function tryParseIsoDate(v: unknown): Date | null {
+  if (typeof v !== "string" || !v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatLastSaved(d: Date): string {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(d);
+  } catch {
+    return d.toLocaleString();
+  }
 }
 
 function clamp(v: number, min: number, max: number) {
@@ -239,6 +264,10 @@ export default function BuilderPage() {
   const lastSavedHashRef = useRef<string>("");
   const saveInFlightRef = useRef(false);
   const saveAgainRef = useRef(false);
+  const [saveUi, setSaveUi] = useState<{
+    status: "idle" | "saving" | "error";
+    lastSavedAt: Date | null;
+  }>({ status: "idle", lastSavedAt: null });
 
   // Undo/redo: graph history (only in edit mode with a draft)
   const UNDO_HISTORY_MAX = 50;
@@ -260,7 +289,7 @@ export default function BuilderPage() {
       id: "blocks",
       x: 0,
       y: 0,
-      width: 280,
+      width: 340,
       height: 600,
       visible: !previewParam,
       minimized: false,
@@ -305,10 +334,15 @@ export default function BuilderPage() {
   const [running, setRunning] = useState(false);
   const [showPreparingToast, setShowPreparingToast] = useState(false);
   const runAbortRef = useRef<AbortController | null>(null);
+  const runSessionPollRef = useRef<AbortController | null>(null);
   const autoExecuteTriggeredRef = useRef(false);
 
   // deep-link guard (prevents repeated opening)
   const openedWorkflowIdRef = useRef<string | null>(null);
+  const activeDraftIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeDraftIdRef.current = activeDraftId;
+  }, [activeDraftId]);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -363,7 +397,7 @@ export default function BuilderPage() {
       const gapBelowTopbar = 5;
       const panelTopY = Math.round(headerBottom + gapBelowTopbar);
 
-      const blocksW = 280;
+      const blocksW = 340;
       const inspectorW = 320;
 
       const edgeInset = 0;
@@ -640,6 +674,11 @@ export default function BuilderPage() {
     return `${g.nodes?.length ?? 0}/${g.edges?.length ?? 0}::${ns}::${es}`;
   };
 
+  const hashPersistedGraph = useCallback(
+    (g: { nodes: any[]; edges: any[] }) => hashGraph(stripGraphSecrets(g) as any),
+    [],
+  );
+
   const cloneGraph = (g: { nodes: any[]; edges: any[] }) =>
     JSON.parse(JSON.stringify({ nodes: g.nodes ?? [], edges: g.edges ?? [] }));
 
@@ -724,7 +763,8 @@ export default function BuilderPage() {
     const graph = latestGraphRef.current;
     if (!graph) return;
 
-    const h = hashGraph(graph);
+    const persisted = stripGraphSecrets(graph) as any;
+    const h = hashGraph(persisted);
     if (h === lastSavedHashRef.current) return;
 
     if (saveInFlightRef.current) {
@@ -734,9 +774,15 @@ export default function BuilderPage() {
 
     saveInFlightRef.current = true;
     saveAgainRef.current = false;
+    setSaveUi((s) => ({ ...s, status: "saving" }));
 
     try {
-      const update = { title: name || "Untitled Workflow", graph, updated_at: nowIso() };
+      const updatedAt = nowIso();
+      const update = {
+        title: name || "Untitled Workflow",
+        graph: persisted,
+        updated_at: updatedAt,
+      };
 
       const { error } = await supabase
         .from("workflow_drafts")
@@ -744,8 +790,13 @@ export default function BuilderPage() {
         .eq("id", activeDraftId)
         .eq("owner_id", userId);
 
-      if (!error) lastSavedHashRef.current = h;
-      if (error) console.error("Autosave failed", error);
+      if (!error) {
+        lastSavedHashRef.current = h;
+        setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
+      } else {
+        setSaveUi((s) => ({ ...s, status: "error" }));
+        console.error("Autosave failed", error);
+      }
     } finally {
       saveInFlightRef.current = false;
       if (saveAgainRef.current) {
@@ -754,6 +805,18 @@ export default function BuilderPage() {
       }
     }
   }, [supabase, userId, activeDraftId, name, isPreview]);
+
+  const flushAutosaveNow = useCallback(async () => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    await doAutosave();
+    const start = Date.now();
+    while ((saveInFlightRef.current || saveAgainRef.current) && Date.now() - start < 4500) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }, [doAutosave]);
 
   const onGraphChange = useCallback(
     (graph: { nodes: any[]; edges: any[] }) => {
@@ -877,7 +940,11 @@ export default function BuilderPage() {
         });
 
         latestGraphRef.current = g;
-        lastSavedHashRef.current = hashGraph(g);
+        lastSavedHashRef.current = hashPersistedGraph(g);
+        setSaveUi({
+          status: "idle",
+          lastSavedAt: tryParseIsoDate(row.updated_at) ?? new Date(),
+        });
 
         supabase
           .from("workflow_drafts")
@@ -902,7 +969,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory, hashPersistedGraph],
   );
 
   const openPublishedAsDraft = useCallback(
@@ -949,7 +1016,11 @@ export default function BuilderPage() {
 
         const ng = normalizeGraph(row.graph);
         loadGraphAndResetHistory(ng);
-        lastSavedHashRef.current = hashGraph(ng);
+        lastSavedHashRef.current = hashPersistedGraph(ng);
+        setSaveUi({
+          status: "idle",
+          lastSavedAt: tryParseIsoDate(row.updated_at) ?? new Date(),
+        });
 
         safeTrack("Workflow Opened", {
           surface: "builder",
@@ -976,7 +1047,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory, hashPersistedGraph],
   );
 
   const openMarketplaceWorkflowAsDraft = useCallback(
@@ -1138,7 +1209,8 @@ export default function BuilderPage() {
     [requireAuth, userId, supabase, loadGraphAndResetHistory],
   );
 
-  // Auto-open from URL param once auth is ready (preview works on mobile, edit is desktop-only)
+  // Auto-open from URL param once auth is ready (preview works on mobile, edit is desktop-only).
+  // Edit deep-links require the published workflow owner; others are forced back to preview.
   useEffect(() => {
     if (!mounted) return;
     if (!authReady) return;
@@ -1149,18 +1221,57 @@ export default function BuilderPage() {
     // For edit mode, require desktop. Preview mode works on mobile.
     if (!previewParam && !isDesktop) return;
 
-    if (openedWorkflowIdRef.current === wid + (previewParam ? "|p" : "|e")) return;
-    openedWorkflowIdRef.current = wid + (previewParam ? "|p" : "|e");
+    let cancelled = false;
 
-    if (activeDraftId) return;
+    (async () => {
+      if (!previewParam && !userId) {
+        router.replace(`/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any);
+        return;
+      }
 
-    if (previewParam) {
-      void openMarketplaceWorkflowPreview(wid);
-    } else {
-      void openMarketplaceWorkflowAsDraft(wid);
-    }
+      if (!previewParam && userId) {
+        const { data: wf, error: wfOwnerErr } = await supabase
+          .from("workflows")
+          .select("owner_id")
+          .eq("id", wid)
+          .eq("is_published", true)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (wfOwnerErr || !wf) {
+          // Invalid / unavailable id — let openMarketplaceWorkflowAsDraft surface an error.
+        } else if (String((wf as { owner_id?: string }).owner_id ?? "") !== String(userId)) {
+          router.replace(`/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any);
+          return;
+        }
+      }
+
+      if (cancelled) return;
+
+      const openKey = `${wid}|${previewParam ? "p" : "e"}`;
+      if (openedWorkflowIdRef.current === openKey) return;
+
+      const currentDraftId = activeDraftIdRef.current;
+      const previewUpgradingToEdit =
+        !previewParam && currentDraftId === wid && openedWorkflowIdRef.current === `${wid}|p`;
+
+      if (currentDraftId && !previewUpgradingToEdit) return;
+
+      openedWorkflowIdRef.current = openKey;
+
+      if (previewParam) {
+        void openMarketplaceWorkflowPreview(wid);
+      } else {
+        void openMarketplaceWorkflowAsDraft(wid);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, isDesktop, authReady, previewParam]);
+  }, [mounted, isDesktop, authReady, previewParam, userId, searchParams, supabase, router]);
 
   const createDraft = useCallback(async () => {
     setWfError(null);
@@ -1296,11 +1407,18 @@ export default function BuilderPage() {
     if (!g) return;
 
     latestGraphRef.current = g;
+    await flushAutosaveNow();
 
+    const persisted = stripGraphSecrets(g) as any;
+    const h = hashGraph(persisted);
+    if (h === lastSavedHashRef.current) return;
+
+    setSaveUi((s) => ({ ...s, status: "saving" }));
+    const updatedAt = nowIso();
     const update = {
       title: name || "Untitled Workflow",
-      graph: stripGraphSecrets(g) as any,
-      updated_at: nowIso(),
+      graph: persisted,
+      updated_at: updatedAt,
     };
 
     const { error } = await supabase
@@ -1310,11 +1428,13 @@ export default function BuilderPage() {
       .eq("owner_id", userId);
 
     if (!error) {
-      lastSavedHashRef.current = hashGraph(g);
+      lastSavedHashRef.current = h;
+      setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
     } else {
-      console.error("Failed to save draft before publish:", error);
+      setSaveUi((s) => ({ ...s, status: "error" }));
+      console.error("Failed to save draft:", error);
     }
-  }, [supabase, userId, activeDraftId, name, isPreview]);
+  }, [supabase, userId, activeDraftId, name, isPreview, flushAutosaveNow]);
 
   // ----- Floating window drag/resize (foolproof, no crashes) -----
   useEffect(() => {
@@ -1415,6 +1535,9 @@ export default function BuilderPage() {
     const graph = beRef.current?.getGraph?.();
     if (!graph) return;
 
+    // Server execution resolves graph from Supabase at run time; flush autosave so runs always use latest edits.
+    await ensureDraftSavedNow();
+
     // Show instant toast notification
     setShowPreparingToast(true);
 
@@ -1463,9 +1586,7 @@ export default function BuilderPage() {
 
     // Extract inputs from workflow (use current graph - inputs/steps must match live canvas)
     const inputs = extractWorkflowInputs(graph.nodes || []);
-    const hasAiNodes = (graph.nodes || []).some((n: any) =>
-      PREMIUM_AI_SPEC_IDS.includes(n.data?.specId ?? ""),
-    );
+    const hasAiNodes = (graph.nodes || []).some((n: any) => isPremiumAiSpec(n.data?.specId ?? ""));
     const isBuilderTest = !isPreview;
     const showInputPhase = inputs.length > 0 || (isBuilderTest && hasAiNodes);
 
@@ -1514,18 +1635,7 @@ export default function BuilderPage() {
       status: "idle",
       steps: [],
       graph: {
-        nodes: (workflowGraph.nodes || []).map((n: any) => ({
-          id: n.id,
-          data: {
-            specId: n.data?.specId,
-            title: n.data?.title,
-            config: n.data?.config,
-          },
-        })),
-        edges: (workflowGraph.edges || []).map((e: any) => ({
-          source: e.source,
-          target: e.target,
-        })),
+        ...(toRuntimeGraph(workflowGraph) ?? { nodes: [], edges: [] }),
       },
       logs: [],
       inputs: showInputPhase ? (inputs.length > 0 ? inputs : []) : undefined,
@@ -1558,9 +1668,7 @@ export default function BuilderPage() {
     const graph = beRef.current?.getGraph?.();
     if (!graph) return;
 
-    const hasAiNodes = (graph.nodes || []).some((n: any) =>
-      PREMIUM_AI_SPEC_IDS.includes(n.data?.specId ?? ""),
-    );
+    const hasAiNodes = (graph.nodes || []).some((n: any) => isPremiumAiSpec(n.data?.specId ?? ""));
 
     // Builder test requires authentication (unlike preview/demo)
     const isBuilderTest = !isPreview;
@@ -1625,7 +1733,7 @@ export default function BuilderPage() {
       const specId = node.data?.specId;
       const apiKey = node.data?.config?.apiKey;
 
-      if (specId && PREMIUM_AI_SPEC_IDS.includes(specId)) {
+      if (specId && isPremiumAiSpec(specId)) {
         if (apiKey && typeof apiKey === "string" && apiKey.trim()) {
           userApiKeys[node.id] = { apiKey: apiKey.trim() };
         } else if (requiresApiKeys?.includes(node.id)) {
@@ -1648,11 +1756,20 @@ export default function BuilderPage() {
       status: "running",
       inputValues: processedInputs,
       startedAt: Date.now(),
+      connectionState: "connecting",
+      connectionLabel: "Connecting to live updates...",
+      lastEventAt: Date.now(),
     });
 
     try {
+      // Server resolves graph from Supabase for authenticated runs — ensure the draft is persisted
+      // right before execution so we never run a stale version.
+      await ensureDraftSavedNow();
+
       // Get access token from auth context to ensure session is passed
       const accessToken = await getAccessToken();
+      runSessionPollRef.current?.abort();
+      runSessionPollRef.current = null;
 
       // Build headers with auth token if available
       const headers: HeadersInit = { "Content-Type": "application/json" };
@@ -1731,22 +1848,7 @@ export default function BuilderPage() {
       let result: any;
 
       if (isStreaming && response.body) {
-        // Live streaming: consume NDJSON and update runState as nodes execute
-        const execOrder = getExecutionOrder(graph.nodes || [], graph.edges || []);
-        const nodeMap = new Map((graph.nodes || []).map((n: any) => [n.id, n]));
-        const initialSteps: WorkflowRunStep[] = execOrder.map((nodeId) => {
-          const node = nodeMap.get(nodeId);
-          const specId = node?.data?.specId || "default";
-          return {
-            id: nodeId,
-            title: node?.data?.title || node?.data?.config?.name || humanReadableStep(specId),
-            status: "queued" as const,
-            timestamp: Date.now(),
-          };
-        });
-
-        setRunState((prev) => (prev ? { ...prev, steps: initialSteps } : prev));
-
+        let sseHandoffStarted = false;
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -1760,39 +1862,102 @@ export default function BuilderPage() {
             if (!line.trim()) continue;
             try {
               const evt = JSON.parse(line);
-              if (evt.type === "node_start") {
-                setRunState((prev) => {
-                  if (!prev) return prev;
-                  const next = prev.steps.map((s) =>
-                    s.id === evt.nodeId ? { ...s, status: "running" as const } : s,
+              if (evt.type === "run_bootstrap" && typeof evt.runId === "string") {
+                setRunState((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        runId: evt.runId,
+                        runAccessToken:
+                          typeof evt.runAccessToken === "string"
+                            ? evt.runAccessToken
+                            : prev.runAccessToken,
+                      }
+                    : prev,
+                );
+
+                const sessionController = new AbortController();
+                runSessionPollRef.current = sessionController;
+                void streamRunSession({
+                  runId: evt.runId,
+                  accessToken,
+                  runAccessToken:
+                    typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
+                  signal: sessionController.signal,
+                  onTransportState: async (transportState) => {
+                    setRunState((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            connectionState:
+                              transportState === "connecting"
+                                ? "connecting"
+                                : transportState === "live"
+                                  ? "live"
+                                  : transportState === "reconnecting"
+                                    ? "reconnecting"
+                                    : "degraded",
+                            connectionLabel:
+                              transportState === "connecting"
+                                ? "Connecting to live updates..."
+                                : transportState === "reconnecting"
+                                  ? "Reconnecting to live updates..."
+                                  : transportState === "degraded"
+                                    ? "Live updates are slower right now."
+                                    : undefined,
+                          }
+                        : prev,
+                    );
+                  },
+                  onSnapshot: async (bootstrap) => {
+                    const nextState = buildWorkflowRunStateFromBootstrap({
+                      bootstrap,
+                      workflowId: activeDraftId,
+                      workflowName: name || "Untitled Workflow",
+                      inputValues: processedInputs,
+                      runAccessToken:
+                        typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
+                      sourceGraph: toRuntimeGraph(graph),
+                    });
+                    setRunState((prev) =>
+                      prev ? { ...prev, ...nextState } : (nextState as WorkflowRunState),
+                    );
+                  },
+                  onEvent: async (event) => {
+                    setRunState((prev) =>
+                      prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
+                    );
+                  },
+                }).catch((error) => {
+                  if (sessionController.signal.aborted) return;
+                  const message =
+                    error instanceof Error ? error.message : "Run session stream disconnected.";
+                  setRunState((prev) =>
+                    prev && prev.status !== "success" && prev.status !== "cancelled"
+                      ? {
+                          ...prev,
+                          connectionState: "degraded",
+                          connectionLabel: message,
+                        }
+                      : prev,
                   );
-                  return { ...prev, steps: next, currentStepId: evt.nodeId };
                 });
-              } else if (evt.type === "node_done") {
-                setRunState((prev) => {
-                  if (!prev) return prev;
-                  const next = prev.steps.map((s) =>
-                    s.id === evt.nodeId ? { ...s, status: "done" as const } : s,
-                  );
-                  return { ...prev, steps: next, currentStepId: null };
-                });
-              } else if (evt.type === "node_failed") {
-                setRunState((prev) => {
-                  if (!prev) return prev;
-                  const next = prev.steps.map((s) =>
-                    s.id === evt.nodeId ? { ...s, status: "error" as const, detail: evt.error } : s,
-                  );
-                  return { ...prev, steps: next, currentStepId: null };
-                });
-              } else if (evt.type === "complete") {
-                result = evt;
+
+                sseHandoffStarted = true;
+                drainReadableStream(reader);
                 break;
+              }
+              if (evt.type === "complete") {
+                result = evt;
               }
             } catch {
               // Skip malformed lines
             }
           }
-          if (result) break;
+          if (sseHandoffStarted || result) break;
+        }
+        if (sseHandoffStarted) {
+          return;
         }
         if (!result || !result.ok) {
           throw new Error(result?.error || "Execution failed");
@@ -2105,8 +2270,6 @@ export default function BuilderPage() {
       "llm-chat": <Play className="h-4 w-4" />,
       "llm-embeddings": <Play className="h-4 w-4" />,
       "llm-image": <Play className="h-4 w-4" />,
-      "claude-chat": <Play className="h-4 w-4" />,
-      "gemini-chat": <Play className="h-4 w-4" />,
       "openai-chat": <Play className="h-4 w-4" />,
       "openai-embeddings": <Play className="h-4 w-4" />,
       "openai-image": <Play className="h-4 w-4" />,
@@ -2115,17 +2278,17 @@ export default function BuilderPage() {
       transform: <Play className="h-4 w-4" />,
       output: <Play className="h-4 w-4" />,
     };
-    return icons[specId] || <Play className="h-4 w-4" />;
+    const c = canonicalSpecId(specId);
+    return icons[specId] || icons[c] || <Play className="h-4 w-4" />;
   };
 
   const humanReadableStep = (specId: string): string => {
+    const c = canonicalSpecId(specId);
     const map: Record<string, string> = {
       input: "Collecting input data",
       "llm-chat": "Processing with AI",
       "llm-embeddings": "Generating embeddings",
       "llm-image": "Creating image",
-      "claude-chat": "Processing with Claude",
-      "gemini-chat": "Processing with Gemini",
       "openai-chat": "Processing with AI",
       "openai-embeddings": "Generating embeddings",
       "openai-image": "Creating image",
@@ -2134,16 +2297,52 @@ export default function BuilderPage() {
       transform: "Transforming data",
       output: "Preparing output",
     };
-    return map[specId] || `Executing ${specId}`;
+    return map[specId] || map[c] || `Executing ${specId}`;
   };
 
-  const handleCancelRun = () => {
+  const handleCancelRun = async () => {
+    if (runState?.runId) {
+      try {
+        const accessToken = await getAccessToken();
+        const headers: HeadersInit = { "Content-Type": "application/json" };
+        if (accessToken) {
+          headers["Authorization"] = `Bearer ${accessToken}`;
+        }
+        await fetch(`/api/runs/${encodeURIComponent(runState.runId)}/cancel`, {
+          method: "POST",
+          headers,
+          credentials: "include",
+        });
+        setRunState((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "cancelling",
+                logs: [
+                  ...(prev.logs || []),
+                  {
+                    t: Date.now(),
+                    level: "warn" as const,
+                    text: "Cancellation requested.",
+                  },
+                ],
+              }
+            : prev,
+        );
+        return;
+      } catch {
+        // Fall through to legacy abort behavior if cancel endpoint fails.
+      }
+    }
+
     runAbortRef.current?.abort();
-    setRunState((prev) => (prev ? { ...prev, status: "error", error: "Cancelled by user" } : null));
+    setRunState((prev) => (prev ? { ...prev, status: "cancelled", error: undefined } : null));
     setRunning(false);
   };
 
   const handleRerun = () => {
+    runSessionPollRef.current?.abort();
+    runSessionPollRef.current = null;
     setRunState(null);
     setRunModalOpen(false);
     setRequiresApiKeys(null);
@@ -2153,6 +2352,22 @@ export default function BuilderPage() {
   };
 
   // Auto-execute when modal opens with no inputs (phase "executing" from start) - otherwise it would prepare forever
+  useEffect(() => {
+    return () => {
+      runSessionPollRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      runState?.status === "success" ||
+      runState?.status === "error" ||
+      runState?.status === "cancelled"
+    ) {
+      setRunning(false);
+    }
+  }, [runState?.status]);
+
   useEffect(() => {
     if (
       !runModalOpen ||
@@ -2259,8 +2474,9 @@ export default function BuilderPage() {
           /* Premium Preview Mode Topbar - Mobile Optimized */
           <div
             ref={topbarInnerRef}
-            className="w-full rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between transition-all duration-200"
+            className="relative w-full rounded-2xl px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between transition-all duration-200 edg-builder-glass"
           >
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-[0.55]" />
             {/* Left: Back Button (mobile) + Logo + Title */}
             <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
               {/* Back button - visible on mobile when we have product page info */}
@@ -2269,10 +2485,10 @@ export default function BuilderPage() {
                   onClick={() => {
                     router.push(`/${previewOwnerHandle}/${previewEdgazeCode}`);
                   }}
-                  className="h-8 w-8 md:h-9 md:w-9 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors shrink-0"
+                  className="edg-builder-btn edg-builder-sheen h-8 w-8 md:h-9 md:w-9 rounded-xl grid place-items-center shrink-0"
                   title="Back to product page"
                 >
-                  <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-white/80" />
+                  <IconBack size={18} className="text-white/80" />
                 </button>
               )}
               <div className="shrink-0">
@@ -2288,7 +2504,7 @@ export default function BuilderPage() {
                 <div className="text-[14px] md:text-[18px] font-semibold text-white truncate">
                   {name || "Untitled Workflow"}
                 </div>
-                <div className="hidden md:flex items-center gap-2 mt-0.5">
+                <div className="hidden lg:flex items-center gap-2 mt-0.5">
                   <span className="text-[10px] text-white/45">
                     {stats.nodes} nodes · {stats.edges} edges
                   </span>
@@ -2302,18 +2518,18 @@ export default function BuilderPage() {
                 onClick={runWorkflow}
                 disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
-                  "relative inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 backdrop-blur-sm px-4 py-2.5 md:px-6 md:py-3 text-[13px] md:text-[14px] font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] hover:from-cyan-500/30 hover:to-purple-500/30 transition-all duration-200",
+                  "edg-builder-btn-run relative inline-flex items-center justify-center gap-2 px-4 py-2.5 md:px-6 md:py-3 text-[13px] md:text-[14px] font-semibold text-white/95",
                   "min-w-[100px] md:min-w-[140px]",
                   (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) &&
                     "opacity-50 cursor-not-allowed",
                 )}
-                title={
+                aria-label={
                   canvasValidation && !canvasValidation.valid
                     ? (canvasValidation.errors[0]?.message ?? "Fix issues before running")
                     : "Run Workflow"
                 }
               >
-                <Play className="h-4 w-4 md:h-5 md:w-5" />
+                <IconRun size={20} tone="brand" className="text-white/95" />
                 <span className="hidden sm:inline">Run</span>
               </button>
 
@@ -2322,16 +2538,16 @@ export default function BuilderPage() {
                 <button
                   onClick={() => beRef.current?.zoomOut?.()}
                   title="Zoom out"
-                  className="h-8 w-8 md:h-9 md:w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className="edg-builder-btn h-8 w-8 md:h-9 md:w-9 rounded-full grid place-items-center"
                 >
-                  <ZoomOut className="h-3.5 w-3.5 md:h-4 md:w-4 text-white/80" />
+                  <IconZoomOut size={18} className="text-white/80" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomIn?.()}
                   title="Zoom in"
-                  className="h-8 w-8 md:h-9 md:w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className="edg-builder-btn h-8 w-8 md:h-9 md:w-9 rounded-full grid place-items-center"
                 >
-                  <ZoomIn className="h-3.5 w-3.5 md:h-4 md:w-4 text-white/80" />
+                  <IconZoomIn size={18} className="text-white/80" />
                 </button>
               </div>
             </div>
@@ -2340,8 +2556,10 @@ export default function BuilderPage() {
           /* Edit Mode Topbar (existing) */
           <div
             ref={topbarInnerRef}
-            className="w-full rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200"
+            className="w-full rounded-2xl px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200 edg-builder-glass relative"
           >
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-[0.55]" />
+
             <div className="flex items-center gap-3 min-w-0">
               <div className="shrink-0">
                 <ProfileAvatar
@@ -2362,9 +2580,19 @@ export default function BuilderPage() {
                   <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70">
                     v1 Alpha preview
                   </span>
+
+                  {activeDraftId && (
+                    <span className="text-[10px] text-white/40">
+                      {saveUi.status === "saving"
+                        ? "Saving…"
+                        : saveUi.lastSavedAt
+                          ? `Last saved ${formatLastSaved(saveUi.lastSavedAt)}`
+                          : ""}
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="mt-1 flex items-end gap-2 min-w-0">
                   {!editingName ? (
                     <button
                       className="text-[18px] font-semibold text-white truncate hover:text-white/90 transition-colors"
@@ -2401,20 +2629,20 @@ export default function BuilderPage() {
             <div className="flex items-center gap-2 flex-shrink-0">
               <Link
                 href={getDocsLink("/docs/builder/workflow-studio")}
-                className="inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors"
+                className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
                 title="Documentation"
               >
-                <BookOpen className="h-4 w-4 shrink-0" />
+                <IconDocs size={18} />
                 <span className="hidden truncate sm:inline">Docs</span>
               </Link>
 
               <button
                 type="button"
                 onClick={openLauncher}
-                className="inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors"
+                className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
                 title="Home"
               >
-                <Home className="h-4 w-4 shrink-0" />
+                <IconPanels size={18} />
                 <span className="hidden truncate sm:inline">Home</span>
               </button>
 
@@ -2422,17 +2650,17 @@ export default function BuilderPage() {
                 onClick={runWorkflow}
                 disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
-                  "inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors",
+                  "edg-builder-btn-run inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none text-white/95",
                   (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) &&
                     "opacity-60 cursor-not-allowed",
                 )}
-                title={
+                aria-label={
                   canvasValidation && !canvasValidation.valid
                     ? (canvasValidation.errors[0]?.message ?? "Fix issues before running")
                     : "Run Workflow"
                 }
               >
-                <Play className="h-4 w-4 shrink-0" />
+                <IconRun size={20} tone="brand" className="text-white/95" />
                 <span className="hidden truncate sm:inline">Run</span>
               </button>
 
@@ -2440,21 +2668,24 @@ export default function BuilderPage() {
                 onClick={publishWorkflow}
                 disabled={!activeDraftId}
                 className={cx(
-                  "inline-flex h-9 w-[7.25rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors",
+                  "edg-builder-btn edg-builder-sheen inline-flex h-9 w-[7.25rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none",
                   !activeDraftId && "opacity-60 cursor-not-allowed",
                 )}
                 title="Publish"
               >
-                <Rocket className="h-4 w-4 shrink-0" />
+                <IconRocket size={18} />
                 <span className="hidden whitespace-nowrap sm:inline">Publish</span>
               </button>
 
               <button
                 onClick={refreshWorkflows}
-                className="inline-flex h-9 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors"
+                className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
                 title="Refresh"
               >
-                <RefreshCw className={cx("h-4 w-4 shrink-0", wfLoading && "animate-spin")} />
+                <IconRefresh
+                  size={18}
+                  className={cx("text-white/85", wfLoading && "animate-spin")}
+                />
                 <span className="hidden whitespace-nowrap sm:inline">Refresh</span>
               </button>
 
@@ -2464,41 +2695,41 @@ export default function BuilderPage() {
                   onClick={undo}
                   disabled={!activeDraftId || undoStack.length === 0}
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
+                    "edg-builder-btn h-9 w-9 rounded-full grid place-items-center",
                     activeDraftId && undoStack.length > 0
-                      ? "bg-white/5 text-white/85 hover:bg-white/10"
-                      : "bg-white/5 text-white/40 cursor-not-allowed",
+                      ? "text-white/85"
+                      : "text-white/40 cursor-not-allowed",
                   )}
                   title="Undo (Ctrl+Z)"
                 >
-                  <Undo2 className="h-4 w-4 shrink-0" />
+                  <IconUndo size={18} className="text-white/85" />
                 </button>
                 <button
                   onClick={redo}
                   disabled={!activeDraftId || redoStack.length === 0}
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
+                    "edg-builder-btn h-9 w-9 rounded-full grid place-items-center",
                     activeDraftId && redoStack.length > 0
-                      ? "bg-white/5 text-white/85 hover:bg-white/10"
-                      : "bg-white/5 text-white/40 cursor-not-allowed",
+                      ? "text-white/85"
+                      : "text-white/40 cursor-not-allowed",
                   )}
                   title="Redo (Ctrl+Shift+Z)"
                 >
-                  <Redo2 className="h-4 w-4 shrink-0" />
+                  <IconRedo size={18} className="text-white/85" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomOut?.()}
                   title="Zoom out (−)"
-                  className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className="edg-builder-btn h-9 w-9 rounded-full grid place-items-center"
                 >
-                  <ZoomOut className="h-4 w-4 shrink-0 text-white/80" />
+                  <IconZoomOut size={18} className="text-white/80" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomIn?.()}
                   title="Zoom in (+)"
-                  className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className="edg-builder-btn h-9 w-9 rounded-full grid place-items-center"
                 >
-                  <ZoomIn className="h-4 w-4 shrink-0 text-white/80" />
+                  <IconZoomIn size={18} className="text-white/80" />
                 </button>
                 <button
                   onClick={() => {
@@ -2509,13 +2740,12 @@ export default function BuilderPage() {
                   }}
                   title={`Toggle grid (G) – ${showGrid ? "On" : "Off"}`}
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
-                    showGrid
-                      ? "bg-white/10 text-white"
-                      : "bg-white/5 text-white/60 hover:bg-white/10",
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    showGrid ? "text-white" : "text-white/60",
                   )}
+                  data-active={showGrid ? "true" : "false"}
                 >
-                  <Grid3X3 className="h-4 w-4 shrink-0" />
+                  <IconGrid size={18} className={showGrid ? "text-white/90" : "text-white/70"} />
                 </button>
                 <button
                   onClick={() => {
@@ -2526,16 +2756,15 @@ export default function BuilderPage() {
                   }}
                   title={`Toggle lock (L) – ${locked ? "Locked" : "Free"}`}
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
-                    locked
-                      ? "bg-white/10 text-white"
-                      : "bg-white/5 text-white/70 hover:bg-white/10",
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    locked ? "text-white" : "text-white/70",
                   )}
+                  data-active={locked ? "true" : "false"}
                 >
                   {locked ? (
-                    <Lock className="h-4 w-4 shrink-0" />
+                    <IconLock size={18} className="text-white/85" />
                   ) : (
-                    <Unlock className="h-4 w-4 shrink-0" />
+                    <IconUnlock size={18} className="text-white/75" />
                   )}
                 </button>
                 <button
@@ -2546,12 +2775,16 @@ export default function BuilderPage() {
                     }, 0);
                   }}
                   title="Toggle fullscreen (F)"
-                  className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className={cx(
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    isFullscreen ? "text-white" : "text-white/70",
+                  )}
+                  data-active={isFullscreen ? "true" : "false"}
                 >
                   {isFullscreen ? (
-                    <Minimize2 className="h-4 w-4 shrink-0 text-white/80" />
+                    <IconExitFullscreen size={18} className="text-white/80" />
                   ) : (
-                    <Maximize2 className="h-4 w-4 shrink-0 text-white/80" />
+                    <IconFullscreen size={18} className="text-white/80" />
                   )}
                 </button>
               </div>
@@ -2559,23 +2792,27 @@ export default function BuilderPage() {
               <div className="flex items-center gap-1 pl-2 border-l border-white/10">
                 <button
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors",
-                    windows.blocks.visible && "ring-2 ring-white/10",
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    windows.blocks.visible && "text-white",
+                    !windows.blocks.visible && "text-white/70",
                   )}
                   title="Toggle Blocks"
                   onClick={() => toggleWindow("blocks")}
+                  data-active={windows.blocks.visible ? "true" : "false"}
                 >
-                  <Plus className="h-4 w-4 shrink-0 text-white/80" />
+                  <IconPanels size={18} className="text-white/80" />
                 </button>
                 <button
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors",
-                    windows.inspector.visible && "ring-2 ring-white/10",
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    windows.inspector.visible && "text-white",
+                    !windows.inspector.visible && "text-white/70",
                   )}
                   title="Toggle Inspector"
                   onClick={() => toggleWindow("inspector")}
+                  data-active={windows.inspector.visible ? "true" : "false"}
                 >
-                  <LayoutPanelLeft className="h-4 w-4 shrink-0 text-white/80" />
+                  <IconInspector size={18} className="text-white/80" />
                 </button>
               </div>
             </div>
@@ -2670,7 +2907,9 @@ export default function BuilderPage() {
       <PremiumWorkflowRunModal
         open={runModalOpen}
         onClose={() => {
-          if (runState?.status !== "running" && runState?.phase !== "executing") {
+          if (runState?.status !== "running" && runState?.status !== "cancelling") {
+            runSessionPollRef.current?.abort();
+            runSessionPollRef.current = null;
             setRunModalOpen(false);
             setRunState(null);
             setRequiresApiKeys(null);
@@ -2693,6 +2932,7 @@ export default function BuilderPage() {
         isBuilderTest={!isPreview}
         builderRunLimit={builderRunLimit ?? undefined}
         requiresApiKeys={requiresApiKeys ?? undefined}
+        allowProjectionToggle={!isPreview}
       />
 
       {/* Publish modal (disabled in preview) */}

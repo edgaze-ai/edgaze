@@ -4,6 +4,11 @@
  */
 
 import { canonicalSpecId } from "./spec-id-aliases";
+import {
+  DEFAULT_LLM_IMAGE_MODEL,
+  OPENAI_GPT_IMAGE_SIZES,
+  resolveLlmImageProvider,
+} from "./llm-model-catalog";
 
 export type GraphNode = {
   id: string;
@@ -48,8 +53,6 @@ const EXPENSIVE_NODE_TYPES = [
   "llm-chat",
   "llm-embeddings",
   "llm-image",
-  "claude-chat",
-  "gemini-chat",
   "openai-chat",
   "openai-embeddings",
   "openai-image",
@@ -58,44 +61,35 @@ const EXPENSIVE_NODE_TYPES = [
   "google-ai",
 ];
 
-/** DALL-E 2 does not support "quality" (API returns unknown parameter). Only DALL-E 3 supports "standard" | "hd". */
-const DALL_E_2_SIZES = ["256x256", "512x512", "1024x1024"];
-const DALL_E_3_SIZES = ["1024x1024", "1792x1024", "1024x1792"];
+const GPT_IMAGE_QUALITY = new Set(["low", "medium", "high", "standard", "hd"]);
 
-function validateOpenAIImageNode(node: GraphNode): ValidationIssue[] {
+function validateLlmImageNode(node: GraphNode): ValidationIssue[] {
   const config = node.data?.config ?? {};
-  const model = config.model || "dall-e-2";
-  const quality = config.quality || "standard";
-  const size = config.size || "1024x1024";
+  const model =
+    (typeof config.model === "string" && config.model.trim()) || DEFAULT_LLM_IMAGE_MODEL;
+  const quality =
+    typeof config.quality === "string" && config.quality.trim() ? config.quality : "medium";
+  const size = typeof config.size === "string" && config.size.trim() ? config.size : "1024x1024";
   const name = config.name || node.data?.specId || "LLM Image";
   const errs: ValidationIssue[] = [];
-  if (model === "dall-e-2" && quality === "hd") {
+  if (resolveLlmImageProvider(model) !== "openai") return errs;
+  if (!OPENAI_GPT_IMAGE_SIZES.includes(size as (typeof OPENAI_GPT_IMAGE_SIZES)[number])) {
     errs.push(
       issue(
-        `${name}: Quality "HD" is only supported with DALL-E 3.`,
+        `${name}: Size "${size}" is not valid for GPT Image (OpenAI).`,
+        node.id,
+        "size",
+        "Inspector → Size: use 1024×1024, 1536×1024, or 1024×1536",
+      ),
+    );
+  }
+  if (!GPT_IMAGE_QUALITY.has(quality.toLowerCase())) {
+    errs.push(
+      issue(
+        `${name}: Quality "${quality}" is not valid for GPT Image.`,
         node.id,
         "quality",
-        "Inspector → Configuration → Model: set to DALL-E 3, or Quality: set to Standard",
-      ),
-    );
-  }
-  if (model === "dall-e-2" && !DALL_E_2_SIZES.includes(size)) {
-    errs.push(
-      issue(
-        `${name}: Size "${size}" is not valid for DALL-E 2.`,
-        node.id,
-        "size",
-        "Inspector → Configuration → Size: use 256x256, 512x512, or 1024x1024",
-      ),
-    );
-  }
-  if (model === "dall-e-3" && !DALL_E_3_SIZES.includes(size)) {
-    errs.push(
-      issue(
-        `${name}: Size "${size}" is not valid for DALL-E 3.`,
-        node.id,
-        "size",
-        "Inspector → Configuration → Size: use 1024x1024, 1792x1024, or 1024x1792",
+        "Inspector → Quality: low, medium, or high (standard / hd are accepted for legacy configs)",
       ),
     );
   }
@@ -235,10 +229,10 @@ export function validateWorkflowGraph(nodes: GraphNode[], edges: GraphEdge[]): V
     );
   }
 
-  // LLM Chat / Claude / Gemini: needs prompt or inbound connection
+  // LLM Chat: needs prompt or inbound connection
   for (const node of nodes) {
     const c = canonicalSpecId(node.data?.specId ?? "");
-    if (c === "llm-chat" || c === "claude-chat" || c === "gemini-chat") {
+    if (c === "llm-chat") {
       const config = node.data?.config ?? {};
       const hasPrompt = typeof config.prompt === "string" && config.prompt.trim().length > 0;
       const hasInbound = (inboundByNode.get(node.id) ?? []).length > 0;
@@ -310,7 +304,7 @@ export function validateWorkflowGraph(nodes: GraphNode[], edges: GraphEdge[]): V
             "Input node has no label. Users won't know what to enter.",
             node.id,
             "question",
-            "Inspector → General → Question / Input Name: add a label",
+            "Inspector → General → User input → Question: add a clear question",
           ),
         );
       }
@@ -344,7 +338,7 @@ export function validateWorkflowGraph(nodes: GraphNode[], edges: GraphEdge[]): V
   // Validate LLM Image node config
   for (const node of nodes) {
     if (canonicalSpecId(node.data?.specId ?? "") === "llm-image") {
-      errors.push(...validateOpenAIImageNode(node));
+      errors.push(...validateLlmImageNode(node));
     }
   }
 

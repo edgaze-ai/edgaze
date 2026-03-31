@@ -62,7 +62,18 @@ export type ExecutionSnapshot = {
 export type RuntimeContext = {
   getInboundValues: (nodeId: string) => unknown[];
   setNodeOutput: (nodeId: string, value: unknown) => void;
+  streamNodeOutput?: (
+    nodeId: string,
+    payload: {
+      delta?: string;
+      text?: string;
+      status?: "started" | "streaming" | "finished" | "interrupted";
+      format?: "plain" | "markdown";
+      error?: string;
+    },
+  ) => void | Promise<void>;
   inputs: Record<string, unknown>;
+  abortSignal?: AbortSignal;
   setNodeStatus?: (nodeId: string, status: NodeStatus) => void;
   setWorkflowStatus?: (status: WorkflowStatus) => void;
   checkpoint?: (snapshot: Partial<ExecutionSnapshot>) => void;

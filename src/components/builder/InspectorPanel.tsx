@@ -4,6 +4,11 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Eye, TrendingUp, Users, Sliders, Code2, ChevronDown } from "lucide-react";
 import { getNodeSpec } from "src/nodes/registry";
+import {
+  DEFAULT_LLM_IMAGE_MODEL,
+  OPENAI_GPT_IMAGE_SIZES,
+  resolveLlmImageProvider,
+} from "src/lib/workflow/llm-model-catalog";
 
 /* -------------------- Custom dark dropdown (avoids white native select popover on Windows) -------------------- */
 function DarkSelect({
@@ -253,8 +258,12 @@ function Card({
 const Input = (props: any) => (
   <input
     {...props}
+    onMouseDown={(e) => {
+      e.stopPropagation();
+      props?.onMouseDown?.(e);
+    }}
     className={`w-full min-w-0 rounded-md border border-white/[0.12] px-2.5 py-1.5 text-[12px]
-    text-white placeholder:text-white/35
+    text-white placeholder:text-white/35 select-text cursor-text
     focus:border-white/25 focus:outline-none focus:ring-1 focus:ring-white/10
     transition-colors ${props.className ?? ""}`}
   />
@@ -263,8 +272,12 @@ const Input = (props: any) => (
 const TextArea = (props: any) => (
   <textarea
     {...props}
+    onMouseDown={(e) => {
+      e.stopPropagation();
+      props?.onMouseDown?.(e);
+    }}
     className={`w-full min-w-0 resize-y rounded-md border border-white/[0.12] px-2.5 py-1.5 text-[12px]
-    text-white placeholder:text-white/35
+    text-white placeholder:text-white/35 select-text cursor-text
     focus:border-white/25 focus:outline-none focus:ring-1 focus:ring-white/10
     transition-colors ${props.className ?? ""}`}
   />
@@ -299,6 +312,7 @@ function GeneralPanel({
 }) {
   const cfg = selection.config ?? {};
   const inspectorFields = spec?.inspector ?? [];
+  const isInputNode = spec?.id === "input";
   const advancedKeys = new Set([
     "timeout",
     "retries",
@@ -308,22 +322,22 @@ function GeneralPanel({
     "maxIterations",
   ]);
 
-  // Auto-fix OpenAI Image config so invalid model+size/quality are never sent to the API
+  // Auto-fix LLM Image OpenAI config so invalid size/quality are never sent to the API
   useEffect(() => {
     if (spec?.id !== "llm-image" && spec?.id !== "openai-image") return;
     if (!selection.nodeId) return;
-    const model = cfg.model || "dall-e-2";
-    if (model !== "dall-e-2" && model !== "dall-e-3") return;
+    const imageModel =
+      (typeof cfg.model === "string" && cfg.model.trim()) || DEFAULT_LLM_IMAGE_MODEL;
+    if (resolveLlmImageProvider(imageModel) !== "openai") return;
     const size = cfg.size || "1024x1024";
-    const quality = cfg.quality || "standard";
-    const dallE2Sizes = ["256x256", "512x512", "1024x1024"];
-    const dallE3Sizes = ["1024x1024", "1792x1024", "1024x1792"];
+    const quality = cfg.quality || "medium";
     const updates: Record<string, string> = {};
-    if (model === "dall-e-2") {
-      if (quality === "hd") updates.quality = "standard";
-      if (!dallE2Sizes.includes(size)) updates.size = "1024x1024";
-    } else if (model === "dall-e-3" && !dallE3Sizes.includes(size)) {
+    if (!OPENAI_GPT_IMAGE_SIZES.includes(size as (typeof OPENAI_GPT_IMAGE_SIZES)[number])) {
       updates.size = "1024x1024";
+    }
+    const q = String(quality).toLowerCase();
+    if (!["low", "medium", "high", "standard", "hd"].includes(q)) {
+      updates.quality = "medium";
     }
     if (Object.keys(updates).length > 0) onUpdate(updates);
   }, [spec?.id, selection.nodeId, cfg.model, cfg.size, cfg.quality, onUpdate]);
@@ -437,47 +451,44 @@ function GeneralPanel({
         );
 
       case "select": {
-        const isOpenAIImage = spec?.id === "llm-image" || spec?.id === "openai-image";
-        const imageModel = cfg.model || "dall-e-2";
-        const qualityDisabled =
-          isOpenAIImage && field.key === "quality" && imageModel === "dall-e-2";
-        const sizeOptionsDallE2 = [
-          { label: "1024x1024", value: "1024x1024" },
-          { label: "512x512", value: "512x512" },
-          { label: "256x256", value: "256x256" },
-        ];
-        const sizeOptionsDallE3 = [
-          { label: "1024x1024", value: "1024x1024" },
-          { label: "1792x1024", value: "1792x1024" },
-          { label: "1024x1792", value: "1024x1792" },
-        ];
+        const isLlmImageSpec = spec?.id === "llm-image" || spec?.id === "openai-image";
+        const imageModel =
+          (typeof cfg.model === "string" && cfg.model.trim()) || DEFAULT_LLM_IMAGE_MODEL;
+        const isGeminiImageModel =
+          isLlmImageSpec && resolveLlmImageProvider(imageModel) === "google";
+        const gptSizeOptions = OPENAI_GPT_IMAGE_SIZES.map((s) => ({
+          label: s.replace("x", "×"),
+          value: s,
+        }));
+        const qualityDisabled = isLlmImageSpec && field.key === "quality" && isGeminiImageModel;
+        const sizeDisabled = isLlmImageSpec && field.key === "size" && isGeminiImageModel;
         const selectOptions =
-          isOpenAIImage && field.key === "size"
-            ? imageModel === "dall-e-3"
-              ? sizeOptionsDallE3
-              : sizeOptionsDallE2
-            : (field.options ?? []);
-        let effectiveValue: string = qualityDisabled ? "standard" : value;
+          isLlmImageSpec && field.key === "size" ? gptSizeOptions : (field.options ?? []);
+        let effectiveValue: string = value;
+        if (qualityDisabled) effectiveValue = "medium";
         if (
-          isOpenAIImage &&
+          isLlmImageSpec &&
           field.key === "size" &&
           !selectOptions.some((o: any) => o.value === value)
         ) {
           effectiveValue = selectOptions[0]?.value ?? "1024x1024";
         }
+        const fieldDisabled = qualityDisabled || sizeDisabled;
         return (
           <div key={field.key}>
-            {fieldLabel(field.label, qualityDisabled ? "Only for DALL-E 3" : field.helpText)}
+            {fieldLabel(
+              field.label,
+              fieldDisabled
+                ? "Only applies when an OpenAI GPT Image model is selected."
+                : field.helpText,
+            )}
             <DarkSelect
               value={effectiveValue}
               options={selectOptions}
               onChange={(v) => onUpdate({ [field.key]: v })}
-              disabled={qualityDisabled}
+              disabled={fieldDisabled}
               className="w-full min-w-0"
             />
-            {qualityDisabled && (
-              <div className="mt-1 text-[9px] text-amber-400/80">Set Model to DALL-E 3 for HD.</div>
-            )}
           </div>
         );
       }
@@ -505,50 +516,140 @@ function GeneralPanel({
         ]}
       />
 
-      {/* Editable fields - premium inputs only */}
-      <div className="space-y-2.5">
-        <div>
-          <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">
-            Display Name
-          </label>
-          <Input
-            defaultValue={cfg.name ?? spec.label}
-            onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-              onUpdate({ name: e.currentTarget.value })
-            }
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">
-            Description
-          </label>
-          <TextArea
-            rows={2}
-            defaultValue={cfg.description ?? spec.summary}
-            onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
-              onUpdate({ description: e.currentTarget.value })
-            }
-          />
-        </div>
-        {requiresApiKey && (
+      {/* Editable fields */}
+      {!isInputNode && (
+        <div className="space-y-2.5">
           <div>
-            <label
-              className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1"
-              title="Stored locally, used for your runs"
-            >
-              API Key
+            <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">
+              Display Name
             </label>
             <Input
-              type="password"
-              placeholder="sk-..."
-              defaultValue={cfg.apiKey || ""}
+              defaultValue={cfg.name ?? spec.label}
               onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-                onUpdate({ apiKey: e.currentTarget.value })
+                onUpdate({ name: e.currentTarget.value })
               }
             />
           </div>
-        )}
-      </div>
+          <div>
+            <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">
+              Description
+            </label>
+            <TextArea
+              rows={2}
+              defaultValue={cfg.description ?? spec.summary}
+              onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
+                onUpdate({ description: e.currentTarget.value })
+              }
+            />
+          </div>
+          {requiresApiKey && (
+            <div>
+              <label
+                className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1"
+                title="Stored locally, used for your runs"
+              >
+                API Key
+              </label>
+              <Input
+                type="password"
+                placeholder="sk-..."
+                defaultValue={cfg.apiKey || ""}
+                onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                  onUpdate({ apiKey: e.currentTarget.value })
+                }
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {isInputNode && (
+        <Card title="User input">
+          <div className="space-y-2.5">
+            <div>
+              {fieldLabel(
+                "Question",
+                "Write the exact question shown to the user. Keep it specific and action-oriented.",
+              )}
+              <TextArea
+                rows={2}
+                placeholder='e.g., "What message should I send?"'
+                defaultValue={cfg.question ?? spec.defaultConfig?.question ?? ""}
+                onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
+                  onUpdate({ question: e.currentTarget.value })
+                }
+              />
+            </div>
+
+            <div>
+              {fieldLabel(
+                "Description (optional)",
+                "Optional helper text shown under the question: constraints, format, examples.",
+              )}
+              <TextArea
+                rows={2}
+                placeholder='e.g., "Keep it under 280 characters. Include a friendly tone."'
+                defaultValue={cfg.description ?? spec.defaultConfig?.description ?? ""}
+                onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
+                  onUpdate({ description: e.currentTarget.value })
+                }
+              />
+            </div>
+
+            <div>
+              {fieldLabel("Input type", "Choose how the answer is collected from the user.")}
+              <DarkSelect
+                value={cfg.inputType ?? spec.defaultConfig?.inputType ?? "text"}
+                options={[
+                  { label: "Text", value: "text" },
+                  { label: "Long Paragraph", value: "textarea" },
+                  { label: "Number", value: "number" },
+                  { label: "URL", value: "url" },
+                  { label: "Dropdown", value: "dropdown" },
+                  { label: "File Upload (up to 5MB)", value: "file" },
+                  { label: "JSON", value: "json" },
+                ]}
+                onChange={(v) => onUpdate({ inputType: v })}
+                className="w-full min-w-0"
+              />
+            </div>
+
+            {(cfg.inputType ?? spec.defaultConfig?.inputType) === "dropdown" && (
+              <div>
+                {fieldLabel(
+                  "Dropdown options",
+                  "One option per line. Example:\nFree shipping\nFastest delivery\nBest value",
+                )}
+                <TextArea
+                  rows={5}
+                  placeholder={"Option A\nOption B\nOption C"}
+                  defaultValue={(() => {
+                    const raw = cfg.options ?? spec.defaultConfig?.options ?? [];
+                    if (Array.isArray(raw)) {
+                      return raw
+                        .map((o: any) => (typeof o === "string" ? o : (o?.label ?? o?.value ?? "")))
+                        .filter(Boolean)
+                        .join("\n");
+                    }
+                    return typeof raw === "string" ? raw : "";
+                  })()}
+                  onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) => {
+                    const lines = e.currentTarget.value
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    const options = lines.map((s) => ({ label: s, value: s }));
+                    onUpdate({ options });
+                  }}
+                />
+                <div className="mt-1 text-[10px] text-white/45 leading-relaxed">
+                  Tip: Use short, distinct options. The saved value is the option text.
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {isCondition && (
         <Card title="Condition" icon={<Code2 size={14} />}>
@@ -592,7 +693,7 @@ function GeneralPanel({
         </Card>
       )}
 
-      {inspectorFields.length > 0 && (
+      {inspectorFields.length > 0 && !isInputNode && (
         <Card title="Configuration" icon={<Sliders size={14} />}>
           <div className="space-y-2.5">
             {inspectorFields.filter((f: any) => !advancedKeys.has(f.key)).map(renderField)}
@@ -816,9 +917,12 @@ export default function InspectorPanel({
   return (
     <div className="h-full w-full min-w-0 text-white flex flex-col">
       <div className="px-4 pt-4 pb-2 shrink-0">
-        <div className="flex items-center gap-2">
+        <div className="relative flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+          <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-50" />
           <Eye size={16} className="text-white/60" />
-          <span className="text-[13px] font-semibold text-white/95 tracking-tight">Inspector</span>
+          <span className="text-[12px] font-semibold tracking-[0.02em] text-white/92">
+            Inspector
+          </span>
         </div>
         {selected && fieldHint && (
           <div
@@ -868,11 +972,11 @@ export default function InspectorPanel({
         )}
         {!selected && !multiSelected && (
           <div className="pt-6 text-center">
-            <div className="mx-auto h-12 w-12 rounded-full bg-[#0c0c0c] border border-white/[0.08] grid place-items-center">
+            <div className="mx-auto h-12 w-12 rounded-2xl bg-black/20 border border-white/[0.10] grid place-items-center shadow-[0_16px_50px_rgba(0,0,0,0.55)]">
               <Eye size={20} className="text-white/40" />
             </div>
-            <div className="mt-3 text-[12px] text-white/70">Select a block to edit</div>
-            <div className="mt-1 text-[10px] text-white/40">
+            <div className="mt-3 text-[12px] font-medium text-white/78">Select a block to edit</div>
+            <div className="mt-1 text-[11px] leading-6 text-white/45">
               Drag blocks from the left, then click to configure.
             </div>
             <div className="mt-4 space-y-2 text-left">

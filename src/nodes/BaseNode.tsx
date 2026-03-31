@@ -57,9 +57,7 @@ function buildPreview(specId: string, config: any, edges: any[], nodeId: string)
       const inputCount = edges.filter((e) => e.target === nodeId).length;
       return `Merging ${inputCount} inputs`;
     }
-    case "llm-chat":
-    case "claude-chat":
-    case "gemini-chat": {
+    case "llm-chat": {
       const p = String(config.prompt ?? "").trim();
       return p ? (p.length > 70 ? p.slice(0, 70) + "…" : p) : "No prompt set";
     }

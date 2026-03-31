@@ -197,12 +197,12 @@ export const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
           { x: NODE_SPACING, y: 0 },
           {
             title: "LLM Image",
-            summary: "Generate images using DALL-E.",
+            summary: "Generate images with Nano Banana or GPT Image.",
             config: {
               prompt: "A beautiful landscape",
-              model: "dall-e-3",
+              model: "gemini-3.1-flash-image-preview",
               size: "1024x1024",
-              quality: "standard",
+              quality: "medium",
               n: 1,
               timeout: 60000,
               retries: 2,

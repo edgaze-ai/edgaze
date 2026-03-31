@@ -2438,12 +2438,13 @@ export default function MarketplacePage() {
   return (
     <>
       <div className="flex h-screen flex-col bg-[#050505] text-white min-h-[100dvh]">
-        <header className="sticky top-0 z-[70] flex flex-col gap-2 bg-[#050505]/90 backdrop-blur-md px-5 py-3 sm:gap-3 sm:px-6 sm:py-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.04]">
-          <div className="flex items-center justify-between sm:justify-start">
-            <div className="hidden sm:block leading-tight">
+        <header className="sticky top-0 z-[70] flex flex-col gap-3 bg-[#050505]/90 backdrop-blur-md px-5 py-3 sm:px-6 sm:py-4 border-b border-white/[0.04] lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+          {/* Below lg: stack like mobile (MobileTopbar already has Sign in / avatar). */}
+          <div className="flex w-full min-w-0 items-center justify-start gap-3 lg:w-auto lg:shrink-0">
+            <div className="hidden min-w-0 sm:block sm:leading-tight">
               <div className="flex items-center gap-2">
                 <div className="text-base font-semibold">Marketplace</div>
-                <span className="flex items-center gap-1 rounded-full border border-blue-400/30 bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-200">
+                <span className="flex shrink-0 items-center gap-1 rounded-full border border-blue-400/30 bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-200">
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
@@ -2461,7 +2462,7 @@ export default function MarketplacePage() {
             </div>
           </div>
 
-          <div className="mx-6 hidden max-w-2xl flex-1 md:block">
+          <div className="mx-0 hidden min-w-0 max-w-2xl flex-1 lg:mx-6 lg:block">
             <MarketplaceSearchBar
               query={query}
               setQuery={setQuery}
@@ -2484,7 +2485,7 @@ export default function MarketplacePage() {
             />
           </div>
 
-          <div className="w-full md:hidden">
+          <div className="w-full min-w-0 lg:hidden">
             <MarketplaceSearchBar
               compact
               query={query}
@@ -2508,7 +2509,7 @@ export default function MarketplacePage() {
             />
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="hidden shrink-0 items-center gap-3 lg:flex">
             <button
               type="button"
               onClick={() => {
@@ -2517,7 +2518,7 @@ export default function MarketplacePage() {
               }}
               disabled={loadingFirst}
               className={cn(
-                "hidden sm:flex rounded-full border border-white/15 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white transition-colors",
+                "rounded-full border border-white/15 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white transition-colors",
                 loadingFirst && "opacity-50 cursor-not-allowed",
               )}
               title="Refresh (personalized order)"
@@ -2525,7 +2526,7 @@ export default function MarketplacePage() {
             >
               <RefreshCw className={cn("h-4 w-4", loadingFirst && "animate-spin")} />
             </button>
-            <div className="hidden sm:block">{topRightDesktop}</div>
+            {topRightDesktop}
           </div>
         </header>
 

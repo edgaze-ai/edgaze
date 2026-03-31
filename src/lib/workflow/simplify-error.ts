@@ -7,6 +7,8 @@ export function simplifyWorkflowError(error: string | unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? "");
   const e = raw.trim();
   if (!e) return "Something went wrong. Try again.";
+  const cleaned = e.replace(/^Error:\s*/i, "").trim();
+  const first = cleaned.split(/[.!?]/)[0]?.trim() || cleaned;
 
   // Image / limit verification – keep full message so user knows the cause
   if (
@@ -19,10 +21,19 @@ export function simplifyWorkflowError(error: string | unknown): string {
 
   // API key
   if (/invalid.*api.*key|incorrect API key|401|authentication|unauthorized/i.test(e)) {
-    return "The API key is invalid or expired. Add or update your key in the run modal or node settings.";
+    if (/openai/i.test(e)) {
+      return "OpenAI rejected the API key for this node. Add or update the OpenAI key in the run modal or node settings.";
+    }
+    if (/anthropic/i.test(e)) {
+      return "Anthropic rejected the API key for this node. Add or update the Anthropic key in the run modal or node settings.";
+    }
+    if (/gemini|google/i.test(e)) {
+      return "Google/Gemini rejected the API key for this node. Add or update the Gemini key in the run modal or node settings.";
+    }
+    return "The API key for a workflow node is invalid or expired. Add or update the matching provider key in the run modal or node settings.";
   }
   if (e.includes("API key required") || e.includes("API key is required")) {
-    return "An API key is needed to run this workflow. Add your key in the run modal.";
+    return first.length > 180 ? first.slice(0, 177) + "..." : first;
   }
 
   // Rate limits
@@ -73,6 +84,14 @@ export function simplifyWorkflowError(error: string | unknown): string {
     return "Invalid data was returned. Try again or check your inputs.";
   }
 
+  // Workflow runner / claim RPC (durable v2)
+  if (
+    /stayed idle for \d+ consecutive cycles|exceeded the worker iteration limit/i.test(e) ||
+    e.includes("runner_stalled")
+  ) {
+    return "The workflow engine could not start or pick up steps. Apply pending Supabase migrations (including claim_workflow_run_node_attempt), restart the app, and try again.";
+  }
+
   // Workflow / nodes
   if (e.includes("Invalid node transition")) {
     return "A step failed unexpectedly. Check that all required inputs are connected.";
@@ -91,20 +110,13 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // Execution / generic
-  if (/execution failed|run failed|cancelled/i.test(e)) {
+  if (/^(execution failed|run failed|cancelled)$/i.test(cleaned)) {
     return "The workflow run failed. Try again or check your setup.";
   }
-
-  // Fallback: strip "Error:" prefix, take first sentence, cap length
-  const cleaned = e.replace(/^Error:\s*/i, "").trim();
-  const first = cleaned.split(/[.!?]/)[0]?.trim() || cleaned;
 
   // If it still looks technical (has error codes, stack traces, etc), use generic message
   if (/^[A-Za-z]+Error:|^\[object|:\d+:\d+|at\s+\w+\.|\.ts:\d|\.js:\d/i.test(first)) {
     return "Something went wrong. Try again.";
-  }
-  if (first.includes("OpenAI API error:") || first.includes("OpenAI")) {
-    return "The AI service returned an error. Try again or check your API key.";
   }
 
   return first.length > 140 ? first.slice(0, 137) + "…" : first;

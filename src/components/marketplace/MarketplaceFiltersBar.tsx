@@ -131,7 +131,7 @@ export default function MarketplaceFiltersBar({
   const topicTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
+    const mq = window.matchMedia("(max-width: 1023px)");
     queueMicrotask(() => setIsMobile(mq.matches));
     const fn = () => setIsMobile(mq.matches);
     mq.addEventListener("change", fn);
@@ -227,10 +227,10 @@ export default function MarketplaceFiltersBar({
         <div className="flex items-center px-2 py-1 sm:px-3 sm:py-1" style={{ minHeight: 0 }}>
           {/* Scroll container — compact 25% smaller, more topics fit */}
           <div
-            className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth flex items-center"
+            className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden scrollbar-hide scroll-smooth scroll-pl-0 scroll-pr-4 flex items-center"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-max">
+            <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-max py-0.5">
               {/* Sort */}
               <div className="hidden flex items-center gap-1.5 shrink-0">
                 <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-zinc-600 shrink-0" />
@@ -238,7 +238,7 @@ export default function MarketplaceFiltersBar({
                   Sort
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="hidden xl:flex items-center gap-1.5 shrink-0">
                 {SORT_OPTIONS.map((opt) => {
                   const Icon = opt.icon;
                   const active = filters.sort === opt.value;
@@ -248,7 +248,7 @@ export default function MarketplaceFiltersBar({
                       type="button"
                       onClick={() => updateFilters({ sort: opt.value })}
                       className={cn(
-                        "inline-flex shrink-0 items-center gap-0 rounded-md h-6 px-2 text-[8.25px] font-medium transition-all duration-200 border leading-none",
+                        "inline-flex shrink-0 items-center gap-0 rounded-md h-7 px-2.5 text-[10px] font-medium transition-all duration-200 border leading-none",
                         active ? pillActive : pillInactive,
                       )}
                     >
@@ -288,8 +288,8 @@ export default function MarketplaceFiltersBar({
                       type="button"
                       onClick={() => setTopic(t)}
                       className={cn(
-                        "shrink-0 rounded-md border font-medium transition-all duration-200 h-6 leading-none",
-                        "text-[7.5px] px-2",
+                        "shrink-0 rounded-md border font-medium transition-all duration-200 h-7 leading-none",
+                        "text-[10px] px-2.5",
                         selected ? pillActive : pillInactive,
                       )}
                     >
@@ -371,13 +371,13 @@ export default function MarketplaceFiltersBar({
               type="button"
               onClick={() => setCustomOpen((o) => !o)}
               className={cn(
-                "inline-flex items-center gap-1 rounded-md h-6 px-1.5 text-[7.5px] font-medium transition-all duration-200 border leading-none",
+                "inline-flex items-center gap-1 rounded-md h-7 px-2 text-[10px] font-medium transition-all duration-200 border leading-none",
                 // Always keep the Filters control white to match the premium chip style.
                 pillActive,
               )}
             >
-              <SlidersHorizontal className="hidden h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
-              <span className="whitespace-nowrap hidden sm:inline">Filters</span>
+              <SlidersHorizontal className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0 opacity-90" />
+              <span className="whitespace-nowrap">Filters</span>
               {activeFilterCount > 0 && (
                 <span className="flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-zinc-600 px-0.5 text-[9px] font-bold text-zinc-200">
                   {activeFilterCount}
@@ -399,6 +399,41 @@ export default function MarketplaceFiltersBar({
               className="overflow-hidden border-t border-zinc-800/50"
             >
               <div className="px-4 py-4 sm:px-5 sm:py-5 space-y-5">
+                {/* Sort — bar on lg+; mobile uses this panel */}
+                <div className="xl:hidden">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="h-3.5 w-3.5 text-white/40" />
+                    <span className="text-[11px] font-semibold tracking-wider text-white/45 uppercase">
+                      Sort
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {SORT_OPTIONS.map((opt) => {
+                      const Icon = opt.icon;
+                      const active = filters.sort === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => updateFilters({ sort: opt.value })}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 border",
+                            active ? pillActive : pillInactive,
+                          )}
+                        >
+                          <Icon
+                            className={cn(
+                              "h-3.5 w-3.5 shrink-0",
+                              active ? "text-zinc-300" : "text-zinc-600",
+                            )}
+                          />
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Content type */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">

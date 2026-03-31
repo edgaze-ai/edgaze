@@ -48,7 +48,7 @@ export default function DocsIndex() {
       {/* Hero — with colour */}
       <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-500/10 via-sky-500/5 to-indigo-500/10 px-6 py-10 sm:px-12 sm:py-14 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_24px_80px_-24px_rgba(0,0,0,0.5)]">
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(56,189,248,0.12),transparent_70%),radial-gradient(ellipse_60%_50%_at_80%_50%,rgba(129,140,248,0.08),transparent)]" />
-        <div className="relative flex flex-col gap-8 md:flex-row md:items-center md:justify-between">
+        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
             <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-300/80">
               Documentation
@@ -77,7 +77,7 @@ export default function DocsIndex() {
             </div>
           </div>
 
-          <div className="relative hidden w-full max-w-[340px] self-stretch md:block md:self-auto">
+          <div className="relative hidden w-full max-w-[340px] self-stretch lg:block lg:self-auto">
             <div className="absolute inset-0 rounded-2xl bg-black/40 ring-1 ring-white/15 backdrop-blur-sm" />
             <div className="relative h-full min-h-[200px] rounded-2xl p-5">
               <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/55">

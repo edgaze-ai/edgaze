@@ -6,20 +6,13 @@ import Image from "next/image";
 import { useAuth } from "src/components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import {
-  ArrowRight,
-  BadgeCheck,
-  ChevronDown,
-  Compass,
-  Link2,
-  Search,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, BadgeCheck, Compass, Link2, Search, Sparkles } from "lucide-react";
 import FoundingCreatorBadge from "src/components/ui/FoundingCreatorBadge";
 import Footer from "src/components/layout/Footer";
 import TrendingThisWeekSection from "src/components/home/TrendingThisWeekSection";
 import dynamic from "next/dynamic";
 import { HeroCollectToBox } from "src/components/home/HeroCollectToBox";
+import { LandingNav } from "src/components/landing-nav";
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
@@ -116,209 +109,6 @@ function SmoothLink({
     <a href={href} className={className} onClick={handleClick}>
       {children}
     </a>
-  );
-}
-
-const NAV_DROPDOWNS = [
-  {
-    label: "Product",
-    links: [
-      { href: "#prompt", label: "Prompt Studio" },
-      { href: "#workflows", label: "Workflows" },
-      { href: "#marketplace", label: "Marketplace" },
-      { href: "#features", label: "Features" },
-    ],
-  },
-  {
-    label: "Builders",
-    links: [
-      { href: "/prompt-studio", label: "Prompt Studio" },
-      { href: "/builder", label: "Workflow Studio" },
-    ],
-  },
-  {
-    label: "Resources",
-    links: [
-      { href: "/blogs", label: "Blog" },
-      { href: "/docs", label: "Documentation" },
-      { href: "/pricing", label: "Pricing" },
-      { href: "/docs/changelog", label: "Changelog" },
-      { href: "/help", label: "Help" },
-    ],
-  },
-  {
-    label: "Company",
-    links: [
-      { href: "/about", label: "About" },
-      { href: "/careers", label: "Careers" },
-      { href: "/press", label: "Press" },
-      { href: "/contact", label: "Contact" },
-    ],
-  },
-  {
-    label: "Creators",
-    links: [
-      { href: "#anyone", label: "Meet creators" },
-      { href: "/creators", label: "Creator Program" },
-    ],
-  },
-] as const;
-
-function NavDropdown({
-  label,
-  links,
-  isOpen,
-  onOpen,
-  onClose,
-  onLinkClick,
-}: {
-  label: string;
-  links: ReadonlyArray<{ href: string; label: string }>;
-  isOpen: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-  onLinkClick: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (ref.current?.contains(e.target as Node)) return;
-      onClose();
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [isOpen, onClose]);
-
-  return (
-    <div ref={ref} className="relative" onMouseEnter={onOpen} onMouseLeave={onClose}>
-      <button
-        type="button"
-        onClick={() => (isOpen ? onClose() : onOpen())}
-        className={cn(
-          "flex items-center gap-0.5 py-2 text-[13px] text-white/75 hover:text-white",
-          "transition-colors duration-200",
-        )}
-        aria-expanded={isOpen}
-        aria-haspopup="true"
-      >
-        {label}
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 text-white/50 transition-transform duration-200",
-            isOpen && "rotate-180",
-          )}
-        />
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
-            className="absolute left-1/2 top-full -translate-x-1/2 pt-4"
-          >
-            <div
-              className={cn(
-                "min-w-[200px] rounded-2xl py-2",
-                "bg-white/[0.04] backdrop-blur-2xl",
-                "border border-white/[0.06]",
-                "shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset,0_0_0_1px_rgba(255,255,255,0.02),0_24px_48px_-12px_rgba(0,0,0,0.5),0_8px_24px_-8px_rgba(0,0,0,0.3)]",
-              )}
-            >
-              {links.map(({ href, label: linkLabel }) => (
-                <SmoothLink
-                  key={href}
-                  href={href}
-                  onClick={onLinkClick}
-                  className="block px-5 py-3 text-[13px] text-white/70 hover:text-white hover:bg-white/[0.04] transition-colors first:rounded-t-xl last:rounded-b-xl"
-                >
-                  {linkLabel}
-                </SmoothLink>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function Nav({ onTop }: { onTop: boolean }) {
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-
-  return (
-    <header
-      className={cn("fixed left-0 right-0 top-0 z-50 pt-4 md:pt-5", "transition-all duration-300")}
-      role="banner"
-    >
-      <Container wide className="px-5 md:max-w-[1500px]">
-        <div
-          className={cn(
-            "flex items-center rounded-full",
-            "pl-4 pr-[10px] py-2 md:pl-6 md:pr-[10px] md:py-2.5",
-            "gap-4 md:gap-8",
-            "bg-white/[0.06] backdrop-blur-2xl border border-white/[0.06]",
-            "shadow-[0_0_0_1px_rgba(255,255,255,0.05)_inset,0_0_0_1px_rgba(255,255,255,0.03),0_4px_24px_-4px_rgba(0,0,0,0.25)]",
-            "transition-all duration-300 ease-out",
-            !onTop &&
-              "bg-white/[0.08] border-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.07)_inset,0_0_0_1px_rgba(255,255,255,0.04),0_8px_32px_-4px_rgba(0,0,0,0.35)]",
-          )}
-        >
-          {/* Logo */}
-          <SmoothLink
-            href="#top"
-            className="flex items-center gap-2 shrink-0 text-white hover:opacity-90 transition-opacity"
-            aria-label="Edgaze home"
-          >
-            <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8 md:h-9 md:w-9" />
-            <span className="text-[14px] font-semibold tracking-tight md:text-[15px]">Edgaze</span>
-          </SmoothLink>
-
-          {/* Nav dropdowns */}
-          <nav
-            aria-label="Primary navigation"
-            className="hidden md:flex flex-1 justify-center items-center gap-6"
-          >
-            {NAV_DROPDOWNS.map(({ label, links }) => (
-              <NavDropdown
-                key={label}
-                label={label}
-                links={links}
-                isOpen={openDropdown === label}
-                onOpen={() => setOpenDropdown(label)}
-                onClose={() => setOpenDropdown(null)}
-                onLinkClick={() => setOpenDropdown(null)}
-              />
-            ))}
-            <SmoothLink
-              href="#beta"
-              className="py-2 text-[13px] text-white/75 hover:text-white transition-colors"
-            >
-              Beta
-            </SmoothLink>
-          </nav>
-
-          {/* CTA */}
-          <SmoothLink
-            href="/marketplace"
-            className={cn(
-              "shrink-0 ml-auto inline-flex items-center justify-center",
-              "md:-ml-px",
-              "rounded-full px-5 py-2 text-[13px] font-medium text-white",
-              "bg-white/10 hover:bg-white/15",
-              "border border-white/10",
-              "active:scale-[0.98] transition-all duration-200",
-            )}
-          >
-            Open marketplace
-          </SmoothLink>
-        </div>
-      </Container>
-    </header>
   );
 }
 
@@ -2253,7 +2043,7 @@ export default function EdgazeLandingPage() {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationJsonLd) }}
         />
         <Gradients />
-        <Nav onTop={onTop} />
+        <LandingNav onTop={onTop} scrollerRef={scrollerRef} />
 
         {/* ✅ FIX: No snap on mobile. Snap only from md+.
             ✅ FIX: Use 100dvh so iOS address bar doesn’t break bottom reach.

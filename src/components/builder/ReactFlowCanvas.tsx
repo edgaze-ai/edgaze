@@ -35,25 +35,13 @@ import { getNodeSpec } from "src/nodes/registry";
 import type { NodeSpec } from "src/nodes/types";
 import { isValidConnection as checkAllowedConnection } from "src/canvas/CanvasConfig";
 import { CustomEdge } from "src/edges/CustomEdge";
-import { EdgeGradientDefs } from "src/edges/EdgeGradientDefs";
 import { BaseNode } from "src/nodes/BaseNode";
+import { normalizeGraph } from "./graph-normalize";
 import MergeNode from "./nodes/MergeNode";
 import ConditionNode from "./nodes/ConditionNode";
 import { emit, on } from "../../lib/bus";
 import { track } from "../../lib/mixpanel";
-import {
-  Maximize2,
-  Minimize2,
-  ZoomIn,
-  ZoomOut,
-  Lock,
-  Unlock,
-  Grid3X3,
-  Copy,
-  ClipboardPaste,
-  CopyPlus,
-  Trash2,
-} from "lucide-react";
+import { Copy, ClipboardPaste, CopyPlus, Trash2 } from "lucide-react";
 
 type EdgazeNodeData = {
   specId: string;
@@ -141,65 +129,6 @@ type Props = {
   onGraphChange?: (graph: { nodes: Node<EdgazeNodeData>[]; edges: Edge[] }) => void;
 };
 
-function safeParseGraph(input: any): any {
-  if (input == null) return null;
-  if (typeof input === "string") {
-    try {
-      return JSON.parse(input);
-    } catch {
-      return null;
-    }
-  }
-  return input;
-}
-
-function normalizeGraph(graphLike: any): { nodes: Node<EdgazeNodeData>[]; edges: Edge[] } {
-  const g0 = safeParseGraph(graphLike);
-  const g =
-    g0?.graph && (Array.isArray(g0.graph.nodes) || Array.isArray(g0.graph.edges)) ? g0.graph : g0;
-
-  const rawNodes = Array.isArray(g?.nodes) ? (g.nodes as Node<EdgazeNodeData>[]) : [];
-  // Normalize node IDs to strings for backwards compat (legacy data may have numeric IDs)
-  const nodes = rawNodes.map((n) => {
-    if (n?.id != null && typeof n.id !== "string") {
-      return { ...n, id: String(n.id) };
-    }
-    return n;
-  });
-
-  // Support both "edges" and "connections" (legacy alias)
-  const rawEdges = Array.isArray(g?.edges)
-    ? (g.edges as Edge[])
-    : Array.isArray(g?.connections)
-      ? (g.connections as Edge[])
-      : [];
-  // Normalize edges: support source/target, sourceId/targetId, sourceNode/targetNode; coerce IDs to strings
-  const edges = rawEdges
-    .map((e: any) => {
-      const src = e?.source ?? e?.sourceId ?? e?.sourceNode?.id ?? e?.sourceNode;
-      const tgt = e?.target ?? e?.targetId ?? e?.targetNode?.id ?? e?.targetNode;
-      const srcId =
-        src != null ? (typeof src === "string" ? src : ((src as any)?.id ?? String(src))) : null;
-      const tgtId =
-        tgt != null ? (typeof tgt === "string" ? tgt : ((tgt as any)?.id ?? String(tgt))) : null;
-      if (srcId == null || tgtId == null) return null;
-      const sh = e?.sourceHandle ?? "";
-      const th = e?.targetHandle ?? "";
-      const suffix = sh || th ? `-${sh}-${th}` : "";
-      return {
-        ...e,
-        id: e?.id ?? `e-${String(srcId)}-${String(tgtId)}${suffix}`,
-        source: String(srcId),
-        target: String(tgtId),
-      };
-    })
-    .filter((e): e is Edge => e != null);
-  // Do NOT filter by nodeIds - pass all edges through. React Flow renders only edges whose
-  // source/target nodes exist; orphan edges are ignored. Filtering here caused valid connections
-  // to disappear (e.g. type coercion 1 vs "1", or different graph shapes).
-  return { nodes, edges };
-}
-
 const EDGE_TYPE = "default" as const;
 
 type BubbleState =
@@ -211,6 +140,14 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   ref,
 ) {
   const isPreview = mode === "preview";
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px), (pointer: coarse)");
+    const apply = () => setIsMobileViewport(Boolean(mq.matches));
+    apply();
+    mq.addEventListener?.("change", apply);
+    return () => mq.removeEventListener?.("change", apply);
+  }, []);
 
   // nodeTypes is defined outside component and frozen — pass it directly to avoid "new nodeTypes" warning
   const [nodes, setNodes, baseOnNodesChange] = useNodesState<EdgazeNodeData>([]);
@@ -737,7 +674,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     },
     getGraph: () => ({ nodes: nodesRef.current, edges: edgesRef.current }),
     loadGraph: (graph: any) => {
-      const { nodes: nextNodes, edges: nextEdges } = normalizeGraph(graph);
+      const { nodes: nextNodes, edges: nextEdges } = normalizeGraph<EdgazeNodeData>(graph);
 
       lastSelectionKeyRef.current = "none";
       setBubble(null);
@@ -1082,7 +1019,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
-      <EdgeGradientDefs />
       {/* Control panel removed - now integrated into top bar */}
 
       {/* Connection error toast — shown when invalid connection attempted */}
@@ -1174,6 +1110,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         fitView
+        // More forgiving magnet radius for handle snapping (especially for small ports on LLM cards)
+        connectionRadius={36}
         snapToGrid
         snapGrid={[16, 16]}
         onInit={onInit}
@@ -1267,29 +1205,29 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             id="workflow-grid"
             gap={20}
             size={1.75}
-            color="rgba(148,163,184,0.35)"
+            color="rgba(255,255,255,0.16)"
             variant={BackgroundVariant.Dots}
           />
         )}
 
-        <MiniMap
-          position="bottom-right"
-          pannable
-          zoomable
-          style={{
-            background: "#05060b",
-            border: "1px solid rgba(148,163,184,0.6)",
-            borderRadius: 12,
-            boxShadow: "0 0 0 1px rgba(15,23,42,0.85) inset, 0 12px 40px rgba(0,0,0,0.7)",
-            bottom: 12,
-            right: 12,
-            width: 180,
-            height: 120,
-          }}
-          nodeColor={() => "#e5e7eb"}
-          nodeStrokeColor={() => "rgba(249,250,251,0.8)"}
-          maskColor="rgba(15,23,42,0.75)"
-        />
+        {/* Minimap: hidden in mobile preview mode */}
+        {!(isPreview && isMobileViewport) && (
+          <MiniMap
+            position="bottom-right"
+            pannable
+            zoomable
+            className="edgaze-minimap"
+            style={{
+              bottom: 12,
+              right: 12,
+              width: 178,
+              height: 116,
+            }}
+            nodeColor={() => "rgba(229,231,235,0.9)"}
+            nodeStrokeColor={() => "rgba(255,255,255,0.85)"}
+            maskColor="rgba(5,6,10,0.78)"
+          />
+        )}
       </ReactFlow>
     </div>
   );

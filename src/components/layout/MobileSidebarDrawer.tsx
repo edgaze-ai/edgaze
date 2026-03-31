@@ -50,7 +50,7 @@ export default function MobileSidebarDrawer() {
   const isActive = (href: string) => pathname.startsWith(href);
 
   return (
-    <div className="md:hidden">
+    <div className="xl:hidden">
       {/* Backdrop */}
       <div
         className={cn(

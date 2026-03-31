@@ -17,16 +17,10 @@ export const InputNode: NodeSpec = {
   ],
 
   defaultConfig: {
-    nickname: "",
+    question: "",
+    description: "",
     inputType: "text",
-    placeholder: "",
-    required: true,
-    maxLength: null,
-    defaultValue: "",
-    helpText: "",
-    validationRegex: "",
-    visibility: true,
-    theme: "default",
+    options: [],
   },
 };
 

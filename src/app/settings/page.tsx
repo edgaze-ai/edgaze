@@ -7,6 +7,7 @@ import { useAuth } from "../../components/auth/AuthContext";
 import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import HandleChangeWarningDialog from "../../components/settings/HandleChangeWarningDialog";
 import HandleCooldownBanner from "../../components/settings/HandleCooldownBanner";
+import { UserApiKeysPanel } from "../../components/settings/UserApiKeysPanel";
 import {
   ArrowLeft,
   Shield,
@@ -20,6 +21,7 @@ import {
   Mail,
   BadgeCheck,
   LogIn,
+  KeyRound,
 } from "lucide-react";
 
 function normalizeHandle(input: string) {
@@ -36,6 +38,7 @@ const HANDLE_REGEX = /^[a-z0-9_]{3,24}$/;
 
 const SECTIONS = [
   { id: "account", label: "Account", icon: User },
+  { id: "api-keys", label: "API keys", icon: KeyRound },
   { id: "preferences", label: "Preferences", icon: Bell },
 ] as const;
 
@@ -405,7 +408,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Sidebar — fixed, doesn't scroll */}
-      <aside className="hidden md:flex w-[240px] lg:w-[280px] shrink-0 border-r border-white/[0.08] bg-[#0a0a0a]/95 flex-col h-full overflow-hidden">
+      <aside className="hidden lg:flex w-[240px] lg:w-[280px] shrink-0 border-r border-white/[0.08] bg-[#0a0a0a]/95 flex-col h-full overflow-hidden">
         <div className="p-6 lg:p-8 border-b border-white/[0.08]">
           <Link
             href="/library"
@@ -458,7 +461,7 @@ export default function SettingsPage() {
       <main className="flex-1 min-w-0 h-full flex flex-col overflow-y-auto overflow-x-hidden">
         <div className="flex-1 w-full max-w-4xl mx-auto px-6 sm:px-8 lg:px-12 py-8 sm:py-12 lg:py-16 pb-16">
           {/* Desktop: show active section only */}
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             {activeSection === "account" && (
               <section id="account" className="space-y-8">
                 <div>
@@ -539,6 +542,26 @@ export default function SettingsPage() {
               </section>
             )}
 
+            {activeSection === "api-keys" && (
+              <section id="api-keys" className="space-y-8">
+                <div>
+                  <h2 className="text-[24px] lg:text-[28px] font-semibold text-white tracking-tight">
+                    API keys
+                  </h2>
+                  <p className="text-[14px] text-white/50 mt-1.5">
+                    Bring your own provider keys for workflow runs
+                  </p>
+                </div>
+
+                <SettingSection
+                  title="Encrypted key vault"
+                  description="Store OpenAI, Anthropic, and Google AI keys for your account. Values are encrypted with AES-256-GCM on the server. After saving, you can rotate or delete a key but never read it back from Edgaze."
+                >
+                  <UserApiKeysPanel showIntro={false} heading="" description="" />
+                </SettingSection>
+              </section>
+            )}
+
             {activeSection === "preferences" && (
               <section id="preferences" className="space-y-8">
                 <div>
@@ -567,8 +590,8 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Mobile: show all sections vertically with clear separators */}
-          <div className="md:hidden space-y-16">
+          {/* Phone/tablet: show all sections vertically with clear separators */}
+          <div className="lg:hidden space-y-16">
             {/* Account Section */}
             <section id="account-mobile" className="space-y-8">
               <div className="pb-4 border-b border-white/[0.12]">
@@ -634,6 +657,25 @@ export default function SettingsPage() {
                     <span className="text-[15px] text-amber-400/90 font-medium">Not verified</span>
                   )}
                 </div>
+              </SettingSection>
+            </section>
+
+            <section id="api-keys-mobile" className="space-y-8">
+              <div className="pb-4 border-b border-white/[0.12]">
+                <h2 className="text-[24px] font-semibold text-white tracking-tight flex items-center gap-3">
+                  <KeyRound className="h-6 w-6 text-white/60" />
+                  API keys
+                </h2>
+                <p className="text-[14px] text-white/50 mt-2">
+                  Encrypted provider keys for workflow runs
+                </p>
+              </div>
+
+              <SettingSection
+                title="Encrypted key vault"
+                description="Store OpenAI, Anthropic, and Google AI keys. After saving, you can rotate or delete but not view the secret again."
+              >
+                <UserApiKeysPanel showIntro={false} heading="" description="" />
               </SettingSection>
             </section>
 

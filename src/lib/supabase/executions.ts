@@ -28,7 +28,7 @@ export type WorkflowRunRow = {
   draft_id: string | null;
   workflow_version_id?: string | null;
   user_id: string;
-  status: "pending" | "running" | "completed" | "failed" | "cancelled" | "timeout";
+  status: "pending" | "running" | "cancelling" | "completed" | "failed" | "cancelled" | "timeout";
   started_at: string;
   completed_at: string | null;
   duration_ms: number | null;
@@ -36,6 +36,7 @@ export type WorkflowRunRow = {
   state_snapshot: any | null;
   checkpoint: any | null;
   metadata: any | null;
+  idempotency_key?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -46,13 +47,29 @@ export async function createWorkflowRun(params: {
   workflowVersionId?: string | null;
   userId: string;
   metadata?: Record<string, unknown>;
+  idempotencyKey?: string | null;
 }) {
   const supabase = createSupabaseAdminClient();
+  const trimmedIdempotencyKey = params.idempotencyKey?.trim() || null;
+
+  if (trimmedIdempotencyKey) {
+    const { data: existing, error: existingError } = await supabase
+      .from("workflow_runs")
+      .select("*")
+      .eq("user_id", params.userId)
+      .eq("idempotency_key", trimmedIdempotencyKey)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+    if (existing) return existing as WorkflowRunRow;
+  }
+
   const insertData: Record<string, unknown> = {
     user_id: params.userId,
     status: "pending",
     started_at: new Date().toISOString(),
     metadata: params.metadata ?? {},
+    idempotency_key: trimmedIdempotencyKey,
   };
 
   if (params.workflowId) {
@@ -69,7 +86,19 @@ export async function createWorkflowRun(params: {
 
   const { data, error } = await supabase.from("workflow_runs").insert(insertData).select().single();
 
-  if (error) throw error;
+  if (error) {
+    if (trimmedIdempotencyKey && error.code === "23505") {
+      const { data: existing, error: existingError } = await supabase
+        .from("workflow_runs")
+        .select("*")
+        .eq("user_id", params.userId)
+        .eq("idempotency_key", trimmedIdempotencyKey)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) return existing as WorkflowRunRow;
+    }
+    throw error;
+  }
   return data as WorkflowRunRow;
 }
 
@@ -104,6 +133,36 @@ export async function updateWorkflowRun(
 
   if (error) throw error;
   return data as WorkflowRunRow;
+}
+
+/**
+ * Mark a run failed only if it is still active (pending / running / cancelling).
+ * Used when the in-process worker stalls or crashes so the UI does not stay "running" forever.
+ */
+export async function failWorkflowRunIfNonTerminal(
+  runId: string,
+  errorDetails: Record<string, unknown>,
+): Promise<boolean> {
+  const supabase = createSupabaseAdminClient();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .update({
+      status: "failed",
+      error_details: errorDetails,
+      updated_at: now,
+      completed_at: now,
+    })
+    .eq("id", runId)
+    .in("status", ["pending", "running", "cancelling"])
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[failWorkflowRunIfNonTerminal]", error);
+    return false;
+  }
+  return !!data;
 }
 
 /** Terminal statuses that consume a run slot (counted toward limit) */

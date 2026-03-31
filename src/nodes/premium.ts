@@ -24,7 +24,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
     version: "1.0.0",
     category: "ai",
     summary:
-      "Generate text with GPT, Claude, or Gemini. Default is Claude 3.7 Sonnet for strong creator quality.",
+      "Generate text with GPT, Claude, or Gemini. Default is Claude Sonnet 4.6 for strong creator quality.",
     nodeType: "edgCard",
     icon: "Sparkles",
     requiresUserKeys: true,
@@ -40,7 +40,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
       maxTokens: 2000,
       stream: false,
       safeMode: true,
-      timeout: 60000,
+      timeout: 120_000,
       retries: 2,
     },
     inlineToggles: [
@@ -89,159 +89,6 @@ export const PREMIUM_NODES: NodeSpec[] = [
       },
     ],
   },
-  // Claude Chat (Anthropic)
-  {
-    id: "claude-chat",
-    label: "Claude Chat",
-    version: "1.0.0",
-    category: "ai",
-    summary: "Generate text with Anthropic Claude. Defaults to Claude 3.7 Sonnet for quality.",
-    nodeType: "edgCard",
-    icon: "Sparkles",
-    requiresUserKeys: true,
-    ports: [
-      makePort("in", "input", "Input", "any"),
-      makePort("out", "output", "Response", "object"),
-    ],
-    defaultConfig: {
-      prompt: "",
-      system: "",
-      model: "claude-3-7-sonnet-20250219",
-      temperature: 0.7,
-      maxTokens: 2000,
-      timeout: 60000,
-      retries: 2,
-    },
-    inspector: [
-      {
-        key: "prompt",
-        label: "Prompt (fallback)",
-        type: "textarea",
-        rows: 4,
-        helpText: "Used when the node input is not connected.",
-      },
-      {
-        key: "system",
-        label: "Style / System (optional)",
-        type: "textarea",
-        rows: 3,
-        helpText: "Optional tone and constraints.",
-      },
-      {
-        key: "model",
-        label: "Model",
-        type: "select",
-        options: [
-          {
-            label: "Claude 3.7 Sonnet — Recommended ⭐ · High quality",
-            value: "claude-3-7-sonnet-20250219",
-          },
-          {
-            label: "Claude 3.5 Haiku — Fast · $",
-            value: "claude-3-5-haiku-20241022",
-          },
-          {
-            label: "Claude 3.5 Sonnet — Balanced · $$",
-            value: "claude-3-5-sonnet-20241022",
-          },
-          {
-            label: "Claude 3 Opus — Premium · $$$",
-            value: "claude-3-opus-20240229",
-          },
-        ],
-        helpText: "Defaults favor output quality. Use Haiku for cheaper runs.",
-      },
-      {
-        key: "temperature",
-        label: "Temperature",
-        type: "slider",
-        min: 0,
-        max: 1,
-        step: 0.1,
-        helpText: "Randomness (0 = more deterministic)",
-      },
-      {
-        key: "maxTokens",
-        label: "Max output tokens",
-        type: "number",
-        min: 1,
-        max: 8192,
-        helpText: "Caps response length and cost.",
-      },
-    ],
-  },
-  // Gemini Chat (Google)
-  {
-    id: "gemini-chat",
-    label: "Gemini Chat",
-    version: "1.0.0",
-    category: "ai",
-    summary:
-      "Generate text with Google Gemini. Defaults to 2.5 Flash for speed; Pro for harder tasks.",
-    nodeType: "edgCard",
-    icon: "Sparkles",
-    requiresUserKeys: true,
-    ports: [
-      makePort("in", "input", "Input", "any"),
-      makePort("out", "output", "Response", "object"),
-    ],
-    defaultConfig: {
-      prompt: "",
-      system: "",
-      model: "gemini-2.5-flash",
-      temperature: 0.7,
-      maxTokens: 2000,
-      timeout: 60000,
-      retries: 2,
-    },
-    inspector: [
-      {
-        key: "prompt",
-        label: "Prompt (fallback)",
-        type: "textarea",
-        rows: 4,
-        helpText: "Used when the node input is not connected.",
-      },
-      {
-        key: "system",
-        label: "Style / System (optional)",
-        type: "textarea",
-        rows: 3,
-        helpText: "Optional tone and constraints.",
-      },
-      {
-        key: "model",
-        label: "Model",
-        type: "select",
-        options: [
-          {
-            label: "Gemini 2.5 Pro (latest) · High · $$$",
-            value: "gemini-2.5-pro-preview-05-06",
-          },
-          { label: "Gemini 2.5 Flash · Fast · $", value: "gemini-2.5-flash" },
-          { label: "Gemini 2.0 Flash — legacy", value: "gemini-2.0-flash" },
-        ],
-        helpText: "Flash models are cheaper; Pro is for harder tasks.",
-      },
-      {
-        key: "temperature",
-        label: "Temperature",
-        type: "slider",
-        min: 0,
-        max: 2,
-        step: 0.1,
-        helpText: "Controls randomness",
-      },
-      {
-        key: "maxTokens",
-        label: "Max output tokens",
-        type: "number",
-        min: 1,
-        max: 8192,
-        helpText: "Caps response length and cost.",
-      },
-    ],
-  },
   // LLM Embeddings (OpenAI)
   {
     id: "llm-embeddings",
@@ -280,14 +127,14 @@ export const PREMIUM_NODES: NodeSpec[] = [
       },
     ],
   },
-  // LLM Image (Gemini Nano Banana + OpenAI; default Nano Banana 2)
+  // LLM Image (Gemini Nano Banana + OpenAI GPT Image; default Nano Banana 2)
   {
     id: "llm-image",
     label: "LLM Image",
     version: "1.0.0",
     category: "ai",
     summary:
-      "Generate images with Nano Banana (Gemini) or GPT-image / DALL·E. Default is Nano Banana 2 for fast, strong results.",
+      "Generate images with Nano Banana (Gemini) or GPT Image (OpenAI). Default is Nano Banana 2.",
     nodeType: "edgCard",
     icon: "Image",
     requiresUserKeys: true,
@@ -299,7 +146,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
       prompt: "",
       model: DEFAULT_LLM_IMAGE_MODEL,
       size: "1024x1024",
-      quality: "standard",
+      quality: "medium",
       n: 1,
       timeout: 60000,
       retries: 2,
@@ -316,33 +163,26 @@ export const PREMIUM_NODES: NodeSpec[] = [
         key: "model",
         label: "Model",
         type: "select",
-        options: [
-          ...LLM_IMAGE_MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
-          { label: "DALL-E 3", value: "dall-e-3" },
-          { label: "DALL-E 2", value: "dall-e-2" },
-        ],
+        options: LLM_IMAGE_MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
       },
       {
         key: "size",
-        label: "Size (OpenAI / DALL·E)",
+        label: "Size (OpenAI GPT Image)",
         type: "select",
         options: [
-          { label: "1024x1024", value: "1024x1024" },
-          { label: "1792x1024", value: "1792x1024" },
-          { label: "1024x1792", value: "1024x1792" },
-          { label: "1536x1024 (GPT)", value: "1536x1024" },
-          { label: "1024x1536 (GPT)", value: "1024x1536" },
-          { label: "512x512", value: "512x512" },
-          { label: "256x256", value: "256x256" },
+          { label: "1024×1024", value: "1024x1024" },
+          { label: "1536×1024", value: "1536x1024" },
+          { label: "1024×1536", value: "1024x1536" },
         ],
       },
       {
         key: "quality",
-        label: "Quality (DALL·E 3 / GPT-image)",
+        label: "Quality (OpenAI GPT Image)",
         type: "select",
         options: [
-          { label: "Standard", value: "standard" },
-          { label: "HD / high", value: "hd" },
+          { label: "Low", value: "low" },
+          { label: "Medium", value: "medium" },
+          { label: "High", value: "high" },
         ],
       },
     ],
@@ -447,10 +287,11 @@ export const PREMIUM_NODES: NodeSpec[] = [
     label: "Condition",
     version: "1.0.0",
     category: "utility",
-    summary: "Conditional branching based on input values. Routes to true/false outputs.",
+    summary:
+      "Branch true/false using a fast AI check (gpt-4o-mini). Operator and optional text define what to evaluate.",
     nodeType: "edgCondition", // Y-shaped condition node
     icon: "GitBranch",
-    requiresUserKeys: false,
+    requiresUserKeys: true,
     ports: [
       makePort("input", "input", "Value", "any"),
       makePort("true", "output", "True Branch", "any"),
@@ -468,12 +309,12 @@ export const PREMIUM_NODES: NodeSpec[] = [
         type: "textarea",
         rows: 2,
         helpText:
-          "Describe the condition in plain English (e.g., 'The user's age is greater than 18'). AI will evaluate this. Leave empty to use operator-based evaluation.",
-        placeholder: "e.g., The input contains the word 'approved'",
+          'Optional extra rule in plain English, combined with the condition type below. Example: "The user explicitly agreed".',
+        placeholder: "e.g., The answer matches the question intent",
       },
       {
         key: "operator",
-        label: "Condition Type (Fallback)",
+        label: "Condition Type",
         type: "select",
         options: [
           { label: "Truthy", value: "truthy" },
@@ -484,7 +325,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
           { label: "Less Than", value: "lt" },
         ],
         helpText:
-          "Used if human-readable condition is not provided. How should the condition be evaluated?",
+          "How the AI should decide true vs false (truthy, equals, etc.). Uses your OpenAI key or Edgaze free-run key.",
       },
       {
         key: "compareValue",

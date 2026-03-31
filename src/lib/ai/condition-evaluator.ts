@@ -1,5 +1,4 @@
-// AI-powered condition evaluator for human-readable conditions
-// Uses a cheap AI model (gpt-4o-mini) to evaluate natural language conditions
+// AI-powered condition evaluator — all condition nodes use this path (gpt-4o-mini).
 
 export interface ConditionEvaluationResult {
   result: boolean;
@@ -8,8 +7,49 @@ export interface ConditionEvaluationResult {
 }
 
 /**
- * Evaluate a human-readable condition using AI
- * Example: "The user's age is greater than 18" -> true/false
+ * Build the natural-language instruction sent to the model from inspector operator
+ * (truthy, equals, …), optional compare value, and optional humanCondition text.
+ */
+export function buildConditionEvaluationInstruction(params: {
+  operator: string;
+  compareValue: unknown;
+  humanCondition?: string;
+}): string {
+  const op = params.operator || "truthy";
+  const cv =
+    params.compareValue === undefined || params.compareValue === null
+      ? ""
+      : String(params.compareValue);
+  const humanRaw = typeof params.humanCondition === "string" ? params.humanCondition.trim() : "";
+
+  const modeBlocks: Record<string, string> = {
+    truthy:
+      "TRUTHY mode: answer true if the input is logically true or present—substantive non-empty content, affirmative answers, or meaningful structured data. Answer false for null, missing data, empty strings, explicit false, clear negation, or no substantive content.",
+    falsy:
+      "FALSY mode: answer true if the input is logically false or empty (null, undefined, empty text, zero meaning none, explicit false, clear “no”, or lack of substantive content). Answer false when the input is clearly present and affirmative.",
+    equals: `EQUALS mode: answer true only if the input is equal to the reference value ${JSON.stringify(
+      cv,
+    )} (normalize strings; for objects, use meaningful equality).`,
+    notEquals: `NOT EQUALS mode: answer true only if the input is not equal to the reference value ${JSON.stringify(
+      cv,
+    )}.`,
+    gt: `GREATER THAN mode: answer true only if the input can be interpreted as a number strictly greater than ${cv}.`,
+    lt: `LESS THAN mode: answer true only if the input can be interpreted as a number strictly less than ${cv}.`,
+  };
+
+  const mode =
+    modeBlocks[op] ??
+    modeBlocks.truthy ??
+    "TRUTHY mode: answer true when the input is clearly present and substantively true.";
+
+  if (humanRaw) {
+    return `${humanRaw}\n\nApply this using the following rule (your final boolean must follow it): ${mode}`;
+  }
+  return mode;
+}
+
+/**
+ * Evaluate a condition instruction using AI (cheap model).
  */
 export async function evaluateConditionWithAI(
   condition: string,
@@ -39,10 +79,9 @@ export async function evaluateConditionWithAI(
       inputDescription = String(inputValue);
     }
 
-    // Build the prompt for the AI
     const prompt = `You are a condition evaluator. Evaluate whether the following condition is true or false based on the provided input value.
 
-Condition: "${condition}"
+Condition / rule: "${condition}"
 
 Input value: ${inputDescription}
 
@@ -116,13 +155,8 @@ Be strict and logical. If the condition is ambiguous or cannot be evaluated, ret
       }
       throw new Error("Could not parse AI evaluation result");
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error evaluating condition with AI:", err);
-    // Fallback to simple truthy check
-    return {
-      result: Boolean(inputValue),
-      confidence: 0.1,
-      reasoning: "AI evaluation failed, using fallback",
-    };
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }

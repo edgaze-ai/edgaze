@@ -24,28 +24,19 @@ const CORE_SPECS: NodeSpec[] = [
       makePort("out-right", "output", "Data", "any"), // Right side for horizontal flow
     ],
     defaultConfig: {
-      name: "Input",
       question: "",
+      description: "",
       inputType: "text",
-      description: "Workflow entry point",
-      required: true,
-      maxFileSize: 5, // MB
+      options: [],
     },
     inspector: [
-      {
-        key: "name",
-        label: "Input Name",
-        type: "text",
-        placeholder: "e.g., User Message, Image URL",
-        helpText: "What data does this workflow accept?",
-      },
       {
         key: "question",
         label: "Question",
         type: "textarea",
         rows: 2,
         helpText:
-          "The question or prompt shown to users when collecting this input (e.g., What message would you like to send?)",
+          "What should the user answer? Write a clear question (e.g., “What message should I send?”).",
       },
       {
         key: "inputType",
@@ -56,23 +47,19 @@ const CORE_SPECS: NodeSpec[] = [
           { label: "Long Paragraph", value: "textarea" },
           { label: "Number", value: "number" },
           { label: "URL", value: "url" },
+          { label: "Dropdown", value: "dropdown" },
           { label: "File Upload (up to 5MB)", value: "file" },
           { label: "JSON", value: "json" },
         ],
-        helpText: "Type of input field shown to users",
+        helpText: "How the input should be collected from the user.",
       },
       {
         key: "description",
         label: "Description",
         type: "textarea",
         rows: 2,
-        helpText: "Additional description or help text for this input",
-      },
-      {
-        key: "required",
-        label: "Required",
-        type: "switch",
-        helpText: "Whether this input must be provided",
+        helpText:
+          "Optional context shown under the question (constraints, format, examples, what you’ll do with the answer).",
       },
     ],
   },

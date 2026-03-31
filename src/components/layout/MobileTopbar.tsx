@@ -60,7 +60,7 @@ export default function MobileTopbar() {
   }, []);
 
   return (
-    <div className="md:hidden flex items-center justify-between px-3 h-14 border-b border-white/10 bg-[#050505]">
+    <div className="xl:hidden flex items-center justify-between px-3 h-14 border-b border-white/10 bg-[#050505]">
       {/* LEFT */}
       <div className="flex items-center gap-1">
         <button
