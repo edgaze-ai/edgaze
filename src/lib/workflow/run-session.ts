@@ -151,6 +151,8 @@ function parseSseEventChunk(chunk: string): {
   };
 }
 
+const DEFAULT_RUN_SESSION_MAX_WALL_MS = 45 * 60 * 1000;
+
 export async function streamRunSession(params: {
   runId: string;
   accessToken?: string | null;
@@ -164,11 +166,15 @@ export async function streamRunSession(params: {
     state: RunSessionTransportState,
     meta?: { attempt: number; lastSequence: number },
   ) => void | Promise<void>;
+  /** Hard stop for reconnect loops when the server never reaches a terminal snapshot (default 45m). */
+  maxWallClockMs?: number;
 }): Promise<void> {
   let attempt = 0;
   let lastSequence = 0;
   let isTerminal = false;
   let sawSnapshot = false;
+  const sessionStarted = Date.now();
+  const maxWall = params.maxWallClockMs ?? DEFAULT_RUN_SESSION_MAX_WALL_MS;
 
   const flushChunks = async (chunks: string[]) => {
     for (const chunk of chunks) {
@@ -223,6 +229,9 @@ export async function streamRunSession(params: {
   };
 
   while (!params.signal.aborted) {
+    if (Date.now() - sessionStarted > maxWall) {
+      throw new Error("Run session exceeded maximum wait time. Try refreshing the page.");
+    }
     attempt += 1;
     await params.onTransportState?.(
       attempt === 1 ? "connecting" : attempt >= 3 ? "degraded" : "reconnecting",

@@ -598,34 +598,10 @@ export async function runFlow(
     }
   }
 
-  // Only Output nodes can be "final" for display. Sink nodes like Merge are never shown as workflow output.
+  // Terminal `output` nodes only (Merge etc. are not spec "output"). Include every output that produced
+  // a value — matches V2 behavior; the old "meaningful upstream" filter dropped valid results (e.g. image
+  // URL passthrough with no LLM node in the subgraph).
   const outputNodes = nodes.filter((n) => n.data?.specId === "output");
-
-  const PROCESSING_SPECS = new Set([
-    "llm-chat",
-    "llm-embeddings",
-    "llm-image",
-    "openai-chat",
-    "openai-embeddings",
-    "openai-image",
-    "http-request",
-    "transform",
-  ]);
-  const hasProcessingUpstream = (nodeId: string, visited = new Set<string>()): boolean => {
-    if (visited.has(nodeId)) return false;
-    visited.add(nodeId);
-    const srcs = inboundByNode.get(nodeId) ?? [];
-    for (const sid of srcs) {
-      const node = nodeById.get(sid);
-      const specId = node?.data?.specId ?? "";
-      if (PROCESSING_SPECS.has(specId) || PROCESSING_SPECS.has(canonicalSpecId(specId)))
-        return true;
-      if (hasProcessingUpstream(sid, visited)) return true;
-    }
-    return false;
-  };
-
-  const meaningfulFinals = outputNodes.filter((n) => hasProcessingUpstream(n.id));
 
   const finalSnapshot = state.getSnapshot();
   const hasFailure = Object.values(finalSnapshot.nodeStatus).some(
@@ -642,10 +618,12 @@ export async function runFlow(
 
   return {
     outputsByNode: finalSnapshot.outputsByNode,
-    finalOutputs: meaningfulFinals.map((n) => ({
-      nodeId: n.id,
-      value: finalSnapshot.outputsByNode[n.id],
-    })),
+    finalOutputs: outputNodes
+      .map((n) => ({
+        nodeId: n.id,
+        value: finalSnapshot.outputsByNode[n.id],
+      }))
+      .filter((entry) => entry.value !== undefined),
     logs,
     nodeStatus: state.getSnapshot().nodeStatus,
     workflowStatus: state.getSnapshot().workflowStatus,

@@ -125,6 +125,30 @@ function toDependencyStatus(
   return "pending";
 }
 
+/**
+ * Cheap poll helper: only the workflow_runs row fields needed to know whether the run is terminal
+ * and whether the NDJSON poller has caught up on events. Avoids loading all nodes/events every tick
+ * (large image/base64 payloads in node output refs made that path very slow).
+ */
+export async function peekWorkflowRunStatus(params: { runId: string }): Promise<{
+  status: WorkflowRunStatus;
+  lastEventSequence: number;
+  outcome: string | null;
+}> {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("workflow_runs")
+    .select("status, last_event_sequence, outcome")
+    .eq("id", params.runId)
+    .single();
+  if (error) throw error;
+  return {
+    status: data.status as WorkflowRunStatus,
+    lastEventSequence: Number(data.last_event_sequence ?? 0),
+    outcome: (data.outcome as string | null) ?? null,
+  };
+}
+
 export async function listWorkflowRunEvents(params: {
   runId: string;
   afterSequence?: number;
