@@ -158,6 +158,8 @@ export async function streamRunSession(params: {
   signal: AbortSignal;
   onSnapshot: (bootstrap: RunSessionBootstrapResponse) => void | Promise<void>;
   onEvent?: (event: RunSessionStreamEvent) => void | Promise<void>;
+  /** SSE ping (~idle poll): keep UI “fresh” so we don’t look stalled while waiting on DB/network. */
+  onPing?: () => void | Promise<void>;
   onTransportState?: (
     state: RunSessionTransportState,
     meta?: { attempt: number; lastSequence: number },
@@ -174,6 +176,10 @@ export async function streamRunSession(params: {
       if (!parsed.event || !parsed.data) continue;
 
       const payload = JSON.parse(parsed.data) as Record<string, unknown>;
+      if (parsed.event === "ping") {
+        await params.onPing?.();
+        continue;
+      }
       if (parsed.event === "snapshot") {
         const bootstrap = payload as RunSessionBootstrapResponse;
         const bootstrapSequence = Number(bootstrap.run?.lastEventSequence ?? 0);
@@ -270,6 +276,7 @@ export async function streamRunSession(params: {
       return;
     }
 
-    await waitWithAbort(params.signal, attempt >= 3 ? 2000 : 800);
+    const backoffMs = attempt <= 1 ? 50 : Math.min(100 * 2 ** Math.min(attempt - 2, 4), 2000);
+    await waitWithAbort(params.signal, backoffMs);
   }
 }

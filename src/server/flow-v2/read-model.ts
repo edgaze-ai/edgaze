@@ -45,7 +45,7 @@ export interface WorkflowRunBootstrap {
 export async function requireWorkflowRunAccess(
   req: Request,
   runId: string,
-): Promise<{ runId: string }> {
+): Promise<{ runId: string; workflowRunRowStatus: string }> {
   const url = new URL(req.url);
   const runAccessToken =
     url.searchParams.get("runAccessToken") ?? req.headers.get("x-run-access-token");
@@ -53,6 +53,8 @@ export async function requireWorkflowRunAccess(
   if (!run) {
     throw new Error("Run not found");
   }
+
+  const rowStatus = String(run.status ?? "");
 
   const metadata =
     run.metadata && typeof run.metadata === "object"
@@ -64,7 +66,7 @@ export async function requireWorkflowRunAccess(
     metadata &&
     metadata.run_access_token === runAccessToken
   ) {
-    return { runId };
+    return { runId, workflowRunRowStatus: rowStatus };
   }
 
   const { user, error: authError } = await getUserFromRequest(req);
@@ -77,7 +79,7 @@ export async function requireWorkflowRunAccess(
     throw new Error("Forbidden");
   }
 
-  return { runId };
+  return { runId, workflowRunRowStatus: rowStatus };
 }
 
 function mapRunNodeRow(row: Record<string, unknown>): WorkflowRunNode {
