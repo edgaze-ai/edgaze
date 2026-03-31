@@ -207,7 +207,15 @@ export default function Sidebar() {
                 className="block rounded-full transition-opacity hover:opacity-90"
                 aria-label="Sign in"
               >
-                <ProfileAvatar name="Your account" size={32} showFallback />
+                <div className="relative h-8 w-8 overflow-hidden rounded-full border border-white/10 bg-gray-600">
+                  <Image
+                    src="/brand/profile-default.png"
+                    alt="Default profile"
+                    fill
+                    sizes="32px"
+                    className="object-cover"
+                  />
+                </div>
               </button>
             )}
           </div>

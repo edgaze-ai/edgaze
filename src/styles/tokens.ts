@@ -17,9 +17,19 @@ export const tokens = {
   border: {
     default: "#262626",
     subtle: "#1e1e1e",
-    focus: "#22d3ee",
+    focus: "#78E9FF",
   },
   gradient: {
-    aiButton: "linear-gradient(135deg, rgba(34,211,238,0.15) 0%, rgba(139,92,246,0.15) 100%)",
+    edgaze:
+      "linear-gradient(90deg, rgba(120,233,255,1) 0%, rgba(182,140,255,1) 54%, rgba(255,109,178,1) 100%)",
+    edgazeSoft:
+      "linear-gradient(135deg, rgba(120,233,255,0.18) 0%, rgba(182,140,255,0.14) 48%, rgba(255,109,178,0.14) 100%)",
+    aiButton:
+      "linear-gradient(135deg, rgba(120,233,255,0.16) 0%, rgba(182,140,255,0.12) 55%, rgba(255,109,178,0.12) 100%)",
+  },
+  motion: {
+    fast: "150ms cubic-bezier(0.2, 0.9, 0.2, 1)",
+    standard: "220ms cubic-bezier(0.2, 0.9, 0.2, 1)",
+    slow: "340ms cubic-bezier(0.2, 0.9, 0.2, 1)",
   },
 } as const;

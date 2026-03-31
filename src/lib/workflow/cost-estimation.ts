@@ -73,7 +73,9 @@ const CHAT_PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> 
   "gemini-1.5-flash": { inputPer1M: 0.075, outputPer1M: 0.3 },
   "gemini-1.5-pro": { inputPer1M: 1.25, outputPer1M: 5 },
   "gemini-2.5-flash": { inputPer1M: 0.075, outputPer1M: 0.3 },
+  // Legacy ID stored in older workflows (maps to gemini-2.5-pro at runtime).
   "gemini-2.5-pro-preview-05-06": { inputPer1M: 1.25, outputPer1M: 5 },
+  "gemini-2.5-pro": { inputPer1M: 1.25, outputPer1M: 5 },
   "gpt-5.4": { inputPer1M: 5, outputPer1M: 15 },
   "gpt-5.4-mini": { inputPer1M: 0.2, outputPer1M: 0.8 },
   "gpt-5.4-nano": { inputPer1M: 0.05, outputPer1M: 0.2 },
@@ -106,7 +108,6 @@ const IMAGE_PRICING: Record<string, Record<string, number>> = {
     medium: 0.08,
     high: 0.15,
   },
-  "gemini-3.1-flash-image": { "1024x1024": 0.02 },
   "gemini-2.5-flash-image": { "1024x1024": 0.02 },
   "gemini-3.1-flash-image-preview": { "1024x1024": 0.02 },
   "gemini-3-pro-image-preview": { "1024x1024": 0.12 },

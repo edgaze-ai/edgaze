@@ -146,7 +146,17 @@ function pickRuntimeOutputs(state: WorkflowRunState) {
     }));
   }
 
-  return Object.entries(state.outputsByNode ?? {}).map(([nodeId, value], index) => ({
+  // Fallback: `outputsByNode` includes *every node* output (including intermediate nodes).
+  // For the customer runtime, we only want to expose explicit Workflow Output nodes.
+  const outputNodeIds = new Set(
+    (state.graph?.nodes ?? [])
+      .filter((n) => String(n.data?.specId ?? "") === "output")
+      .map((n) => n.id),
+  );
+
+  const entries = Object.entries(state.outputsByNode ?? {}).filter(([nodeId]) => outputNodeIds.has(nodeId));
+
+  return entries.map(([nodeId, value], index) => ({
     nodeId,
     label: `Output ${index + 1}`,
     value,
@@ -204,9 +214,16 @@ export function deriveCustomerRuntimeModel(state: WorkflowRunState | null): Cust
     headline = "Run cancelled";
     subline = hasUsefulPartialOutput ? "Anything already completed is still available below." : undefined;
   } else if (state.status === "success") {
-    mode = "results";
-    headline = "Results ready";
-    subline = outputs.length > 1 ? `${outputs.length} outputs are ready.` : "Your run has completed.";
+    if (outputs.length > 0) {
+      mode = "results";
+      headline = "Results ready";
+      subline = outputs.length > 1 ? `${outputs.length} outputs are ready.` : "Your run has completed.";
+    } else {
+      // Workflows without Workflow Output nodes should not show the full "Results" surface.
+      mode = "finalizing";
+      headline = "Run completed";
+      subline = "This workflow finished successfully.";
+    }
   } else if (state.status === "error" && hasUsefulPartialOutput) {
     mode = "partial_results";
     headline = "Partial results available";

@@ -28,6 +28,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "clean": "rm -rf .next node_modules",
     "reinstall": "npm run clean && npm install",
+    "gemini:list-models": "node scripts/list-gemini-models.mjs",
     "db:types": "npx supabase gen types typescript --project-id $NEXT_PUBLIC_SUPABASE_PROJECT_ID > src/types/supabase.ts",
     "db:push": "npx supabase db push",
     "db:reset": "npx supabase db reset",

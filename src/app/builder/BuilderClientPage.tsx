@@ -4,33 +4,37 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Home,
-  LayoutPanelLeft,
-  Play,
-  Plus,
-  RefreshCw,
-  Rocket,
-  X,
   ArrowRight,
   ArrowLeft,
-  ZoomIn,
-  ZoomOut,
-  Grid3X3,
-  Lock,
-  Unlock,
-  Maximize2,
-  Minimize2,
-  Sparkles,
+  Play,
   Loader2,
-  BookOpen,
-  Undo2,
-  Redo2,
+  RefreshCw,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "../../components/auth/AuthContext";
 import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
+import {
+  IconBack,
+  IconDocs,
+  IconExitFullscreen,
+  IconFullscreen,
+  IconGrid,
+  IconHome,
+  IconInspector,
+  IconLock,
+  IconPanels,
+  IconPublish,
+  IconRedo,
+  IconRefresh,
+  IconRun,
+  IconUndo,
+  IconUnlock,
+  IconZoomIn,
+  IconZoomOut,
+} from "../../components/builder/icons/EdgazeIcons";
 
 import ReactFlowCanvas, {
   CanvasRef as BECanvasRef,
@@ -155,6 +159,25 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function tryParseIsoDate(v: unknown): Date | null {
+  if (typeof v !== "string" || !v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function formatLastSaved(d: Date): string {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(d);
+  } catch {
+    return d.toLocaleString();
+  }
+}
+
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
 }
@@ -252,6 +275,10 @@ export default function BuilderPage() {
   const lastSavedHashRef = useRef<string>("");
   const saveInFlightRef = useRef(false);
   const saveAgainRef = useRef(false);
+  const [saveUi, setSaveUi] = useState<{
+    status: "idle" | "saving" | "error";
+    lastSavedAt: Date | null;
+  }>({ status: "idle", lastSavedAt: null });
 
   // Undo/redo: graph history (only in edit mode with a draft)
   const UNDO_HISTORY_MAX = 50;
@@ -273,7 +300,7 @@ export default function BuilderPage() {
       id: "blocks",
       x: 0,
       y: 0,
-      width: 280,
+      width: 340,
       height: 600,
       visible: !previewParam,
       minimized: false,
@@ -381,7 +408,7 @@ export default function BuilderPage() {
       const gapBelowTopbar = 5;
       const panelTopY = Math.round(headerBottom + gapBelowTopbar);
 
-      const blocksW = 280;
+      const blocksW = 340;
       const inspectorW = 320;
 
       const edgeInset = 0;
@@ -658,6 +685,11 @@ export default function BuilderPage() {
     return `${g.nodes?.length ?? 0}/${g.edges?.length ?? 0}::${ns}::${es}`;
   };
 
+  const hashPersistedGraph = useCallback(
+    (g: { nodes: any[]; edges: any[] }) => hashGraph(stripGraphSecrets(g) as any),
+    [],
+  );
+
   const cloneGraph = (g: { nodes: any[]; edges: any[] }) =>
     JSON.parse(JSON.stringify({ nodes: g.nodes ?? [], edges: g.edges ?? [] }));
 
@@ -742,7 +774,8 @@ export default function BuilderPage() {
     const graph = latestGraphRef.current;
     if (!graph) return;
 
-    const h = hashGraph(graph);
+    const persisted = stripGraphSecrets(graph) as any;
+    const h = hashGraph(persisted);
     if (h === lastSavedHashRef.current) return;
 
     if (saveInFlightRef.current) {
@@ -752,9 +785,11 @@ export default function BuilderPage() {
 
     saveInFlightRef.current = true;
     saveAgainRef.current = false;
+    setSaveUi((s) => ({ ...s, status: "saving" }));
 
     try {
-      const update = { title: name || "Untitled Workflow", graph, updated_at: nowIso() };
+      const updatedAt = nowIso();
+      const update = { title: name || "Untitled Workflow", graph: persisted, updated_at: updatedAt };
 
       const { error } = await supabase
         .from("workflow_drafts")
@@ -762,8 +797,13 @@ export default function BuilderPage() {
         .eq("id", activeDraftId)
         .eq("owner_id", userId);
 
-      if (!error) lastSavedHashRef.current = h;
-      if (error) console.error("Autosave failed", error);
+      if (!error) {
+        lastSavedHashRef.current = h;
+        setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
+      } else {
+        setSaveUi((s) => ({ ...s, status: "error" }));
+        console.error("Autosave failed", error);
+      }
     } finally {
       saveInFlightRef.current = false;
       if (saveAgainRef.current) {
@@ -772,6 +812,18 @@ export default function BuilderPage() {
       }
     }
   }, [supabase, userId, activeDraftId, name, isPreview]);
+
+  const flushAutosaveNow = useCallback(async () => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    await doAutosave();
+    const start = Date.now();
+    while ((saveInFlightRef.current || saveAgainRef.current) && Date.now() - start < 4500) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }, [doAutosave]);
 
   const onGraphChange = useCallback(
     (graph: { nodes: any[]; edges: any[] }) => {
@@ -895,7 +947,11 @@ export default function BuilderPage() {
         });
 
         latestGraphRef.current = g;
-        lastSavedHashRef.current = hashGraph(g);
+        lastSavedHashRef.current = hashPersistedGraph(g);
+        setSaveUi({
+          status: "idle",
+          lastSavedAt: tryParseIsoDate(row.updated_at) ?? new Date(),
+        });
 
         supabase
           .from("workflow_drafts")
@@ -920,7 +976,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory, hashPersistedGraph],
   );
 
   const openPublishedAsDraft = useCallback(
@@ -967,7 +1023,11 @@ export default function BuilderPage() {
 
         const ng = normalizeGraph(row.graph);
         loadGraphAndResetHistory(ng);
-        lastSavedHashRef.current = hashGraph(ng);
+        lastSavedHashRef.current = hashPersistedGraph(ng);
+        setSaveUi({
+          status: "idle",
+          lastSavedAt: tryParseIsoDate(row.updated_at) ?? new Date(),
+        });
 
         safeTrack("Workflow Opened", {
           surface: "builder",
@@ -994,7 +1054,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
+    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory, hashPersistedGraph],
   );
 
   const openMarketplaceWorkflowAsDraft = useCallback(
@@ -1360,11 +1420,18 @@ export default function BuilderPage() {
     if (!g) return;
 
     latestGraphRef.current = g;
+    await flushAutosaveNow();
 
+    const persisted = stripGraphSecrets(g) as any;
+    const h = hashGraph(persisted);
+    if (h === lastSavedHashRef.current) return;
+
+    setSaveUi((s) => ({ ...s, status: "saving" }));
+    const updatedAt = nowIso();
     const update = {
       title: name || "Untitled Workflow",
-      graph: stripGraphSecrets(g) as any,
-      updated_at: nowIso(),
+      graph: persisted,
+      updated_at: updatedAt,
     };
 
     const { error } = await supabase
@@ -1374,11 +1441,13 @@ export default function BuilderPage() {
       .eq("owner_id", userId);
 
     if (!error) {
-      lastSavedHashRef.current = hashGraph(g);
+      lastSavedHashRef.current = h;
+      setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
     } else {
-      console.error("Failed to save draft before publish:", error);
+      setSaveUi((s) => ({ ...s, status: "error" }));
+      console.error("Failed to save draft:", error);
     }
-  }, [supabase, userId, activeDraftId, name, isPreview]);
+  }, [supabase, userId, activeDraftId, name, isPreview, flushAutosaveNow]);
 
   // ----- Floating window drag/resize (foolproof, no crashes) -----
   useEffect(() => {
@@ -1478,6 +1547,9 @@ export default function BuilderPage() {
 
     const graph = beRef.current?.getGraph?.();
     if (!graph) return;
+
+    // Server execution resolves graph from Supabase at run time; flush autosave so runs always use latest edits.
+    await ensureDraftSavedNow();
 
     // Show instant toast notification
     setShowPreparingToast(true);
@@ -1707,6 +1779,10 @@ export default function BuilderPage() {
     });
 
     try {
+      // Server resolves graph from Supabase for authenticated runs — ensure the draft is persisted
+      // right before execution so we never run a stale version.
+      await ensureDraftSavedNow();
+
       // Get access token from auth context to ensure session is passed
       const accessToken = await getAccessToken();
       runSessionPollRef.current?.abort();
@@ -2411,8 +2487,9 @@ export default function BuilderPage() {
           /* Premium Preview Mode Topbar - Mobile Optimized */
           <div
             ref={topbarInnerRef}
-            className="w-full rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between transition-all duration-200"
+            className="relative w-full rounded-2xl px-3 py-2.5 md:px-4 md:py-3 flex items-center justify-between transition-all duration-200 edg-builder-glass"
           >
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-[0.55]" />
             {/* Left: Back Button (mobile) + Logo + Title */}
             <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
               {/* Back button - visible on mobile when we have product page info */}
@@ -2421,10 +2498,10 @@ export default function BuilderPage() {
                   onClick={() => {
                     router.push(`/${previewOwnerHandle}/${previewEdgazeCode}`);
                   }}
-                  className="h-8 w-8 md:h-9 md:w-9 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors shrink-0"
+                  className="edg-builder-btn edg-builder-sheen h-8 w-8 md:h-9 md:w-9 rounded-xl grid place-items-center shrink-0"
                   title="Back to product page"
                 >
-                  <ArrowLeft className="h-4 w-4 md:h-5 md:w-5 text-white/80" />
+                  <IconBack size={18} className="text-white/80" />
                 </button>
               )}
               <div className="shrink-0">
@@ -2454,18 +2531,18 @@ export default function BuilderPage() {
                 onClick={runWorkflow}
                 disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
-                  "relative inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 backdrop-blur-sm px-4 py-2.5 md:px-6 md:py-3 text-[13px] md:text-[14px] font-semibold text-white shadow-[0_8px_32px_rgba(34,211,238,0.25)] hover:from-cyan-500/30 hover:to-purple-500/30 transition-all duration-200",
+                  "edg-builder-btn-run relative inline-flex items-center justify-center gap-2 px-4 py-2.5 md:px-6 md:py-3 text-[13px] md:text-[14px] font-semibold text-white/95",
                   "min-w-[100px] md:min-w-[140px]",
                   (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) &&
                     "opacity-50 cursor-not-allowed",
                 )}
-                title={
+                aria-label={
                   canvasValidation && !canvasValidation.valid
                     ? (canvasValidation.errors[0]?.message ?? "Fix issues before running")
                     : "Run Workflow"
                 }
               >
-                <Play className="h-4 w-4 md:h-5 md:w-5" />
+                <IconRun size={20} tone="brand" className="text-white/95" />
                 <span className="hidden sm:inline">Run</span>
               </button>
 
@@ -2474,16 +2551,16 @@ export default function BuilderPage() {
                 <button
                   onClick={() => beRef.current?.zoomOut?.()}
                   title="Zoom out"
-                  className="h-8 w-8 md:h-9 md:w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className="edg-builder-btn h-8 w-8 md:h-9 md:w-9 rounded-full grid place-items-center"
                 >
-                  <ZoomOut className="h-3.5 w-3.5 md:h-4 md:w-4 text-white/80" />
+                  <IconZoomOut size={18} className="text-white/80" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomIn?.()}
                   title="Zoom in"
-                  className="h-8 w-8 md:h-9 md:w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className="edg-builder-btn h-8 w-8 md:h-9 md:w-9 rounded-full grid place-items-center"
                 >
-                  <ZoomIn className="h-3.5 w-3.5 md:h-4 md:w-4 text-white/80" />
+                  <IconZoomIn size={18} className="text-white/80" />
                 </button>
               </div>
             </div>
@@ -2492,8 +2569,10 @@ export default function BuilderPage() {
           /* Edit Mode Topbar (existing) */
           <div
             ref={topbarInnerRef}
-            className="w-full rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200"
+            className="w-full rounded-2xl px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200 edg-builder-glass relative"
           >
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-[0.55]" />
+
             <div className="flex items-center gap-3 min-w-0">
               <div className="shrink-0">
                 <ProfileAvatar
@@ -2507,16 +2586,24 @@ export default function BuilderPage() {
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <div className="text-[10px] uppercase tracking-widest text-white/50">
-                    Workflow
-                  </div>
+                  <div className="text-[10px] uppercase tracking-widest text-white/50">Workflow</div>
 
                   <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70">
                     v1 Alpha preview
                   </span>
+
+                  {activeDraftId && (
+                    <span className="text-[10px] text-white/40">
+                      {saveUi.status === "saving"
+                        ? "Saving…"
+                        : saveUi.lastSavedAt
+                          ? `Last saved ${formatLastSaved(saveUi.lastSavedAt)}`
+                          : ""}
+                    </span>
+                  )}
                 </div>
 
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="mt-1 flex items-end gap-2 min-w-0">
                   {!editingName ? (
                     <button
                       className="text-[18px] font-semibold text-white truncate hover:text-white/90 transition-colors"
@@ -2553,20 +2640,20 @@ export default function BuilderPage() {
             <div className="flex items-center gap-2 flex-shrink-0">
               <Link
                 href={getDocsLink("/docs/builder/workflow-studio")}
-                className="inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors"
+                className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
                 title="Documentation"
               >
-                <BookOpen className="h-4 w-4 shrink-0" />
+                <IconDocs size={18} />
                 <span className="hidden truncate sm:inline">Docs</span>
               </Link>
 
               <button
                 type="button"
                 onClick={openLauncher}
-                className="inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors"
+                className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
                 title="Home"
               >
-                <Home className="h-4 w-4 shrink-0" />
+                <IconHome size={18} />
                 <span className="hidden truncate sm:inline">Home</span>
               </button>
 
@@ -2574,17 +2661,17 @@ export default function BuilderPage() {
                 onClick={runWorkflow}
                 disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
-                  "inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors",
+                  "edg-builder-btn-run inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none text-white/95",
                   (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) &&
                     "opacity-60 cursor-not-allowed",
                 )}
-                title={
+                aria-label={
                   canvasValidation && !canvasValidation.valid
                     ? (canvasValidation.errors[0]?.message ?? "Fix issues before running")
                     : "Run Workflow"
                 }
               >
-                <Play className="h-4 w-4 shrink-0" />
+                <IconRun size={20} tone="brand" className="text-white/95" />
                 <span className="hidden truncate sm:inline">Run</span>
               </button>
 
@@ -2592,21 +2679,21 @@ export default function BuilderPage() {
                 onClick={publishWorkflow}
                 disabled={!activeDraftId}
                 className={cx(
-                  "inline-flex h-9 w-[7.25rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors",
+                  "edg-builder-btn edg-builder-sheen inline-flex h-9 w-[7.25rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none",
                   !activeDraftId && "opacity-60 cursor-not-allowed",
                 )}
                 title="Publish"
               >
-                <Rocket className="h-4 w-4 shrink-0" />
+                <IconPublish size={18} />
                 <span className="hidden whitespace-nowrap sm:inline">Publish</span>
               </button>
 
               <button
                 onClick={refreshWorkflows}
-                className="inline-flex h-9 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-base leading-none text-white/85 hover:bg-white/10 transition-colors"
+                className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
                 title="Refresh"
               >
-                <RefreshCw className={cx("h-4 w-4 shrink-0", wfLoading && "animate-spin")} />
+                <IconRefresh size={18} className={cx("text-white/85", wfLoading && "animate-spin")} />
                 <span className="hidden whitespace-nowrap sm:inline">Refresh</span>
               </button>
 
@@ -2616,41 +2703,41 @@ export default function BuilderPage() {
                   onClick={undo}
                   disabled={!activeDraftId || undoStack.length === 0}
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
+                    "edg-builder-btn h-9 w-9 rounded-full grid place-items-center",
                     activeDraftId && undoStack.length > 0
-                      ? "bg-white/5 text-white/85 hover:bg-white/10"
-                      : "bg-white/5 text-white/40 cursor-not-allowed",
+                      ? "text-white/85"
+                      : "text-white/40 cursor-not-allowed",
                   )}
                   title="Undo (Ctrl+Z)"
                 >
-                  <Undo2 className="h-4 w-4 shrink-0" />
+                  <IconUndo size={18} className="text-white/85" />
                 </button>
                 <button
                   onClick={redo}
                   disabled={!activeDraftId || redoStack.length === 0}
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
+                    "edg-builder-btn h-9 w-9 rounded-full grid place-items-center",
                     activeDraftId && redoStack.length > 0
-                      ? "bg-white/5 text-white/85 hover:bg-white/10"
-                      : "bg-white/5 text-white/40 cursor-not-allowed",
+                      ? "text-white/85"
+                      : "text-white/40 cursor-not-allowed",
                   )}
                   title="Redo (Ctrl+Shift+Z)"
                 >
-                  <Redo2 className="h-4 w-4 shrink-0" />
+                  <IconRedo size={18} className="text-white/85" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomOut?.()}
                   title="Zoom out (−)"
-                  className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className="edg-builder-btn h-9 w-9 rounded-full grid place-items-center"
                 >
-                  <ZoomOut className="h-4 w-4 shrink-0 text-white/80" />
+                  <IconZoomOut size={18} className="text-white/80" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomIn?.()}
                   title="Zoom in (+)"
-                  className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className="edg-builder-btn h-9 w-9 rounded-full grid place-items-center"
                 >
-                  <ZoomIn className="h-4 w-4 shrink-0 text-white/80" />
+                  <IconZoomIn size={18} className="text-white/80" />
                 </button>
                 <button
                   onClick={() => {
@@ -2661,13 +2748,12 @@ export default function BuilderPage() {
                   }}
                   title={`Toggle grid (G) – ${showGrid ? "On" : "Off"}`}
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
-                    showGrid
-                      ? "bg-white/10 text-white"
-                      : "bg-white/5 text-white/60 hover:bg-white/10",
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    showGrid ? "text-white" : "text-white/60",
                   )}
+                  data-active={showGrid ? "true" : "false"}
                 >
-                  <Grid3X3 className="h-4 w-4 shrink-0" />
+                  <IconGrid size={18} className={showGrid ? "text-white/90" : "text-white/70"} />
                 </button>
                 <button
                   onClick={() => {
@@ -2678,17 +2764,12 @@ export default function BuilderPage() {
                   }}
                   title={`Toggle lock (L) – ${locked ? "Locked" : "Free"}`}
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 grid place-items-center transition-colors",
-                    locked
-                      ? "bg-white/10 text-white"
-                      : "bg-white/5 text-white/70 hover:bg-white/10",
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    locked ? "text-white" : "text-white/70",
                   )}
+                  data-active={locked ? "true" : "false"}
                 >
-                  {locked ? (
-                    <Lock className="h-4 w-4 shrink-0" />
-                  ) : (
-                    <Unlock className="h-4 w-4 shrink-0" />
-                  )}
+                  {locked ? <IconLock size={18} className="text-white/85" /> : <IconUnlock size={18} className="text-white/75" />}
                 </button>
                 <button
                   onClick={() => {
@@ -2698,12 +2779,16 @@ export default function BuilderPage() {
                     }, 0);
                   }}
                   title="Toggle fullscreen (F)"
-                  className="h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors"
+                  className={cx(
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    isFullscreen ? "text-white" : "text-white/70",
+                  )}
+                  data-active={isFullscreen ? "true" : "false"}
                 >
                   {isFullscreen ? (
-                    <Minimize2 className="h-4 w-4 shrink-0 text-white/80" />
+                    <IconExitFullscreen size={18} className="text-white/80" />
                   ) : (
-                    <Maximize2 className="h-4 w-4 shrink-0 text-white/80" />
+                    <IconFullscreen size={18} className="text-white/80" />
                   )}
                 </button>
               </div>
@@ -2711,23 +2796,27 @@ export default function BuilderPage() {
               <div className="flex items-center gap-1 pl-2 border-l border-white/10">
                 <button
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors",
-                    windows.blocks.visible && "ring-2 ring-white/10",
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    windows.blocks.visible && "text-white",
+                    !windows.blocks.visible && "text-white/70",
                   )}
                   title="Toggle Blocks"
                   onClick={() => toggleWindow("blocks")}
+                  data-active={windows.blocks.visible ? "true" : "false"}
                 >
-                  <Plus className="h-4 w-4 shrink-0 text-white/80" />
+                  <IconPanels size={18} className="text-white/80" />
                 </button>
                 <button
                   className={cx(
-                    "h-9 w-9 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 grid place-items-center transition-colors",
-                    windows.inspector.visible && "ring-2 ring-white/10",
+                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    windows.inspector.visible && "text-white",
+                    !windows.inspector.visible && "text-white/70",
                   )}
                   title="Toggle Inspector"
                   onClick={() => toggleWindow("inspector")}
+                  data-active={windows.inspector.visible ? "true" : "false"}
                 >
-                  <LayoutPanelLeft className="h-4 w-4 shrink-0 text-white/80" />
+                  <IconInspector size={18} className="text-white/80" />
                 </button>
               </div>
             </div>

@@ -42,13 +42,6 @@ import ConditionNode from "./nodes/ConditionNode";
 import { emit, on } from "../../lib/bus";
 import { track } from "../../lib/mixpanel";
 import {
-  Maximize2,
-  Minimize2,
-  ZoomIn,
-  ZoomOut,
-  Lock,
-  Unlock,
-  Grid3X3,
   Copy,
   ClipboardPaste,
   CopyPlus,
@@ -152,6 +145,14 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   ref,
 ) {
   const isPreview = mode === "preview";
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px), (pointer: coarse)");
+    const apply = () => setIsMobileViewport(Boolean(mq.matches));
+    apply();
+    mq.addEventListener?.("change", apply);
+    return () => mq.removeEventListener?.("change", apply);
+  }, []);
 
   // nodeTypes is defined outside component and frozen — pass it directly to avoid "new nodeTypes" warning
   const [nodes, setNodes, baseOnNodesChange] = useNodesState<EdgazeNodeData>([]);
@@ -1114,6 +1115,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         fitView
+        // More forgiving magnet radius for handle snapping (especially for small ports on LLM cards)
+        connectionRadius={36}
         snapToGrid
         snapGrid={[16, 16]}
         onInit={onInit}
@@ -1207,29 +1210,29 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             id="workflow-grid"
             gap={20}
             size={1.75}
-            color="rgba(148,163,184,0.35)"
+            color="rgba(255,255,255,0.16)"
             variant={BackgroundVariant.Dots}
           />
         )}
 
-        <MiniMap
-          position="bottom-right"
-          pannable
-          zoomable
-          style={{
-            background: "#05060b",
-            border: "1px solid rgba(148,163,184,0.6)",
-            borderRadius: 12,
-            boxShadow: "0 0 0 1px rgba(15,23,42,0.85) inset, 0 12px 40px rgba(0,0,0,0.7)",
-            bottom: 12,
-            right: 12,
-            width: 180,
-            height: 120,
-          }}
-          nodeColor={() => "#e5e7eb"}
-          nodeStrokeColor={() => "rgba(249,250,251,0.8)"}
-          maskColor="rgba(15,23,42,0.75)"
-        />
+        {/* Minimap: hidden in mobile preview mode */}
+        {!(isPreview && isMobileViewport) && (
+          <MiniMap
+            position="bottom-right"
+            pannable
+            zoomable
+            className="edgaze-minimap"
+            style={{
+              bottom: 12,
+              right: 12,
+              width: 178,
+              height: 116,
+            }}
+            nodeColor={() => "rgba(229,231,235,0.9)"}
+            nodeStrokeColor={() => "rgba(255,255,255,0.85)"}
+            maskColor="rgba(5,6,10,0.78)"
+          />
+        )}
       </ReactFlow>
     </div>
   );

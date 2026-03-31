@@ -35,7 +35,7 @@ export const LEGACY_OPENAI_CHAT_MODEL = "gpt-4o-mini";
 export const LEGACY_OPENAI_IMAGE_MODEL = "gpt-image-1-mini";
 
 /** Default LLM Image: Nano Banana 2 (Gemini 3.1 Flash Image). */
-export const DEFAULT_LLM_IMAGE_MODEL = "gemini-3.1-flash-image";
+export const DEFAULT_LLM_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
 
 const OPENAI_CHAT_PREFIXES = ["gpt-", "o1", "o3", "o4", "chatgpt-"];
 const ANTHROPIC_PREFIXES = ["claude-"];
@@ -128,8 +128,8 @@ export const LLM_CHAT_MODEL_OPTIONS: LlmChatOption[] = [
   },
   // Google
   {
-    value: "gemini-2.5-pro-preview-05-06",
-    label: "Gemini 2.5 Pro (latest) · $$$",
+    value: "gemini-2.5-pro",
+    label: "Gemini 2.5 Pro · $$$",
     provider: "google",
     quality: "high",
     cost: "$$$",
@@ -154,8 +154,8 @@ export type LlmImageOption = {
 
 export const LLM_IMAGE_MODEL_OPTIONS: LlmImageOption[] = [
   {
-    value: "gemini-3.1-flash-image",
-    label: 'Nano Banana 2 (Gemini 3.1 Flash Image) — Recommended ⭐ · $',
+    value: "gemini-3.1-flash-image-preview",
+    label: "Nano Banana 2 (Gemini 3.1 Flash Image Preview) — Recommended ⭐ · $",
     provider: "google",
     quality: "balanced",
     cost: "$",

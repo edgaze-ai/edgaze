@@ -383,6 +383,264 @@ input:-webkit-autofill:active {
   border: 1px solid var(--edge-border);
 }
 
+/* =========================
+   Builder OS (premium, controlled)
+   ========================= */
+
+:root {
+  --edgaze-accent: linear-gradient(90deg, #78e9ff 0%, #b68cff 54%, #ff6db2 100%);
+  --edgaze-accent-soft: linear-gradient(
+    135deg,
+    rgba(120, 233, 255, 0.16) 0%,
+    rgba(182, 140, 255, 0.12) 55%,
+    rgba(255, 109, 178, 0.12) 100%
+  );
+  --edgaze-glass: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.022));
+  --edgaze-glass-2: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.026));
+  --edgaze-border: rgba(255, 255, 255, 0.11);
+  --edgaze-border-strong: rgba(255, 255, 255, 0.16);
+  --edgaze-inner-highlight: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  --edgaze-shadow: 0 24px 120px rgba(0, 0, 0, 0.68);
+  --edgaze-shadow-tight: 0 14px 56px rgba(0, 0, 0, 0.62);
+  --edgaze-ease-fast: 150ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  --edgaze-ease: 220ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  --edgaze-ease-slow: 340ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.edg-builder-glass {
+  background: var(--edgaze-glass);
+  border: 1px solid var(--edgaze-border);
+  box-shadow: var(--edgaze-shadow-tight);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.edg-builder-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+.edg-builder-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  transform: translateX(-12%);
+  background: linear-gradient(110deg, transparent 38%, rgba(255, 255, 255, 0.12) 50%, transparent 62%);
+  transition:
+    opacity var(--edgaze-ease),
+    transform var(--edgaze-ease);
+}
+
+.edg-builder-sheen:hover::after {
+  opacity: 1;
+  transform: translateX(12%);
+}
+
+.edg-builder-accent-ring {
+  position: relative;
+}
+
+.edg-builder-accent-ring::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: var(--edgaze-accent);
+  padding: 1px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  transition: opacity var(--edgaze-ease);
+}
+
+.edg-builder-accent-ring.is-active::after,
+.edg-builder-accent-ring[data-active="true"]::after {
+  opacity: 1;
+}
+
+.edg-builder-btn {
+  position: relative;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.84);
+  transition:
+    transform var(--edgaze-ease-fast),
+    background var(--edgaze-ease),
+    border-color var(--edgaze-ease),
+    color var(--edgaze-ease);
+}
+
+.edg-builder-btn:hover {
+  /* No positional motion — keeps accent ring locked */
+  transform: none;
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.48);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.edg-builder-btn:active {
+  transform: scale(0.99);
+}
+
+.edg-builder-btn-primary {
+  border-color: rgba(120, 233, 255, 0.22);
+  background: var(--edgaze-accent-soft);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(120, 233, 255, 0.08) inset;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.edg-builder-btn-primary:hover {
+  filter: brightness(1.06);
+  border-color: rgba(255, 109, 178, 0.22);
+}
+
+/* Purpose-built Run button (no weird sweep; premium bevel) */
+.edg-builder-btn-run {
+  position: relative;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(120% 140% at 20% 0%, rgba(120, 233, 255, 0.18), transparent 55%),
+    radial-gradient(120% 140% at 100% 100%, rgba(255, 109, 178, 0.14), transparent 52%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  box-shadow:
+    0 18px 64px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  transition:
+    filter var(--edgaze-ease),
+    border-color var(--edgaze-ease),
+    transform var(--edgaze-ease-fast);
+}
+
+.edg-builder-btn-run::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.9;
+  background: linear-gradient(90deg, rgba(120, 233, 255, 0.55), rgba(182, 140, 255, 0.5), rgba(255, 109, 178, 0.55));
+  padding: 1px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.edg-builder-btn-run::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle at 30% 0%, rgba(255, 255, 255, 0.22), transparent 42%);
+  opacity: 0.55;
+}
+
+.edg-builder-btn-run:hover {
+  filter: brightness(1.07);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 22px 74px rgba(0, 0, 0, 0.66),
+    0 0 0 1px rgba(255, 255, 255, 0.06) inset,
+    0 0 26px rgba(120, 233, 255, 0.08),
+    0 0 26px rgba(255, 109, 178, 0.06);
+}
+
+.edg-builder-btn-run:active {
+  transform: scale(0.99);
+  filter: brightness(1.02);
+}
+
+.edg-builder-btn-run:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* Static accent button (e.g. Block Library "Add") */
+.edg-builder-btn-add {
+  position: relative;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow:
+    0 14px 46px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  transition:
+    background var(--edgaze-ease),
+    border-color var(--edgaze-ease),
+    filter var(--edgaze-ease);
+}
+
+.edg-builder-btn-add::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--edgaze-accent);
+  padding: 1px;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.9;
+}
+
+.edg-builder-btn-add::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(circle at 25% 0%, rgba(255, 255, 255, 0.18), transparent 44%);
+  opacity: 0.5;
+}
+
+.edg-builder-btn-add:hover {
+  background: rgba(255, 255, 255, 0.045);
+  border-color: rgba(255, 255, 255, 0.16);
+  filter: brightness(1.04);
+}
+
+.edg-builder-btn-add:active {
+  filter: brightness(1.02);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edg-builder-btn,
+  .edg-builder-sheen::after {
+    transition: none !important;
+  }
+  .edg-builder-btn:hover {
+    transform: none !important;
+  }
+}
+
+.edg-builder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(0, 0, 0, 0.28);
+  padding: 6px 10px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 /* ---------- Premium animations & transitions ---------- */
 .edge-card,
 .edge-card-dark,
@@ -673,12 +931,15 @@ input:-webkit-autofill:active {
 .edgaze-minimap {
   border-radius: 14px;
   padding: 2px;
-  background: linear-gradient(90deg, #55e9d3, #ff85c1);
+  background: var(--edgaze-accent);
 }
 .edgaze-minimap > * {
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(5, 6, 10, 0.75), rgba(5, 6, 10, 0.55));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 16px 60px rgba(0, 0, 0, 0.62);
 }
 
 /* --- Mode toggle --- */

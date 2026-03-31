@@ -200,7 +200,7 @@ export const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
             summary: "Generate images with Nano Banana or GPT Image.",
             config: {
               prompt: "A beautiful landscape",
-              model: "gemini-3.1-flash-image",
+              model: "gemini-3.1-flash-image-preview",
               size: "1024x1024",
               quality: "medium",
               n: 1,

@@ -4,9 +4,40 @@
 
 import type { Connection, Edge } from "reactflow";
 
-const CHAT_TARGETS = ["output", "merge", "condition", "json-parse"];
-const EMBED_TARGETS = ["output", "merge", "condition"];
-const IMAGE_TARGETS = ["output", "merge", "condition"];
+// "Data" connections: these targets accept inbound values via the workflow data pipeline.
+// Keep this permissive for LLM chaining (LLM → LLM) while still guarding structural rules below.
+const CHAT_TARGETS = [
+  "output",
+  "merge",
+  "condition",
+  "json-parse",
+  // Allow chaining between LLM nodes
+  "llm-chat",
+  "openai-chat",
+  "llm-embeddings",
+  "openai-embeddings",
+  "llm-image",
+  "openai-image",
+];
+const EMBED_TARGETS = [
+  "output",
+  "merge",
+  "condition",
+  // Allow embeddings → LLM (e.g. stringify vectors, pass IDs/metadata)
+  "llm-chat",
+  "openai-chat",
+  "llm-image",
+  "openai-image",
+];
+const IMAGE_TARGETS = [
+  "output",
+  "merge",
+  "condition",
+  // Allow image results → chat prompts, etc.
+  "llm-chat",
+  "openai-chat",
+  "json-parse",
+];
 
 /**
  * For each source specId, which target specIds it can connect TO.

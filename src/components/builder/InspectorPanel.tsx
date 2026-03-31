@@ -914,9 +914,12 @@ export default function InspectorPanel({
   return (
     <div className="h-full w-full min-w-0 text-white flex flex-col">
       <div className="px-4 pt-4 pb-2 shrink-0">
-        <div className="flex items-center gap-2">
+        <div className="relative flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+          <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-50" />
           <Eye size={16} className="text-white/60" />
-          <span className="text-[13px] font-semibold text-white/95 tracking-tight">Inspector</span>
+          <span className="text-[12px] font-semibold tracking-[0.02em] text-white/92">
+            Inspector
+          </span>
         </div>
         {selected && fieldHint && (
           <div
@@ -966,11 +969,11 @@ export default function InspectorPanel({
         )}
         {!selected && !multiSelected && (
           <div className="pt-6 text-center">
-            <div className="mx-auto h-12 w-12 rounded-full bg-[#0c0c0c] border border-white/[0.08] grid place-items-center">
+            <div className="mx-auto h-12 w-12 rounded-2xl bg-black/20 border border-white/[0.10] grid place-items-center shadow-[0_16px_50px_rgba(0,0,0,0.55)]">
               <Eye size={20} className="text-white/40" />
             </div>
-            <div className="mt-3 text-[12px] text-white/70">Select a block to edit</div>
-            <div className="mt-1 text-[10px] text-white/40">
+            <div className="mt-3 text-[12px] font-medium text-white/78">Select a block to edit</div>
+            <div className="mt-1 text-[11px] leading-6 text-white/45">
               Drag blocks from the left, then click to configure.
             </div>
             <div className="mt-4 space-y-2 text-left">

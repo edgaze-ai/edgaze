@@ -56,6 +56,53 @@ function isImageLike(value: unknown): boolean {
   return /^(https?:\/\/.*\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?)$/i.test(value);
 }
 
+function useImageObjectUrl(value: unknown) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [isDataUrl, setIsDataUrl] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    let objectUrl: string | null = null;
+
+    async function run() {
+      if (typeof value !== "string") {
+        setIsDataUrl(false);
+        setUrl(null);
+        return;
+      }
+      const trimmed = value.trim();
+      const dataUrl = trimmed.startsWith("data:image/");
+      setIsDataUrl(dataUrl);
+      if (!dataUrl) {
+        setUrl(trimmed);
+        return;
+      }
+
+      try {
+        // Convert the huge data URL into a short-lived blob URL so "Open image" works reliably
+        // (some browsers will fail/navigate to about:blank for very large data: URLs).
+        const blob = await (await fetch(trimmed)).blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (!alive) return;
+        setUrl(objectUrl);
+      } catch {
+        // Fallback: keep the original data URL (still renders inline via <img src>)
+        if (!alive) return;
+        setUrl(trimmed);
+      }
+    }
+
+    run();
+
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [value]);
+
+  return { url, isDataUrl };
+}
+
 function isProbablyFileUrl(value: unknown): boolean {
   return typeof value === "string" && /^https?:\/\//i.test(value);
 }
@@ -265,16 +312,21 @@ function ResultPanel({
   value,
   expanded = false,
   onToggleExpand,
+  onRerun,
 }: {
   label: string;
   value: unknown;
   expanded?: boolean;
   onToggleExpand?: () => void;
+  onRerun?: () => void;
 }) {
   const canExpand = Boolean(onToggleExpand);
+  const [copied, setCopied] = useState(false);
 
   if (isImageLike(value)) {
-    const url = String(value);
+    const { url } = useImageObjectUrl(value);
+    const raw = typeof value === "string" ? value.trim() : "";
+    const imgSrc = url || raw;
     return (
       <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.34)]">
         <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-white/42">
@@ -291,15 +343,58 @@ function ResultPanel({
           )}
         </div>
         <div className="mt-3 text-[16px] font-medium text-white/92">Your image is ready</div>
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09]"
+        <div
+          className={cx(
+            // Avoid cropping: let the <img> size itself, only cap max-height.
+            "mt-4 rounded-2xl border border-white/10 bg-black/30 p-3",
+            expanded ? "max-h-[72vh]" : "max-h-[420px]",
+          )}
         >
-          Open image
-          <ArrowRight className="h-4 w-4" />
-        </a>
+          <div className="h-full w-full overflow-auto">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imgSrc}
+              alt="Generated image"
+              className={cx(
+                "mx-auto block w-full object-contain",
+                expanded ? "max-h-[68vh]" : "max-h-[392px]",
+              )}
+              style={{ height: "auto" }}
+              onError={(e) => {
+                const el = e.currentTarget;
+                el.style.display = "none";
+              }}
+            />
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (!imgSrc) return;
+              window.open(imgSrc, "_blank", "noopener,noreferrer");
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09]"
+          >
+            Open image
+            <ArrowRight className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!imgSrc) return;
+              const a = document.createElement("a");
+              a.href = imgSrc;
+              a.download = `image-${Date.now()}.jpg`;
+              a.rel = "noreferrer";
+              a.click();
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09]"
+          >
+            Download
+            <Download className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     );
   }
@@ -355,6 +450,31 @@ function ResultPanel({
           )}
         </div>
         <ProsePanel text={value} />
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              void copyText(value).then(() => {
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1800);
+              });
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09]"
+          >
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? "Copied" : "Copy"}
+          </button>
+          {onRerun && (
+            <button
+              type="button"
+              onClick={onRerun}
+              className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(67,201,255,0.20),rgba(129,101,255,0.14))] px-4 py-2 text-sm text-white transition hover:brightness-110"
+            >
+              <RefreshCcw className="h-4 w-4" />
+              Run again
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -788,8 +908,10 @@ function ReadyStateSurface({
 
 function ResultsSurface({
   state,
+  onRerun,
 }: {
   state: WorkflowRunState;
+  onRerun?: () => void;
 }) {
   const model = deriveCustomerRuntimeModel(state);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -816,16 +938,42 @@ function ResultsSurface({
         : state.error || state.summary || undefined;
   const singleOutput = outputs.length <= 1;
 
-  return (
+  const chrome = (
     <div className="space-y-5">
       <div className="text-center">
         <div className="text-[34px] font-medium tracking-[-0.04em] text-white md:text-[46px]">{title}</div>
         {subline && <div className="mx-auto mt-4 max-w-[56ch] text-[15px] leading-7 text-white/62">{subline}</div>}
       </div>
 
-      <div className={cx("gap-4", singleOutput ? "space-y-4" : "grid md:grid-cols-[220px_minmax(0,1fr)]")}>
+      {outputs.length > 1 && (
+        <div className="md:hidden">
+          <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-2">
+            <div className="mb-1 px-3 pt-1.5 text-[11px] uppercase tracking-[0.18em] text-white/42">Outputs</div>
+            <div className="flex gap-2 overflow-auto px-2 pb-2 scrollbar-hide">
+              {outputs.map((output, index) => (
+                <button
+                  key={`${output.nodeId}-${index}`}
+                  type="button"
+                  onClick={() => setActiveIndex(index)}
+                  className={cx(
+                    "shrink-0 rounded-full border px-3 py-2 text-left text-sm transition",
+                    index === activeIndex
+                      ? "border-cyan-300/25 bg-[linear-gradient(135deg,rgba(77,208,255,0.18),rgba(233,77,255,0.10))] text-white"
+                      : "border-white/10 bg-white/[0.02] text-white/65 hover:bg-white/[0.05]",
+                  )}
+                >
+                  <span className="mr-2 text-[11px] uppercase tracking-[0.18em] text-white/45">{index + 1}</span>
+                  <span className="max-w-[32ch] truncate align-middle">{formatOutputLabel(output.label)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className={cx("gap-4", singleOutput ? "space-y-4" : "grid md:grid-cols-[240px_minmax(0,1fr)]")}>
         {outputs.length > 1 && (
-          <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-3">
+          <div className="hidden rounded-[26px] border border-white/10 bg-white/[0.03] p-3 md:block">
             <div className="mb-2 px-3 pt-2 text-[11px] uppercase tracking-[0.18em] text-white/42">Outputs</div>
             <div className="space-y-2">
               {outputs.map((output, index) => (
@@ -850,22 +998,13 @@ function ResultsSurface({
 
         <div className={cx("space-y-4", singleOutput && "mx-auto w-full max-w-[1100px]")}>
           {activeOutput ? (
-            <>
-              {expanded && (
-                <button
-                  type="button"
-                  onClick={() => setExpanded(false)}
-                  className="fixed inset-0 z-[10005] bg-black/75 backdrop-blur-sm"
-                  aria-label="Close expanded output"
-                />
-              )}
-              <ResultPanel
-                label={formatOutputLabel(activeOutput.label)}
-                value={activeOutput.value}
-                expanded={expanded}
-                onToggleExpand={() => setExpanded((value) => !value)}
-              />
-            </>
+            <ResultPanel
+              label={formatOutputLabel(activeOutput.label)}
+              value={activeOutput.value}
+              expanded={expanded}
+              onToggleExpand={() => setExpanded((value) => !value)}
+              onRerun={onRerun}
+            />
           ) : model.hasUsefulPartialOutput && model.primaryLiveText?.text ? (
             <ProsePanel text={model.primaryLiveText.text} />
           ) : (
@@ -877,6 +1016,26 @@ function ResultsSurface({
         </div>
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {!expanded ? (
+        chrome
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="fixed inset-0 z-[10005] bg-black/75 backdrop-blur-sm"
+            aria-label="Close expanded output"
+          />
+          <div className="fixed inset-0 z-[10010] overflow-auto px-4 py-6 md:px-8 md:py-10">
+            <div className="mx-auto w-full max-w-[1260px]">{chrome}</div>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
@@ -970,7 +1129,7 @@ export default function CustomerWorkflowRuntimeSurface({
       ) : model.mode === "results" || model.mode === "partial_results" || model.mode === "failure" || model.mode === "cancelled" ? (
         <>
           {hideHeader && <ExecutionChrome state={state} onCancel={onCancel} onClose={onClose} />}
-          <ResultsSurface state={state} />
+          <ResultsSurface state={state} onRerun={onRerun} />
           {!hideActionZone && (
             <ActionZone
               state={state}

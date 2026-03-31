@@ -720,6 +720,12 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     model = LEGACY_OPENAI_CHAT_MODEL;
   }
 
+  // Gemini preview IDs rotate frequently; map legacy stored IDs to models that exist for v1beta ListModels.
+  const LEGACY_GEMINI_CHAT_MODEL: Record<string, string> = {
+    "gemini-2.5-pro-preview-05-06": "gemini-2.5-pro",
+  };
+  model = LEGACY_GEMINI_CHAT_MODEL[model] ?? model;
+
   const provider = resolveLlmChatProvider(model);
   const apiKey = getApiKey(node, ctx);
   if (!apiKey) {
@@ -1166,6 +1172,21 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     throw new Error("Prompt required for image generation");
   }
 
+  // Desired output size from inspector (Gemini doesn't guarantee exact pixels, but this helps).
+  const requestedSizeRaw = typeof config.size === "string" ? config.size.trim() : "";
+  const requestedSize = requestedSizeRaw || "1024x1024";
+  const [reqW, reqH] = requestedSize
+    .split("x")
+    .map((n) => Number(n))
+    .slice(0, 2) as [number, number];
+  const isValidSize = Number.isFinite(reqW) && Number.isFinite(reqH) && reqW > 0 && reqH > 0;
+  const sizeHint = isValidSize
+    ? `\n\nOutput requirements:\n- Dimensions: ${Math.round(reqW)}x${Math.round(reqH)} pixels\n- Aspect: ${
+        reqW === reqH ? "square" : reqW > reqH ? "landscape" : "portrait"
+      }\n`
+    : "";
+  const effectivePrompt = `${prompt}${sizeHint}`;
+
   const apiKey = getApiKey(node, ctx);
   const hasApiKey = !!apiKey;
   const isUserApiKey = isUserProvidedApiKey(node, ctx);
@@ -1238,8 +1259,8 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   try {
     if (imageProvider === "google") {
       const LEGACY_GEMINI_LLM_IMAGE_MODEL: Record<string, string> = {
-        "gemini-3.1-flash-image-preview": "gemini-3.1-flash-image",
-        "gemini-3-pro-image-preview": "gemini-3.1-flash-image",
+        // Older workflows stored non-preview IDs that 404 on v1beta for many keys.
+        "gemini-3.1-flash-image": "gemini-3.1-flash-image-preview",
       };
       model = LEGACY_GEMINI_LLM_IMAGE_MODEL[model] ?? model;
 
@@ -1248,7 +1269,11 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ role: "user", parts: [{ text: effectivePrompt }] }],
+          // Gemini "image" models often need an explicit modality request; otherwise they may return text.
+          generationConfig: {
+            responseModalities: ["IMAGE"],
+          },
         }),
         signal: controller.signal,
       });
@@ -1285,8 +1310,15 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         }
       }
       if (!imageUrl) {
+        const returnedPartTypes = Array.isArray(parts)
+          ? parts
+              .map((p: any) =>
+                p?.inlineData?.data ? "inlineData" : typeof p?.text === "string" ? "text" : "unknown",
+              )
+              .join(",")
+          : "none";
         throw new Error(
-          "Gemini did not return image data. Try another model or simplify the prompt.",
+          `Gemini did not return image data (parts: ${returnedPartTypes}). Try another image model (e.g. gemini-2.5-flash-image, gemini-3-pro-image-preview) or simplify the prompt.`,
         );
       }
 
