@@ -533,14 +533,23 @@ function ExecutionChrome({
   onCancel?: () => void;
   onClose?: () => void;
 }) {
+  const [elapsedTick, setElapsedTick] = useState(0);
+  useEffect(() => {
+    if (state.status !== "running" && state.status !== "cancelling") return;
+    const id = window.setInterval(() => setElapsedTick((t) => t + 1), 500);
+    return () => window.clearInterval(id);
+  }, [state.status]);
+
   const model = deriveCustomerRuntimeModel(state);
   if (!model) return null;
+
+  void elapsedTick;
 
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] text-white/62">
         <Clock3 className="h-3.5 w-3.5" />
-        {model.elapsedLabel ?? formatRunElapsed(state.startedAt)}
+        {model.elapsedLabel ?? formatRunElapsed(state.startedAt, state.finishedAt)}
       </div>
       <div className="flex items-center gap-2">
         {model.canCancel && onCancel && (
@@ -1180,10 +1189,7 @@ export default function CustomerWorkflowRuntimeSurface({
           requiresApiKeys={requiresApiKeys}
           onBuyWorkflow={onBuyWorkflow}
         />
-      ) : model.mode === "results" ||
-        model.mode === "partial_results" ||
-        model.mode === "failure" ||
-        model.mode === "cancelled" ? (
+      ) : state.status === "success" || state.status === "error" || state.status === "cancelled" ? (
         <>
           {hideHeader && <ExecutionChrome state={state} onCancel={onCancel} onClose={onClose} />}
           <ResultsSurface key={state.runId} state={state} onRerun={onRerun} />

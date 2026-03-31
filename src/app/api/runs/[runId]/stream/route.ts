@@ -65,9 +65,15 @@ async function waitWithAbort(signal: AbortSignal, delayMs: number): Promise<void
   });
 }
 
-const PERIODIC_SNAPSHOT_MS = 3000;
-/** When no new events, poll DB this often so the UI tracks real execution without ~1s artificial lag. */
-const SSE_IDLE_POLL_MS = 200;
+const PERIODIC_SNAPSHOT_MS = 1000;
+/** When no new events, poll DB this often so the UI tracks execution with minimal lag. */
+const SSE_IDLE_POLL_MS = 75;
+
+function isTerminalWorkflowRunRowStatus(status: string): boolean {
+  return (
+    status === "completed" || status === "failed" || status === "cancelled" || status === "timeout"
+  );
+}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   if (!isWorkflowExecutionV2StreamingEnabled()) {
@@ -79,8 +85,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
 
   const { runId } = await params;
 
+  let workflowRunRowStatus = "";
   try {
-    await requireWorkflowRunAccess(req, runId);
+    const access = await requireWorkflowRunAccess(req, runId);
+    workflowRunRowStatus = access.workflowRunRowStatus;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal server error";
     const status =
@@ -107,17 +115,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
       try {
         controller.enqueue(encoder.encode(encodeSseChunk({ comment: "connected" })));
 
-        const bootstrap = await loadWorkflowRunBootstrap({
-          runId,
-          afterSequence: initialAfterSequence,
-          eventLimit: 500,
-        });
-
-        const shouldRunWorker =
-          bootstrap.run.status !== "completed" &&
-          bootstrap.run.status !== "failed" &&
-          bootstrap.run.status !== "cancelled";
-
+        /** Start worker before heavy bootstrap so execution progresses while the first snapshot loads. */
+        const shouldRunWorker = !isTerminalWorkflowRunRowStatus(workflowRunRowStatus);
         const activeWorker = shouldRunWorker
           ? ensureWorkflowRunWorker({
               runId,
@@ -125,6 +124,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
               workerId: `stream:${runId}`,
             })
           : null;
+
+        const bootstrap = await loadWorkflowRunBootstrap({
+          runId,
+          afterSequence: initialAfterSequence,
+          eventLimit: 500,
+        });
 
         controller.enqueue(
           encoder.encode(
@@ -167,7 +172,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
                 );
               }
             } else {
-              controller.enqueue(encoder.encode(encodeSseChunk({ comment: "keepalive" })));
+              controller.enqueue(
+                encoder.encode(
+                  encodeSseChunk({
+                    event: "ping",
+                    data: { t: Date.now() },
+                  }),
+                ),
+              );
             }
 
             const isTerminal =
@@ -241,7 +253,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
   return new Response(stream, {
     headers: {
       "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
+      "Cache-Control": "no-store, no-cache, no-transform",
+      Pragma: "no-cache",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     },

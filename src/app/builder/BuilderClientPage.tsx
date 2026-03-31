@@ -1974,6 +1974,9 @@ export default function BuilderPage() {
                       prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
                     );
                   },
+                  onPing: async () => {
+                    setRunState((prev) => (prev ? { ...prev, lastEventAt: Date.now() } : prev));
+                  },
                 }).catch((error) => {
                   if (sessionController.signal.aborted) return;
                   const message =

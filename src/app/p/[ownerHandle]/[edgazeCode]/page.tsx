@@ -2288,6 +2288,11 @@ export default function PromptProductPage() {
                     prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
                   );
                 },
+                onPing: async () => {
+                  setWorkflowRunState((prev) =>
+                    prev ? { ...prev, lastEventAt: Date.now() } : prev,
+                  );
+                },
               }).catch((error) => {
                 if (sessionController.signal.aborted) return;
                 const message =

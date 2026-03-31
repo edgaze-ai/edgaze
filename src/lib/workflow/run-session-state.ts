@@ -268,11 +268,33 @@ function applyNodeStatusEvent(params: {
     latestStatusEvent: params.event as Record<string, unknown>,
   });
 
+  const mappedStatus = mapV2StatusToStepStatus(params.rawStatus);
+  if (!params.state.steps.some((s) => s.id === params.nodeId)) {
+    const gn = params.state.graph?.nodes?.find((n) => n.id === params.nodeId);
+    const cfg = gn?.data?.config as Record<string, unknown> | undefined;
+    const cfgName = typeof cfg?.name === "string" ? cfg.name.trim() : "";
+    const title =
+      (typeof gn?.data?.title === "string" && gn.data.title.trim()) ||
+      cfgName ||
+      String(gn?.data?.specId ?? params.nodeId);
+    return [
+      ...params.state.steps,
+      {
+        id: params.nodeId,
+        title,
+        status: mappedStatus,
+        detail: presentation.detail,
+        statusLabel: presentation.statusLabel,
+        timestamp: Date.now(),
+      },
+    ];
+  }
+
   return params.state.steps.map((step) =>
     step.id === params.nodeId
       ? {
           ...step,
-          status: mapV2StatusToStepStatus(params.rawStatus),
+          status: mappedStatus,
           detail: presentation.detail ?? step.detail,
           statusLabel: presentation.statusLabel,
           timestamp: Date.now(),
@@ -337,11 +359,29 @@ export function applyWorkflowRunEventToState(params: {
   const logs = appendLogLine(params);
   const liveTextByNode = applyLiveTextEvent(params);
 
+  let nextSession = params.state.session;
+  if (nodeId && rawStatus && params.state.session?.nodesById) {
+    const prevNode = params.state.session.nodesById[nodeId];
+    nextSession = {
+      ...params.state.session,
+      nodesById: {
+        ...params.state.session.nodesById,
+        [nodeId]: {
+          status: rawStatus,
+          inputPayload: prevNode?.inputPayload,
+          outputPayload: prevNode?.outputPayload,
+          errorPayload: prevNode?.errorPayload,
+        },
+      },
+    };
+  }
+
   return {
     ...params.state,
     phase: terminal ? "output" : params.state.phase,
     status: nextStatus,
     steps,
+    session: nextSession,
     currentStepId:
       nodeId && rawStatus === "running"
         ? nodeId
@@ -350,8 +390,11 @@ export function applyWorkflowRunEventToState(params: {
           : (steps.find((step) => step.status === "running")?.id ?? null),
     logs,
     liveTextByNode,
-    connectionState:
-      params.state.connectionState === "reconnecting" ? "live" : params.state.connectionState,
+    connectionState: terminal
+      ? "idle"
+      : params.state.connectionState === "reconnecting"
+        ? "live"
+        : params.state.connectionState,
     connectionLabel: undefined,
     lastEventAt: Date.now(),
     lastEventSequence:

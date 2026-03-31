@@ -104,17 +104,116 @@ export function getRuntimeNodeLabel(node: WorkflowRunGraphNode | undefined): str
   return raw || "Working...";
 }
 
+/** Kahn topo order aligned with builder run modal — stable tie-break by id. */
+function topologicalWorkflowNodeOrder(state: WorkflowRunState): string[] {
+  const graphNodes = state.graph?.nodes ?? [];
+  const graphEdges = state.graph?.edges ?? [];
+  if (!graphNodes.length) {
+    return state.steps.map((step) => step.id);
+  }
+
+  const nodeIds = graphNodes.map((node) => node.id);
+  const indegree = new Map<string, number>();
+  const outgoing = new Map<string, string[]>();
+
+  for (const nodeId of nodeIds) {
+    indegree.set(nodeId, 0);
+    outgoing.set(nodeId, []);
+  }
+
+  for (const edge of graphEdges) {
+    if (!indegree.has(edge.source) || !indegree.has(edge.target)) continue;
+    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
+    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge.target]);
+  }
+
+  const ready = [...nodeIds.filter((nodeId) => (indegree.get(nodeId) ?? 0) === 0)].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  const order: string[] = [];
+
+  while (ready.length > 0) {
+    const current = ready.shift();
+    if (!current) break;
+    order.push(current);
+
+    const nextTargets = [...(outgoing.get(current) ?? [])].sort((a, b) => a.localeCompare(b));
+    for (const target of nextTargets) {
+      const nextDegree = (indegree.get(target) ?? 1) - 1;
+      indegree.set(target, nextDegree);
+      if (nextDegree === 0) {
+        ready.push(target);
+        ready.sort((a, b) => a.localeCompare(b));
+      }
+    }
+  }
+
+  const remaining = nodeIds.filter((nodeId) => !order.includes(nodeId));
+  if (remaining.length > 0) {
+    order.push(...[...remaining].sort((a, b) => a.localeCompare(b)));
+  }
+
+  return order;
+}
+
 function getActiveNodeIds(state: WorkflowRunState): string[] {
+  const fromSteps = state.steps.filter((step) => step.status === "running").map((step) => step.id);
   const fromSession = Object.entries(state.session?.nodesById ?? {})
     .filter(([, node]) => node.status === "running")
     .map(([nodeId]) => nodeId);
-  if (fromSession.length > 0) return fromSession;
 
-  const fromSteps = state.steps.filter((step) => step.status === "running").map((step) => step.id);
-  if (fromSteps.length > 0) return fromSteps;
+  const streamingNodeIds = Object.values(state.liveTextByNode ?? {})
+    .filter((e) => e.status === "streaming")
+    .map((e) => e.nodeId);
 
-  if (state.currentStepId) return [state.currentStepId];
-  return [];
+  let candidates: string[] =
+    fromSteps.length > 0 ? fromSteps : fromSession.length > 0 ? [...fromSession] : [];
+
+  if (streamingNodeIds.length > 0) {
+    const tiedToDeclared = streamingNodeIds.filter(
+      (id) => candidates.length === 0 || candidates.includes(id),
+    );
+    if (tiedToDeclared.length > 0) {
+      candidates = tiedToDeclared;
+    } else {
+      candidates = [...candidates, ...streamingNodeIds];
+    }
+  }
+
+  const graphNodes = state.graph?.nodes ?? [];
+  const graphIdSet = new Set(graphNodes.map((n) => n.id));
+  if (graphIdSet.size > 0) {
+    candidates = candidates.filter((id) => graphIdSet.has(id));
+  }
+
+  if (candidates.length === 0 && state.currentStepId) {
+    if (graphIdSet.size === 0 || graphIdSet.has(state.currentStepId)) {
+      return [state.currentStepId];
+    }
+  }
+  if (candidates.length === 0) {
+    const runningInGraph = state.steps
+      .filter((s) => s.status === "running" && (graphIdSet.size === 0 || graphIdSet.has(s.id)))
+      .map((s) => s.id);
+    if (runningInGraph.length > 0) return runningInGraph.slice(0, 3);
+    return [];
+  }
+
+  const specById = new Map(
+    (state.graph?.nodes ?? []).map((n) => [n.id, String(n.data?.specId ?? "")]),
+  );
+
+  const nonOutput = candidates.filter((id) => specById.get(id) !== "output");
+  if (nonOutput.length > 0) {
+    candidates = nonOutput;
+  }
+
+  const order = topologicalWorkflowNodeOrder(state);
+  const rank = (id: string) => {
+    const i = order.indexOf(id);
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  return [...candidates].sort((a, b) => rank(a) - rank(b)).slice(0, 3);
 }
 
 function getQueuedNodeLabel(state: WorkflowRunState): string | undefined {

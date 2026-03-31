@@ -930,7 +930,7 @@ export async function POST(req: Request) {
                     break;
                   }
 
-                  await new Promise((resolve) => setTimeout(resolve, 250));
+                  await new Promise((resolve) => setTimeout(resolve, events.length > 0 ? 0 : 100));
                 }
               };
 
@@ -1047,7 +1047,7 @@ export async function POST(req: Request) {
               runAccessToken,
             });
           }
-          await new Promise((resolve) => setTimeout(resolve, 250));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       } catch (err: unknown) {
         const duration = Date.now() - startTime;
