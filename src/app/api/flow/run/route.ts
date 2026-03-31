@@ -950,11 +950,14 @@ export async function POST(req: Request) {
                     if (events.length === 0) {
                       terminalGapPolls += 1;
                       if (terminalGapPolls >= V2_TERMINAL_EVENT_GAP_POLLS) {
-                        console.warn("[flow/run] V2 NDJSON poll: terminal run, forcing event catch-up", {
-                          runId,
-                          afterSequence,
-                          lastSeq,
-                        });
+                        console.warn(
+                          "[flow/run] V2 NDJSON poll: terminal run, forcing event catch-up",
+                          {
+                            runId,
+                            afterSequence,
+                            lastSeq,
+                          },
+                        );
                         afterSequence = Math.max(afterSequence, lastSeq);
                         break;
                       }
@@ -1059,9 +1062,7 @@ export async function POST(req: Request) {
 
           const peek = await peekWorkflowRunStatus({ runId });
           const isTerminal =
-            peek.status === "completed" ||
-            peek.status === "failed" ||
-            peek.status === "cancelled";
+            peek.status === "completed" || peek.status === "failed" || peek.status === "cancelled";
           if (!isTerminal) {
             await new Promise((resolve) => setTimeout(resolve, 100));
             continue;
