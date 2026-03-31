@@ -905,6 +905,7 @@ export default function WorkflowProductPage() {
   const autoActionTriggeredRef = useRef(false);
   const demoRunAbortRef = useRef<AbortController | null>(null);
   const demoRunSessionPollRef = useRef<AbortController | null>(null);
+  const demoRunAutoExecuteRef = useRef(false);
 
   const [demoExecutionGraph, setDemoExecutionGraph] = useState<{
     nodes: any[];
@@ -1925,6 +1926,26 @@ export default function WorkflowProductPage() {
       setDemoRunning(false);
     }
   }, [demoRunState?.status]);
+
+  useEffect(() => {
+    if (!demoRunModalOpen) demoRunAutoExecuteRef.current = false;
+  }, [demoRunModalOpen]);
+
+  useEffect(() => {
+    if (
+      !demoRunModalOpen ||
+      !demoRunState ||
+      demoRunState.phase !== "executing" ||
+      demoRunState.status !== "idle" ||
+      demoRunAutoExecuteRef.current
+    )
+      return;
+    const hasInputs = demoRunState.inputs && demoRunState.inputs.length > 0;
+    if (hasInputs) return;
+    demoRunAutoExecuteRef.current = true;
+    void handleDemoSubmitInputs({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mirrors builder: auto-start run when modal opens with no inputs
+  }, [demoRunModalOpen, demoRunState?.phase, demoRunState?.status, demoRunState?.inputs?.length]);
 
   useEffect(() => {
     if (!upNextSentinelRef.current) return;

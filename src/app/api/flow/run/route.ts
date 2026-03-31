@@ -7,6 +7,7 @@ import {
   createWorkflowRun,
   updateWorkflowRun,
   completeWorkflowRunAndGetCount,
+  failWorkflowRunIfNonTerminal,
   getUserWorkflowRunCount,
   workflowExists,
   getWorkflowDraftId,
@@ -55,6 +56,7 @@ import { readPayloadReferenceValue } from "src/server/flow-v2/payload-store";
 import {
   listWorkflowRunEvents,
   loadWorkflowRunBootstrap,
+  peekWorkflowRunStatus,
   type WorkflowRunBootstrap,
 } from "src/server/flow-v2/read-model";
 import { SupabaseWorkflowExecutionRepository } from "src/server/flow-v2/repository";
@@ -67,6 +69,10 @@ import type {
 
 const FREE_BUILDER_RUNS = 10;
 const FREE_MARKETPLACE_KEY_RUNS = 10; // matches FREE_RUNS_PER_PURCHASE in runtime-enforcement
+
+/** V2 wait/poll: avoid unbounded API loops if the worker never advances or event rows diverge from last_event_sequence. */
+const V2_RUN_WAIT_DEADLINE_MS = 30 * 60 * 1000;
+const V2_TERMINAL_EVENT_GAP_POLLS = 8;
 
 function mapV2NodeStatusToLegacy(
   status: string,
@@ -902,18 +908,26 @@ export async function POST(req: Request) {
               });
 
               const pollNdjsonLoop = async () => {
+                const waitStarted = Date.now();
+                let terminalGapPolls = 0;
+
                 while (!req.signal.aborted) {
-                  const [events, latestBootstrap] = await Promise.all([
+                  if (Date.now() - waitStarted > V2_RUN_WAIT_DEADLINE_MS) {
+                    console.error("[flow/run] V2 NDJSON poll exceeded deadline", { runId });
+                    await failWorkflowRunIfNonTerminal(runId, {
+                      code: "api_wait_timeout",
+                      message: "Workflow run wait exceeded server time limit.",
+                    });
+                    throw new Error("Workflow run wait exceeded server time limit.");
+                  }
+
+                  const [events, runPeek] = await Promise.all([
                     listWorkflowRunEvents({
                       runId,
                       afterSequence,
                       limit: 200,
                     }),
-                    loadWorkflowRunBootstrap({
-                      runId,
-                      afterSequence: 0,
-                      eventLimit: 0,
-                    }),
+                    peekWorkflowRunStatus({ runId }),
                   ]);
 
                   for (const event of events) {
@@ -921,13 +935,37 @@ export async function POST(req: Request) {
                     const mapped = mapRunEventToLegacyProgressEvent(event, compiledWorkflow);
                     if (mapped) write(mapped);
                   }
-                  const isTerminal =
-                    latestBootstrap.run.status === "completed" ||
-                    latestBootstrap.run.status === "failed" ||
-                    latestBootstrap.run.status === "cancelled";
 
-                  if (isTerminal && afterSequence >= latestBootstrap.run.lastEventSequence) {
-                    break;
+                  const isTerminal =
+                    runPeek.status === "completed" ||
+                    runPeek.status === "failed" ||
+                    runPeek.status === "cancelled";
+
+                  if (isTerminal) {
+                    const lastSeq = runPeek.lastEventSequence;
+                    if (afterSequence >= lastSeq) {
+                      break;
+                    }
+                    // Run row says terminal but events are missing or replication lag: do not spin forever.
+                    if (events.length === 0) {
+                      terminalGapPolls += 1;
+                      if (terminalGapPolls >= V2_TERMINAL_EVENT_GAP_POLLS) {
+                        console.warn(
+                          "[flow/run] V2 NDJSON poll: terminal run, forcing event catch-up",
+                          {
+                            runId,
+                            afterSequence,
+                            lastSeq,
+                          },
+                        );
+                        afterSequence = Math.max(afterSequence, lastSeq);
+                        break;
+                      }
+                    } else {
+                      terminalGapPolls = 0;
+                    }
+                  } else {
+                    terminalGapPolls = 0;
                   }
 
                   await new Promise((resolve) => setTimeout(resolve, events.length > 0 ? 0 : 100));
@@ -1011,43 +1049,54 @@ export async function POST(req: Request) {
           requestMetadata: runnerDependencies.requestMetadata,
           workerId: runnerDependencies.workerId,
         });
+        const waitStarted = Date.now();
         while (true) {
+          if (Date.now() - waitStarted > V2_RUN_WAIT_DEADLINE_MS) {
+            console.error("[flow/run] V2 JSON wait exceeded deadline", { runId });
+            await failWorkflowRunIfNonTerminal(runId, {
+              code: "api_wait_timeout",
+              message: "Workflow run wait exceeded server time limit.",
+            });
+            throw new Error("Workflow run wait exceeded server time limit.");
+          }
+
+          const peek = await peekWorkflowRunStatus({ runId });
+          const isTerminal =
+            peek.status === "completed" || peek.status === "failed" || peek.status === "cancelled";
+          if (!isTerminal) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            continue;
+          }
+
           const finalBootstrap = await loadWorkflowRunBootstrap({
             runId,
             afterSequence: 0,
             eventLimit: 1000,
           });
-          const isTerminal =
-            finalBootstrap.run.status === "completed" ||
-            finalBootstrap.run.status === "failed" ||
-            finalBootstrap.run.status === "cancelled";
-          if (isTerminal) {
-            const safeResult = buildLegacyRuntimeResultFromBootstrap(
-              finalBootstrap,
-              compiledWorkflow,
-            );
-            const updatedFreeRunsRemaining = await getUpdatedFreeRunsRemaining();
-            await finishUnifiedRun(
-              unifiedRunId,
-              finalBootstrap.run.status === "completed" ? "success" : "error",
-              Date.now() - startTime,
-            );
+          const safeResult = buildLegacyRuntimeResultFromBootstrap(
+            finalBootstrap,
+            compiledWorkflow,
+          );
+          const updatedFreeRunsRemaining = await getUpdatedFreeRunsRemaining();
+          await finishUnifiedRun(
+            unifiedRunId,
+            finalBootstrap.run.status === "completed" ? "success" : "error",
+            Date.now() - startTime,
+          );
 
-            return NextResponse.json({
-              ok: finalBootstrap.run.status === "completed",
-              result: safeResult,
-              error:
-                finalBootstrap.run.status === "completed"
-                  ? undefined
-                  : simplifyWorkflowError(
-                      getBootstrapFailureMessage(finalBootstrap) || "Execution failed",
-                    ),
-              freeRunsRemaining: updatedFreeRunsRemaining,
-              runId,
-              runAccessToken,
-            });
-          }
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          return NextResponse.json({
+            ok: finalBootstrap.run.status === "completed",
+            result: safeResult,
+            error:
+              finalBootstrap.run.status === "completed"
+                ? undefined
+                : simplifyWorkflowError(
+                    getBootstrapFailureMessage(finalBootstrap) || "Execution failed",
+                  ),
+            freeRunsRemaining: updatedFreeRunsRemaining,
+            runId,
+            runAccessToken,
+          });
         }
       } catch (err: unknown) {
         const duration = Date.now() - startTime;

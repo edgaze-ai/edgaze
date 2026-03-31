@@ -1322,6 +1322,7 @@ export default function PromptProductPage() {
   const workflowRunAbortRef = useRef<AbortController | null>(null);
   const workflowRunSessionPollRef = useRef<AbortController | null>(null);
   const workflowRunIsDemoRef = useRef(false);
+  const workflowRunAutoExecuteRef = useRef(false);
 
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
@@ -2490,6 +2491,31 @@ export default function PromptProductPage() {
       workflowRunSessionPollRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!workflowRunModalOpen) workflowRunAutoExecuteRef.current = false;
+  }, [workflowRunModalOpen]);
+
+  useEffect(() => {
+    if (
+      !workflowRunModalOpen ||
+      !workflowRunState ||
+      workflowRunState.phase !== "executing" ||
+      workflowRunState.status !== "idle" ||
+      workflowRunAutoExecuteRef.current
+    )
+      return;
+    const hasInputs = workflowRunState.inputs && workflowRunState.inputs.length > 0;
+    if (hasInputs) return;
+    workflowRunAutoExecuteRef.current = true;
+    void handleSubmitWorkflowInputs({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mirrors builder: auto-start run when modal opens with no inputs
+  }, [
+    workflowRunModalOpen,
+    workflowRunState?.phase,
+    workflowRunState?.status,
+    workflowRunState?.inputs?.length,
+  ]);
 
   useEffect(() => {
     if (!upNextSentinelRef.current) return;
