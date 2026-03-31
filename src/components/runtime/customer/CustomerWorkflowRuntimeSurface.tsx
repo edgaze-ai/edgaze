@@ -23,11 +23,11 @@ import {
 import type { WorkflowInput, WorkflowRunState } from "../../../lib/workflow/run-types";
 import { isPremiumAiSpec, providerForAiSpec } from "../../../lib/workflow/spec-id-aliases";
 import { WorkflowInputField } from "../../builder/WorkflowInputField";
-import CustomerRunNodeStage from "./CustomerRunNodeStage";
 import { UserApiKeysDialog } from "../../settings/UserApiKeysDialog";
 import { bearerAuthHeaders } from "../../../lib/auth/bearer-headers";
 import { useAuth } from "../../auth/AuthContext";
 import type { Components } from "react-markdown";
+import CustomerLiveExecutionPanel from "./CustomerLiveExecutionPanel";
 
 type BuilderRunLimit = {
   used: number;
@@ -1207,58 +1207,34 @@ export default function CustomerWorkflowRuntimeSurface({
       ) : (
         <>
           {hideHeader && <ExecutionChrome state={state} onCancel={onCancel} onClose={onClose} />}
-          <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(72,214,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,76,198,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
-            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(0,190,255,0.10),transparent_35%,rgba(255,0,153,0.10))] runtime-ambient-flow" />
-            <div className="relative flex min-h-[560px] flex-col justify-center px-6 py-8 md:px-10">
-              <div className="mx-auto flex w-full max-w-[980px] flex-col items-center justify-center gap-8 text-center">
-                <div className="max-w-[720px]">
-                  <div className="text-[34px] font-medium tracking-[-0.04em] text-white md:text-[52px]">
-                    {model.headline}
-                  </div>
-                  {model.subline && (
-                    <div className="mx-auto mt-5 max-w-[58ch] text-[15px] leading-7 text-white/62 md:text-[16px]">
-                      {model.subline}
+          <div className="space-y-5">
+            <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(72,214,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,76,198,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
+              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(0,190,255,0.10),transparent_35%,rgba(255,0,153,0.10))] runtime-ambient-flow" />
+              <div className="relative px-6 py-8 md:px-10">
+                <div className="mx-auto flex w-full max-w-[900px] flex-col items-center justify-center gap-5 text-center">
+                  <div className="max-w-[720px]">
+                    <div className="text-[34px] font-medium tracking-[-0.04em] text-white md:text-[52px]">
+                      {model.headline}
                     </div>
+                    {model.subline && (
+                      <div className="mx-auto mt-5 max-w-[58ch] text-[15px] leading-7 text-white/62 md:text-[16px]">
+                        {model.subline}
+                      </div>
+                    )}
+                  </div>
+
+                  {state.connectionState === "reconnecting" && (
+                    <div className="text-sm text-white/48">Reconnecting to live updates...</div>
                   )}
                 </div>
-
-                {model.mode === "streaming" && model.primaryLiveText?.text ? (
-                  <div className="w-full max-w-[860px]">
-                    <ProsePanel text={model.primaryLiveText.text} streaming />
-                  </div>
-                ) : model.mode === "node" && model.activeNodeIds.length > 0 ? (
-                  <div className="w-full max-w-[900px]">
-                    <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
-                  </div>
-                ) : model.mode === "stopping" ? (
-                  <div className="flex h-[220px] items-center justify-center">
-                    <div className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-white/[0.05] px-5 py-3 text-sm text-white/82">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Stopping current execution...
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex h-[220px] items-center justify-center">
-                    <div className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-white/[0.05] px-5 py-3 text-sm text-white/78">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {model.longRunning ? "Still working..." : "Live execution active"}
-                    </div>
-                  </div>
-                )}
-
-                {model.mode === "node" && model.activeNodeIds.length > 1 && (
-                  <div className="text-sm text-white/52">
-                    {model.activeNodeIds.length > 3
-                      ? `Showing 3 active nodes. +${model.activeNodeIds.length - 3} more running.`
-                      : `${model.activeNodeIds.length} nodes are running.`}
-                  </div>
-                )}
-
-                {state.connectionState === "reconnecting" && (
-                  <div className="text-sm text-white/48">Reconnecting to live updates...</div>
-                )}
               </div>
             </div>
+
+            {model.mode === "streaming" && model.primaryLiveText?.text ? (
+              <ProsePanel text={model.primaryLiveText.text} streaming />
+            ) : null}
+
+            <CustomerLiveExecutionPanel state={state} isStopping={model.mode === "stopping"} />
           </div>
         </>
       )}
