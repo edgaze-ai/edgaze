@@ -292,9 +292,7 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
       const model = (config.model ?? DEFAULT_LLM_CHAT_MODEL) as string;
       const defaultChatPricing = { inputPer1M: 0.15, outputPer1M: 0.6 };
       const pricingKey =
-        resolveLlmChatProvider(model) === "anthropic"
-          ? resolveAnthropicApiModel(model)
-          : model;
+        resolveLlmChatProvider(model) === "anthropic" ? resolveAnthropicApiModel(model) : model;
       const pricing = CHAT_PRICING[model] ?? CHAT_PRICING[pricingKey] ?? defaultChatPricing;
       totalUsd +=
         (tokenCount.input / 1_000_000) * pricing.inputPer1M +
@@ -329,8 +327,8 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
         cost = gp?.["1024x1024"] ?? 0.02;
       } else {
         const gptQuality = openaiGptImageQualityParam(quality);
-        const modelPrices =
-          IMAGE_PRICING[model] ?? IMAGE_PRICING["gpt-image-1-mini"] ?? { "1024x1024": 0.02 };
+        const modelPrices = IMAGE_PRICING[model] ??
+          IMAGE_PRICING["gpt-image-1-mini"] ?? { "1024x1024": 0.02 };
         cost =
           (modelPrices as Record<string, number>)[gptQuality] ??
           modelPrices[size] ??

@@ -18,9 +18,7 @@ export class NodeInputMaterializationError extends Error {
   }
 }
 
-function sortSourceValues(
-  values: MaterializedInputSourceValue[],
-): MaterializedInputSourceValue[] {
+function sortSourceValues(values: MaterializedInputSourceValue[]): MaterializedInputSourceValue[] {
   return [...values].sort((left, right) => {
     const leftKey = [
       left.targetPortId,

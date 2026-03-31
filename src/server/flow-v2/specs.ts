@@ -35,21 +35,95 @@ const DEFAULT_FAILURE_POLICY: FailurePolicy = "fail_fast";
 const LEGACY_RUNTIME_ONLY_SPECS: Record<string, LegacyPortSpec> = {
   "merge-json": {
     inputPorts: [
-      { id: "in-1", name: "in-1", kind: "input", label: "in 1", valueType: "object", required: false, multiplicity: "single" },
-      { id: "in-2", name: "in-2", kind: "input", label: "in 2", valueType: "object", required: false, multiplicity: "single" },
-      { id: "in-3", name: "in-3", kind: "input", label: "in 3", valueType: "object", required: false, multiplicity: "single" },
+      {
+        id: "in-1",
+        name: "in-1",
+        kind: "input",
+        label: "in 1",
+        valueType: "object",
+        required: false,
+        multiplicity: "single",
+      },
+      {
+        id: "in-2",
+        name: "in-2",
+        kind: "input",
+        label: "in 2",
+        valueType: "object",
+        required: false,
+        multiplicity: "single",
+      },
+      {
+        id: "in-3",
+        name: "in-3",
+        kind: "input",
+        label: "in 3",
+        valueType: "object",
+        required: false,
+        multiplicity: "single",
+      },
     ],
-    outputPorts: [{ id: "out", name: "out", kind: "output", label: "Merged", valueType: "object", required: false, multiplicity: "single" }],
+    outputPorts: [
+      {
+        id: "out",
+        name: "out",
+        kind: "output",
+        label: "Merged",
+        valueType: "object",
+        required: false,
+        multiplicity: "single",
+      },
+    ],
     inputRequirement: { kind: "minimum_bindings", count: 1 },
   },
   template: {
-    inputPorts: [{ id: "in", name: "in", kind: "input", label: "Data", valueType: "object", required: false, multiplicity: "single" }],
-    outputPorts: [{ id: "out", name: "out", kind: "output", label: "Text", valueType: "string", required: false, multiplicity: "single" }],
+    inputPorts: [
+      {
+        id: "in",
+        name: "in",
+        kind: "input",
+        label: "Data",
+        valueType: "object",
+        required: false,
+        multiplicity: "single",
+      },
+    ],
+    outputPorts: [
+      {
+        id: "out",
+        name: "out",
+        kind: "output",
+        label: "Text",
+        valueType: "string",
+        required: false,
+        multiplicity: "single",
+      },
+    ],
     inputRequirement: { kind: "none" },
   },
   map: {
-    inputPorts: [{ id: "array", name: "array", kind: "input", label: "Array", valueType: "array", required: true, multiplicity: "single" }],
-    outputPorts: [{ id: "out", name: "out", kind: "output", label: "Mapped", valueType: "array", required: false, multiplicity: "single" }],
+    inputPorts: [
+      {
+        id: "array",
+        name: "array",
+        kind: "input",
+        label: "Array",
+        valueType: "array",
+        required: true,
+        multiplicity: "single",
+      },
+    ],
+    outputPorts: [
+      {
+        id: "out",
+        name: "out",
+        kind: "output",
+        label: "Mapped",
+        valueType: "array",
+        required: false,
+        multiplicity: "single",
+      },
+    ],
     inputRequirement: { kind: "required_ports", portIds: ["array"] },
   },
 };
@@ -195,7 +269,12 @@ export function isPortTypeCompatible(source: PortValueType, target: PortValueTyp
 
 export function validateNodeInputBindings(params: {
   inputPorts: PortSpec[];
-  inputBindings: Array<{ targetPortId: string; sourceNodeId: string; sourcePortId: string; edgeId: string }>;
+  inputBindings: Array<{
+    targetPortId: string;
+    sourceNodeId: string;
+    sourcePortId: string;
+    edgeId: string;
+  }>;
   inputRequirement: InputRequirement;
   config?: Record<string, SerializableValue>;
 }): string[] {
@@ -208,7 +287,9 @@ export function validateNodeInputBindings(params: {
   const bindingCount = [...bindingsByPort.values()].reduce((sum, count) => sum + count, 0);
 
   const requiredPortErrors = inputPorts
-    .filter((port) => port.kind === "input" && port.required && (bindingsByPort.get(port.id) ?? 0) === 0)
+    .filter(
+      (port) => port.kind === "input" && port.required && (bindingsByPort.get(port.id) ?? 0) === 0,
+    )
     .map((port) => `Port "${port.id}" is required but has no inbound binding.`);
 
   switch (requirement.kind) {
@@ -221,16 +302,21 @@ export function validateNodeInputBindings(params: {
     case "minimum_bindings":
       return bindingCount >= requirement.count
         ? requiredPortErrors
-        : [...requiredPortErrors, `Node requires at least ${requirement.count} inbound binding(s).`];
+        : [
+            ...requiredPortErrors,
+            `Node requires at least ${requirement.count} inbound binding(s).`,
+          ];
     case "required_ports":
       return [
         ...requiredPortErrors,
         ...requirement.portIds
-        .filter((portId) => (bindingsByPort.get(portId) ?? 0) === 0)
-        .map((portId) => `Node requires an inbound binding for port "${portId}".`),
+          .filter((portId) => (bindingsByPort.get(portId) ?? 0) === 0)
+          .map((portId) => `Node requires an inbound binding for port "${portId}".`),
       ];
     case "ports_or_config": {
-      const hasBinding = requirement.portIds.some((portId) => (bindingsByPort.get(portId) ?? 0) > 0);
+      const hasBinding = requirement.portIds.some(
+        (portId) => (bindingsByPort.get(portId) ?? 0) > 0,
+      );
       const hasConfigFallback = requirement.configKeys.some((key) => {
         const value = config[key];
         if (typeof value === "string") return value.trim().length > 0;

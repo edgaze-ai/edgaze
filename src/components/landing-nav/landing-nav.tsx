@@ -3,9 +3,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown, Menu, X } from "lucide-react";
-import { LANDING_SCROLL_OFFSET_PX, scrollToHashId } from "./hash-navigate";
 import { LANDING_MEGA_NAV } from "./landing-nav-config";
 import { MegaMenuPanelBody, MegaNavItemIcon } from "./mega-menu-panel";
+import { LandingLink } from "./LandingLink";
 import { useMegaMenu } from "./useMegaMenu";
 
 /** Smooth “premium” ease: fast settle, no bounce (cubic bezier). */
@@ -16,33 +16,6 @@ const SECTION_CHANGE_MS = 0.11;
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
-}
-
-type LinkProps = Pick<
-  React.ComponentProps<"a">,
-  "href" | "className" | "children" | "aria-label" | "rel" | "target"
->;
-
-function createLandingLink(
-  scrollerRef: React.RefObject<HTMLDivElement | null>,
-  afterNavigate?: () => void,
-): React.FC<LinkProps> {
-  function LandingLink(props: LinkProps) {
-    const { href, className, children, ...rest } = props;
-    const onClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-      if (typeof href === "string" && href.startsWith("#")) {
-        e.preventDefault();
-        scrollToHashId(scrollerRef.current, href, LANDING_SCROLL_OFFSET_PX);
-      }
-      afterNavigate?.();
-    };
-    return (
-      <a href={href} className={className} onClick={onClick} {...rest}>
-        {children}
-      </a>
-    );
-  }
-  return LandingLink;
 }
 
 export type LandingNavProps = {
@@ -56,20 +29,6 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState<string | null>(null);
   const zoneRef = useRef<HTMLDivElement>(null);
-
-  const LogoLink = useMemo(() => createLandingLink(scrollerRef), [scrollerRef]);
-  const DesktopPanelLink = useMemo(
-    () => createLandingLink(scrollerRef, closeNow),
-    [scrollerRef, closeNow],
-  );
-  const MobileNavLink = useMemo(
-    () =>
-      createLandingLink(scrollerRef, () => {
-        closeNow();
-        setMobileOpen(false);
-      }),
-    [scrollerRef, closeNow],
-  );
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -125,14 +84,15 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
               "bg-white/[0.08] border-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.07)_inset,0_0_0_1px_rgba(255,255,255,0.04),0_8px_32px_-4px_rgba(0,0,0,0.35)]",
           )}
         >
-          <LogoLink
+          <LandingLink
+            scrollerRef={scrollerRef}
             href="#top"
             className="flex items-center gap-2 shrink-0 text-white hover:opacity-90 transition-opacity md:justify-self-start min-w-0"
             aria-label="Edgaze home"
           >
             <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-8 w-8 md:h-9 md:w-9" />
             <span className="text-[14px] font-semibold tracking-tight md:text-[15px]">Edgaze</span>
-          </LogoLink>
+          </LandingLink>
 
           <div
             ref={zoneRef}
@@ -204,16 +164,18 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
                     <motion.div
                       key={openId}
                       className="min-w-0 will-change-[opacity,transform]"
-                      initial={
-                        reduce ? { opacity: 1, y: 0 } : { opacity: 0.93, y: 3 }
-                      }
+                      initial={reduce ? { opacity: 1, y: 0 } : { opacity: 0.93, y: 3 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{
                         duration: reduce ? 0 : SECTION_CHANGE_MS,
                         ease: EASE_OUT,
                       }}
                     >
-                      <MegaMenuPanelBody group={activeGroup} Link={DesktopPanelLink} />
+                      <MegaMenuPanelBody
+                        group={activeGroup}
+                        scrollerRef={scrollerRef}
+                        afterNavigate={closeNow}
+                      />
                     </motion.div>
                   </motion.div>
                 ) : null}
@@ -248,7 +210,11 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
               onClick={() => setMobileOpen((v) => !v)}
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
             >
-              {mobileOpen ? <X className="h-6 w-6 stroke-[1.75]" /> : <Menu className="h-6 w-6 stroke-[1.75]" />}
+              {mobileOpen ? (
+                <X className="h-6 w-6 stroke-[1.75]" />
+              ) : (
+                <Menu className="h-6 w-6 stroke-[1.75]" />
+              )}
             </button>
           </div>
         </div>
@@ -295,7 +261,10 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
                 {LANDING_MEGA_NAV.map((g) => {
                   const exp = mobileExpanded === g.id;
                   return (
-                    <div key={g.id} className="mb-1 border-b border-white/[0.07] pb-1 last:border-b-0">
+                    <div
+                      key={g.id}
+                      className="mb-1 border-b border-white/[0.07] pb-1 last:border-b-0"
+                    >
                       <button
                         type="button"
                         className="flex w-full items-center justify-between gap-2 rounded-xl px-3 py-3.5 text-left text-sm font-medium text-white/90 hover:bg-white/[0.04]"
@@ -313,7 +282,12 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
                       {exp ? (
                         <div className="space-y-1 px-1 pb-3">
                           {g.featured ? (
-                            <MobileNavLink
+                            <LandingLink
+                              scrollerRef={scrollerRef}
+                              afterNavigate={() => {
+                                closeNow();
+                                setMobileOpen(false);
+                              }}
                               href={g.featured.href}
                               className={cn(
                                 "mb-3 block rounded-2xl p-4 ring-1 ring-cyan-400/20",
@@ -323,29 +297,46 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
                               <div className="text-[10px] font-semibold uppercase tracking-widest text-cyan-300/70">
                                 Featured
                               </div>
-                              <div className="mt-1 text-sm font-semibold text-white">{g.featured.title}</div>
-                              <p className="mt-1 text-xs leading-relaxed text-white/55">{g.featured.description}</p>
-                              <div className="mt-3 text-xs font-medium text-cyan-300/90">{g.featured.ctaLabel} →</div>
-                            </MobileNavLink>
+                              <div className="mt-1 text-sm font-semibold text-white">
+                                {g.featured.title}
+                              </div>
+                              <p className="mt-1 text-xs leading-relaxed text-white/55">
+                                {g.featured.description}
+                              </p>
+                              <div className="mt-3 text-xs font-medium text-cyan-300/90">
+                                {g.featured.ctaLabel} →
+                              </div>
+                            </LandingLink>
                           ) : null}
-                          {g.columns.flatMap((c) => c.items).map((item) => {
-                            return (
-                              <MobileNavLink
-                                key={`${g.id}-${item.href}-${item.title}`}
-                                href={item.href}
-                                className={cn(
-                                  "flex gap-3 rounded-xl p-3 transition-colors",
-                                  "hover:bg-white/[0.05] ring-1 ring-transparent hover:ring-white/[0.08]",
-                                )}
-                              >
-                                <MegaNavItemIcon item={item} />
-                                <div className="min-w-0">
-                                  <div className="text-sm font-semibold text-white/95">{item.title}</div>
-                                  <p className="mt-0.5 text-xs leading-relaxed text-white/55">{item.description}</p>
-                                </div>
-                              </MobileNavLink>
-                            );
-                          })}
+                          {g.columns
+                            .flatMap((c) => c.items)
+                            .map((item) => {
+                              return (
+                                <LandingLink
+                                  scrollerRef={scrollerRef}
+                                  afterNavigate={() => {
+                                    closeNow();
+                                    setMobileOpen(false);
+                                  }}
+                                  key={`${g.id}-${item.href}-${item.title}`}
+                                  href={item.href}
+                                  className={cn(
+                                    "flex gap-3 rounded-xl p-3 transition-colors",
+                                    "hover:bg-white/[0.05] ring-1 ring-transparent hover:ring-white/[0.08]",
+                                  )}
+                                >
+                                  <MegaNavItemIcon item={item} />
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-semibold text-white/95">
+                                      {item.title}
+                                    </div>
+                                    <p className="mt-0.5 text-xs leading-relaxed text-white/55">
+                                      {item.description}
+                                    </p>
+                                  </div>
+                                </LandingLink>
+                              );
+                            })}
                         </div>
                       ) : null}
                     </div>

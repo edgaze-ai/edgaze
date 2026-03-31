@@ -47,7 +47,8 @@ export async function requireWorkflowRunAccess(
   runId: string,
 ): Promise<{ runId: string }> {
   const url = new URL(req.url);
-  const runAccessToken = url.searchParams.get("runAccessToken") ?? req.headers.get("x-run-access-token");
+  const runAccessToken =
+    url.searchParams.get("runAccessToken") ?? req.headers.get("x-run-access-token");
   const run = await getWorkflowRunById(runId);
   if (!run) {
     throw new Error("Run not found");

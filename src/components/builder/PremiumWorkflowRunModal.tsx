@@ -205,7 +205,9 @@ function CinematicRunView({ state, isStopping }: { state: WorkflowRunState; isSt
     const hasRuntimeSignal =
       Boolean(state.startedAt) ||
       (state.lastEventSequence ?? 0) > 0 ||
-      steps.some((step) => step.status === "running" || step.status === "queued" || step.status === "done");
+      steps.some(
+        (step) => step.status === "running" || step.status === "queued" || step.status === "done",
+      );
     queueMicrotask(() => setViewPhase(hasRuntimeSignal ? "live" : "preparing"));
   }, [state.startedAt, state.lastEventSequence, steps]);
 
@@ -1528,9 +1530,7 @@ function getDeterministicNodeOrder(state: WorkflowRunState): string[] {
     outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge.target]);
   }
 
-  const ready = sortNodeIdsStable(
-    nodeIds.filter((nodeId) => (indegree.get(nodeId) ?? 0) === 0),
-  );
+  const ready = sortNodeIdsStable(nodeIds.filter((nodeId) => (indegree.get(nodeId) ?? 0) === 0));
   const order: string[] = [];
 
   while (ready.length > 0) {
@@ -1597,7 +1597,9 @@ function getNodeResolvedInput(state: WorkflowRunState, nodeId: string, specId?: 
   if (materializedInput !== undefined) {
     return unwrapMaterializedInputForDisplay(materializedInput);
   }
-  const sessionNodeInput = readSessionPayloadValue(state.session?.nodesById?.[nodeId]?.inputPayload);
+  const sessionNodeInput = readSessionPayloadValue(
+    state.session?.nodesById?.[nodeId]?.inputPayload,
+  );
   if (sessionNodeInput !== undefined) {
     return unwrapMaterializedInputForDisplay(sessionNodeInput);
   }
@@ -1612,9 +1614,7 @@ function getNodeResolvedInput(state: WorkflowRunState, nodeId: string, specId?: 
   const nodeMap = new Map(nodes.map((node) => [node.id, node]));
   const inbound = [...edges]
     .filter((edge) => edge.target === nodeId)
-    .sort((a, b) =>
-      `${a.source}:${a.target}`.localeCompare(`${b.source}:${b.target}`),
-    );
+    .sort((a, b) => `${a.source}:${a.target}`.localeCompare(`${b.source}:${b.target}`));
 
   if (inbound.length === 0) {
     return undefined;
@@ -1630,7 +1630,10 @@ function getNodeResolvedInput(state: WorkflowRunState, nodeId: string, specId?: 
       edge.source;
 
     let rawVal: unknown;
-    if (state.outputsByNode && Object.prototype.hasOwnProperty.call(state.outputsByNode, edge.source)) {
+    if (
+      state.outputsByNode &&
+      Object.prototype.hasOwnProperty.call(state.outputsByNode, edge.source)
+    ) {
       rawVal = state.outputsByNode[edge.source];
     } else {
       const upstreamOutput = state.outputs?.find((output) => output.nodeId === edge.source);
@@ -1700,9 +1703,9 @@ function buildTimelineEntries(
             ? `${node.title} failed`
             : node.status === "cancelled"
               ? `${node.title} cancelled`
-            : node.status === "skipped"
-              ? `${node.title} skipped`
-              : `${node.title} queued`;
+              : node.status === "skipped"
+                ? `${node.title} skipped`
+                : `${node.title} queued`;
 
     items.push({
       id: `step-${node.id}-${node.status}`,
@@ -1811,26 +1814,33 @@ function LiveExecutionViewer({
 
   useEffect(() => {
     if (!selectedNodeId || !nodes.some((node) => node.id === selectedNodeId)) {
-      setSelectedNodeId(selectedFallbackNodeId);
+      queueMicrotask(() => setSelectedNodeId(selectedFallbackNodeId));
       return;
     }
 
     if (state.currentStepId && state.currentStepId !== selectedNodeId) {
-      const currentNode = nodes.find((node) => node.id === state.currentStepId);
+      const stepId = state.currentStepId;
+      const currentNode = nodes.find((node) => node.id === stepId);
       if (currentNode?.status === "running") {
-        setSelectedNodeId(state.currentStepId);
+        queueMicrotask(() => setSelectedNodeId(stepId));
       }
     }
   }, [nodes, selectedFallbackNodeId, selectedNodeId, state.currentStepId]);
 
-  const selectedNode =
-    nodes.find((node) => node.id === selectedNodeId) ?? nodes[0] ?? null;
+  const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? nodes[0] ?? null;
   const completedCount = nodes.filter((node) => node.status === "done").length;
   const failedCount = nodes.filter((node) => node.status === "error").length;
   const runningNode = nodes.find((node) => node.status === "running");
-  const durationMs = state.startedAt
-    ? (state.finishedAt ?? Date.now()) - state.startedAt
-    : 0;
+  const [nowMs, setNowMs] = useState(0);
+
+  useEffect(() => {
+    if (!state.startedAt || state.finishedAt) return;
+    queueMicrotask(() => setNowMs(Date.now()));
+    const id = setInterval(() => setNowMs(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [state.finishedAt, state.startedAt]);
+
+  const durationMs = state.startedAt ? (state.finishedAt ?? nowMs) - state.startedAt : 0;
   const runError = sanitizeErrorForDisplay(state.error);
 
   return (
@@ -1951,7 +1961,9 @@ function LiveExecutionViewer({
                         </div>
 
                         {node.detail && (
-                          <div className="mt-2 text-sm text-white/65 line-clamp-2">{node.detail}</div>
+                          <div className="mt-2 text-sm text-white/65 line-clamp-2">
+                            {node.detail}
+                          </div>
                         )}
 
                         {!node.detail && outputPreview && (
@@ -2025,7 +2037,8 @@ function LiveExecutionViewer({
                     <span
                       className={cx(
                         "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium",
-                        getStatusBadge(selectedNode.status, selectedNode.step?.statusLabel).className,
+                        getStatusBadge(selectedNode.status, selectedNode.step?.statusLabel)
+                          .className,
                       )}
                     >
                       {selectedNode.status === "running" && (
@@ -2057,15 +2070,12 @@ function LiveExecutionViewer({
                     Attempts and timing
                   </div>
                   <div className="mt-3 space-y-2 text-sm text-white/65">
-                    <div>Last state change: {formatRelativeClock(selectedNode.step?.timestamp)}</div>
                     <div>
-                      Retries:
-                      {" "}
-                      {Math.max((selectedNode.attempts?.length ?? 1) - 1, 0)}
+                      Last state change: {formatRelativeClock(selectedNode.step?.timestamp)}
                     </div>
+                    <div>Retries: {Math.max((selectedNode.attempts?.length ?? 1) - 1, 0)}</div>
                     <div>
-                      Error:
-                      {" "}
+                      Error:{" "}
                       {selectedNode.detail ? sanitizeErrorForDisplay(selectedNode.detail) : "None"}
                     </div>
                     {selectedNode.attempts && selectedNode.attempts.length > 0 ? (
@@ -2109,7 +2119,9 @@ function LiveExecutionViewer({
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-white/40">Select a node to inspect its execution data.</div>
+              <div className="text-sm text-white/40">
+                Select a node to inspect its execution data.
+              </div>
             )}
           </div>
         </div>
@@ -2243,21 +2255,29 @@ export default function PremiumWorkflowRunModal({
             icon: <Loader2 className="h-4 w-4 animate-spin" />,
             color: "text-amber-300",
           }
-      : state?.status === "success"
-        ? {
-            label: "Completed",
-            icon: <CheckCircle2 className="h-4 w-4" />,
-            color: "text-green-400",
-          }
-        : state?.status === "cancelled"
+        : state?.status === "success"
           ? {
-              label: "Cancelled",
-              icon: <AlertTriangle className="h-4 w-4" />,
-              color: "text-amber-300",
+              label: "Completed",
+              icon: <CheckCircle2 className="h-4 w-4" />,
+              color: "text-green-400",
             }
-        : state?.status === "error"
-          ? { label: "Failed", icon: <AlertTriangle className="h-4 w-4" />, color: "text-red-400" }
-          : { label: "Ready", icon: <Sparkles className="h-4 w-4" />, color: "text-purple-400" };
+          : state?.status === "cancelled"
+            ? {
+                label: "Cancelled",
+                icon: <AlertTriangle className="h-4 w-4" />,
+                color: "text-amber-300",
+              }
+            : state?.status === "error"
+              ? {
+                  label: "Failed",
+                  icon: <AlertTriangle className="h-4 w-4" />,
+                  color: "text-red-400",
+                }
+              : {
+                  label: "Ready",
+                  icon: <Sparkles className="h-4 w-4" />,
+                  color: "text-purple-400",
+                };
 
   const handleInputSubmit = () => {
     if (!onSubmitInputs) return;
@@ -2302,12 +2322,6 @@ export default function PremiumWorkflowRunModal({
     }
     return providersRequired;
   }, [needsApiKey, providersRequired]);
-
-  useEffect(() => {
-    if (!open) {
-      setVaultKeysConfigured({ openai: false, anthropic: false, gemini: false });
-    }
-  }, [open]);
 
   useEffect(() => {
     if (!open || !needsApiKey) return;
@@ -2552,26 +2566,25 @@ export default function PremiumWorkflowRunModal({
                           ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
                           : state.status === "cancelling"
                             ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
-                          : state.status === "success"
-                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
-                            : state.status === "cancelled"
-                              ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
-                            : state.status === "error"
-                              ? "border-red-400/30 bg-red-400/10 text-red-200"
-                              : "border-white/10 bg-white/5 text-white/60",
+                            : state.status === "success"
+                              ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                              : state.status === "cancelled"
+                                ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                                : state.status === "error"
+                                  ? "border-red-400/30 bg-red-400/10 text-red-200"
+                                  : "border-white/10 bg-white/5 text-white/60",
                       )}
                     >
                       {statusPill.icon}
                       {statusPill.label}
                     </span>
                     <span>
-                      {(state.steps?.filter((step) => step.status === "done").length ?? 0)} /
-                      {" "}
-                      {state.graph?.nodes?.length ?? state.steps?.length ?? 0}
-                      {" "}
-                      nodes complete
+                      {state.steps?.filter((step) => step.status === "done").length ?? 0} /{" "}
+                      {state.graph?.nodes?.length ?? state.steps?.length ?? 0} nodes complete
                     </span>
-                    {state.currentStepId && !showCustomerProjection && <span>Live step: {state.currentStepId}</span>}
+                    {state.currentStepId && !showCustomerProjection && (
+                      <span>Live step: {state.currentStepId}</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -2606,25 +2619,25 @@ export default function PremiumWorkflowRunModal({
                 )}
                 {(state?.status === "running" || state?.status === "cancelling") &&
                   state?.phase === "executing" && (
-                  <button
-                    onClick={() => {
-                      if (isStopping || state?.status === "cancelling") return;
-                      setIsStopping(true);
-                      safeTrack("Workflow Run Cancelled", {
-                        surface: "workflow_modal",
-                        workflow_id: state?.workflowId,
-                      });
-                      // Show stopping state for 400ms, then cancel
-                      setTimeout(() => {
-                        onCancel?.();
-                      }, 400);
-                    }}
-                    className="rounded-lg border border-transparent bg-white/[0.04] hover:bg-white/[0.08] px-4 py-2 text-sm font-medium text-white/50 hover:text-white/70 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                    disabled={isStopping || state?.status === "cancelling"}
-                  >
-                    {isStopping || state?.status === "cancelling" ? "Cancelling…" : "Cancel"}
-                  </button>
-                )}
+                    <button
+                      onClick={() => {
+                        if (isStopping || state?.status === "cancelling") return;
+                        setIsStopping(true);
+                        safeTrack("Workflow Run Cancelled", {
+                          surface: "workflow_modal",
+                          workflow_id: state?.workflowId,
+                        });
+                        // Show stopping state for 400ms, then cancel
+                        setTimeout(() => {
+                          onCancel?.();
+                        }, 400);
+                      }}
+                      className="rounded-lg border border-transparent bg-white/[0.04] hover:bg-white/[0.08] px-4 py-2 text-sm font-medium text-white/50 hover:text-white/70 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                      disabled={isStopping || state?.status === "cancelling"}
+                    >
+                      {isStopping || state?.status === "cancelling" ? "Cancelling…" : "Cancel"}
+                    </button>
+                  )}
                 <button
                   onClick={() => {
                     if (!canClose) return;

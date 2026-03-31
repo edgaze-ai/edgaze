@@ -309,7 +309,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
         type: "textarea",
         rows: 2,
         helpText:
-          "Optional extra rule in plain English, combined with the condition type below. Example: \"The user explicitly agreed\".",
+          'Optional extra rule in plain English, combined with the condition type below. Example: "The user explicitly agreed".',
         placeholder: "e.g., The answer matches the question intent",
       },
       {

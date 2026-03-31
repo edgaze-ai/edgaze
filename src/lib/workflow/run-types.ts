@@ -127,7 +127,10 @@ export type WorkflowRunState = {
     >;
     dependencyStateByNodeId?: Record<
       string,
-      Array<{ dependencyNodeId: string; status: "satisfied" | "failed" | "skipped" | "cancelled" | "pending" }>
+      Array<{
+        dependencyNodeId: string;
+        status: "satisfied" | "failed" | "skipped" | "cancelled" | "pending";
+      }>
     >;
   };
   connectionState?: WorkflowRunConnectionState;

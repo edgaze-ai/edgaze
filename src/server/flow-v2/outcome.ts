@@ -24,21 +24,24 @@ export function computeWorkflowOutcome(params: {
   const terminalNodes = params.nodes.filter((node) => node.isTerminalNode);
   const completedTerminalNodes = terminalNodes.filter((node) => node.status === "completed");
   const failedTerminalNodes = terminalNodes.filter(
-    (node) => node.status === "failed" || node.status === "timed_out" || node.status === "cancelled",
+    (node) =>
+      node.status === "failed" || node.status === "timed_out" || node.status === "cancelled",
   );
   const skippedTerminalNodes = terminalNodes.filter(
     (node) => node.status === "blocked" || node.status === "skipped",
   );
   const nonTerminalFailures = params.nodes.filter(
-    (node) =>
-      !node.isTerminalNode && (node.status === "failed" || node.status === "timed_out"),
+    (node) => !node.isTerminalNode && (node.status === "failed" || node.status === "timed_out"),
   );
 
   if (failedTerminalNodes.length > 0 && completedTerminalNodes.length === 0) {
     return "failed";
   }
 
-  if (completedTerminalNodes.length === 0 && (skippedTerminalNodes.length > 0 || nonTerminalFailures.length > 0)) {
+  if (
+    completedTerminalNodes.length === 0 &&
+    (skippedTerminalNodes.length > 0 || nonTerminalFailures.length > 0)
+  ) {
     return "failed";
   }
 

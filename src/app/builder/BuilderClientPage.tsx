@@ -3,14 +3,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  ArrowRight,
-  ArrowLeft,
-  Play,
-  Loader2,
-  RefreshCw,
-  X,
-} from "lucide-react";
+import { ArrowRight, ArrowLeft, Play, Loader2, RefreshCw, X } from "lucide-react";
 import Link from "next/link";
 
 import { useAuth } from "../../components/auth/AuthContext";
@@ -69,10 +62,7 @@ import { emit, on } from "../../lib/bus";
 import { track } from "../../lib/mixpanel";
 import { getQuickStartTemplate } from "../../lib/quickStartTemplates";
 import { getDocsLink } from "../../lib/docs-link";
-import {
-  drainReadableStream,
-  streamRunSession,
-} from "../../lib/workflow/run-session";
+import { drainReadableStream, streamRunSession } from "../../lib/workflow/run-session";
 import {
   applyWorkflowRunEventToState,
   buildWorkflowRunStateFromBootstrap,
@@ -789,7 +779,11 @@ export default function BuilderPage() {
 
     try {
       const updatedAt = nowIso();
-      const update = { title: name || "Untitled Workflow", graph: persisted, updated_at: updatedAt };
+      const update = {
+        title: name || "Untitled Workflow",
+        graph: persisted,
+        updated_at: updatedAt,
+      };
 
       const { error } = await supabase
         .from("workflow_drafts")
@@ -1232,9 +1226,7 @@ export default function BuilderPage() {
 
     (async () => {
       if (!previewParam && !userId) {
-        router.replace(
-          `/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any,
-        );
+        router.replace(`/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any);
         return;
       }
 
@@ -1251,9 +1243,7 @@ export default function BuilderPage() {
         if (wfOwnerErr || !wf) {
           // Invalid / unavailable id — let openMarketplaceWorkflowAsDraft surface an error.
         } else if (String((wf as { owner_id?: string }).owner_id ?? "") !== String(userId)) {
-          router.replace(
-            `/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any,
-          );
+          router.replace(`/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any);
           return;
         }
       }
@@ -1265,9 +1255,7 @@ export default function BuilderPage() {
 
       const currentDraftId = activeDraftIdRef.current;
       const previewUpgradingToEdit =
-        !previewParam &&
-        currentDraftId === wid &&
-        openedWorkflowIdRef.current === `${wid}|p`;
+        !previewParam && currentDraftId === wid && openedWorkflowIdRef.current === `${wid}|p`;
 
       if (currentDraftId && !previewUpgradingToEdit) return;
 
@@ -1599,9 +1587,7 @@ export default function BuilderPage() {
 
     // Extract inputs from workflow (use current graph - inputs/steps must match live canvas)
     const inputs = extractWorkflowInputs(graph.nodes || []);
-    const hasAiNodes = (graph.nodes || []).some((n: any) =>
-      isPremiumAiSpec(n.data?.specId ?? ""),
-    );
+    const hasAiNodes = (graph.nodes || []).some((n: any) => isPremiumAiSpec(n.data?.specId ?? ""));
     const isBuilderTest = !isPreview;
     const showInputPhase = inputs.length > 0 || (isBuilderTest && hasAiNodes);
 
@@ -1683,9 +1669,7 @@ export default function BuilderPage() {
     const graph = beRef.current?.getGraph?.();
     if (!graph) return;
 
-    const hasAiNodes = (graph.nodes || []).some((n: any) =>
-      isPremiumAiSpec(n.data?.specId ?? ""),
-    );
+    const hasAiNodes = (graph.nodes || []).some((n: any) => isPremiumAiSpec(n.data?.specId ?? ""));
 
     // Builder test requires authentication (unlike preview/demo)
     const isBuilderTest = !isPreview;
@@ -1886,7 +1870,9 @@ export default function BuilderPage() {
                         ...prev,
                         runId: evt.runId,
                         runAccessToken:
-                          typeof evt.runAccessToken === "string" ? evt.runAccessToken : prev.runAccessToken,
+                          typeof evt.runAccessToken === "string"
+                            ? evt.runAccessToken
+                            : prev.runAccessToken,
                       }
                     : prev,
                 );
@@ -1932,9 +1918,11 @@ export default function BuilderPage() {
                       inputValues: processedInputs,
                       runAccessToken:
                         typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
-                    sourceGraph: toRuntimeGraph(graph),
+                      sourceGraph: toRuntimeGraph(graph),
                     });
-                    setRunState((prev) => (prev ? { ...prev, ...nextState } : (nextState as WorkflowRunState)));
+                    setRunState((prev) =>
+                      prev ? { ...prev, ...nextState } : (nextState as WorkflowRunState),
+                    );
                   },
                   onEvent: async (event) => {
                     setRunState((prev) =>
@@ -2586,7 +2574,9 @@ export default function BuilderPage() {
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <div className="text-[10px] uppercase tracking-widest text-white/50">Workflow</div>
+                  <div className="text-[10px] uppercase tracking-widest text-white/50">
+                    Workflow
+                  </div>
 
                   <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70">
                     v1 Alpha preview
@@ -2693,7 +2683,10 @@ export default function BuilderPage() {
                 className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
                 title="Refresh"
               >
-                <IconRefresh size={18} className={cx("text-white/85", wfLoading && "animate-spin")} />
+                <IconRefresh
+                  size={18}
+                  className={cx("text-white/85", wfLoading && "animate-spin")}
+                />
                 <span className="hidden whitespace-nowrap sm:inline">Refresh</span>
               </button>
 
@@ -2769,7 +2762,11 @@ export default function BuilderPage() {
                   )}
                   data-active={locked ? "true" : "false"}
                 >
-                  {locked ? <IconLock size={18} className="text-white/85" /> : <IconUnlock size={18} className="text-white/75" />}
+                  {locked ? (
+                    <IconLock size={18} className="text-white/85" />
+                  ) : (
+                    <IconUnlock size={18} className="text-white/75" />
+                  )}
                 </button>
                 <button
                   onClick={() => {

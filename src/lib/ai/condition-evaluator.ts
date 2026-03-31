@@ -37,7 +37,10 @@ export function buildConditionEvaluationInstruction(params: {
     lt: `LESS THAN mode: answer true only if the input can be interpreted as a number strictly less than ${cv}.`,
   };
 
-  const mode = modeBlocks[op] ?? modeBlocks.truthy ?? "TRUTHY mode: answer true when the input is clearly present and substantively true.";
+  const mode =
+    modeBlocks[op] ??
+    modeBlocks.truthy ??
+    "TRUTHY mode: answer true when the input is clearly present and substantively true.";
 
   if (humanRaw) {
     return `${humanRaw}\n\nApply this using the following rule (your final boolean must follow it): ${mode}`;

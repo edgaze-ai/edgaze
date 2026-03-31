@@ -130,7 +130,9 @@ export async function runWorkflowToTerminal(params: {
       );
     }
 
-    await perfAsync(params.runId, "runner.idleBackoff_wait", () => waitWithAbort(idleBackoffMs, params.signal));
+    await perfAsync(params.runId, "runner.idleBackoff_wait", () =>
+      waitWithAbort(idleBackoffMs, params.signal),
+    );
   }
 
   logWorkflowEnginePerfTotals(params.runId, "runner_exceeded_iterations");

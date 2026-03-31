@@ -23,10 +23,7 @@ export const metadata: Metadata = {
 export default function InvestLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <link
-        href="https://assets.calendly.com/assets/external/widget.css"
-        rel="stylesheet"
-      />
+      <link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet" />
       {children}
     </>
   );

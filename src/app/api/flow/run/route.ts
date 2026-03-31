@@ -44,10 +44,7 @@ import {
   resolveAuthenticatedRunGraphForExecution,
 } from "src/server/flow/load-workflow-graph";
 import type { GraphEdge, GraphNode } from "src/server/flow/types";
-import {
-  compileBuilderGraph,
-  WorkflowCompileError,
-} from "src/server/flow-v2/compiler";
+import { compileBuilderGraph, WorkflowCompileError } from "src/server/flow-v2/compiler";
 import {
   isWorkflowExecutionV2CompileEnabled,
   isWorkflowExecutionV2RunnerEnabled,
@@ -219,9 +216,10 @@ function getBootstrapFailureMessage(bootstrap: WorkflowRunBootstrap): string | u
 function mapRunEventToLegacyProgressEvent(
   event: RunEvent,
   compiled: CompiledWorkflowDefinition,
-):
-  | { type: "node_ready" | "node_start" | "node_done" | "node_failed"; [key: string]: unknown }
-  | null {
+): {
+  type: "node_ready" | "node_start" | "node_done" | "node_failed";
+  [key: string]: unknown;
+} | null {
   if (!("nodeId" in event.payload)) return null;
   const compiledNode = compiled.nodes.find((node) => node.id === event.payload.nodeId);
   const base = {
@@ -511,9 +509,7 @@ export async function POST(req: Request) {
     }
 
     const vaultKeys =
-      user && /^[0-9a-f-]{36}$/i.test(userId)
-        ? await loadDecryptedUserApiKeysForRun(userId)
-        : {};
+      user && /^[0-9a-f-]{36}$/i.test(userId) ? await loadDecryptedUserApiKeysForRun(userId) : {};
     const effectiveOpenaiKey =
       (typeof modalOpenaiKey === "string" && modalOpenaiKey.trim()) ||
       vaultKeys.openai?.trim() ||
@@ -744,11 +740,13 @@ export async function POST(req: Request) {
           edges,
         });
       } catch (err: unknown) {
-        console.error("[flow/run] Workflow compile failed:", err instanceof WorkflowCompileError
-          ? { message: err.message, details: err.details }
-          : err instanceof Error
-            ? { message: err.message, stack: err.stack }
-            : err,
+        console.error(
+          "[flow/run] Workflow compile failed:",
+          err instanceof WorkflowCompileError
+            ? { message: err.message, details: err.details }
+            : err instanceof Error
+              ? { message: err.message, stack: err.stack }
+              : err,
         );
         const compileError =
           err instanceof WorkflowCompileError
@@ -776,9 +774,8 @@ export async function POST(req: Request) {
           await finishUnifiedRun(unifiedRunId, "error", 0, compileError.message);
         }
 
-        const detailMessage = compileError.details.length > 0
-          ? compileError.details.join(" ")
-          : compileError.message;
+        const detailMessage =
+          compileError.details.length > 0 ? compileError.details.join(" ") : compileError.message;
         return NextResponse.json(
           {
             ok: false,
@@ -805,9 +802,9 @@ export async function POST(req: Request) {
             workflowId,
           });
         } catch (err: unknown) {
-          console.error("[flow/run] Orchestrator initialization failed:", err instanceof Error
-            ? { message: err.message, stack: err.stack }
-            : err,
+          console.error(
+            "[flow/run] Orchestrator initialization failed:",
+            err instanceof Error ? { message: err.message, stack: err.stack } : err,
           );
           const errorMessage = err instanceof Error ? err.message : "Run initialization failed";
 
@@ -1025,7 +1022,10 @@ export async function POST(req: Request) {
             finalBootstrap.run.status === "failed" ||
             finalBootstrap.run.status === "cancelled";
           if (isTerminal) {
-            const safeResult = buildLegacyRuntimeResultFromBootstrap(finalBootstrap, compiledWorkflow);
+            const safeResult = buildLegacyRuntimeResultFromBootstrap(
+              finalBootstrap,
+              compiledWorkflow,
+            );
             const updatedFreeRunsRemaining = await getUpdatedFreeRunsRemaining();
             await finishUnifiedRun(
               unifiedRunId,

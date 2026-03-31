@@ -20,8 +20,11 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
 
   const normalizeDropdownOptions = (config: any): Array<{ label: string; value: string }> => {
     const raw = config?.options ?? config?.dropdownOptions ?? config?.dropdown ?? undefined;
-    const arr: any[] =
-      Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split("\n").map((s) => s.trim()) : [];
+    const arr: any[] = Array.isArray(raw)
+      ? raw
+      : typeof raw === "string"
+        ? raw.split("\n").map((s) => s.trim())
+        : [];
 
     const opts: Array<{ label: string; value: string }> = [];
     for (const item of arr) {

@@ -326,7 +326,8 @@ function GeneralPanel({
   useEffect(() => {
     if (spec?.id !== "llm-image" && spec?.id !== "openai-image") return;
     if (!selection.nodeId) return;
-    const imageModel = (typeof cfg.model === "string" && cfg.model.trim()) || DEFAULT_LLM_IMAGE_MODEL;
+    const imageModel =
+      (typeof cfg.model === "string" && cfg.model.trim()) || DEFAULT_LLM_IMAGE_MODEL;
     if (resolveLlmImageProvider(imageModel) !== "openai") return;
     const size = cfg.size || "1024x1024";
     const quality = cfg.quality || "medium";
@@ -477,7 +478,9 @@ function GeneralPanel({
           <div key={field.key}>
             {fieldLabel(
               field.label,
-              fieldDisabled ? "Only applies when an OpenAI GPT Image model is selected." : field.helpText,
+              fieldDisabled
+                ? "Only applies when an OpenAI GPT Image model is selected."
+                : field.helpText,
             )}
             <DarkSelect
               value={effectiveValue}
@@ -624,7 +627,7 @@ function GeneralPanel({
                     const raw = cfg.options ?? spec.defaultConfig?.options ?? [];
                     if (Array.isArray(raw)) {
                       return raw
-                        .map((o: any) => (typeof o === "string" ? o : o?.label ?? o?.value ?? ""))
+                        .map((o: any) => (typeof o === "string" ? o : (o?.label ?? o?.value ?? "")))
                         .filter(Boolean)
                         .join("\n");
                     }

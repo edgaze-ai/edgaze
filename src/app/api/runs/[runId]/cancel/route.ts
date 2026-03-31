@@ -5,10 +5,7 @@ import { WorkflowRunOrchestrator } from "src/server/flow-v2/orchestrator";
 import { SupabaseWorkflowExecutionRepository } from "src/server/flow-v2/repository";
 import { cancelWorkflowRunWorker } from "src/server/flow-v2/worker-service";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ runId: string }> },
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   try {
     const { runId } = await params;
     await requireWorkflowRunAccess(req, runId);

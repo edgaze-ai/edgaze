@@ -1617,7 +1617,9 @@ export default function WorkflowProductPage() {
                       ...prev,
                       runId: evt.runId,
                       runAccessToken:
-                        typeof evt.runAccessToken === "string" ? evt.runAccessToken : prev.runAccessToken,
+                        typeof evt.runAccessToken === "string"
+                          ? evt.runAccessToken
+                          : prev.runAccessToken,
                     }
                   : prev,
               );
@@ -1748,7 +1750,9 @@ export default function WorkflowProductPage() {
 
         const outputs = extractWorkflowOutputs(graph.nodes || [])
           .map((output) => {
-            const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+            const finalOutput = executionResult.finalOutputs?.find(
+              (fo: any) => fo.nodeId === output.nodeId,
+            );
             if (!finalOutput) return null;
             return {
               ...output,
@@ -2083,12 +2087,16 @@ export default function WorkflowProductPage() {
                 headers,
                 credentials: "include",
               });
-              setDemoRunState((prev) => (prev ? { ...prev, status: "cancelling", error: undefined } : null));
+              setDemoRunState((prev) =>
+                prev ? { ...prev, status: "cancelling", error: undefined } : null,
+              );
               return;
             } catch {}
           }
           demoRunAbortRef.current?.abort();
-          setDemoRunState((prev) => (prev ? { ...prev, status: "cancelled", error: undefined } : null));
+          setDemoRunState((prev) =>
+            prev ? { ...prev, status: "cancelled", error: undefined } : null,
+          );
           setDemoRunning(false);
         }}
         onRerun={() => {

@@ -2183,7 +2183,9 @@ export default function PromptProductPage() {
                       ...prev,
                       runId: evt.runId,
                       runAccessToken:
-                        typeof evt.runAccessToken === "string" ? evt.runAccessToken : prev.runAccessToken,
+                        typeof evt.runAccessToken === "string"
+                          ? evt.runAccessToken
+                          : prev.runAccessToken,
                     }
                   : prev,
               );
@@ -2302,7 +2304,9 @@ export default function PromptProductPage() {
 
         const outputs = extractWorkflowOutputs(workflowGraph.nodes || [])
           .map((output) => {
-            const finalOutput = executionResult.finalOutputs?.find((fo: any) => fo.nodeId === output.nodeId);
+            const finalOutput = executionResult.finalOutputs?.find(
+              (fo: any) => fo.nodeId === output.nodeId,
+            );
             if (!finalOutput) return null;
             return {
               ...output,
@@ -2512,7 +2516,10 @@ export default function PromptProductPage() {
         <CustomerWorkflowRunModal
           open={workflowRunModalOpen}
           onClose={() => {
-            if (workflowRunState?.status !== "running" && workflowRunState?.status !== "cancelling") {
+            if (
+              workflowRunState?.status !== "running" &&
+              workflowRunState?.status !== "cancelling"
+            ) {
               workflowRunAbortRef.current?.abort();
               workflowRunSessionPollRef.current?.abort();
               setWorkflowRunModalOpen(false);
@@ -2530,11 +2537,14 @@ export default function PromptProductPage() {
                 const query = workflowRunState.runAccessToken
                   ? `?runAccessToken=${encodeURIComponent(workflowRunState.runAccessToken)}`
                   : "";
-                await fetch(`/api/runs/${encodeURIComponent(workflowRunState.runId)}/cancel${query}`, {
-                  method: "POST",
-                  headers,
-                  credentials: "include",
-                });
+                await fetch(
+                  `/api/runs/${encodeURIComponent(workflowRunState.runId)}/cancel${query}`,
+                  {
+                    method: "POST",
+                    headers,
+                    credentials: "include",
+                  },
+                );
                 setWorkflowRunState((prev) =>
                   prev ? { ...prev, status: "cancelling", error: undefined } : null,
                 );

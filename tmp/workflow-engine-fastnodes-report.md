@@ -4,35 +4,35 @@ Source: `tmp/workflow-engine-fastnodes.log`
 
 ## Run Summary
 
-| Run | Engine (non-model) | External/model | Instrumented total |
-|-----|--------------------:|---------------:|-------------------:|
-| `run_test` | 70.31 ms | 20.37 ms | 90.92 ms |
+| Run        | Engine (non-model) | External/model | Instrumented total |
+| ---------- | -----------------: | -------------: | -----------------: |
+| `run_test` |           70.31 ms |       20.37 ms |           90.92 ms |
 
 ## Top 10 Engine Phases
 
-| Phase | Calls | Avg | Worst | Total | % non-model | Class |
-|-------|------:|----:|------:|------:|------------:|-------|
-| `batch.executeNodesParallel_withLease` | 5 | 10.51 ms | 47.05 ms | 52.55 ms | 74.7% | implementation |
-| `node.materializeNodeInput` | 9 | 0.81 ms | 5.76 ms | 7.26 ms | 10.3% | implementation |
-| `batch.sortCompletedWorkTopo` | 5 | 1.09 ms | 5.39 ms | 5.43 ms | 7.7% | implementation |
-| `serialization.inlinePayload.input` | 9 | 0.14 ms | 0.44 ms | 1.22 ms | 1.7% | implementation |
-| `node.persistAttemptMaterializedInput` | 9 | 0.06 ms | 0.18 ms | 0.50 ms | 0.7% | implementation |
-| `node.persistAttemptResult` | 9 | 0.05 ms | 0.13 ms | 0.44 ms | 0.6% | implementation |
-| `batch.claimNextRunnableNode` | 10 | 0.04 ms | 0.36 ms | 0.44 ms | 0.6% | architecture |
-| `batch.applyTerminalNodeEffects_all` | 5 | 0.09 ms | 0.11 ms | 0.43 ms | 0.6% | implementation |
-| `serialization.inlinePayload.output` | 9 | 0.03 ms | 0.17 ms | 0.28 ms | 0.4% | implementation |
-| `batch.finalizeRunIfTerminal` | 5 | 0.05 ms | 0.12 ms | 0.26 ms | 0.4% | implementation |
+| Phase                                  | Calls |      Avg |    Worst |    Total | % non-model | Class          |
+| -------------------------------------- | ----: | -------: | -------: | -------: | ----------: | -------------- |
+| `batch.executeNodesParallel_withLease` |     5 | 10.51 ms | 47.05 ms | 52.55 ms |       74.7% | implementation |
+| `node.materializeNodeInput`            |     9 |  0.81 ms |  5.76 ms |  7.26 ms |       10.3% | implementation |
+| `batch.sortCompletedWorkTopo`          |     5 |  1.09 ms |  5.39 ms |  5.43 ms |        7.7% | implementation |
+| `serialization.inlinePayload.input`    |     9 |  0.14 ms |  0.44 ms |  1.22 ms |        1.7% | implementation |
+| `node.persistAttemptMaterializedInput` |     9 |  0.06 ms |  0.18 ms |  0.50 ms |        0.7% | implementation |
+| `node.persistAttemptResult`            |     9 |  0.05 ms |  0.13 ms |  0.44 ms |        0.6% | implementation |
+| `batch.claimNextRunnableNode`          |    10 |  0.04 ms |  0.36 ms |  0.44 ms |        0.6% | architecture   |
+| `batch.applyTerminalNodeEffects_all`   |     5 |  0.09 ms |  0.11 ms |  0.43 ms |        0.6% | implementation |
+| `serialization.inlinePayload.output`   |     9 |  0.03 ms |  0.17 ms |  0.28 ms |        0.4% | implementation |
+| `batch.finalizeRunIfTerminal`          |     5 |  0.05 ms |  0.12 ms |  0.26 ms |        0.4% | implementation |
 
 ## Top 10 Node Overheads
 
-| Run | Node | Engine (non-model) | External/model | Instrumented total |
-|-----|------|--------------------:|---------------:|-------------------:|
-| `run_test` | `merge_a` | 5.88 ms | 0.00 ms | 5.98 ms |
-| `run_test` | `input_a` | 3.28 ms | 0.00 ms | 3.42 ms |
-| `run_test` | `in1` | 0.53 ms | 0.00 ms | 0.53 ms |
-| `run_test` | `delay_a` | 0.34 ms | 20.37 ms | 20.70 ms |
-| `run_test` | `in2` | 0.13 ms | 0.00 ms | 0.13 ms |
-| `run_test` | `condition_a` | 0.06 ms | 0.00 ms | 0.06 ms |
+| Run        | Node          | Engine (non-model) | External/model | Instrumented total |
+| ---------- | ------------- | -----------------: | -------------: | -----------------: |
+| `run_test` | `merge_a`     |            5.88 ms |        0.00 ms |            5.98 ms |
+| `run_test` | `input_a`     |            3.28 ms |        0.00 ms |            3.42 ms |
+| `run_test` | `in1`         |            0.53 ms |        0.00 ms |            0.53 ms |
+| `run_test` | `delay_a`     |            0.34 ms |       20.37 ms |           20.70 ms |
+| `run_test` | `in2`         |            0.13 ms |        0.00 ms |            0.13 ms |
+| `run_test` | `condition_a` |            0.06 ms |        0.00 ms |            0.06 ms |
 
 ## Raw Totals Rows
 

@@ -11,9 +11,7 @@ export type { UserApiKeyMetadata, UserApiKeyProvider } from "./constants";
 export { USER_API_KEY_PROVIDERS } from "./constants";
 
 function isUuid(userId: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    userId,
-  );
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
 }
 
 export function parseUserApiKeyProvider(raw: string): UserApiKeyProvider | null {

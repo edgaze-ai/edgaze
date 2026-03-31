@@ -85,7 +85,8 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
           },
           {
             title: "Workflow Studio",
-            description: "Design visual workflows with inputs, prompts, tools, and logic—then publish.",
+            description:
+              "Design visual workflows with inputs, prompts, tools, and logic—then publish.",
             href: "/builder",
             icon: GitBranch,
             iconSrc: "/brand/studio-nav-icons-sprite.png",
@@ -99,7 +100,8 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
           },
           {
             title: "Prompt Studio",
-            description: "Structure prompts, versions, and inputs—publish prompt packs and single prompts.",
+            description:
+              "Structure prompts, versions, and inputs—publish prompt packs and single prompts.",
             href: "/prompt-studio",
             icon: Sparkles,
             iconSrc: "/brand/studio-nav-icons-sprite.png",
@@ -128,8 +130,7 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
     contentLayout: "two-tiles-fill",
     featured: {
       title: "Ship tools, not screenshots",
-      description:
-        "Publish once, share a single link, and grow distribution from the marketplace.",
+      description: "Publish once, share a single link, and grow distribution from the marketplace.",
       href: "/builder",
       ctaLabel: "Open Workflow Studio",
     },
@@ -139,7 +140,8 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
         items: [
           {
             title: "Workflow Studio",
-            description: "The visual builder for multi-step workflows, tools, and publish-ready pages.",
+            description:
+              "The visual builder for multi-step workflows, tools, and publish-ready pages.",
             href: "/builder",
             icon: GitBranch,
             iconSrc: "/brand/studio-nav-icons-sprite.png",
@@ -148,7 +150,8 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
           },
           {
             title: "Prompt Studio",
-            description: "Templates, inputs, and versions so prompts ship like products—not screenshots.",
+            description:
+              "Templates, inputs, and versions so prompts ship like products—not screenshots.",
             href: "/prompt-studio",
             icon: Sparkles,
             iconSrc: "/brand/studio-nav-icons-sprite.png",
@@ -272,7 +275,8 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
     href: "/creators",
     featured: {
       title: "Creator program",
-      description: "Earn from prompts and workflows with clean pages, codes, and marketplace reach.",
+      description:
+        "Earn from prompts and workflows with clean pages, codes, and marketplace reach.",
       href: "/creators",
       ctaLabel: "Become a creator",
     },

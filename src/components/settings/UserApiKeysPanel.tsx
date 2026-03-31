@@ -233,9 +233,7 @@ export function UserApiKeysPanel({
                     <input
                       type="password"
                       value={newSecrets[provider] ?? ""}
-                      onChange={(e) =>
-                        setNewSecrets((s) => ({ ...s, [provider]: e.target.value }))
-                      }
+                      onChange={(e) => setNewSecrets((s) => ({ ...s, [provider]: e.target.value }))}
                       placeholder={configured ? "Paste new secret to replace" : "Paste secret key"}
                       autoComplete="off"
                       className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-2.5 text-[13px] text-white placeholder-white/35 focus:border-cyan-500/35 focus:outline-none focus:ring-1 focus:ring-cyan-500/25"

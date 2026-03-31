@@ -21,7 +21,9 @@ export function resolvePortId(params: {
 }): string {
   const resolvedSpec = resolveWorkflowNodeSpec(params.specId);
   if (!resolvedSpec) {
-    throw new WorkflowCompileError(`Unknown node spec "${params.specId}" on node "${params.nodeId}".`);
+    throw new WorkflowCompileError(
+      `Unknown node spec "${params.specId}" on node "${params.nodeId}".`,
+    );
   }
 
   const ports = params.kind === "input" ? resolvedSpec.inputPorts : resolvedSpec.outputPorts;

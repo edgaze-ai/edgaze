@@ -50,7 +50,8 @@ function collectImmediateConditionBranchTargets(params: {
 }): string[] {
   return params.edges
     .filter(
-      (edge) => edge.sourceNodeId === params.conditionNodeId && edge.sourcePortId === params.branchPortId,
+      (edge) =>
+        edge.sourceNodeId === params.conditionNodeId && edge.sourcePortId === params.branchPortId,
     )
     .map((edge) => edge.targetNodeId);
 }
@@ -121,13 +122,11 @@ function classifyNodeTransition(params: {
   targetNode: WorkflowRunNode;
   dependencies: ClassifiedDependency[];
   runCancelRequested: boolean;
-}):
-  | {
-      status: WorkflowRunNodeStatus;
-      reason?: string;
-      message: string;
-    }
-  | null {
+}): {
+  status: WorkflowRunNodeStatus;
+  reason?: string;
+  message: string;
+} | null {
   if (isTerminalNodeStatus(params.targetNode.status) || params.targetNode.status === "running") {
     return null;
   }
@@ -198,7 +197,8 @@ function classifyNodeTransition(params: {
   if (failingDependencies.length > 0) {
     const skipRequested = failingDependencies.some(
       (dependency) =>
-        dependency.node.failurePolicy === "skip_downstream" || dependency.node.failurePolicy === "fail_fast",
+        dependency.node.failurePolicy === "skip_downstream" ||
+        dependency.node.failurePolicy === "fail_fast",
     );
     return skipRequested
       ? {
@@ -226,7 +226,9 @@ async function reevaluateNodeTransitions(params: {
   const { readyNodeIds, blockedNodeIds, skippedNodeIds, cancelledNodeIds, transitionMetaByNodeId } =
     perfSync(runId, "reevaluate.planTransitions_sync", () => {
       const nodeById = new Map(params.nodes.map((node) => [node.nodeId, node]));
-      const compiledNodeById = new Map(params.runState.compiled.nodes.map((node) => [node.id, node]));
+      const compiledNodeById = new Map(
+        params.runState.compiled.nodes.map((node) => [node.id, node]),
+      );
       const ready: string[] = [];
       const blocked: string[] = [];
       const skipped: string[] = [];
@@ -285,7 +287,7 @@ async function reevaluateNodeTransitions(params: {
       status: "ready",
       onlyCurrentStatuses: ["pending", "queued", "retry_scheduled"],
       queuedAt: now,
-    })
+    }),
   );
   const readyEvents = changedReadyNodeIds.map((nodeId) => {
     changedNodeIds.add(nodeId);
@@ -308,14 +310,17 @@ async function reevaluateNodeTransitions(params: {
     }),
   );
 
-  const changedBlockedNodeIds = await perfAsync(runId, "reevaluate.db.updateNodeStatuses.blocked", () =>
-    params.repository.updateNodeStatuses({
-      runId: params.runId,
-      nodeIds: blockedNodeIds,
-      status: "blocked",
-      onlyCurrentStatuses: ["pending", "ready", "queued", "retry_scheduled"],
-      endedAt: now,
-    })
+  const changedBlockedNodeIds = await perfAsync(
+    runId,
+    "reevaluate.db.updateNodeStatuses.blocked",
+    () =>
+      params.repository.updateNodeStatuses({
+        runId: params.runId,
+        nodeIds: blockedNodeIds,
+        status: "blocked",
+        onlyCurrentStatuses: ["pending", "ready", "queued", "retry_scheduled"],
+        endedAt: now,
+      }),
   );
   const blockedEvents = changedBlockedNodeIds.map((nodeId) => {
     changedNodeIds.add(nodeId);
@@ -338,14 +343,17 @@ async function reevaluateNodeTransitions(params: {
     }),
   );
 
-  const changedSkippedNodeIds = await perfAsync(runId, "reevaluate.db.updateNodeStatuses.skipped", () =>
-    params.repository.updateNodeStatuses({
-      runId: params.runId,
-      nodeIds: skippedNodeIds,
-      status: "skipped",
-      onlyCurrentStatuses: ["pending", "ready", "queued", "retry_scheduled"],
-      endedAt: now,
-    })
+  const changedSkippedNodeIds = await perfAsync(
+    runId,
+    "reevaluate.db.updateNodeStatuses.skipped",
+    () =>
+      params.repository.updateNodeStatuses({
+        runId: params.runId,
+        nodeIds: skippedNodeIds,
+        status: "skipped",
+        onlyCurrentStatuses: ["pending", "ready", "queued", "retry_scheduled"],
+        endedAt: now,
+      }),
   );
   const skippedEvents = changedSkippedNodeIds.map((nodeId) => {
     changedNodeIds.add(nodeId);
@@ -368,14 +376,17 @@ async function reevaluateNodeTransitions(params: {
     }),
   );
 
-  const changedCancelledNodeIds = await perfAsync(runId, "reevaluate.db.updateNodeStatuses.cancelled", () =>
-    params.repository.updateNodeStatuses({
-      runId: params.runId,
-      nodeIds: cancelledNodeIds,
-      status: "cancelled",
-      onlyCurrentStatuses: ["pending", "ready", "queued", "retry_scheduled"],
-      endedAt: now,
-    })
+  const changedCancelledNodeIds = await perfAsync(
+    runId,
+    "reevaluate.db.updateNodeStatuses.cancelled",
+    () =>
+      params.repository.updateNodeStatuses({
+        runId: params.runId,
+        nodeIds: cancelledNodeIds,
+        status: "cancelled",
+        onlyCurrentStatuses: ["pending", "ready", "queued", "retry_scheduled"],
+        endedAt: now,
+      }),
   );
   const cancelledEvents = changedCancelledNodeIds.map((nodeId) => {
     changedNodeIds.add(nodeId);
@@ -663,24 +674,27 @@ async function executeClaimedNodeWithLeaseHeartbeat(params: {
 }): Promise<Awaited<ReturnType<typeof executeClaimedNode>>> {
   const executionSignalController = createChildAbortController(params.signal);
   const heartbeatMs = params.dependencies.leaseHeartbeatMs ?? 10_000;
-  const heartbeat = setInterval(async () => {
-    try {
-      const renewed = await params.dependencies.repository.renewAttemptLease({
-        attemptId: params.workItem.attemptId,
-        leaseOwner: params.workItem.leaseOwner,
-        leaseDurationSec: params.dependencies.leaseDurationSec,
-      });
-      if (!renewed && !executionSignalController.signal.aborted) {
-        executionSignalController.abort(new Error("Attempt lease lost before completion."));
+  const heartbeat = setInterval(
+    async () => {
+      try {
+        const renewed = await params.dependencies.repository.renewAttemptLease({
+          attemptId: params.workItem.attemptId,
+          leaseOwner: params.workItem.leaseOwner,
+          leaseDurationSec: params.dependencies.leaseDurationSec,
+        });
+        if (!renewed && !executionSignalController.signal.aborted) {
+          executionSignalController.abort(new Error("Attempt lease lost before completion."));
+        }
+      } catch (error) {
+        if (!executionSignalController.signal.aborted) {
+          executionSignalController.abort(
+            error instanceof Error ? error : new Error("Attempt lease renewal failed."),
+          );
+        }
       }
-    } catch (error) {
-      if (!executionSignalController.signal.aborted) {
-        executionSignalController.abort(
-          error instanceof Error ? error : new Error("Attempt lease renewal failed."),
-        );
-      }
-    }
-  }, Math.max(heartbeatMs, 1_000));
+    },
+    Math.max(heartbeatMs, 1_000),
+  );
 
   try {
     return await executeClaimedNode({

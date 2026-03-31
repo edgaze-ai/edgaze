@@ -69,8 +69,7 @@ function validateLlmImageNode(node: GraphNode): ValidationIssue[] {
     (typeof config.model === "string" && config.model.trim()) || DEFAULT_LLM_IMAGE_MODEL;
   const quality =
     typeof config.quality === "string" && config.quality.trim() ? config.quality : "medium";
-  const size =
-    typeof config.size === "string" && config.size.trim() ? config.size : "1024x1024";
+  const size = typeof config.size === "string" && config.size.trim() ? config.size : "1024x1024";
   const name = config.name || node.data?.specId || "LLM Image";
   const errs: ValidationIssue[] = [];
   if (resolveLlmImageProvider(model) !== "openai") return errs;

@@ -209,17 +209,18 @@ class FakeWorkerRepository {
   persistAttemptMaterializedInputCalls = 0;
   loadRunInputCalls = 0;
   loadUpstreamOutputsCalls = 0;
-  resultPayloads:
-    | {
-        result: NodeExecutionResult;
-        outputPayload: PayloadReference | null;
-        errorPayload: PayloadReference | null;
-      }
-    | null = null;
+  resultPayloads: {
+    result: NodeExecutionResult;
+    outputPayload: PayloadReference | null;
+    errorPayload: PayloadReference | null;
+  } | null = null;
 
   constructor(
     private readonly runInput: Record<string, SerializableValue>,
-    private readonly upstreamOutputs: Record<string, PayloadReference | SerializableValue | undefined>,
+    private readonly upstreamOutputs: Record<
+      string,
+      PayloadReference | SerializableValue | undefined
+    >,
   ) {}
 
   async loadRunInput(): Promise<Record<string, SerializableValue>> {
@@ -293,10 +294,12 @@ describe("executeClaimedNode", () => {
     expect(repository.materializedInputPayload).toBeNull();
     expect(repository.persistedResultInputPayload).not.toBeNull();
     expect(repository.resultPayloads?.outputPayload).not.toBeNull();
-    expect(readPayloadReferenceValue(repository.resultPayloads?.outputPayload ?? undefined)).toEqual(
-      { "out-right": "hello world" },
-    );
-    expect(readPayloadReferenceValue(repository.persistedResultInputPayload ?? undefined)).toMatchObject({
+    expect(
+      readPayloadReferenceValue(repository.resultPayloads?.outputPayload ?? undefined),
+    ).toEqual({ "out-right": "hello world" });
+    expect(
+      readPayloadReferenceValue(repository.persistedResultInputPayload ?? undefined),
+    ).toMatchObject({
       compact: true,
       ports: {
         __input__: {
@@ -365,10 +368,14 @@ describe("executeClaimedNode", () => {
 
     expect(result.status).toBe("completed");
     expect(repository.persistAttemptMaterializedInputCalls).toBe(0);
-    expect(readPayloadReferenceValue(repository.resultPayloads?.outputPayload ?? undefined)).toEqual({
+    expect(
+      readPayloadReferenceValue(repository.resultPayloads?.outputPayload ?? undefined),
+    ).toEqual({
       "out-right": "Hello\n\nWorld",
     });
-    expect(readPayloadReferenceValue(repository.persistedResultInputPayload ?? undefined)).toMatchObject({
+    expect(
+      readPayloadReferenceValue(repository.persistedResultInputPayload ?? undefined),
+    ).toMatchObject({
       compact: true,
       ports: {
         "in-left": {

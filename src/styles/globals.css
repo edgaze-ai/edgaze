@@ -399,7 +399,12 @@ input:-webkit-autofill:active {
   --edgaze-glass-2: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.026));
   --edgaze-border: rgba(255, 255, 255, 0.11);
   --edgaze-border-strong: rgba(255, 255, 255, 0.16);
-  --edgaze-inner-highlight: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  --edgaze-inner-highlight: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.32),
+    transparent
+  );
   --edgaze-shadow: 0 24px 120px rgba(0, 0, 0, 0.68);
   --edgaze-shadow-tight: 0 14px 56px rgba(0, 0, 0, 0.62);
   --edgaze-ease-fast: 150ms cubic-bezier(0.2, 0.9, 0.2, 1);
@@ -432,7 +437,12 @@ input:-webkit-autofill:active {
   border-radius: inherit;
   opacity: 0;
   transform: translateX(-12%);
-  background: linear-gradient(110deg, transparent 38%, rgba(255, 255, 255, 0.12) 50%, transparent 62%);
+  background: linear-gradient(
+    110deg,
+    transparent 38%,
+    rgba(255, 255, 255, 0.12) 50%,
+    transparent 62%
+  );
   transition:
     opacity var(--edgaze-ease),
     transform var(--edgaze-ease);
@@ -456,7 +466,9 @@ input:-webkit-autofill:active {
   opacity: 0;
   background: var(--edgaze-accent);
   padding: 1px;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   transition: opacity var(--edgaze-ease);
@@ -496,7 +508,9 @@ input:-webkit-autofill:active {
 .edg-builder-btn-primary {
   border-color: rgba(120, 233, 255, 0.22);
   background: var(--edgaze-accent-soft);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(120, 233, 255, 0.08) inset;
+  box-shadow:
+    0 10px 34px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(120, 233, 255, 0.08) inset;
   color: rgba(255, 255, 255, 0.95);
 }
 
@@ -530,9 +544,16 @@ input:-webkit-autofill:active {
   border-radius: inherit;
   pointer-events: none;
   opacity: 0.9;
-  background: linear-gradient(90deg, rgba(120, 233, 255, 0.55), rgba(182, 140, 255, 0.5), rgba(255, 109, 178, 0.55));
+  background: linear-gradient(
+    90deg,
+    rgba(120, 233, 255, 0.55),
+    rgba(182, 140, 255, 0.5),
+    rgba(255, 109, 178, 0.55)
+  );
   padding: 1px;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }
@@ -591,7 +612,9 @@ input:-webkit-autofill:active {
   pointer-events: none;
   background: var(--edgaze-accent);
   padding: 1px;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   opacity: 0.9;

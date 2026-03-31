@@ -133,7 +133,8 @@ export default function CustomerRunNodeStage({
 }: CustomerRunNodeStageProps) {
   const { nodes, edges } = useFocusedGraph(graph, activeNodeIds);
   const fitSignature = useMemo(
-    () => `${activeNodeIds.join("\0")}|${nodes.map((n) => n.id).join("\0")}|${edges.map((e) => e.id).join("\0")}`,
+    () =>
+      `${activeNodeIds.join("\0")}|${nodes.map((n) => n.id).join("\0")}|${edges.map((e) => e.id).join("\0")}`,
     [activeNodeIds, nodes, edges],
   );
 

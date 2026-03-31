@@ -184,28 +184,36 @@ export async function executeClaimedNode(
           },
         );
 
-  const materializedInput = perfSync(runId, "node.materializeNodeInput", () =>
-    materializeNodeInput({
-      runId: params.workItem.runId,
-      attemptNumber: params.workItem.attemptNumber,
-      compiledNode: params.workItem.compiledNode,
-      runInput,
-      upstreamOutputsByNodeId: upstreamOutputs,
-    }),
-  {
-    ...phaseMeta,
-    inputPortCount: params.workItem.compiledNode.inputPorts.length,
-    bindingCount: params.workItem.compiledNode.inputBindings.length,
-  });
-
-  const inputPayloadRef = perfSync(runId, "serialization.inlinePayload.input", () =>
-    createInlinePayloadReference(
-      buildPersistedMaterializedInputSnapshot({
-        specId: params.workItem.compiledNode.specId,
-        materializedInput,
+  const materializedInput = perfSync(
+    runId,
+    "node.materializeNodeInput",
+    () =>
+      materializeNodeInput({
+        runId: params.workItem.runId,
+        attemptNumber: params.workItem.attemptNumber,
+        compiledNode: params.workItem.compiledNode,
+        runInput,
+        upstreamOutputsByNodeId: upstreamOutputs,
       }),
-    ),
-  phaseMeta);
+    {
+      ...phaseMeta,
+      inputPortCount: params.workItem.compiledNode.inputPorts.length,
+      bindingCount: params.workItem.compiledNode.inputBindings.length,
+    },
+  );
+
+  const inputPayloadRef = perfSync(
+    runId,
+    "serialization.inlinePayload.input",
+    () =>
+      createInlinePayloadReference(
+        buildPersistedMaterializedInputSnapshot({
+          specId: params.workItem.compiledNode.specId,
+          materializedInput,
+        }),
+      ),
+    phaseMeta,
+  );
 
   const inputPayloadMeta = {
     ...phaseMeta,
@@ -214,32 +222,41 @@ export async function executeClaimedNode(
   };
 
   if (!isFastLocalNode) {
-    await perfAsync(runId, "node.persistAttemptMaterializedInput", () =>
-      params.repository.persistAttemptMaterializedInput({
-        attemptId: params.workItem.attemptId,
-        runNodeId: params.workItem.runNodeId,
-        attemptNumber: params.workItem.attemptNumber,
-        leaseOwner: params.workItem.leaseOwner,
-        inputPayload: inputPayloadRef,
-      }),
-    inputPayloadMeta);
-
-    await perfAsync(runId, "node.streamEmit.node_materialized_input", async () => {
-      if (params.repository.appendRunEvent) {
-        await params.repository.appendRunEvent({
-          runId: params.workItem.runId,
-          type: "node_materialized_input",
-          nodeId: params.workItem.compiledNode.id,
+    await perfAsync(
+      runId,
+      "node.persistAttemptMaterializedInput",
+      () =>
+        params.repository.persistAttemptMaterializedInput({
+          attemptId: params.workItem.attemptId,
+          runNodeId: params.workItem.runNodeId,
           attemptNumber: params.workItem.attemptNumber,
-          payload: {
+          leaseOwner: params.workItem.leaseOwner,
+          inputPayload: inputPayloadRef,
+        }),
+      inputPayloadMeta,
+    );
+
+    await perfAsync(
+      runId,
+      "node.streamEmit.node_materialized_input",
+      async () => {
+        if (params.repository.appendRunEvent) {
+          await params.repository.appendRunEvent({
+            runId: params.workItem.runId,
+            type: "node_materialized_input",
             nodeId: params.workItem.compiledNode.id,
             attemptNumber: params.workItem.attemptNumber,
-            status: "running",
-            message: "Node input materialized and frozen for this attempt.",
-          },
-        });
-      }
-    }, phaseMeta);
+            payload: {
+              nodeId: params.workItem.compiledNode.id,
+              attemptNumber: params.workItem.attemptNumber,
+              status: "running",
+              message: "Node input materialized and frozen for this attempt.",
+            },
+          });
+        }
+      },
+      phaseMeta,
+    );
   }
 
   let streamStarted = false;
@@ -257,24 +274,28 @@ export async function executeClaimedNode(
     const delta = streamBuffer;
     streamBuffer = "";
     lastStreamFlushAt = now;
-    await perfAsync(runId, "node.streamEmit.delta", () =>
-      params.repository.appendRunEvent!({
-        runId: params.workItem.runId,
-        type: "node.stream.delta",
-        nodeId: params.workItem.compiledNode.id,
-        attemptNumber: params.workItem.attemptNumber,
-        payload: {
+    await perfAsync(
+      runId,
+      "node.streamEmit.delta",
+      () =>
+        params.repository.appendRunEvent!({
+          runId: params.workItem.runId,
+          type: "node.stream.delta",
           nodeId: params.workItem.compiledNode.id,
           attemptNumber: params.workItem.attemptNumber,
-          status: "running",
-          delta,
-          format: streamFormat,
-        },
-      }),
-    {
-      ...phaseMeta,
-      deltaChars: delta.length,
-    });
+          payload: {
+            nodeId: params.workItem.compiledNode.id,
+            attemptNumber: params.workItem.attemptNumber,
+            status: "running",
+            delta,
+            format: streamFormat,
+          },
+        }),
+      {
+        ...phaseMeta,
+        deltaChars: delta.length,
+      },
+    );
   };
 
   const result = await params.executor.execute({
@@ -289,20 +310,24 @@ export async function executeClaimedNode(
 
       if (!streamStarted || payload.status === "started") {
         streamStarted = true;
-        await perfAsync(runId, "node.streamEmit.started", () =>
-          params.repository.appendRunEvent!({
-            runId: params.workItem.runId,
-            type: "node.stream.started",
-            nodeId,
-            attemptNumber: params.workItem.attemptNumber,
-            payload: {
+        await perfAsync(
+          runId,
+          "node.streamEmit.started",
+          () =>
+            params.repository.appendRunEvent!({
+              runId: params.workItem.runId,
+              type: "node.stream.started",
               nodeId,
               attemptNumber: params.workItem.attemptNumber,
-              status: "running",
-              format: payload.format ?? streamFormat,
-            },
-          }),
-        phaseMeta);
+              payload: {
+                nodeId,
+                attemptNumber: params.workItem.attemptNumber,
+                status: "running",
+                format: payload.format ?? streamFormat,
+              },
+            }),
+          phaseMeta,
+        );
       }
 
       if (typeof payload.delta === "string" && payload.delta.length > 0) {
@@ -314,89 +339,111 @@ export async function executeClaimedNode(
       if (payload.status === "finished" || payload.status === "interrupted") {
         await flushStreamDelta(true);
         streamFinished = true;
-        await perfAsync(runId, "node.streamEmit.finished", () =>
-          params.repository.appendRunEvent!({
-            runId: params.workItem.runId,
-            type: "node.stream.finished",
-            nodeId,
-            attemptNumber: params.workItem.attemptNumber,
-            payload: {
+        await perfAsync(
+          runId,
+          "node.streamEmit.finished",
+          () =>
+            params.repository.appendRunEvent!({
+              runId: params.workItem.runId,
+              type: "node.stream.finished",
               nodeId,
               attemptNumber: params.workItem.attemptNumber,
-              status: payload.status === "interrupted" ? "cancelled" : "completed",
-              text: typeof payload.text === "string" ? payload.text : fullStreamText,
-              format: payload.format ?? streamFormat,
-              error: payload.error ?? null,
-            },
-          }),
-        {
-          ...phaseMeta,
-          streamedChars: fullStreamText.length,
-        });
+              payload: {
+                nodeId,
+                attemptNumber: params.workItem.attemptNumber,
+                status: payload.status === "interrupted" ? "cancelled" : "completed",
+                text: typeof payload.text === "string" ? payload.text : fullStreamText,
+                format: payload.format ?? streamFormat,
+                error: payload.error ?? null,
+              },
+            }),
+          {
+            ...phaseMeta,
+            streamedChars: fullStreamText.length,
+          },
+        );
       }
     },
   });
 
   if (streamStarted && !streamFinished && params.repository.appendRunEvent) {
     await flushStreamDelta(true);
-    await perfAsync(runId, "node.streamEmit.finished_fallback", () =>
-      params.repository.appendRunEvent!({
-        runId: params.workItem.runId,
-        type: "node.stream.finished",
-        nodeId: params.workItem.compiledNode.id,
-        attemptNumber: params.workItem.attemptNumber,
-        payload: {
+    await perfAsync(
+      runId,
+      "node.streamEmit.finished_fallback",
+      () =>
+        params.repository.appendRunEvent!({
+          runId: params.workItem.runId,
+          type: "node.stream.finished",
           nodeId: params.workItem.compiledNode.id,
           attemptNumber: params.workItem.attemptNumber,
-          status:
-            result.status === "completed"
-              ? "completed"
-              : result.status === "cancelled"
-                ? "cancelled"
-                : "failed",
-          text: fullStreamText,
-          format: streamFormat,
-          error: result.error?.message ?? null,
-        },
+          payload: {
+            nodeId: params.workItem.compiledNode.id,
+            attemptNumber: params.workItem.attemptNumber,
+            status:
+              result.status === "completed"
+                ? "completed"
+                : result.status === "cancelled"
+                  ? "cancelled"
+                  : "failed",
+            text: fullStreamText,
+            format: streamFormat,
+            error: result.error?.message ?? null,
+          },
+        }),
+      {
+        ...phaseMeta,
+        streamedChars: fullStreamText.length,
+      },
+    );
+  }
+
+  const outputPayload = perfSync(
+    runId,
+    "serialization.inlinePayload.output",
+    () =>
+      result.outputsByPort === undefined
+        ? null
+        : createInlinePayloadReference(result.outputsByPort),
+    phaseMeta,
+  );
+  const errorPayload = perfSync(
+    runId,
+    "serialization.inlinePayload.error",
+    () =>
+      result.error === undefined
+        ? null
+        : createInlinePayloadReference({
+            message: result.error.message,
+            code: result.error.code ?? null,
+            details: result.error.details ?? null,
+            retryable: result.error.retryable,
+          }),
+    phaseMeta,
+  );
+
+  await perfAsync(
+    runId,
+    "node.persistAttemptResult",
+    () =>
+      params.repository.persistAttemptResult({
+        attemptId: params.workItem.attemptId,
+        runNodeId: params.workItem.runNodeId,
+        attemptNumber: params.workItem.attemptNumber,
+        leaseOwner: params.workItem.leaseOwner,
+        result,
+        inputPayload: isFastLocalNode ? inputPayloadRef : null,
+        outputPayload,
+        errorPayload,
       }),
     {
       ...phaseMeta,
-      streamedChars: fullStreamText.length,
-    });
-  }
-
-  const outputPayload = perfSync(runId, "serialization.inlinePayload.output", () =>
-    result.outputsByPort === undefined ? null : createInlinePayloadReference(result.outputsByPort),
-  phaseMeta);
-  const errorPayload = perfSync(runId, "serialization.inlinePayload.error", () =>
-    result.error === undefined
-      ? null
-      : createInlinePayloadReference({
-          message: result.error.message,
-          code: result.error.code ?? null,
-          details: result.error.details ?? null,
-          retryable: result.error.retryable,
-        }),
-  phaseMeta);
-
-  await perfAsync(runId, "node.persistAttemptResult", () =>
-    params.repository.persistAttemptResult({
-      attemptId: params.workItem.attemptId,
-      runNodeId: params.workItem.runNodeId,
-      attemptNumber: params.workItem.attemptNumber,
-      leaseOwner: params.workItem.leaseOwner,
-      result,
-      inputPayload: isFastLocalNode ? inputPayloadRef : null,
-      outputPayload,
-      errorPayload,
-    }),
-  {
-    ...phaseMeta,
-    outputPayloadBytes: outputPayload?.byteLength ?? 0,
-    outputPayloadSizeBucket: payloadSizeBucket(outputPayload?.byteLength),
-    errorPayloadBytes: errorPayload?.byteLength ?? 0,
-    errorPayloadSizeBucket: payloadSizeBucket(errorPayload?.byteLength),
-  });
+      outputPayloadBytes: outputPayload?.byteLength ?? 0,
+      outputPayloadSizeBucket: payloadSizeBucket(outputPayload?.byteLength),
+      errorPayloadBytes: errorPayload?.byteLength ?? 0,
+      errorPayloadSizeBucket: payloadSizeBucket(errorPayload?.byteLength),
+    },
+  );
 
   return result;
 }

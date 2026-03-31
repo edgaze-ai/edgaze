@@ -16,7 +16,14 @@ function toneColor(tone: IconProps["tone"]) {
 function defs() {
   return (
     <defs>
-      <linearGradient id="edgaze-icon-grad" x1="0" y1="0" x2="18" y2="18" gradientUnits="userSpaceOnUse">
+      <linearGradient
+        id="edgaze-icon-grad"
+        x1="0"
+        y1="0"
+        x2="18"
+        y2="18"
+        gradientUnits="userSpaceOnUse"
+      >
         <stop stopColor="#78E9FF" />
         <stop offset="0.54" stopColor="#B68CFF" />
         <stop offset="1" stopColor="#FF6DB2" />
@@ -33,21 +40,9 @@ function IconBase({
 }: IconProps & { children: React.ReactNode }) {
   const stroke = toneColor(tone);
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 18 18"
-      fill="none"
-      aria-hidden="true"
-      {...rest}
-    >
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none" aria-hidden="true" {...rest}>
       {tone === "brand" ? defs() : null}
-      <g
-        stroke={stroke}
-        strokeWidth={STROKE}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
+      <g stroke={stroke} strokeWidth={STROKE} strokeLinecap="round" strokeLinejoin="round">
         {children}
       </g>
     </svg>
@@ -320,4 +315,3 @@ export function IconBack(props: IconProps) {
     </IconBase>
   );
 }
-

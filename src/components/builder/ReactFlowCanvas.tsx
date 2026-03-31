@@ -41,12 +41,7 @@ import MergeNode from "./nodes/MergeNode";
 import ConditionNode from "./nodes/ConditionNode";
 import { emit, on } from "../../lib/bus";
 import { track } from "../../lib/mixpanel";
-import {
-  Copy,
-  ClipboardPaste,
-  CopyPlus,
-  Trash2,
-} from "lucide-react";
+import { Copy, ClipboardPaste, CopyPlus, Trash2 } from "lucide-react";
 
 type EdgazeNodeData = {
   specId: string;

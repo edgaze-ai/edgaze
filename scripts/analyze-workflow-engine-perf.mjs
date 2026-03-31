@@ -187,4 +187,4 @@ if (totalRows.length > 0) {
   output.push("```");
 }
 
-console.log(output.join("\n"));
+console.warn(output.join("\n"));

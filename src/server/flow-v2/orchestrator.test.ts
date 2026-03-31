@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { CompiledWorkflowDefinition, PayloadReference, SerializableValue } from "./types";
+import type {
+  CompiledWorkflowDefinition,
+  PayloadReference,
+  RunEvent,
+  SerializableValue,
+} from "./types";
 import {
   buildInitialRunNodeRecords,
   buildRunInitializationEvents,
@@ -97,9 +102,7 @@ function makeCompiled(): CompiledWorkflowDefinition {
         topoIndex: 1,
         inputPorts: [makePort("in", "input", "Input")],
         outputPorts: [makePort("out", "output", "Response")],
-        inputBindings: [
-          makeBinding("edge_1", "chat_a", "in", "input_a", "out-right"),
-        ],
+        inputBindings: [makeBinding("edge_1", "chat_a", "in", "input_a", "out-right")],
         dependencyNodeIds: ["input_a"],
         downstreamNodeIds: ["output_a"],
         isEntryNode: false,
@@ -113,9 +116,7 @@ function makeCompiled(): CompiledWorkflowDefinition {
         topoIndex: 2,
         inputPorts: [makePort("in-left", "input", "Result")],
         outputPorts: [],
-        inputBindings: [
-          makeBinding("edge_2", "output_a", "in-left", "chat_a", "out"),
-        ],
+        inputBindings: [makeBinding("edge_2", "output_a", "in-left", "chat_a", "out")],
         dependencyNodeIds: ["chat_a"],
         downstreamNodeIds: [],
         isEntryNode: false,
@@ -126,13 +127,11 @@ function makeCompiled(): CompiledWorkflowDefinition {
 }
 
 class FakeRepository implements WorkflowExecutionRepository {
-  frozen:
-    | {
-        runId: string;
-        compiled: CompiledWorkflowDefinition;
-        runInput: Record<string, SerializableValue>;
-      }
-    | null = null;
+  frozen: {
+    runId: string;
+    compiled: CompiledWorkflowDefinition;
+    runInput: Record<string, SerializableValue>;
+  } | null = null;
   initializedNodes: InitializeRunNodeRecord[] = [];
   events = [] as ReturnType<typeof buildRunInitializationEvents>;
   cancellationRequestedRunId: string | null = null;
@@ -152,7 +151,10 @@ class FakeRepository implements WorkflowExecutionRepository {
     this.initializedNodes = params.nodes;
   }
 
-  async appendRunEvents(params: { runId: string; events: ReturnType<typeof buildRunInitializationEvents> }): Promise<void> {
+  async appendRunEvents(params: {
+    runId: string;
+    events: ReturnType<typeof buildRunInitializationEvents>;
+  }): Promise<void> {
     this.events = params.events;
   }
 

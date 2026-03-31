@@ -3,12 +3,7 @@
  * Manages workflow execution with real-time updates
  */
 
-import type {
-  WorkflowRunState,
-  WorkflowRunStep,
-  WorkflowRunLogLine,
-  RunPhase,
-} from "./run-types";
+import type { WorkflowRunState, WorkflowRunStep, WorkflowRunLogLine, RunPhase } from "./run-types";
 import type { GraphNode, GraphEdge } from "../../server/flow/types";
 import { extractWorkflowInputs, extractWorkflowOutputs } from "./input-extraction";
 import { canonicalSpecId } from "./spec-id-aliases";

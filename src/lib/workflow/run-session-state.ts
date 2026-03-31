@@ -68,7 +68,10 @@ function mergeRuntimeGraphLayout(params: {
 export function mapV2StatusToStepStatus(
   status: string,
 ): "queued" | "running" | "done" | "error" | "skipped" | "cancelled" {
-  const statusMap: Record<string, "queued" | "running" | "done" | "error" | "skipped" | "cancelled"> = {
+  const statusMap: Record<
+    string,
+    "queued" | "running" | "done" | "error" | "skipped" | "cancelled"
+  > = {
     pending: "queued",
     ready: "queued",
     queued: "queued",
@@ -101,7 +104,8 @@ export function buildStepPresentation(params: {
   if (params.status === "skipped" || params.status === "blocked") {
     if (reason === "condition_path_closed" || reason === "condition_branch_not_taken") {
       return {
-        detail: message ?? "This branch was not taken because the condition resolved the other way.",
+        detail:
+          message ?? "This branch was not taken because the condition resolved the other way.",
         statusLabel: "Condition off",
       };
     }
@@ -136,7 +140,8 @@ function appendLogLine(params: {
     return params.state.logs;
   }
 
-  const nodeId = typeof params.event.payload?.nodeId === "string" ? params.event.payload.nodeId : undefined;
+  const nodeId =
+    typeof params.event.payload?.nodeId === "string" ? params.event.payload.nodeId : undefined;
   const specId =
     nodeId && params.state.graph?.nodes
       ? params.state.graph.nodes.find((node) => node.id === nodeId)?.data?.specId
@@ -157,7 +162,8 @@ function appendLogLine(params: {
       t: Date.parse(String(params.event.createdAt ?? "")) || Date.now(),
       level,
       text:
-        typeof params.event.payload?.message === "string" && params.event.payload.message.trim().length > 0
+        typeof params.event.payload?.message === "string" &&
+        params.event.payload.message.trim().length > 0
           ? params.event.payload.message
           : params.event.type,
       nodeId,
@@ -171,7 +177,9 @@ function applyLiveTextEvent(params: {
   event: RunSessionStreamEvent;
 }): WorkflowRunState["liveTextByNode"] {
   const nodeId =
-    typeof params.event.payload?.nodeId === "string" ? String(params.event.payload.nodeId) : undefined;
+    typeof params.event.payload?.nodeId === "string"
+      ? String(params.event.payload.nodeId)
+      : undefined;
   if (!nodeId) return params.state.liveTextByNode;
 
   const existing = params.state.liveTextByNode?.[nodeId];
@@ -189,10 +197,7 @@ function applyLiveTextEvent(params: {
       [nodeId]: {
         nodeId,
         text: existing?.text ?? "",
-        format:
-          params.event.payload?.format === "plain"
-            ? "plain"
-            : "markdown",
+        format: params.event.payload?.format === "plain" ? "plain" : "markdown",
         status: "streaming",
         updatedAt: Date.now(),
         sequence: params.event.sequence,
@@ -215,9 +220,7 @@ function applyLiveTextEvent(params: {
         nodeId,
         text: `${existing?.text ?? ""}${textDelta}`,
         format:
-          params.event.payload?.format === "plain"
-            ? "plain"
-            : existing?.format ?? "markdown",
+          params.event.payload?.format === "plain" ? "plain" : (existing?.format ?? "markdown"),
         status: "streaming",
         updatedAt: Date.now(),
         sequence: params.event.sequence,
@@ -233,11 +236,9 @@ function applyLiveTextEvent(params: {
         text:
           typeof params.event.payload?.text === "string"
             ? params.event.payload.text
-            : existing?.text ?? "",
+            : (existing?.text ?? ""),
         format:
-          params.event.payload?.format === "plain"
-            ? "plain"
-            : existing?.format ?? "markdown",
+          params.event.payload?.format === "plain" ? "plain" : (existing?.format ?? "markdown"),
         status:
           params.event.payload?.status === "interrupted" ||
           params.event.payload?.status === "failed" ||
@@ -280,7 +281,9 @@ function applyNodeStatusEvent(params: {
   );
 }
 
-function mapRunEventToWorkflowStatus(event: RunSessionStreamEvent): WorkflowRunState["status"] | null {
+function mapRunEventToWorkflowStatus(
+  event: RunSessionStreamEvent,
+): WorkflowRunState["status"] | null {
   if (event.type === "run.cancel_requested") {
     return "cancelling";
   }
@@ -291,7 +294,8 @@ function mapRunEventToWorkflowStatus(event: RunSessionStreamEvent): WorkflowRunS
   const status = typeof event.payload?.status === "string" ? event.payload.status : undefined;
   const outcome = typeof event.payload?.outcome === "string" ? event.payload.outcome : undefined;
   if (status === "cancelled" || outcome === "cancelled") return "cancelled";
-  if (status === "failed" || outcome === "failed" || outcome === "completed_with_errors") return "error";
+  if (status === "failed" || outcome === "failed" || outcome === "completed_with_errors")
+    return "error";
   return "success";
 }
 
@@ -299,7 +303,8 @@ export function applyWorkflowRunEventToState(params: {
   state: WorkflowRunState;
   event: RunSessionStreamEvent;
 }): WorkflowRunState {
-  const nodeId = typeof params.event.payload?.nodeId === "string" ? params.event.payload.nodeId : undefined;
+  const nodeId =
+    typeof params.event.payload?.nodeId === "string" ? params.event.payload.nodeId : undefined;
   const rawStatus =
     typeof params.event.payload?.status === "string"
       ? params.event.payload.status
@@ -317,14 +322,15 @@ export function applyWorkflowRunEventToState(params: {
                   ? "cancelled"
                   : undefined;
 
-  const steps = nodeId && rawStatus
-    ? applyNodeStatusEvent({
-        state: params.state,
-        nodeId,
-        rawStatus,
-        event: params.event,
-      })
-    : params.state.steps;
+  const steps =
+    nodeId && rawStatus
+      ? applyNodeStatusEvent({
+          state: params.state,
+          nodeId,
+          rawStatus,
+          event: params.event,
+        })
+      : params.state.steps;
 
   const nextStatus = mapRunEventToWorkflowStatus(params.event) ?? params.state.status;
   const terminal = nextStatus === "success" || nextStatus === "error" || nextStatus === "cancelled";
@@ -341,10 +347,11 @@ export function applyWorkflowRunEventToState(params: {
         ? nodeId
         : nodeId && params.state.currentStepId === nodeId && rawStatus !== "running"
           ? null
-          : steps.find((step) => step.status === "running")?.id ?? null,
+          : (steps.find((step) => step.status === "running")?.id ?? null),
     logs,
     liveTextByNode,
-    connectionState: params.state.connectionState === "reconnecting" ? "live" : params.state.connectionState,
+    connectionState:
+      params.state.connectionState === "reconnecting" ? "live" : params.state.connectionState,
     connectionLabel: undefined,
     lastEventAt: Date.now(),
     lastEventSequence:
@@ -392,7 +399,9 @@ export function buildWorkflowRunStateFromBootstrap(params: {
   );
   const compiledNodeById = new Map(compiledNodes.map((node) => [node.id, node]));
   const nodeRows = (params.bootstrap.nodes ?? []) as Array<Record<string, any>>;
-  const nodeStatusById = new Map(nodeRows.map((node) => [String(node.nodeId), String(node.status ?? "pending")]));
+  const nodeStatusById = new Map(
+    nodeRows.map((node) => [String(node.nodeId), String(node.status ?? "pending")]),
+  );
 
   const unwrapNodeOutputValue = (nodeId: string, rawValue: unknown) => {
     const compiledNode = compiledNodeById.get(nodeId);
@@ -453,7 +462,9 @@ export function buildWorkflowRunStateFromBootstrap(params: {
     level:
       event.type === "node.failed" || event.type === "node_attempt_failed"
         ? ("error" as const)
-        : event.type === "node.cancelled" || event.type === "node.blocked" || event.type === "node.skipped"
+        : event.type === "node.cancelled" ||
+            event.type === "node.blocked" ||
+            event.type === "node.skipped"
           ? ("warn" as const)
           : ("info" as const),
     text:
@@ -477,9 +488,11 @@ export function buildWorkflowRunStateFromBootstrap(params: {
 
   const runStatus = String(params.bootstrap.run.status ?? "");
   const outcome = String(params.bootstrap.run.outcome ?? "");
-  const isTerminal = runStatus === "completed" || runStatus === "failed" || runStatus === "cancelled";
+  const isTerminal =
+    runStatus === "completed" || runStatus === "failed" || runStatus === "cancelled";
   const isCancelled = runStatus === "cancelled" || outcome === "cancelled";
-  const hasError = runStatus === "failed" || outcome === "failed" || logs.some((log) => log.level === "error");
+  const hasError =
+    runStatus === "failed" || outcome === "failed" || logs.some((log) => log.level === "error");
 
   const rawErrorDetails = params.bootstrap.run?.errorDetails;
   const errorDetailsRecord =
@@ -555,8 +568,12 @@ export function buildWorkflowRunStateFromBootstrap(params: {
       nodeId,
       ((dependencies ?? []) as Array<Record<string, unknown>>).map((dependency) => ({
         dependencyNodeId: String(dependency.dependencyNodeId ?? ""),
-        status: (dependency.status ??
-          "pending") as "satisfied" | "failed" | "skipped" | "cancelled" | "pending",
+        status: (dependency.status ?? "pending") as
+          | "satisfied"
+          | "failed"
+          | "skipped"
+          | "cancelled"
+          | "pending",
       })),
     ]),
   ) as Record<
@@ -588,7 +605,9 @@ export function buildWorkflowRunStateFromBootstrap(params: {
     outputsByNode,
     outputs: isTerminal ? outputs : undefined,
     error: resolvedRunError,
-    finishedAt: isTerminal ? Date.parse(String(params.bootstrap.run.finalizedAt ?? "")) || Date.now() : undefined,
+    finishedAt: isTerminal
+      ? Date.parse(String(params.bootstrap.run.finalizedAt ?? "")) || Date.now()
+      : undefined,
     inputValues: params.inputValues,
     connectionState: isTerminal ? "idle" : "live",
     connectionLabel: undefined,

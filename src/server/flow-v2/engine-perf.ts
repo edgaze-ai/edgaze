@@ -45,7 +45,7 @@ export function logWorkflowEnginePerfTotals(runId: string, label: string): void 
       avgMs: Number((t.sumMs / Math.max(1, t.count)).toFixed(2)),
     };
   }
-  console.log(
+  console.warn(
     JSON.stringify({
       tag: "workflow_engine_perf_totals",
       runId,
@@ -71,7 +71,7 @@ export async function perfAsync<T>(
   } finally {
     const ms = performance.now() - t0;
     bump(runId, phase, ms);
-    console.log(
+    console.warn(
       JSON.stringify({
         tag: "workflow_engine_perf",
         runId,
@@ -98,7 +98,7 @@ export function perfSync<T>(
   } finally {
     const ms = performance.now() - t0;
     bump(runId, phase, ms);
-    console.log(
+    console.warn(
       JSON.stringify({
         tag: "workflow_engine_perf",
         runId,

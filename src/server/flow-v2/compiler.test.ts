@@ -39,8 +39,18 @@ describe("compileWorkflowDefinition", () => {
         { id: "input_a", specId: "input", config: {} },
       ],
       edges: [
-        { sourceNodeId: "chat_a", sourcePortId: "out", targetNodeId: "output_a", targetPortId: "in-left" },
-        { sourceNodeId: "input_a", sourcePortId: "out-right", targetNodeId: "chat_a", targetPortId: "in" },
+        {
+          sourceNodeId: "chat_a",
+          sourcePortId: "out",
+          targetNodeId: "output_a",
+          targetPortId: "in-left",
+        },
+        {
+          sourceNodeId: "input_a",
+          sourcePortId: "out-right",
+          targetNodeId: "chat_a",
+          targetPortId: "in",
+        },
       ],
     });
 
@@ -101,7 +111,12 @@ describe("compileWorkflowDefinition", () => {
         { id: "loop_a", specId: "loop", config: {} },
       ],
       edges: [
-        { sourceNodeId: "image_a", sourcePortId: "out", targetNodeId: "loop_a", targetPortId: "array" },
+        {
+          sourceNodeId: "image_a",
+          sourcePortId: "out",
+          targetNodeId: "loop_a",
+          targetPortId: "array",
+        },
       ],
     });
 
@@ -117,8 +132,18 @@ describe("compileWorkflowDefinition", () => {
         { id: "chat_a", specId: "llm-chat", config: { prompt: "Use inbound data" } },
       ],
       edges: [
-        { sourceNodeId: "input_a", sourcePortId: "out-right", targetNodeId: "chat_a", targetPortId: "in" },
-        { sourceNodeId: "input_b", sourcePortId: "out-right", targetNodeId: "chat_a", targetPortId: "in" },
+        {
+          sourceNodeId: "input_a",
+          sourcePortId: "out-right",
+          targetNodeId: "chat_a",
+          targetPortId: "in",
+        },
+        {
+          sourceNodeId: "input_b",
+          sourcePortId: "out-right",
+          targetNodeId: "chat_a",
+          targetPortId: "in",
+        },
       ],
     });
 

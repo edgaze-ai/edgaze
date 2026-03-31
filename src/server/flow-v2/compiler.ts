@@ -9,7 +9,12 @@ import {
 import { WorkflowCompileError } from "./errors";
 import { buildCompiledBindings } from "./port-validator";
 import { getDefaultFailurePolicy, resolveWorkflowNodeSpec } from "./specs";
-import type { CompiledEdge, CompiledNode, CompiledWorkflowDefinition, WorkflowDefinition } from "./types";
+import type {
+  CompiledEdge,
+  CompiledNode,
+  CompiledWorkflowDefinition,
+  WorkflowDefinition,
+} from "./types";
 
 export { WorkflowCompileError } from "./errors";
 
@@ -60,7 +65,9 @@ function createSnapshotHash(params: {
   return createHash("sha256").update(canonicalPayload).digest("hex");
 }
 
-export function compileWorkflowDefinition(definition: WorkflowDefinition): CompiledWorkflowDefinition {
+export function compileWorkflowDefinition(
+  definition: WorkflowDefinition,
+): CompiledWorkflowDefinition {
   const nodes = normalizeWorkflowNodes(definition.nodes);
   const edges = normalizeWorkflowEdges(definition.edges);
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
@@ -84,7 +91,9 @@ export function compileWorkflowDefinition(definition: WorkflowDefinition): Compi
   try {
     const validated = buildCompiledBindings({ edges, nodes });
     compiledEdges = validated.compiledEdges;
-    validated.bindingsByNodeId.forEach((bindings, nodeId) => bindingsByNodeId.set(nodeId, bindings));
+    validated.bindingsByNodeId.forEach((bindings, nodeId) =>
+      bindingsByNodeId.set(nodeId, bindings),
+    );
     validated.sourceToTargetIds.forEach((ids, nodeId) => sourceToTargetIds.set(nodeId, ids));
     validated.targetToSourceIds.forEach((ids, nodeId) => targetToSourceIds.set(nodeId, ids));
   } catch (error) {
@@ -148,7 +157,9 @@ export function compileWorkflowDefinition(definition: WorkflowDefinition): Compi
     const resolvedSpec = resolvedSpecsByNodeId.get(nodeId);
     const topoIndex = topoIndexByNodeId.get(nodeId);
     if (!node || !resolvedSpec || topoIndex === undefined) {
-      throw new WorkflowCompileError(`Internal compiler error while materializing node "${nodeId}".`);
+      throw new WorkflowCompileError(
+        `Internal compiler error while materializing node "${nodeId}".`,
+      );
     }
 
     const dependencyNodeIds = sortStrings(targetToSourceIds.get(nodeId) ?? []);

@@ -107,16 +107,16 @@ const dispW = Math.min(
   Math.max("displayName".length, ...rows.map((r) => r.displayName.length)),
 );
 
-console.log(`${pad("name", nameW)}  ${pad("displayName", dispW)}  supportedGenerationMethods`);
-console.log(`${"-".repeat(nameW)}  ${"-".repeat(dispW)}  --------------------------`);
+console.warn(`${pad("name", nameW)}  ${pad("displayName", dispW)}  supportedGenerationMethods`);
+console.warn(`${"-".repeat(nameW)}  ${"-".repeat(dispW)}  --------------------------`);
 for (const r of rows) {
-  console.log(
+  console.warn(
     `${pad(r.name, nameW)}  ${pad(r.displayName, dispW)}  ${r.methods}`,
   );
 }
 
 // Helpful filtered views (common debugging need).
 const supportsGenerateContent = rows.filter((r) => r.methods.split(",").includes("generateContent"));
-console.log("\nModels supporting generateContent:");
-for (const r of supportsGenerateContent) console.log(`- ${r.name}`);
+console.warn("\nModels supporting generateContent:");
+for (const r of supportsGenerateContent) console.warn(`- ${r.name}`);
 

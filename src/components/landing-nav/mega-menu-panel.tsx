@@ -1,9 +1,16 @@
 "use client";
 
-import type { ComponentType, ReactNode } from "react";
+import type React from "react";
+import type { ReactNode } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import type { MegaNavColumn, MegaNavFeatured, MegaNavGroup, MegaNavItem } from "./landing-nav-config";
+import type {
+  MegaNavColumn,
+  MegaNavFeatured,
+  MegaNavGroup,
+  MegaNavItem,
+} from "./landing-nav-config";
+import { LandingLink } from "./LandingLink";
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -17,10 +24,8 @@ function Badge({ type }: { type: "New" | "Popular" }) {
     <span
       className={cn(
         "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-        type === "New" &&
-          "bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/25",
-        type === "Popular" &&
-          "bg-pink-500/12 text-pink-200 ring-1 ring-pink-400/22",
+        type === "New" && "bg-cyan-500/15 text-cyan-200 ring-1 ring-cyan-400/25",
+        type === "Popular" && "bg-pink-500/12 text-pink-200 ring-1 ring-pink-400/22",
       )}
     >
       {type}
@@ -62,19 +67,19 @@ export function MegaNavItemIcon({ item }: { item: MegaNavItem }) {
 
 function MegaMenuItemRow({
   item,
-  Link,
+  scrollerRef,
+  afterNavigate,
   variant = "default",
 }: {
   item: MegaNavItem;
-  Link: ComponentType<{
-    href: string;
-    className?: string;
-    children: ReactNode;
-  }>;
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
+  afterNavigate?: () => void;
   variant?: "default" | "tile";
 }) {
   return (
-    <Link
+    <LandingLink
+      scrollerRef={scrollerRef}
+      afterNavigate={afterNavigate}
       href={item.href}
       className={cn(
         "group/item relative flex gap-4 rounded-2xl text-left transition-colors",
@@ -97,20 +102,18 @@ function MegaMenuItemRow({
           {item.description}
         </p>
       </div>
-    </Link>
+    </LandingLink>
   );
 }
 
 function FeaturedCard({
   featured,
-  Link,
+  scrollerRef,
+  afterNavigate,
 }: {
   featured: MegaNavFeatured;
-  Link: ComponentType<{
-    href: string;
-    className?: string;
-    children: ReactNode;
-  }>;
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
+  afterNavigate?: () => void;
 }) {
   return (
     <div
@@ -129,11 +132,17 @@ function FeaturedCard({
       />
       <div className="pointer-events-none absolute inset-0 bg-[#090a0f]/85" />
       <div className="relative">
-        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">Featured</div>
-        <h3 className="mt-3 text-lg font-semibold leading-snug tracking-tight text-white">{featured.title}</h3>
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-white/40">
+          Featured
+        </div>
+        <h3 className="mt-3 text-lg font-semibold leading-snug tracking-tight text-white">
+          {featured.title}
+        </h3>
         <p className="mt-2 text-sm leading-relaxed text-white/60">{featured.description}</p>
       </div>
-      <Link
+      <LandingLink
+        scrollerRef={scrollerRef}
+        afterNavigate={afterNavigate}
         href={featured.href}
         className={cn(
           "relative mt-8 inline-flex items-center gap-2 self-start rounded-full px-4 py-2.5 text-sm font-medium",
@@ -143,27 +152,25 @@ function FeaturedCard({
       >
         {featured.ctaLabel}
         <ArrowRight className="h-4 w-4 opacity-80" />
-      </Link>
+      </LandingLink>
     </div>
   );
 }
 
 function TwoTilesFill({
   columns,
-  Link,
+  scrollerRef,
+  afterNavigate,
 }: {
   columns: MegaNavColumn[];
-  Link: ComponentType<{
-    href: string;
-    className?: string;
-    children: ReactNode;
-  }>;
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
+  afterNavigate?: () => void;
 }) {
   const col = columns[0];
   const items = col?.items ?? [];
   const [a, b] = items;
   if (items.length !== 2 || !a || !b) {
-    return <Columns columns={columns} Link={Link} />;
+    return <Columns columns={columns} scrollerRef={scrollerRef} afterNavigate={afterNavigate} />;
   }
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col">
@@ -173,8 +180,18 @@ function TwoTilesFill({
         </div>
       ) : null}
       <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-2 gap-3 sm:grid-cols-2 sm:grid-rows-1 sm:gap-4">
-        <MegaMenuItemRow item={a} Link={Link} variant="tile" />
-        <MegaMenuItemRow item={b} Link={Link} variant="tile" />
+        <MegaMenuItemRow
+          item={a}
+          scrollerRef={scrollerRef}
+          afterNavigate={afterNavigate}
+          variant="tile"
+        />
+        <MegaMenuItemRow
+          item={b}
+          scrollerRef={scrollerRef}
+          afterNavigate={afterNavigate}
+          variant="tile"
+        />
       </div>
     </div>
   );
@@ -182,14 +199,12 @@ function TwoTilesFill({
 
 function Columns({
   columns,
-  Link,
+  scrollerRef,
+  afterNavigate,
 }: {
   columns: MegaNavColumn[];
-  Link: ComponentType<{
-    href: string;
-    className?: string;
-    children: ReactNode;
-  }>;
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
+  afterNavigate?: () => void;
 }) {
   if (columns.length === 1) {
     const col = columns[0]!;
@@ -202,7 +217,12 @@ function Columns({
         ) : null}
         <div className="grid gap-2 sm:grid-cols-2">
           {col.items.map((item) => (
-            <MegaMenuItemRow key={`${item.href}-${item.title}`} item={item} Link={Link} />
+            <MegaMenuItemRow
+              key={`${item.href}-${item.title}`}
+              item={item}
+              scrollerRef={scrollerRef}
+              afterNavigate={afterNavigate}
+            />
           ))}
         </div>
       </div>
@@ -220,7 +240,12 @@ function Columns({
           ) : null}
           <div className="grid gap-2">
             {col.items.map((item) => (
-              <MegaMenuItemRow key={`${item.href}-${item.title}`} item={item} Link={Link} />
+              <MegaMenuItemRow
+                key={`${item.href}-${item.title}`}
+                item={item}
+                scrollerRef={scrollerRef}
+                afterNavigate={afterNavigate}
+              />
             ))}
           </div>
         </div>
@@ -231,14 +256,12 @@ function Columns({
 
 export function MegaMenuPanelBody({
   group,
-  Link,
+  scrollerRef,
+  afterNavigate,
 }: {
   group: MegaNavGroup;
-  Link: ComponentType<{
-    href: string;
-    className?: string;
-    children: ReactNode;
-  }>;
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
+  afterNavigate?: () => void;
 }) {
   return (
     <div
@@ -254,7 +277,11 @@ export function MegaMenuPanelBody({
       <div className="relative grid gap-0 lg:grid-cols-[minmax(280px,34%)_1fr] lg:items-stretch">
         {group.featured ? (
           <div className="flex h-full flex-col border-b border-white/[0.07] p-4 lg:min-h-0 lg:border-b-0 lg:border-r lg:p-5">
-            <FeaturedCard featured={group.featured} Link={Link} />
+            <FeaturedCard
+              featured={group.featured}
+              scrollerRef={scrollerRef}
+              afterNavigate={afterNavigate}
+            />
           </div>
         ) : null}
         <div
@@ -265,9 +292,17 @@ export function MegaMenuPanelBody({
           )}
         >
           {group.contentLayout === "two-tiles-fill" ? (
-            <TwoTilesFill columns={group.columns} Link={Link} />
+            <TwoTilesFill
+              columns={group.columns}
+              scrollerRef={scrollerRef}
+              afterNavigate={afterNavigate}
+            />
           ) : (
-            <Columns columns={group.columns} Link={Link} />
+            <Columns
+              columns={group.columns}
+              scrollerRef={scrollerRef}
+              afterNavigate={afterNavigate}
+            />
           )}
         </div>
       </div>

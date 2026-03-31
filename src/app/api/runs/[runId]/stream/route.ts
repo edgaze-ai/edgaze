@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 
 import { isWorkflowExecutionV2StreamingEnabled } from "src/server/flow-v2/flags";
-import { listWorkflowRunEvents, loadWorkflowRunBootstrap, requireWorkflowRunAccess } from "src/server/flow-v2/read-model";
+import {
+  listWorkflowRunEvents,
+  loadWorkflowRunBootstrap,
+  requireWorkflowRunAccess,
+} from "src/server/flow-v2/read-model";
 import { SupabaseWorkflowExecutionRepository } from "src/server/flow-v2/repository";
 import { ensureWorkflowRunWorker } from "src/server/flow-v2/worker-service";
 
@@ -65,10 +69,7 @@ const PERIODIC_SNAPSHOT_MS = 3000;
 /** When no new events, poll DB this often so the UI tracks real execution without ~1s artificial lag. */
 const SSE_IDLE_POLL_MS = 200;
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ runId: string }> },
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   if (!isWorkflowExecutionV2StreamingEnabled()) {
     return new Response(JSON.stringify({ ok: false, error: "Streaming is disabled" }), {
       status: 404,
@@ -83,7 +84,13 @@ export async function GET(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal server error";
     const status =
-      message === "Run not found" ? 404 : message === "Forbidden" ? 403 : message.includes("Authentication") ? 401 : 500;
+      message === "Run not found"
+        ? 404
+        : message === "Forbidden"
+          ? 403
+          : message.includes("Authentication")
+            ? 401
+            : 500;
     return new Response(JSON.stringify({ ok: false, error: message }), {
       status,
       headers: { "Content-Type": "application/json" },

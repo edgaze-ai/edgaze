@@ -35,10 +35,7 @@ function useSafePdfWidth(containerRef: React.RefObject<HTMLDivElement | null>) {
       const rect = el.getBoundingClientRect();
       const vw =
         typeof window !== "undefined"
-          ? Math.min(
-              window.innerWidth,
-              window.visualViewport?.width ?? window.innerWidth,
-            )
+          ? Math.min(window.innerWidth, window.visualViewport?.width ?? window.innerWidth)
           : rect.width;
       // Clamp so canvas never exceeds the actual screen (avoids horizontal “zoomed crop” on mobile).
       const raw = Math.min(rect.width, vw);
@@ -74,9 +71,7 @@ export default function PitchDeckViewer({ pdfPath }: PitchDeckViewerProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const dprCap =
-    typeof window !== "undefined"
-      ? Math.min(window.devicePixelRatio || 1, narrow ? 2 : 3)
-      : 1;
+    typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, narrow ? 2 : 3) : 1;
 
   const onLoadSuccess = useCallback(({ numPages: n }: { numPages: number }) => {
     setNumPages(n);

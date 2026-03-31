@@ -6,14 +6,7 @@ import Image from "next/image";
 import { useAuth } from "src/components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import {
-  ArrowRight,
-  BadgeCheck,
-  Compass,
-  Link2,
-  Search,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, BadgeCheck, Compass, Link2, Search, Sparkles } from "lucide-react";
 import FoundingCreatorBadge from "src/components/ui/FoundingCreatorBadge";
 import Footer from "src/components/layout/Footer";
 import TrendingThisWeekSection from "src/components/home/TrendingThisWeekSection";

@@ -67,25 +67,25 @@ Order in `src/server/flow-v2/worker-loop.ts`:
 
 ## B. Hot path function list (V2)
 
-| Function / phase | Sync / async | Repeated | Blocking I/O | Notes |
-|------------------|--------------|----------|--------------|--------|
-| `compileBuilderGraph` | sync (+ DB before/after in route) | Once per request | Compile only sync | Writes snapshot when orchestrator runs |
-| `WorkflowRunOrchestrator.initializeRun` | async | Once | **Yes** — multiple writes | `freezeCompiledSnapshot`, `initializeRunNodes`, `appendRunEvents` |
-| `SupabaseWorkflowExecutionRepository.initializeRunNodes` | async | Once | **Yes** | **Per existing node**, **sequential** `update` in a `for` loop |
-| `runWorkflowToTerminal` | async | — | Sleep on idle | `waitWithAbort(50ms)` default |
-| `processNextRunnableBatch` | async | Per iteration | **Yes** | `getRunState`, claims, lists, events |
-| `getRunState` | async | **Every batch** | **Yes** | Fetches **full** `compiled_workflow_snapshot` |
-| `claimNextRunnableNode` | async | Up to `maxConcurrent` × iterations | **Yes** | RPC + **second** fetch of **full** snapshot |
-| `appendNodeStartedEvents` | async | Per claimed node | **Yes** | **2×** `appendRun_event` per node **sequential** across nodes |
-| `executeClaimedNode` | async | Per node execution | **Yes** | Multiple selects/updates + handler |
-| `materializeNodeInput` | **sync** | Per node | No | Cheap unless upstream values are huge in memory |
-| `createInlinePayloadReference` | **sync** | **≥2× per node** | No | **JSON.stringify + sha256** — can dominate CPU for large objects |
-| `LegacyNodeExecutorAdapter.execute` | async | Per node | **Yes** (handler) | `node.handler.external` span |
-| `applyTerminalNodeEffects` | async | Per completed node | **Yes** | **Many** sequential `appendRunEvent` |
-| `reevaluateNodeTransitions` | async | **Every batch** | **Yes** | Full graph scan + **serial** event inserts per changed node |
-| `listRunNodes` | async | Idle + after each batch | **Yes** | Full row set for run |
-| `finalizeRunIfTerminal` | async | When graph may be done | **Yes** | `finalizeRun` + `run.completed` event |
-| `renewAttemptLease` | async | **Heartbeat** | **Yes** | `setInterval` default **10 s** (min 1 s) |
+| Function / phase                                         | Sync / async                      | Repeated                           | Blocking I/O              | Notes                                                             |
+| -------------------------------------------------------- | --------------------------------- | ---------------------------------- | ------------------------- | ----------------------------------------------------------------- |
+| `compileBuilderGraph`                                    | sync (+ DB before/after in route) | Once per request                   | Compile only sync         | Writes snapshot when orchestrator runs                            |
+| `WorkflowRunOrchestrator.initializeRun`                  | async                             | Once                               | **Yes** — multiple writes | `freezeCompiledSnapshot`, `initializeRunNodes`, `appendRunEvents` |
+| `SupabaseWorkflowExecutionRepository.initializeRunNodes` | async                             | Once                               | **Yes**                   | **Per existing node**, **sequential** `update` in a `for` loop    |
+| `runWorkflowToTerminal`                                  | async                             | —                                  | Sleep on idle             | `waitWithAbort(50ms)` default                                     |
+| `processNextRunnableBatch`                               | async                             | Per iteration                      | **Yes**                   | `getRunState`, claims, lists, events                              |
+| `getRunState`                                            | async                             | **Every batch**                    | **Yes**                   | Fetches **full** `compiled_workflow_snapshot`                     |
+| `claimNextRunnableNode`                                  | async                             | Up to `maxConcurrent` × iterations | **Yes**                   | RPC + **second** fetch of **full** snapshot                       |
+| `appendNodeStartedEvents`                                | async                             | Per claimed node                   | **Yes**                   | **2×** `appendRun_event` per node **sequential** across nodes     |
+| `executeClaimedNode`                                     | async                             | Per node execution                 | **Yes**                   | Multiple selects/updates + handler                                |
+| `materializeNodeInput`                                   | **sync**                          | Per node                           | No                        | Cheap unless upstream values are huge in memory                   |
+| `createInlinePayloadReference`                           | **sync**                          | **≥2× per node**                   | No                        | **JSON.stringify + sha256** — can dominate CPU for large objects  |
+| `LegacyNodeExecutorAdapter.execute`                      | async                             | Per node                           | **Yes** (handler)         | `node.handler.external` span                                      |
+| `applyTerminalNodeEffects`                               | async                             | Per completed node                 | **Yes**                   | **Many** sequential `appendRunEvent`                              |
+| `reevaluateNodeTransitions`                              | async                             | **Every batch**                    | **Yes**                   | Full graph scan + **serial** event inserts per changed node       |
+| `listRunNodes`                                           | async                             | Idle + after each batch            | **Yes**                   | Full row set for run                                              |
+| `finalizeRunIfTerminal`                                  | async                             | When graph may be done             | **Yes**                   | `finalizeRun` + `run.completed` event                             |
+| `renewAttemptLease`                                      | async                             | **Heartbeat**                      | **Yes**                   | `setInterval` default **10 s** (min 1 s)                          |
 
 ---
 
@@ -140,31 +140,31 @@ From logs:
 
 These are **not** guesses; they follow directly from control flow and I/O patterns.
 
-1. **Repeated fetch of the full compiled workflow JSON**  
-   - `getRunState` loads `compiled_workflow_snapshot` **every batch iteration**.  
-   - **`claimNextRunnableNode` loads it again after every successful claim.**  
+1. **Repeated fetch of the full compiled workflow JSON**
+   - `getRunState` loads `compiled_workflow_snapshot` **every batch iteration**.
+   - **`claimNextRunnableNode` loads it again after every successful claim.**
    - **Impact:** Large graphs + high-latency DB ⇒ **tens to hundreds of ms per iteration** before any node work, scaling with payload size and round-trips.
 
-2. **Event journal: many sequential `append_workflow_run_event` RPCs**  
-   - Started events: **2 per node**, **sequential** over the batch.  
-   - Terminal effects: **multiple events per node**, sequential.  
-   - Reevaluate: **one RPC per transitioned node**, sequential `for` loops.  
+2. **Event journal: many sequential `append_workflow_run_event` RPCs**
+   - Started events: **2 per node**, **sequential** over the batch.
+   - Terminal effects: **multiple events per node**, sequential.
+   - Reevaluate: **one RPC per transitioned node**, sequential `for` loops.
    - **Impact:** If each RPC is **5–30 ms**, **10+ events per node** can **alone** explain **seconds** of non-model time on a small workflow.
 
-3. **`createInlinePayloadReference` on large structures**  
-   - Full **`JSON.stringify` + SHA-256** for materialized input and outputs.  
+3. **`createInlinePayloadReference` on large structures**
+   - Full **`JSON.stringify` + SHA-256** for materialized input and outputs.
    - **Impact:** CPU and GC; for multi‑MB JSON this can be **very large** — users may perceive this as “merge/input resolution” taking forever if payloads are big (even though `materializeNodeInput` itself is cheap).
 
-4. **Idle backoff + stall semantics**  
-   - Default **50 ms** sleep when no node is claimable; **4 consecutive idles** ⇒ stall error.  
+4. **Idle backoff + stall semantics**
+   - Default **50 ms** sleep when no node is claimable; **4 consecutive idles** ⇒ stall error.
    - **Impact:** Adds latency under contention or when **no worker** is running on the instance that holds the in-memory runner (serverless caveat documented in `worker-service.ts`).
 
-5. **Streaming delta flush policy**  
-   - **`await` on DB append** inside streaming path, throttled to **≥80 ms** between flushes when deltas arrive.  
+5. **Streaming delta flush policy**
+   - **`await` on DB append** inside streaming path, throttled to **≥80 ms** between flushes when deltas arrive.
    - **Impact:** Does not usually add **40 s** by itself, but **couples stream persistence latency to the execution task** for streaming nodes.
 
-6. **Orchestrator `initializeRunNodes` updates existing rows one-by-one**  
-   - Sequential `update` per node when rows already exist.  
+6. **Orchestrator `initializeRunNodes` updates existing rows one-by-one**
+   - Sequential `update` per node when rows already exist.
    - **Impact:** **N round-trips** at run start for **N** nodes.
 
 ### What we cannot prove without your traces
@@ -196,14 +196,14 @@ These are **not** guesses; they follow directly from control flow and I/O patter
 
 ## F. Fixes ranked by impact (post-diagnosis)
 
-| Rank | Change | Why it matters | Est. non-model reduction | Reliability risk | Effort |
-|------|--------|----------------|---------------------------|------------------|--------|
-| 1 | Batch or defer run event writes; minimum: **multi-event insert** in one DB call after each phase | Cuts **sequential RPC** count (largest proven lever) | **High** (often **multi-second** on chatty graphs if RPC RTT is high) | Medium — consumers must tolerate batching / ordering guarantees | Medium |
-| 2 | **Stop re-selecting `compiled_workflow_snapshot`** on every claim; cache per `runId` in process or return spec from RPC | Removes **1 large read per claimed node** | **High** on large snapshots | Low if cache invalidated on run completion | Small–medium |
-| 3 | **Don’t call `getRunState` every iteration** if status can be inferred from cheaper queries | Removes **1 large read per batch** | Medium | Medium — need correct cancellation / status semantics | Medium |
-| 4 | Replace **per-node sequential updates** in `initializeRunNodes` with **bulk upsert** | Faster cold start | Medium for wide graphs | Low | Small |
-| 5 | **Offload or shrink `createInlinePayloadReference`** for large payloads (store blob, hash async) | Cuts CPU on big JSON | High **only** when payloads are large | Medium | Medium–large |
-| 6 | Tune **`idleBackoffMs`** / idle stall policy for multi-instance (queue-based worker) | Avoid **artificial stalls** | Low–medium | High if mis-tuned | Architectural |
+| Rank | Change                                                                                                                  | Why it matters                                       | Est. non-model reduction                                              | Reliability risk                                                | Effort        |
+| ---- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------- | ------------- |
+| 1    | Batch or defer run event writes; minimum: **multi-event insert** in one DB call after each phase                        | Cuts **sequential RPC** count (largest proven lever) | **High** (often **multi-second** on chatty graphs if RPC RTT is high) | Medium — consumers must tolerate batching / ordering guarantees | Medium        |
+| 2    | **Stop re-selecting `compiled_workflow_snapshot`** on every claim; cache per `runId` in process or return spec from RPC | Removes **1 large read per claimed node**            | **High** on large snapshots                                           | Low if cache invalidated on run completion                      | Small–medium  |
+| 3    | **Don’t call `getRunState` every iteration** if status can be inferred from cheaper queries                             | Removes **1 large read per batch**                   | Medium                                                                | Medium — need correct cancellation / status semantics           | Medium        |
+| 4    | Replace **per-node sequential updates** in `initializeRunNodes` with **bulk upsert**                                    | Faster cold start                                    | Medium for wide graphs                                                | Low                                                             | Small         |
+| 5    | **Offload or shrink `createInlinePayloadReference`** for large payloads (store blob, hash async)                        | Cuts CPU on big JSON                                 | High **only** when payloads are large                                 | Medium                                                          | Medium–large  |
+| 6    | Tune **`idleBackoffMs`** / idle stall policy for multi-instance (queue-based worker)                                    | Avoid **artificial stalls**                          | Low–medium                                                            | High if mis-tuned                                               | Architectural |
 
 ---
 

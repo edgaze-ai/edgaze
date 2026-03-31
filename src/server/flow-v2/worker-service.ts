@@ -24,7 +24,6 @@ type ActiveRunWorker = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
   var __edgazeWorkflowRunWorkers: Map<string, ActiveRunWorker> | undefined;
 }
 
@@ -70,7 +69,11 @@ export function ensureWorkflowRunWorker(params: {
   })
     .catch(async (err: unknown) => {
       workerError = err instanceof Error ? err : new Error("Workflow runner failed");
-      console.error(`[worker-service] Run ${params.runId} failed:`, workerError.message, workerError.stack);
+      console.error(
+        `[worker-service] Run ${params.runId} failed:`,
+        workerError.message,
+        workerError.stack,
+      );
 
       if (err instanceof WorkflowRunnerAbortedError) {
         return;

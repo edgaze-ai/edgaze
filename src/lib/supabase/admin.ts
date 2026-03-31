@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-let supabaseAdminClient: ReturnType<typeof createClient> | null = null;
+let supabaseAdminClient: ReturnType<typeof createClient<any>> | null = null;
 
 export function createSupabaseAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -10,7 +10,7 @@ export function createSupabaseAdminClient() {
   if (!service) throw new Error("SUPABASE_SERVICE_ROLE_KEY is missing");
 
   if (!supabaseAdminClient) {
-    supabaseAdminClient = createClient(url, service, {
+    supabaseAdminClient = createClient<any>(url, service, {
       auth: { persistSession: false },
     });
   }

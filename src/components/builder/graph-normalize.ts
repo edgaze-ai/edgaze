@@ -94,7 +94,8 @@ export function normalizeGraph<TNodeData = any>(
   const nodes = rawNodes.map((node) => {
     const normalizedId =
       node?.id != null && typeof node.id !== "string" ? String(node.id) : (node?.id as string);
-    const withId = normalizedId !== node?.id ? ({ ...node, id: normalizedId } as Node<TNodeData>) : node;
+    const withId =
+      normalizedId !== node?.id ? ({ ...node, id: normalizedId } as Node<TNodeData>) : node;
     return normalizeNodeType(withId as Node<any>) as Node<TNodeData>;
   });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef, memo } from "react";
+import { useMemo, useState, useEffect, useRef, memo, type ReactElement } from "react";
 import { listNodeSpecs } from "src/nodes/registry";
 import { matchNodesFromNaturalLanguage } from "src/nodes/nodeSearch";
 import type { NodeSpec } from "src/nodes/types";
@@ -23,12 +23,28 @@ function cx(...classes: Array<string | false | null | undefined>) {
 }
 
 type LibraryCategoryId = "core" | "llm" | "integrations" | "conditions" | "loops" | "all";
-type LibraryCategory = { id: LibraryCategoryId; label: string; icon: (p: { active?: boolean }) => JSX.Element };
+type LibraryCategory = {
+  id: LibraryCategoryId;
+  label: string;
+  icon: (p: { active?: boolean }) => ReactElement;
+};
 
 const CATEGORIES: LibraryCategory[] = [
-  { id: "all", label: "All", icon: ({ active }) => <IconCore size={18} tone={active ? "brand" : "muted"} /> },
-  { id: "core", label: "Core", icon: ({ active }) => <IconCore size={18} tone={active ? "brand" : "muted"} /> },
-  { id: "llm", label: "LLM", icon: ({ active }) => <IconLLM size={18} tone={active ? "brand" : "muted"} /> },
+  {
+    id: "all",
+    label: "All",
+    icon: ({ active }) => <IconCore size={18} tone={active ? "brand" : "muted"} />,
+  },
+  {
+    id: "core",
+    label: "Core",
+    icon: ({ active }) => <IconCore size={18} tone={active ? "brand" : "muted"} />,
+  },
+  {
+    id: "llm",
+    label: "LLM",
+    icon: ({ active }) => <IconLLM size={18} tone={active ? "brand" : "muted"} />,
+  },
   {
     id: "integrations",
     label: "Integrations",
@@ -39,7 +55,11 @@ const CATEGORIES: LibraryCategory[] = [
     label: "Conditions",
     icon: ({ active }) => <IconConditions size={18} tone={active ? "brand" : "muted"} />,
   },
-  { id: "loops", label: "Loops", icon: ({ active }) => <IconLoops size={18} tone={active ? "brand" : "muted"} /> },
+  {
+    id: "loops",
+    label: "Loops",
+    icon: ({ active }) => <IconLoops size={18} tone={active ? "brand" : "muted"} />,
+  },
 ];
 
 function normalizeCategory(spec: NodeSpec): Exclude<LibraryCategoryId, "all"> {
@@ -55,7 +75,8 @@ function normalizeCategory(spec: NodeSpec): Exclude<LibraryCategoryId, "all"> {
     id.includes("request")
   )
     return "integrations";
-  if (id.includes("llm") || id.includes("openai") || id.includes("gemini") || raw.includes("llm")) return "llm";
+  if (id.includes("llm") || id.includes("openai") || id.includes("gemini") || raw.includes("llm"))
+    return "llm";
   return "core";
 }
 
@@ -364,116 +385,116 @@ function BlockLibrary({
         </div>
 
         <div className="library-scroll -mr-3 flex-1 min-h-0 overflow-y-auto pr-4 pb-5">
-        {/* Quick start */}
-        <div className="px-3 pt-3">
-          <div className="mb-1.5 flex items-center justify-between">
-            <h4 className="text-[10px] tracking-[0.22em] text-white/55">QUICK START</h4>
-            <button
-              onClick={() => setShowQS((s) => !s)}
-              className="edg-builder-btn h-8 px-3 text-[11px] font-medium"
-              type="button"
-            >
-              {showQS ? "Hide" : "Show"}
-            </button>
-          </div>
-          {showQS && (
-            <div className="grid gap-2.5">
-              <QuickStartItem
-                icon={<span className="text-[15px]">📧</span>}
-                title="Email Parser"
-                caption="Turn emails into structured data."
-                templateId="email-parser"
-                onLoad={(id) => onLoadQuickStart?.(id)}
-              />
-              <QuickStartItem
-                icon={<span className="text-[15px]">✍️</span>}
-                title="Writer"
-                caption="Generate posts with AI."
-                templateId="writer"
-                onLoad={(id) => onLoadQuickStart?.(id)}
-              />
-              <QuickStartItem
-                icon={<span className="text-[15px]">🎨</span>}
-                title="Images"
-                caption="Text-to-image generation."
-                templateId="images"
-                onLoad={(id) => onLoadQuickStart?.(id)}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Node list */}
-        <div className="mt-5 space-y-3 px-3">
-          {items.map((spec) => {
-            const onDragStart = (e: React.DragEvent) => {
-              e.dataTransfer.setData(
-                "application/edgaze-node",
-                JSON.stringify({ specId: spec.id }),
-              );
-              e.dataTransfer.effectAllowed = "move";
-            };
-
-            const inputs = spec.ports.filter((p) => p.kind === "input").length;
-            const outputs = spec.ports.filter((p) => p.kind === "output").length;
-
-            return (
-              <div
-                key={spec.id}
-                className={cx(
-                  "group relative overflow-hidden rounded-2xl border border-white/10",
-                  "bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]",
-                  "shadow-[0_18px_70px_rgba(0,0,0,0.42)]",
-                  "transition-[transform,border-color,background] duration-200",
-                  "hover:-translate-y-[1px] hover:border-white/14 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.024))]",
-                )}
+          {/* Quick start */}
+          <div className="px-3 pt-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <h4 className="text-[10px] tracking-[0.22em] text-white/55">QUICK START</h4>
+              <button
+                onClick={() => setShowQS((s) => !s)}
+                className="edg-builder-btn h-8 px-3 text-[11px] font-medium"
+                type="button"
               >
-                <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-40" />
-
-                <div className="flex items-start justify-between gap-3 px-4 pt-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-semibold tracking-[-0.01em] text-white/92">
-                      {spec.label}
-                    </div>
-                    <div className="mt-0.5 text-[11px] leading-5 text-white/60 line-clamp-2">
-                      {spec.summary}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="text-[10px] font-mono text-white/45">{spec.id}</div>
-                    <div className="mt-1 text-[10px] tracking-[0.16em] uppercase text-white/40">
-                      {String((spec as any)?.category ?? normalizeCategory(spec)).toString()}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 px-4">
-                  <div className="preview-stage rounded-2xl py-4 px-4">
-                    <NodePreviewCard spec={spec} onDragStart={onDragStart} />
-                  </div>
-                </div>
-
-                <div className="mt-3 flex items-center justify-between gap-3 px-4 pb-4 text-[11px]">
-                  <div className="text-white/55">
-                    {inputs} in · {outputs} out
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleAdd(spec.id)}
-                    className="edg-builder-btn-add inline-flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-semibold text-white/92"
-                    aria-label="Add to canvas"
-                  >
-                    <IconPlus size={16} tone="brand" />
-                    Add
-                  </button>
-                </div>
+                {showQS ? "Hide" : "Show"}
+              </button>
+            </div>
+            {showQS && (
+              <div className="grid gap-2.5">
+                <QuickStartItem
+                  icon={<span className="text-[15px]">📧</span>}
+                  title="Email Parser"
+                  caption="Turn emails into structured data."
+                  templateId="email-parser"
+                  onLoad={(id) => onLoadQuickStart?.(id)}
+                />
+                <QuickStartItem
+                  icon={<span className="text-[15px]">✍️</span>}
+                  title="Writer"
+                  caption="Generate posts with AI."
+                  templateId="writer"
+                  onLoad={(id) => onLoadQuickStart?.(id)}
+                />
+                <QuickStartItem
+                  icon={<span className="text-[15px]">🎨</span>}
+                  title="Images"
+                  caption="Text-to-image generation."
+                  templateId="images"
+                  onLoad={(id) => onLoadQuickStart?.(id)}
+                />
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
 
-        <div className="h-3" />
-      </div>
+          {/* Node list */}
+          <div className="mt-5 space-y-3 px-3">
+            {items.map((spec) => {
+              const onDragStart = (e: React.DragEvent) => {
+                e.dataTransfer.setData(
+                  "application/edgaze-node",
+                  JSON.stringify({ specId: spec.id }),
+                );
+                e.dataTransfer.effectAllowed = "move";
+              };
+
+              const inputs = spec.ports.filter((p) => p.kind === "input").length;
+              const outputs = spec.ports.filter((p) => p.kind === "output").length;
+
+              return (
+                <div
+                  key={spec.id}
+                  className={cx(
+                    "group relative overflow-hidden rounded-2xl border border-white/10",
+                    "bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]",
+                    "shadow-[0_18px_70px_rgba(0,0,0,0.42)]",
+                    "transition-[transform,border-color,background] duration-200",
+                    "hover:-translate-y-[1px] hover:border-white/14 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.024))]",
+                  )}
+                >
+                  <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-40" />
+
+                  <div className="flex items-start justify-between gap-3 px-4 pt-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-semibold tracking-[-0.01em] text-white/92">
+                        {spec.label}
+                      </div>
+                      <div className="mt-0.5 text-[11px] leading-5 text-white/60 line-clamp-2">
+                        {spec.summary}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="text-[10px] font-mono text-white/45">{spec.id}</div>
+                      <div className="mt-1 text-[10px] tracking-[0.16em] uppercase text-white/40">
+                        {String((spec as any)?.category ?? normalizeCategory(spec)).toString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 px-4">
+                    <div className="preview-stage rounded-2xl py-4 px-4">
+                      <NodePreviewCard spec={spec} onDragStart={onDragStart} />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-3 px-4 pb-4 text-[11px]">
+                    <div className="text-white/55">
+                      {inputs} in · {outputs} out
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAdd(spec.id)}
+                      className="edg-builder-btn-add inline-flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-semibold text-white/92"
+                      aria-label="Add to canvas"
+                    >
+                      <IconPlus size={16} tone="brand" />
+                      Add
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="h-3" />
+        </div>
       </div>
 
       {/* Global tweaks for the library visuals (compact, scroll-friendly) */}

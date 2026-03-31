@@ -28,12 +28,26 @@ function objectToString(v: unknown): string {
     // Input node shape { value, question }
     if ("value" in obj && "question" in obj) return objectToString(obj.value);
     // Condition passthrough
-    if ("__conditionResult" in obj && "__passthrough" in obj) return objectToString(obj.__passthrough);
+    if ("__conditionResult" in obj && "__passthrough" in obj)
+      return objectToString(obj.__passthrough);
     // Common API response shapes
-    for (const key of ["content", "text", "output", "message", "value", "result", "response", "answer"]) {
+    for (const key of [
+      "content",
+      "text",
+      "output",
+      "message",
+      "value",
+      "result",
+      "response",
+      "answer",
+    ]) {
       if (typeof obj[key] === "string" && (obj[key] as string).trim()) return obj[key] as string;
     }
-    try { return JSON.stringify(v, null, 2); } catch { return "[complex object]"; }
+    try {
+      return JSON.stringify(v, null, 2);
+    } catch {
+      return "[complex object]";
+    }
   }
   return String(v);
 }

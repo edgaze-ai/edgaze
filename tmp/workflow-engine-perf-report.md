@@ -4,34 +4,34 @@ Source: `tmp/workflow-engine-perf.log`
 
 ## Run Summary
 
-| Run | Engine (non-model) | External/model | Instrumented total |
-|-----|--------------------:|---------------:|-------------------:|
-| `run_test` | 60.29 ms | 20.12 ms | 80.40 ms |
+| Run        | Engine (non-model) | External/model | Instrumented total |
+| ---------- | -----------------: | -------------: | -----------------: |
+| `run_test` |           60.29 ms |       20.12 ms |           80.40 ms |
 
 ## Top 10 Engine Phases
 
-| Phase | Calls | Avg | Worst | Total | % non-model | Class |
-|-------|------:|----:|------:|------:|------------:|-------|
-| `batch.executeNodesParallel_withLease` | 5 | 10.14 ms | 47.42 ms | 50.72 ms | 84.1% | implementation |
-| `batch.sortCompletedWorkTopo` | 5 | 1.05 ms | 5.20 ms | 5.24 ms | 8.7% | implementation |
-| `serialization.inlinePayload.input` | 8 | 0.09 ms | 0.20 ms | 0.75 ms | 1.2% | implementation |
-| `batch.claimNextRunnableNode` | 10 | 0.04 ms | 0.33 ms | 0.40 ms | 0.7% | architecture |
-| `batch.applyTerminalNodeEffects_all` | 5 | 0.08 ms | 0.10 ms | 0.40 ms | 0.7% | implementation |
-| `node.persistAttemptMaterializedInput` | 8 | 0.05 ms | 0.12 ms | 0.37 ms | 0.6% | implementation |
-| `node.persistAttemptResult` | 8 | 0.04 ms | 0.06 ms | 0.30 ms | 0.5% | implementation |
-| `node.materializeNodeInput` | 8 | 0.04 ms | 0.10 ms | 0.29 ms | 0.5% | implementation |
-| `batch.finalizeRunIfTerminal` | 5 | 0.05 ms | 0.11 ms | 0.25 ms | 0.4% | implementation |
-| `reevaluate.planTransitions_sync` | 5 | 0.05 ms | 0.11 ms | 0.23 ms | 0.4% | architecture |
+| Phase                                  | Calls |      Avg |    Worst |    Total | % non-model | Class          |
+| -------------------------------------- | ----: | -------: | -------: | -------: | ----------: | -------------- |
+| `batch.executeNodesParallel_withLease` |     5 | 10.14 ms | 47.42 ms | 50.72 ms |       84.1% | implementation |
+| `batch.sortCompletedWorkTopo`          |     5 |  1.05 ms |  5.20 ms |  5.24 ms |        8.7% | implementation |
+| `serialization.inlinePayload.input`    |     8 |  0.09 ms |  0.20 ms |  0.75 ms |        1.2% | implementation |
+| `batch.claimNextRunnableNode`          |    10 |  0.04 ms |  0.33 ms |  0.40 ms |        0.7% | architecture   |
+| `batch.applyTerminalNodeEffects_all`   |     5 |  0.08 ms |  0.10 ms |  0.40 ms |        0.7% | implementation |
+| `node.persistAttemptMaterializedInput` |     8 |  0.05 ms |  0.12 ms |  0.37 ms |        0.6% | implementation |
+| `node.persistAttemptResult`            |     8 |  0.04 ms |  0.06 ms |  0.30 ms |        0.5% | implementation |
+| `node.materializeNodeInput`            |     8 |  0.04 ms |  0.10 ms |  0.29 ms |        0.5% | implementation |
+| `batch.finalizeRunIfTerminal`          |     5 |  0.05 ms |  0.11 ms |  0.25 ms |        0.4% | implementation |
+| `reevaluate.planTransitions_sync`      |     5 |  0.05 ms |  0.11 ms |  0.23 ms |        0.4% | architecture   |
 
 ## Top 10 Node Overheads
 
-| Run | Node | Engine (non-model) | External/model | Instrumented total |
-|-----|------|--------------------:|---------------:|-------------------:|
-| `run_test` | `input_a` | 1.38 ms | 0.16 ms | 1.54 ms |
-| `run_test` | `delay_a` | 0.46 ms | 19.96 ms | 20.42 ms |
-| `run_test` | `in1` | 0.35 ms | 0.00 ms | 0.35 ms |
-| `run_test` | `in2` | 0.11 ms | 0.00 ms | 0.11 ms |
-| `run_test` | `condition_a` | 0.06 ms | 0.00 ms | 0.06 ms |
+| Run        | Node          | Engine (non-model) | External/model | Instrumented total |
+| ---------- | ------------- | -----------------: | -------------: | -----------------: |
+| `run_test` | `input_a`     |            1.38 ms |        0.16 ms |            1.54 ms |
+| `run_test` | `delay_a`     |            0.46 ms |       19.96 ms |           20.42 ms |
+| `run_test` | `in1`         |            0.35 ms |        0.00 ms |            0.35 ms |
+| `run_test` | `in2`         |            0.11 ms |        0.00 ms |            0.11 ms |
+| `run_test` | `condition_a` |            0.06 ms |        0.00 ms |            0.06 ms |
 
 ## Raw Totals Rows
 

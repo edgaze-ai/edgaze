@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
@@ -127,33 +127,6 @@ function downloadValue(filename: string, value: unknown) {
   URL.revokeObjectURL(url);
 }
 
-function useThrottledValue<T>(value: T, delayMs: number) {
-  const [throttled, setThrottled] = useState(value);
-  const lastSetAt = useRef(0);
-  const timeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const now = Date.now();
-    const elapsed = now - lastSetAt.current;
-    if (elapsed >= delayMs) {
-      lastSetAt.current = now;
-      setThrottled(value);
-      return;
-    }
-    if (timeoutRef.current != null) window.clearTimeout(timeoutRef.current);
-    timeoutRef.current = window.setTimeout(() => {
-      lastSetAt.current = Date.now();
-      setThrottled(value);
-      timeoutRef.current = null;
-    }, delayMs - elapsed);
-    return () => {
-      if (timeoutRef.current != null) window.clearTimeout(timeoutRef.current);
-    };
-  }, [value, delayMs]);
-
-  return throttled;
-}
-
 function isProbablyMarkdown(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
@@ -187,7 +160,8 @@ const LazyMarkdown = React.lazy(async () => {
       />
     ),
     code: (props) => {
-      const inline = !("data-language" in props) && !String(props.className ?? "").includes("language-");
+      const inline =
+        !("data-language" in props) && !String(props.className ?? "").includes("language-");
       if (inline) {
         return (
           <code
@@ -210,12 +184,22 @@ const LazyMarkdown = React.lazy(async () => {
       );
     },
     pre: (props) => <pre {...props} className={cx("overflow-auto", props.className)} />,
-    h1: (props) => <h1 {...props} className={cx("mt-2 text-[22px] font-semibold text-white", props.className)} />,
-    h2: (props) => <h2 {...props} className={cx("mt-6 text-[18px] font-semibold text-white", props.className)} />,
-    h3: (props) => <h3 {...props} className={cx("mt-5 text-[16px] font-semibold text-white", props.className)} />,
+    h1: (props) => (
+      <h1 {...props} className={cx("mt-2 text-[22px] font-semibold text-white", props.className)} />
+    ),
+    h2: (props) => (
+      <h2 {...props} className={cx("mt-6 text-[18px] font-semibold text-white", props.className)} />
+    ),
+    h3: (props) => (
+      <h3 {...props} className={cx("mt-5 text-[16px] font-semibold text-white", props.className)} />
+    ),
     p: (props) => <p {...props} className={cx("my-3 text-white/90", props.className)} />,
-    ul: (props) => <ul {...props} className={cx("my-3 list-disc pl-6 text-white/90", props.className)} />,
-    ol: (props) => <ol {...props} className={cx("my-3 list-decimal pl-6 text-white/90", props.className)} />,
+    ul: (props) => (
+      <ul {...props} className={cx("my-3 list-disc pl-6 text-white/90", props.className)} />
+    ),
+    ol: (props) => (
+      <ol {...props} className={cx("my-3 list-decimal pl-6 text-white/90", props.className)} />
+    ),
     li: (props) => <li {...props} className={cx("my-1.5", props.className)} />,
     blockquote: (props) => (
       <blockquote
@@ -229,16 +213,27 @@ const LazyMarkdown = React.lazy(async () => {
     hr: (props) => <hr {...props} className={cx("my-6 border-white/10", props.className)} />,
     table: (props) => (
       <div className="my-4 overflow-auto rounded-2xl border border-white/10">
-        <table {...props} className={cx("w-full border-collapse text-sm text-white/88", props.className)} />
+        <table
+          {...props}
+          className={cx("w-full border-collapse text-sm text-white/88", props.className)}
+        />
       </div>
     ),
     th: (props) => (
       <th
         {...props}
-        className={cx("border-b border-white/10 bg-white/[0.04] px-3 py-2 text-left font-semibold", props.className)}
+        className={cx(
+          "border-b border-white/10 bg-white/[0.04] px-3 py-2 text-left font-semibold",
+          props.className,
+        )}
       />
     ),
-    td: (props) => <td {...props} className={cx("border-b border-white/5 px-3 py-2 align-top", props.className)} />,
+    td: (props) => (
+      <td
+        {...props}
+        className={cx("border-b border-white/5 px-3 py-2 align-top", props.className)}
+      />
+    ),
   };
 
   function MarkdownRenderer({ text }: { text: string }) {
@@ -254,7 +249,8 @@ const LazyMarkdown = React.lazy(async () => {
 
 function MarkdownOrText({ text, streaming }: { text: string; streaming?: boolean }) {
   const shouldRenderMarkdown = useMemo(() => isProbablyMarkdown(text), [text]);
-  const displayText = streaming ? useThrottledValue(text, 120) : text;
+  const deferredText = useDeferredValue(text);
+  const displayText = streaming ? deferredText : text;
 
   if (!shouldRenderMarkdown) {
     return <>{displayText}</>;
@@ -299,7 +295,9 @@ function ProsePanel({ text, streaming = false }: { text: string; streaming?: boo
             )}
           >
             <MarkdownOrText text={text} streaming={streaming} />
-            {streaming && <span className="ml-1 inline-block h-[1.15em] w-[0.55ch] rounded-sm bg-white/70 align-[-0.08em] runtime-caret" />}
+            {streaming && (
+              <span className="ml-1 inline-block h-[1.15em] w-[0.55ch] rounded-sm bg-white/70 align-[-0.08em] runtime-caret" />
+            )}
           </div>
         </div>
       </div>
@@ -322,11 +320,11 @@ function ResultPanel({
 }) {
   const canExpand = Boolean(onToggleExpand);
   const [copied, setCopied] = useState(false);
+  const image = useImageObjectUrl(value);
 
   if (isImageLike(value)) {
-    const { url } = useImageObjectUrl(value);
     const raw = typeof value === "string" ? value.trim() : "";
-    const imgSrc = url || raw;
+    const imgSrc = image.url || raw;
     return (
       <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.34)]">
         <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-white/42">
@@ -337,7 +335,11 @@ function ResultPanel({
               onClick={onToggleExpand}
               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
             >
-              {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Expand className="h-3.5 w-3.5" />}
+              {expanded ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Expand className="h-3.5 w-3.5" />
+              )}
               {expanded ? "Minimize" : "Expand"}
             </button>
           )}
@@ -351,7 +353,6 @@ function ResultPanel({
           )}
         >
           <div className="h-full w-full overflow-auto">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imgSrc}
               alt="Generated image"
@@ -416,7 +417,11 @@ function ResultPanel({
                 onClick={onToggleExpand}
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
               >
-                {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Expand className="h-3.5 w-3.5" />}
+                {expanded ? (
+                  <Minimize2 className="h-3.5 w-3.5" />
+                ) : (
+                  <Expand className="h-3.5 w-3.5" />
+                )}
                 {expanded ? "Minimize" : "Expand"}
               </button>
             )}
@@ -435,7 +440,11 @@ function ResultPanel({
       );
     }
     return (
-      <div className={cx(expanded && "fixed inset-[8vh] z-[10010] overflow-auto rounded-[32px] bg-[#07080b]/98")}>
+      <div
+        className={cx(
+          expanded && "fixed inset-[8vh] z-[10010] overflow-auto rounded-[32px] bg-[#07080b]/98",
+        )}
+      >
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="text-[11px] uppercase tracking-[0.18em] text-white/42">{label}</div>
           {canExpand && (
@@ -444,7 +453,11 @@ function ResultPanel({
               onClick={onToggleExpand}
               className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
             >
-              {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Expand className="h-3.5 w-3.5" />}
+              {expanded ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Expand className="h-3.5 w-3.5" />
+              )}
               {expanded ? "Minimize" : "Expand"}
             </button>
           )}
@@ -499,7 +512,12 @@ function ResultPanel({
           </button>
         )}
       </div>
-      <pre className={cx("overflow-auto px-5 pb-5 text-[13px] leading-6 text-white/82", expanded ? "max-h-[calc(100vh-9rem)]" : "max-h-[54vh]")}>
+      <pre
+        className={cx(
+          "overflow-auto px-5 pb-5 text-[13px] leading-6 text-white/82",
+          expanded ? "max-h-[calc(100vh-9rem)]" : "max-h-[54vh]",
+        )}
+      >
         {JSON.stringify(value, null, 2)}
       </pre>
     </div>
@@ -531,7 +549,11 @@ function ExecutionChrome({
             onClick={onCancel}
             className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-white/88 transition hover:bg-white/[0.09]"
           >
-            {state.status === "cancelling" ? <Loader2 className="h-4 w-4 animate-spin" /> : <StopCircle className="h-4 w-4" />}
+            {state.status === "cancelling" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <StopCircle className="h-4 w-4" />
+            )}
             {state.status === "cancelling" ? "Stopping..." : "Cancel"}
           </button>
         )}
@@ -577,12 +599,7 @@ function ActionZone({
         : model.primaryLiveText?.text;
 
   return (
-    <div
-      className={cx(
-        "flex flex-wrap items-center gap-3",
-        embedded ? "pt-1" : "pt-2",
-      )}
-    >
+    <div className={cx("flex flex-wrap items-center gap-3", embedded ? "pt-1" : "pt-2")}>
       {(state.status === "running" || state.status === "cancelling") && onCancel && (
         <button
           type="button"
@@ -594,37 +611,46 @@ function ActionZone({
         </button>
       )}
 
-      {(state.status === "success" || state.status === "error" || state.status === "cancelled") && onRerun && (
-        <button
-          type="button"
-          onClick={onRerun}
-          className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(67,201,255,0.20),rgba(129,101,255,0.14))] px-4 py-2.5 text-sm font-medium text-white transition hover:brightness-110"
-        >
-          <RefreshCcw className="h-4 w-4" />
-          Run again
-        </button>
-      )}
+      {(state.status === "success" || state.status === "error" || state.status === "cancelled") &&
+        onRerun && (
+          <button
+            type="button"
+            onClick={onRerun}
+            className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(67,201,255,0.20),rgba(129,101,255,0.14))] px-4 py-2.5 text-sm font-medium text-white transition hover:brightness-110"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Run again
+          </button>
+        )}
 
-      {copyTarget && (state.status === "success" || state.status === "error" || state.status === "cancelled") && (
-        <button
-          type="button"
-          onClick={() => {
-            void copyText(copyTarget).then(() => {
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1800);
-            });
-          }}
-          className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-white/82 transition hover:bg-white/[0.09]"
-        >
-          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          {copied ? "Copied" : "Copy result"}
-        </button>
-      )}
+      {copyTarget &&
+        (state.status === "success" ||
+          state.status === "error" ||
+          state.status === "cancelled") && (
+          <button
+            type="button"
+            onClick={() => {
+              void copyText(copyTarget).then(() => {
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1800);
+              });
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-white/82 transition hover:bg-white/[0.09]"
+          >
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? "Copied" : "Copy result"}
+          </button>
+        )}
 
       {primaryOutput && (state.status === "success" || state.status === "error") && (
         <button
           type="button"
-          onClick={() => downloadValue(`${formatOutputLabel(primaryOutput.label).toLowerCase().replace(/\s+/g, "-")}.txt`, primaryOutput.value)}
+          onClick={() =>
+            downloadValue(
+              `${formatOutputLabel(primaryOutput.label).toLowerCase().replace(/\s+/g, "-")}.txt`,
+              primaryOutput.value,
+            )
+          }
           className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-white/82 transition hover:bg-white/[0.09]"
         >
           <Download className="h-4 w-4" />
@@ -660,7 +686,7 @@ function ReadyStateSurface({
   requiresApiKeys?: string[];
   onBuyWorkflow?: () => void;
 }) {
-  const [values, setValues] = useState<Record<string, any>>(state.inputValues ?? {});
+  const [values, setValues] = useState<Record<string, any>>(() => state.inputValues ?? {});
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -671,10 +697,6 @@ function ReadyStateSurface({
     gemini: false,
   });
   const { getAccessToken } = useAuth();
-
-  useEffect(() => {
-    setValues(state.inputValues ?? {});
-  }, [state.inputValues]);
 
   const inputs = state.inputs ?? [];
   const showFields = inputs.length > 0;
@@ -772,15 +794,18 @@ function ReadyStateSurface({
                 </div>
               ) : (
                 <div className="text-xs text-white/60">
-                  {Math.max(0, builderRunLimit.limit - builderRunLimit.used)} / {builderRunLimit.limit} remaining
+                  {Math.max(0, builderRunLimit.limit - builderRunLimit.used)} /{" "}
+                  {builderRunLimit.limit} remaining
                 </div>
               )}
             </div>
-            {!builderRunLimit.isAdmin && (builderRunLimit.used ?? 0) >= (builderRunLimit.limit ?? 10) && (
-              <div className="mt-2 text-xs leading-6 text-white/55">
-                You’ve hit the free run limit. Add BYOK (Saved keys or paste below) to keep running.
-              </div>
-            )}
+            {!builderRunLimit.isAdmin &&
+              (builderRunLimit.used ?? 0) >= (builderRunLimit.limit ?? 10) && (
+                <div className="mt-2 text-xs leading-6 text-white/55">
+                  You’ve hit the free run limit. Add BYOK (Saved keys or paste below) to keep
+                  running.
+                </div>
+              )}
           </div>
         )}
 
@@ -791,11 +816,15 @@ function ReadyStateSurface({
                 inputs.map((input: WorkflowInput) => (
                   <div key={input.nodeId} className="space-y-2">
                     <div className="text-sm font-medium text-white/90">{input.name}</div>
-                    {input.description && <div className="text-sm leading-6 text-white/52">{input.description}</div>}
+                    {input.description && (
+                      <div className="text-sm leading-6 text-white/52">{input.description}</div>
+                    )}
                     <WorkflowInputField
                       input={input}
                       value={values[input.nodeId] ?? input.defaultValue ?? ""}
-                      onChange={(value) => setValues((current) => ({ ...current, [input.nodeId]: value }))}
+                      onChange={(value) =>
+                        setValues((current) => ({ ...current, [input.nodeId]: value }))
+                      }
                     />
                   </div>
                 ))}
@@ -906,18 +935,10 @@ function ReadyStateSurface({
   );
 }
 
-function ResultsSurface({
-  state,
-  onRerun,
-}: {
-  state: WorkflowRunState;
-  onRerun?: () => void;
-}) {
+function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?: () => void }) {
   const model = deriveCustomerRuntimeModel(state);
   const [activeIndex, setActiveIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
-  useEffect(() => setActiveIndex(0), [state.runId, model?.outputs.length]);
-  useEffect(() => setExpanded(false), [state.runId, activeIndex]);
   if (!model) return null;
 
   const outputs = model.outputs;
@@ -941,20 +962,31 @@ function ResultsSurface({
   const chrome = (
     <div className="space-y-5">
       <div className="text-center">
-        <div className="text-[34px] font-medium tracking-[-0.04em] text-white md:text-[46px]">{title}</div>
-        {subline && <div className="mx-auto mt-4 max-w-[56ch] text-[15px] leading-7 text-white/62">{subline}</div>}
+        <div className="text-[34px] font-medium tracking-[-0.04em] text-white md:text-[46px]">
+          {title}
+        </div>
+        {subline && (
+          <div className="mx-auto mt-4 max-w-[56ch] text-[15px] leading-7 text-white/62">
+            {subline}
+          </div>
+        )}
       </div>
 
       {outputs.length > 1 && (
         <div className="md:hidden">
           <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-2">
-            <div className="mb-1 px-3 pt-1.5 text-[11px] uppercase tracking-[0.18em] text-white/42">Outputs</div>
+            <div className="mb-1 px-3 pt-1.5 text-[11px] uppercase tracking-[0.18em] text-white/42">
+              Outputs
+            </div>
             <div className="flex gap-2 overflow-auto px-2 pb-2 scrollbar-hide">
               {outputs.map((output, index) => (
                 <button
                   key={`${output.nodeId}-${index}`}
                   type="button"
-                  onClick={() => setActiveIndex(index)}
+                  onClick={() => {
+                    setActiveIndex(index);
+                    setExpanded(false);
+                  }}
                   className={cx(
                     "shrink-0 rounded-full border px-3 py-2 text-left text-sm transition",
                     index === activeIndex
@@ -962,8 +994,12 @@ function ResultsSurface({
                       : "border-white/10 bg-white/[0.02] text-white/65 hover:bg-white/[0.05]",
                   )}
                 >
-                  <span className="mr-2 text-[11px] uppercase tracking-[0.18em] text-white/45">{index + 1}</span>
-                  <span className="max-w-[32ch] truncate align-middle">{formatOutputLabel(output.label)}</span>
+                  <span className="mr-2 text-[11px] uppercase tracking-[0.18em] text-white/45">
+                    {index + 1}
+                  </span>
+                  <span className="max-w-[32ch] truncate align-middle">
+                    {formatOutputLabel(output.label)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -971,16 +1007,26 @@ function ResultsSurface({
         </div>
       )}
 
-      <div className={cx("gap-4", singleOutput ? "space-y-4" : "grid md:grid-cols-[240px_minmax(0,1fr)]")}>
+      <div
+        className={cx(
+          "gap-4",
+          singleOutput ? "space-y-4" : "grid md:grid-cols-[240px_minmax(0,1fr)]",
+        )}
+      >
         {outputs.length > 1 && (
           <div className="hidden rounded-[26px] border border-white/10 bg-white/[0.03] p-3 md:block">
-            <div className="mb-2 px-3 pt-2 text-[11px] uppercase tracking-[0.18em] text-white/42">Outputs</div>
+            <div className="mb-2 px-3 pt-2 text-[11px] uppercase tracking-[0.18em] text-white/42">
+              Outputs
+            </div>
             <div className="space-y-2">
               {outputs.map((output, index) => (
                 <button
                   key={`${output.nodeId}-${index}`}
                   type="button"
-                  onClick={() => setActiveIndex(index)}
+                  onClick={() => {
+                    setActiveIndex(index);
+                    setExpanded(false);
+                  }}
                   className={cx(
                     "w-full rounded-[18px] border px-3 py-3 text-left transition",
                     index === activeIndex
@@ -988,7 +1034,9 @@ function ResultsSurface({
                       : "border-white/8 bg-white/[0.02] text-white/62 hover:bg-white/[0.05]",
                   )}
                 >
-                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Output {index + 1}</div>
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                    Output {index + 1}
+                  </div>
                   <div className="mt-1 truncate text-sm">{formatOutputLabel(output.label)}</div>
                 </button>
               ))}
@@ -1009,8 +1057,12 @@ function ResultsSurface({
             <ProsePanel text={model.primaryLiveText.text} />
           ) : (
             <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-10 text-center text-white/62">
-              <div className="text-[16px] font-medium text-white/86">Workflow executed successfully</div>
-              <div className="mt-2 text-sm leading-6 text-white/58">This workflow did not produce any outputs.</div>
+              <div className="text-[16px] font-medium text-white/86">
+                Workflow executed successfully
+              </div>
+              <div className="mt-2 text-sm leading-6 text-white/58">
+                This workflow did not produce any outputs.
+              </div>
             </div>
           )}
         </div>
@@ -1082,7 +1134,9 @@ export default function CustomerWorkflowRuntimeSurface({
               <Loader2 className="h-7 w-7 animate-spin text-white/78" />
             </div>
           </div>
-          <div className="text-[28px] font-medium tracking-[-0.03em] text-white">Preparing your runtime</div>
+          <div className="text-[28px] font-medium tracking-[-0.03em] text-white">
+            Preparing your runtime
+          </div>
           <div className="max-w-md text-[15px] leading-7 text-white/58">
             Setting up the live session and syncing the workflow state.
           </div>
@@ -1126,10 +1180,13 @@ export default function CustomerWorkflowRuntimeSurface({
           requiresApiKeys={requiresApiKeys}
           onBuyWorkflow={onBuyWorkflow}
         />
-      ) : model.mode === "results" || model.mode === "partial_results" || model.mode === "failure" || model.mode === "cancelled" ? (
+      ) : model.mode === "results" ||
+        model.mode === "partial_results" ||
+        model.mode === "failure" ||
+        model.mode === "cancelled" ? (
         <>
           {hideHeader && <ExecutionChrome state={state} onCancel={onCancel} onClose={onClose} />}
-          <ResultsSurface state={state} onRerun={onRerun} />
+          <ResultsSurface key={state.runId} state={state} onRerun={onRerun} />
           {!hideActionZone && (
             <ActionZone
               state={state}

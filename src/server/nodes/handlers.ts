@@ -124,7 +124,10 @@ function createTimeoutAbortController(timeoutMs: number, parentSignal?: AbortSig
     }
   }
 
-  const timeoutId = setTimeout(() => controller.abort(abortError("Operation timed out")), timeoutMs);
+  const timeoutId = setTimeout(
+    () => controller.abort(abortError("Operation timed out")),
+    timeoutMs,
+  );
 
   return {
     controller,
@@ -413,21 +416,19 @@ const isUserProvidedApiKey = (node: GraphNode, ctx: RuntimeContext): boolean => 
   const config = node.data?.config ?? {};
 
   if (canon === "llm-chat" || specId === "openai-chat") {
-    const legacy =
-      specId === "openai-chat" || config[LEGACY_OPENAI_CHAT_CONFIG_FLAG] === true;
+    const legacy = specId === "openai-chat" || config[LEGACY_OPENAI_CHAT_CONFIG_FLAG] === true;
     const m = legacy
       ? LEGACY_OPENAI_CHAT_MODEL
-      : ((config.model as string) || DEFAULT_LLM_CHAT_MODEL);
+      : (config.model as string) || DEFAULT_LLM_CHAT_MODEL;
     const p = resolveLlmChatProvider(m);
     if (p === "openai" && inputs?.["__builder_user_key_openai"]) return true;
     if (p === "anthropic" && inputs?.["__builder_user_key_anthropic"]) return true;
     if (p === "google" && inputs?.["__builder_user_key_gemini"]) return true;
   } else if (canon === "llm-image" || specId === "openai-image") {
-    const legacy =
-      specId === "openai-image" || config[LEGACY_OPENAI_IMAGE_CONFIG_FLAG] === true;
+    const legacy = specId === "openai-image" || config[LEGACY_OPENAI_IMAGE_CONFIG_FLAG] === true;
     const m = legacy
       ? LEGACY_OPENAI_IMAGE_MODEL
-      : ((config.model as string) || DEFAULT_LLM_IMAGE_MODEL);
+      : (config.model as string) || DEFAULT_LLM_IMAGE_MODEL;
     const p = resolveLlmImageProvider(m);
     if (p === "openai" && inputs?.["__builder_user_key_openai"]) return true;
     if (p === "google" && inputs?.["__builder_user_key_gemini"]) return true;
@@ -581,7 +582,9 @@ async function readSsePayloads(
 
     for (const chunk of chunks) {
       const lines = chunk.split("\n");
-      const dataLines = lines.filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim());
+      const dataLines = lines
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim());
       if (dataLines.length === 0) continue;
       const payload = dataLines.join("\n");
       await onData(payload);
@@ -1070,9 +1073,7 @@ const openaiEmbeddingsHandler: NodeRuntimeHandler = async (
       : typeof content === "string"
         ? content.trim()
         : safeToString(content).trim();
-  const text =
-    fromInbound ||
-    (typeof config.text === "string" ? config.text.trim() : undefined);
+  const text = fromInbound || (typeof config.text === "string" ? config.text.trim() : undefined);
 
   if (!text) {
     throw new Error("Text input required for embeddings");
@@ -1165,8 +1166,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         ? content.trim()
         : safeToString(content).trim();
   const prompt =
-    fromInbound ||
-    (typeof config.prompt === "string" ? config.prompt.trim() : undefined);
+    fromInbound || (typeof config.prompt === "string" ? config.prompt.trim() : undefined);
 
   if (!prompt) {
     throw new Error("Prompt required for image generation");
@@ -1177,7 +1177,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   const requestedSize = requestedSizeRaw || "1024x1024";
   const [reqW, reqH] = requestedSize
     .split("x")
-    .map((n) => Number(n))
+    .map((n: string) => Number(n))
     .slice(0, 2) as [number, number];
   const isValidSize = Number.isFinite(reqW) && Number.isFinite(reqH) && reqW > 0 && reqH > 0;
   const sizeHint = isValidSize
@@ -1313,7 +1313,11 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         const returnedPartTypes = Array.isArray(parts)
           ? parts
               .map((p: any) =>
-                p?.inlineData?.data ? "inlineData" : typeof p?.text === "string" ? "text" : "unknown",
+                p?.inlineData?.data
+                  ? "inlineData"
+                  : typeof p?.text === "string"
+                    ? "text"
+                    : "unknown",
               )
               .join(",")
           : "none";
@@ -1334,7 +1338,9 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     model = OPENAI_IMAGE_LEGACY_MODEL[model] ?? model;
 
     const sizeRaw = (config.size as string) || "1024x1024";
-    const validSize = OPENAI_GPT_IMAGE_SIZES.includes(sizeRaw as (typeof OPENAI_GPT_IMAGE_SIZES)[number])
+    const validSize = OPENAI_GPT_IMAGE_SIZES.includes(
+      sizeRaw as (typeof OPENAI_GPT_IMAGE_SIZES)[number],
+    )
       ? sizeRaw
       : "1024x1024";
     const gptQuality = openaiGptImageQualityParam(config.quality as string | undefined);

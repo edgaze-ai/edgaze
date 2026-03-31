@@ -45,7 +45,9 @@ function getInboundValuesFromMaterializedInput(
   compiledNode: CompiledNode,
   materializedInput: MaterializedNodeInput,
 ): SerializableValue[] {
-  return compiledNode.inputPorts.map((port) => materializedInput.ports[port.id]?.value as SerializableValue);
+  return compiledNode.inputPorts.map(
+    (port) => materializedInput.ports[port.id]?.value as SerializableValue,
+  );
 }
 
 function executeFastLocalNode(params: {
@@ -81,7 +83,10 @@ function executeFastLocalNode(params: {
     return value;
   }
 
-  const inbound = getInboundValuesFromMaterializedInput(params.compiledNode, params.materializedInput);
+  const inbound = getInboundValuesFromMaterializedInput(
+    params.compiledNode,
+    params.materializedInput,
+  );
 
   if (specId === "merge") {
     const valid = inbound.filter((v) => v !== null && v !== undefined);
@@ -142,7 +147,9 @@ export class LegacyNodeExecutorAdapter implements NodeExecutor {
 
     try {
       if (params.signal.aborted) {
-        throw params.signal.reason instanceof Error ? params.signal.reason : abortError("Cancelled");
+        throw params.signal.reason instanceof Error
+          ? params.signal.reason
+          : abortError("Cancelled");
       }
 
       let handlerResult: SerializableValue | null | undefined;
@@ -165,6 +172,7 @@ export class LegacyNodeExecutorAdapter implements NodeExecutor {
               runInput: params.runInput,
             });
       } else {
+        const runtimeHandler = handler!;
         const graphNode: GraphNode = {
           id: params.compiledNode.id,
           data: {
@@ -216,21 +224,29 @@ export class LegacyNodeExecutorAdapter implements NodeExecutor {
         };
 
         handlerResult = perfRunId
-          ? await perfAsync(perfRunId, "node.handler.external", async () => handler(graphNode, ctx), {
-              nodeId: params.compiledNode.id,
-              specId: params.compiledNode.specId,
-              note: "includes_model_and_external_api",
-            })
-          : await handler(graphNode, ctx);
+          ? (await perfAsync(
+              perfRunId,
+              "node.handler.external",
+              async () => runtimeHandler(graphNode, ctx),
+              {
+                nodeId: params.compiledNode.id,
+                specId: params.compiledNode.specId,
+                note: "includes_model_and_external_api",
+              },
+            )) as SerializableValue | null | undefined
+          : ((await runtimeHandler(graphNode, ctx)) as SerializableValue | null | undefined);
       }
       const rawOutput = perfRunId
         ? perfSync(
             perfRunId,
             "node.executor.resolveRawOutput",
-            () => capturedOutput ?? (handlerResult === undefined ? null : (handlerResult as SerializableValue)),
+            () =>
+              capturedOutput ??
+              (handlerResult === undefined ? null : (handlerResult as SerializableValue)),
             phaseMeta,
           )
-        : capturedOutput ?? (handlerResult === undefined ? null : (handlerResult as SerializableValue));
+        : (capturedOutput ??
+          (handlerResult === undefined ? null : (handlerResult as SerializableValue)));
       const endedAt = new Date().toISOString();
 
       const buildOutputsByPort = (): Record<string, SerializableValue> | undefined => {
@@ -246,7 +262,8 @@ export class LegacyNodeExecutorAdapter implements NodeExecutor {
           const selectedPortId = branchTaken ? "true" : "false";
           return {
             [selectedPortId]:
-              (conditionOutput[CONDITION_PASSTHROUGH_KEY] as SerializableValue | undefined) ?? rawOutput,
+              (conditionOutput[CONDITION_PASSTHROUGH_KEY] as SerializableValue | undefined) ??
+              rawOutput,
             [CONDITION_RESULT_KEY]: branchTaken,
           };
         }
@@ -287,7 +304,8 @@ export class LegacyNodeExecutorAdapter implements NodeExecutor {
       };
     } catch (error) {
       const endedAt = new Date().toISOString();
-      const errorMessage = error instanceof Error ? error.message : "Unknown node execution failure";
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown node execution failure";
       const isAbort =
         params.signal.aborted || (error instanceof Error && error.name === "AbortError");
 

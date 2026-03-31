@@ -301,7 +301,7 @@ Primary compiler API:
 ```ts
 export function compileWorkflowDefinition(
   definition: WorkflowDefinition,
-): CompiledWorkflowDefinition
+): CompiledWorkflowDefinition;
 
 export function compileBuilderGraph(params: {
   workflowId?: string;
@@ -309,7 +309,7 @@ export function compileBuilderGraph(params: {
   builderVersion?: string | null;
   nodes: GraphNode[];
   edges: GraphEdge[];
-}): CompiledWorkflowDefinition
+}): CompiledWorkflowDefinition;
 ```
 
 ## E. Run Orchestrator Design
@@ -434,7 +434,7 @@ type StreamEvent = {
   id: string; // same as sequence
   event: string;
   data: RunEvent;
-}
+};
 ```
 
 Server behavior:

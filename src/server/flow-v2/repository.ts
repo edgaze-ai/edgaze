@@ -60,9 +60,7 @@ export interface WorkflowExecutionRepository {
     leaseOwner: string;
     leaseDurationSec?: number;
   }): Promise<boolean>;
-  getRunState(params: {
-    runId: string;
-  }): Promise<{
+  getRunState(params: { runId: string }): Promise<{
     status: WorkflowRunStatus;
     cancelRequestedAt: string | null;
     compiled: CompiledWorkflowDefinition;
@@ -134,15 +132,15 @@ function toRunNodeStatus(status: string): WorkflowRunNodeStatus {
 
 export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRepository {
   private readonly compiledByRunId = new Map<string, CompiledWorkflowDefinition>();
-  private readonly compiledNodeByRunId = new Map<string, Map<string, CompiledWorkflowDefinition["nodes"][number]>>();
+  private readonly compiledNodeByRunId = new Map<
+    string,
+    Map<string, CompiledWorkflowDefinition["nodes"][number]>
+  >();
   private readonly runInputByRunId = new Map<string, Record<string, SerializableValue>>();
 
   private rememberCompiled(runId: string, compiled: CompiledWorkflowDefinition): void {
     this.compiledByRunId.set(runId, compiled);
-    this.compiledNodeByRunId.set(
-      runId,
-      new Map(compiled.nodes.map((node) => [node.id, node])),
-    );
+    this.compiledNodeByRunId.set(runId, new Map(compiled.nodes.map((node) => [node.id, node])));
   }
 
   private rememberRunInput(runId: string, runInput: Record<string, SerializableValue>): void {
@@ -173,7 +171,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     compiled: CompiledWorkflowDefinition;
     runInput: Record<string, SerializableValue>;
   }): Promise<void> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const { error } = await supabase
       .from("workflow_runs")
       .update({
@@ -196,7 +194,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
   }): Promise<void> {
     if (params.nodes.length === 0) return;
 
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const { data: existingRows, error: existingError } = await supabase
       .from("workflow_run_nodes")
       .select("id, node_id")
@@ -205,7 +203,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     if (existingError) throw existingError;
 
     const existingByNodeId = new Map(
-      (existingRows ?? []).map((row) => [String(row.node_id), String(row.id)]),
+      (existingRows ?? []).map((row: any) => [String(row.node_id), String(row.id)]),
     );
 
     const now = new Date().toISOString();
@@ -253,13 +251,14 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
   async appendRunEvents(params: { runId: string; events: RunEvent[] }): Promise<void> {
     if (params.events.length === 0) return;
 
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const rows = params.events.map((event) => ({
       workflow_run_id: params.runId,
       sequence: event.sequence,
       event_type: event.type,
       node_id: "nodeId" in event.payload ? event.payload.nodeId : null,
-      attempt_number: "attemptNumber" in event.payload ? event.payload.attemptNumber ?? null : null,
+      attempt_number:
+        "attemptNumber" in event.payload ? (event.payload.attemptNumber ?? null) : null,
       payload: event.payload,
       created_at: event.createdAt,
     }));
@@ -287,7 +286,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     attemptNumber?: number;
     createdAt?: string;
   }): Promise<number> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const { data, error } = await supabase.rpc("append_workflow_run_event", {
       p_run_id: params.runId,
       p_event_type: params.type,
@@ -313,7 +312,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
   }): Promise<number[]> {
     if (params.events.length === 0) return [];
 
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const rpcPayload = params.events.map((event) => ({
       event_type: event.type,
       payload: event.payload,
@@ -336,8 +335,10 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
         : [];
     }
 
-    const errorCode = typeof error === "object" && error && "code" in error ? String(error.code ?? "") : "";
-    const functionMissing = errorCode === "42883" || /append_workflow_run_events/i.test(error.message);
+    const errorCode =
+      typeof error === "object" && error && "code" in error ? String(error.code ?? "") : "";
+    const functionMissing =
+      errorCode === "42883" || /append_workflow_run_events/i.test(error.message);
     if (!functionMissing) {
       throw error;
     }
@@ -359,7 +360,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
   }
 
   async markCancellationRequested(params: { runId: string }): Promise<void> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const now = new Date().toISOString();
 
     const { error } = await supabase
@@ -380,7 +381,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     workerId: string;
     leaseDurationSec?: number;
   }): Promise<ClaimedNodeWorkItem | null> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const { data, error } = await supabase.rpc("claim_workflow_run_node_attempt", {
       p_run_id: params.runId,
       p_worker_id: params.workerId,
@@ -406,13 +407,13 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     if (!compiled || !compiledNode) {
       const { data: runRow, error: runError } = await supabase
         .from("workflow_runs")
-        .select("compiled_workflow_snapshot")
+        .select("compiled_workflow_snapshot" as any)
         .eq("id", params.runId)
         .single();
 
       if (runError) throw runError;
 
-      compiled = runRow.compiled_workflow_snapshot as CompiledWorkflowDefinition | null;
+      compiled = runRow.compiled_workflow_snapshot as CompiledWorkflowDefinition | undefined;
       if (compiled) {
         this.rememberCompiled(params.runId, compiled);
         compiledNode = this.compiledNodeByRunId.get(params.runId)?.get(String(row.node_id));
@@ -438,9 +439,11 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     leaseOwner: string;
     leaseDurationSec?: number;
   }): Promise<boolean> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + (params.leaseDurationSec ?? 30) * 1000).toISOString();
+    const expiresAt = new Date(
+      now.getTime() + (params.leaseDurationSec ?? 30) * 1000,
+    ).toISOString();
     const { data, error } = await supabase
       .from("workflow_run_node_attempts")
       .update({
@@ -456,27 +459,26 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     return Array.isArray(data) && data.length > 0;
   }
 
-  async getRunState(params: {
-    runId: string;
-  }): Promise<{
+  async getRunState(params: { runId: string }): Promise<{
     status: WorkflowRunStatus;
     cancelRequestedAt: string | null;
     compiled: CompiledWorkflowDefinition;
     lastEventSequence: number;
   }> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const cachedCompiled = this.compiledByRunId.get(params.runId) ?? null;
     const selectColumns = cachedCompiled
       ? "status, cancel_requested_at, last_event_sequence"
       : "status, cancel_requested_at, compiled_workflow_snapshot, last_event_sequence";
     const { data, error } = await supabase
       .from("workflow_runs")
-      .select(selectColumns)
+      .select(selectColumns as any)
       .eq("id", params.runId)
       .single();
 
     if (error) throw error;
-    const compiled = cachedCompiled ?? (data.compiled_workflow_snapshot as CompiledWorkflowDefinition | null);
+    const compiled =
+      cachedCompiled ?? (data.compiled_workflow_snapshot as CompiledWorkflowDefinition | null);
     if (!compiled) {
       throw new Error(`Run "${params.runId}" is missing compiled_workflow_snapshot.`);
     }
@@ -493,7 +495,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
   }
 
   async listRunNodes(runId: string): Promise<WorkflowRunNode[]> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const { data, error } = await supabase
       .from("workflow_run_nodes")
       .select(
@@ -504,7 +506,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
 
     if (error) throw error;
 
-    return (data ?? []).map((row) => ({
+    return (data ?? []).map((row: any) => ({
       id: String(row.id),
       runId: String(row.workflow_run_id),
       nodeId: String(row.node_id),
@@ -534,7 +536,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
   }): Promise<string[]> {
     if (params.nodeIds.length === 0) return [];
 
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     let query = supabase
       .from("workflow_run_nodes")
       .update({
@@ -552,15 +554,19 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     const { data, error } = await query.select("node_id");
     if (error) throw error;
 
-    return (data ?? []).map((row) => String(row.node_id));
+    return (data ?? []).map((row: any) => String(row.node_id));
   }
 
   async loadRunInput(runId: string): Promise<Record<string, SerializableValue>> {
     const cached = this.runInputByRunId.get(runId);
     if (cached) return cached;
 
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase.from("workflow_runs").select("run_input").eq("id", runId).single();
+    const supabase = createSupabaseAdminClient() as any;
+    const { data, error } = await supabase
+      .from("workflow_runs")
+      .select("run_input")
+      .eq("id", runId)
+      .single();
     if (error) throw error;
     const runInput = ((data.run_input as Record<string, SerializableValue> | null) ?? {}) as Record<
       string,
@@ -576,7 +582,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
   }): Promise<Record<string, PayloadReference | SerializableValue | undefined>> {
     if (params.sourceNodeIds.length === 0) return {};
 
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const { data, error } = await supabase
       .from("workflow_run_nodes")
       .select("node_id, output_payload_ref")
@@ -587,7 +593,8 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
 
     const outputs: Record<string, PayloadReference | SerializableValue | undefined> = {};
     for (const row of data ?? []) {
-      outputs[String(row.node_id)] = (row.output_payload_ref as PayloadReference | null) ?? undefined;
+      outputs[String(row.node_id)] =
+        (row.output_payload_ref as PayloadReference | null) ?? undefined;
     }
     return outputs;
   }
@@ -599,7 +606,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     leaseOwner: string;
     inputPayload: PayloadReference;
   }): Promise<void> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
 
     const { error: attemptError } = await supabase
       .from("workflow_run_node_attempts")
@@ -635,7 +642,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     outputPayload: PayloadReference | null;
     errorPayload: PayloadReference | null;
   }): Promise<void> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const attemptStatus = toAttemptStatus(params.result.status);
     const nodeStatus = toRunNodeStatus(params.result.status);
     const endedAt = params.result.metrics?.endedAt ?? new Date().toISOString();
@@ -679,7 +686,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     finalOutput?: PayloadReference | null;
     terminalReason?: string | null;
   }): Promise<void> {
-    const supabase = createSupabaseAdminClient();
+    const supabase = createSupabaseAdminClient() as any;
     const now = new Date().toISOString();
 
     const { error } = await supabase

@@ -77,7 +77,9 @@ export function toRuntimeGraph(graphLike: any): WorkflowRunGraph | undefined {
     : [];
   const edges = Array.isArray(graphLike.edges)
     ? graphLike.edges
-        .filter((edge: any) => edge && typeof edge.source === "string" && typeof edge.target === "string")
+        .filter(
+          (edge: any) => edge && typeof edge.source === "string" && typeof edge.target === "string",
+        )
         .map(
           (edge: any): WorkflowRunGraphEdge => ({
             id: typeof edge.id === "string" ? edge.id : undefined,
@@ -137,10 +139,7 @@ function pickRuntimeOutputs(state: WorkflowRunState) {
   if (state.outputs && state.outputs.length > 0) {
     return state.outputs.map((output, index) => ({
       nodeId: output.nodeId,
-      label:
-        output.label && output.label.trim().length > 0
-          ? output.label
-          : `Output ${index + 1}`,
+      label: output.label && output.label.trim().length > 0 ? output.label : `Output ${index + 1}`,
       value: output.value,
       type: output.type,
     }));
@@ -154,7 +153,9 @@ function pickRuntimeOutputs(state: WorkflowRunState) {
       .map((n) => n.id),
   );
 
-  const entries = Object.entries(state.outputsByNode ?? {}).filter(([nodeId]) => outputNodeIds.has(nodeId));
+  const entries = Object.entries(state.outputsByNode ?? {}).filter(([nodeId]) =>
+    outputNodeIds.has(nodeId),
+  );
 
   return entries.map(([nodeId, value], index) => ({
     nodeId,
@@ -176,10 +177,15 @@ function getVisibleGraph(state: WorkflowRunState, nodeIds: string[]) {
 }
 
 function allStepsTerminal(state: WorkflowRunState): boolean {
-  return state.steps.length > 0 && state.steps.every((step) => step.status !== "queued" && step.status !== "running");
+  return (
+    state.steps.length > 0 &&
+    state.steps.every((step) => step.status !== "queued" && step.status !== "running")
+  );
 }
 
-export function deriveCustomerRuntimeModel(state: WorkflowRunState | null): CustomerRuntimeModel | null {
+export function deriveCustomerRuntimeModel(
+  state: WorkflowRunState | null,
+): CustomerRuntimeModel | null {
   if (!state) return null;
 
   const activeNodeIds = getActiveNodeIds(state).slice(0, 3);
@@ -212,12 +218,15 @@ export function deriveCustomerRuntimeModel(state: WorkflowRunState | null): Cust
   } else if (state.status === "cancelled") {
     mode = "cancelled";
     headline = "Run cancelled";
-    subline = hasUsefulPartialOutput ? "Anything already completed is still available below." : undefined;
+    subline = hasUsefulPartialOutput
+      ? "Anything already completed is still available below."
+      : undefined;
   } else if (state.status === "success") {
     if (outputs.length > 0) {
       mode = "results";
       headline = "Results ready";
-      subline = outputs.length > 1 ? `${outputs.length} outputs are ready.` : "Your run has completed.";
+      subline =
+        outputs.length > 1 ? `${outputs.length} outputs are ready.` : "Your run has completed.";
     } else {
       // Workflows without Workflow Output nodes should not show the full "Results" surface.
       mode = "finalizing";
@@ -227,18 +236,19 @@ export function deriveCustomerRuntimeModel(state: WorkflowRunState | null): Cust
   } else if (state.status === "error" && hasUsefulPartialOutput) {
     mode = "partial_results";
     headline = "Partial results available";
-    subline = state.error || "The run did not finish cleanly, but completed output is still available.";
+    subline =
+      state.error || "The run did not finish cleanly, but completed output is still available.";
   } else if (state.status === "error") {
     mode = "failure";
     headline = "Run failed";
     subline = state.error || "The workflow stopped before any final result was produced.";
-  } else if ((primaryLiveText?.status === "streaming" || primaryLiveText?.status === "committed") && primaryLiveText.text) {
+  } else if (
+    (primaryLiveText?.status === "streaming" || primaryLiveText?.status === "committed") &&
+    primaryLiveText.text
+  ) {
     mode = "streaming";
     headline = getRuntimeNodeLabel(activeNodes[0]);
-    subline =
-      connectionState === "reconnecting"
-        ? "Reconnecting to live updates..."
-        : undefined;
+    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : undefined;
   } else if (activeNodeIds.length > 0) {
     mode = "node";
     headline = getRuntimeNodeLabel(activeNodes[0]);

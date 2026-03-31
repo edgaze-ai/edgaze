@@ -163,7 +163,7 @@ export const LLM_IMAGE_MODEL_OPTIONS: LlmImageOption[] = [
   },
   {
     value: "gemini-2.5-flash-image",
-    label: 'Nano Banana (Gemini 2.5 Flash Image, original) · $',
+    label: "Nano Banana (Gemini 2.5 Flash Image, original) · $",
     provider: "google",
     quality: "fast",
     cost: "$",
@@ -207,9 +207,7 @@ export function brandForLlmImageModel(modelId: string | undefined): AiKeyProvide
 export const OPENAI_GPT_IMAGE_SIZES = ["1024x1024", "1536x1024", "1024x1536"] as const;
 
 /** Map inspector / legacy values to OpenAI GPT Image `quality` parameter. */
-export function openaiGptImageQualityParam(
-  quality: string | undefined,
-): "low" | "medium" | "high" {
+export function openaiGptImageQualityParam(quality: string | undefined): "low" | "medium" | "high" {
   const q = (quality || "medium").toLowerCase();
   if (q === "hd" || q === "high") return "high";
   if (q === "standard" || q === "medium") return "medium";

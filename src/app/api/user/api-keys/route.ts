@@ -10,10 +10,7 @@ import {
 export async function GET(req: Request) {
   const { user, error } = await getUserFromRequest(req);
   if (!user) {
-    return NextResponse.json(
-      { ok: false, error: error ?? "Unauthorized" },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: error ?? "Unauthorized" }, { status: 401 });
   }
 
   const keys = await listUserApiKeyMetadata(user.id);
@@ -23,10 +20,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { user, error } = await getUserFromRequest(req);
   if (!user) {
-    return NextResponse.json(
-      { ok: false, error: error ?? "Unauthorized" },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: error ?? "Unauthorized" }, { status: 401 });
   }
 
   let body: unknown;
@@ -57,10 +51,7 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   const { user, error } = await getUserFromRequest(req);
   if (!user) {
-    return NextResponse.json(
-      { ok: false, error: error ?? "Unauthorized" },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: error ?? "Unauthorized" }, { status: 401 });
   }
 
   const url = new URL(req.url);

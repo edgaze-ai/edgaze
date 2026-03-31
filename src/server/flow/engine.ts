@@ -618,7 +618,8 @@ export async function runFlow(
     for (const sid of srcs) {
       const node = nodeById.get(sid);
       const specId = node?.data?.specId ?? "";
-      if (PROCESSING_SPECS.has(specId) || PROCESSING_SPECS.has(canonicalSpecId(specId))) return true;
+      if (PROCESSING_SPECS.has(specId) || PROCESSING_SPECS.has(canonicalSpecId(specId)))
+        return true;
       if (hasProcessingUpstream(sid, visited)) return true;
     }
     return false;

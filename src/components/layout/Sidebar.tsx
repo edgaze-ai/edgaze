@@ -106,12 +106,7 @@ export default function Sidebar() {
     >
       <div className="relative flex h-full flex-col px-3 pt-4 pb-3 gap-6">
         {/* TOP LOGO */}
-        <div
-          className={cn(
-            "flex items-center gap-3 overflow-hidden",
-            collapsed ? "pl-[2px]" : "",
-          )}
-        >
+        <div className={cn("flex items-center gap-3 overflow-hidden", collapsed ? "pl-[2px]" : "")}>
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="relative h-11 w-11 flex-shrink-0">
               <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="44px" />

@@ -51,10 +51,20 @@ const SOCIAL_LINKS: Array<{
   external: true;
   kind: "edgaze" | "x" | "github" | "linkedin";
 }> = [
-  { label: "Edgaze", href: "https://www.edgaze.ai/profile/@edgaze", external: true, kind: "edgaze" },
+  {
+    label: "Edgaze",
+    href: "https://www.edgaze.ai/profile/@edgaze",
+    external: true,
+    kind: "edgaze",
+  },
   { label: "X", href: "https://x.com/edgaze_ai", external: true, kind: "x" },
   { label: "GitHub", href: "https://github.com/edgaze-ai", external: true, kind: "github" },
-  { label: "LinkedIn", href: "https://www.linkedin.com/company/edgaze-ai/", external: true, kind: "linkedin" },
+  {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/company/edgaze-ai/",
+    external: true,
+    kind: "linkedin",
+  },
 ];
 
 export default function Footer() {

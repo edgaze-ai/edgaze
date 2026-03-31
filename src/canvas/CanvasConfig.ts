@@ -83,13 +83,7 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
   "llm-image": IMAGE_TARGETS,
   "openai-image": IMAGE_TARGETS,
   "http-request": ["output", "merge", "json-parse", "condition"],
-  "json-parse": [
-    "output",
-    "merge",
-    "llm-chat",
-    "openai-chat",
-    "condition",
-  ],
+  "json-parse": ["output", "merge", "llm-chat", "openai-chat", "condition"],
   condition: [
     "output",
     "merge",
@@ -131,13 +125,7 @@ export const ALLOWED_CONNECTIONS: Record<string, string[]> = {
     "merge",
     "condition",
   ],
-  template: [
-    "llm-chat",
-    "openai-chat",
-    "merge",
-    "output",
-    "condition",
-  ],
+  template: ["llm-chat", "openai-chat", "merge", "output", "condition"],
 };
 
 export type GetNodes = () => Array<{ id: string; data?: { specId?: string } }>;

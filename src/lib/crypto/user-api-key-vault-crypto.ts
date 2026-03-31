@@ -14,9 +14,7 @@ function getMasterKeyBuffer(): Buffer {
   }
   const buf = Buffer.from(raw, "base64");
   if (buf.length !== 32) {
-    throw new Error(
-      "USER_API_KEY_VAULT_KEY must decode to 32 bytes (use openssl rand -base64 32)",
-    );
+    throw new Error("USER_API_KEY_VAULT_KEY must decode to 32 bytes (use openssl rand -base64 32)");
   }
   return buf;
 }

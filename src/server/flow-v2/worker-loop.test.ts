@@ -109,9 +109,7 @@ function makeCompiled(): CompiledWorkflowDefinition {
         topoIndex: 1,
         inputPorts: [makePort("input", "input", "Input")],
         outputPorts: [makePort("output", "output", "Output")],
-        inputBindings: [
-          makeBinding("edge_1", "delay_a", "input", "input_a", "out-right"),
-        ],
+        inputBindings: [makeBinding("edge_1", "delay_a", "input", "input_a", "out-right")],
         dependencyNodeIds: ["input_a"],
         downstreamNodeIds: ["output_a"],
         isEntryNode: false,
@@ -126,9 +124,7 @@ function makeCompiled(): CompiledWorkflowDefinition {
         topoIndex: 2,
         inputPorts: [makePort("in-left", "input", "Result")],
         outputPorts: [],
-        inputBindings: [
-          makeBinding("edge_2", "output_a", "in-left", "delay_a", "output"),
-        ],
+        inputBindings: [makeBinding("edge_2", "output_a", "in-left", "delay_a", "output")],
         dependencyNodeIds: ["delay_a"],
         downstreamNodeIds: [],
         isEntryNode: false,
@@ -165,10 +161,16 @@ function makeRunNode(
 
 class FakeExecutionRepository implements WorkflowExecutionRepository {
   readonly compiled: CompiledWorkflowDefinition;
-  readonly events: Array<{ sequence: number; type: RunEvent["type"]; payload: RunEvent["payload"] }> = [];
-  finalized:
-    | { status: string; outcome: WorkflowOutcome; finalOutput: PayloadReference | null | undefined }
-    | null = null;
+  readonly events: Array<{
+    sequence: number;
+    type: RunEvent["type"];
+    payload: RunEvent["payload"];
+  }> = [];
+  finalized: {
+    status: string;
+    outcome: WorkflowOutcome;
+    finalOutput: PayloadReference | null | undefined;
+  } | null = null;
   private eventSequence = 0;
   private attemptCounter = 0;
   private runStatus: WorkflowRunStatus = "running";
@@ -435,7 +437,10 @@ class StaticResultExecutor implements NodeExecutor {
         outputsByPort:
           result?.outputsByPort ??
           (params.compiledNode.specId === "input"
-            ? { [params.compiledNode.outputPorts[0]?.id ?? "out-right"]: params.runInput[params.compiledNode.id] ?? null }
+            ? {
+                [params.compiledNode.outputPorts[0]?.id ?? "out-right"]:
+                  params.runInput[params.compiledNode.id] ?? null,
+              }
             : result?.output !== undefined
               ? { [params.compiledNode.outputPorts[0]?.id ?? "out"]: result.output }
               : undefined),
@@ -465,14 +470,11 @@ class StaticResultExecutor implements NodeExecutor {
 describe("processNextRunNode", () => {
   it("processes a ready node and marks downstream nodes ready deterministically", async () => {
     const compiled = makeCompiled();
-    const repository = new FakeExecutionRepository(
-      { input_a: "hello world" },
-      [
-        makeRunNode(compiled.nodes[0]!, "ready"),
-        makeRunNode(compiled.nodes[1]!, "pending"),
-        makeRunNode(compiled.nodes[2]!, "pending"),
-      ],
-    );
+    const repository = new FakeExecutionRepository({ input_a: "hello world" }, [
+      makeRunNode(compiled.nodes[0]!, "ready"),
+      makeRunNode(compiled.nodes[1]!, "pending"),
+      makeRunNode(compiled.nodes[2]!, "pending"),
+    ]);
 
     const state = await processNextRunNode({
       runId: "run_test",
@@ -493,14 +495,11 @@ describe("processNextRunNode", () => {
 
   it("finalizes the run as failed when fail_fast leaves no terminal output", async () => {
     const compiled = makeCompiled();
-    const repository = new FakeExecutionRepository(
-      {},
-      [
-        makeRunNode(compiled.nodes[0]!, "completed", createInlinePayloadReference("input payload")),
-        makeRunNode(compiled.nodes[1]!, "ready"),
-        makeRunNode(compiled.nodes[2]!, "pending"),
-      ],
-    );
+    const repository = new FakeExecutionRepository({}, [
+      makeRunNode(compiled.nodes[0]!, "completed", createInlinePayloadReference("input payload")),
+      makeRunNode(compiled.nodes[1]!, "ready"),
+      makeRunNode(compiled.nodes[2]!, "pending"),
+    ]);
 
     const state = await processNextRunNode({
       runId: "run_test",

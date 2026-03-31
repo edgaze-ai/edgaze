@@ -15,15 +15,9 @@ export type RunSessionStreamEvent = {
   payload?: Record<string, unknown>;
 };
 
-export type RunSessionTransportState =
-  | "connecting"
-  | "live"
-  | "reconnecting"
-  | "degraded";
+export type RunSessionTransportState = "connecting" | "live" | "reconnecting" | "degraded";
 
-export function drainReadableStream(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-): void {
+export function drainReadableStream(reader: ReadableStreamDefaultReader<Uint8Array>): void {
   void (async () => {
     try {
       while (true) {
@@ -188,8 +182,7 @@ export async function streamRunSession(params: {
           lastSequence = bootstrapSequence;
         }
         const status = String(bootstrap.run?.status ?? "");
-        isTerminal =
-          status === "completed" || status === "failed" || status === "cancelled";
+        isTerminal = status === "completed" || status === "failed" || status === "cancelled";
         sawSnapshot = true;
         await params.onSnapshot(bootstrap);
         continue;
@@ -210,7 +203,8 @@ export async function streamRunSession(params: {
       }
       if (event.type === "run.completed") {
         const status = typeof event.payload?.status === "string" ? event.payload.status : undefined;
-        const outcome = typeof event.payload?.outcome === "string" ? event.payload.outcome : undefined;
+        const outcome =
+          typeof event.payload?.outcome === "string" ? event.payload.outcome : undefined;
         isTerminal =
           status === "completed" ||
           status === "failed" ||

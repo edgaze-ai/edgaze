@@ -34,9 +34,7 @@ export function canonicalSpecId(specId: string): string {
   const trimmed = String(specId ?? "").trim();
   if (!trimmed) return trimmed;
   return (
-    LEGACY_TO_CANONICAL[trimmed] ??
-    LEGACY_TO_CANONICAL_LOWER[trimmed.toLowerCase()] ??
-    trimmed
+    LEGACY_TO_CANONICAL[trimmed] ?? LEGACY_TO_CANONICAL_LOWER[trimmed.toLowerCase()] ?? trimmed
   );
 }
 
@@ -73,20 +71,14 @@ export function isOpenAiBackedSpec(specId: string): boolean {
 export function providerForAiSpec(specId: string, config?: Record<string, unknown>): AiKeyProvider {
   const c = canonicalSpecId(specId);
   if (c === "llm-chat" || specId === "openai-chat") {
-    if (
-      specId === "openai-chat" ||
-      config?.[LEGACY_OPENAI_CHAT_CONFIG_FLAG] === true
-    ) {
+    if (specId === "openai-chat" || config?.[LEGACY_OPENAI_CHAT_CONFIG_FLAG] === true) {
       return "openai";
     }
     const m = (config?.model as string) || DEFAULT_LLM_CHAT_MODEL;
     return resolveLlmChatProvider(m);
   }
   if (c === "llm-image" || specId === "openai-image") {
-    if (
-      specId === "openai-image" ||
-      config?.[LEGACY_OPENAI_IMAGE_CONFIG_FLAG] === true
-    ) {
+    if (specId === "openai-image" || config?.[LEGACY_OPENAI_IMAGE_CONFIG_FLAG] === true) {
       return "openai";
     }
     const m = (config?.model as string) || DEFAULT_LLM_IMAGE_MODEL;
@@ -133,10 +125,7 @@ export function brandIconPathForSpec(
   if (!specId) return null;
   const c = canonicalSpecId(specId);
   if (c === "llm-chat" || specId === "openai-chat") {
-    if (
-      specId === "openai-chat" ||
-      config?.[LEGACY_OPENAI_CHAT_CONFIG_FLAG] === true
-    ) {
+    if (specId === "openai-chat" || config?.[LEGACY_OPENAI_CHAT_CONFIG_FLAG] === true) {
       return "/misc/chatgpt-white.png";
     }
     const m = (config?.model as string) || DEFAULT_LLM_CHAT_MODEL;
@@ -146,10 +135,7 @@ export function brandIconPathForSpec(
     return "/misc/chatgpt-white.png";
   }
   if (c === "llm-image" || specId === "openai-image") {
-    if (
-      specId === "openai-image" ||
-      config?.[LEGACY_OPENAI_IMAGE_CONFIG_FLAG] === true
-    ) {
+    if (specId === "openai-image" || config?.[LEGACY_OPENAI_IMAGE_CONFIG_FLAG] === true) {
       return "/misc/chatgpt-white.png";
     }
     const m = (config?.model as string) || DEFAULT_LLM_IMAGE_MODEL;
