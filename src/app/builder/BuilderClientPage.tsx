@@ -15,11 +15,10 @@ import {
   IconExitFullscreen,
   IconFullscreen,
   IconGrid,
-  IconHome,
   IconInspector,
   IconLock,
   IconPanels,
-  IconPublish,
+  IconRocket,
   IconRedo,
   IconRefresh,
   IconRun,
@@ -2643,7 +2642,7 @@ export default function BuilderPage() {
                 className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
                 title="Home"
               >
-                <IconHome size={18} />
+                <IconPanels size={18} />
                 <span className="hidden truncate sm:inline">Home</span>
               </button>
 
@@ -2674,7 +2673,7 @@ export default function BuilderPage() {
                 )}
                 title="Publish"
               >
-                <IconPublish size={18} />
+                <IconRocket size={18} />
                 <span className="hidden whitespace-nowrap sm:inline">Publish</span>
               </button>
 

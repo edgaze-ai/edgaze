@@ -224,7 +224,7 @@ export class LegacyNodeExecutorAdapter implements NodeExecutor {
         };
 
         handlerResult = perfRunId
-          ? (await perfAsync(
+          ? ((await perfAsync(
               perfRunId,
               "node.handler.external",
               async () => runtimeHandler(graphNode, ctx),
@@ -233,7 +233,7 @@ export class LegacyNodeExecutorAdapter implements NodeExecutor {
                 specId: params.compiledNode.specId,
                 note: "includes_model_and_external_api",
               },
-            )) as SerializableValue | null | undefined
+            )) as SerializableValue | null | undefined)
           : ((await runtimeHandler(graphNode, ctx)) as SerializableValue | null | undefined);
       }
       const rawOutput = perfRunId

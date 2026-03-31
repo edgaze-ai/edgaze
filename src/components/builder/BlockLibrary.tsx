@@ -8,6 +8,7 @@ import {
   IconClose,
   IconConditions,
   IconCore,
+  IconGrid,
   IconIntegrations,
   IconLLM,
   IconLoops,
@@ -33,7 +34,7 @@ const CATEGORIES: LibraryCategory[] = [
   {
     id: "all",
     label: "All",
-    icon: ({ active }) => <IconCore size={18} tone={active ? "brand" : "muted"} />,
+    icon: ({ active }) => <IconGrid size={18} tone={active ? "brand" : "muted"} />,
   },
   {
     id: "core",

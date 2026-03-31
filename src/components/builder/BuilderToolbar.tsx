@@ -3,7 +3,6 @@
 import React, { useRef, useEffect } from "react";
 import Image from "next/image";
 import {
-  Home,
   Play,
   Rocket,
   RefreshCw,
@@ -14,6 +13,7 @@ import {
   Unlock,
   Maximize2,
   Minimize2,
+  LayoutDashboard,
   LayoutPanelLeft,
   Eye,
   Loader2,
@@ -135,7 +135,7 @@ export function BuilderToolbar({
           }}
           title="Home"
         >
-          <Home size={18} />
+          <LayoutDashboard size={18} />
         </button>
 
         <div className="shrink-0">

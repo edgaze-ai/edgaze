@@ -89,6 +89,22 @@ export function IconPublish(props: IconProps) {
   );
 }
 
+export function IconRocket(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      {/* nose + body */}
+      <path d="M9 2.7c2.4 1.1 3.9 3.6 3.9 6.5v.4c0 1.3-.3 2.6-.9 3.7L9 15.3l-3-2c-.6-1.1-.9-2.4-.9-3.7v-.4c0-2.9 1.5-5.4 3.9-6.5Z" />
+      {/* window */}
+      <path d="M9 6.7h.1" />
+      {/* fins */}
+      <path d="M6.2 10.4 4.6 11.4" />
+      <path d="M11.8 10.4l1.6 1" />
+      {/* flame */}
+      <path d="M9 15.3c.7.7 1.1 1.3 1.1 2 0 .9-.9 1.7-2.1 1.7S5.9 18.2 5.9 17.3c0-.7.4-1.3 1.1-2" />
+    </IconBase>
+  );
+}
+
 export function IconRefresh(props: IconProps) {
   return (
     <IconBase {...props}>
