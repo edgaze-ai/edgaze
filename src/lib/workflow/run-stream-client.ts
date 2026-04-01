@@ -1,11 +1,6 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { drainReadableStream, streamRunSession } from "./run-session";
-import {
-  applyWorkflowRunEventToState,
-  buildWorkflowRunStateFromBootstrap,
-} from "./run-session-state";
 import type { WorkflowRunGraph, WorkflowRunState, WorkflowRunStep } from "./run-types";
 
 type WorkflowRunStateRef = {
@@ -80,15 +75,27 @@ export async function handleWorkflowRunStream(
     return { handedOff: false, result };
   }
 
-  let sseHandoffStarted = false;
   let result: any = null;
   const reader = params.response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
 
+  params.runSessionPollRef.current?.abort();
+  params.runSessionPollRef.current = null;
+
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      if (buffer.trim()) {
+        try {
+          const evt = JSON.parse(buffer);
+          if (evt.type === "complete") result = evt;
+        } catch {
+          // ignore trailing partial payloads
+        }
+      }
+      break;
+    }
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
@@ -118,80 +125,6 @@ export async function handleWorkflowRunStream(
                 }
               : prev,
           );
-
-          params.runSessionPollRef.current?.abort();
-          const sessionController = new AbortController();
-          params.runSessionPollRef.current = sessionController;
-
-          void streamRunSession({
-            runId: evt.runId,
-            accessToken: params.accessToken,
-            runAccessToken: typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
-            signal: sessionController.signal,
-            onTransportState: async (transportState) => {
-              params.setRunState((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      connectionState:
-                        transportState === "connecting"
-                          ? "live"
-                          : transportState === "live"
-                            ? "live"
-                            : transportState === "reconnecting"
-                              ? "reconnecting"
-                              : "degraded",
-                      connectionLabel:
-                        transportState === "reconnecting"
-                          ? "Reconnecting to live updates..."
-                          : transportState === "degraded"
-                            ? "Live updates are slower right now."
-                            : undefined,
-                    }
-                  : prev,
-              );
-            },
-            onSnapshot: async (bootstrap) => {
-              const nextState = buildWorkflowRunStateFromBootstrap({
-                bootstrap,
-                workflowId: params.workflowId,
-                workflowName: params.workflowName,
-                inputValues: params.inputValues,
-                runAccessToken:
-                  typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
-                sourceGraph: params.sourceGraph,
-              });
-              params.setRunState((prev) =>
-                prev
-                  ? { ...prev, ...nextState, phase: "executing" }
-                  : (nextState as WorkflowRunState),
-              );
-            },
-            onEvent: async (event) => {
-              params.setRunState((prev) =>
-                prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
-              );
-            },
-            onPing: async () => {
-              params.setRunState((prev) => (prev ? { ...prev, lastEventAt: Date.now() } : prev));
-            },
-          }).catch((error) => {
-            if (sessionController.signal.aborted) return;
-            const message =
-              error instanceof Error ? error.message : "Run session stream disconnected.";
-            params.setRunState((prev) =>
-              prev && prev.status !== "success" && prev.status !== "cancelled"
-                ? {
-                    ...prev,
-                    connectionState: "degraded",
-                    connectionLabel: message,
-                  }
-                : prev,
-            );
-          });
-
-          sseHandoffStarted = true;
-          drainReadableStream(reader);
           break;
         }
 
@@ -212,12 +145,17 @@ export async function handleWorkflowRunStream(
         // Ignore malformed NDJSON lines and continue listening for the stream handoff.
       }
     }
-
-    if (sseHandoffStarted || result) break;
+    if (result) break;
   }
 
-  if (sseHandoffStarted) {
-    return { handedOff: true };
+  if (!result) {
+    return {
+      handedOff: false,
+      result: {
+        ok: false,
+        error: "Execution stream ended before the server returned a final result.",
+      },
+    };
   }
 
   return { handedOff: false, result };
