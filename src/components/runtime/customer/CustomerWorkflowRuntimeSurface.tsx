@@ -1234,7 +1234,8 @@ export default function CustomerWorkflowRuntimeSurface({
                   <div className="w-full max-w-[860px]">
                     <ProsePanel text={model.primaryLiveText.text} streaming />
                   </div>
-                ) : model.mode === "node" && model.activeNodeIds.length > 0 ? (
+                ) : (model.mode === "node" || model.mode === "queueing") &&
+                  model.activeNodeIds.length > 0 ? (
                   <div className="w-full max-w-[900px]">
                     <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
                   </div>

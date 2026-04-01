@@ -222,6 +222,13 @@ function getQueuedNodeLabel(state: WorkflowRunState): string | undefined {
   return getRuntimeNodeLabel(node);
 }
 
+function getQueuedNodeIds(state: WorkflowRunState): string[] {
+  return state.steps
+    .filter((step) => step.status === "queued")
+    .map((step) => step.id)
+    .slice(0, 3);
+}
+
 function getLiveTextForNodeIds(
   state: WorkflowRunState,
   nodeIds: string[],
@@ -290,9 +297,11 @@ export function deriveCustomerRuntimeModel(
 ): CustomerRuntimeModel | null {
   if (!state) return null;
 
-  const activeNodeIds = getActiveNodeIds(state).slice(0, 3);
+  const runningNodeIds = getActiveNodeIds(state).slice(0, 3);
+  const queuedNodeIds = runningNodeIds.length === 0 ? getQueuedNodeIds(state) : [];
+  const activeNodeIds = runningNodeIds.length > 0 ? runningNodeIds : queuedNodeIds;
   const { activeNodes, activeEdges } = getVisibleGraph(state, activeNodeIds);
-  const primaryLiveText = getLiveTextForNodeIds(state, activeNodeIds);
+  const primaryLiveText = getLiveTextForNodeIds(state, runningNodeIds);
   const outputs = pickRuntimeOutputs(state);
   const elapsedLabel = formatRunElapsed(state.startedAt, state.finishedAt);
   const connectionState = state.connectionState ?? "idle";
@@ -351,7 +360,7 @@ export function deriveCustomerRuntimeModel(
     mode = "streaming";
     headline = getRuntimeNodeLabel(activeNodes[0]);
     subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : undefined;
-  } else if (activeNodeIds.length > 0) {
+  } else if (runningNodeIds.length > 0) {
     mode = "node";
     headline = getRuntimeNodeLabel(activeNodes[0]);
     subline =
@@ -360,6 +369,16 @@ export function deriveCustomerRuntimeModel(
         : longRunning
           ? "This node is taking a little longer than usual."
           : undefined;
+  } else if (queuedNodeIds.length > 0) {
+    mode = "queueing";
+    headline = getRuntimeNodeLabel(activeNodes[0]);
+    const nextNodeLabel = getQueuedNodeLabel(state);
+    subline =
+      connectionState === "reconnecting"
+        ? "Reconnecting to live updates..."
+        : nextNodeLabel
+          ? `Up next: ${nextNodeLabel}`
+          : "Workflow execution has started.";
   } else if (allStepsTerminal(state) && state.status === "running") {
     mode = "finalizing";
     headline = "Preparing your results";
