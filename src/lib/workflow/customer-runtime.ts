@@ -325,6 +325,7 @@ export function deriveCustomerRuntimeModel(
   const outputs = pickRuntimeOutputs(state);
   const elapsedLabel = formatRunElapsed(state.startedAt, state.finishedAt);
   const connectionState = state.connectionState ?? "idle";
+  const displayNodeLabel = getRuntimeNodeLabel(activeNodes[0]);
   const now = Date.now();
   const inactiveMs = state.lastEventAt ? now - state.lastEventAt : 0;
   const longRunning =
@@ -391,19 +392,18 @@ export function deriveCustomerRuntimeModel(
           : undefined;
   } else if (queuedNodeIds.length > 0) {
     mode = "queueing";
-    headline = getRuntimeNodeLabel(activeNodes[0]);
+    headline = displayNodeLabel;
     const nextNodeLabel = getQueuedNodeLabel(state);
     subline =
       connectionState === "reconnecting"
         ? "Reconnecting to live updates..."
         : nextNodeLabel
           ? `Up next: ${nextNodeLabel}`
-          : "Workflow execution has started.";
+          : undefined;
   } else if (initialNodeIds.length > 0) {
     mode = "queueing";
-    headline = getRuntimeNodeLabel(activeNodes[0]);
-    subline =
-      connectionState === "reconnecting" ? "Reconnecting to live updates..." : "Execution started.";
+    headline = displayNodeLabel;
+    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : undefined;
   } else if (allStepsTerminal(state) && state.status === "running") {
     mode = "finalizing";
     headline = "Preparing your results";
@@ -413,7 +413,7 @@ export function deriveCustomerRuntimeModel(
     (hasQueuedSteps(state) || Boolean(state.lastEventSequence))
   ) {
     mode = "queueing";
-    headline = "Preparing next node";
+    headline = getQueuedNodeLabel(state) || displayNodeLabel;
     const nextNodeLabel = getQueuedNodeLabel(state);
     subline =
       connectionState === "reconnecting"
@@ -431,11 +431,11 @@ export function deriveCustomerRuntimeModel(
       Boolean(state.runId))
   ) {
     mode = "queueing";
-    headline = state.workflowName || "Workflow";
+    headline = displayNodeLabel;
     subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : undefined;
   } else {
     mode = "queueing";
-    headline = state.status === "running" ? state.workflowName || "Workflow" : "Ready to run";
+    headline = state.status === "running" ? displayNodeLabel : "Ready to run";
     subline = state.status === "running" ? state.connectionLabel : state.summary;
   }
 
