@@ -32,10 +32,7 @@ import {
   getDeviceFingerprintHash,
   getRemainingDemoRunsSync,
 } from "../../../lib/workflow/device-tracking";
-import {
-  extractWorkflowInputs,
-  extractWorkflowOutputs,
-} from "../../../lib/workflow/input-extraction";
+import { extractWorkflowInputs } from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
 import { track } from "../../../lib/mixpanel";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../lib/constants";
@@ -45,6 +42,7 @@ import ProfileAvatar from "../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../components/ui/ProfileLink";
 import ReportModal from "../../../components/marketplace/ReportModal";
 import { toRuntimeGraph } from "../../../lib/workflow/customer-runtime";
+import { finalizeClientWorkflowRunFromExecutionResult } from "../../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../../lib/workflow/run-stream-client";
 import type { WorkflowRunState } from "../../../lib/workflow/run-types";
 
@@ -1580,6 +1578,7 @@ export default function WorkflowProductPage() {
           deviceFingerprint,
           adminDemoToken: isDemoModeActive && listing?.demo_token ? listing.demo_token : undefined,
           stream: true,
+          forceDemoModelTier: true,
         }),
       });
 
@@ -1611,65 +1610,14 @@ export default function WorkflowProductPage() {
 
       {
         const executionResult = result.result;
-        const logs = (executionResult.logs || []).map((log: any) => ({
-          t: log.timestamp || Date.now(),
-          level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
-          text: log.message || "",
-          nodeId: log.nodeId,
-          specId: log.specId,
-        }));
-        const steps = Object.entries(executionResult.nodeStatus || {}).map(
-          ([nodeId, status]: [string, any]) => {
-            const node = (graph.nodes || []).find((n: any) => n.id === nodeId);
-            const specId = node?.data?.specId || "default";
-            const nodeTitle = node?.data?.title || node?.data?.config?.name || specId;
-            const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
-            const statusMap: Record<string, "queued" | "running" | "done" | "error" | "skipped"> = {
-              idle: "queued",
-              ready: "queued",
-              running: "running",
-              success: "done",
-              failed: "error",
-              timeout: "error",
-              skipped: "skipped",
-            };
-            return {
-              id: nodeId,
-              title: nodeTitle,
-              detail: errorLog ? errorLog.text : undefined,
-              status: statusMap[status] || "queued",
-              icon: <Play className="h-4 w-4" />,
-              timestamp: Date.now(),
-            };
-          },
-        );
-
-        const outputs = extractWorkflowOutputs(graph.nodes || [])
-          .map((output) => {
-            const finalOutput = executionResult.finalOutputs?.find(
-              (fo: any) => fo.nodeId === output.nodeId,
-            );
-            if (!finalOutput) return null;
-            return {
-              ...output,
-              value: finalOutput.value,
-              type: typeof finalOutput.value === "string" ? "string" : "json",
-            };
-          })
-          .filter((o): o is NonNullable<typeof o> => o != null);
-
+        const completion = finalizeClientWorkflowRunFromExecutionResult({
+          executionResult,
+          graphNodes: graph.nodes || [],
+          processedInputs,
+        });
         setDemoRunState({
           ...demoRunState,
-          phase: "output",
-          status:
-            executionResult.workflowStatus === "completed" ||
-            executionResult.workflowStatus === "completed_with_skips"
-              ? "success"
-              : "error",
-          steps,
-          logs,
-          outputs,
-          finishedAt: Date.now(),
+          ...completion,
         });
       }
     } catch (error: any) {

@@ -34,10 +34,7 @@ import {
   getDeviceFingerprintHash,
   canRunDemoSync,
 } from "../../../../lib/workflow/device-tracking";
-import {
-  extractWorkflowInputs,
-  extractWorkflowOutputs,
-} from "../../../../lib/workflow/input-extraction";
+import { extractWorkflowInputs } from "../../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../../lib/workflow/validation";
 import { isPremiumAiSpec } from "../../../../lib/workflow/spec-id-aliases";
 import FoundingCreatorBadge from "../../../../components/ui/FoundingCreatorBadge";
@@ -45,6 +42,7 @@ import ProfileAvatar from "../../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../../components/ui/ProfileLink";
 import ReportModal from "../../../../components/marketplace/ReportModal";
 import { toRuntimeGraph } from "../../../../lib/workflow/customer-runtime";
+import { finalizeClientWorkflowRunFromExecutionResult } from "../../../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../../../lib/workflow/run-stream-client";
 import type { WorkflowRunState } from "../../../../lib/workflow/run-types";
 const CommentsSection = CommentsSectionRaw as unknown as React.ComponentType<any>;
@@ -2146,6 +2144,7 @@ export default function PromptProductPage() {
           deviceFingerprint,
           adminDemoToken: isDemoModeActive && listing?.demo_token ? listing.demo_token : undefined,
           stream: true,
+          forceDemoModelTier: isDemoRun,
         }),
       });
 
@@ -2177,53 +2176,14 @@ export default function PromptProductPage() {
 
       {
         const executionResult = result.result;
-        const logs = (executionResult.logs || []).map((log: any) => ({
-          t: log.timestamp || Date.now(),
-          level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
-          text: log.message || "",
-          nodeId: log.nodeId,
-          specId: log.specId,
-        }));
-
-        const steps = Object.entries(executionResult.nodeStatus || {}).map(
-          ([nodeId, status]: [string, any]) => {
-            const node = workflowGraph.nodes?.find((n: any) => n.id === nodeId);
-            const specId = node?.data?.specId || "default";
-            return {
-              id: nodeId,
-              title: node?.data?.title || node?.data?.config?.name || specId,
-              status: mapNodeStatus(status),
-              timestamp: Date.now(),
-            };
-          },
-        );
-
-        const outputs = extractWorkflowOutputs(workflowGraph.nodes || [])
-          .map((output) => {
-            const finalOutput = executionResult.finalOutputs?.find(
-              (fo: any) => fo.nodeId === output.nodeId,
-            );
-            if (!finalOutput) return null;
-            return {
-              ...output,
-              value: finalOutput.value,
-              type: typeof finalOutput.value === "string" ? "string" : "json",
-            };
-          })
-          .filter((o): o is NonNullable<typeof o> => o != null);
-
+        const completion = finalizeClientWorkflowRunFromExecutionResult({
+          executionResult,
+          graphNodes: workflowGraph.nodes || [],
+          processedInputs,
+        });
         setWorkflowRunState({
           ...workflowRunState,
-          phase: "output",
-          status:
-            executionResult.workflowStatus === "completed" ||
-            executionResult.workflowStatus === "completed_with_skips"
-              ? "success"
-              : "error",
-          steps,
-          logs,
-          outputs,
-          finishedAt: Date.now(),
+          ...completion,
         });
       }
     } catch (error: any) {
@@ -2235,19 +2195,6 @@ export default function PromptProductPage() {
         finishedAt: Date.now(),
       });
     }
-  }
-
-  function mapNodeStatus(status: string): "queued" | "running" | "done" | "error" | "skipped" {
-    const map: Record<string, "queued" | "running" | "done" | "error" | "skipped"> = {
-      idle: "queued",
-      ready: "queued",
-      running: "running",
-      success: "done",
-      failed: "error",
-      timeout: "error",
-      skipped: "skipped",
-    };
-    return map[status] || "queued";
   }
 
   async function loadMoreUpNext(reset = false) {

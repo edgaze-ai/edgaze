@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { getUserFromRequest } from "@lib/auth/server";
 import { runFlow } from "src/server/flow/engine";
-import { enforceRuntimeLimits, redactSecrets } from "src/server/flow/runtime-enforcement";
+import {
+  demoTierPlatformKeyFlags,
+  enforceRuntimeLimits,
+  redactSecrets,
+} from "src/server/flow/runtime-enforcement";
 import {
   createWorkflowRun,
   updateWorkflowRun,
@@ -353,6 +357,8 @@ export async function POST(req: Request) {
       stream?: boolean;
       adminDemoToken?: string;
       idempotencyKey?: string;
+      /** Authenticated marketplace “Try demo” — align platform model tier with anonymous demo when still on free runs. */
+      forceDemoModelTier?: boolean;
     };
 
     const {
@@ -368,6 +374,7 @@ export async function POST(req: Request) {
       stream: useStream = false,
       adminDemoToken,
       idempotencyKey,
+      forceDemoModelTier = false,
     } = body;
 
     let nodes = (body.nodes ?? []) as GraphNode[];
@@ -601,7 +608,7 @@ export async function POST(req: Request) {
     }
 
     // Runtime enforcement: check free runs and BYO keys
-    const enforcement = await enforceRuntimeLimits({
+    let enforcement = await enforceRuntimeLimits({
       userId,
       workflowId,
       nodes,
@@ -610,6 +617,19 @@ export async function POST(req: Request) {
       isBuilderTest: effectiveIsBuilderTest,
       draftIdForCount: entitlementDraftId,
     });
+
+    if (
+      forceDemoModelTier === true &&
+      user &&
+      /^[0-9a-f-]{36}$/i.test(userId) &&
+      enforcement.allowed &&
+      enforcement.freeRunsRemaining > 0
+    ) {
+      enforcement = {
+        ...enforcement,
+        ...demoTierPlatformKeyFlags(nodes),
+      };
+    }
 
     if (!enforcement.allowed) {
       return NextResponse.json(
