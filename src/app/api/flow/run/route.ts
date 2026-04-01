@@ -260,6 +260,31 @@ function mapRunEventToLegacyProgressEvent(
   }
 }
 
+function buildInitialLegacyProgressEvents(compiled: CompiledWorkflowDefinition): Array<{
+  type: "node_ready";
+  nodeId: string;
+  specId: string;
+  nodeTitle?: string;
+  timestamp: number;
+}> {
+  const timestamp = Date.now();
+  const compiledNodeById = new Map(compiled.nodes.map((node) => [node.id, node]));
+
+  return compiled.entryNodeIds
+    .map((nodeId) => {
+      const node = compiledNodeById.get(nodeId);
+      if (!node) return null;
+      return {
+        type: "node_ready" as const,
+        nodeId,
+        specId: node.specId,
+        nodeTitle: node.title,
+        timestamp,
+      };
+    })
+    .filter((event): event is NonNullable<typeof event> => event !== null);
+}
+
 async function finishUnifiedRun(
   unifiedRunId: string | null,
   status: "success" | "error",
@@ -893,6 +918,9 @@ export async function POST(req: Request) {
                 runId,
                 runAccessToken,
               });
+              for (const event of buildInitialLegacyProgressEvents(compiledWorkflow)) {
+                write(event);
+              }
 
               const activeWorker = ensureWorkflowRunWorker({
                 runId,

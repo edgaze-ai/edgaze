@@ -281,6 +281,10 @@ function allStepsTerminal(state: WorkflowRunState): boolean {
   );
 }
 
+function hasQueuedSteps(state: WorkflowRunState): boolean {
+  return state.steps.some((step) => step.status === "queued");
+}
+
 export function deriveCustomerRuntimeModel(
   state: WorkflowRunState | null,
 ): CustomerRuntimeModel | null {
@@ -360,7 +364,10 @@ export function deriveCustomerRuntimeModel(
     mode = "finalizing";
     headline = "Preparing your results";
     subline = "Final output is being assembled.";
-  } else if (state.status === "running" && state.lastEventSequence && state.lastEventSequence > 0) {
+  } else if (
+    state.status === "running" &&
+    (hasQueuedSteps(state) || Boolean(state.lastEventSequence))
+  ) {
     mode = "queueing";
     headline = "Preparing next node";
     const nextNodeLabel = getQueuedNodeLabel(state);
