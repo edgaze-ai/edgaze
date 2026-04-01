@@ -147,9 +147,6 @@ export default function CustomerRunNodeStage({
       <div className={shellClass}>
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_55%)] runtime-stage-orb" />
         <div className="pointer-events-none absolute inset-0 opacity-90 runtime-stage-glaze [background-image:linear-gradient(112deg,transparent_0%,transparent_28%,rgba(81,220,255,0.04)_36%,rgba(81,220,255,0.18)_42%,rgba(255,255,255,0.30)_46%,rgba(255,102,214,0.20)_52%,rgba(255,102,214,0.07)_58%,transparent_68%,transparent_100%),linear-gradient(112deg,transparent_0%,transparent_42%,rgba(109,233,255,0.07)_48%,rgba(255,255,255,0.18)_52%,rgba(255,102,214,0.10)_58%,transparent_66%,transparent_100%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01))] [background-size:180%_100%,120%_100%,100%_100%] [mix-blend-mode:screen]" />
-        <div className="flex h-full min-h-[320px] items-center justify-center px-6 text-center text-sm text-white/48">
-          Syncing node layout…
-        </div>
       </div>
     );
   }
