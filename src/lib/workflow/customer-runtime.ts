@@ -226,7 +226,7 @@ function getQueuedNodeIds(state: WorkflowRunState): string[] {
   return state.steps
     .filter((step) => step.status === "queued")
     .map((step) => step.id)
-    .slice(0, 3);
+    .slice(0, 1);
 }
 
 function getInitialVisibleNodeIds(state: WorkflowRunState): string[] {
@@ -234,10 +234,11 @@ function getInitialVisibleNodeIds(state: WorkflowRunState): string[] {
   const graphNodeById = new Map((state.graph?.nodes ?? []).map((node) => [node.id, node]));
   const preferred = order.filter((nodeId) => {
     const node = graphNodeById.get(nodeId);
-    return node && String(node.data?.specId ?? "") !== "output";
+    const specId = String(node?.data?.specId ?? "");
+    return node && specId !== "output" && specId !== "input";
   });
   const fallback = preferred.length > 0 ? preferred : order;
-  return fallback.slice(0, 3);
+  return fallback.slice(0, 1);
 }
 
 function getLiveTextForNodeIds(
@@ -393,17 +394,14 @@ export function deriveCustomerRuntimeModel(
   } else if (queuedNodeIds.length > 0) {
     mode = "queueing";
     headline = displayNodeLabel;
-    const nextNodeLabel = getQueuedNodeLabel(state);
     subline =
       connectionState === "reconnecting"
         ? "Reconnecting to live updates..."
-        : nextNodeLabel
-          ? `Up next: ${nextNodeLabel}`
-          : undefined;
+        : "Queued";
   } else if (initialNodeIds.length > 0) {
     mode = "queueing";
     headline = displayNodeLabel;
-    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : undefined;
+    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : "Queued";
   } else if (allStepsTerminal(state) && state.status === "running") {
     mode = "finalizing";
     headline = "Preparing your results";
@@ -419,7 +417,7 @@ export function deriveCustomerRuntimeModel(
       connectionState === "reconnecting"
         ? "Reconnecting to live updates..."
         : nextNodeLabel
-          ? `Up next: ${nextNodeLabel}`
+          ? "Queued"
           : longRunning
             ? "Still progressing through the workflow."
             : undefined;
@@ -432,7 +430,7 @@ export function deriveCustomerRuntimeModel(
   ) {
     mode = "queueing";
     headline = displayNodeLabel;
-    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : undefined;
+    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : "Queued";
   } else {
     mode = "queueing";
     headline = state.status === "running" ? displayNodeLabel : "Ready to run";
