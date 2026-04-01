@@ -63,17 +63,27 @@ function applyLegacyProgressEvent(prev: WorkflowRunState, evt: any): WorkflowRun
           ? "done"
           : "error";
 
-  const nextStep: WorkflowRunStep = { id: nodeId, title, status };
+  const eventTimestamp =
+    typeof evt?.timestamp === "number" && Number.isFinite(evt.timestamp)
+      ? evt.timestamp
+      : Date.now();
+  const nextStep: WorkflowRunStep = { id: nodeId, title, status, timestamp: eventTimestamp };
   if (existingIndex >= 0) nextSteps[existingIndex] = { ...existing!, ...nextStep };
   else nextSteps.push(nextStep);
 
   const now = Date.now();
+  const currentStepId =
+    status === "running"
+      ? nodeId
+      : prev.currentStepId === nodeId
+        ? null
+        : (nextSteps.find((step) => step.status === "running")?.id ?? null);
   return {
     ...prev,
     phase: "executing",
     status: prev.status === "idle" ? "running" : prev.status,
     steps: nextSteps,
-    currentStepId: status === "running" ? nodeId : prev.currentStepId,
+    currentStepId,
     connectionState: prev.connectionState === "connecting" ? "live" : prev.connectionState,
     connectionLabel: undefined,
     lastEventAt: now,
