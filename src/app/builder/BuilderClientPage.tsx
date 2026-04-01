@@ -43,7 +43,7 @@ import {
   isPremiumAiSpec,
   providerForAiSpec,
 } from "../../lib/workflow/spec-id-aliases";
-import { extractWorkflowInputs, extractWorkflowOutputs } from "../../lib/workflow/input-extraction";
+import { extractWorkflowInputs } from "../../lib/workflow/input-extraction";
 import {
   canRunDemo,
   canRunDemoSync,
@@ -61,6 +61,7 @@ import { track } from "../../lib/mixpanel";
 import { getQuickStartTemplate } from "../../lib/quickStartTemplates";
 import { getDocsLink } from "../../lib/docs-link";
 import { toRuntimeGraph } from "../../lib/workflow/customer-runtime";
+import { finalizeClientWorkflowRunFromExecutionResult } from "../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../lib/workflow/run-stream-client";
 
 function safeTrack(event: string, props?: Record<string, any>) {
@@ -1790,6 +1791,7 @@ export default function BuilderPage() {
           anthropicApiKey: !isPreview ? anthropicApiKeyFromModal || undefined : undefined,
           geminiApiKey: !isPreview ? geminiApiKeyFromModal || undefined : undefined,
           stream: true,
+          forceDemoModelTier: isPreview,
         }),
       });
 
@@ -1878,128 +1880,20 @@ export default function BuilderPage() {
       }
 
       const executionResult = result.result;
-      const logs = (executionResult.logs || []).map((log: any) => ({
-        t: log.timestamp || Date.now(),
-        level: log.type === "error" ? "error" : log.type === "warn" ? "warn" : "info",
-        text: log.message || log.text || "",
-        nodeId: log.nodeId,
-        specId: log.specId,
-      }));
-
-      const steps = Object.entries(executionResult.nodeStatus || {}).map(
-        ([nodeId, status]: [string, any]) => {
-          const node = graph.nodes?.find((n: any) => n.id === nodeId);
-          const specId = node?.data?.specId || "default";
-          const nodeTitle =
-            node?.data?.title || node?.data?.config?.name || humanReadableStep(specId);
-          const errorLog = logs.find((l: any) => l.nodeId === nodeId && l.level === "error");
-          return {
-            id: nodeId,
-            title: nodeTitle,
-            detail: errorLog ? errorLog.text : undefined,
-            status: mapNodeStatus(status),
-            icon: getStepIcon(specId),
-            timestamp: Date.now(),
-          };
-        },
-      );
-
-      // Build set of raw input values so we never show them as output (hide passthrough/echo)
-      const displayInputValues = processedInputs
-        ? Object.fromEntries(
-            Object.entries(processedInputs).filter(
-              ([k]) =>
-                !k.startsWith("__") &&
-                k !== "__openaiApiKey" &&
-                k !== "__anthropicApiKey" &&
-                k !== "__geminiApiKey" &&
-                k !== "__builder_test" &&
-                k !== "__builder_user_key" &&
-                k !== "__workflow_id",
-            ),
-          )
-        : {};
-      const echoParts = Object.values(displayInputValues)
-        .map((v) => String(v ?? "").trim())
-        .filter(Boolean);
-      const echoPartSet = new Set(echoParts);
-      const normalizeLines = (s: string) =>
-        s
-          .trim()
-          .replace(/\r\n/g, "\n")
-          .replace(/\n{3,}/g, "\n\n")
-          .split(/\n/)
-          .map((l) => l.trim())
-          .filter(Boolean)
-          .sort()
-          .join("\n");
-      const isEchoString = (s: string) => {
-        const t = String(s).trim();
-        if (!t.length) return false;
-        if (echoPartSet.has(t)) return true;
-        const norm = normalizeLines(t);
-        const expectedNorm = echoParts.slice().sort().join("\n");
-        return norm === expectedNorm;
-      };
-
-      const outputs = extractWorkflowOutputs(graph.nodes || [])
-        .map((output) => {
-          const finalOutput = executionResult.finalOutputs?.find(
-            (fo: any) => fo.nodeId === output.nodeId,
-          );
-          if (!finalOutput) return null;
-          let value = finalOutput.value;
-          if (typeof value === "string" && isEchoString(value)) return null;
-          if (
-            value !== null &&
-            typeof value === "object" &&
-            Array.isArray((value as any).results)
-          ) {
-            const results = ((value as any).results as unknown[]).filter(
-              (item) => typeof item !== "string" || !isEchoString(item),
-            );
-            if (results.length === 0) return null;
-            value = results.length === 1 ? results[0] : { ...(value as object), results };
-          }
-          return {
-            ...output,
-            value,
-            type: typeof value === "string" ? "string" : "json",
-          };
-        })
-        .filter((o): o is NonNullable<typeof o> => o != null);
-
-      // Check for errors in logs or node status
-      const hasError =
-        executionResult.workflowStatus === "failed" ||
-        logs.some((l: any) => l.level === "error") ||
-        Object.values(executionResult.nodeStatus || {}).some(
-          (s: any) => s === "failed" || s === "timeout",
-        );
-
-      const errorMessage = hasError
-        ? logs.find((l: any) => l.level === "error")?.text ||
-          Object.entries(executionResult.nodeStatus || {})
-            .filter(([_, status]: [string, any]) => status === "failed" || status === "timeout")
-            .map(([nodeId]: [string, any]) => {
-              const node = graph.nodes?.find((n: any) => n.id === nodeId);
-              return node?.data?.title || nodeId;
-            })
-            .join(", ") + " failed"
-        : undefined;
-
+      const completion = finalizeClientWorkflowRunFromExecutionResult({
+        executionResult,
+        graphNodes: graph.nodes || [],
+        processedInputs,
+      });
       const workflowGraph = beRef.current?.getGraph?.();
       setRunState({
         ...runState,
-        phase: "output",
-        status: hasError ? "error" : "success",
-        steps,
-        logs,
-        outputs: hasError ? undefined : outputs,
-        outputsByNode: executionResult.outputsByNode || {},
-        error: errorMessage,
-        finishedAt: Date.now(),
-        summary: hasError ? undefined : "Workflow executed successfully",
+        ...completion,
+        steps: completion.steps.map((step) => {
+          const node = graph.nodes?.find((n: any) => n.id === step.id);
+          const specId = node?.data?.specId || "default";
+          return { ...step, icon: getStepIcon(specId) };
+        }),
         graph: workflowGraph
           ? {
               nodes: (workflowGraph.nodes || []).map((n: any) => ({
@@ -2138,19 +2032,6 @@ export default function BuilderPage() {
     }
   };
 
-  const mapNodeStatus = (status: string): "queued" | "running" | "done" | "error" | "skipped" => {
-    const map: Record<string, "queued" | "running" | "done" | "error" | "skipped"> = {
-      idle: "queued",
-      ready: "queued",
-      running: "running",
-      success: "done",
-      failed: "error",
-      timeout: "error",
-      skipped: "skipped",
-    };
-    return map[status] || "queued";
-  };
-
   const getStepIcon = (specId: string): React.ReactNode => {
     const icons: Record<string, React.ReactNode> = {
       input: <ArrowRight className="h-4 w-4" />,
@@ -2167,24 +2048,6 @@ export default function BuilderPage() {
     };
     const c = canonicalSpecId(specId);
     return icons[specId] || icons[c] || <Play className="h-4 w-4" />;
-  };
-
-  const humanReadableStep = (specId: string): string => {
-    const c = canonicalSpecId(specId);
-    const map: Record<string, string> = {
-      input: "Collecting input data",
-      "llm-chat": "Processing with AI",
-      "llm-embeddings": "Generating embeddings",
-      "llm-image": "Creating image",
-      "openai-chat": "Processing with AI",
-      "openai-embeddings": "Generating embeddings",
-      "openai-image": "Creating image",
-      "http-request": "Fetching data",
-      merge: "Combining data",
-      transform: "Transforming data",
-      output: "Preparing output",
-    };
-    return map[specId] || map[c] || `Executing ${specId}`;
   };
 
   const handleCancelRun = async () => {

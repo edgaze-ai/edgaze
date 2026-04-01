@@ -59,6 +59,29 @@ export type RuntimeEnforcementResult = {
   error?: string;
 };
 
+/** Platform key routing for anonymous/admin demo — reuse for authenticated “Try demo” so model tier matches. */
+export function demoTierPlatformKeyFlags(
+  nodes: GraphNode[],
+): Pick<
+  RuntimeEnforcementResult,
+  "useEdgazeKey" | "useEdgazeOpenAI" | "useEdgazeAnthropic" | "useEdgazeGemini"
+> {
+  const hasAnyAi = nodes.some((n) => isAiPremiumNode(n.data?.specId));
+  const demoUnderFree = true;
+  return {
+    useEdgazeKey: hasEdgazeApiKey() && hasAnyAi,
+    useEdgazeOpenAI:
+      hasEdgazeApiKey() &&
+      (nodes.some((n) => resolvePremiumKeyProvider(n) === "openai") ||
+        (hasLlmChat(nodes) && !hasEdgazeAnthropicApiKey())),
+    useEdgazeAnthropic:
+      hasEdgazeAnthropicApiKey() &&
+      (nodes.some((n) => resolvePremiumKeyProvider(n) === "anthropic") || hasLlmChat(nodes)),
+    useEdgazeGemini:
+      hasEdgazeGeminiApiKey() && nodes.some((n) => nodeNeedsGeminiKey(n, demoUnderFree)),
+  };
+}
+
 /**
  * Validates whether a user can run a workflow and which nodes require BYO API keys.
  * Uses Edgaze API keys for the first N runs per workflow when platform keys exist for each provider used.
