@@ -222,6 +222,24 @@ function getQueuedNodeLabel(state: WorkflowRunState): string | undefined {
   return getRuntimeNodeLabel(node);
 }
 
+function getQueuedNodeIds(state: WorkflowRunState): string[] {
+  return state.steps
+    .filter((step) => step.status === "queued")
+    .map((step) => step.id)
+    .slice(0, 3);
+}
+
+function getInitialVisibleNodeIds(state: WorkflowRunState): string[] {
+  const order = topologicalWorkflowNodeOrder(state);
+  const graphNodeById = new Map((state.graph?.nodes ?? []).map((node) => [node.id, node]));
+  const preferred = order.filter((nodeId) => {
+    const node = graphNodeById.get(nodeId);
+    return node && String(node.data?.specId ?? "") !== "output";
+  });
+  const fallback = preferred.length > 0 ? preferred : order;
+  return fallback.slice(0, 3);
+}
+
 function getLiveTextForNodeIds(
   state: WorkflowRunState,
   nodeIds: string[],
@@ -290,9 +308,20 @@ export function deriveCustomerRuntimeModel(
 ): CustomerRuntimeModel | null {
   if (!state) return null;
 
-  const activeNodeIds = getActiveNodeIds(state).slice(0, 3);
+  const runningNodeIds = getActiveNodeIds(state).slice(0, 3);
+  const queuedNodeIds = runningNodeIds.length === 0 ? getQueuedNodeIds(state) : [];
+  const initialNodeIds =
+    runningNodeIds.length === 0 && queuedNodeIds.length === 0 && state.status === "running"
+      ? getInitialVisibleNodeIds(state)
+      : [];
+  const activeNodeIds =
+    runningNodeIds.length > 0
+      ? runningNodeIds
+      : queuedNodeIds.length > 0
+        ? queuedNodeIds
+        : initialNodeIds;
   const { activeNodes, activeEdges } = getVisibleGraph(state, activeNodeIds);
-  const primaryLiveText = getLiveTextForNodeIds(state, activeNodeIds);
+  const primaryLiveText = getLiveTextForNodeIds(state, runningNodeIds);
   const outputs = pickRuntimeOutputs(state);
   const elapsedLabel = formatRunElapsed(state.startedAt, state.finishedAt);
   const connectionState = state.connectionState ?? "idle";
@@ -306,7 +335,7 @@ export function deriveCustomerRuntimeModel(
     Object.values(state.liveTextByNode ?? {}).some((entry) => entry.text.trim().length > 0);
 
   let mode: CustomerRuntimeMode = "ready";
-  let headline = "Initializing your workflow";
+  let headline = state.workflowName || "Workflow";
   let subline = state.connectionLabel;
 
   if (state.phase === "input" && state.status === "idle") {
@@ -351,7 +380,7 @@ export function deriveCustomerRuntimeModel(
     mode = "streaming";
     headline = getRuntimeNodeLabel(activeNodes[0]);
     subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : undefined;
-  } else if (activeNodeIds.length > 0) {
+  } else if (runningNodeIds.length > 0) {
     mode = "node";
     headline = getRuntimeNodeLabel(activeNodes[0]);
     subline =
@@ -360,6 +389,21 @@ export function deriveCustomerRuntimeModel(
         : longRunning
           ? "This node is taking a little longer than usual."
           : undefined;
+  } else if (queuedNodeIds.length > 0) {
+    mode = "queueing";
+    headline = getRuntimeNodeLabel(activeNodes[0]);
+    const nextNodeLabel = getQueuedNodeLabel(state);
+    subline =
+      connectionState === "reconnecting"
+        ? "Reconnecting to live updates..."
+        : nextNodeLabel
+          ? `Up next: ${nextNodeLabel}`
+          : "Workflow execution has started.";
+  } else if (initialNodeIds.length > 0) {
+    mode = "queueing";
+    headline = getRuntimeNodeLabel(activeNodes[0]);
+    subline =
+      connectionState === "reconnecting" ? "Reconnecting to live updates..." : "Execution started.";
   } else if (allStepsTerminal(state) && state.status === "running") {
     mode = "finalizing";
     headline = "Preparing your results";
@@ -387,14 +431,11 @@ export function deriveCustomerRuntimeModel(
       Boolean(state.runId))
   ) {
     mode = "queueing";
-    headline = "Initializing your workflow";
-    subline =
-      connectionState === "reconnecting"
-        ? "Reconnecting to live updates..."
-        : "Waiting for the first step to start.";
+    headline = state.workflowName || "Workflow";
+    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : undefined;
   } else {
     mode = "queueing";
-    headline = state.status === "running" ? "Initializing your workflow" : "Ready to run";
+    headline = state.status === "running" ? state.workflowName || "Workflow" : "Ready to run";
     subline = state.status === "running" ? state.connectionLabel : state.summary;
   }
 

@@ -1125,41 +1125,7 @@ export default function CustomerWorkflowRuntimeSurface({
   const model = deriveCustomerRuntimeModel(state);
 
   if (!state || !model) {
-    return (
-      <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.025))] p-6 shadow-[0_24px_90px_rgba(0,0,0,0.34)] md:p-8">
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `
-              @keyframes runtimeAmbientFlow { 0%,100% { transform: translate3d(0,0,0) scale(1); opacity: .65; } 50% { transform: translate3d(0,-6px,0) scale(1.02); opacity: .95; } }
-              @keyframes runtimePulseDot { 0%,100% { opacity: .45; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.02); } }
-              @keyframes runtimeCaret { 0%,49% { opacity: 1; } 50%,100% { opacity: .08; } }
-              @keyframes runtimeActiveSheen { 0% { transform: translateX(-20%); opacity: .2; } 50% { opacity: .6; } 100% { transform: translateX(20%); opacity: .24; } }
-              .runtime-ambient-flow { animation: runtimeAmbientFlow 7s ease-in-out infinite; }
-              .runtime-pulse-dot { animation: runtimePulseDot 1.8s ease-in-out infinite; }
-              .runtime-caret { animation: runtimeCaret 1.15s step-end infinite; }
-              .runtime-active-sheen { animation: runtimeActiveSheen 4.5s ease-in-out infinite; }
-              @media (prefers-reduced-motion: reduce) {
-                .runtime-ambient-flow, .runtime-pulse-dot, .runtime-caret, .runtime-active-sheen { animation: none !important; }
-              }
-            `,
-          }}
-        />
-        <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 text-center">
-          <div className="relative flex h-20 w-20 items-center justify-center">
-            <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(89,198,255,0.18),transparent_70%)] runtime-ambient-flow" />
-            <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-white/12 bg-white/[0.04]">
-              <Loader2 className="h-7 w-7 animate-spin text-white/78" />
-            </div>
-          </div>
-          <div className="text-[28px] font-medium tracking-[-0.03em] text-white">
-            Initializing your workflow
-          </div>
-          <div className="max-w-md text-[15px] leading-7 text-white/58">
-            Opening the live run view.
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -1234,7 +1200,8 @@ export default function CustomerWorkflowRuntimeSurface({
                   <div className="w-full max-w-[860px]">
                     <ProsePanel text={model.primaryLiveText.text} streaming />
                   </div>
-                ) : model.mode === "node" && model.activeNodeIds.length > 0 ? (
+                ) : (model.mode === "node" || model.mode === "queueing") &&
+                  model.activeNodeIds.length > 0 ? (
                   <div className="w-full max-w-[900px]">
                     <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
                   </div>
@@ -1246,11 +1213,8 @@ export default function CustomerWorkflowRuntimeSurface({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex h-[220px] items-center justify-center">
-                    <div className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-white/[0.05] px-5 py-3 text-sm text-white/78">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {model.longRunning ? "Still working..." : "Live execution active"}
-                    </div>
+                  <div className="w-full max-w-[900px]">
+                    <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
                   </div>
                 )}
 
