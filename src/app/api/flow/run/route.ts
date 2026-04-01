@@ -67,6 +67,8 @@ import type {
   SerializableValue,
 } from "src/server/flow-v2/types";
 
+export const maxDuration = 300;
+
 const FREE_BUILDER_RUNS = 10;
 const FREE_MARKETPLACE_KEY_RUNS = 10; // matches FREE_RUNS_PER_PURCHASE in runtime-enforcement
 
@@ -936,7 +938,7 @@ export async function POST(req: Request) {
                 sendPrelude();
                 controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`));
               } catch {}
-            }, 15000);
+            }, 5000);
 
             let afterSequence = 0;
             let runnerError: unknown = null;
@@ -1204,8 +1206,9 @@ export async function POST(req: Request) {
               sendPrelude();
               controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`));
             } catch {}
-          }, 15000);
+          }, 5000);
           try {
+            writeEvent({ type: "run_bootstrap", runId: runId ?? undefined, runAccessToken });
             result = await runFlow(flowPayload, {
               onProgress: (event) => writeEvent(event),
               runMode: effectiveIsBuilderTest ? "dev" : "marketplace",

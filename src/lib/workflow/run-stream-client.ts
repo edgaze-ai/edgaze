@@ -121,6 +121,13 @@ export async function handleWorkflowRunStream(
     for (const chunk of chunks) {
       if (!chunk.trim()) continue;
 
+      if (isSse && chunk.trim().startsWith(":")) {
+        params.setRunState((prev) =>
+          prev && prev.status === "running" ? { ...prev, lastEventAt: Date.now() } : prev,
+        );
+        continue;
+      }
+
       try {
         const evt = isSse ? parseSseChunk(chunk) : JSON.parse(chunk);
         if (!evt) continue;
@@ -143,7 +150,7 @@ export async function handleWorkflowRunStream(
                 }
               : prev,
           );
-          break;
+          continue;
         }
 
         if (
