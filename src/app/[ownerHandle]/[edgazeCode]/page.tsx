@@ -44,13 +44,9 @@ import TurnstileWidget from "../../../components/apply/TurnstileWidget";
 import ProfileAvatar from "../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../components/ui/ProfileLink";
 import ReportModal from "../../../components/marketplace/ReportModal";
-import {
-  applyWorkflowRunEventToState,
-  buildWorkflowRunStateFromBootstrap,
-} from "../../../lib/workflow/run-session-state";
 import { toRuntimeGraph } from "../../../lib/workflow/customer-runtime";
-import { drainReadableStream, streamRunSession } from "../../../lib/workflow/run-session";
-import type { WorkflowRunState, WorkflowRunStep } from "../../../lib/workflow/run-types";
+import { handleWorkflowRunStream } from "../../../lib/workflow/run-stream-client";
+import type { WorkflowRunState } from "../../../lib/workflow/run-types";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -1544,8 +1540,8 @@ export default function WorkflowProductPage() {
       status: "running",
       inputValues: processedInputs,
       startedAt: Date.now(),
-      connectionState: "connecting",
-      connectionLabel: "Connecting to live updates...",
+      connectionState: "live",
+      connectionLabel: undefined,
       lastEventAt: Date.now(),
     });
     setDemoRunning(true);
@@ -1592,186 +1588,28 @@ export default function WorkflowProductPage() {
         throw new Error(error.error || `HTTP ${response.status}`);
       }
 
-      const contentType = response.headers.get("content-type") || "";
-      const isStreaming = contentType.includes("ndjson");
-      let result: any = null;
+      const streamResult = await handleWorkflowRunStream({
+        response,
+        accessToken: headers.Authorization
+          ? String(headers.Authorization).replace(/^Bearer\s+/i, "")
+          : null,
+        runSessionPollRef: demoRunSessionPollRef,
+        setRunState: setDemoRunState,
+        workflowId: listing.id,
+        workflowName: listing.title || "Workflow",
+        inputValues: processedInputs,
+        sourceGraph: toRuntimeGraph(graph),
+      });
+      if (streamResult.handedOff) {
+        return;
+      }
 
-      if (isStreaming && response.body) {
-        let sseHandoffStarted = false;
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
+      const result = streamResult.result;
+      if (!result.ok) {
+        throw new Error(result.error || "Execution failed");
+      }
 
-        const applyLegacyProgressEvent = (prev: WorkflowRunState, evt: any): WorkflowRunState => {
-          const type = String(evt?.type ?? "");
-          const nodeId = typeof evt?.nodeId === "string" ? evt.nodeId : null;
-          if (!nodeId) return prev;
-
-          const nextSteps = [...(prev.steps ?? [])];
-          const existingIndex = nextSteps.findIndex((s) => s.id === nodeId);
-          const existing = existingIndex >= 0 ? nextSteps[existingIndex] : null;
-          const fallbackSpecId =
-            prev.graph?.nodes?.find((n: any) => n?.id === nodeId)?.data?.specId ?? "default";
-          const title =
-            (typeof evt?.nodeTitle === "string" && evt.nodeTitle.trim()) ||
-            existing?.title ||
-            (prev.graph?.nodes?.find((n: any) => n?.id === nodeId)?.data?.title as string) ||
-            fallbackSpecId;
-
-          const status: WorkflowRunStep["status"] | undefined =
-            type === "node_ready"
-              ? "queued"
-              : type === "node_start"
-                ? "running"
-                : type === "node_done"
-                  ? "done"
-                  : type === "node_failed"
-                    ? "error"
-                    : undefined;
-          if (!status) return prev;
-
-          const nextStep: WorkflowRunStep = { id: nodeId, title, status };
-          if (existingIndex >= 0) nextSteps[existingIndex] = { ...existing!, ...nextStep };
-          else nextSteps.push(nextStep);
-
-          const now = Date.now();
-          return {
-            ...prev,
-            phase: prev.phase === "input" ? "executing" : prev.phase,
-            status: prev.status === "idle" ? "running" : prev.status,
-            steps: nextSteps,
-            currentStepId: status === "running" ? nodeId : prev.currentStepId,
-            connectionState: prev.connectionState === "connecting" ? "live" : prev.connectionState,
-            connectionLabel: undefined,
-            lastEventAt: now,
-          };
-        };
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || "";
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            const evt = JSON.parse(line);
-            if (evt.type === "run_bootstrap" && typeof evt.runId === "string") {
-              setDemoRunState((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      runId: evt.runId,
-                      runAccessToken:
-                        typeof evt.runAccessToken === "string"
-                          ? evt.runAccessToken
-                          : prev.runAccessToken,
-                    }
-                  : prev,
-              );
-              const sessionController = new AbortController();
-              demoRunSessionPollRef.current = sessionController;
-              void streamRunSession({
-                runId: evt.runId,
-                accessToken: headers.Authorization
-                  ? String(headers.Authorization).replace(/^Bearer\s+/i, "")
-                  : null,
-                runAccessToken:
-                  typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
-                signal: sessionController.signal,
-                onTransportState: async (transportState) => {
-                  setDemoRunState((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          connectionState:
-                            transportState === "connecting"
-                              ? "connecting"
-                              : transportState === "live"
-                                ? "live"
-                                : transportState === "reconnecting"
-                                  ? "reconnecting"
-                                  : "degraded",
-                          connectionLabel:
-                            transportState === "connecting"
-                              ? "Connecting to live updates..."
-                              : transportState === "reconnecting"
-                                ? "Reconnecting to live updates..."
-                                : transportState === "degraded"
-                                  ? "Live updates are slower right now."
-                                  : undefined,
-                        }
-                      : prev,
-                  );
-                },
-                onSnapshot: async (bootstrap) => {
-                  const nextState = buildWorkflowRunStateFromBootstrap({
-                    bootstrap,
-                    workflowId: listing.id,
-                    workflowName: listing.title || "Workflow",
-                    inputValues: processedInputs,
-                    runAccessToken:
-                      typeof evt.runAccessToken === "string" ? evt.runAccessToken : undefined,
-                    sourceGraph: toRuntimeGraph(graph),
-                  });
-                  setDemoRunState((prev) =>
-                    prev ? { ...prev, ...nextState } : (nextState as WorkflowRunState),
-                  );
-                },
-                onEvent: async (event) => {
-                  setDemoRunState((prev) =>
-                    prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
-                  );
-                },
-                onPing: async () => {
-                  setDemoRunState((prev) => (prev ? { ...prev, lastEventAt: Date.now() } : prev));
-                },
-              }).catch((error) => {
-                if (sessionController.signal.aborted) return;
-                const message =
-                  error instanceof Error ? error.message : "Run session stream disconnected.";
-                setDemoRunState((prev) =>
-                  prev && prev.status !== "success" && prev.status !== "cancelled"
-                    ? {
-                        ...prev,
-                        connectionState: "degraded",
-                        connectionLabel: message,
-                      }
-                    : prev,
-                );
-              });
-
-              sseHandoffStarted = true;
-              drainReadableStream(reader);
-              break;
-            }
-            if (
-              evt?.type === "node_ready" ||
-              evt?.type === "node_start" ||
-              evt?.type === "node_done" ||
-              evt?.type === "node_failed"
-            ) {
-              setDemoRunState((prev) => (prev ? applyLegacyProgressEvent(prev, evt) : prev));
-              continue;
-            }
-            if (evt.type === "complete") {
-              result = evt;
-            }
-          }
-          if (sseHandoffStarted || result) break;
-        }
-        if (sseHandoffStarted) {
-          return;
-        }
-        if (!result || !result.ok) {
-          throw new Error(result?.error || "Execution failed");
-        }
-      } else {
-        result = await response.json();
-        if (!result.ok) {
-          throw new Error(result.error || "Execution failed");
-        }
-
+      {
         const executionResult = result.result;
         const logs = (executionResult.logs || []).map((log: any) => ({
           t: log.timestamp || Date.now(),

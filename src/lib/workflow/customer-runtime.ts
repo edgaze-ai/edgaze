@@ -12,7 +12,6 @@ import type {
 
 export type CustomerRuntimeMode =
   | "ready"
-  | "preparing"
   | "queueing"
   | "node"
   | "streaming"
@@ -303,7 +302,7 @@ export function deriveCustomerRuntimeModel(
     Object.values(state.liveTextByNode ?? {}).some((entry) => entry.text.trim().length > 0);
 
   let mode: CustomerRuntimeMode = "ready";
-  let headline = "Preparing your run";
+  let headline = "Initializing your workflow";
   let subline = state.connectionLabel;
 
   if (state.phase === "input" && state.status === "idle") {
@@ -375,21 +374,21 @@ export function deriveCustomerRuntimeModel(
             : undefined;
   } else if (
     state.status === "running" &&
-    (connectionState === "live" || connectionState === "reconnecting" || Boolean(state.runId))
+    (connectionState === "live" ||
+      connectionState === "reconnecting" ||
+      connectionState === "connecting" ||
+      Boolean(state.runId))
   ) {
     mode = "queueing";
     headline = "Initializing your workflow";
     subline =
       connectionState === "reconnecting"
         ? "Reconnecting to live updates..."
-        : "Connected. Waiting for the first step to start.";
+        : "Waiting for the first step to start.";
   } else {
-    mode = "preparing";
-    headline = "We are preparing your run";
-    subline =
-      connectionState === "connecting"
-        ? "Connecting to the execution stream..."
-        : state.connectionLabel;
+    mode = "queueing";
+    headline = state.status === "running" ? "Initializing your workflow" : "Ready to run";
+    subline = state.status === "running" ? state.connectionLabel : state.summary;
   }
 
   return {
