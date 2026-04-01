@@ -394,10 +394,7 @@ export function deriveCustomerRuntimeModel(
   } else if (queuedNodeIds.length > 0) {
     mode = "queueing";
     headline = displayNodeLabel;
-    subline =
-      connectionState === "reconnecting"
-        ? "Reconnecting to live updates..."
-        : "Queued";
+    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : "Queued";
   } else if (initialNodeIds.length > 0) {
     mode = "queueing";
     headline = displayNodeLabel;
