@@ -285,6 +285,31 @@ function buildInitialLegacyProgressEvents(compiled: CompiledWorkflowDefinition):
     .filter((event): event is NonNullable<typeof event> => event !== null);
 }
 
+function createStreamingResponseHelpers(
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder,
+) {
+  let preludeSent = false;
+
+  const writeRaw = (chunk: string) => {
+    controller.enqueue(encoder.encode(chunk));
+  };
+
+  const sendPrelude = () => {
+    if (preludeSent) return;
+    preludeSent = true;
+    // Force an early flush through intermediaries that buffer tiny chunks.
+    writeRaw(`: stream-open ${Date.now()}\n:${" ".repeat(2048)}\n\n`);
+  };
+
+  const writeEvent = (obj: object) => {
+    sendPrelude();
+    writeRaw(`data: ${JSON.stringify(obj)}\n\n`);
+  };
+
+  return { sendPrelude, writeEvent };
+}
+
 async function finishUnifiedRun(
   unifiedRunId: string | null,
   status: "success" | "error",
@@ -905,21 +930,25 @@ export async function POST(req: Request) {
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
           async start(controller) {
-            const write = (obj: object) => {
-              controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
-            };
+            const { sendPrelude, writeEvent } = createStreamingResponseHelpers(controller, encoder);
+            const heartbeatId = setInterval(() => {
+              try {
+                sendPrelude();
+                controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`));
+              } catch {}
+            }, 15000);
 
             let afterSequence = 0;
             let runnerError: unknown = null;
 
             try {
-              write({
+              writeEvent({
                 type: "run_bootstrap",
                 runId,
                 runAccessToken,
               });
               for (const event of buildInitialLegacyProgressEvents(compiledWorkflow)) {
-                write(event);
+                writeEvent(event);
               }
 
               const activeWorker = ensureWorkflowRunWorker({
@@ -961,7 +990,7 @@ export async function POST(req: Request) {
                   for (const event of events) {
                     afterSequence = Math.max(afterSequence, event.sequence);
                     const mapped = mapRunEventToLegacyProgressEvent(event, compiledWorkflow);
-                    if (mapped) write(mapped);
+                    if (mapped) writeEvent(mapped);
                   }
 
                   const isTerminal =
@@ -1021,7 +1050,7 @@ export async function POST(req: Request) {
                 runnerErrorMessage,
               );
 
-              write({
+              writeEvent({
                 type: "complete",
                 ok: finalBootstrap.run.status === "completed",
                 result: safeResult,
@@ -1045,7 +1074,7 @@ export async function POST(req: Request) {
                 duration,
                 err instanceof Error ? err.message : "Workflow stream failed",
               );
-              write({
+              writeEvent({
                 type: "complete",
                 ok: false,
                 error: simplifyWorkflowError(
@@ -1056,6 +1085,7 @@ export async function POST(req: Request) {
                 runAccessToken,
               });
             } finally {
+              clearInterval(heartbeatId);
               controller.close();
             }
           },
@@ -1063,9 +1093,11 @@ export async function POST(req: Request) {
 
         return new Response(stream, {
           headers: {
-            "Content-Type": "application/x-ndjson",
-            "Cache-Control": "no-cache",
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
             Connection: "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Content-Encoding": "identity",
           },
         });
       }
@@ -1166,16 +1198,16 @@ export async function POST(req: Request) {
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
-          const write = (obj: object) => {
+          const { sendPrelude, writeEvent } = createStreamingResponseHelpers(controller, encoder);
+          const heartbeatId = setInterval(() => {
             try {
-              controller.enqueue(encoder.encode(JSON.stringify(obj) + "\n"));
-            } catch (e) {
-              console.error("[Flow Stream] Failed to write:", e);
-            }
-          };
+              sendPrelude();
+              controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`));
+            } catch {}
+          }, 15000);
           try {
             result = await runFlow(flowPayload, {
-              onProgress: (event) => write(event),
+              onProgress: (event) => writeEvent(event),
               runMode: effectiveIsBuilderTest ? "dev" : "marketplace",
             });
             const duration = Date.now() - startTime;
@@ -1275,7 +1307,7 @@ export async function POST(req: Request) {
                 value: redactSecrets(fo.value),
               })),
             };
-            write({
+            writeEvent({
               type: "complete",
               ok: true,
               result: safeResult,
@@ -1340,7 +1372,7 @@ export async function POST(req: Request) {
               }
             }
             await finishUnifiedRun(unifiedRunId, "error", duration, err?.message);
-            write({
+            writeEvent({
               type: "complete",
               ok: false,
               error: simplifyWorkflowError(err?.message || "Unknown error"),
@@ -1348,15 +1380,18 @@ export async function POST(req: Request) {
               runId,
             });
           } finally {
+            clearInterval(heartbeatId);
             controller.close();
           }
         },
       });
       return new Response(stream, {
         headers: {
-          "Content-Type": "application/x-ndjson",
-          "Cache-Control": "no-cache",
+          "Content-Type": "text/event-stream; charset=utf-8",
+          "Cache-Control": "no-cache, no-transform",
           Connection: "keep-alive",
+          "X-Accel-Buffering": "no",
+          "Content-Encoding": "identity",
         },
       });
     }
