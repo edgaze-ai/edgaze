@@ -1152,10 +1152,10 @@ export default function CustomerWorkflowRuntimeSurface({
             </div>
           </div>
           <div className="text-[28px] font-medium tracking-[-0.03em] text-white">
-            Preparing your runtime
+            Initializing your workflow
           </div>
           <div className="max-w-md text-[15px] leading-7 text-white/58">
-            Setting up the live session and syncing the workflow state.
+            Opening the live run view.
           </div>
         </div>
       </div>
