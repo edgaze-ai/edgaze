@@ -22,6 +22,22 @@ type HandleWorkflowRunStreamResult =
   | { handedOff: true; result?: undefined }
   | { handedOff: false; result: any };
 
+function parseSseChunk(chunk: string): any | null {
+  const lines = chunk.split("\n");
+  const dataLines: string[] = [];
+
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\r$/, "");
+    if (!line || line.startsWith(":")) continue;
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice("data:".length).trimStart());
+    }
+  }
+
+  if (dataLines.length === 0) return null;
+  return JSON.parse(dataLines.join("\n"));
+}
+
 function applyLegacyProgressEvent(prev: WorkflowRunState, evt: any): WorkflowRunState {
   const type = String(evt?.type ?? "");
   const nodeId = typeof evt?.nodeId === "string" ? evt.nodeId : null;
@@ -68,7 +84,8 @@ export async function handleWorkflowRunStream(
   params: HandleWorkflowRunStreamParams,
 ): Promise<HandleWorkflowRunStreamResult> {
   const contentType = params.response.headers.get("content-type") || "";
-  const isStreaming = contentType.includes("ndjson");
+  const isSse = contentType.includes("text/event-stream");
+  const isStreaming = isSse || contentType.includes("ndjson");
 
   if (!isStreaming || !params.response.body) {
     const result = await params.response.json();
@@ -88,7 +105,7 @@ export async function handleWorkflowRunStream(
     if (done) {
       if (buffer.trim()) {
         try {
-          const evt = JSON.parse(buffer);
+          const evt = isSse ? parseSseChunk(buffer) : JSON.parse(buffer);
           if (evt.type === "complete") result = evt;
         } catch {
           // ignore trailing partial payloads
@@ -98,14 +115,15 @@ export async function handleWorkflowRunStream(
     }
 
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+    const chunks = isSse ? buffer.split("\n\n") : buffer.split("\n");
+    buffer = chunks.pop() || "";
 
-    for (const line of lines) {
-      if (!line.trim()) continue;
+    for (const chunk of chunks) {
+      if (!chunk.trim()) continue;
 
       try {
-        const evt = JSON.parse(line);
+        const evt = isSse ? parseSseChunk(chunk) : JSON.parse(chunk);
+        if (!evt) continue;
 
         if (evt.type === "run_bootstrap" && typeof evt.runId === "string") {
           params.setRunState((prev) =>
