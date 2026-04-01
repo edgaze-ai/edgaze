@@ -8,6 +8,7 @@ import type {
   WorkflowRunGraphNode,
   WorkflowRunLiveText,
   WorkflowRunState,
+  WorkflowRunStep,
 } from "./run-types";
 
 export type CustomerRuntimeMode =
@@ -156,6 +157,7 @@ function topologicalWorkflowNodeOrder(state: WorkflowRunState): string[] {
 }
 
 function getActiveNodeIds(state: WorkflowRunState): string[] {
+  const stepById = new Map(state.steps.map((step) => [step.id, step]));
   const fromSteps = state.steps.filter((step) => step.status === "running").map((step) => step.id);
   const fromSession = Object.entries(state.session?.nodesById ?? {})
     .filter(([, node]) => node.status === "running")
@@ -186,7 +188,10 @@ function getActiveNodeIds(state: WorkflowRunState): string[] {
   }
 
   if (candidates.length === 0 && state.currentStepId) {
-    if (graphIdSet.size === 0 || graphIdSet.has(state.currentStepId)) {
+    const currentStep = stepById.get(state.currentStepId);
+    const currentSessionStatus = state.session?.nodesById?.[state.currentStepId]?.status;
+    const currentIsActive = currentStep?.status === "running" || currentSessionStatus === "running";
+    if (currentIsActive && (graphIdSet.size === 0 || graphIdSet.has(state.currentStepId))) {
       return [state.currentStepId];
     }
   }
@@ -215,18 +220,40 @@ function getActiveNodeIds(state: WorkflowRunState): string[] {
   return [...candidates].sort((a, b) => rank(a) - rank(b)).slice(0, 3);
 }
 
+function getQueuedStepsByPriority(state: WorkflowRunState): WorkflowRunStep[] {
+  const order = topologicalWorkflowNodeOrder(state);
+  const rank = new Map(order.map((nodeId, index) => [nodeId, index]));
+  const graphNodesById = new Map((state.graph?.nodes ?? []).map((node) => [node.id, node]));
+
+  const queuedSteps = state.steps.filter((step) => step.status === "queued");
+  const queuedNonOutput = queuedSteps.filter((step) => {
+    const specId = String(graphNodesById.get(step.id)?.data?.specId ?? "");
+    return specId !== "output";
+  });
+  const candidates = queuedNonOutput.length > 0 ? queuedNonOutput : queuedSteps;
+
+  return [...candidates].sort((left, right) => {
+    const leftTs = left.timestamp ?? 0;
+    const rightTs = right.timestamp ?? 0;
+    if (leftTs !== rightTs) return rightTs - leftTs;
+    return (
+      (rank.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
+      (rank.get(right.id) ?? Number.MAX_SAFE_INTEGER)
+    );
+  });
+}
+
 function getQueuedNodeLabel(state: WorkflowRunState): string | undefined {
-  const queuedStep = state.steps.find((step) => step.status === "queued");
+  const queuedStep = getQueuedStepsByPriority(state)[0];
   if (!queuedStep) return undefined;
   const node = state.graph?.nodes.find((candidate) => candidate.id === queuedStep.id);
   return getRuntimeNodeLabel(node);
 }
 
 function getQueuedNodeIds(state: WorkflowRunState): string[] {
-  return state.steps
-    .filter((step) => step.status === "queued")
+  return getQueuedStepsByPriority(state)
     .map((step) => step.id)
-    .slice(0, 1);
+    .slice(0, 3);
 }
 
 function getInitialVisibleNodeIds(state: WorkflowRunState): string[] {
