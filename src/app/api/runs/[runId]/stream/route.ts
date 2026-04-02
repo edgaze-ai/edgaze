@@ -6,6 +6,7 @@ import { isWorkflowExecutionV2StreamingEnabled } from "src/server/flow-v2/flags"
 import {
   listWorkflowRunEvents,
   loadWorkflowRunBootstrap,
+  peekWorkflowRunStatus,
   requireWorkflowRunAccess,
 } from "src/server/flow-v2/read-model";
 import { SupabaseWorkflowExecutionRepository } from "src/server/flow-v2/repository";
@@ -263,12 +264,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
 
           const pollLoop = async () => {
             while (!req.signal.aborted) {
-              const [latest, events] = await Promise.all([
-                loadWorkflowRunBootstrap({
-                  runId,
-                  afterSequence: 0,
-                  eventLimit: 0,
-                }),
+              // Use peek only here: loadWorkflowRunBootstrap with eventLimit 0 still loads all nodes,
+              // attempts (huge inline image payloads), and — due to listWorkflowRunEvents treating limit
+              // 0 as "unbounded" — every workflow_run_events row on each tick. That stalled SSE for minutes.
+              const [runPeek, events] = await Promise.all([
+                peekWorkflowRunStatus({ runId }),
                 listWorkflowRunEvents({
                   runId,
                   afterSequence,
@@ -329,9 +329,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
               }
 
               const isTerminal =
-                latest.run.status === "completed" ||
-                latest.run.status === "failed" ||
-                latest.run.status === "cancelled";
+                runPeek.status === "completed" ||
+                runPeek.status === "failed" ||
+                runPeek.status === "cancelled";
 
               const now = Date.now();
               if (
@@ -363,7 +363,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
                 });
               }
 
-              if (isTerminal && afterSequence >= latest.run.lastEventSequence) {
+              if (isTerminal && afterSequence >= runPeek.lastEventSequence) {
                 const finalBootstrap = await loadWorkflowRunBootstrap({
                   runId,
                   afterSequence: 0,
