@@ -42,6 +42,15 @@ export interface WorkflowRunBootstrap {
   events: RunEvent[];
 }
 
+function fetchWorkflowRunAccessRow(runId: string) {
+  const supabase = createSupabaseAdminClient();
+  return supabase
+    .from("workflow_runs")
+    .select("id, user_id, status, metadata")
+    .eq("id", runId)
+    .maybeSingle();
+}
+
 export async function requireWorkflowRunAccess(
   req: Request,
   runId: string,
@@ -49,12 +58,41 @@ export async function requireWorkflowRunAccess(
   const url = new URL(req.url);
   const runAccessToken =
     url.searchParams.get("runAccessToken") ?? req.headers.get("x-run-access-token");
-  const supabase = createSupabaseAdminClient();
-  const { data: run, error: runError } = await supabase
-    .from("workflow_runs")
-    .select("id, user_id, status, metadata")
-    .eq("id", runId)
-    .maybeSingle();
+  const hasRunAccessToken = typeof runAccessToken === "string" && runAccessToken.length > 0;
+
+  type AccessRunRow = {
+    id: string;
+    user_id: string;
+    status: string | null;
+    metadata: unknown;
+  };
+
+  let cachedRun: AccessRunRow | null = null;
+
+  if (hasRunAccessToken) {
+    const { data: run, error: runError } = await fetchWorkflowRunAccessRow(runId);
+    if (runError) throw runError;
+    if (!run) {
+      throw new Error("Run not found");
+    }
+    cachedRun = run as AccessRunRow;
+    const rowStatus = String(run.status ?? "");
+    const metadata =
+      run.metadata && typeof run.metadata === "object"
+        ? (run.metadata as Record<string, unknown>)
+        : null;
+    if (metadata && metadata.run_access_token === runAccessToken) {
+      return { runId, workflowRunRowStatus: rowStatus };
+    }
+  }
+
+  const [{ data: run, error: runError }, { user, error: authError }] = await Promise.all([
+    cachedRun
+      ? Promise.resolve({ data: cachedRun, error: null })
+      : fetchWorkflowRunAccessRow(runId),
+    getUserFromRequest(req),
+  ]);
+
   if (runError) throw runError;
   if (!run) {
     throw new Error("Run not found");
@@ -62,26 +100,16 @@ export async function requireWorkflowRunAccess(
 
   const rowStatus = String(run.status ?? "");
 
-  const metadata =
-    run.metadata && typeof run.metadata === "object"
-      ? (run.metadata as Record<string, unknown>)
-      : null;
-  if (
-    typeof runAccessToken === "string" &&
-    runAccessToken.length > 0 &&
-    metadata &&
-    metadata.run_access_token === runAccessToken
-  ) {
-    return { runId, workflowRunRowStatus: rowStatus };
-  }
-
-  const { user, error: authError } = await getUserFromRequest(req);
   if (!user) {
     throw new Error(authError ?? "Authentication required");
   }
 
+  if (run.user_id === user.id) {
+    return { runId, workflowRunRowStatus: rowStatus };
+  }
+
   const userIsAdmin = await isAdmin(user.id);
-  if (!userIsAdmin && run.user_id !== user.id) {
+  if (!userIsAdmin) {
     throw new Error("Forbidden");
   }
 

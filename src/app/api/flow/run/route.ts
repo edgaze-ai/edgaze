@@ -866,12 +866,15 @@ export async function POST(req: Request) {
     const runAccessToken = isDemo || (useStream && isTrackedUser) ? randomUUID() : undefined;
     if (isTrackedUser) {
       try {
-        // Check if workflow exists in workflows table
-        const workflowExistsInDb = await workflowExists(workflowId);
-
-        if (!workflowExistsInDb && effectiveIsBuilderTest && !draftId) {
-          draftId = await getWorkflowDraftId(workflowId, userId);
-          if (!draftId) {
+        const [workflowExistsInDb, draftLookup] = await Promise.all([
+          workflowExists(workflowId),
+          !draftId && effectiveIsBuilderTest
+            ? getWorkflowDraftId(workflowId, userId)
+            : Promise.resolve<string | null>(null),
+        ]);
+        if (!draftId && effectiveIsBuilderTest) {
+          draftId = draftLookup;
+          if (!workflowExistsInDb && !draftId) {
             console.warn(
               `[Run Tracking] Skipping run tracking: workflow ${workflowId} not found in workflows or drafts`,
             );

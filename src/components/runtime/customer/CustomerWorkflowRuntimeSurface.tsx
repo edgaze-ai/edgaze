@@ -244,7 +244,8 @@ function ProsePanel({ text, streaming = false }: { text: string; streaming?: boo
         <div ref={scrollRef} className="max-h-[52vh] overflow-auto pr-1">
           <div
             className={cx(
-              "mx-auto max-w-[72ch] text-[15px] leading-8 text-white/90 md:text-[16px]",
+              "max-w-[72ch] text-left text-[15px] leading-8 text-white/90 md:text-[16px]",
+              !streaming && "mx-auto",
               !shouldRenderMarkdown && "whitespace-pre-wrap",
             )}
           >
@@ -1172,30 +1173,34 @@ export default function CustomerWorkflowRuntimeSurface({
           {hideHeader && <ExecutionChrome state={state} onCancel={onCancel} onClose={onClose} />}
           <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(72,214,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,76,198,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(0,190,255,0.10),transparent_35%,rgba(255,0,153,0.10))] runtime-ambient-flow" />
-            <div className="relative flex min-h-[560px] flex-col justify-center px-6 py-8 md:px-10">
-              <div className="mx-auto flex w-full max-w-[980px] flex-col items-center justify-center gap-8 text-center">
-                <div className="max-w-[720px]">
+            <div className="relative flex min-h-[560px] flex-col justify-start px-6 py-8 md:px-10">
+              <div className="mx-auto flex w-full max-w-[980px] flex-col items-stretch gap-8 text-left">
+                <div className="w-full max-w-[720px]">
                   <div className="text-[34px] font-medium tracking-[-0.04em] text-white md:text-[52px]">
                     {model.headline}
                   </div>
                   {model.subline && (
-                    <div className="mx-auto mt-5 max-w-[58ch] text-[15px] leading-7 text-white/62 md:text-[16px]">
+                    <div className="mt-5 max-w-[58ch] text-[15px] leading-7 text-white/62 md:text-[16px]">
                       {model.subline}
                     </div>
                   )}
                 </div>
 
                 {model.mode === "streaming" && model.primaryLiveText?.text ? (
-                  <div className="w-full max-w-[860px]">
+                  <div className="w-full">
                     <ProsePanel text={model.primaryLiveText.text} streaming />
                   </div>
                 ) : model.mode === "queueing" && model.activeNodeIds.length === 0 ? (
-                  <RuntimePhaseAnimation variant="connecting" />
+                  <div className="flex justify-center">
+                    <RuntimePhaseAnimation variant="connecting" />
+                  </div>
                 ) : model.mode === "finalizing" ? (
-                  <RuntimePhaseAnimation variant="finalizing" />
+                  <div className="flex justify-center">
+                    <RuntimePhaseAnimation variant="finalizing" />
+                  </div>
                 ) : (model.mode === "node" || model.mode === "queueing") &&
                   model.activeNodeIds.length > 0 ? (
-                  <div className="w-full max-w-[900px]">
+                  <div className="w-full max-w-[900px] self-center">
                     <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
                   </div>
                 ) : model.mode === "stopping" ? (
@@ -1206,7 +1211,7 @@ export default function CustomerWorkflowRuntimeSurface({
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full max-w-[900px]">
+                  <div className="w-full max-w-[900px] self-center">
                     <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
                   </div>
                 )}

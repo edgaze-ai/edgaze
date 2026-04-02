@@ -138,6 +138,62 @@ export async function handleWorkflowRunStream(
       params.runSessionPollRef.current?.abort();
       params.runSessionPollRef.current = new AbortController();
 
+      const handoffRunAccessToken =
+        typeof result.runAccessToken === "string" ? result.runAccessToken : undefined;
+
+      // Start the SSE fetch before React state updates so the connection opens immediately.
+      const sessionPromise = streamRunSession({
+        runId: result.runId,
+        accessToken: params.accessToken,
+        runAccessToken: handoffRunAccessToken,
+        clientTrace: params.clientTrace,
+        signal: params.runSessionPollRef.current.signal,
+        onSnapshot: async (bootstrap) => {
+          params.setRunState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  ...buildWorkflowRunStateFromBootstrap({
+                    bootstrap,
+                    workflowId: params.workflowId,
+                    workflowName: params.workflowName,
+                    inputValues: params.inputValues,
+                    runAccessToken: handoffRunAccessToken ?? prev.runAccessToken,
+                    sourceGraph: params.sourceGraph,
+                  }),
+                }
+              : prev,
+          );
+        },
+        onEvent: async (event) => {
+          params.setRunState((prev) =>
+            prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
+          );
+        },
+        onPing: async () => {
+          params.setRunState((prev) =>
+            prev && prev.status === "running" ? { ...prev, lastEventAt: Date.now() } : prev,
+          );
+        },
+        onTransportState: async (state) => {
+          params.setRunState((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              connectionState: state,
+              connectionLabel:
+                state === "connecting"
+                  ? "Connecting to execution..."
+                  : state === "reconnecting"
+                    ? "Reconnecting to live updates..."
+                    : state === "degraded"
+                      ? "Live updates are slow. Reconnecting..."
+                      : undefined,
+            };
+          });
+        },
+      });
+
       params.setRunState((prev) =>
         prev
           ? {
@@ -145,10 +201,7 @@ export async function handleWorkflowRunStream(
               phase: "executing",
               status: "running",
               runId: result.runId,
-              runAccessToken:
-                typeof result.runAccessToken === "string"
-                  ? result.runAccessToken
-                  : prev.runAccessToken,
+              runAccessToken: handoffRunAccessToken ?? prev.runAccessToken,
               connectionState: "connecting",
               connectionLabel: "Connecting to execution...",
               lastEventAt: Date.now(),
@@ -157,61 +210,7 @@ export async function handleWorkflowRunStream(
       );
 
       try {
-        await streamRunSession({
-          runId: result.runId,
-          accessToken: params.accessToken,
-          runAccessToken:
-            typeof result.runAccessToken === "string" ? result.runAccessToken : undefined,
-          clientTrace: params.clientTrace,
-          signal: params.runSessionPollRef.current.signal,
-          onSnapshot: async (bootstrap) => {
-            params.setRunState((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    ...buildWorkflowRunStateFromBootstrap({
-                      bootstrap,
-                      workflowId: params.workflowId,
-                      workflowName: params.workflowName,
-                      inputValues: params.inputValues,
-                      runAccessToken:
-                        typeof result.runAccessToken === "string"
-                          ? result.runAccessToken
-                          : prev.runAccessToken,
-                      sourceGraph: params.sourceGraph,
-                    }),
-                  }
-                : prev,
-            );
-          },
-          onEvent: async (event) => {
-            params.setRunState((prev) =>
-              prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
-            );
-          },
-          onPing: async () => {
-            params.setRunState((prev) =>
-              prev && prev.status === "running" ? { ...prev, lastEventAt: Date.now() } : prev,
-            );
-          },
-          onTransportState: async (state) => {
-            params.setRunState((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                connectionState: state,
-                connectionLabel:
-                  state === "connecting"
-                    ? "Connecting to execution..."
-                    : state === "reconnecting"
-                      ? "Reconnecting to live updates..."
-                      : state === "degraded"
-                        ? "Live updates are slow. Reconnecting..."
-                        : undefined,
-              };
-            });
-          },
-        });
+        await sessionPromise;
         await params.clientTrace?.finish({ status: "completed" });
       } catch (error) {
         await params.clientTrace?.finish({

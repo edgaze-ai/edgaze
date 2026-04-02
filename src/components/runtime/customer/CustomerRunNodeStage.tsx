@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactFlow, {
   Background,
   BackgroundVariant,
   Edge,
   Node,
   NodeProps,
+  useNodesInitialized,
   useReactFlow,
 } from "reactflow";
 import "reactflow/dist/style.css";
@@ -96,24 +97,50 @@ function useFocusedGraph(graph: WorkflowRunGraph | undefined, activeNodeIds: str
   }, [graph, activeNodeIds]);
 }
 
-const FIT_VIEW_OPTIONS = {
-  padding: 0.45,
-  duration: 220,
-  minZoom: 0.45,
-  maxZoom: 1.35,
-} as const;
+/** Low minZoom so narrow viewports never clamp *up* and clip the graph (was 0.45 — caused mobile overflow). */
+function useStageFitViewOptions() {
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const apply = () => setNarrow(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return useMemo(
+    () =>
+      ({
+        padding: narrow ? 0.22 : 0.4,
+        duration: 220,
+        minZoom: 0.05,
+        maxZoom: 1.35,
+      }) as const,
+    [narrow],
+  );
+}
 
-/** Refits whenever the focused subgraph changes (onInit alone misses updates and caused off-center glitches). */
-function CustomerRunStageFitView({ signature }: { signature: string }) {
+/** Refits when the subgraph, node dimensions, or container size change (avoids off-center / clipped mobile layout). */
+function CustomerRunStageFitView({
+  signature,
+  fitOptions,
+  containerRef,
+}: {
+  signature: string;
+  fitOptions: { padding: number; duration: number; minZoom: number; maxZoom: number };
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}) {
   const { fitView } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
 
   useEffect(() => {
-    if (!signature) return;
+    if (!signature || !nodesInitialized) return;
     let cancelled = false;
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
-        if (!cancelled) void fitView(FIT_VIEW_OPTIONS);
+        if (!cancelled) void fitView(fitOptions);
       });
     });
     return () => {
@@ -121,7 +148,30 @@ function CustomerRunStageFitView({ signature }: { signature: string }) {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
-  }, [signature, fitView]);
+  }, [signature, nodesInitialized, fitView, fitOptions]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let raf1 = 0;
+    let raf2 = 0;
+    const ro = new ResizeObserver(() => {
+      if (!nodesInitialized) return;
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+      raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          void fitView(fitOptions);
+        });
+      });
+    });
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [containerRef, fitView, fitOptions, nodesInitialized]);
 
   return null;
 }
@@ -131,6 +181,8 @@ export default function CustomerRunNodeStage({
   activeNodeIds,
   className,
 }: CustomerRunNodeStageProps) {
+  const flowContainerRef = useRef<HTMLDivElement | null>(null);
+  const fitOptions = useStageFitViewOptions();
   const { nodes, edges } = useFocusedGraph(graph, activeNodeIds);
   const fitSignature = useMemo(
     () =>
@@ -140,7 +192,7 @@ export default function CustomerRunNodeStage({
 
   const shellClass =
     className ??
-    "relative h-[240px] w-full min-h-[240px] overflow-hidden rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(67,214,255,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(255,70,201,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] shadow-[0_22px_70px_rgba(0,0,0,0.34)] md:h-[320px] md:min-h-[320px] md:rounded-[30px] md:shadow-[0_28px_90px_rgba(0,0,0,0.38)]";
+    "relative h-[min(52vh,280px)] w-full min-h-[240px] overflow-hidden rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(67,214,255,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(255,70,201,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] shadow-[0_22px_70px_rgba(0,0,0,0.34)] md:h-[320px] md:min-h-[320px] md:rounded-[30px] md:shadow-[0_28px_90px_rgba(0,0,0,0.38)]";
 
   if (nodes.length === 0) {
     return (
@@ -155,13 +207,15 @@ export default function CustomerRunNodeStage({
     <div className={shellClass}>
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_55%)] runtime-stage-orb" />
       <div className="pointer-events-none absolute inset-0 opacity-90 runtime-stage-glaze [background-image:linear-gradient(112deg,transparent_0%,transparent_28%,rgba(81,220,255,0.04)_36%,rgba(81,220,255,0.18)_42%,rgba(255,255,255,0.30)_46%,rgba(255,102,214,0.20)_52%,rgba(255,102,214,0.07)_58%,transparent_68%,transparent_100%),linear-gradient(112deg,transparent_0%,transparent_42%,rgba(109,233,255,0.07)_48%,rgba(255,255,255,0.18)_52%,rgba(255,102,214,0.10)_58%,transparent_66%,transparent_100%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01))] [background-size:180%_100%,120%_100%,100%_100%] [mix-blend-mode:screen]" />
-      <div className="absolute inset-0">
+      <div ref={flowContainerRef} className="absolute inset-0 min-h-0 min-w-0">
         <ReactFlow
+          className="h-full w-full"
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView={nodes.length > 0}
+          fitViewOptions={fitOptions}
           proOptions={{ hideAttribution: true }}
           nodesDraggable={false}
           nodesConnectable={false}
@@ -174,7 +228,13 @@ export default function CustomerRunNodeStage({
           preventScrolling={false}
           defaultEdgeOptions={{ type: "gradient" }}
         >
-          {nodes.length > 0 && <CustomerRunStageFitView signature={fitSignature} />}
+          {nodes.length > 0 && (
+            <CustomerRunStageFitView
+              signature={fitSignature}
+              fitOptions={fitOptions}
+              containerRef={flowContainerRef}
+            />
+          )}
           <Background
             color="rgba(255,255,255,0.06)"
             gap={22}

@@ -219,6 +219,23 @@ export async function completeWorkflowRunAndGetCount(params: {
   }
 }
 
+/** Head count for account-wide terminal runs (runtime enforcement cap). */
+export async function countUserTerminalRunsForCap(userId: string): Promise<number> {
+  const supabase = createSupabaseAdminClient();
+  const { count, error } = await supabase
+    .from("workflow_runs")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .in("status", ["completed", "failed"]);
+
+  if (error) {
+    console.error("Error checking user total runs:", error);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
 export async function getUserWorkflowRunCount(
   userId: string,
   workflowId: string,
