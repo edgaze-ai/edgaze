@@ -269,11 +269,16 @@ export async function executeClaimedNode(
   let lastStreamFlushAt = 0;
   const streamFormat: "plain" | "markdown" = "markdown";
   let streamChunkIndex = 0;
+  /** Coalesce tiny tokens for fewer DB round-trips; cap wait so the UI stays responsive. */
+  const STREAM_DELTA_FLUSH_MS = 22;
+  const STREAM_DELTA_FLUSH_CHARS = 280;
 
   const flushStreamDelta = async (force = false) => {
     if (!params.repository.appendRunEvent || streamBuffer.length === 0) return;
     const now = Date.now();
-    if (!force && now - lastStreamFlushAt < 80) return;
+    const dueByTime = now - lastStreamFlushAt >= STREAM_DELTA_FLUSH_MS;
+    const dueBySize = streamBuffer.length >= STREAM_DELTA_FLUSH_CHARS;
+    if (!force && !dueByTime && !dueBySize) return;
 
     const delta = streamBuffer;
     streamBuffer = "";

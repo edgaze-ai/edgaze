@@ -64,6 +64,7 @@ import {
 } from "src/server/flow-v2/read-model";
 import { SupabaseWorkflowExecutionRepository } from "src/server/flow-v2/repository";
 import { collectTraceHeaders, startTraceSession } from "src/server/trace";
+import { ensureWorkflowRunPrepared } from "src/server/flow-v2/ensure-workflow-run-prepared";
 import { ensureWorkflowRunWorker } from "src/server/flow-v2/worker-service";
 import type {
   CompiledWorkflowDefinition,
@@ -460,6 +461,12 @@ export async function POST(req: Request) {
           },
         );
         trace.updateLinks({ workflowRunId: run.id, correlationId: run.id });
+        void ensureWorkflowRunPrepared(run.id).catch((err) => {
+          console.error(
+            "[flow/run] Background workflow preparation failed (ultra-fast stream):",
+            err,
+          );
+        });
         return traceJson(
           {
             ok: true,
@@ -937,6 +944,11 @@ export async function POST(req: Request) {
             status: "running",
             checkpoint: pendingV2StreamInitialization,
           });
+          if (pendingV2StreamInitialization) {
+            void ensureWorkflowRunPrepared(runId).catch((err) => {
+              console.error("[flow/run] Background workflow preparation failed:", err);
+            });
+          }
           // Unified runs table (analytics)
           try {
             const creatorUserId = await getCreatorUserIdForWorkflowRun(

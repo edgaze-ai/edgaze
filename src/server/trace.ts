@@ -213,6 +213,8 @@ export class TraceSessionRecorder {
   private buffer: TraceEntryRow[] = [];
   private flushPromise: Promise<void> = Promise.resolve();
   private sessionDirty = true;
+  private flushFailureCount = 0;
+  private lastFlushErrorMessage: string | null = null;
 
   constructor(init: {
     id?: string;
@@ -409,8 +411,20 @@ export class TraceSessionRecorder {
           const { error: entriesError } = await supabase.from("trace_entries").insert(entries);
           if (entriesError) throw entriesError;
         }
+        this.lastFlushErrorMessage = null;
       })
       .catch((error) => {
+        if (entries.length > 0) {
+          this.buffer = [...entries, ...this.buffer];
+        }
+        this.flushFailureCount += 1;
+        this.lastFlushErrorMessage = error instanceof Error ? error.message : String(error);
+        this.session.summary = {
+          ...this.session.summary,
+          traceFlushFailureCount: this.flushFailureCount,
+          lastTraceFlushError: this.lastFlushErrorMessage,
+        };
+        this.sessionDirty = true;
         console.error("[trace] flush failed:", error);
       });
     await this.flushPromise;
