@@ -1,3 +1,5 @@
+import type { ClientTraceSession } from "./client-trace";
+
 export type RunSessionBootstrapResponse = {
   ok: true;
   run: Record<string, unknown>;
@@ -158,6 +160,7 @@ export async function streamRunSession(params: {
   accessToken?: string | null;
   runAccessToken?: string | null;
   signal: AbortSignal;
+  clientTrace?: ClientTraceSession | null;
   onSnapshot: (bootstrap: RunSessionBootstrapResponse) => void | Promise<void>;
   onEvent?: (event: RunSessionStreamEvent) => void | Promise<void>;
   /** SSE ping (~idle poll): keep UI “fresh” so we don’t look stalled while waiting on DB/network. */
@@ -175,14 +178,30 @@ export async function streamRunSession(params: {
   let sawSnapshot = false;
   const sessionStarted = Date.now();
   const maxWall = params.maxWallClockMs ?? DEFAULT_RUN_SESSION_MAX_WALL_MS;
+  let firstChunkSeen = false;
 
   const flushChunks = async (chunks: string[]) => {
     for (const chunk of chunks) {
       const parsed = parseSseEventChunk(chunk);
       if (!parsed.event || !parsed.data) continue;
+      if (!firstChunkSeen) {
+        firstChunkSeen = true;
+        params.clientTrace?.record({
+          phase: "stream",
+          eventName: "stream.first_chunk_received",
+          durationMs: Date.now() - sessionStarted,
+          payload: { runId: params.runId, lastSequence },
+        });
+      }
 
       const payload = JSON.parse(parsed.data) as Record<string, unknown>;
       if (parsed.event === "ping") {
+        params.clientTrace?.record({
+          phase: "stream",
+          eventName: "stream.ping_received",
+          severity: "debug",
+          payload: { runId: params.runId, lastSequence },
+        });
         await params.onPing?.();
         continue;
       }
@@ -195,10 +214,30 @@ export async function streamRunSession(params: {
         const status = String(bootstrap.run?.status ?? "");
         isTerminal = status === "completed" || status === "failed" || status === "cancelled";
         sawSnapshot = true;
+        params.clientTrace?.record({
+          phase: "stream",
+          eventName: "stream.snapshot_received",
+          chunkSequence: bootstrapSequence,
+          payload: {
+            runId: params.runId,
+            runStatus: status,
+            lastEventSequence: bootstrapSequence,
+            eventCount: Array.isArray(bootstrap.events) ? bootstrap.events.length : 0,
+          },
+        });
         await params.onSnapshot(bootstrap);
         continue;
       }
       if (parsed.event === "error") {
+        params.clientTrace?.record({
+          phase: "stream",
+          eventName: "stream.error_payload_received",
+          severity: "error",
+          payload: {
+            runId: params.runId,
+            error: typeof payload.error === "string" ? payload.error : "Run session stream failed",
+          },
+        });
         throw new Error(
           typeof payload.error === "string" ? payload.error : "Run session stream failed",
         );
@@ -224,6 +263,16 @@ export async function streamRunSession(params: {
           outcome === "failed" ||
           outcome === "completed_with_errors";
       }
+      params.clientTrace?.record({
+        phase: "stream",
+        eventName: "stream.event_received",
+        chunkSequence: typeof event.sequence === "number" ? event.sequence : null,
+        payload: {
+          runId: params.runId,
+          eventType: event.type,
+          lastSequence,
+        },
+      });
       await params.onEvent?.(event);
     }
   };
@@ -233,10 +282,15 @@ export async function streamRunSession(params: {
       throw new Error("Run session exceeded maximum wait time. Try refreshing the page.");
     }
     attempt += 1;
-    await params.onTransportState?.(
-      attempt === 1 ? "connecting" : attempt >= 3 ? "degraded" : "reconnecting",
-      { attempt, lastSequence },
-    );
+    const transportState =
+      attempt === 1 ? "connecting" : attempt >= 3 ? "degraded" : "reconnecting";
+    await params.onTransportState?.(transportState, { attempt, lastSequence });
+    params.clientTrace?.record({
+      phase: "stream",
+      eventName: "stream.transport_state",
+      severity: attempt >= 3 ? "warn" : "info",
+      payload: { runId: params.runId, state: transportState, attempt, lastSequence },
+    });
 
     const request = buildStreamRequest({
       runId: params.runId,
@@ -245,11 +299,26 @@ export async function streamRunSession(params: {
       afterSequence: lastSequence,
     });
 
+    const requestStartedAt = Date.now();
     const response = await fetch(request.url, {
       method: "GET",
       headers: request.headers,
       credentials: "include",
       signal: params.signal,
+    });
+    params.clientTrace?.setClockFromServerEpoch(response.headers.get("x-trace-server-epoch-ms"));
+    params.clientTrace?.record({
+      phase: "stream",
+      eventName: "stream.response_headers_received",
+      durationMs: Date.now() - requestStartedAt,
+      httpStatus: response.status,
+      payload: {
+        runId: params.runId,
+        attempt,
+        ok: response.ok,
+        contentType: response.headers.get("content-type"),
+        traceSessionId: response.headers.get("x-trace-session-id"),
+      },
     });
 
     if (!response.ok || !response.body) {
@@ -257,10 +326,26 @@ export async function streamRunSession(params: {
       try {
         payload = await response.json();
       } catch {}
+      params.clientTrace?.record({
+        phase: "stream",
+        eventName: "stream.response_failed",
+        severity: "error",
+        httpStatus: response.status,
+        payload: {
+          runId: params.runId,
+          attempt,
+          error: payload?.error || `Failed to stream run session (${response.status})`,
+        },
+      });
       throw new Error(payload?.error || `Failed to stream run session (${response.status})`);
     }
 
     await params.onTransportState?.("live", { attempt, lastSequence });
+    params.clientTrace?.record({
+      phase: "stream",
+      eventName: "stream.transport_state",
+      payload: { runId: params.runId, state: "live", attempt, lastSequence },
+    });
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -282,10 +367,28 @@ export async function streamRunSession(params: {
     }
 
     if (params.signal.aborted || (isTerminal && sawSnapshot)) {
+      params.clientTrace?.record({
+        phase: "stream",
+        eventName: "stream.terminal_or_aborted",
+        payload: {
+          runId: params.runId,
+          aborted: params.signal.aborted,
+          isTerminal,
+          sawSnapshot,
+          lastSequence,
+        },
+      });
       return;
     }
 
     const backoffMs = attempt <= 1 ? 50 : Math.min(100 * 2 ** Math.min(attempt - 2, 4), 2000);
+    params.clientTrace?.record({
+      phase: "stream",
+      eventName: "stream.reconnect_scheduled",
+      severity: backoffMs >= 1000 ? "warn" : "info",
+      durationMs: backoffMs,
+      payload: { runId: params.runId, attempt, backoffMs, lastSequence },
+    });
     await waitWithAbort(params.signal, backoffMs);
   }
 }

@@ -2,6 +2,7 @@ import { isTerminalNodeStatus } from "./outcome";
 import { resolveWorkflowOutcome } from "./outcome-resolver";
 import { perfAsync, perfSync } from "./engine-perf";
 import { readPayloadReferenceValue } from "./payload-store";
+import { getTraceSession } from "src/server/trace";
 import type {
   ClaimedNodeWorkItem,
   PayloadReference,
@@ -223,6 +224,7 @@ async function reevaluateNodeTransitions(params: {
   nodes: WorkflowRunNode[];
 }): Promise<WorkflowRunNode[]> {
   const { runId } = params;
+  const trace = getTraceSession(`workflow:${runId}`);
   const { readyNodeIds, blockedNodeIds, skippedNodeIds, cancelledNodeIds, transitionMetaByNodeId } =
     perfSync(runId, "reevaluate.planTransitions_sync", () => {
       const nodeById = new Map(params.nodes.map((node) => [node.nodeId, node]));
@@ -276,6 +278,26 @@ async function reevaluateNodeTransitions(params: {
         transitionMetaByNodeId: transitionMetaByNodeIdInner,
       };
     });
+  await trace?.record({
+    phase: "worker",
+    source: "workflow",
+    eventName: "nodes.reevaluated",
+    severity:
+      readyNodeIds.length +
+        blockedNodeIds.length +
+        skippedNodeIds.length +
+        cancelledNodeIds.length >
+      0
+        ? "info"
+        : "debug",
+    payload: {
+      runId,
+      readyCount: readyNodeIds.length,
+      blockedCount: blockedNodeIds.length,
+      skippedCount: skippedNodeIds.length,
+      cancelledCount: cancelledNodeIds.length,
+    },
+  });
 
   const changedNodeIds = new Set<string>();
   const now = new Date().toISOString();
@@ -424,6 +446,7 @@ async function finalizeRunIfTerminal(params: {
   runState: RunState;
   nodes: WorkflowRunNode[];
 }): Promise<boolean> {
+  const trace = getTraceSession(`workflow:${params.runId}`);
   if (params.nodes.length === 0) return false;
 
   const allNodesTerminal = params.nodes.every((node) => isTerminalNodeStatus(node.status));
@@ -446,6 +469,18 @@ async function finalizeRunIfTerminal(params: {
     runId: params.runId,
     type: "run.completed",
     payload: {
+      outcome,
+      status: mapOutcomeToRunStatus(outcome),
+      nodeCount: params.nodes.length,
+    },
+  });
+
+  await trace?.record({
+    phase: "worker",
+    source: "workflow",
+    eventName: "run.finalized",
+    payload: {
+      runId: params.runId,
       outcome,
       status: mapOutcomeToRunStatus(outcome),
       nodeCount: params.nodes.length,
@@ -495,8 +530,16 @@ async function applyTerminalNodeEffects(params: {
         payload: {
           nodeId: params.workItem.compiledNode.id,
           attemptNumber: params.workItem.attemptNumber,
+          specId: params.workItem.compiledNode.specId,
           status: finalizedStatus,
           message: params.result.error?.message,
+          outputBytes: params.result.outputsByPort
+            ? JSON.stringify(params.result.outputsByPort).length
+            : 0,
+          outputPortCount: params.result.outputsByPort
+            ? Object.keys(params.result.outputsByPort).length
+            : 0,
+          errorBytes: params.result.error ? JSON.stringify(params.result.error).length : 0,
         },
       },
       {
@@ -506,8 +549,16 @@ async function applyTerminalNodeEffects(params: {
         payload: {
           nodeId: params.workItem.compiledNode.id,
           attemptNumber: params.workItem.attemptNumber,
+          specId: params.workItem.compiledNode.specId,
           status: finalizedStatus,
           message: params.result.error?.message,
+          outputBytes: params.result.outputsByPort
+            ? JSON.stringify(params.result.outputsByPort).length
+            : 0,
+          outputPortCount: params.result.outputsByPort
+            ? Object.keys(params.result.outputsByPort).length
+            : 0,
+          errorBytes: params.result.error ? JSON.stringify(params.result.error).length : 0,
         },
       },
       {
@@ -517,8 +568,16 @@ async function applyTerminalNodeEffects(params: {
         payload: {
           nodeId: params.workItem.compiledNode.id,
           attemptNumber: params.workItem.attemptNumber,
+          specId: params.workItem.compiledNode.specId,
           status: finalizedStatus,
           message: params.result.error?.message,
+          outputBytes: params.result.outputsByPort
+            ? JSON.stringify(params.result.outputsByPort).length
+            : 0,
+          outputPortCount: params.result.outputsByPort
+            ? Object.keys(params.result.outputsByPort).length
+            : 0,
+          errorBytes: params.result.error ? JSON.stringify(params.result.error).length : 0,
         },
       },
     ],
@@ -649,6 +708,7 @@ function buildNodeStartedEvents(workItem: ClaimedNodeWorkItem) {
       payload: {
         nodeId: workItem.compiledNode.id,
         attemptNumber: workItem.attemptNumber,
+        specId: workItem.compiledNode.specId,
         status: "running" as const,
         message: "Node execution started.",
       },
@@ -660,6 +720,7 @@ function buildNodeStartedEvents(workItem: ClaimedNodeWorkItem) {
       payload: {
         nodeId: workItem.compiledNode.id,
         attemptNumber: workItem.attemptNumber,
+        specId: workItem.compiledNode.specId,
         status: "running" as const,
         message: "Attempt execution started.",
       },
@@ -722,6 +783,7 @@ export async function processNextRunnableBatch(params: {
 }): Promise<ProcessNextRunNodeResult> {
   const runId = params.runId;
   const maxConcurrent = Math.max(1, params.maxConcurrent ?? 12);
+  const trace = getTraceSession(`workflow:${runId}`);
   const runState = await perfAsync(runId, "batch.getRunState", () =>
     params.dependencies.repository.getRunState({ runId }),
   );
@@ -765,6 +827,18 @@ export async function processNextRunnableBatch(params: {
         cancelRequestedAt: runState.cancelRequestedAt,
         nodeStatusCounts,
       });
+      await trace?.record({
+        phase: "worker",
+        source: "workflow",
+        eventName: "worker.no_claimable_nodes",
+        severity: "debug",
+        payload: {
+          runId: params.runId,
+          runStatus: runState.status,
+          cancelRequestedAt: runState.cancelRequestedAt,
+          nodeStatusCounts,
+        },
+      });
     }
     const finalized = await perfAsync(runId, "batch.idle.finalizeRunIfTerminal", () =>
       finalizeRunIfTerminal({
@@ -784,6 +858,18 @@ export async function processNextRunnableBatch(params: {
     };
   }
 
+  await trace?.record({
+    phase: "worker",
+    source: "workflow",
+    eventName: "worker.claimed_nodes",
+    payload: {
+      runId,
+      claimedCount: workItems.length,
+      nodeIds: workItems.map((workItem) => workItem.compiledNode.id),
+      attemptNumbers: workItems.map((workItem) => workItem.attemptNumber),
+    },
+  });
+
   await perfAsync(runId, "batch.appendNodeStartedEvents_all", async () => {
     await params.dependencies.repository.appendRunEventsBatch({
       runId: params.runId,
@@ -802,6 +888,16 @@ export async function processNextRunnableBatch(params: {
       ),
     ),
   );
+  await trace?.record({
+    phase: "worker",
+    source: "workflow",
+    eventName: "worker.batch_execution_completed",
+    payload: {
+      runId,
+      processedNodeCount: results.length,
+      statuses: results.map((result) => result.status),
+    },
+  });
 
   const ordered = perfSync(runId, "batch.sortCompletedWorkTopo", () =>
     workItems
@@ -845,6 +941,17 @@ export async function processNextRunnableBatch(params: {
       nodes: reevaluatedNodes,
     }),
   );
+
+  await trace?.record({
+    phase: "worker",
+    source: "workflow",
+    eventName: "worker.batch_finished",
+    payload: {
+      runId,
+      processedNodeCount: workItems.length,
+      finalized,
+    },
+  });
 
   return {
     state: finalized ? "finalized" : "processed",

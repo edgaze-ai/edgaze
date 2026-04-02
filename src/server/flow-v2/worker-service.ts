@@ -1,4 +1,5 @@
 import { failWorkflowRunIfNonTerminal } from "@lib/supabase/executions";
+import { getOrCreateTraceSession, releaseTraceSession } from "src/server/trace";
 
 import { LegacyNodeExecutorAdapter } from "./node-executor";
 import type { WorkflowRunnerDependencies } from "./worker-runner";
@@ -55,6 +56,32 @@ export function ensureWorkflowRunWorker(params: {
   const existing = registry.get(params.runId);
   if (existing) return existing;
 
+  const trace = getOrCreateTraceSession(`workflow:${params.runId}`, {
+    id: `workflow:${params.runId}`,
+    kind: "workflow",
+    source: "workflow",
+    phase: "worker",
+    routeId: "workflow.worker",
+    method: "WORKER",
+    workflowId: params.requestMetadata?.workflowId ?? null,
+    workflowRunId: params.runId,
+    correlationId: params.runId,
+    actorId: params.requestMetadata?.userId ?? null,
+    context: {
+      workerId: params.workerId ?? `worker-service:${params.runId}`,
+      requestMetadata: params.requestMetadata ?? null,
+    },
+  });
+  void trace.record({
+    phase: "worker",
+    source: "workflow",
+    eventName: "worker.ensure_requested",
+    payload: {
+      runId: params.runId,
+      workerId: params.workerId ?? `worker-service:${params.runId}`,
+    },
+  });
+
   const controller = new AbortController();
   let workerError: Error | null = null;
   const promise = runWorkflowToTerminal({
@@ -69,6 +96,18 @@ export function ensureWorkflowRunWorker(params: {
   })
     .catch(async (err: unknown) => {
       workerError = err instanceof Error ? err : new Error("Workflow runner failed");
+      await trace.record({
+        phase: "worker",
+        source: "workflow",
+        eventName: "worker.failed",
+        severity: "error",
+        payload: {
+          runId: params.runId,
+          workerId: params.workerId ?? `worker-service:${params.runId}`,
+          error: workerError.message,
+          stack: workerError.stack,
+        },
+      });
       console.error(
         `[worker-service] Run ${params.runId} failed:`,
         workerError.message,
@@ -91,12 +130,29 @@ export function ensureWorkflowRunWorker(params: {
         );
       }
     })
-    .then(() => undefined as void)
+    .then(async () => {
+      await trace.record({
+        phase: "worker",
+        source: "workflow",
+        eventName: "worker.completed",
+        payload: {
+          runId: params.runId,
+          workerId: params.workerId ?? `worker-service:${params.runId}`,
+          hadError: Boolean(workerError),
+        },
+      });
+      await trace.finish({
+        status: workerError ? "failed" : "completed",
+        errorMessage: workerError?.message ?? null,
+      });
+      return undefined as void;
+    })
     .finally(() => {
       const current = registry.get(params.runId);
       if (current?.controller === controller) {
         registry.delete(params.runId);
       }
+      releaseTraceSession(`workflow:${params.runId}`);
     });
 
   const activeWorker: ActiveRunWorker = {

@@ -58,12 +58,12 @@ import { WorkflowRunOrchestrator } from "src/server/flow-v2/orchestrator";
 import { LegacyNodeExecutorAdapter } from "src/server/flow-v2/node-executor";
 import { readPayloadReferenceValue } from "src/server/flow-v2/payload-store";
 import {
-  listWorkflowRunEvents,
   loadWorkflowRunBootstrap,
   peekWorkflowRunStatus,
   type WorkflowRunBootstrap,
 } from "src/server/flow-v2/read-model";
 import { SupabaseWorkflowExecutionRepository } from "src/server/flow-v2/repository";
+import { collectTraceHeaders, startTraceSession } from "src/server/trace";
 import { ensureWorkflowRunWorker } from "src/server/flow-v2/worker-service";
 import type {
   CompiledWorkflowDefinition,
@@ -78,7 +78,27 @@ const FREE_MARKETPLACE_KEY_RUNS = 10; // matches FREE_RUNS_PER_PURCHASE in runti
 
 /** V2 wait/poll: avoid unbounded API loops if the worker never advances or event rows diverge from last_event_sequence. */
 const V2_RUN_WAIT_DEADLINE_MS = 30 * 60 * 1000;
-const V2_TERMINAL_EVENT_GAP_POLLS = 8;
+
+type PendingV2StreamInitialization = {
+  kind: "v2_stream_init";
+  workflowId: string;
+  workflowVersionId: string | null;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  runInput: Record<string, SerializableValue>;
+};
+
+type PendingAuthenticatedV2StreamRequest = {
+  kind: "v2_authenticated_stream_request";
+  workflowId: string;
+  authToken: string;
+  rawInputs: Record<string, unknown>;
+  rawUserApiKeys: Record<string, Record<string, string>>;
+  modalOpenaiKey?: string;
+  modalAnthropicKey?: string;
+  modalGeminiKey?: string;
+  forceDemoModelTier: boolean;
+};
 
 function mapV2NodeStatusToLegacy(
   status: string,
@@ -225,72 +245,6 @@ function getBootstrapFailureMessage(bootstrap: WorkflowRunBootstrap): string | u
   return undefined;
 }
 
-function mapRunEventToLegacyProgressEvent(
-  event: RunEvent,
-  compiled: CompiledWorkflowDefinition,
-): {
-  type: "node_ready" | "node_start" | "node_done" | "node_failed";
-  [key: string]: unknown;
-} | null {
-  if (!("nodeId" in event.payload)) return null;
-  const compiledNode = compiled.nodes.find((node) => node.id === event.payload.nodeId);
-  const base = {
-    nodeId: event.payload.nodeId,
-    specId: compiledNode?.specId ?? "default",
-    nodeTitle: compiledNode?.title,
-    timestamp: Date.parse(event.createdAt) || Date.now(),
-  };
-
-  switch (event.type) {
-    case "node.ready":
-    case "node.queued":
-      return { type: "node_ready", ...base };
-    case "node.started":
-      return { type: "node_start", ...base };
-    case "node.completed":
-      return { type: "node_done", ...base };
-    case "node.failed":
-    case "node.cancelled":
-    case "node.blocked":
-    case "node.skipped":
-      return {
-        type: "node_failed",
-        ...base,
-        error:
-          typeof event.payload.message === "string" && event.payload.message.trim()
-            ? event.payload.message
-            : event.type,
-      };
-    default:
-      return null;
-  }
-}
-
-function buildInitialLegacyProgressEvents(compiled: CompiledWorkflowDefinition): Array<{
-  type: "node_ready";
-  nodeId: string;
-  specId: string;
-  nodeTitle?: string;
-  timestamp: number;
-}> {
-  const timestamp = Date.now();
-  const compiledNodeById = new Map(compiled.nodes.map((node) => [node.id, node]));
-
-  return compiled.entryNodeIds
-    .map((nodeId) => {
-      const node = compiledNodeById.get(nodeId);
-      if (!node) return null;
-      return {
-        type: "node_ready" as const,
-        nodeId,
-        specId: node.specId,
-        nodeTitle: node.title,
-        timestamp,
-      };
-    })
-    .filter((event): event is NonNullable<typeof event> => event !== null);
-}
-
 function createStreamingResponseHelpers(
   controller: ReadableStreamDefaultController<Uint8Array>,
   encoder: TextEncoder,
@@ -344,6 +298,7 @@ async function finishUnifiedRun(
 
 export async function POST(req: Request) {
   try {
+    const requestStartedAt = Date.now();
     // Parse request body first to check if this is a demo run
     const body = (await req.json()) as GraphPayload & {
       workflowId?: string;
@@ -377,12 +332,158 @@ export async function POST(req: Request) {
       forceDemoModelTier = false,
     } = body;
 
+    const requestUrl = new URL(req.url);
+    const trace = startTraceSession({
+      kind: "request",
+      source: "server",
+      phase: "request",
+      routeId: "api.flow.run",
+      method: req.method,
+      requestPath: requestUrl.pathname,
+      requestQuery: requestUrl.search,
+      workflowId: typeof workflowId === "string" ? workflowId : null,
+      context: {
+        headers: collectTraceHeaders(req.headers),
+        body,
+      },
+    });
+    const traceJson = async (
+      payload: Record<string, unknown>,
+      status = 200,
+      summary?: Record<string, unknown>,
+    ) => {
+      await trace.record({
+        eventName: "request.response_ready",
+        httpStatus: status,
+        payload: {
+          ok: payload.ok,
+          handedOff: payload.handedOff,
+          runId: payload.runId,
+          error: payload.error,
+        },
+      });
+      await trace.finish({
+        status: status >= 400 ? "failed" : "completed",
+        responseStatus: status,
+        errorMessage: typeof payload.error === "string" ? payload.error : null,
+        summary: {
+          durationMs: Date.now() - requestStartedAt,
+          workflowId,
+          ...summary,
+        },
+      });
+      return NextResponse.json(payload, {
+        status,
+        headers: trace.responseHeaders(),
+      });
+    };
+    await trace.record({
+      eventName: "request.received",
+      payload: {
+        workflowId,
+        nodeCount: Array.isArray(body.nodes) ? body.nodes.length : 0,
+        edgeCount: Array.isArray(body.edges) ? body.edges.length : 0,
+        inputKeyCount:
+          body.inputs && typeof body.inputs === "object" ? Object.keys(body.inputs).length : 0,
+        useStream,
+        isDemo,
+        hasBearerToken: Boolean(req.headers.get("authorization")),
+      },
+    });
+
     let nodes = (body.nodes ?? []) as GraphNode[];
     let edges = (body.edges ?? []) as GraphEdge[];
     const workflowExecutionV2CompileEnabled = isWorkflowExecutionV2CompileEnabled();
+    const workflowExecutionV2RunnerEnabled = isWorkflowExecutionV2RunnerEnabled();
+    const authHeader = req.headers.get("authorization") ?? "";
+    const bearerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
 
     if (!workflowId) {
-      return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
+      return traceJson({ ok: false, error: "workflowId is required" }, 400);
+    }
+
+    const shouldUltraFastAuthenticatedStreamConnection =
+      Boolean(bearerToken) &&
+      useStream &&
+      workflowExecutionV2CompileEnabled &&
+      workflowExecutionV2RunnerEnabled &&
+      clientIsBuilderTest !== true &&
+      !isDemo &&
+      !(adminDemoToken && typeof adminDemoToken === "string" && adminDemoToken.length >= 16);
+
+    if (shouldUltraFastAuthenticatedStreamConnection) {
+      const runAccessToken = randomUUID();
+      try {
+        const run = await trace.measure(
+          "ultra_fast_stream.create_run",
+          () =>
+            createWorkflowRun({
+              workflowId,
+              userId: `pending_authenticated_stream:${randomUUID()}`,
+              status: "running",
+              checkpoint: {
+                kind: "v2_authenticated_stream_request",
+                workflowId,
+                authToken: bearerToken,
+                rawInputs: inputs,
+                rawUserApiKeys,
+                modalOpenaiKey:
+                  typeof modalOpenaiKey === "string" && modalOpenaiKey.trim()
+                    ? modalOpenaiKey.trim()
+                    : undefined,
+                modalAnthropicKey:
+                  typeof modalAnthropicKey === "string" && modalAnthropicKey.trim()
+                    ? modalAnthropicKey.trim()
+                    : undefined,
+                modalGeminiKey:
+                  typeof modalGeminiKey === "string" && modalGeminiKey.trim()
+                    ? modalGeminiKey.trim()
+                    : undefined,
+                forceDemoModelTier,
+              } satisfies PendingAuthenticatedV2StreamRequest,
+              metadata: {
+                nodeCount: nodes.length,
+                edgeCount: edges.length,
+                isDemo: false,
+                isBuilderTest: false,
+                run_access_token: runAccessToken,
+              },
+              idempotencyKey: null,
+            }),
+          {
+            payload: {
+              workflowId,
+              nodeCount: nodes.length,
+              edgeCount: edges.length,
+              forceDemoModelTier,
+            },
+          },
+        );
+        trace.updateLinks({ workflowRunId: run.id, correlationId: run.id });
+        return traceJson(
+          {
+            ok: true,
+            handedOff: true,
+            runId: run.id,
+            runAccessToken,
+          },
+          200,
+          { handoffMode: "ultra_fast_authenticated_stream" },
+        );
+      } catch (error) {
+        console.error("[flow/run] failed to ultra-fast handoff authenticated stream:", error);
+        await trace.record({
+          eventName: "ultra_fast_stream.failed",
+          severity: "error",
+          payload: {
+            workflowId,
+            error: error instanceof Error ? error.message : "Failed to start workflow run.",
+          },
+        });
+        return traceJson({ ok: false, error: "Failed to start workflow run." }, 500, {
+          handoffMode: "ultra_fast_authenticated_stream",
+        });
+      }
     }
 
     let effectiveIsBuilderTest = false;
@@ -391,39 +492,65 @@ export async function POST(req: Request) {
     let isRuntimeDemo = false;
 
     // Auth: Bearer token only (client sends Authorization: Bearer <accessToken>). Demo runs and admin demo link allowed without auth.
-    const { user, error: authError } = await getUserFromRequest(req);
+    const { user, error: authError } = await trace.measure(
+      "auth.resolve_user",
+      () => getUserFromRequest(req),
+      {
+        payload: { workflowId, isDemo, hasAdminDemoToken: Boolean(adminDemoToken) },
+      },
+    );
     let userId: string;
     if (user) {
       userId = user.id;
-      const entitlement = await getAuthenticatedRunEntitlement(
-        userId,
-        workflowId,
-        clientIsBuilderTest,
+      trace.updateLinks({ actorId: userId });
+      const entitlement = await trace.measure(
+        "auth.resolve_entitlement",
+        () => getAuthenticatedRunEntitlement(userId, workflowId, clientIsBuilderTest),
+        {
+          payload: { userId, workflowId, clientIsBuilderTest },
+        },
       );
       if (!entitlement.ok) {
-        return NextResponse.json({ ok: false, error: entitlement.message }, { status: 403 });
+        return traceJson({ ok: false, error: entitlement.message }, 403);
       }
       effectiveIsBuilderTest = entitlement.effectiveIsBuilderTest;
       entitlementDraftId = entitlement.draftIdForCount;
       try {
-        const g = await resolveAuthenticatedRunGraphForExecution({
-          userId,
-          workflowId,
-          entitlement: {
-            useServerMarketplaceGraph: entitlement.useServerMarketplaceGraph,
-            draftIdForCount: entitlement.draftIdForCount,
+        const g = await trace.measure(
+          "graph.resolve_authenticated",
+          () =>
+            resolveAuthenticatedRunGraphForExecution({
+              userId,
+              workflowId,
+              entitlement: {
+                useServerMarketplaceGraph: entitlement.useServerMarketplaceGraph,
+                draftIdForCount: entitlement.draftIdForCount,
+              },
+            }),
+          {
+            payload: {
+              userId,
+              workflowId,
+              useServerMarketplaceGraph: entitlement.useServerMarketplaceGraph,
+              draftIdForCount: entitlement.draftIdForCount,
+            },
           },
-        });
+        );
         if (g) {
           nodes = g.nodes;
           edges = g.edges;
+          await trace.record({
+            eventName: "graph.resolved_authenticated",
+            payload: {
+              workflowId,
+              nodeCount: nodes.length,
+              edgeCount: edges.length,
+            },
+          });
         }
       } catch (e) {
         console.error("[flow/run] server graph load failed:", e);
-        return NextResponse.json(
-          { ok: false, error: "Failed to load workflow for execution." },
-          { status: 500 },
-        );
+        return traceJson({ ok: false, error: "Failed to load workflow for execution." }, 500);
       }
     } else if (
       adminDemoToken &&
@@ -440,12 +567,12 @@ export async function POST(req: Request) {
         .eq("demo_token", adminDemoToken.trim())
         .maybeSingle();
       if (wfError || !wf) {
-        return NextResponse.json(
+        return traceJson(
           {
             ok: false,
             error: "Invalid or expired demo link. Please use the link from the admin panel.",
           },
-          { status: 403 },
+          403,
         );
       }
       userId = "admin_demo_user";
@@ -457,20 +584,17 @@ export async function POST(req: Request) {
         edges = g.edges;
       } catch (e) {
         console.error("[flow/run] admin demo graph load failed:", e);
-        return NextResponse.json(
-          { ok: false, error: "Failed to load workflow for demo execution." },
-          { status: 500 },
-        );
+        return traceJson({ ok: false, error: "Failed to load workflow for demo execution." }, 500);
       }
     } else if (isDemo) {
       // For anonymous demo runs, check server-side tracking (device fingerprint + IP)
       if (!deviceFingerprint || deviceFingerprint.length < 10) {
-        return NextResponse.json(
+        return traceJson(
           {
             ok: false,
             error: "Device fingerprint is required for demo runs",
           },
-          { status: 400 },
+          400,
         );
       }
 
@@ -488,24 +612,24 @@ export async function POST(req: Request) {
 
       if (checkError) {
         console.error("[Demo Runs] Error checking demo run eligibility:", checkError);
-        return NextResponse.json(
+        return traceJson(
           {
             ok: false,
             error: "Failed to verify demo run eligibility. Please try again.",
           },
-          { status: 500 },
+          500,
         );
       }
 
       if (checkData !== true) {
         // Demo run already used for this device + IP combination
-        return NextResponse.json(
+        return traceJson(
           {
             ok: false,
             error:
               "You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.",
           },
-          { status: 403 },
+          403,
         );
       }
 
@@ -521,12 +645,12 @@ export async function POST(req: Request) {
 
       if (recordError) {
         console.error("[Demo Runs] Error recording demo run:", recordError);
-        return NextResponse.json(
+        return traceJson(
           {
             ok: false,
             error: "Failed to record demo run. Please try again.",
           },
-          { status: 500 },
+          500,
         );
       }
 
@@ -538,12 +662,12 @@ export async function POST(req: Request) {
 
       if (!recordResult.success || !recordResult.allowed) {
         // Race condition: another request already recorded this demo run
-        return NextResponse.json(
+        return traceJson(
           {
             ok: false,
             error: recordResult.error || "Demo run already used for this device and IP address.",
           },
-          { status: 403 },
+          403,
         );
       }
 
@@ -556,20 +680,17 @@ export async function POST(req: Request) {
         edges = g.edges;
       } catch (e) {
         console.error("[flow/run] anonymous demo graph load failed:", e);
-        return NextResponse.json(
-          { ok: false, error: "Failed to load workflow for demo execution." },
-          { status: 500 },
-        );
+        return traceJson({ ok: false, error: "Failed to load workflow for demo execution." }, 500);
       }
     } else {
-      return NextResponse.json(
+      return traceJson(
         {
           ok: false,
           error:
             authError ??
             "Authentication required. Please sign in to run workflows, or try a demo run.",
         },
-        { status: 401 },
+        401,
       );
     }
 
@@ -608,15 +729,28 @@ export async function POST(req: Request) {
     }
 
     // Runtime enforcement: check free runs and BYO keys
-    let enforcement = await enforceRuntimeLimits({
-      userId,
-      workflowId,
-      nodes,
-      userApiKeys: mergedUserApiKeys,
-      isDemo: isRuntimeDemo,
-      isBuilderTest: effectiveIsBuilderTest,
-      draftIdForCount: entitlementDraftId,
-    });
+    let enforcement = await trace.measure(
+      "runtime.enforce_limits",
+      () =>
+        enforceRuntimeLimits({
+          userId,
+          workflowId,
+          nodes,
+          userApiKeys: mergedUserApiKeys,
+          isDemo: isRuntimeDemo,
+          isBuilderTest: effectiveIsBuilderTest,
+          draftIdForCount: entitlementDraftId,
+        }),
+      {
+        payload: {
+          userId,
+          workflowId,
+          nodeCount: nodes.length,
+          isDemo: isRuntimeDemo,
+          isBuilderTest: effectiveIsBuilderTest,
+        },
+      },
+    );
 
     if (
       forceDemoModelTier === true &&
@@ -632,14 +766,14 @@ export async function POST(req: Request) {
     }
 
     if (!enforcement.allowed) {
-      return NextResponse.json(
+      return traceJson(
         {
           ok: false,
           error: enforcement.error || "Runtime limit exceeded",
           requiresApiKeys: enforcement.requiresApiKeys,
           freeRunsRemaining: enforcement.freeRunsRemaining,
         },
-        { status: 403 },
+        403,
       );
     }
 
@@ -727,6 +861,8 @@ export async function POST(req: Request) {
     let compiledWorkflow: CompiledWorkflowDefinition | null = null;
     const isTrackedUser = userId !== "anonymous_demo_user";
     const isValidRunnerUuid = /^[0-9a-f-]{36}$/i.test(userId ?? "");
+    const shouldUseV2RunSessionHandoff =
+      workflowExecutionV2CompileEnabled && workflowExecutionV2RunnerEnabled && useStream;
     const runAccessToken = isDemo || (useStream && isTrackedUser) ? randomUUID() : undefined;
     if (isTrackedUser) {
       try {
@@ -767,7 +903,37 @@ export async function POST(req: Request) {
             idempotencyKey,
           });
           runId = run.id;
-          await updateWorkflowRun(runId, { status: "running" });
+          trace.updateLinks({ workflowRunId: runId, correlationId: runId });
+          await trace.record({
+            eventName: "run.created",
+            phase: "worker",
+            source: "workflow",
+            payload: {
+              runId,
+              workflowId,
+              draftId,
+              workflowExistsInDb,
+              workflowVersionId,
+            },
+          });
+          const pendingV2StreamInitialization =
+            shouldUseV2RunSessionHandoff && runId
+              ? ({
+                  kind: "v2_stream_init",
+                  workflowId,
+                  workflowVersionId: workflowVersionId ?? null,
+                  nodes,
+                  edges,
+                  runInput: redactSecrets({
+                    ...enrichedInputs,
+                    __workflow_id: workflowId,
+                  }) as Record<string, SerializableValue>,
+                } satisfies PendingV2StreamInitialization)
+              : null;
+          await updateWorkflowRun(runId, {
+            status: "running",
+            checkpoint: pendingV2StreamInitialization,
+          });
           // Unified runs table (analytics)
           try {
             const creatorUserId = await getCreatorUserIdForWorkflowRun(
@@ -788,6 +954,16 @@ export async function POST(req: Request) {
               },
             });
             unifiedRunId = unifiedRun.id;
+            trace.updateLinks({ analyticsRunId: unifiedRunId });
+            await trace.record({
+              eventName: "analytics_run.created",
+              phase: "admin",
+              source: "admin",
+              payload: {
+                unifiedRunId,
+                workflowRunId: run.id,
+              },
+            });
           } catch (runErr: unknown) {
             console.warn("[Runs] Failed to create unified run record:", runErr);
           }
@@ -809,9 +985,10 @@ export async function POST(req: Request) {
       }
     }
 
-    if (workflowExecutionV2CompileEnabled) {
+    const prepareV2Run = async (): Promise<CompiledWorkflowDefinition> => {
+      let preparedWorkflow: CompiledWorkflowDefinition;
       try {
-        compiledWorkflow = compileBuilderGraph({
+        preparedWorkflow = compileBuilderGraph({
           workflowId,
           versionId: workflowVersionId,
           nodes,
@@ -848,31 +1025,23 @@ export async function POST(req: Request) {
           }
         }
 
-        if (unifiedRunId) {
-          await finishUnifiedRun(unifiedRunId, "error", 0, compileError.message);
-        }
-
         const detailMessage =
           compileError.details.length > 0 ? compileError.details.join(" ") : compileError.message;
-        return NextResponse.json(
-          {
-            ok: false,
-            error: detailMessage,
-            compileDetails: compileError.details,
-            runId,
-          },
-          { status: 400 },
-        );
+        const error = Object.assign(new Error(detailMessage), {
+          statusCode: 400,
+          compileDetails: compileError.details,
+        });
+        throw error;
       }
 
-      if (compiledWorkflow && runId) {
+      if (runId) {
         try {
           const orchestrator = new WorkflowRunOrchestrator(
             new SupabaseWorkflowExecutionRepository(),
           );
           await orchestrator.initializeRun({
             runId,
-            compiled: compiledWorkflow,
+            compiled: preparedWorkflow,
             runInput: redactSecrets({
               ...enrichedInputs,
               __workflow_id: workflowId,
@@ -886,48 +1055,75 @@ export async function POST(req: Request) {
           );
           const errorMessage = err instanceof Error ? err.message : "Run initialization failed";
 
-          if (runId) {
-            try {
-              await updateWorkflowRun(runId, {
-                status: "failed",
-                error_details: { message: errorMessage },
-              });
-            } catch (updateError) {
-              console.error("[flow/run] failed to persist orchestrator error:", updateError);
-            }
+          try {
+            await updateWorkflowRun(runId, {
+              status: "failed",
+              error_details: { message: errorMessage },
+            });
+          } catch (updateError) {
+            console.error("[flow/run] failed to persist orchestrator error:", updateError);
           }
 
-          if (unifiedRunId) {
-            await finishUnifiedRun(unifiedRunId, "error", 0, errorMessage);
-          }
-
-          return NextResponse.json(
-            {
-              ok: false,
-              error: `Run initialization failed: ${errorMessage}`,
-              runId,
-            },
-            { status: 500 },
-          );
+          throw Object.assign(new Error(`Run initialization failed: ${errorMessage}`), {
+            statusCode: 500,
+          });
         }
       }
-    }
+
+      return preparedWorkflow;
+    };
 
     const startTime = Date.now();
     let result;
 
-    const workflowExecutionV2RunnerEnabled = isWorkflowExecutionV2RunnerEnabled();
+    if (workflowExecutionV2CompileEnabled && !(shouldUseV2RunSessionHandoff && runId)) {
+      try {
+        compiledWorkflow = await prepareV2Run();
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Workflow compile failed";
+        if (unifiedRunId) {
+          await finishUnifiedRun(unifiedRunId, "error", 0, errorMessage);
+        }
+        return traceJson(
+          {
+            ok: false,
+            error: errorMessage,
+            compileDetails:
+              err && typeof err === "object" && "compileDetails" in err
+                ? ((err as { compileDetails?: unknown }).compileDetails ?? [])
+                : undefined,
+            runId,
+          },
+          err && typeof err === "object" && "statusCode" in err
+            ? Number((err as { statusCode?: unknown }).statusCode) || 500
+            : 500,
+          {
+            runId,
+            unifiedRunId,
+          },
+        );
+      }
+    }
+
+    if (shouldUseV2RunSessionHandoff && runId) {
+      return traceJson(
+        {
+          ok: true,
+          handedOff: true,
+          runId,
+          runAccessToken,
+        },
+        200,
+        {
+          runId,
+          unifiedRunId,
+          handoffMode: "v2_run_session",
+        },
+      );
+    }
+
     if (workflowExecutionV2RunnerEnabled && runId && compiledWorkflow) {
       const repository = new SupabaseWorkflowExecutionRepository();
-      repository.primeRunCache({
-        runId,
-        compiled: compiledWorkflow,
-        runInput: redactSecrets({
-          ...enrichedInputs,
-          __workflow_id: workflowId,
-        }) as Record<string, SerializableValue>,
-      });
-      const orchestrator = new WorkflowRunOrchestrator(repository);
       const clientId = extractClientIdentifier(req);
       const runnerDependencies = {
         repository,
@@ -948,183 +1144,19 @@ export async function POST(req: Request) {
         return Math.max(0, freeRunLimit - updatedRunCount);
       };
 
-      if (useStream) {
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-          async start(controller) {
-            const { sendPrelude, writeEvent } = createStreamingResponseHelpers(controller, encoder);
-            const heartbeatId = setInterval(() => {
-              try {
-                sendPrelude();
-                controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`));
-              } catch {}
-            }, 5000);
-
-            let afterSequence = 0;
-            let runnerError: unknown = null;
-
-            try {
-              writeEvent({
-                type: "run_bootstrap",
-                runId,
-                runAccessToken,
-              });
-              for (const event of buildInitialLegacyProgressEvents(compiledWorkflow)) {
-                writeEvent(event);
-              }
-
-              const activeWorker = ensureWorkflowRunWorker({
-                runId,
-                repository,
-                requestMetadata: runnerDependencies.requestMetadata,
-                workerId: runnerDependencies.workerId,
-              });
-              const runnerPromise = activeWorker.promise.then(() => {
-                const workerErr = activeWorker.getError();
-                if (workerErr) {
-                  runnerError = workerErr;
-                }
-              });
-
-              const pollNdjsonLoop = async () => {
-                const waitStarted = Date.now();
-                let terminalGapPolls = 0;
-
-                while (!req.signal.aborted) {
-                  if (Date.now() - waitStarted > V2_RUN_WAIT_DEADLINE_MS) {
-                    console.error("[flow/run] V2 NDJSON poll exceeded deadline", { runId });
-                    await failWorkflowRunIfNonTerminal(runId, {
-                      code: "api_wait_timeout",
-                      message: "Workflow run wait exceeded server time limit.",
-                    });
-                    throw new Error("Workflow run wait exceeded server time limit.");
-                  }
-
-                  const [events, runPeek] = await Promise.all([
-                    listWorkflowRunEvents({
-                      runId,
-                      afterSequence,
-                      limit: 200,
-                    }),
-                    peekWorkflowRunStatus({ runId }),
-                  ]);
-
-                  for (const event of events) {
-                    afterSequence = Math.max(afterSequence, event.sequence);
-                    const mapped = mapRunEventToLegacyProgressEvent(event, compiledWorkflow);
-                    if (mapped) writeEvent(mapped);
-                  }
-
-                  const isTerminal =
-                    runPeek.status === "completed" ||
-                    runPeek.status === "failed" ||
-                    runPeek.status === "cancelled";
-
-                  if (isTerminal) {
-                    const lastSeq = runPeek.lastEventSequence;
-                    if (afterSequence >= lastSeq) {
-                      break;
-                    }
-                    // Run row says terminal but events are missing or replication lag: do not spin forever.
-                    if (events.length === 0) {
-                      terminalGapPolls += 1;
-                      if (terminalGapPolls >= V2_TERMINAL_EVENT_GAP_POLLS) {
-                        console.warn(
-                          "[flow/run] V2 NDJSON poll: terminal run, forcing event catch-up",
-                          {
-                            runId,
-                            afterSequence,
-                            lastSeq,
-                          },
-                        );
-                        afterSequence = Math.max(afterSequence, lastSeq);
-                        break;
-                      }
-                    } else {
-                      terminalGapPolls = 0;
-                    }
-                  } else {
-                    terminalGapPolls = 0;
-                  }
-
-                  await new Promise((resolve) => setTimeout(resolve, events.length > 0 ? 0 : 100));
-                }
-              };
-
-              await Promise.all([pollNdjsonLoop(), runnerPromise]);
-
-              const finalBootstrap = await loadWorkflowRunBootstrap({
-                runId,
-                afterSequence: 0,
-                eventLimit: 1000,
-              });
-              const safeResult = buildLegacyRuntimeResultFromBootstrap(
-                finalBootstrap,
-                compiledWorkflow,
-              );
-              const updatedFreeRunsRemaining = await getUpdatedFreeRunsRemaining();
-              const runnerErrorMessage =
-                runnerError instanceof Error ? runnerError.message : undefined;
-              await finishUnifiedRun(
-                unifiedRunId,
-                finalBootstrap.run.status === "completed" ? "success" : "error",
-                Date.now() - startTime,
-                runnerErrorMessage,
-              );
-
-              writeEvent({
-                type: "complete",
-                ok: finalBootstrap.run.status === "completed",
-                result: safeResult,
-                error:
-                  finalBootstrap.run.status === "completed"
-                    ? undefined
-                    : simplifyWorkflowError(
-                        getBootstrapFailureMessage(finalBootstrap) ||
-                          runnerErrorMessage ||
-                          "Execution failed",
-                      ),
-                freeRunsRemaining: updatedFreeRunsRemaining,
-                runId,
-                runAccessToken,
-              });
-            } catch (err: unknown) {
-              const duration = Date.now() - startTime;
-              await finishUnifiedRun(
-                unifiedRunId,
-                "error",
-                duration,
-                err instanceof Error ? err.message : "Workflow stream failed",
-              );
-              writeEvent({
-                type: "complete",
-                ok: false,
-                error: simplifyWorkflowError(
-                  err instanceof Error ? err.message : "Workflow stream failed",
-                ),
-                freeRunsRemaining: enforcement.freeRunsRemaining,
-                runId,
-                runAccessToken,
-              });
-            } finally {
-              clearInterval(heartbeatId);
-              controller.close();
-            }
-          },
-        });
-
-        return new Response(stream, {
-          headers: {
-            "Content-Type": "text/event-stream; charset=utf-8",
-            "Cache-Control": "no-cache, no-transform",
-            Connection: "keep-alive",
-            "X-Accel-Buffering": "no",
-            "Content-Encoding": "identity",
-          },
-        });
-      }
-
       try {
+        const activeCompiledWorkflow = compiledWorkflow;
+        if (!activeCompiledWorkflow) {
+          throw new Error("Workflow run was not prepared before JSON execution.");
+        }
+        repository.primeRunCache({
+          runId,
+          compiled: activeCompiledWorkflow,
+          runInput: redactSecrets({
+            ...enrichedInputs,
+            __workflow_id: workflowId,
+          }) as Record<string, SerializableValue>,
+        });
         ensureWorkflowRunWorker({
           runId,
           repository,
@@ -1157,7 +1189,7 @@ export async function POST(req: Request) {
           });
           const safeResult = buildLegacyRuntimeResultFromBootstrap(
             finalBootstrap,
-            compiledWorkflow,
+            activeCompiledWorkflow,
           );
           const updatedFreeRunsRemaining = await getUpdatedFreeRunsRemaining();
           await finishUnifiedRun(
@@ -1166,19 +1198,28 @@ export async function POST(req: Request) {
             Date.now() - startTime,
           );
 
-          return NextResponse.json({
-            ok: finalBootstrap.run.status === "completed",
-            result: safeResult,
-            error:
-              finalBootstrap.run.status === "completed"
-                ? undefined
-                : simplifyWorkflowError(
-                    getBootstrapFailureMessage(finalBootstrap) || "Execution failed",
-                  ),
-            freeRunsRemaining: updatedFreeRunsRemaining,
-            runId,
-            runAccessToken,
-          });
+          return traceJson(
+            {
+              ok: finalBootstrap.run.status === "completed",
+              result: safeResult,
+              error:
+                finalBootstrap.run.status === "completed"
+                  ? undefined
+                  : simplifyWorkflowError(
+                      getBootstrapFailureMessage(finalBootstrap) || "Execution failed",
+                    ),
+              freeRunsRemaining: updatedFreeRunsRemaining,
+              runId,
+              runAccessToken,
+            },
+            200,
+            {
+              runId,
+              unifiedRunId,
+              finalStatus: finalBootstrap.run.status,
+              lastEventSequence: finalBootstrap.run.lastEventSequence,
+            },
+          );
         }
       } catch (err: unknown) {
         const duration = Date.now() - startTime;
@@ -1188,7 +1229,7 @@ export async function POST(req: Request) {
           duration,
           err instanceof Error ? err.message : "Workflow execution failed",
         );
-        return NextResponse.json(
+        return traceJson(
           {
             ok: false,
             error: simplifyWorkflowError(
@@ -1197,7 +1238,12 @@ export async function POST(req: Request) {
             freeRunsRemaining: enforcement.freeRunsRemaining,
             runId,
           },
-          { status: 500 },
+          500,
+          {
+            runId,
+            unifiedRunId,
+            duration,
+          },
         );
       }
     }
@@ -1408,14 +1454,24 @@ export async function POST(req: Request) {
           }
         },
       });
+      await trace.finish({
+        status: "streaming",
+        responseStatus: 200,
+        summary: {
+          runId,
+          unifiedRunId,
+          workflowId,
+          streamMode: "legacy_ndjson",
+        },
+      });
       return new Response(stream, {
-        headers: {
+        headers: trace.responseHeaders({
           "Content-Type": "text/event-stream; charset=utf-8",
           "Cache-Control": "no-cache, no-transform",
           Connection: "keep-alive",
           "X-Accel-Buffering": "no",
           "Content-Encoding": "identity",
-        },
+        }),
       });
     }
 
@@ -1531,13 +1587,22 @@ export async function POST(req: Request) {
         })),
       };
 
-      return NextResponse.json({
-        ok: true,
-        result: safeResult,
-        freeRunsRemaining: updatedFreeRunsRemaining,
-        runId,
-        runAccessToken,
-      });
+      return traceJson(
+        {
+          ok: true,
+          result: safeResult,
+          freeRunsRemaining: updatedFreeRunsRemaining,
+          runId,
+          runAccessToken,
+        },
+        200,
+        {
+          runId,
+          unifiedRunId,
+          finalStatus,
+          duration,
+        },
+      );
     } catch (err: any) {
       const duration = Date.now() - startTime;
       const errorMessage = err?.message || "Unknown error";
@@ -1603,7 +1668,7 @@ export async function POST(req: Request) {
       }
       await finishUnifiedRun(unifiedRunId, "error", duration, errorMessage);
 
-      return NextResponse.json(
+      return traceJson(
         {
           ok: false,
           error: simplifyWorkflowError(redactSecrets(errorMessage) as string),
@@ -1611,7 +1676,12 @@ export async function POST(req: Request) {
           runAccessToken,
           freeRunsRemaining: updatedFreeRunsRemaining,
         },
-        { status: 500 },
+        500,
+        {
+          runId,
+          unifiedRunId,
+          duration,
+        },
       );
     }
   } catch (e: any) {

@@ -338,22 +338,23 @@ export function deriveCustomerRuntimeModel(
 
   const runningNodeIds = getActiveNodeIds(state).slice(0, 3);
   const queuedNodeIds = runningNodeIds.length === 0 ? getQueuedNodeIds(state) : [];
-  const initialNodeIds =
-    runningNodeIds.length === 0 && queuedNodeIds.length === 0 && state.status === "running"
-      ? getInitialVisibleNodeIds(state)
-      : [];
   const activeNodeIds =
-    runningNodeIds.length > 0
-      ? runningNodeIds
-      : queuedNodeIds.length > 0
-        ? queuedNodeIds
-        : initialNodeIds;
+    runningNodeIds.length > 0 ? runningNodeIds : queuedNodeIds.length > 0 ? queuedNodeIds : [];
   const { activeNodes, activeEdges } = getVisibleGraph(state, activeNodeIds);
   const primaryLiveText = getLiveTextForNodeIds(state, runningNodeIds);
   const outputs = pickRuntimeOutputs(state);
   const elapsedLabel = formatRunElapsed(state.startedAt, state.finishedAt);
   const connectionState = state.connectionState ?? "idle";
   const displayNodeLabel = getRuntimeNodeLabel(activeNodes[0]);
+  const isAwaitingFirstExecutionSignal =
+    state.status === "running" &&
+    connectionState === "connecting" &&
+    runningNodeIds.length === 0 &&
+    queuedNodeIds.length === 0 &&
+    !state.lastEventSequence &&
+    !state.currentStepId &&
+    Object.keys(state.session?.nodesById ?? {}).length === 0 &&
+    Object.keys(state.liveTextByNode ?? {}).length === 0;
   const now = Date.now();
   const inactiveMs = state.lastEventAt ? now - state.lastEventAt : 0;
   const longRunning =
@@ -402,6 +403,10 @@ export function deriveCustomerRuntimeModel(
     mode = "failure";
     headline = "Run failed";
     subline = state.error || "The workflow stopped before any final result was produced.";
+  } else if (isAwaitingFirstExecutionSignal) {
+    mode = "queueing";
+    headline = "Connecting to execution";
+    subline = "Waiting for live runtime state...";
   } else if (
     (primaryLiveText?.status === "streaming" || primaryLiveText?.status === "committed") &&
     primaryLiveText.text
@@ -415,17 +420,20 @@ export function deriveCustomerRuntimeModel(
     subline =
       connectionState === "reconnecting"
         ? "Reconnecting to live updates..."
-        : longRunning
-          ? "This node is taking a little longer than usual."
-          : undefined;
+        : connectionState === "connecting"
+          ? "Connecting to execution..."
+          : longRunning
+            ? "This node is taking a little longer than usual."
+            : undefined;
   } else if (queuedNodeIds.length > 0) {
     mode = "queueing";
     headline = displayNodeLabel;
-    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : "Queued";
-  } else if (initialNodeIds.length > 0) {
-    mode = "queueing";
-    headline = displayNodeLabel;
-    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : "Queued";
+    subline =
+      connectionState === "reconnecting"
+        ? "Reconnecting to live updates..."
+        : connectionState === "connecting"
+          ? "Connecting to execution..."
+          : "Queued";
   } else if (allStepsTerminal(state) && state.status === "running") {
     mode = "finalizing";
     headline = "Preparing your results";
@@ -440,11 +448,13 @@ export function deriveCustomerRuntimeModel(
     subline =
       connectionState === "reconnecting"
         ? "Reconnecting to live updates..."
-        : nextNodeLabel
-          ? "Queued"
-          : longRunning
-            ? "Still progressing through the workflow."
-            : undefined;
+        : connectionState === "connecting"
+          ? "Connecting to execution..."
+          : nextNodeLabel
+            ? "Queued"
+            : longRunning
+              ? "Still progressing through the workflow."
+              : undefined;
   } else if (
     state.status === "running" &&
     (connectionState === "live" ||
@@ -454,7 +464,12 @@ export function deriveCustomerRuntimeModel(
   ) {
     mode = "queueing";
     headline = displayNodeLabel;
-    subline = connectionState === "reconnecting" ? "Reconnecting to live updates..." : "Queued";
+    subline =
+      connectionState === "reconnecting"
+        ? "Reconnecting to live updates..."
+        : connectionState === "connecting"
+          ? "Connecting to execution..."
+          : "Queued";
   } else {
     mode = "queueing";
     headline = state.status === "running" ? displayNodeLabel : "Ready to run";

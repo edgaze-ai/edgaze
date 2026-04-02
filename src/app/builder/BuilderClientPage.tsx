@@ -1752,8 +1752,8 @@ export default function BuilderPage() {
       status: "running",
       inputValues: processedInputs,
       startedAt: Date.now(),
-      connectionState: "live",
-      connectionLabel: undefined,
+      connectionState: "connecting",
+      connectionLabel: "Connecting to execution...",
       lastEventAt: Date.now(),
     });
 

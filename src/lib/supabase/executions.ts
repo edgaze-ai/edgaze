@@ -48,6 +48,8 @@ export async function createWorkflowRun(params: {
   userId: string;
   metadata?: Record<string, unknown>;
   idempotencyKey?: string | null;
+  status?: WorkflowRunRow["status"];
+  checkpoint?: WorkflowRunRow["checkpoint"];
 }) {
   const supabase = createSupabaseAdminClient();
   const trimmedIdempotencyKey = params.idempotencyKey?.trim() || null;
@@ -66,11 +68,14 @@ export async function createWorkflowRun(params: {
 
   const insertData: Record<string, unknown> = {
     user_id: params.userId,
-    status: "pending",
+    status: params.status ?? "pending",
     started_at: new Date().toISOString(),
     metadata: params.metadata ?? {},
     idempotency_key: trimmedIdempotencyKey,
   };
+  if (params.checkpoint !== undefined) {
+    insertData.checkpoint = params.checkpoint;
+  }
 
   if (params.workflowId) {
     insertData.workflow_id = params.workflowId;
@@ -107,7 +112,13 @@ export async function updateWorkflowRun(
   updates: Partial<
     Pick<
       WorkflowRunRow,
-      "status" | "completed_at" | "duration_ms" | "error_details" | "state_snapshot" | "checkpoint"
+      | "status"
+      | "completed_at"
+      | "duration_ms"
+      | "error_details"
+      | "state_snapshot"
+      | "checkpoint"
+      | "user_id"
     >
   >,
 ) {

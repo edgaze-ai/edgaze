@@ -88,7 +88,7 @@ type AuthContextValue = {
   }) => Promise<void>;
 
   // Get access token for API calls
-  getAccessToken: () => Promise<string | null>;
+  getAccessToken: (options?: { eagerRefresh?: boolean }) => Promise<string | null>;
 
   // Refresh the auth session (e.g. before checkout to avoid 401)
   refreshAuthSession: () => Promise<void>;
@@ -879,61 +879,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const getAccessToken = useCallback(async (): Promise<string | null> => {
-    try {
-      // First try to get the current session
-      const {
-        data: { session },
-        error,
-      } = await supabase.auth.getSession();
+  const getAccessToken = useCallback(
+    async (options?: { eagerRefresh?: boolean }): Promise<string | null> => {
+      const eagerRefresh = options?.eagerRefresh !== false;
+      try {
+        // First try to get the current session
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
 
-      if (error) {
-        console.warn("Error getting session in getAccessToken:", error);
-        return null;
-      }
-
-      if (!session?.access_token) {
-        return null;
-      }
-
-      // Check if token is expired or about to expire (within 60 seconds)
-      // expires_at is in seconds since epoch
-      const expiresAt = session.expires_at;
-      if (expiresAt) {
-        const now = Math.floor(Date.now() / 1000);
-        const expiresIn = expiresAt - now;
-
-        // If token expires within 60 seconds, refresh it
-        if (expiresIn < 60) {
-          // Token is expired or about to expire, try to refresh
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-          if (refreshError) {
-            // Invalid/missing refresh token (e.g. session revoked, storage cleared)
-            // Clear the bad session and treat as signed out
-            const isRefreshTokenError =
-              refreshError.message?.includes("Refresh Token") ||
-              refreshError.message?.includes("refresh_token") ||
-              refreshError.message?.includes("refresh token");
-            if (isRefreshTokenError) {
-              await supabase.auth.signOut();
-              applyNoUser();
-              return null;
-            }
-            // Other refresh errors: return existing token (may still work for short grace period)
-            console.warn("Error refreshing session:", refreshError);
-            return session.access_token;
-          }
-          return refreshData?.session?.access_token ?? session.access_token;
+        if (error) {
+          console.warn("Error getting session in getAccessToken:", error);
+          return null;
         }
-      }
 
-      // Token is still valid
-      return session.access_token;
-    } catch (error) {
-      console.error("Unexpected error in getAccessToken:", error);
-      return null;
-    }
-  }, [supabase, applyNoUser]);
+        if (!session?.access_token) {
+          return null;
+        }
+
+        // Check if token is expired or about to expire (within 60 seconds)
+        // expires_at is in seconds since epoch
+        const expiresAt = session.expires_at;
+        if (expiresAt) {
+          const now = Math.floor(Date.now() / 1000);
+          const expiresIn = expiresAt - now;
+
+          // If token expires within 60 seconds, refresh it
+          if (expiresIn < 60) {
+            if (!eagerRefresh) {
+              // Hot paths like starting a live run should use the current token immediately and
+              // refresh in the background so the request is not blocked on auth churn.
+              void supabase.auth
+                .refreshSession()
+                .then(async ({ data: refreshData, error: refreshError }) => {
+                  if (refreshError) return;
+                  if (refreshData?.session?.user) {
+                    await applyUser(refreshData.session.user);
+                  }
+                })
+                .catch(() => {});
+              return session.access_token;
+            }
+            // Token is expired or about to expire, try to refresh
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            if (refreshError) {
+              // Invalid/missing refresh token (e.g. session revoked, storage cleared)
+              // Clear the bad session and treat as signed out
+              const isRefreshTokenError =
+                refreshError.message?.includes("Refresh Token") ||
+                refreshError.message?.includes("refresh_token") ||
+                refreshError.message?.includes("refresh token");
+              if (isRefreshTokenError) {
+                await supabase.auth.signOut();
+                applyNoUser();
+                return null;
+              }
+              // Other refresh errors: return existing token (may still work for short grace period)
+              console.warn("Error refreshing session:", refreshError);
+              return session.access_token;
+            }
+            return refreshData?.session?.access_token ?? session.access_token;
+          }
+        }
+
+        // Token is still valid
+        return session.access_token;
+      } catch (error) {
+        console.error("Unexpected error in getAccessToken:", error);
+        return null;
+      }
+    },
+    [supabase, applyNoUser, applyUser],
+  );
 
   const refreshAuthSession = useCallback(async () => {
     try {

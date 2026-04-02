@@ -67,6 +67,15 @@ export async function getUserFromRequest(req: NextRequest | Request): Promise<Au
     return { user: null, error: "Missing Authorization token" };
   }
 
+  return getUserFromBearerToken(token);
+}
+
+export async function getUserFromBearerToken(token: string): Promise<AuthResult> {
+  const normalizedToken = token.trim();
+  if (!normalizedToken) {
+    return { user: null, error: "Missing Authorization token" };
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anon) {
@@ -74,11 +83,11 @@ export async function getUserFromRequest(req: NextRequest | Request): Promise<Au
   }
 
   const supabase = createClient(url, anon, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
+    global: { headers: { Authorization: `Bearer ${normalizedToken}` } },
     auth: { persistSession: false },
   });
 
-  const { data, error } = await supabase.auth.getUser(token);
+  const { data, error } = await supabase.auth.getUser(normalizedToken);
   if (error || !data?.user) {
     return { user: null, error: error?.message ?? "Invalid token" };
   }
