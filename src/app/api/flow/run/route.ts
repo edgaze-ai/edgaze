@@ -462,7 +462,10 @@ export async function POST(req: Request) {
         );
         trace.updateLinks({ workflowRunId: run.id, correlationId: run.id });
         void ensureWorkflowRunPrepared(run.id).catch((err) => {
-          console.error("[flow/run] Background workflow preparation failed (ultra-fast stream):", err);
+          console.error(
+            "[flow/run] Background workflow preparation failed (ultra-fast stream):",
+            err,
+          );
         });
         return traceJson(
           {

@@ -239,9 +239,9 @@ function buildNodeExecutionDetails(params: {
             ? node.title
             : typeof node.nodeId === "string" && node.nodeId.trim()
               ? node.nodeId
-            : typeof node.name === "string" && node.name.trim()
-              ? node.name
-              : nodeId,
+              : typeof node.name === "string" && node.name.trim()
+                ? node.name
+                : nodeId,
         specId: typeof node.specId === "string" ? node.specId : null,
         status: typeof node.status === "string" ? node.status : null,
         serverStartedAtEpochMs: effectiveServerStartedAtEpochMs,
