@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getUserFromRequest } from "@lib/auth/server";
-import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { isAdmin } from "@lib/supabase/executions";
+import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { resolveWorkflowRunBundleMetadata } from "src/server/trace-admin";
 
 function getSinceIso(range: string) {
   const days = range === "90d" ? 90 : range === "30d" ? 30 : 7;
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
       .from("trace_sessions")
       .select("*", { count: "exact" })
       .gte("created_at", getSinceIso(range))
+      .not("workflow_run_id", "is", null)
       .order("started_at_epoch_ms", { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -51,18 +53,68 @@ export async function GET(req: NextRequest) {
     const { data: sessions, error, count } = await sessionsQuery;
     if (error) throw error;
 
-    const filteredSessions = (sessions ?? []).filter((session: Record<string, unknown>) => {
+    const groupedByWorkflowRunId = new Map<string, Record<string, unknown>[]>();
+    for (const session of sessions ?? []) {
+      const workflowRunId =
+        typeof session.workflow_run_id === "string" && session.workflow_run_id.trim()
+          ? session.workflow_run_id
+          : null;
+      if (!workflowRunId) continue;
+      if (!groupedByWorkflowRunId.has(workflowRunId)) groupedByWorkflowRunId.set(workflowRunId, []);
+      groupedByWorkflowRunId.get(workflowRunId)!.push(session as Record<string, unknown>);
+    }
+
+    const bundleMetadata = await resolveWorkflowRunBundleMetadata([
+      ...groupedByWorkflowRunId.keys(),
+    ]);
+    const bundles = [...groupedByWorkflowRunId.entries()].map(([workflowRunId, runSessions]) => {
+      const meta = bundleMetadata.get(workflowRunId);
+      const firstStartedAt = Math.min(
+        ...runSessions.map((session) => Number(session.started_at_epoch_ms ?? Date.now())),
+      );
+      const lastDurationMs = Math.max(
+        0,
+        ...runSessions.map((session) => Number(session.duration_ms ?? 0)),
+      );
+      const eventCount = runSessions.reduce(
+        (sum, session) => sum + Number(session.event_count ?? 0),
+        0,
+      );
+      return {
+        id: workflowRunId,
+        workflow_run_id: workflowRunId,
+        workflow_name: meta?.workflowName ?? "Untitled Workflow",
+        account_label: meta?.accountLabel ?? "unknown",
+        account_handle: meta?.accountHandle ?? null,
+        account_name: meta?.accountName ?? null,
+        source: "workflow_run_bundle",
+        phase: "bundle",
+        route_id: runSessions[0]?.route_id ?? null,
+        request_path: runSessions[0]?.request_path ?? null,
+        workflow_id: meta?.workflowId ?? null,
+        analytics_run_id: runSessions[0]?.analytics_run_id ?? null,
+        status: meta?.status ?? String(runSessions[runSessions.length - 1]?.status ?? "unknown"),
+        actor_id: meta?.runnerUserId ?? null,
+        started_at_epoch_ms: Number.isFinite(firstStartedAt) ? firstStartedAt : Date.now(),
+        duration_ms: meta?.durationMs ?? lastDurationMs,
+        event_count: eventCount,
+        session_count: runSessions.length,
+      };
+    });
+
+    const filteredBundles = bundles.filter((bundle) => {
       if (!query) return true;
       const haystack = [
-        session.id,
-        session.route_id,
-        session.request_path,
-        session.workflow_id,
-        session.workflow_run_id,
-        session.analytics_run_id,
-        session.correlation_id,
-        session.actor_id,
-        session.status,
+        bundle.id,
+        bundle.workflow_name,
+        bundle.account_label,
+        bundle.account_handle,
+        bundle.account_name,
+        bundle.route_id,
+        bundle.request_path,
+        bundle.workflow_id,
+        bundle.analytics_run_id,
+        bundle.status,
       ]
         .map((value) => String(value ?? "").toLowerCase())
         .join(" ");
@@ -70,8 +122,8 @@ export async function GET(req: NextRequest) {
     });
 
     const aggregates = {
-      totalSessions: count ?? filteredSessions.length,
-      byPhase: filteredSessions.reduce(
+      totalSessions: count ?? filteredBundles.length,
+      byPhase: filteredBundles.reduce(
         (acc: Record<string, number>, session: Record<string, unknown>) => {
           const key = String(session.phase ?? "unknown");
           acc[key] = (acc[key] ?? 0) + 1;
@@ -79,7 +131,7 @@ export async function GET(req: NextRequest) {
         },
         {},
       ),
-      bySource: filteredSessions.reduce(
+      bySource: filteredBundles.reduce(
         (acc: Record<string, number>, session: Record<string, unknown>) => {
           const key = String(session.source ?? "unknown");
           acc[key] = (acc[key] ?? 0) + 1;
@@ -90,8 +142,8 @@ export async function GET(req: NextRequest) {
     };
 
     return NextResponse.json({
-      sessions: filteredSessions,
-      total: count ?? filteredSessions.length,
+      sessions: filteredBundles,
+      total: filteredBundles.length,
       page,
       limit,
       aggregates,

@@ -1,11 +1,11 @@
 // src/server/flow/runtime-enforcement.ts
 import {
+  countUserTerminalRunsForCap,
   getUserWorkflowRunCount,
   isAdmin,
   getWorkflowDraftId,
   workflowExists,
 } from "../../lib/supabase/executions";
-import { createSupabaseAdminClient } from "../../lib/supabase/admin";
 import {
   getEdgazeApiKey,
   hasEdgazeApiKey,
@@ -58,6 +58,26 @@ export type RuntimeEnforcementResult = {
   useEdgazeGemini: boolean;
   error?: string;
 };
+
+async function resolveDraftIdForEnforcement(
+  draftIdForCount: string | null,
+  workflowId: string,
+  userId: string,
+  isBuilderTest: boolean,
+): Promise<string | null> {
+  let draftId: string | null = draftIdForCount;
+  try {
+    if (draftId == null) {
+      const exists = await workflowExists(workflowId);
+      if (!exists && isBuilderTest) {
+        draftId = await getWorkflowDraftId(workflowId, userId);
+      }
+    }
+  } catch {
+    // proceed
+  }
+  return draftId;
+}
 
 /** Platform key routing for anonymous/admin demo — reuse for authenticated “Try demo” so model tier matches. */
 export function demoTierPlatformKeyFlags(
@@ -141,8 +161,6 @@ export async function enforceRuntimeLimits(params: {
       };
     }
 
-    const supabase = createSupabaseAdminClient();
-
     const userIsAdmin = await isAdmin(userId);
     if (userIsAdmin) {
       const hasAnyAi = nodes.some((n) => isAiPremiumNode(n.data?.specId));
@@ -164,30 +182,17 @@ export async function enforceRuntimeLimits(params: {
       };
     }
 
-    let draftId: string | null = draftIdForCount;
-    try {
-      if (draftId == null) {
-        const exists = await workflowExists(workflowId);
-        if (!exists && isBuilderTest) {
-          draftId = await getWorkflowDraftId(workflowId, userId);
-        }
-      }
-    } catch {
-      // proceed
-    }
-    const workflowRunCount = await getUserWorkflowRunCount(userId, workflowId, draftId);
+    const draftId = await resolveDraftIdForEnforcement(
+      draftIdForCount,
+      workflowId,
+      userId,
+      isBuilderTest,
+    );
 
-    const { count: userTotalRuns, error: userCountError } = await supabase
-      .from("workflow_runs")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .in("status", ["completed", "failed"]);
-
-    if (userCountError) {
-      console.error("Error checking user total runs:", userCountError);
-    }
-
-    const totalUserRuns = userTotalRuns ?? 0;
+    const [workflowRunCount, totalUserRuns] = await Promise.all([
+      getUserWorkflowRunCount(userId, workflowId, draftId),
+      countUserTerminalRunsForCap(userId),
+    ]);
 
     if (workflowRunCount >= MAX_RUNS_PER_WORKFLOW) {
       return {

@@ -20,12 +20,16 @@ type TraceSessionRow = {
   started_at_epoch_ms: number;
   duration_ms?: number | null;
   event_count?: number | null;
+  workflow_name?: string | null;
+  account_label?: string | null;
+  session_count?: number | null;
 };
 
 type TimelineEntry = {
   timelineSource: string;
   timestampEpochMs: number;
-  sinceSessionStartMs: number;
+  sinceSessionStartMs?: number;
+  sinceBundleStartMs?: number;
   phase: string;
   source: string;
   sessionId: string;
@@ -39,8 +43,10 @@ type TimelineEntry = {
 };
 
 type TraceDetail = {
-  session: Record<string, unknown>;
-  relatedSessions: Array<Record<string, unknown>>;
+  bundle: Record<string, unknown>;
+  traceSessions: Array<Record<string, unknown>>;
+  traceEntries: Array<Record<string, unknown>>;
+  workflowEvents: Array<Record<string, unknown>>;
   timeline: TimelineEntry[];
 };
 
@@ -62,6 +68,10 @@ function formatDuration(ms?: number | null) {
   if (!ms || ms <= 0) return "0 ms";
   if (ms < 1000) return `${ms} ms`;
   return `${(ms / 1000).toFixed(2)} s`;
+}
+
+function getRelativeMs(item: TimelineEntry) {
+  return item.sinceBundleStartMs ?? item.sinceSessionStartMs ?? 0;
 }
 
 export default function AdminTracesPage() {
@@ -132,6 +142,18 @@ export default function AdminTracesPage() {
     }
   }, [loadDetail, selectedSessionId]);
 
+  // Enable scrolling like other admin pages
+  useEffect(() => {
+    const main = document.querySelector("main");
+    if (!main) return;
+    main.style.overflowY = "auto";
+    main.style.overflowX = "hidden";
+    return () => {
+      main.style.overflowY = "";
+      main.style.overflowX = "";
+    };
+  }, []);
+
   const groupedTimeline = useMemo(() => {
     const groups = new Map<string, TimelineEntry[]>();
     for (const item of detail?.timeline ?? []) {
@@ -169,7 +191,8 @@ export default function AdminTracesPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-white">Trace timeline</h1>
           <p className="mt-1 text-[13px] text-white/50">
-            Correlate request, worker, stream, and client events in a strict ordered timeline.
+            One heavily detailed trace bundle per workflow run, with the full ordered timeline in
+            one place.
           </p>
         </div>
         <button
@@ -218,7 +241,7 @@ export default function AdminTracesPage() {
               onKeyDown={(event) => {
                 if (event.key === "Enter") setSearch(query);
               }}
-              placeholder="Search session id, route, run id, workflow id..."
+              placeholder="Search workflow run, workflow name, account, route..."
               className="w-full bg-transparent text-[13px] text-white outline-none placeholder:text-white/30"
             />
           </div>
@@ -235,7 +258,7 @@ export default function AdminTracesPage() {
         <div className={`${cardClass} p-3`}>
           <div className="mb-3 flex items-center justify-between px-2">
             <span className="text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
-              Sessions
+              Workflow Runs
             </span>
             {loading ? <Loader2 className="h-4 w-4 animate-spin text-white/45" /> : null}
           </div>
@@ -253,25 +276,31 @@ export default function AdminTracesPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-[13px] font-medium text-white">
-                      {session.route_id || session.request_path || session.id}
+                      {session.workflow_name ||
+                        session.route_id ||
+                        session.request_path ||
+                        session.id}
                     </div>
-                    <div className="mt-1 truncate text-[12px] text-white/45">{session.id}</div>
+                    <div className="mt-1 truncate text-[12px] text-white/45">
+                      {session.account_label || "unknown"} · {session.id}
+                    </div>
                   </div>
                   <div className="rounded-full border border-white/[0.08] px-2 py-1 text-[11px] uppercase tracking-[0.18em] text-white/55">
-                    {session.phase}
+                    run
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/45">
                   <span>{formatTime(session.started_at_epoch_ms)}</span>
                   <span>{formatDuration(session.duration_ms)}</span>
                   <span>{session.event_count ?? 0} events</span>
+                  <span>{session.session_count ?? 0} sessions</span>
                   <span>{session.status ?? "unknown"}</span>
                 </div>
               </button>
             ))}
             {!loading && sessions.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/[0.08] p-6 text-center text-[13px] text-white/45">
-                No trace sessions matched your filters.
+                No workflow-run trace bundles matched your filters.
               </div>
             ) : null}
           </div>
@@ -285,17 +314,35 @@ export default function AdminTracesPage() {
             </div>
           ) : !detail ? (
             <div className="flex min-h-[420px] items-center justify-center text-white/45">
-              Select a trace session to inspect the merged timeline.
+              Select a workflow run to inspect its full trace bundle.
             </div>
           ) : (
             <div className="space-y-6">
               <div className="grid gap-3 md:grid-cols-4">
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                    Workflow
+                  </div>
+                  <div className="mt-2 text-[14px] font-medium text-white">
+                    {String(detail.bundle.workflowName ?? "Untitled Workflow")}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                    Account
+                  </div>
+                  <div className="mt-2 text-[14px] font-medium text-white">
+                    {String(detail.bundle.accountLabel ?? "unknown")}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
                     Started
                   </div>
                   <div className="mt-2 text-[14px] font-medium text-white">
-                    {formatTime(Number(detail.session.started_at_epoch_ms ?? 0))}
+                    {detail.bundle.startedAt
+                      ? formatTime(Date.parse(String(detail.bundle.startedAt)))
+                      : "Unknown"}
                   </div>
                 </div>
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
@@ -303,15 +350,34 @@ export default function AdminTracesPage() {
                     Duration
                   </div>
                   <div className="mt-2 text-[14px] font-medium text-white">
-                    {formatDuration(Number(detail.session.duration_ms ?? 0))}
+                    {formatDuration(Number(detail.bundle.durationMs ?? 0))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                    Trace Sessions
+                  </div>
+                  <div className="mt-2 text-[14px] font-medium text-white">
+                    {detail.traceSessions.length}
                   </div>
                 </div>
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
                   <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
-                    Related Sessions
+                    Trace Entries
                   </div>
                   <div className="mt-2 text-[14px] font-medium text-white">
-                    {detail.relatedSessions.length}
+                    {detail.traceEntries.length}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                    Workflow Events
+                  </div>
+                  <div className="mt-2 text-[14px] font-medium text-white">
+                    {detail.workflowEvents.length}
                   </div>
                 </div>
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
@@ -348,8 +414,7 @@ export default function AdminTracesPage() {
                                   {item.eventName}
                                 </div>
                                 <div className="mt-1 text-[12px] text-white/45">
-                                  {formatTime(item.timestampEpochMs)} · +{item.sinceSessionStartMs}{" "}
-                                  ms
+                                  {formatTime(item.timestampEpochMs)} · +{getRelativeMs(item)} ms
                                 </div>
                               </div>
                               <div className="flex flex-wrap gap-2 text-[11px] text-white/45">
