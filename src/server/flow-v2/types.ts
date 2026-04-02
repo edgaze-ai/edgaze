@@ -301,9 +301,19 @@ export type RunEvent =
       payload: {
         nodeId: string;
         attemptNumber?: number;
+        specId?: string;
         status: WorkflowRunNodeStatus | WorkflowRunNodeAttemptStatus;
         message?: string;
         reason?: string;
+        inputBytes?: number;
+        inputSizeBucket?: string;
+        outputBytes?: number;
+        outputSizeBucket?: string;
+        outputPortCount?: number;
+        errorBytes?: number;
+        errorSizeBucket?: string;
+        streamChunkIndex?: number;
+        totalStreamedChars?: number;
         delta?: string;
         text?: string;
         format?: "plain" | "markdown";

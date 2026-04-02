@@ -249,8 +249,11 @@ export async function executeClaimedNode(
             payload: {
               nodeId: params.workItem.compiledNode.id,
               attemptNumber: params.workItem.attemptNumber,
+              specId,
               status: "running",
               message: "Node input materialized and frozen for this attempt.",
+              inputBytes: inputPayloadRef.byteLength ?? 0,
+              inputSizeBucket: payloadSizeBucket(inputPayloadRef.byteLength),
             },
           });
         }
@@ -265,6 +268,7 @@ export async function executeClaimedNode(
   let fullStreamText = "";
   let lastStreamFlushAt = 0;
   const streamFormat: "plain" | "markdown" = "markdown";
+  let streamChunkIndex = 0;
 
   const flushStreamDelta = async (force = false) => {
     if (!params.repository.appendRunEvent || streamBuffer.length === 0) return;
@@ -274,6 +278,7 @@ export async function executeClaimedNode(
     const delta = streamBuffer;
     streamBuffer = "";
     lastStreamFlushAt = now;
+    streamChunkIndex += 1;
     await perfAsync(
       runId,
       "node.streamEmit.delta",
@@ -286,9 +291,12 @@ export async function executeClaimedNode(
           payload: {
             nodeId: params.workItem.compiledNode.id,
             attemptNumber: params.workItem.attemptNumber,
+            specId,
             status: "running",
             delta,
             format: streamFormat,
+            streamChunkIndex,
+            totalStreamedChars: fullStreamText.length,
           },
         }),
       {
@@ -322,6 +330,7 @@ export async function executeClaimedNode(
               payload: {
                 nodeId,
                 attemptNumber: params.workItem.attemptNumber,
+                specId,
                 status: "running",
                 format: payload.format ?? streamFormat,
               },
@@ -351,10 +360,12 @@ export async function executeClaimedNode(
               payload: {
                 nodeId,
                 attemptNumber: params.workItem.attemptNumber,
+                specId,
                 status: payload.status === "interrupted" ? "cancelled" : "completed",
                 text: typeof payload.text === "string" ? payload.text : fullStreamText,
                 format: payload.format ?? streamFormat,
                 error: payload.error ?? null,
+                totalStreamedChars: fullStreamText.length,
               },
             }),
           {
@@ -380,6 +391,7 @@ export async function executeClaimedNode(
           payload: {
             nodeId: params.workItem.compiledNode.id,
             attemptNumber: params.workItem.attemptNumber,
+            specId,
             status:
               result.status === "completed"
                 ? "completed"
@@ -389,6 +401,7 @@ export async function executeClaimedNode(
             text: fullStreamText,
             format: streamFormat,
             error: result.error?.message ?? null,
+            totalStreamedChars: fullStreamText.length,
           },
         }),
       {

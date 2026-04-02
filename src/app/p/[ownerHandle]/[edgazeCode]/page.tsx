@@ -44,6 +44,7 @@ import ReportModal from "../../../../components/marketplace/ReportModal";
 import { toRuntimeGraph } from "../../../../lib/workflow/customer-runtime";
 import { finalizeClientWorkflowRunFromExecutionResult } from "../../../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../../../lib/workflow/run-stream-client";
+import { startClientTraceSession } from "../../../../lib/workflow/client-trace";
 import type { WorkflowRunState } from "../../../../lib/workflow/run-types";
 const CommentsSection = CommentsSectionRaw as unknown as React.ComponentType<any>;
 
@@ -2105,12 +2106,33 @@ export default function PromptProductPage() {
       status: "running",
       inputValues: processedInputs,
       startedAt: Date.now(),
-      connectionState: "live",
-      connectionLabel: undefined,
+      connectionState: "connecting",
+      connectionLabel: "Connecting to execution...",
       lastEventAt: Date.now(),
     });
 
     try {
+      const clientTrace = startClientTraceSession({
+        routeId: "customer.workflow.run",
+        requestPath: typeof window !== "undefined" ? window.location.pathname : null,
+        workflowId: listing.id,
+        context: {
+          surface: "customer_marketplace_compact",
+          isDemoRun,
+          userId: userId ?? null,
+        },
+      });
+      clientTrace.record({
+        phase: "request",
+        eventName: "run_start.initiated",
+        payload: {
+          workflowId: listing.id,
+          inputKeyCount: Object.keys(processedInputs ?? {}).length,
+          userApiKeyNodeCount: Object.keys(userApiKeys ?? {}).length,
+          isDemoRun,
+          hasUserId: Boolean(userId),
+        },
+      });
       // Admin demo link: pass token to bypass auth and device limit. Otherwise use device fingerprint for anonymous demo.
       const deviceFingerprint =
         !userId && isDemoRun && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
@@ -2118,17 +2140,24 @@ export default function PromptProductPage() {
       // Signed-in users must send Bearer token - API uses getUserFromRequest (Bearer only)
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (userId) {
-        let token = await getAccessToken();
-        if (!token) {
-          await refreshAuthSession();
-          token = await getAccessToken();
-        }
+        const tokenStartedAt = Date.now();
+        const token = await getAccessToken({ eagerRefresh: false });
+        clientTrace.record({
+          phase: "request",
+          eventName: "auth.token_resolved",
+          durationMs: Date.now() - tokenStartedAt,
+          payload: {
+            workflowId: listing.id,
+            hasToken: Boolean(token),
+          },
+        });
         if (token) headers["Authorization"] = `Bearer ${token}`;
       }
       workflowRunSessionPollRef.current?.abort();
       workflowRunSessionPollRef.current = null;
       workflowRunAbortRef.current = new AbortController();
 
+      const postStartedAt = Date.now();
       const response = await fetch("/api/flow/run", {
         method: "POST",
         headers,
@@ -2136,8 +2165,6 @@ export default function PromptProductPage() {
         signal: workflowRunAbortRef.current.signal,
         body: JSON.stringify({
           workflowId: listing.id,
-          nodes: workflowGraph.nodes || [],
-          edges: workflowGraph.edges || [],
           inputs: processedInputs,
           userApiKeys,
           isDemo: !userId && isDemoRun && !isDemoModeActive,
@@ -2147,9 +2174,25 @@ export default function PromptProductPage() {
           forceDemoModelTier: isDemoRun,
         }),
       });
+      clientTrace.setClockFromServerEpoch(response.headers.get("x-trace-server-epoch-ms"));
+      clientTrace.record({
+        phase: "request",
+        eventName: "run_start.post_completed",
+        durationMs: Date.now() - postStartedAt,
+        httpStatus: response.status,
+        payload: {
+          workflowId: listing.id,
+          ok: response.ok,
+          traceSessionId: response.headers.get("x-trace-session-id"),
+        },
+      });
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: "Unknown error" }));
+        await clientTrace.finish({
+          status: "failed",
+          errorMessage: error.error || `HTTP ${response.status}`,
+        });
         throw new Error(error.error || `HTTP ${response.status}`);
       }
 
@@ -2164,6 +2207,7 @@ export default function PromptProductPage() {
         workflowName: listing.title || "Workflow",
         inputValues: processedInputs,
         sourceGraph: toRuntimeGraph(workflowGraph),
+        clientTrace,
       });
       if (streamResult.handedOff) {
         return;
@@ -2186,6 +2230,7 @@ export default function PromptProductPage() {
           ...completion,
         });
       }
+      await clientTrace.finish({ status: "completed" });
     } catch (error: any) {
       setWorkflowRunState({
         ...workflowRunState,

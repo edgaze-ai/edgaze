@@ -1,6 +1,6 @@
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getUserFromRequest } from "@lib/auth/server";
-import { getWorkflowRunById, isAdmin } from "@lib/supabase/executions";
+import { isAdmin } from "@lib/supabase/executions";
 
 import type {
   PayloadReference,
@@ -49,7 +49,13 @@ export async function requireWorkflowRunAccess(
   const url = new URL(req.url);
   const runAccessToken =
     url.searchParams.get("runAccessToken") ?? req.headers.get("x-run-access-token");
-  const run = await getWorkflowRunById(runId);
+  const supabase = createSupabaseAdminClient();
+  const { data: run, error: runError } = await supabase
+    .from("workflow_runs")
+    .select("id, user_id, status, metadata")
+    .eq("id", runId)
+    .maybeSingle();
+  if (runError) throw runError;
   if (!run) {
     throw new Error("Run not found");
   }

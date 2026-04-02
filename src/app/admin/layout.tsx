@@ -48,6 +48,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   Runs
                 </Link>
                 <Link
+                  href="/admin/traces"
+                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
+                >
+                  Traces
+                </Link>
+                <Link
                   href="/admin/invites"
                   className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
                 >

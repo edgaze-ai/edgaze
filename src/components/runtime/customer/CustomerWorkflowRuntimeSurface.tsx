@@ -52,63 +52,9 @@ type CustomerWorkflowRuntimeSurfaceProps = {
 
 function isImageLike(value: unknown): boolean {
   if (typeof value !== "string") return false;
-  if (value.startsWith("data:image/")) return true;
-  return /^(https?:\/\/.*\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?)$/i.test(value);
-}
-
-/** Avoid fetch()+blob for multi‑MB data URLs — blocks the main thread and feels like a hang. */
-const MAX_DATA_URL_CHARS_FOR_BLOB_URL = 1_500_000;
-
-function useImageObjectUrl(value: unknown) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [isDataUrl, setIsDataUrl] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    let objectUrl: string | null = null;
-
-    async function run() {
-      if (typeof value !== "string") {
-        setIsDataUrl(false);
-        setUrl(null);
-        return;
-      }
-      const trimmed = value.trim();
-      const dataUrl = trimmed.startsWith("data:image/");
-      setIsDataUrl(dataUrl);
-      if (!dataUrl) {
-        setUrl(trimmed);
-        return;
-      }
-
-      if (trimmed.length > MAX_DATA_URL_CHARS_FOR_BLOB_URL) {
-        setUrl(trimmed);
-        return;
-      }
-
-      try {
-        // Convert the huge data URL into a short-lived blob URL so "Open image" works reliably
-        // (some browsers will fail/navigate to about:blank for very large data: URLs).
-        const blob = await (await fetch(trimmed)).blob();
-        objectUrl = URL.createObjectURL(blob);
-        if (!alive) return;
-        setUrl(objectUrl);
-      } catch {
-        // Fallback: keep the original data URL (still renders inline via <img src>)
-        if (!alive) return;
-        setUrl(trimmed);
-      }
-    }
-
-    run();
-
-    return () => {
-      alive = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [value]);
-
-  return { url, isDataUrl };
+  const t = value.trim();
+  if (/^data:image\//i.test(t)) return true;
+  return /^(https?:\/\/.*\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?)$/i.test(t);
 }
 
 function isProbablyFileUrl(value: unknown): boolean {
@@ -328,11 +274,9 @@ function ResultPanel({
 }) {
   const canExpand = Boolean(onToggleExpand);
   const [copied, setCopied] = useState(false);
-  const image = useImageObjectUrl(value);
 
   if (isImageLike(value)) {
-    const raw = typeof value === "string" ? value.trim() : "";
-    const imgSrc = image.url || raw;
+    const imgSrc = typeof value === "string" ? value.trim() : "";
     return (
       <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.34)]">
         <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-white/42">
@@ -608,6 +552,11 @@ function ActionZone({
   if (!model) return null;
 
   const primaryOutput = model.outputs[0];
+  const primaryOutputExists = primaryOutput != null;
+  const primaryOutputIsInlineText =
+    typeof primaryOutput?.value === "string" &&
+    !isImageLike(primaryOutput.value) &&
+    !isProbablyFileUrl(primaryOutput.value);
   const copyTarget =
     typeof primaryOutput?.value === "string"
       ? primaryOutput.value
@@ -629,7 +578,8 @@ function ActionZone({
       )}
 
       {(state.status === "success" || state.status === "error" || state.status === "cancelled") &&
-        onRerun && (
+        onRerun &&
+        !primaryOutputIsInlineText && (
           <button
             type="button"
             onClick={onRerun}
@@ -641,6 +591,7 @@ function ActionZone({
         )}
 
       {copyTarget &&
+        !primaryOutputExists &&
         (state.status === "success" ||
           state.status === "error" ||
           state.status === "cancelled") && (
@@ -658,22 +609,6 @@ function ActionZone({
             {copied ? "Copied" : "Copy result"}
           </button>
         )}
-
-      {primaryOutput && (state.status === "success" || state.status === "error") && (
-        <button
-          type="button"
-          onClick={() =>
-            downloadValue(
-              `${formatOutputLabel(primaryOutput.label).toLowerCase().replace(/\s+/g, "-")}.txt`,
-              primaryOutput.value,
-            )
-          }
-          className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-white/82 transition hover:bg-white/[0.09]"
-        >
-          <Download className="h-4 w-4" />
-          Download
-        </button>
-      )}
 
       {showClose && onClose && (
         <button
@@ -1108,6 +1043,46 @@ function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?:
   );
 }
 
+function RuntimePhaseAnimation({ variant }: { variant: "connecting" | "finalizing" }) {
+  const title = variant === "connecting" ? "Establishing live link" : "Assembling final output";
+  const subtitle =
+    variant === "connecting"
+      ? "Opening the execution stream and syncing the first live snapshot."
+      : "The run is complete. Packaging the final state before showing results.";
+  const eyebrow = variant === "connecting" ? "Connecting" : "Finalizing";
+
+  return (
+    <div className="relative w-full max-w-[940px] py-4">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(109,233,255,0.12),transparent_42%),radial-gradient(circle_at_72%_30%,rgba(255,101,194,0.11),transparent_28%)] runtime-ambient-flow" />
+      <div className="relative flex flex-col items-center gap-8">
+        <div className="relative flex h-[220px] w-full items-center justify-center overflow-hidden">
+          <div className="absolute inset-x-[16%] top-1/2 h-px -translate-y-1/2 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.10),rgba(255,255,255,0.32),rgba(255,255,255,0.10),transparent)]" />
+          <div className="absolute inset-x-[22%] top-1/2 h-[72px] -translate-y-1/2 rounded-full border border-white/6 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_70%)] backdrop-blur-[2px]" />
+          <div className="absolute h-[176px] w-[176px] rounded-full border border-cyan-300/12 runtime-signal-rotate" />
+          <div className="absolute h-[122px] w-[122px] rounded-full border border-fuchsia-300/12 [animation-direction:reverse] runtime-signal-rotate" />
+          <div className="absolute h-[74px] w-[74px] rounded-full border border-white/12 bg-white/[0.035] runtime-signal-core" />
+          <div className="absolute h-[240px] w-[240px] rounded-full border border-cyan-200/8 runtime-signal-wave" />
+          <div className="absolute h-[240px] w-[240px] rounded-full border border-fuchsia-200/8 [animation-delay:1.05s] runtime-signal-wave" />
+          <div className="absolute h-2.5 w-2.5 rounded-full bg-cyan-300/95 shadow-[0_0_24px_rgba(103,232,249,0.7)] runtime-signal-orb" />
+          <div className="absolute top-[28%] h-10 w-px bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.18),rgba(255,255,255,0))] runtime-signal-steam-1" />
+          <div className="absolute top-[24%] h-14 w-px bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.12),rgba(255,255,255,0))] runtime-signal-steam-2" />
+          <div className="absolute top-[30%] h-8 w-px bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.14),rgba(255,255,255,0))] runtime-signal-steam-3" />
+          <div className="absolute bottom-[26%] flex items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-white/34">
+            <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 runtime-pulse-dot" />
+            {eyebrow}
+          </div>
+        </div>
+        <div className="max-w-[48ch] space-y-2 text-center">
+          <div className="text-[22px] font-medium tracking-[-0.03em] text-white/92 md:text-[28px]">
+            {title}
+          </div>
+          <div className="text-sm leading-7 text-white/56 md:text-[15px]">{subtitle}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CustomerWorkflowRuntimeSurface({
   state,
   onCancel,
@@ -1139,14 +1114,28 @@ export default function CustomerWorkflowRuntimeSurface({
             @keyframes runtimeActiveSheen { 0% { transform: translateX(-20%); opacity: .2; } 50% { opacity: .6; } 100% { transform: translateX(20%); opacity: .24; } }
             @keyframes runtimeStageGlaze { 0% { background-position: -220% 0%, -140% 0%, 0 0; } 100% { background-position: 220% 0%, 140% 0%, 0 0; } }
             @keyframes runtimeStageOrb { 0%,100% { transform: scale(1); opacity: .26; } 50% { transform: scale(1.03); opacity: .42; } }
+            @keyframes runtimeSignalRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            @keyframes runtimeSignalWave { 0% { transform: scale(.35); opacity: 0; } 28% { opacity: .42; } 100% { transform: scale(1); opacity: 0; } }
+            @keyframes runtimeSignalCore { 0%,100% { transform: scale(.94); box-shadow: 0 0 0 rgba(255,255,255,0.08); } 50% { transform: scale(1.03); box-shadow: 0 0 36px rgba(120,220,255,0.18); } }
+            @keyframes runtimeSignalOrb { 0% { transform: rotate(0deg) translateX(75px) rotate(0deg); } 100% { transform: rotate(360deg) translateX(75px) rotate(-360deg); } }
+            @keyframes runtimeSignalSteam1 { 0%,100% { transform: translate3d(-18px,14px,0) scaleY(.82); opacity: 0; } 25% { opacity: .16; } 55% { opacity: .34; } 100% { transform: translate3d(-10px,-18px,0) scaleY(1.08); opacity: 0; } }
+            @keyframes runtimeSignalSteam2 { 0%,100% { transform: translate3d(0,18px,0) scaleY(.78); opacity: 0; } 30% { opacity: .12; } 60% { opacity: .28; } 100% { transform: translate3d(0,-22px,0) scaleY(1.16); opacity: 0; } }
+            @keyframes runtimeSignalSteam3 { 0%,100% { transform: translate3d(18px,12px,0) scaleY(.86); opacity: 0; } 25% { opacity: .15; } 58% { opacity: .3; } 100% { transform: translate3d(10px,-16px,0) scaleY(1.04); opacity: 0; } }
             .runtime-ambient-flow { animation: runtimeAmbientFlow 7s ease-in-out infinite; }
             .runtime-pulse-dot { animation: runtimePulseDot 1.8s ease-in-out infinite; }
             .runtime-caret { animation: runtimeCaret 1.15s step-end infinite; }
             .runtime-active-sheen { animation: runtimeActiveSheen 4.5s ease-in-out infinite; }
             .runtime-stage-glaze { animation: runtimeStageGlaze 1.7s linear infinite; }
             .runtime-stage-orb { animation: runtimeStageOrb 2s ease-in-out infinite; }
+            .runtime-signal-rotate { animation: runtimeSignalRotate 8s linear infinite; }
+            .runtime-signal-wave { animation: runtimeSignalWave 2.2s ease-out infinite; }
+            .runtime-signal-core { animation: runtimeSignalCore 2.4s ease-in-out infinite; }
+            .runtime-signal-orb { animation: runtimeSignalOrb 2.8s linear infinite; }
+            .runtime-signal-steam-1 { animation: runtimeSignalSteam1 2.9s ease-in-out infinite; }
+            .runtime-signal-steam-2 { animation: runtimeSignalSteam2 3.2s ease-in-out infinite .22s; }
+            .runtime-signal-steam-3 { animation: runtimeSignalSteam3 2.8s ease-in-out infinite .44s; }
             @media (prefers-reduced-motion: reduce) {
-              .runtime-ambient-flow, .runtime-pulse-dot, .runtime-caret, .runtime-active-sheen, .runtime-stage-glaze, .runtime-stage-orb { animation: none !important; }
+              .runtime-ambient-flow, .runtime-pulse-dot, .runtime-caret, .runtime-active-sheen, .runtime-stage-glaze, .runtime-stage-orb, .runtime-signal-rotate, .runtime-signal-wave, .runtime-signal-core, .runtime-signal-orb, .runtime-signal-steam-1, .runtime-signal-steam-2, .runtime-signal-steam-3 { animation: none !important; }
             }
           `,
         }}
@@ -1200,6 +1189,10 @@ export default function CustomerWorkflowRuntimeSurface({
                   <div className="w-full max-w-[860px]">
                     <ProsePanel text={model.primaryLiveText.text} streaming />
                   </div>
+                ) : model.mode === "queueing" && model.activeNodeIds.length === 0 ? (
+                  <RuntimePhaseAnimation variant="connecting" />
+                ) : model.mode === "finalizing" ? (
+                  <RuntimePhaseAnimation variant="finalizing" />
                 ) : (model.mode === "node" || model.mode === "queueing") &&
                   model.activeNodeIds.length > 0 ? (
                   <div className="w-full max-w-[900px]">

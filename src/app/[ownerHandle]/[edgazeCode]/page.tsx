@@ -44,6 +44,7 @@ import ReportModal from "../../../components/marketplace/ReportModal";
 import { toRuntimeGraph } from "../../../lib/workflow/customer-runtime";
 import { finalizeClientWorkflowRunFromExecutionResult } from "../../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../../lib/workflow/run-stream-client";
+import { startClientTraceSession } from "../../../lib/workflow/client-trace";
 import type { WorkflowRunState } from "../../../lib/workflow/run-types";
 
 function safeTrack(event: string, props?: Record<string, any>) {
@@ -1538,13 +1539,33 @@ export default function WorkflowProductPage() {
       status: "running",
       inputValues: processedInputs,
       startedAt: Date.now(),
-      connectionState: "live",
-      connectionLabel: undefined,
+      connectionState: "connecting",
+      connectionLabel: "Connecting to execution...",
       lastEventAt: Date.now(),
     });
     setDemoRunning(true);
 
     try {
+      const clientTrace = startClientTraceSession({
+        routeId: "customer.workflow.run",
+        requestPath: typeof window !== "undefined" ? window.location.pathname : null,
+        workflowId: listing.id,
+        context: {
+          surface: "customer_marketplace_full",
+          isDemoRun: true,
+          userId: userId ?? null,
+        },
+      });
+      clientTrace.record({
+        phase: "request",
+        eventName: "run_start.initiated",
+        payload: {
+          workflowId: listing.id,
+          inputKeyCount: Object.keys(processedInputs ?? {}).length,
+          isDemoRun: true,
+          hasUserId: Boolean(userId),
+        },
+      });
       // Admin demo link: pass token to bypass auth and device limit. Otherwise use device fingerprint for anonymous demo.
       const deviceFingerprint =
         !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
@@ -1552,17 +1573,24 @@ export default function WorkflowProductPage() {
       // Signed-in users must send Bearer token - API uses getUserFromRequest (Bearer only)
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (userId) {
-        let token = await getAccessToken();
-        if (!token) {
-          await refreshAuthSession();
-          token = await getAccessToken();
-        }
+        const tokenStartedAt = Date.now();
+        const token = await getAccessToken({ eagerRefresh: false });
+        clientTrace.record({
+          phase: "request",
+          eventName: "auth.token_resolved",
+          durationMs: Date.now() - tokenStartedAt,
+          payload: {
+            workflowId: listing.id,
+            hasToken: Boolean(token),
+          },
+        });
         if (token) headers["Authorization"] = `Bearer ${token}`;
       }
       demoRunSessionPollRef.current?.abort();
       demoRunSessionPollRef.current = null;
       demoRunAbortRef.current = new AbortController();
 
+      const postStartedAt = Date.now();
       const response = await fetch("/api/flow/run", {
         method: "POST",
         headers,
@@ -1570,8 +1598,6 @@ export default function WorkflowProductPage() {
         signal: demoRunAbortRef.current.signal,
         body: JSON.stringify({
           workflowId: listing.id,
-          nodes: graph.nodes || [],
-          edges: graph.edges || [],
           inputs: processedInputs,
           userApiKeys: {},
           isDemo: !userId && !isDemoModeActive,
@@ -1581,9 +1607,25 @@ export default function WorkflowProductPage() {
           forceDemoModelTier: true,
         }),
       });
+      clientTrace.setClockFromServerEpoch(response.headers.get("x-trace-server-epoch-ms"));
+      clientTrace.record({
+        phase: "request",
+        eventName: "run_start.post_completed",
+        durationMs: Date.now() - postStartedAt,
+        httpStatus: response.status,
+        payload: {
+          workflowId: listing.id,
+          ok: response.ok,
+          traceSessionId: response.headers.get("x-trace-session-id"),
+        },
+      });
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: "Unknown error" }));
+        await clientTrace.finish({
+          status: "failed",
+          errorMessage: error.error || `HTTP ${response.status}`,
+        });
         throw new Error(error.error || `HTTP ${response.status}`);
       }
 
@@ -1598,6 +1640,7 @@ export default function WorkflowProductPage() {
         workflowName: listing.title || "Workflow",
         inputValues: processedInputs,
         sourceGraph: toRuntimeGraph(graph),
+        clientTrace,
       });
       if (streamResult.handedOff) {
         return;
@@ -1620,6 +1663,7 @@ export default function WorkflowProductPage() {
           ...completion,
         });
       }
+      await clientTrace.finish({ status: "completed" });
     } catch (error: any) {
       setDemoRunState({
         ...demoRunState,

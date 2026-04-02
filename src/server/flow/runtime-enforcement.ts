@@ -302,7 +302,8 @@ export async function enforceRuntimeLimits(params: {
 function looksLikeUrl(s: string): boolean {
   const t = s.trim();
   if (/^https?:\/\//i.test(t)) return true;
-  if (t.startsWith("data:image/")) return true;
+  // Any data: URL (images, SVG, etc.) — not a redaction target; regex scans on multi‑MB payloads are costly.
+  if (/^data:/i.test(t)) return true;
   if (/oaidalleapiprodscus\.blob\.core\.windows\.net|blob\.core\.windows\.net/i.test(t))
     return true;
   return false;
@@ -326,6 +327,8 @@ function shouldPreserveRunInputInjectionField(fieldName: string): boolean {
 export function redactSecrets(value: unknown): unknown {
   if (typeof value === "string") {
     if (looksLikeUrl(value)) return value;
+    // API key patterns are short; scanning megabyte strings (e.g. base64) is O(n) and dominates run finalization.
+    if (value.length > 96_000) return value;
     return value
       .replace(/\bsk-[a-zA-Z0-9]{20,}\b/g, "sk-***REDACTED***")
       .replace(/api[_-]?key["\s:=]+([a-zA-Z0-9_-]{20,})/gi, 'api_key="***REDACTED***"');

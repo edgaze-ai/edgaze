@@ -3,6 +3,7 @@ import {
   perfAsync,
   resetWorkflowEnginePerfTotals,
 } from "./engine-perf";
+import { getTraceSession } from "src/server/trace";
 import type { NodeExecutor } from "./node-executor";
 import type { WorkflowExecutionRepository } from "./repository";
 import { processNextRunnableBatch, type WorkflowWorkerLoopDependencies } from "./worker-loop";
@@ -85,8 +86,21 @@ export async function runWorkflowToTerminal(params: {
   let iterations = 0;
   let processedCount = 0;
   let consecutiveIdleCycles = 0;
+  const trace = getTraceSession(`workflow:${params.runId}`);
 
   resetWorkflowEnginePerfTotals(params.runId);
+  await trace?.record({
+    phase: "worker",
+    source: "workflow",
+    eventName: "runner.started",
+    payload: {
+      runId: params.runId,
+      maxIterations,
+      maxConsecutiveIdleCycles,
+      idleBackoffMs,
+      maxConcurrentNodes,
+    },
+  });
 
   while (iterations < maxIterations) {
     throwIfAborted(params.signal);
@@ -105,6 +119,18 @@ export async function runWorkflowToTerminal(params: {
 
     if (result.processed) {
       processedCount += result.processedNodeCount;
+      await trace?.record({
+        phase: "worker",
+        source: "workflow",
+        eventName: "runner.batch_processed",
+        severity: "debug",
+        payload: {
+          runId: params.runId,
+          iterations,
+          processedNodeCount: result.processedNodeCount,
+          consecutiveIdleCycles,
+        },
+      });
     }
 
     if (result.state === "processed") {
@@ -114,6 +140,17 @@ export async function runWorkflowToTerminal(params: {
 
     if (result.state === "finalized") {
       logWorkflowEnginePerfTotals(params.runId, "run_finalized");
+      await trace?.record({
+        phase: "worker",
+        source: "workflow",
+        eventName: "runner.finalized",
+        payload: {
+          runId: params.runId,
+          iterations,
+          processedCount,
+          idleCount: consecutiveIdleCycles,
+        },
+      });
       return {
         iterations,
         processedCount,
@@ -123,8 +160,30 @@ export async function runWorkflowToTerminal(params: {
     }
 
     consecutiveIdleCycles += 1;
+    await trace?.record({
+      phase: "worker",
+      source: "workflow",
+      eventName: "runner.idle_cycle",
+      severity: consecutiveIdleCycles > 1 ? "warn" : "debug",
+      payload: {
+        runId: params.runId,
+        iterations,
+        consecutiveIdleCycles,
+      },
+    });
     if (consecutiveIdleCycles > maxConsecutiveIdleCycles) {
       logWorkflowEnginePerfTotals(params.runId, "runner_stalled_idle");
+      await trace?.record({
+        phase: "worker",
+        source: "workflow",
+        eventName: "runner.stalled",
+        severity: "error",
+        payload: {
+          runId: params.runId,
+          iterations,
+          consecutiveIdleCycles,
+        },
+      });
       throw new WorkflowRunnerStalledError(
         `Workflow run "${params.runId}" stayed idle for ${consecutiveIdleCycles} consecutive cycles without reaching a terminal state.`,
       );
@@ -136,6 +195,17 @@ export async function runWorkflowToTerminal(params: {
   }
 
   logWorkflowEnginePerfTotals(params.runId, "runner_exceeded_iterations");
+  await trace?.record({
+    phase: "worker",
+    source: "workflow",
+    eventName: "runner.iteration_limit_exceeded",
+    severity: "error",
+    payload: {
+      runId: params.runId,
+      iterations,
+      maxIterations,
+    },
+  });
   throw new WorkflowRunnerStalledError(
     `Workflow run "${params.runId}" exceeded the worker iteration limit (${maxIterations}).`,
   );

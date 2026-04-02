@@ -1,7 +1,13 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import type { ClientTraceSession } from "./client-trace";
 import type { WorkflowRunGraph, WorkflowRunState, WorkflowRunStep } from "./run-types";
+import { streamRunSession } from "./run-session";
+import {
+  applyWorkflowRunEventToState,
+  buildWorkflowRunStateFromBootstrap,
+} from "./run-session-state";
 
 type WorkflowRunStateRef = {
   current: AbortController | null;
@@ -16,6 +22,7 @@ type HandleWorkflowRunStreamParams = {
   workflowName: string;
   inputValues: Record<string, unknown>;
   sourceGraph?: WorkflowRunGraph;
+  clientTrace?: ClientTraceSession | null;
 };
 
 type HandleWorkflowRunStreamResult =
@@ -96,9 +103,137 @@ export async function handleWorkflowRunStream(
   const contentType = params.response.headers.get("content-type") || "";
   const isSse = contentType.includes("text/event-stream");
   const isStreaming = isSse || contentType.includes("ndjson");
+  params.clientTrace?.setClockFromServerEpoch(
+    params.response.headers.get("x-trace-server-epoch-ms"),
+  );
+  params.clientTrace?.record({
+    phase: "request",
+    eventName: "run_start.response_received",
+    httpStatus: params.response.status,
+    payload: {
+      workflowId: params.workflowId,
+      contentType,
+      isSse,
+      isStreaming,
+      traceSessionId: params.response.headers.get("x-trace-session-id"),
+    },
+  });
 
   if (!isStreaming || !params.response.body) {
     const result = await params.response.json();
+    if (result?.ok && result?.handedOff && typeof result.runId === "string") {
+      params.clientTrace?.linkRun({
+        workflowRunId: result.runId,
+        correlationId: result.runId,
+      });
+      params.clientTrace?.record({
+        phase: "request",
+        eventName: "run_start.handoff_received",
+        payload: {
+          workflowId: params.workflowId,
+          runId: result.runId,
+          hasRunAccessToken: typeof result.runAccessToken === "string",
+        },
+      });
+      params.runSessionPollRef.current?.abort();
+      params.runSessionPollRef.current = new AbortController();
+
+      params.setRunState((prev) =>
+        prev
+          ? {
+              ...prev,
+              phase: "executing",
+              status: "running",
+              runId: result.runId,
+              runAccessToken:
+                typeof result.runAccessToken === "string"
+                  ? result.runAccessToken
+                  : prev.runAccessToken,
+              connectionState: "connecting",
+              connectionLabel: "Connecting to execution...",
+              lastEventAt: Date.now(),
+            }
+          : prev,
+      );
+
+      try {
+        await streamRunSession({
+          runId: result.runId,
+          accessToken: params.accessToken,
+          runAccessToken:
+            typeof result.runAccessToken === "string" ? result.runAccessToken : undefined,
+          clientTrace: params.clientTrace,
+          signal: params.runSessionPollRef.current.signal,
+          onSnapshot: async (bootstrap) => {
+            params.setRunState((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    ...buildWorkflowRunStateFromBootstrap({
+                      bootstrap,
+                      workflowId: params.workflowId,
+                      workflowName: params.workflowName,
+                      inputValues: params.inputValues,
+                      runAccessToken:
+                        typeof result.runAccessToken === "string"
+                          ? result.runAccessToken
+                          : prev.runAccessToken,
+                      sourceGraph: params.sourceGraph,
+                    }),
+                  }
+                : prev,
+            );
+          },
+          onEvent: async (event) => {
+            params.setRunState((prev) =>
+              prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
+            );
+          },
+          onPing: async () => {
+            params.setRunState((prev) =>
+              prev && prev.status === "running" ? { ...prev, lastEventAt: Date.now() } : prev,
+            );
+          },
+          onTransportState: async (state) => {
+            params.setRunState((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                connectionState: state,
+                connectionLabel:
+                  state === "connecting"
+                    ? "Connecting to execution..."
+                    : state === "reconnecting"
+                      ? "Reconnecting to live updates..."
+                      : state === "degraded"
+                        ? "Live updates are slow. Reconnecting..."
+                        : undefined,
+              };
+            });
+          },
+        });
+        await params.clientTrace?.finish({ status: "completed" });
+      } catch (error) {
+        await params.clientTrace?.finish({
+          status: "failed",
+          errorMessage: error instanceof Error ? error.message : "Run session stream failed",
+        });
+        throw error;
+      } finally {
+        params.runSessionPollRef.current = null;
+      }
+
+      return { handedOff: true };
+    }
+    params.clientTrace?.record({
+      phase: "request",
+      eventName: "run_start.non_streaming_payload_received",
+      payload: {
+        workflowId: params.workflowId,
+        ok: result?.ok,
+        hasResult: Boolean(result?.result),
+      },
+    });
     return { handedOff: false, result };
   }
 
@@ -143,6 +278,19 @@ export async function handleWorkflowRunStream(
         if (!evt) continue;
 
         if (evt.type === "run_bootstrap" && typeof evt.runId === "string") {
+          params.clientTrace?.linkRun({
+            workflowRunId: evt.runId,
+            correlationId: evt.runId,
+          });
+          params.clientTrace?.record({
+            phase: "stream",
+            eventName: "legacy_stream.bootstrap_received",
+            payload: {
+              workflowId: params.workflowId,
+              runId: evt.runId,
+              hasRunAccessToken: typeof evt.runAccessToken === "string",
+            },
+          });
           params.setRunState((prev) =>
             prev
               ? {
@@ -173,6 +321,18 @@ export async function handleWorkflowRunStream(
           continue;
         }
 
+        if (
+          evt?.type === "run.cancel_requested" ||
+          evt?.type === "node.stream.started" ||
+          evt?.type === "node.stream.delta" ||
+          evt?.type === "node.stream.finished"
+        ) {
+          params.setRunState((prev) =>
+            prev ? applyWorkflowRunEventToState({ state: prev, event: evt }) : prev,
+          );
+          continue;
+        }
+
         if (evt.type === "complete") {
           result = evt;
         }
@@ -184,6 +344,10 @@ export async function handleWorkflowRunStream(
   }
 
   if (!result) {
+    await params.clientTrace?.finish({
+      status: "failed",
+      errorMessage: "Execution stream ended before the server returned a final result.",
+    });
     return {
       handedOff: false,
       result: {
@@ -193,5 +357,9 @@ export async function handleWorkflowRunStream(
     };
   }
 
+  await params.clientTrace?.finish({
+    status: result?.ok === false ? "failed" : "completed",
+    errorMessage: typeof result?.error === "string" ? result.error : null,
+  });
   return { handedOff: false, result };
 }

@@ -150,8 +150,8 @@ function isImageUrl(s: string): boolean {
   if (typeof s !== "string" || !s.trim()) return false;
   const t = s.trim();
 
-  // Data URLs
-  if (t.startsWith("data:image/")) return true;
+  // Data URLs (case-insensitive — avoid falling through to regex scans on multi‑MB strings)
+  if (/^data:image\//i.test(t)) return true;
 
   // Check for common image file extensions
   if (/^https?:\/\//i.test(t)) {
@@ -1012,15 +1012,17 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
     }
 
     // Check if string contains image URLs (extract and display them)
-    // Match DALL-E URLs and standard image URLs
-    const urlPattern =
-      /(https?:\/\/[^\s]+(?:\.(?:png|jpg|jpeg|gif|webp|avif|svg))[^\s]*|https?:\/\/[^\s]*oaidalleapiprodscus[^\s]*|https?:\/\/[^\s]*blob\.core\.windows\.net[^\s]*)/gi;
+    // Match DALL-E URLs and standard image URLs (skip global regex on huge strings — pathological cost)
     const urlMatches: Array<{ url: string; index: number }> = [];
-    let match;
-    const regex = new RegExp(urlPattern);
-
-    while ((match = regex.exec(value)) !== null) {
-      urlMatches.push({ url: match[0], index: match.index });
+    const MAX_URL_SCAN_CHARS = 400_000;
+    if (value.length <= MAX_URL_SCAN_CHARS) {
+      const urlPattern =
+        /(https?:\/\/[^\s]+(?:\.(?:png|jpg|jpeg|gif|webp|avif|svg))[^\s]*|https?:\/\/[^\s]*oaidalleapiprodscus[^\s]*|https?:\/\/[^\s]*blob\.core\.windows\.net[^\s]*)/gi;
+      let match;
+      const regex = new RegExp(urlPattern);
+      while ((match = regex.exec(value)) !== null) {
+        urlMatches.push({ url: match[0], index: match.index });
+      }
     }
 
     if (urlMatches.length > 0) {
@@ -1112,7 +1114,7 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
     const unwrapped = extractFromJsonString(value);
     if (unwrapped) {
       displayValue = unwrapped;
-    } else if (isOpenAI) {
+    } else if (isOpenAI && value.length < 400_000) {
       // Try to extract message content from structured API response
       try {
         const parsed = JSON.parse(value) as Record<string, unknown>;

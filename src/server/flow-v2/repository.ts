@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { getTraceSession } from "src/server/trace";
 
 import type {
   ClaimedNodeWorkItem,
@@ -286,6 +287,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     attemptNumber?: number;
     createdAt?: string;
   }): Promise<number> {
+    const trace = getTraceSession(`workflow:${params.runId}`);
     const supabase = createSupabaseAdminClient() as any;
     const { data, error } = await supabase.rpc("append_workflow_run_event", {
       p_run_id: params.runId,
@@ -297,6 +299,19 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     });
 
     if (error) throw error;
+    await trace?.record({
+      phase: "worker",
+      source: "workflow",
+      eventName: "repository.append_run_event",
+      severity: "debug",
+      payload: {
+        runId: params.runId,
+        type: params.type,
+        nodeId: params.nodeId ?? null,
+        attemptNumber: params.attemptNumber ?? null,
+        sequence: Number(data),
+      },
+    });
     return Number(data);
   }
 
@@ -312,6 +327,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
   }): Promise<number[]> {
     if (params.events.length === 0) return [];
 
+    const trace = getTraceSession(`workflow:${params.runId}`);
     const supabase = createSupabaseAdminClient() as any;
     const rpcPayload = params.events.map((event) => ({
       event_type: event.type,
@@ -326,6 +342,17 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     });
 
     if (!error) {
+      await trace?.record({
+        phase: "worker",
+        source: "workflow",
+        eventName: "repository.append_run_events_batch",
+        severity: "debug",
+        payload: {
+          runId: params.runId,
+          count: params.events.length,
+          eventTypes: params.events.map((event) => event.type),
+        },
+      });
       return Array.isArray(data)
         ? data.map((entry) =>
             typeof entry === "number"
@@ -686,6 +713,7 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     finalOutput?: PayloadReference | null;
     terminalReason?: string | null;
   }): Promise<void> {
+    const trace = getTraceSession(`workflow:${params.runId}`);
     const supabase = createSupabaseAdminClient() as any;
     const now = new Date().toISOString();
 
@@ -704,6 +732,17 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
       .in("status", ["pending", "running", "cancelling"]);
 
     if (error) throw error;
+    await trace?.record({
+      phase: "worker",
+      source: "workflow",
+      eventName: "repository.finalize_run",
+      payload: {
+        runId: params.runId,
+        status: params.status,
+        outcome: params.outcome,
+        terminalReason: params.terminalReason ?? null,
+      },
+    });
     this.clearRunCache(params.runId);
   }
 }
