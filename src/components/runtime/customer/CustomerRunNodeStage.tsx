@@ -31,6 +31,7 @@ type StageNodeData = {
   config?: any;
   status?: "idle" | "running" | "success" | "error";
   errorMessage?: string;
+  customerRunStage?: boolean;
 };
 
 const nodeTypes = Object.freeze({
@@ -78,6 +79,7 @@ function useFocusedGraph(graph: WorkflowRunGraph | undefined, activeNodeIds: str
         data: {
           ...(node.data ?? {}),
           status: activeSet.has(node.id) ? "running" : "idle",
+          customerRunStage: true,
         },
       })),
       edges: sourceEdges.map((edge) => ({

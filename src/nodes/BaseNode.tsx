@@ -96,6 +96,8 @@ type BaseNodeData = {
   errorMessage?: string;
   executionTime?: number;
   tags?: string[];
+  /** Customer workflow run modal: center titles and preview for a calmer “stage” presentation. */
+  customerRunStage?: boolean;
 };
 
 function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
@@ -112,6 +114,7 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
   const errorMessage = data?.errorMessage ?? "";
   const executionTime = data?.executionTime;
   const tags = data?.config?.tags ?? data?.tags;
+  const customerRunStage = Boolean(data?.customerRunStage);
 
   const previewText = useMemo(
     () => buildPreview(data?.specId ?? "", config, edges, id),
@@ -167,105 +170,204 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
             padding: "5px 10px 5px 12px",
             display: "flex",
             alignItems: "center",
+            justifyContent: customerRunStage ? "center" : undefined,
             gap: 6,
           }}
         >
           <AlertTriangle size={11} color="#ef4444" />
-          <span style={{ fontSize: 10, color: "#ef4444" }}>
+          <span
+            style={{
+              fontSize: 10,
+              color: "#ef4444",
+              textAlign: customerRunStage ? "center" : undefined,
+            }}
+          >
             {(errorMessage || "Error").slice(0, 70)}
           </span>
         </div>
       )}
 
       {/* Header */}
-      <div
-        style={{
-          height: 42,
-          background: "#1e1e1e",
-          borderBottom: "1px solid #242424",
-          borderRadius: "8px 8px 0 0",
-          padding: "0 12px 0 14px",
-          display: "flex",
-          alignItems: "center",
-          gap: 9,
-        }}
-      >
+      {customerRunStage ? (
         <div
           style={{
-            width: 26,
-            height: 26,
-            background: `${nodeColor}18`,
-            border: `1px solid ${nodeColor}35`,
-            borderRadius: 5,
+            background: "#1e1e1e",
+            borderBottom: "1px solid #242424",
+            borderRadius: "8px 8px 0 0",
+            padding: "10px 12px 12px",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-            overflow: "hidden",
-            boxShadow: `0 0 12px ${nodeColor}15`,
+            gap: 8,
           }}
         >
-          {brandIcon || registry?.iconImage ? (
-            <img
-              src={brandIcon ?? registry?.iconImage ?? ""}
-              alt=""
+          <div
+            style={{
+              width: 26,
+              height: 26,
+              background: `${nodeColor}18`,
+              border: `1px solid ${nodeColor}35`,
+              borderRadius: 5,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              overflow: "hidden",
+              boxShadow: `0 0 12px ${nodeColor}15`,
+            }}
+          >
+            {brandIcon || registry?.iconImage ? (
+              <img
+                src={brandIcon ?? registry?.iconImage ?? ""}
+                alt=""
+                style={{
+                  width: 14,
+                  height: 14,
+                  objectFit: "contain",
+                }}
+              />
+            ) : (
+              React.createElement(iconComp, {
+                size: 14,
+                style: { color: nodeColor },
+              })
+            )}
+          </div>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: "#e8e8e8",
+              textAlign: "center",
+              lineHeight: 1.35,
+              maxWidth: "100%",
+            }}
+          >
+            {label}
+          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
               style={{
-                width: 14,
-                height: 14,
-                objectFit: "contain",
+                fontSize: 9,
+                color: "#333",
+                background: "#121212",
+                border: "1px solid #1e1e1e",
+                borderRadius: 99,
+                padding: "1px 5px",
+                flexShrink: 0,
+              }}
+            >
+              v{version}
+            </span>
+            <div
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                flexShrink: 0,
+                background:
+                  status === "idle"
+                    ? "#252525"
+                    : status === "running"
+                      ? "#3b82f6"
+                      : status === "success"
+                        ? "#22c55e"
+                        : "#ef4444",
+                border: status === "idle" ? "1px solid #2e2e2e" : "none",
               }}
             />
-          ) : (
-            React.createElement(iconComp, {
-              size: 14,
-              style: { color: nodeColor },
-            })
-          )}
+          </div>
         </div>
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 500,
-            color: "#e8e8e8",
-            flex: 1,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {label}
-        </span>
-        <span
-          style={{
-            fontSize: 9,
-            color: "#333",
-            background: "#121212",
-            border: "1px solid #1e1e1e",
-            borderRadius: 99,
-            padding: "1px 5px",
-            flexShrink: 0,
-          }}
-        >
-          v{version}
-        </span>
+      ) : (
         <div
           style={{
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            flexShrink: 0,
-            background:
-              status === "idle"
-                ? "#252525"
-                : status === "running"
-                  ? "#3b82f6"
-                  : status === "success"
-                    ? "#22c55e"
-                    : "#ef4444",
-            border: status === "idle" ? "1px solid #2e2e2e" : "none",
+            height: 42,
+            background: "#1e1e1e",
+            borderBottom: "1px solid #242424",
+            borderRadius: "8px 8px 0 0",
+            padding: "0 12px 0 14px",
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
           }}
-        />
-      </div>
+        >
+          <div
+            style={{
+              width: 26,
+              height: 26,
+              background: `${nodeColor}18`,
+              border: `1px solid ${nodeColor}35`,
+              borderRadius: 5,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              overflow: "hidden",
+              boxShadow: `0 0 12px ${nodeColor}15`,
+            }}
+          >
+            {brandIcon || registry?.iconImage ? (
+              <img
+                src={brandIcon ?? registry?.iconImage ?? ""}
+                alt=""
+                style={{
+                  width: 14,
+                  height: 14,
+                  objectFit: "contain",
+                }}
+              />
+            ) : (
+              React.createElement(iconComp, {
+                size: 14,
+                style: { color: nodeColor },
+              })
+            )}
+          </div>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: "#e8e8e8",
+              flex: 1,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {label}
+          </span>
+          <span
+            style={{
+              fontSize: 9,
+              color: "#333",
+              background: "#121212",
+              border: "1px solid #1e1e1e",
+              borderRadius: 99,
+              padding: "1px 5px",
+              flexShrink: 0,
+            }}
+          >
+            v{version}
+          </span>
+          <div
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              flexShrink: 0,
+              background:
+                status === "idle"
+                  ? "#252525"
+                  : status === "running"
+                    ? "#3b82f6"
+                    : status === "success"
+                      ? "#22c55e"
+                      : "#ef4444",
+              border: status === "idle" ? "1px solid #2e2e2e" : "none",
+            }}
+          />
+        </div>
+      )}
 
       {/* Body — min-height 0, no padding for handles */}
       <div
@@ -287,12 +389,21 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
             overflow: "hidden",
             margin: 0,
             padding: 0,
+            textAlign: customerRunStage ? "center" : undefined,
           }}
         >
           {previewText}
         </div>
         {tags && Array.isArray(tags) && tags.length > 0 && (
-          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 3 }}>
+          <div
+            style={{
+              marginTop: 6,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 3,
+              justifyContent: customerRunStage ? "center" : undefined,
+            }}
+          >
             {tags.map((tag: string, i: number) => (
               <span
                 key={i}
@@ -323,7 +434,8 @@ function BaseNodeImpl(props: NodeProps<BaseNodeData>) {
           padding: "0 12px 0 14px",
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent: customerRunStage ? "center" : "space-between",
+          gap: customerRunStage ? 10 : undefined,
         }}
       >
         <span style={{ fontFamily: "monospace", fontSize: 9, color: "#282828" }}>

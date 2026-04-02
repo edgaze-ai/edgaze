@@ -97,6 +97,79 @@ function applyLegacyProgressEvent(prev: WorkflowRunState, evt: any): WorkflowRun
   };
 }
 
+function traceUiStateTransition(params: {
+  clientTrace?: ClientTraceSession | null;
+  previous: WorkflowRunState | null;
+  next: WorkflowRunState | null;
+  source: string;
+  sourceEventType?: string;
+  sourceSequence?: number;
+}): void {
+  if (!params.clientTrace || !params.next) return;
+
+  params.clientTrace.record({
+    phase: "client_render",
+    eventName: "ui.state_applied",
+    severity: "debug",
+    chunkSequence: params.sourceSequence ?? null,
+    payload: {
+      source: params.source,
+      sourceEventType: params.sourceEventType ?? null,
+      runId: params.next.runId ?? null,
+      phase: params.next.phase,
+      status: params.next.status,
+      connectionState: params.next.connectionState ?? null,
+      currentStepId: params.next.currentStepId ?? null,
+      stepCount: params.next.steps.length,
+      lastEventSequence: params.next.lastEventSequence ?? null,
+    },
+  });
+
+  if (params.previous?.currentStepId !== params.next.currentStepId) {
+    params.clientTrace.record({
+      phase: "client_render",
+      eventName: "ui.current_step_changed",
+      chunkSequence: params.sourceSequence ?? null,
+      payload: {
+        source: params.source,
+        sourceEventType: params.sourceEventType ?? null,
+        previousCurrentStepId: params.previous?.currentStepId ?? null,
+        currentStepId: params.next.currentStepId ?? null,
+        runId: params.next.runId ?? null,
+      },
+    });
+  }
+
+  const previousStepById = new Map((params.previous?.steps ?? []).map((step) => [step.id, step]));
+  for (const step of params.next.steps) {
+    const previousStep = previousStepById.get(step.id);
+    if (
+      !previousStep ||
+      previousStep.status !== step.status ||
+      previousStep.detail !== step.detail ||
+      previousStep.statusLabel !== step.statusLabel
+    ) {
+      params.clientTrace.record({
+        phase: "client_render",
+        eventName: "ui.node_state_visible",
+        chunkSequence: params.sourceSequence ?? null,
+        payload: {
+          source: params.source,
+          sourceEventType: params.sourceEventType ?? null,
+          runId: params.next.runId ?? null,
+          nodeId: step.id,
+          title: step.title,
+          status: step.status,
+          detail: step.detail ?? null,
+          statusLabel: step.statusLabel ?? null,
+          isCurrentStep: params.next.currentStepId === step.id,
+          timestamp: step.timestamp ?? null,
+        },
+      });
+    }
+  }
+}
+
 export async function handleWorkflowRunStream(
   params: HandleWorkflowRunStreamParams,
 ): Promise<HandleWorkflowRunStreamResult> {
@@ -149,8 +222,8 @@ export async function handleWorkflowRunStream(
         clientTrace: params.clientTrace,
         signal: params.runSessionPollRef.current.signal,
         onSnapshot: async (bootstrap) => {
-          params.setRunState((prev) =>
-            prev
+          params.setRunState((prev) => {
+            const next = prev
               ? {
                   ...prev,
                   ...buildWorkflowRunStateFromBootstrap({
@@ -162,13 +235,34 @@ export async function handleWorkflowRunStream(
                     sourceGraph: params.sourceGraph,
                   }),
                 }
-              : prev,
-          );
+              : prev;
+            traceUiStateTransition({
+              clientTrace: params.clientTrace,
+              previous: prev,
+              next,
+              source: "snapshot",
+              sourceEventType: "snapshot",
+              sourceSequence:
+                typeof bootstrap.run?.lastEventSequence === "number"
+                  ? bootstrap.run.lastEventSequence
+                  : undefined,
+            });
+            return next;
+          });
         },
         onEvent: async (event) => {
-          params.setRunState((prev) =>
-            prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev,
-          );
+          params.setRunState((prev) => {
+            const next = prev ? applyWorkflowRunEventToState({ state: prev, event }) : prev;
+            traceUiStateTransition({
+              clientTrace: params.clientTrace,
+              previous: prev,
+              next,
+              source: "event",
+              sourceEventType: event.type,
+              sourceSequence: typeof event.sequence === "number" ? event.sequence : undefined,
+            });
+            return next;
+          });
         },
         onPing: async () => {
           params.setRunState((prev) =>
@@ -178,7 +272,7 @@ export async function handleWorkflowRunStream(
         onTransportState: async (state) => {
           params.setRunState((prev) => {
             if (!prev) return prev;
-            return {
+            const next = {
               ...prev,
               connectionState: state,
               connectionLabel:
@@ -190,24 +284,40 @@ export async function handleWorkflowRunStream(
                       ? "Live updates are slow. Reconnecting..."
                       : undefined,
             };
+            traceUiStateTransition({
+              clientTrace: params.clientTrace,
+              previous: prev,
+              next,
+              source: "transport",
+              sourceEventType: state,
+            });
+            return next;
           });
         },
       });
 
-      params.setRunState((prev) =>
-        prev
+      params.setRunState((prev) => {
+        const next = prev
           ? {
               ...prev,
-              phase: "executing",
-              status: "running",
+              phase: "executing" as const,
+              status: "running" as const,
               runId: result.runId,
               runAccessToken: handoffRunAccessToken ?? prev.runAccessToken,
-              connectionState: "connecting",
+              connectionState: "connecting" as const,
               connectionLabel: "Connecting to execution...",
               lastEventAt: Date.now(),
             }
-          : prev,
-      );
+          : prev;
+        traceUiStateTransition({
+          clientTrace: params.clientTrace,
+          previous: prev,
+          next,
+          source: "handoff",
+          sourceEventType: "run_start.handoff_received",
+        });
+        return next;
+      });
 
       try {
         await sessionPromise;
@@ -290,13 +400,13 @@ export async function handleWorkflowRunStream(
               hasRunAccessToken: typeof evt.runAccessToken === "string",
             },
           });
-          params.setRunState((prev) =>
-            prev
+          params.setRunState((prev) => {
+            const next = prev
               ? {
                   ...prev,
-                  phase: "executing",
-                  status: "running",
-                  connectionState: "live",
+                  phase: "executing" as const,
+                  status: "running" as const,
+                  connectionState: "live" as const,
                   connectionLabel: undefined,
                   lastEventAt: Date.now(),
                   runId: evt.runId,
@@ -305,8 +415,16 @@ export async function handleWorkflowRunStream(
                       ? evt.runAccessToken
                       : prev.runAccessToken,
                 }
-              : prev,
-          );
+              : prev;
+            traceUiStateTransition({
+              clientTrace: params.clientTrace,
+              previous: prev,
+              next,
+              source: "legacy_bootstrap",
+              sourceEventType: "run_bootstrap",
+            });
+            return next;
+          });
           continue;
         }
 
@@ -316,7 +434,18 @@ export async function handleWorkflowRunStream(
           evt?.type === "node_done" ||
           evt?.type === "node_failed"
         ) {
-          params.setRunState((prev) => (prev ? applyLegacyProgressEvent(prev, evt) : prev));
+          params.setRunState((prev) => {
+            const next = prev ? applyLegacyProgressEvent(prev, evt) : prev;
+            traceUiStateTransition({
+              clientTrace: params.clientTrace,
+              previous: prev,
+              next,
+              source: "legacy_event",
+              sourceEventType: evt.type,
+              sourceSequence: typeof evt.sequence === "number" ? evt.sequence : undefined,
+            });
+            return next;
+          });
           continue;
         }
 
@@ -326,9 +455,18 @@ export async function handleWorkflowRunStream(
           evt?.type === "node.stream.delta" ||
           evt?.type === "node.stream.finished"
         ) {
-          params.setRunState((prev) =>
-            prev ? applyWorkflowRunEventToState({ state: prev, event: evt }) : prev,
-          );
+          params.setRunState((prev) => {
+            const next = prev ? applyWorkflowRunEventToState({ state: prev, event: evt }) : prev;
+            traceUiStateTransition({
+              clientTrace: params.clientTrace,
+              previous: prev,
+              next,
+              source: "legacy_stream_event",
+              sourceEventType: evt.type,
+              sourceSequence: typeof evt.sequence === "number" ? evt.sequence : undefined,
+            });
+            return next;
+          });
           continue;
         }
 

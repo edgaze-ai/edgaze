@@ -318,6 +318,8 @@ export async function executeClaimedNode(
 
       if (!streamStarted || payload.status === "started") {
         streamStarted = true;
+        const streamStartedAt = new Date().toISOString();
+        const streamStartedAtEpochMs = Date.now();
         await perfAsync(
           runId,
           "node.streamEmit.started",
@@ -333,6 +335,8 @@ export async function executeClaimedNode(
                 specId,
                 status: "running",
                 format: payload.format ?? streamFormat,
+                startedAt: streamStartedAt,
+                startedAtEpochMs: streamStartedAtEpochMs,
               },
             }),
           phaseMeta,
@@ -348,6 +352,8 @@ export async function executeClaimedNode(
       if (payload.status === "finished" || payload.status === "interrupted") {
         await flushStreamDelta(true);
         streamFinished = true;
+        const streamEndedAt = new Date().toISOString();
+        const streamEndedAtEpochMs = Date.now();
         await perfAsync(
           runId,
           "node.streamEmit.finished",
@@ -366,6 +372,8 @@ export async function executeClaimedNode(
                 format: payload.format ?? streamFormat,
                 error: payload.error ?? null,
                 totalStreamedChars: fullStreamText.length,
+                endedAt: streamEndedAt,
+                endedAtEpochMs: streamEndedAtEpochMs,
               },
             }),
           {
@@ -379,6 +387,8 @@ export async function executeClaimedNode(
 
   if (streamStarted && !streamFinished && params.repository.appendRunEvent) {
     await flushStreamDelta(true);
+    const fallbackEndedAt = new Date().toISOString();
+    const fallbackEndedAtEpochMs = Date.now();
     await perfAsync(
       runId,
       "node.streamEmit.finished_fallback",
@@ -402,6 +412,8 @@ export async function executeClaimedNode(
             format: streamFormat,
             error: result.error?.message ?? null,
             totalStreamedChars: fullStreamText.length,
+            endedAt: fallbackEndedAt,
+            endedAtEpochMs: fallbackEndedAtEpochMs,
           },
         }),
       {
