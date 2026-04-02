@@ -1270,6 +1270,9 @@ export async function POST(req: Request) {
       const stream = new ReadableStream({
         async start(controller) {
           const { sendPrelude, writeEvent } = createStreamingResponseHelpers(controller, encoder);
+          /** Trace session must finish only after the stream closes — never await flush before returning Response or headers lag behind run_bootstrap. */
+          let streamLogicalOk = false;
+          let streamErrorMessage: string | null = null;
           const heartbeatId = setInterval(() => {
             try {
               sendPrelude();
@@ -1386,6 +1389,7 @@ export async function POST(req: Request) {
               freeRunsRemaining: updatedFreeRunsRemaining,
               runId,
             });
+            streamLogicalOk = true;
           } catch (err: any) {
             const duration = Date.now() - startTime;
             let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
@@ -1444,27 +1448,45 @@ export async function POST(req: Request) {
               }
             }
             await finishUnifiedRun(unifiedRunId, "error", duration, err?.message);
+            streamErrorMessage = simplifyWorkflowError(err?.message || "Unknown error");
             writeEvent({
               type: "complete",
               ok: false,
-              error: simplifyWorkflowError(err?.message || "Unknown error"),
+              error: streamErrorMessage,
               freeRunsRemaining: updatedFreeRunsRemaining,
               runId,
             });
           } finally {
             clearInterval(heartbeatId);
             controller.close();
+            try {
+              await trace.record({
+                eventName: "request.response_ready",
+                httpStatus: 200,
+                payload: {
+                  ok: streamLogicalOk,
+                  handedOff: false,
+                  runId,
+                  error: streamErrorMessage,
+                  stream: true,
+                },
+              });
+              await trace.finish({
+                status: streamLogicalOk ? "completed" : "failed",
+                responseStatus: 200,
+                errorMessage: streamErrorMessage,
+                summary: {
+                  durationMs: Date.now() - requestStartedAt,
+                  workflowId,
+                  runId,
+                  unifiedRunId,
+                  streamMode: "legacy_ndjson",
+                },
+              });
+            } catch (traceErr) {
+              console.error("[flow/run] trace.finish after legacy stream failed:", traceErr);
+            }
           }
-        },
-      });
-      await trace.finish({
-        status: "streaming",
-        responseStatus: 200,
-        summary: {
-          runId,
-          unifiedRunId,
-          workflowId,
-          streamMode: "legacy_ndjson",
         },
       });
       return new Response(stream, {

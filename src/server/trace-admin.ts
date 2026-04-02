@@ -1,7 +1,21 @@
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { loadWorkflowRunBootstrap } from "src/server/flow-v2/read-model";
 
 type TraceSessionRow = Record<string, unknown>;
 type WorkflowRunRow = Record<string, unknown>;
+type NodeTimelineEventSummary = {
+  timestampEpochMs: number;
+  sinceBundleStartMs: number | null;
+  phase: string;
+  source: string;
+  eventName: string;
+  sequence: number;
+  attemptNumber: number | null;
+  payload: Record<string, unknown>;
+  nodeId: string;
+  status: string | null;
+  title: string | null;
+};
 
 function isUuid(value: string | null | undefined): value is string {
   return Boolean(value && /^[0-9a-f-]{36}$/i.test(value));
@@ -11,6 +25,35 @@ function pickWorkflowName(row: Record<string, unknown> | null | undefined): stri
   const title = typeof row?.title === "string" && row.title.trim() ? row.title.trim() : null;
   const name = typeof row?.name === "string" && row.name.trim() ? row.name.trim() : null;
   return title ?? name ?? "Untitled Workflow";
+}
+
+function isMissingColumnError(error: unknown): boolean {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message ?? "")
+      : "";
+  return message.includes("column") && message.includes("does not exist");
+}
+
+async function selectManyWithFallback(
+  table: string,
+  ids: string[],
+  selects: string[],
+): Promise<Record<string, unknown>[]> {
+  const supabase = createSupabaseAdminClient() as any;
+  let lastError: unknown = null;
+  for (const select of selects) {
+    const result = await supabase.from(table).select(select).in("id", ids);
+    if (!result.error) {
+      return (result.data ?? []) as Record<string, unknown>[];
+    }
+    lastError = result.error;
+    if (!isMissingColumnError(result.error)) {
+      throw result.error;
+    }
+  }
+  if (lastError) throw lastError;
+  return [];
 }
 
 function buildAccountLabel(
@@ -39,6 +82,206 @@ function buildAccountLabel(
   return userId;
 }
 
+function normalizeEpochMs(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function summarizeTimelineItem(
+  item: Record<string, unknown>,
+): Omit<NodeTimelineEventSummary, "nodeId" | "status" | "title"> {
+  return {
+    timestampEpochMs: normalizeEpochMs(item.timestampEpochMs) ?? 0,
+    sinceBundleStartMs:
+      typeof item.sinceBundleStartMs === "number" ? Number(item.sinceBundleStartMs) : null,
+    phase: typeof item.phase === "string" ? item.phase : "unknown",
+    source: typeof item.source === "string" ? item.source : "unknown",
+    eventName: typeof item.eventName === "string" ? item.eventName : "unknown",
+    sequence: typeof item.sequence === "number" ? Number(item.sequence) : 0,
+    attemptNumber: typeof item.attemptNumber === "number" ? Number(item.attemptNumber) : null,
+    payload:
+      item.payload && typeof item.payload === "object" && !Array.isArray(item.payload)
+        ? (item.payload as Record<string, unknown>)
+        : {},
+  };
+}
+
+function buildNodeExecutionDetails(params: {
+  nodes: Array<Record<string, unknown>>;
+  attempts: Array<Record<string, unknown>>;
+  timeline: Array<Record<string, unknown>>;
+}) {
+  const nodeMap = new Map<string, Record<string, unknown>>();
+  for (const node of params.nodes) {
+    if (typeof node.id === "string" && node.id.trim()) {
+      nodeMap.set(node.id, node);
+    }
+  }
+
+  const attemptMap = new Map<string, Array<Record<string, unknown>>>();
+  for (const attempt of params.attempts) {
+    const nodeId = typeof attempt.nodeId === "string" ? attempt.nodeId : null;
+    if (!nodeId) continue;
+    if (!attemptMap.has(nodeId)) attemptMap.set(nodeId, []);
+    attemptMap.get(nodeId)!.push(attempt);
+  }
+
+  const uiEventMap = new Map<string, Array<NodeTimelineEventSummary>>();
+  const typedServerEventMap = new Map<string, Array<NodeTimelineEventSummary>>();
+  for (const item of params.timeline) {
+    const nodeId = typeof item.nodeId === "string" ? item.nodeId : null;
+    if (!nodeId) continue;
+    const source = typeof item.source === "string" ? item.source : "unknown";
+    const phase = typeof item.phase === "string" ? item.phase : "unknown";
+    const eventName = typeof item.eventName === "string" ? item.eventName : "unknown";
+    const payload =
+      item.payload && typeof item.payload === "object" && !Array.isArray(item.payload)
+        ? (item.payload as Record<string, unknown>)
+        : {};
+    const targetMap =
+      source === "client" || phase === "client_render" || eventName.startsWith("ui.")
+        ? uiEventMap
+        : typedServerEventMap;
+    if (!targetMap.has(nodeId)) targetMap.set(nodeId, []);
+    targetMap.get(nodeId)!.push({
+      ...summarizeTimelineItem(item),
+      nodeId,
+      status: typeof payload.status === "string" ? payload.status : null,
+      title: typeof payload.title === "string" ? payload.title : null,
+    });
+  }
+
+  const nodeIds = Array.from(
+    new Set([
+      ...nodeMap.keys(),
+      ...attemptMap.keys(),
+      ...typedServerEventMap.keys(),
+      ...uiEventMap.keys(),
+    ]),
+  );
+
+  return nodeIds
+    .map((nodeId) => {
+      const node = nodeMap.get(nodeId) ?? {};
+      const attempts = (attemptMap.get(nodeId) ?? []).slice().sort((a, b) => {
+        return Number(a.attemptNumber ?? 0) - Number(b.attemptNumber ?? 0);
+      });
+      const serverEvents = (typedServerEventMap.get(nodeId) ?? []).slice().sort((a, b) => {
+        return Number(a.timestampEpochMs ?? 0) - Number(b.timestampEpochMs ?? 0);
+      });
+      const uiEvents = (uiEventMap.get(nodeId) ?? []).slice().sort((a, b) => {
+        return Number(a.timestampEpochMs ?? 0) - Number(b.timestampEpochMs ?? 0);
+      });
+
+      const serverStartCandidates = [
+        ...attempts
+          .map((attempt) => normalizeEpochMs(attempt.startedAt))
+          .filter((value): value is number => value !== null),
+        ...serverEvents
+          .filter(
+            (event) =>
+              event.eventName === "node.started" || event.eventName === "node_attempt_started",
+          )
+          .map((event) => normalizeEpochMs(event.timestampEpochMs))
+          .filter((value): value is number => value !== null),
+      ];
+      const serverEndCandidates = [
+        ...attempts
+          .map((attempt) => normalizeEpochMs(attempt.endedAt))
+          .filter((value): value is number => value !== null),
+        ...serverEvents
+          .filter((event) =>
+            [
+              "node.completed",
+              "node.failed",
+              "node.cancelled",
+              "node.skipped",
+              "node.blocked",
+            ].includes(String(event.eventName)),
+          )
+          .map((event) => normalizeEpochMs(event.timestampEpochMs))
+          .filter((value): value is number => value !== null),
+      ];
+      const uiVisibleEvents = uiEvents.filter(
+        (event) => event.eventName === "ui.node_state_visible",
+      );
+      const uiFirstVisibleAtEpochMs = uiVisibleEvents[0]?.timestampEpochMs ?? null;
+      const uiRunningVisibleAtEpochMs =
+        uiVisibleEvents.find((event) => event.status === "running")?.timestampEpochMs ?? null;
+      const uiTerminalVisibleAtEpochMs =
+        uiVisibleEvents.find((event) =>
+          ["done", "error", "skipped", "cancelled"].includes(String(event.status)),
+        )?.timestampEpochMs ?? null;
+      const serverStartedAtEpochMs =
+        serverStartCandidates.length > 0 ? Math.min(...serverStartCandidates) : null;
+      const serverEndedAtEpochMs =
+        serverEndCandidates.length > 0 ? Math.max(...serverEndCandidates) : null;
+
+      return {
+        nodeId,
+        title:
+          typeof node.title === "string" && node.title.trim()
+            ? node.title
+            : typeof node.name === "string" && node.name.trim()
+              ? node.name
+              : nodeId,
+        specId: typeof node.specId === "string" ? node.specId : null,
+        status: typeof node.status === "string" ? node.status : null,
+        serverStartedAtEpochMs,
+        serverStartedAt: serverStartedAtEpochMs
+          ? new Date(serverStartedAtEpochMs).toISOString()
+          : null,
+        serverEndedAtEpochMs,
+        serverEndedAt: serverEndedAtEpochMs ? new Date(serverEndedAtEpochMs).toISOString() : null,
+        serverDurationMs:
+          serverStartedAtEpochMs !== null && serverEndedAtEpochMs !== null
+            ? Math.max(0, serverEndedAtEpochMs - serverStartedAtEpochMs)
+            : null,
+        uiFirstVisibleAtEpochMs,
+        uiFirstVisibleAt: uiFirstVisibleAtEpochMs
+          ? new Date(uiFirstVisibleAtEpochMs).toISOString()
+          : null,
+        uiRunningVisibleAtEpochMs,
+        uiRunningVisibleAt: uiRunningVisibleAtEpochMs
+          ? new Date(uiRunningVisibleAtEpochMs).toISOString()
+          : null,
+        uiTerminalVisibleAtEpochMs,
+        uiTerminalVisibleAt: uiTerminalVisibleAtEpochMs
+          ? new Date(uiTerminalVisibleAtEpochMs).toISOString()
+          : null,
+        uiLagFromServerStartMs:
+          serverStartedAtEpochMs !== null && uiFirstVisibleAtEpochMs !== null
+            ? uiFirstVisibleAtEpochMs - serverStartedAtEpochMs
+            : null,
+        uiLagFromServerFinishMs:
+          serverEndedAtEpochMs !== null && uiTerminalVisibleAtEpochMs !== null
+            ? uiTerminalVisibleAtEpochMs - serverEndedAtEpochMs
+            : null,
+        attempts: attempts.map((attempt) => ({
+          attemptNumber:
+            typeof attempt.attemptNumber === "number" ? Number(attempt.attemptNumber) : null,
+          status: typeof attempt.status === "string" ? attempt.status : null,
+          startedAt: attempt.startedAt ?? null,
+          endedAt: attempt.endedAt ?? null,
+          durationMs: typeof attempt.durationMs === "number" ? Number(attempt.durationMs) : null,
+          error: attempt.error ?? null,
+        })),
+        serverEvents,
+        uiEvents,
+      };
+    })
+    .sort((a, b) => {
+      const aEpoch = a.serverStartedAtEpochMs ?? Number.MAX_SAFE_INTEGER;
+      const bEpoch = b.serverStartedAtEpochMs ?? Number.MAX_SAFE_INTEGER;
+      if (aEpoch !== bEpoch) return aEpoch - bEpoch;
+      return a.nodeId.localeCompare(b.nodeId);
+    });
+}
+
 export async function resolveWorkflowRunBundleMetadata(workflowRunIds: string[]) {
   if (workflowRunIds.length === 0) return new Map<string, Record<string, unknown>>();
 
@@ -51,22 +294,22 @@ export async function resolveWorkflowRunBundleMetadata(workflowRunIds: string[])
     .in("id", workflowRunIds);
   if (workflowRunsError) throw workflowRunsError;
 
-  const workflowIds = Array.from(
+  const workflowIds: string[] = Array.from(
     new Set(
       (workflowRuns ?? [])
         .map((row: WorkflowRunRow) =>
           typeof row.workflow_id === "string" && row.workflow_id.trim() ? row.workflow_id : null,
         )
-        .filter(Boolean),
+        .filter((value: string | null): value is string => Boolean(value)),
     ),
   );
-  const draftIds = Array.from(
+  const draftIds: string[] = Array.from(
     new Set(
       (workflowRuns ?? [])
         .map((row: WorkflowRunRow) =>
           typeof row.draft_id === "string" && row.draft_id.trim() ? row.draft_id : null,
         )
-        .filter(Boolean),
+        .filter((value: string | null): value is string => Boolean(value)),
     ),
   );
   const runnerIds = Array.from(
@@ -81,21 +324,24 @@ export async function resolveWorkflowRunBundleMetadata(workflowRunIds: string[])
 
   const workflowMap = new Map<string, Record<string, unknown>>();
   if (workflowIds.length > 0) {
-    const { data, error } = await supabase
-      .from("workflows")
-      .select("id, title, name, owner_id, owner_handle, owner_name")
-      .in("id", workflowIds);
-    if (error) throw error;
+    const data = await selectManyWithFallback("workflows", workflowIds, [
+      "id, title, owner_id, owner_handle, owner_name",
+      "id, title, owner_id, owner_handle",
+      "id, title, owner_id",
+      "id, owner_id, owner_handle, owner_name",
+      "id, owner_id, owner_handle",
+      "id, owner_id",
+    ]);
     for (const row of data ?? []) workflowMap.set(String(row.id), row as Record<string, unknown>);
   }
 
   const draftMap = new Map<string, Record<string, unknown>>();
   if (draftIds.length > 0) {
-    const { data, error } = await supabase
-      .from("workflow_drafts")
-      .select("id, title, name, owner_id")
-      .in("id", draftIds);
-    if (error) throw error;
+    const data = await selectManyWithFallback("workflow_drafts", draftIds, [
+      "id, title, owner_id",
+      "id, name, owner_id",
+      "id, owner_id",
+    ]);
     for (const row of data ?? []) draftMap.set(String(row.id), row as Record<string, unknown>);
   }
 
@@ -151,6 +397,12 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
   if (!bundleMeta) {
     throw new Error("Trace bundle not found");
   }
+
+  const bootstrap = await loadWorkflowRunBootstrap({
+    runId: workflowRunId,
+    afterSequence: 0,
+    eventLimit: 2000,
+  });
 
   const { data: traceSessions, error: sessionsError } = await supabase
     .from("trace_sessions")
@@ -238,6 +490,28 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
     return a.sequence - b.sequence;
   });
 
+  const streamEvents = orderedTimeline.filter(
+    (item) =>
+      item.phase === "stream" ||
+      item.eventName.startsWith("node.stream.") ||
+      item.eventName.includes("stream."),
+  );
+  const streamSummary = {
+    eventCount: streamEvents.length,
+    firstStreamEventAt: streamEvents[0]?.timestampEpochMs ?? null,
+    lastStreamEventAt: streamEvents[streamEvents.length - 1]?.timestampEpochMs ?? null,
+    deltaEventCount: streamEvents.filter((item) => item.eventName === "node.stream.delta").length,
+    startedEventCount: streamEvents.filter((item) => item.eventName === "node.stream.started")
+      .length,
+    finishedEventCount: streamEvents.filter((item) => item.eventName === "node.stream.finished")
+      .length,
+  };
+  const nodeExecutionDetails = buildNodeExecutionDetails({
+    nodes: (bootstrap.nodes ?? []) as unknown as Array<Record<string, unknown>>,
+    attempts: (bootstrap.attempts ?? []) as unknown as Array<Record<string, unknown>>,
+    timeline: orderedTimeline as Array<Record<string, unknown>>,
+  });
+
   return {
     bundle: {
       id: workflowRunId,
@@ -256,6 +530,13 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
       workflowEventCount: (workflowEvents ?? []).length,
       metadata: bundleMeta.metadata ?? {},
     },
+    run: bootstrap.run,
+    nodes: bootstrap.nodes,
+    attempts: bootstrap.attempts,
+    nodeExecutionDetails,
+    dependencyStateByNodeId: bootstrap.dependencyStateByNodeId,
+    streamSummary,
+    streamEvents,
     traceSessions: traceSessions ?? [],
     traceEntries: traceEntries ?? [],
     workflowEvents: workflowEvents ?? [],

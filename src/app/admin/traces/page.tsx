@@ -44,6 +44,13 @@ type TimelineEntry = {
 
 type TraceDetail = {
   bundle: Record<string, unknown>;
+  run: Record<string, unknown>;
+  nodes: Array<Record<string, unknown>>;
+  attempts: Array<Record<string, unknown>>;
+  nodeExecutionDetails: Array<Record<string, unknown>>;
+  dependencyStateByNodeId: Record<string, unknown>;
+  streamSummary: Record<string, unknown>;
+  streamEvents: TimelineEntry[];
   traceSessions: Array<Record<string, unknown>>;
   traceEntries: Array<Record<string, unknown>>;
   workflowEvents: Array<Record<string, unknown>>;
@@ -390,6 +397,39 @@ export default function AdminTracesPage() {
                 </div>
               </div>
 
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">Nodes</div>
+                  <div className="mt-2 text-[14px] font-medium text-white">
+                    {detail.nodes.length}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                    Attempts
+                  </div>
+                  <div className="mt-2 text-[14px] font-medium text-white">
+                    {detail.attempts.length}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                    Stream Events
+                  </div>
+                  <div className="mt-2 text-[14px] font-medium text-white">
+                    {detail.streamEvents.length}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                  <div className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                    Run Status
+                  </div>
+                  <div className="mt-2 text-[14px] font-medium text-white">
+                    {String(detail.run.status ?? "unknown")}
+                  </div>
+                </div>
+              </div>
+
               <div className="rounded-2xl border border-white/[0.06] bg-[#09090c] p-4">
                 <div className="flex items-center gap-2 text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
                   <Activity className="h-4 w-4" />
@@ -435,6 +475,74 @@ export default function AdminTracesPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-white/[0.06] bg-[#09090c] p-4">
+                  <div className="text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
+                    Server vs UI Node Detail
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/30 p-3 text-[11px] leading-5 text-white/70">
+                    {JSON.stringify(detail.nodeExecutionDetails, null, 2)}
+                  </pre>
+                </div>
+                <div className="rounded-2xl border border-white/[0.06] bg-[#09090c] p-4">
+                  <div className="text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
+                    Node Details
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/30 p-3 text-[11px] leading-5 text-white/70">
+                    {JSON.stringify(detail.nodes, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-white/[0.06] bg-[#09090c] p-4">
+                  <div className="text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
+                    Attempt Details
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/30 p-3 text-[11px] leading-5 text-white/70">
+                    {JSON.stringify(detail.attempts, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-white/[0.06] bg-[#09090c] p-4">
+                  <div className="text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
+                    Stream Summary
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/30 p-3 text-[11px] leading-5 text-white/70">
+                    {JSON.stringify(detail.streamSummary, null, 2)}
+                  </pre>
+                </div>
+                <div className="rounded-2xl border border-white/[0.06] bg-[#09090c] p-4">
+                  <div className="text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
+                    Stream Events
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/30 p-3 text-[11px] leading-5 text-white/70">
+                    {JSON.stringify(detail.streamEvents, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-white/[0.06] bg-[#09090c] p-4">
+                  <div className="text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
+                    Run Object
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/30 p-3 text-[11px] leading-5 text-white/70">
+                    {JSON.stringify(detail.run, null, 2)}
+                  </pre>
+                </div>
+                <div className="rounded-2xl border border-white/[0.06] bg-[#09090c] p-4">
+                  <div className="text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
+                    Dependency State
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-white/[0.06] bg-black/30 p-3 text-[11px] leading-5 text-white/70">
+                    {JSON.stringify(detail.dependencyStateByNodeId, null, 2)}
+                  </pre>
                 </div>
               </div>
             </div>

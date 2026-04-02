@@ -497,6 +497,11 @@ async function applyTerminalNodeEffects(params: {
   workItem: ClaimedNodeWorkItem;
   result: Awaited<ReturnType<typeof executeClaimedNode>>;
 }): Promise<void> {
+  const startedAt = params.result.metrics?.startedAt ?? null;
+  const endedAt = params.result.metrics?.endedAt ?? null;
+  const startedAtEpochMs = startedAt ? Date.parse(startedAt) || null : null;
+  const endedAtEpochMs = endedAt ? Date.parse(endedAt) || null : null;
+  const durationMs = params.result.metrics?.durationMs ?? null;
   const attemptEventType =
     params.result.status === "completed"
       ? "node_attempt_succeeded"
@@ -533,6 +538,11 @@ async function applyTerminalNodeEffects(params: {
           specId: params.workItem.compiledNode.specId,
           status: finalizedStatus,
           message: params.result.error?.message,
+          startedAt: startedAt ?? undefined,
+          endedAt: endedAt ?? undefined,
+          startedAtEpochMs: startedAtEpochMs ?? undefined,
+          endedAtEpochMs: endedAtEpochMs ?? undefined,
+          durationMs: durationMs ?? undefined,
           outputBytes: params.result.outputsByPort
             ? JSON.stringify(params.result.outputsByPort).length
             : 0,
@@ -552,6 +562,11 @@ async function applyTerminalNodeEffects(params: {
           specId: params.workItem.compiledNode.specId,
           status: finalizedStatus,
           message: params.result.error?.message,
+          startedAt: startedAt ?? undefined,
+          endedAt: endedAt ?? undefined,
+          startedAtEpochMs: startedAtEpochMs ?? undefined,
+          endedAtEpochMs: endedAtEpochMs ?? undefined,
+          durationMs: durationMs ?? undefined,
           outputBytes: params.result.outputsByPort
             ? JSON.stringify(params.result.outputsByPort).length
             : 0,
@@ -571,6 +586,11 @@ async function applyTerminalNodeEffects(params: {
           specId: params.workItem.compiledNode.specId,
           status: finalizedStatus,
           message: params.result.error?.message,
+          startedAt: startedAt ?? undefined,
+          endedAt: endedAt ?? undefined,
+          startedAtEpochMs: startedAtEpochMs ?? undefined,
+          endedAtEpochMs: endedAtEpochMs ?? undefined,
+          durationMs: durationMs ?? undefined,
           outputBytes: params.result.outputsByPort
             ? JSON.stringify(params.result.outputsByPort).length
             : 0,
@@ -700,6 +720,8 @@ export interface ProcessNextRunNodeResult {
 }
 
 function buildNodeStartedEvents(workItem: ClaimedNodeWorkItem) {
+  const startedAt = new Date().toISOString();
+  const startedAtEpochMs = Date.now();
   return [
     {
       type: "node.started" as const,
@@ -711,6 +733,8 @@ function buildNodeStartedEvents(workItem: ClaimedNodeWorkItem) {
         specId: workItem.compiledNode.specId,
         status: "running" as const,
         message: "Node execution started.",
+        startedAt,
+        startedAtEpochMs,
       },
     },
     {
@@ -723,6 +747,8 @@ function buildNodeStartedEvents(workItem: ClaimedNodeWorkItem) {
         specId: workItem.compiledNode.specId,
         status: "running" as const,
         message: "Attempt execution started.",
+        startedAt,
+        startedAtEpochMs,
       },
     },
   ];

@@ -305,6 +305,11 @@ export type RunEvent =
         status: WorkflowRunNodeStatus | WorkflowRunNodeAttemptStatus;
         message?: string;
         reason?: string;
+        startedAt?: string;
+        endedAt?: string;
+        startedAtEpochMs?: number;
+        endedAtEpochMs?: number;
+        durationMs?: number;
         inputBytes?: number;
         inputSizeBucket?: string;
         outputBytes?: number;
