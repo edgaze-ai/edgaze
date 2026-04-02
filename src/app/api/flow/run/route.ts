@@ -1282,6 +1282,28 @@ export async function POST(req: Request) {
       const stream = new ReadableStream({
         async start(controller) {
           const { sendPrelude, writeEvent } = createStreamingResponseHelpers(controller, encoder);
+          let streamChunkSequence = 0;
+          const writeTracedEvent = (event: Record<string, unknown>) => {
+            writeEvent(event);
+            streamChunkSequence += 1;
+            void trace.record({
+              phase: "stream",
+              source: "stream",
+              eventName: "legacy_stream.event_written",
+              chunkSequence: streamChunkSequence,
+              payload: {
+                runId,
+                eventType: typeof event.type === "string" ? event.type : "unknown",
+                ok: typeof event.ok === "boolean" ? event.ok : null,
+                nodeId: typeof event.nodeId === "string" ? event.nodeId : null,
+                nodeTitle: typeof event.nodeTitle === "string" ? event.nodeTitle : null,
+                timestamp:
+                  typeof event.timestamp === "number" && Number.isFinite(event.timestamp)
+                    ? event.timestamp
+                    : null,
+              },
+            });
+          };
           /** Trace session must finish only after the stream closes — never await flush before returning Response or headers lag behind run_bootstrap. */
           let streamLogicalOk = false;
           let streamErrorMessage: string | null = null;
@@ -1289,12 +1311,19 @@ export async function POST(req: Request) {
             try {
               sendPrelude();
               controller.enqueue(encoder.encode(`: ping ${Date.now()}\n\n`));
+              void trace.record({
+                phase: "stream",
+                source: "stream",
+                eventName: "legacy_stream.ping_emitted",
+                severity: "debug",
+                payload: { runId },
+              });
             } catch {}
           }, 5000);
           try {
-            writeEvent({ type: "run_bootstrap", runId: runId ?? undefined, runAccessToken });
+            writeTracedEvent({ type: "run_bootstrap", runId: runId ?? undefined, runAccessToken });
             result = await runFlow(flowPayload, {
-              onProgress: (event) => writeEvent(event),
+              onProgress: (event) => writeTracedEvent(event as Record<string, unknown>),
               runMode: effectiveIsBuilderTest ? "dev" : "marketplace",
             });
             const duration = Date.now() - startTime;
@@ -1394,7 +1423,7 @@ export async function POST(req: Request) {
                 value: redactSecrets(fo.value),
               })),
             };
-            writeEvent({
+            writeTracedEvent({
               type: "complete",
               ok: true,
               result: safeResult,
@@ -1461,7 +1490,7 @@ export async function POST(req: Request) {
             }
             await finishUnifiedRun(unifiedRunId, "error", duration, err?.message);
             streamErrorMessage = simplifyWorkflowError(err?.message || "Unknown error");
-            writeEvent({
+            writeTracedEvent({
               type: "complete",
               ok: false,
               error: streamErrorMessage,

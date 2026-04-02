@@ -216,6 +216,37 @@ export class TraceSessionRecorder {
   private flushFailureCount = 0;
   private lastFlushErrorMessage: string | null = null;
 
+  private async upsertSessionRow(supabase: any): Promise<void> {
+    const { error: sessionError } = await supabase
+      .from("trace_sessions")
+      .upsert(toSessionUpsertRow(this.session), { onConflict: "id" });
+    if (sessionError) throw sessionError;
+  }
+
+  private async insertEntriesWithFallback(supabase: any, entries: TraceEntryRow[]): Promise<void> {
+    const { error: batchError } = await supabase.from("trace_entries").insert(entries);
+    if (!batchError) return;
+
+    const failures: Array<{ sequence: number; error: string }> = [];
+    for (const entry of entries) {
+      const { error } = await supabase.from("trace_entries").insert(entry);
+      if (error) {
+        failures.push({
+          sequence: entry.sequence,
+          error: error.message,
+        });
+      }
+    }
+
+    if (failures.length > 0) {
+      throw new Error(
+        `trace_entries insert failed for ${failures.length}/${entries.length} rows after fallback: ${JSON.stringify(
+          failures.slice(0, 5),
+        )}`,
+      );
+    }
+  }
+
   constructor(init: {
     id?: string;
     kind: TraceSessionKind;
@@ -402,14 +433,10 @@ export class TraceSessionRecorder {
       .then(async () => {
         const supabase = createSupabaseAdminClient() as any;
         if (shouldUpsertSession) {
-          const { error: sessionError } = await supabase
-            .from("trace_sessions")
-            .upsert(toSessionUpsertRow(this.session), { onConflict: "id" });
-          if (sessionError) throw sessionError;
+          await this.upsertSessionRow(supabase);
         }
         if (entries.length > 0) {
-          const { error: entriesError } = await supabase.from("trace_entries").insert(entries);
-          if (entriesError) throw entriesError;
+          await this.insertEntriesWithFallback(supabase, entries);
         }
         this.lastFlushErrorMessage = null;
       })
@@ -426,6 +453,14 @@ export class TraceSessionRecorder {
         };
         this.sessionDirty = true;
         console.error("[trace] flush failed:", error);
+        void (async () => {
+          try {
+            const supabase = createSupabaseAdminClient() as any;
+            await this.upsertSessionRow(supabase);
+          } catch (upsertError) {
+            console.error("[trace] failed to persist flush error summary:", upsertError);
+          }
+        })();
       });
     await this.flushPromise;
   }

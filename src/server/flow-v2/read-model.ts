@@ -165,21 +165,25 @@ function toDependencyStatus(
  * (large image/base64 payloads in node output refs made that path very slow).
  */
 export async function peekWorkflowRunStatus(params: { runId: string }): Promise<{
+  id: string;
   status: WorkflowRunStatus;
   lastEventSequence: number;
   outcome: string | null;
+  cancelRequestedAt: string | null;
 }> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("workflow_runs")
-    .select("status, last_event_sequence, outcome")
+    .select("id, status, last_event_sequence, outcome, cancel_requested_at")
     .eq("id", params.runId)
     .single();
   if (error) throw error;
   return {
+    id: String(data.id),
     status: data.status as WorkflowRunStatus,
     lastEventSequence: Number(data.last_event_sequence ?? 0),
     outcome: (data.outcome as string | null) ?? null,
+    cancelRequestedAt: (data.cancel_requested_at as string | null) ?? null,
   };
 }
 
@@ -198,8 +202,12 @@ export async function listWorkflowRunEvents(params: {
   if ((params.afterSequence ?? 0) > 0) {
     query = query.gt("sequence", params.afterSequence ?? 0);
   }
-  if ((params.limit ?? 0) > 0) {
-    query = query.limit(params.limit ?? 0);
+  const limit = params.limit;
+  if (limit === 0) {
+    return [];
+  }
+  if (typeof limit === "number" && limit > 0) {
+    query = query.limit(limit);
   }
 
   const { data, error } = await query;

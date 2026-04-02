@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   listWorkflowRunEvents,
-  loadWorkflowRunBootstrap,
+  peekWorkflowRunStatus,
   requireWorkflowRunAccess,
 } from "src/server/flow-v2/read-model";
 import { SupabaseWorkflowExecutionRepository } from "src/server/flow-v2/repository";
@@ -21,15 +21,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
         : 0;
     const limit = limitParam && !Number.isNaN(Number(limitParam)) ? Number(limitParam) : 200;
 
-    const [events, bootstrap] = await Promise.all([
+    const [events, runPeek] = await Promise.all([
       listWorkflowRunEvents({ runId, afterSequence, limit }),
-      loadWorkflowRunBootstrap({ runId, afterSequence: 0, eventLimit: 0 }),
+      peekWorkflowRunStatus({ runId }),
     ]);
 
     if (
-      bootstrap.run.status !== "completed" &&
-      bootstrap.run.status !== "failed" &&
-      bootstrap.run.status !== "cancelled"
+      runPeek.status !== "completed" &&
+      runPeek.status !== "failed" &&
+      runPeek.status !== "cancelled"
     ) {
       ensureWorkflowRunWorker({
         runId,
@@ -41,11 +41,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
     return NextResponse.json({
       ok: true,
       run: {
-        id: bootstrap.run.id,
-        status: bootstrap.run.status,
-        outcome: bootstrap.run.outcome,
-        cancelRequestedAt: bootstrap.run.cancelRequestedAt,
-        lastEventSequence: bootstrap.run.lastEventSequence,
+        id: runPeek.id,
+        status: runPeek.status,
+        outcome: runPeek.outcome,
+        cancelRequestedAt: runPeek.cancelRequestedAt,
+        lastEventSequence: runPeek.lastEventSequence,
       },
       events,
     });
