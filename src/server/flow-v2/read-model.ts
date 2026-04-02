@@ -152,7 +152,7 @@ function mapRunEventRow(row: Record<string, unknown>): RunEvent {
 function toDependencyStatus(
   status: WorkflowRunNodeStatus,
 ): "satisfied" | "failed" | "skipped" | "cancelled" | "pending" {
-  if (status === "completed") return "satisfied";
+  if (status === "completed" || (status as string) === "success") return "satisfied";
   if (status === "failed" || status === "timed_out") return "failed";
   if (status === "blocked" || status === "skipped") return "skipped";
   if (status === "cancelled") return "cancelled";

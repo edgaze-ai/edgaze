@@ -117,8 +117,14 @@ function buildNodeExecutionDetails(params: {
 }) {
   const nodeMap = new Map<string, Record<string, unknown>>();
   for (const node of params.nodes) {
-    if (typeof node.id === "string" && node.id.trim()) {
-      nodeMap.set(node.id, node);
+    const workflowNodeId =
+      typeof node.nodeId === "string" && node.nodeId.trim()
+        ? node.nodeId
+        : typeof node.id === "string" && node.id.trim()
+          ? node.id
+          : null;
+    if (workflowNodeId) {
+      nodeMap.set(workflowNodeId, node);
     }
   }
 
@@ -220,26 +226,35 @@ function buildNodeExecutionDetails(params: {
         serverStartCandidates.length > 0 ? Math.min(...serverStartCandidates) : null;
       const serverEndedAtEpochMs =
         serverEndCandidates.length > 0 ? Math.max(...serverEndCandidates) : null;
+      const fallbackStartedAtEpochMs = normalizeEpochMs(node.startedAt);
+      const fallbackEndedAtEpochMs = normalizeEpochMs(node.endedAt);
+      const effectiveServerStartedAtEpochMs = serverStartedAtEpochMs ?? fallbackStartedAtEpochMs;
+      const effectiveServerEndedAtEpochMs = serverEndedAtEpochMs ?? fallbackEndedAtEpochMs;
 
       return {
         nodeId,
+        runNodeRecordId: typeof node.id === "string" ? node.id : null,
         title:
           typeof node.title === "string" && node.title.trim()
             ? node.title
+            : typeof node.nodeId === "string" && node.nodeId.trim()
+              ? node.nodeId
             : typeof node.name === "string" && node.name.trim()
               ? node.name
               : nodeId,
         specId: typeof node.specId === "string" ? node.specId : null,
         status: typeof node.status === "string" ? node.status : null,
-        serverStartedAtEpochMs,
-        serverStartedAt: serverStartedAtEpochMs
-          ? new Date(serverStartedAtEpochMs).toISOString()
+        serverStartedAtEpochMs: effectiveServerStartedAtEpochMs,
+        serverStartedAt: effectiveServerStartedAtEpochMs
+          ? new Date(effectiveServerStartedAtEpochMs).toISOString()
           : null,
-        serverEndedAtEpochMs,
-        serverEndedAt: serverEndedAtEpochMs ? new Date(serverEndedAtEpochMs).toISOString() : null,
+        serverEndedAtEpochMs: effectiveServerEndedAtEpochMs,
+        serverEndedAt: effectiveServerEndedAtEpochMs
+          ? new Date(effectiveServerEndedAtEpochMs).toISOString()
+          : null,
         serverDurationMs:
-          serverStartedAtEpochMs !== null && serverEndedAtEpochMs !== null
-            ? Math.max(0, serverEndedAtEpochMs - serverStartedAtEpochMs)
+          effectiveServerStartedAtEpochMs !== null && effectiveServerEndedAtEpochMs !== null
+            ? Math.max(0, effectiveServerEndedAtEpochMs - effectiveServerStartedAtEpochMs)
             : null,
         uiFirstVisibleAtEpochMs,
         uiFirstVisibleAt: uiFirstVisibleAtEpochMs
@@ -254,12 +269,12 @@ function buildNodeExecutionDetails(params: {
           ? new Date(uiTerminalVisibleAtEpochMs).toISOString()
           : null,
         uiLagFromServerStartMs:
-          serverStartedAtEpochMs !== null && uiFirstVisibleAtEpochMs !== null
-            ? uiFirstVisibleAtEpochMs - serverStartedAtEpochMs
+          effectiveServerStartedAtEpochMs !== null && uiFirstVisibleAtEpochMs !== null
+            ? uiFirstVisibleAtEpochMs - effectiveServerStartedAtEpochMs
             : null,
         uiLagFromServerFinishMs:
-          serverEndedAtEpochMs !== null && uiTerminalVisibleAtEpochMs !== null
-            ? uiTerminalVisibleAtEpochMs - serverEndedAtEpochMs
+          effectiveServerEndedAtEpochMs !== null && uiTerminalVisibleAtEpochMs !== null
+            ? uiTerminalVisibleAtEpochMs - effectiveServerEndedAtEpochMs
             : null,
         attempts: attempts.map((attempt) => ({
           attemptNumber:
@@ -506,6 +521,18 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
     finishedEventCount: streamEvents.filter((item) => item.eventName === "node.stream.finished")
       .length,
   };
+  const expectedTraceEntryCount = (traceSessions ?? []).reduce(
+    (sum: number, session: Record<string, unknown>) => sum + Number(session.event_count ?? 0),
+    0,
+  );
+  const traceDiagnostics = {
+    expectedTraceEntryCount,
+    actualTraceEntryCount: (traceEntries ?? []).length,
+    missingTraceEntryCount: Math.max(0, expectedTraceEntryCount - (traceEntries ?? []).length),
+    actualWorkflowEventCount: (workflowEvents ?? []).length,
+    workflowLastEventSequence:
+      typeof bootstrap.run?.lastEventSequence === "number" ? bootstrap.run.lastEventSequence : null,
+  };
   const nodeExecutionDetails = buildNodeExecutionDetails({
     nodes: (bootstrap.nodes ?? []) as unknown as Array<Record<string, unknown>>,
     attempts: (bootstrap.attempts ?? []) as unknown as Array<Record<string, unknown>>,
@@ -528,6 +555,7 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
       traceSessionCount: (traceSessions ?? []).length,
       traceEntryCount: (traceEntries ?? []).length,
       workflowEventCount: (workflowEvents ?? []).length,
+      traceDiagnostics,
       metadata: bundleMeta.metadata ?? {},
     },
     run: bootstrap.run,

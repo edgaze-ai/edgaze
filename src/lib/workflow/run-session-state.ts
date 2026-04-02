@@ -79,6 +79,8 @@ export function mapV2StatusToStepStatus(
     running: "running",
     cancelling: "running",
     completed: "done",
+    /** Legacy / analytics rows sometimes persist `success` instead of v2 `completed`. */
+    success: "done",
     failed: "error",
     timed_out: "error",
     blocked: "skipped",
@@ -437,11 +439,24 @@ export function buildWorkflowRunStateFromBootstrap(params: {
     edges?: Array<{ sourceNodeId: string; targetNodeId: string }>;
   };
 
-  const compiledNodes = [...(compiled.nodes ?? [])].sort(
+  const nodeRows = (params.bootstrap.nodes ?? []) as Array<Record<string, any>>;
+
+  let compiledNodes = [...(compiled.nodes ?? [])].sort(
     (left, right) => Number(left.topoIndex ?? 0) - Number(right.topoIndex ?? 0),
   );
+  /** If the snapshot has not been persisted yet (or was stripped), still render steps from run node rows. */
+  if (compiledNodes.length === 0 && nodeRows.length > 0) {
+    compiledNodes = [...nodeRows]
+      .sort((left, right) => Number(left.topoIndex ?? 0) - Number(right.topoIndex ?? 0))
+      .map((row) => ({
+        id: String(row.nodeId),
+        specId: String(row.specId ?? ""),
+        title: undefined as string | undefined,
+        topoIndex: Number(row.topoIndex ?? 0),
+        outputPorts: [{ id: "__result__" }],
+      }));
+  }
   const compiledNodeById = new Map(compiledNodes.map((node) => [node.id, node]));
-  const nodeRows = (params.bootstrap.nodes ?? []) as Array<Record<string, any>>;
   const nodeStatusById = new Map(
     nodeRows.map((node) => [String(node.nodeId), String(node.status ?? "pending")]),
   );

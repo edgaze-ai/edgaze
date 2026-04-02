@@ -299,11 +299,11 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
     });
 
     if (error) throw error;
-    await trace?.record({
-      phase: "worker",
-      source: "workflow",
+    const tracePayload = {
+      phase: "worker" as const,
+      source: "workflow" as const,
       eventName: "repository.append_run_event",
-      severity: "debug",
+      severity: "debug" as const,
       payload: {
         runId: params.runId,
         type: params.type,
@@ -311,7 +311,12 @@ export class SupabaseWorkflowExecutionRepository implements WorkflowExecutionRep
         attemptNumber: params.attemptNumber ?? null,
         sequence: Number(data),
       },
-    });
+    };
+    if (params.type === "node.stream.delta") {
+      void trace?.record(tracePayload);
+    } else {
+      await trace?.record(tracePayload);
+    }
     return Number(data);
   }
 
