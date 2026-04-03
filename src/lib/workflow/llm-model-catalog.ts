@@ -27,6 +27,8 @@ export function resolveAnthropicApiModel(modelId: string): string {
   return mapped ?? raw;
 }
 export const FREE_TIER_LLM_CHAT_OPENAI_MODEL = "gpt-5.4-mini";
+/** Platform-funded chat when routing to Gemini (matches quality floor used elsewhere). */
+export const FREE_TIER_LLM_CHAT_GEMINI_MODEL = "gemini-2.5-flash";
 
 /** Legacy "OpenAI Chat" workflow nodes (spec `openai-chat` → canonical `llm-chat`) must stay on OpenAI. */
 export const LEGACY_OPENAI_CHAT_MODEL = "gpt-4o-mini";

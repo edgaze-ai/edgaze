@@ -719,8 +719,13 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   const hasConfigKey = typeof config.apiKey === "string" && config.apiKey.trim();
   const usePremium = !isBuilderTest || builderUserKey || !!hasConfigKey;
 
+  const perNodePlatformModel = (ctx.inputs as any)?.[`__platform_llm_model_${node.id}`] as
+    | string
+    | undefined;
   const platformForced = (ctx.inputs as any)?.["__platform_llm_chat_model"] as string | undefined;
-  if (!usePremium && platformForced) {
+  if (perNodePlatformModel?.trim()) {
+    model = perNodePlatformModel.trim();
+  } else if (!usePremium && platformForced) {
     model = platformForced;
   }
   if (isLegacyOpenAiChatNode(node)) {

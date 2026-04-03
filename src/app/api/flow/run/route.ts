@@ -36,6 +36,7 @@ import {
 } from "@lib/workflow/spec-id-aliases";
 import {
   FREE_TIER_LLM_CHAT_ANTHROPIC_MODEL,
+  FREE_TIER_LLM_CHAT_GEMINI_MODEL,
   FREE_TIER_LLM_CHAT_OPENAI_MODEL,
 } from "@lib/workflow/llm-model-catalog";
 import { simplifyWorkflowError } from "@lib/workflow/simplify-error";
@@ -845,6 +846,16 @@ export async function POST(req: Request) {
         enrichedInputs[`__api_key_${node.id}`] = modalKey;
       } else if (platformKey) {
         enrichedInputs[`__api_key_${node.id}`] = platformKey;
+        const chatCanon = canonicalSpecId(specId);
+        if (chatCanon === "llm-chat" || specId === "openai-chat") {
+          if (provider === "anthropic") {
+            enrichedInputs[`__platform_llm_model_${node.id}`] = FREE_TIER_LLM_CHAT_ANTHROPIC_MODEL;
+          } else if (provider === "openai") {
+            enrichedInputs[`__platform_llm_model_${node.id}`] = FREE_TIER_LLM_CHAT_OPENAI_MODEL;
+          } else if (provider === "google") {
+            enrichedInputs[`__platform_llm_model_${node.id}`] = FREE_TIER_LLM_CHAT_GEMINI_MODEL;
+          }
+        }
       } else {
         const nodeKeys = mergedUserApiKeys[node.id];
         if (nodeKeys?.apiKey) {
