@@ -509,9 +509,7 @@ function ExecutionChrome({
   void elapsedTick;
 
   return (
-    <div
-      className={cx("flex items-center gap-3", showTimer ? "justify-between" : "justify-end")}
-    >
+    <div className={cx("flex items-center gap-3", showTimer ? "justify-between" : "justify-end")}>
       {showTimer && (
         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] text-white/62">
           <Clock3 className="h-3.5 w-3.5" />

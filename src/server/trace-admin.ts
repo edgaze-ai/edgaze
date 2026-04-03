@@ -590,7 +590,9 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
       }
       return null;
     })() ??
-    (typeof bundleMeta.draftId === "string" && bundleMeta.draftId.trim() ? bundleMeta.draftId : null);
+    (typeof bundleMeta.draftId === "string" && bundleMeta.draftId.trim()
+      ? bundleMeta.draftId
+      : null);
   const fallbackDurationMs =
     (typeof bundleMeta.durationMs === "number" && Number.isFinite(bundleMeta.durationMs)
       ? bundleMeta.durationMs
@@ -608,38 +610,38 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
 
   return redactSecrets(
     {
-    bundle: {
-      id: workflowRunId,
-      workflowRunId,
-      workflowId: fallbackWorkflowId,
-      draftId: bundleMeta.draftId ?? null,
-      workflowName: bundleMeta.workflowName,
-      accountLabel: bundleMeta.accountLabel,
-      accountHandle: bundleMeta.accountHandle ?? null,
-      accountName: bundleMeta.accountName ?? null,
-      status: bundleMeta.status,
-      startedAt: bundleMeta.startedAt,
-      durationMs: fallbackDurationMs,
-      traceSessionCount: traceSessions.length,
-      traceEntryCount: traceEntries.length,
-      workflowEventCount: workflowEvents.length,
-      traceDiagnostics,
-      metadata: bundleMeta.metadata ?? {},
-    },
-    run: {
-      ...bootstrap.run,
-      workflowId: fallbackWorkflowId,
-    },
-    nodes: bootstrap.nodes,
-    attempts: bootstrap.attempts,
-    nodeExecutionDetails,
-    dependencyStateByNodeId: bootstrap.dependencyStateByNodeId,
-    streamSummary,
-    streamEvents,
-    traceSessions,
-    traceEntries,
-    workflowEvents,
-    timeline: orderedTimeline,
+      bundle: {
+        id: workflowRunId,
+        workflowRunId,
+        workflowId: fallbackWorkflowId,
+        draftId: bundleMeta.draftId ?? null,
+        workflowName: bundleMeta.workflowName,
+        accountLabel: bundleMeta.accountLabel,
+        accountHandle: bundleMeta.accountHandle ?? null,
+        accountName: bundleMeta.accountName ?? null,
+        status: bundleMeta.status,
+        startedAt: bundleMeta.startedAt,
+        durationMs: fallbackDurationMs,
+        traceSessionCount: traceSessions.length,
+        traceEntryCount: traceEntries.length,
+        workflowEventCount: workflowEvents.length,
+        traceDiagnostics,
+        metadata: bundleMeta.metadata ?? {},
+      },
+      run: {
+        ...bootstrap.run,
+        workflowId: fallbackWorkflowId,
+      },
+      nodes: bootstrap.nodes,
+      attempts: bootstrap.attempts,
+      nodeExecutionDetails,
+      dependencyStateByNodeId: bootstrap.dependencyStateByNodeId,
+      streamSummary,
+      streamEvents,
+      traceSessions,
+      traceEntries,
+      workflowEvents,
+      timeline: orderedTimeline,
     },
     { preserveExecutionSecrets: false },
   ) as {

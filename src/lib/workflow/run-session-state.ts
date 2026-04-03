@@ -731,20 +731,11 @@ export function mergeWorkflowRunStateFromBootstrapSnapshot(params: {
   const prevGraphNodeCount = params.prev.graph?.nodes?.length ?? 0;
 
   const retainSteps =
-    !isTerminalRun &&
-    nodeRowCount === 0 &&
-    prevSteps.length > 0 &&
-    builtSteps.length === 0;
+    !isTerminalRun && nodeRowCount === 0 && prevSteps.length > 0 && builtSteps.length === 0;
   const retainSession =
-    !isTerminalRun &&
-    nodeRowCount === 0 &&
-    prevSessionNodeCount > 0 &&
-    builtSessionNodeCount === 0;
+    !isTerminalRun && nodeRowCount === 0 && prevSessionNodeCount > 0 && builtSessionNodeCount === 0;
   const retainGraph =
-    !isTerminalRun &&
-    nodeRowCount === 0 &&
-    prevGraphNodeCount > 0 &&
-    builtGraphNodeCount === 0;
+    !isTerminalRun && nodeRowCount === 0 && prevGraphNodeCount > 0 && builtGraphNodeCount === 0;
 
   return {
     ...params.prev,

@@ -137,7 +137,9 @@ export function resolveLlmChatProvider(modelId: string): AiKeyProvider {
   const raw = (modelId || "").trim();
   const m = raw.toLowerCase();
   if (!m) return "anthropic";
-  const catalogHit = LLM_CHAT_MODEL_OPTIONS.find((o) => o.value === raw || o.value.toLowerCase() === m);
+  const catalogHit = LLM_CHAT_MODEL_OPTIONS.find(
+    (o) => o.value === raw || o.value.toLowerCase() === m,
+  );
   if (catalogHit) return catalogHit.provider;
   if (ANTHROPIC_PREFIXES.some((p) => m.startsWith(p))) return "anthropic";
   if (GEMINI_PREFIXES.some((p) => m.startsWith(p))) return "google";
