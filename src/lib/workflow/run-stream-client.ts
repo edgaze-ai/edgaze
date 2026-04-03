@@ -7,6 +7,7 @@ import { streamRunSession } from "./run-session";
 import {
   applyWorkflowRunEventToState,
   buildWorkflowRunStateFromBootstrap,
+  mergeWorkflowRunStateFromBootstrapSnapshot,
 } from "./run-session-state";
 
 type WorkflowRunStateRef = {
@@ -224,17 +225,15 @@ export async function handleWorkflowRunStream(
         onSnapshot: async (bootstrap) => {
           params.setRunState((prev) => {
             const next = prev
-              ? {
-                  ...prev,
-                  ...buildWorkflowRunStateFromBootstrap({
-                    bootstrap,
-                    workflowId: params.workflowId,
-                    workflowName: params.workflowName,
-                    inputValues: params.inputValues,
-                    runAccessToken: handoffRunAccessToken ?? prev.runAccessToken,
-                    sourceGraph: params.sourceGraph,
-                  }),
-                }
+              ? mergeWorkflowRunStateFromBootstrapSnapshot({
+                  prev,
+                  bootstrap,
+                  workflowId: params.workflowId,
+                  workflowName: params.workflowName,
+                  inputValues: params.inputValues,
+                  runAccessToken: handoffRunAccessToken ?? prev.runAccessToken,
+                  sourceGraph: params.sourceGraph,
+                })
               : prev;
             traceUiStateTransition({
               clientTrace: params.clientTrace,

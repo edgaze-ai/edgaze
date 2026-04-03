@@ -703,3 +703,45 @@ export function buildWorkflowRunStateFromBootstrap(params: {
       : undefined,
   };
 }
+
+/**
+ * Apply a streamed bootstrap snapshot without wiping live progress when the server returns an
+ * empty node list mid-run (replica lag, transient read, etc.). Always trust a terminal snapshot.
+ */
+export function mergeWorkflowRunStateFromBootstrapSnapshot(params: {
+  prev: WorkflowRunState;
+  bootstrap: RunSessionBootstrapResponse;
+  workflowId: string;
+  workflowName: string;
+  inputValues?: Record<string, any>;
+  runAccessToken?: string | null;
+  sourceGraph?: WorkflowRunGraph;
+}): WorkflowRunState {
+  const built = buildWorkflowRunStateFromBootstrap(params);
+  const runStatus = String(params.bootstrap.run?.status ?? "");
+  const isTerminalRun =
+    runStatus === "completed" || runStatus === "failed" || runStatus === "cancelled";
+  const nodeRowCount = Array.isArray(params.bootstrap.nodes) ? params.bootstrap.nodes.length : 0;
+
+  const builtSteps = built.steps ?? [];
+  const prevSteps = params.prev.steps ?? [];
+  const builtSessionNodeCount = Object.keys(built.session?.nodesById ?? {}).length;
+  const prevSessionNodeCount = Object.keys(params.prev.session?.nodesById ?? {}).length;
+  const builtGraphNodeCount = built.graph?.nodes?.length ?? 0;
+  const prevGraphNodeCount = params.prev.graph?.nodes?.length ?? 0;
+
+  const retainSteps =
+    !isTerminalRun && nodeRowCount === 0 && prevSteps.length > 0 && builtSteps.length === 0;
+  const retainSession =
+    !isTerminalRun && nodeRowCount === 0 && prevSessionNodeCount > 0 && builtSessionNodeCount === 0;
+  const retainGraph =
+    !isTerminalRun && nodeRowCount === 0 && prevGraphNodeCount > 0 && builtGraphNodeCount === 0;
+
+  return {
+    ...params.prev,
+    ...built,
+    steps: retainSteps ? prevSteps : builtSteps,
+    session: retainSession ? params.prev.session : built.session,
+    graph: retainGraph ? params.prev.graph : built.graph,
+  } as WorkflowRunState;
+}

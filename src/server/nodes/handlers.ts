@@ -38,6 +38,7 @@ import {
   LEGACY_OPENAI_CHAT_MODEL,
   LEGACY_OPENAI_IMAGE_MODEL,
   OPENAI_GPT_IMAGE_SIZES,
+  openaiChatUsesMaxCompletionTokens,
   openaiGptImageQualityParam,
   resolveAnthropicApiModel,
   resolveLlmChatProvider,
@@ -693,6 +694,9 @@ async function streamGeminiChatCompletion(params: {
 /** Unified LLM Chat: routes OpenAI / Anthropic / Gemini from a single model dropdown. */
 const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeContext) => {
   const config = node.data?.config ?? {};
+  /** Provider + UI token streaming when the runner supports it; explicit `stream: false` opts out. */
+  const useLlmStream =
+    Boolean(ctx.streamNodeOutput) && (config as { stream?: boolean }).stream !== false;
   const {
     prompt: promptRaw,
     messages,
@@ -841,7 +845,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
           temperature: Math.min(1, temperature),
           system: systemCombined,
           messages: anthropicMessages,
-          stream: Boolean(ctx.streamNodeOutput),
+          stream: useLlmStream,
         }),
         signal: controller.signal,
       });
@@ -867,7 +871,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       });
 
       let textOut = "";
-      if (ctx.streamNodeOutput) {
+      if (useLlmStream) {
         textOut = await streamAnthropicChatCompletion({
           response,
           nodeId: node.id,
@@ -910,7 +914,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       }
 
       const maxOut = Math.min(maxTokens, nodeTokenCap - tokenCount.input, 8192);
-      const url = ctx.streamNodeOutput
+      const url = useLlmStream
         ? `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`
         : `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
@@ -948,7 +952,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       });
 
       let textOut = "";
-      if (ctx.streamNodeOutput) {
+      if (useLlmStream) {
         textOut = await streamGeminiChatCompletion({
           response,
           nodeId: node.id,
@@ -968,11 +972,16 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
     }
 
     // OpenAI Chat Completions
+    const cappedOutTokens = Math.min(maxTokens, nodeTokenCap - tokenCount.input);
     const requestBody: Record<string, unknown> = {
       model,
-      max_tokens: Math.min(maxTokens, nodeTokenCap - tokenCount.input),
-      stream: Boolean(ctx.streamNodeOutput),
+      stream: useLlmStream,
     };
+    if (openaiChatUsesMaxCompletionTokens(model)) {
+      requestBody.max_completion_tokens = cappedOutTokens;
+    } else {
+      requestBody.max_tokens = cappedOutTokens;
+    }
     if (!/^o\d/i.test(model)) {
       requestBody.temperature = temperature;
     }
@@ -1025,7 +1034,7 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
       isPlatformKey: !isUserProvidedApiKey(node, ctx),
     });
 
-    const content = ctx.streamNodeOutput
+    const content = useLlmStream
       ? await streamOpenAiChatCompletion({
           response,
           nodeId: node.id,

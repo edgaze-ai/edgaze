@@ -325,38 +325,99 @@ function shouldPreserveRunInputInjectionField(fieldName: string): boolean {
   return kl.startsWith("__api_key_") || kl.startsWith("__builder_user_key");
 }
 
+function normalizeSecretFieldName(fieldName: string): string {
+  return fieldName.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+}
+
+function isSensitiveFieldName(fieldName: string): boolean {
+  const normalized = normalizeSecretFieldName(fieldName);
+  if (
+    normalized.startsWith("__api_key_") ||
+    normalized.startsWith("__builder_user_key") ||
+    normalized === "authorization" ||
+    normalized === "cookie" ||
+    normalized === "set_cookie" ||
+    normalized === "api_key" ||
+    normalized === "access_token" ||
+    normalized === "refresh_token" ||
+    normalized === "run_access_token" ||
+    normalized === "client_secret" ||
+    normalized === "secret" ||
+    normalized === "token" ||
+    normalized === "password" ||
+    normalized === "credential" ||
+    normalized === "credentials"
+  ) {
+    return true;
+  }
+  return (
+    normalized.endsWith("_api_key") ||
+    normalized.endsWith("_token") ||
+    normalized.endsWith("_secret") ||
+    normalized.endsWith("_password") ||
+    normalized.endsWith("_credential") ||
+    normalized.endsWith("_credentials")
+  );
+}
+
+function sanitizeSecretLikeUrl(value: string): string {
+  const trimmed = value.trim();
+  if (/^data:/i.test(trimmed)) return value;
+  try {
+    const url = new URL(trimmed);
+    let changed = false;
+    for (const key of Array.from(url.searchParams.keys())) {
+      if (isSensitiveFieldName(key)) {
+        url.searchParams.set(key, "***REDACTED***");
+        changed = true;
+      }
+    }
+    return changed ? url.toString() : value;
+  } catch {
+    return value;
+  }
+}
+
+function redactSecretString(value: string): string {
+  if (looksLikeUrl(value)) return sanitizeSecretLikeUrl(value);
+  if (value.length > 96_000) return value;
+  return value
+    .replace(/\bsk-[a-zA-Z0-9_-]{20,}\b/g, "sk-***REDACTED***")
+    .replace(/\bAIza[0-9A-Za-z\\-_]{20,}\b/g, "AIza***REDACTED***")
+    .replace(
+      /([?&](?:runAccessToken|run_access_token|api[_-]?key|access_token|refresh_token|token|secret)=)([^&\s]+)/gi,
+      "$1***REDACTED***",
+    )
+    .replace(/api[_-]?key["\s:=]+([a-zA-Z0-9_-]{12,})/gi, 'api_key="***REDACTED***"');
+}
+
 /**
  * Redacts API keys from logs and error messages to prevent leakage.
  * Never redacts URLs (image URLs, blob storage, etc.) - those are not secrets and must stay intact.
  */
-export function redactSecrets(value: unknown): unknown {
+export function redactSecrets(
+  value: unknown,
+  options?: { preserveExecutionSecrets?: boolean },
+): unknown {
+  const preserveExecutionSecrets = options?.preserveExecutionSecrets ?? true;
   if (typeof value === "string") {
-    if (looksLikeUrl(value)) return value;
-    // API key patterns are short; scanning megabyte strings (e.g. base64) is O(n) and dominates run finalization.
-    if (value.length > 96_000) return value;
-    return value
-      .replace(/\bsk-[a-zA-Z0-9]{20,}\b/g, "sk-***REDACTED***")
-      .replace(/api[_-]?key["\s:=]+([a-zA-Z0-9_-]{20,})/gi, 'api_key="***REDACTED***"');
+    return redactSecretString(value);
   }
   if (Array.isArray(value)) {
-    return value.map(redactSecrets);
+    return value.map((item) => redactSecrets(item, options));
   }
   if (value && typeof value === "object") {
     const obj = value as Record<string, unknown>;
     const redacted: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(obj)) {
-      if (shouldPreserveRunInputInjectionField(k)) {
+      if (preserveExecutionSecrets && shouldPreserveRunInputInjectionField(k)) {
         redacted[k] = v;
         continue;
       }
-      if (
-        k.toLowerCase().includes("key") ||
-        k.toLowerCase().includes("secret") ||
-        k.toLowerCase().includes("token")
-      ) {
+      if (isSensitiveFieldName(k)) {
         redacted[k] = "***REDACTED***";
       } else {
-        redacted[k] = redactSecrets(v);
+        redacted[k] = redactSecrets(v, options);
       }
     }
     return redacted;

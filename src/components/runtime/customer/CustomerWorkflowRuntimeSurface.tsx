@@ -44,6 +44,8 @@ type CustomerWorkflowRuntimeSurfaceProps = {
   embedded?: boolean;
   hideHeader?: boolean;
   hideActionZone?: boolean;
+  /** Elapsed timer in execution chrome; intended for admin diagnostics only. */
+  showExecutionTimer?: boolean;
   isBuilderTest?: boolean;
   builderRunLimit?: BuilderRunLimit;
   requiresApiKeys?: string[];
@@ -486,17 +488,20 @@ function ExecutionChrome({
   state,
   onCancel,
   onClose,
+  showTimer = false,
 }: {
   state: WorkflowRunState;
   onCancel?: () => void;
   onClose?: () => void;
+  showTimer?: boolean;
 }) {
   const [elapsedTick, setElapsedTick] = useState(0);
   useEffect(() => {
+    if (!showTimer) return;
     if (state.status !== "running" && state.status !== "cancelling") return;
     const id = window.setInterval(() => setElapsedTick((t) => t + 1), 500);
     return () => window.clearInterval(id);
-  }, [state.status]);
+  }, [state.status, showTimer]);
 
   const model = deriveCustomerRuntimeModel(state);
   if (!model) return null;
@@ -504,11 +509,13 @@ function ExecutionChrome({
   void elapsedTick;
 
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] text-white/62">
-        <Clock3 className="h-3.5 w-3.5" />
-        {model.elapsedLabel ?? formatRunElapsed(state.startedAt, state.finishedAt)}
-      </div>
+    <div className={cx("flex items-center gap-3", showTimer ? "justify-between" : "justify-end")}>
+      {showTimer && (
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] text-white/62">
+          <Clock3 className="h-3.5 w-3.5" />
+          {model.elapsedLabel ?? formatRunElapsed(state.startedAt, state.finishedAt)}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         {model.canCancel && onCancel && (
           <button
@@ -1098,6 +1105,7 @@ export default function CustomerWorkflowRuntimeSurface({
   embedded = false,
   hideHeader = false,
   hideActionZone = false,
+  showExecutionTimer = false,
   isBuilderTest,
   builderRunLimit,
   requiresApiKeys,
@@ -1147,7 +1155,14 @@ export default function CustomerWorkflowRuntimeSurface({
         }}
       />
 
-      {!hideHeader && <ExecutionChrome state={state} onCancel={onCancel} onClose={onClose} />}
+      {!hideHeader && (
+        <ExecutionChrome
+          state={state}
+          onCancel={onCancel}
+          onClose={onClose}
+          showTimer={showExecutionTimer}
+        />
+      )}
 
       {state.phase === "input" && state.status === "idle" ? (
         <ReadyStateSurface
@@ -1160,7 +1175,14 @@ export default function CustomerWorkflowRuntimeSurface({
         />
       ) : state.status === "success" || state.status === "error" || state.status === "cancelled" ? (
         <>
-          {hideHeader && <ExecutionChrome state={state} onCancel={onCancel} onClose={onClose} />}
+          {hideHeader && (
+            <ExecutionChrome
+              state={state}
+              onCancel={onCancel}
+              onClose={onClose}
+              showTimer={showExecutionTimer}
+            />
+          )}
           <ResultsSurface key={state.runId} state={state} onRerun={onRerun} />
           {!hideActionZone && (
             <ActionZone
@@ -1175,7 +1197,14 @@ export default function CustomerWorkflowRuntimeSurface({
         </>
       ) : (
         <>
-          {hideHeader && <ExecutionChrome state={state} onCancel={onCancel} onClose={onClose} />}
+          {hideHeader && (
+            <ExecutionChrome
+              state={state}
+              onCancel={onCancel}
+              onClose={onClose}
+              showTimer={showExecutionTimer}
+            />
+          )}
           <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(72,214,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,76,198,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(0,190,255,0.10),transparent_35%,rgba(255,0,153,0.10))] runtime-ambient-flow" />
             <div className="relative flex min-h-[560px] flex-col justify-center px-6 py-8 md:px-10">
