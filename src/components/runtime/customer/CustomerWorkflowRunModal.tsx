@@ -19,6 +19,8 @@ type CustomerWorkflowRunModalProps = {
   onCancel?: () => void;
   onRerun?: () => void;
   onSubmitInputs?: (values: Record<string, any>) => void;
+  /** When true (e.g. signed-in admin), show elapsed timer in the execution chrome. */
+  showExecutionTimer?: boolean;
   isBuilderTest?: boolean;
   builderRunLimit?: BuilderRunLimit;
   requiresApiKeys?: string[];
@@ -32,6 +34,7 @@ export default function CustomerWorkflowRunModal({
   onCancel,
   onRerun,
   onSubmitInputs,
+  showExecutionTimer,
   isBuilderTest,
   builderRunLimit,
   requiresApiKeys,
@@ -68,6 +71,7 @@ export default function CustomerWorkflowRunModal({
                 onClose={canClose ? onClose : undefined}
                 onRerun={onRerun}
                 onSubmitInputs={onSubmitInputs}
+                showExecutionTimer={showExecutionTimer}
                 isBuilderTest={isBuilderTest}
                 builderRunLimit={builderRunLimit}
                 requiresApiKeys={requiresApiKeys}

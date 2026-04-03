@@ -856,7 +856,7 @@ export default function WorkflowProductPage() {
   const searchParams = useSearchParams();
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { requireAuth, userId, profile, getAccessToken, refreshAuthSession } = useAuth();
+  const { requireAuth, userId, profile, getAccessToken, refreshAuthSession, isAdmin } = useAuth();
 
   const [listing, setListing] = useState<WorkflowListing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1971,6 +1971,7 @@ export default function WorkflowProductPage() {
       {/* Demo Run Modal */}
       <CustomerWorkflowRunModal
         open={demoRunModalOpen}
+        showExecutionTimer={isAdmin}
         onClose={() => {
           if (demoRunState?.status !== "running" && demoRunState?.status !== "cancelling") {
             demoRunAbortRef.current?.abort();
@@ -1982,26 +1983,37 @@ export default function WorkflowProductPage() {
         }}
         state={demoRunState}
         onCancel={async () => {
-          if (demoRunState?.runId) {
+          let runId: string | undefined;
+          let runAccessToken: string | undefined;
+          setDemoRunState((prev) => {
+            runId = prev?.runId ?? undefined;
+            runAccessToken = prev?.runAccessToken ?? undefined;
+            if (prev?.status === "running") {
+              return { ...prev, status: "cancelling", error: undefined };
+            }
+            return prev;
+          });
+
+          demoRunSessionPollRef.current?.abort();
+          demoRunSessionPollRef.current = null;
+          demoRunAbortRef.current?.abort();
+
+          if (runId) {
             try {
               const accessToken = userId ? await getAccessToken() : null;
               const headers: HeadersInit = { "Content-Type": "application/json" };
               if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-              const query = demoRunState.runAccessToken
-                ? `?runAccessToken=${encodeURIComponent(demoRunState.runAccessToken)}`
+              const query = runAccessToken
+                ? `?runAccessToken=${encodeURIComponent(runAccessToken)}`
                 : "";
-              await fetch(`/api/runs/${encodeURIComponent(demoRunState.runId)}/cancel${query}`, {
+              await fetch(`/api/runs/${encodeURIComponent(runId)}/cancel${query}`, {
                 method: "POST",
                 headers,
                 credentials: "include",
               });
-              setDemoRunState((prev) =>
-                prev ? { ...prev, status: "cancelling", error: undefined } : null,
-              );
               return;
             } catch {}
           }
-          demoRunAbortRef.current?.abort();
           setDemoRunState((prev) =>
             prev ? { ...prev, status: "cancelled", error: undefined } : null,
           );

@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { redactSecrets } from "src/server/flow/runtime-enforcement";
 import { loadWorkflowRunBootstrap } from "src/server/flow-v2/read-model";
 
 type TraceSessionRow = Record<string, unknown>;
@@ -54,6 +55,44 @@ async function selectManyWithFallback(
   }
   if (lastError) throw lastError;
   return [];
+}
+
+const PAGE_SIZE = 1000;
+
+async function fetchAllRows(params: {
+  table: string;
+  select: string;
+  filters?: Array<{ column: string; operator?: "eq" | "in"; value: unknown }>;
+  orderBy?: { column: string; ascending?: boolean };
+}): Promise<Record<string, unknown>[]> {
+  const supabase = createSupabaseAdminClient() as any;
+  const rows: Record<string, unknown>[] = [];
+  let offset = 0;
+
+  while (true) {
+    let query = supabase.from(params.table).select(params.select);
+    for (const filter of params.filters ?? []) {
+      if (filter.operator === "in") {
+        query = query.in(filter.column, filter.value);
+      } else {
+        query = query.eq(filter.column, filter.value);
+      }
+    }
+    if (params.orderBy) {
+      query = query.order(params.orderBy.column, { ascending: params.orderBy.ascending ?? true });
+    }
+    query = query.range(offset, offset + PAGE_SIZE - 1);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    const batch = (data ?? []) as Record<string, unknown>[];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+    offset += PAGE_SIZE;
+  }
+
+  return rows;
 }
 
 function buildAccountLabel(
@@ -419,36 +458,34 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
     eventLimit: 2000,
   });
 
-  const { data: traceSessions, error: sessionsError } = await supabase
-    .from("trace_sessions")
-    .select("*")
-    .eq("workflow_run_id", workflowRunId)
-    .order("started_at_epoch_ms", { ascending: true });
-  if (sessionsError) throw sessionsError;
+  const traceSessions = await fetchAllRows({
+    table: "trace_sessions",
+    select: "*",
+    filters: [{ column: "workflow_run_id", value: workflowRunId }],
+    orderBy: { column: "started_at_epoch_ms", ascending: true },
+  });
 
-  const sessionIds = (traceSessions ?? []).map((session: Record<string, unknown>) =>
-    String(session.id),
-  );
-  const { data: traceEntries, error: entriesError } = sessionIds.length
-    ? await supabase
-        .from("trace_entries")
-        .select("*")
-        .in("trace_session_id", sessionIds)
-        .order("timestamp_epoch_ms", { ascending: true })
-    : { data: [], error: null };
-  if (entriesError) throw entriesError;
+  const sessionIds = traceSessions.map((session: Record<string, unknown>) => String(session.id));
+  const traceEntries = sessionIds.length
+    ? await fetchAllRows({
+        table: "trace_entries",
+        select: "*",
+        filters: [{ column: "trace_session_id", operator: "in", value: sessionIds }],
+        orderBy: { column: "timestamp_epoch_ms", ascending: true },
+      })
+    : [];
 
-  const { data: workflowEvents, error: workflowEventsError } = await supabase
-    .from("workflow_run_events")
-    .select("sequence, event_type, node_id, attempt_number, payload, created_at")
-    .eq("workflow_run_id", workflowRunId)
-    .order("sequence", { ascending: true });
-  if (workflowEventsError) throw workflowEventsError;
+  const workflowEvents = await fetchAllRows({
+    table: "workflow_run_events",
+    select: "sequence, event_type, node_id, attempt_number, payload, created_at",
+    filters: [{ column: "workflow_run_id", value: workflowRunId }],
+    orderBy: { column: "sequence", ascending: true },
+  });
 
   const bundleStartedAtEpochMs =
     Math.min(
       ...[
-        ...(traceSessions ?? []).map((session: Record<string, unknown>) =>
+        ...traceSessions.map((session: Record<string, unknown>) =>
           Number(session.started_at_epoch_ms ?? Number.MAX_SAFE_INTEGER),
         ),
         Date.parse(String(bundleMeta.startedAt ?? "")) || Number.MAX_SAFE_INTEGER,
@@ -456,9 +493,9 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
     ) || Date.now();
 
   const sessionById = new Map<string, Record<string, unknown>>(
-    (traceSessions ?? []).map((session: Record<string, unknown>) => [String(session.id), session]),
+    traceSessions.map((session: Record<string, unknown>) => [String(session.id), session]),
   );
-  const workflowTimeline = (workflowEvents ?? []).map((event: Record<string, unknown>) => ({
+  const workflowTimeline = workflowEvents.map((event: Record<string, unknown>) => ({
     timelineSource: "workflow_event",
     timestampEpochMs: Date.parse(String(event.created_at ?? "")) || 0,
     sinceBundleStartMs: Math.max(
@@ -482,7 +519,7 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
     payload: event.payload ?? {},
   }));
 
-  const traceTimeline = (traceEntries ?? []).map((entry: Record<string, unknown>) => ({
+  const traceTimeline = traceEntries.map((entry: Record<string, unknown>) => ({
     timelineSource: "trace_entry",
     timestampEpochMs: Number(entry.timestamp_epoch_ms ?? 0),
     sinceBundleStartMs: Math.max(0, Number(entry.timestamp_epoch_ms ?? 0) - bundleStartedAtEpochMs),
@@ -527,9 +564,9 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
   );
   const traceDiagnostics = {
     expectedTraceEntryCount,
-    actualTraceEntryCount: (traceEntries ?? []).length,
-    missingTraceEntryCount: Math.max(0, expectedTraceEntryCount - (traceEntries ?? []).length),
-    actualWorkflowEventCount: (workflowEvents ?? []).length,
+    actualTraceEntryCount: traceEntries.length,
+    missingTraceEntryCount: Math.max(0, expectedTraceEntryCount - traceEntries.length),
+    actualWorkflowEventCount: workflowEvents.length,
     workflowLastEventSequence:
       typeof bootstrap.run?.lastEventSequence === "number" ? bootstrap.run.lastEventSequence : null,
   };
@@ -538,12 +575,43 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
     attempts: (bootstrap.attempts ?? []) as unknown as Array<Record<string, unknown>>,
     timeline: orderedTimeline as Array<Record<string, unknown>>,
   });
+  const fallbackWorkflowId =
+    (typeof bundleMeta.workflowId === "string" && bundleMeta.workflowId.trim()
+      ? bundleMeta.workflowId
+      : null) ??
+    (typeof bootstrap.run?.workflowId === "string" && bootstrap.run.workflowId.trim()
+      ? bootstrap.run.workflowId
+      : null) ??
+    (() => {
+      for (const session of traceSessions) {
+        if (typeof session.workflow_id === "string" && session.workflow_id.trim()) {
+          return session.workflow_id;
+        }
+      }
+      return null;
+    })() ??
+    (typeof bundleMeta.draftId === "string" && bundleMeta.draftId.trim() ? bundleMeta.draftId : null);
+  const fallbackDurationMs =
+    (typeof bundleMeta.durationMs === "number" && Number.isFinite(bundleMeta.durationMs)
+      ? bundleMeta.durationMs
+      : null) ??
+    (() => {
+      const sessionDurations = traceSessions
+        .map((session) =>
+          typeof session.duration_ms === "number" && Number.isFinite(session.duration_ms)
+            ? Number(session.duration_ms)
+            : null,
+        )
+        .filter((value): value is number => value !== null);
+      return sessionDurations.length > 0 ? Math.max(...sessionDurations) : null;
+    })();
 
-  return {
+  return redactSecrets(
+    {
     bundle: {
       id: workflowRunId,
       workflowRunId,
-      workflowId: bundleMeta.workflowId ?? null,
+      workflowId: fallbackWorkflowId,
       draftId: bundleMeta.draftId ?? null,
       workflowName: bundleMeta.workflowName,
       accountLabel: bundleMeta.accountLabel,
@@ -551,23 +619,41 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
       accountName: bundleMeta.accountName ?? null,
       status: bundleMeta.status,
       startedAt: bundleMeta.startedAt,
-      durationMs: bundleMeta.durationMs,
-      traceSessionCount: (traceSessions ?? []).length,
-      traceEntryCount: (traceEntries ?? []).length,
-      workflowEventCount: (workflowEvents ?? []).length,
+      durationMs: fallbackDurationMs,
+      traceSessionCount: traceSessions.length,
+      traceEntryCount: traceEntries.length,
+      workflowEventCount: workflowEvents.length,
       traceDiagnostics,
       metadata: bundleMeta.metadata ?? {},
     },
-    run: bootstrap.run,
+    run: {
+      ...bootstrap.run,
+      workflowId: fallbackWorkflowId,
+    },
     nodes: bootstrap.nodes,
     attempts: bootstrap.attempts,
     nodeExecutionDetails,
     dependencyStateByNodeId: bootstrap.dependencyStateByNodeId,
     streamSummary,
     streamEvents,
-    traceSessions: traceSessions ?? [],
-    traceEntries: traceEntries ?? [],
-    workflowEvents: workflowEvents ?? [],
+    traceSessions,
+    traceEntries,
+    workflowEvents,
     timeline: orderedTimeline,
+    },
+    { preserveExecutionSecrets: false },
+  ) as {
+    bundle: Record<string, unknown>;
+    run: Record<string, unknown>;
+    nodes: unknown[];
+    attempts: unknown[];
+    nodeExecutionDetails: unknown[];
+    dependencyStateByNodeId: Record<string, unknown>;
+    streamSummary: Record<string, unknown>;
+    streamEvents: unknown[];
+    traceSessions: unknown[];
+    traceEntries: unknown[];
+    workflowEvents: unknown[];
+    timeline: unknown[];
   };
 }

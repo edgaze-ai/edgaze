@@ -1283,7 +1283,7 @@ export default function PromptProductPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { requireAuth, userId, profile, getAccessToken, refreshAuthSession } = useAuth();
+  const { requireAuth, userId, profile, getAccessToken, refreshAuthSession, isAdmin } = useAuth();
 
   const [listing, setListing] = useState<PromptListing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2428,6 +2428,7 @@ export default function PromptProductPage() {
       {listing?.type === "workflow" && (
         <CustomerWorkflowRunModal
           open={workflowRunModalOpen}
+          showExecutionTimer={isAdmin}
           onClose={() => {
             if (
               workflowRunState?.status !== "running" &&
@@ -2442,29 +2443,37 @@ export default function PromptProductPage() {
           }}
           state={workflowRunState}
           onCancel={async () => {
-            if (workflowRunState?.runId) {
+            let runId: string | undefined;
+            let runAccessToken: string | undefined;
+            setWorkflowRunState((prev) => {
+              runId = prev?.runId ?? undefined;
+              runAccessToken = prev?.runAccessToken ?? undefined;
+              if (prev?.status === "running") {
+                return { ...prev, status: "cancelling", error: undefined };
+              }
+              return prev;
+            });
+
+            workflowRunSessionPollRef.current?.abort();
+            workflowRunSessionPollRef.current = null;
+            workflowRunAbortRef.current?.abort();
+
+            if (runId) {
               try {
                 const accessToken = userId ? await getAccessToken() : null;
                 const headers: HeadersInit = { "Content-Type": "application/json" };
                 if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-                const query = workflowRunState.runAccessToken
-                  ? `?runAccessToken=${encodeURIComponent(workflowRunState.runAccessToken)}`
+                const query = runAccessToken
+                  ? `?runAccessToken=${encodeURIComponent(runAccessToken)}`
                   : "";
-                await fetch(
-                  `/api/runs/${encodeURIComponent(workflowRunState.runId)}/cancel${query}`,
-                  {
-                    method: "POST",
-                    headers,
-                    credentials: "include",
-                  },
-                );
-                setWorkflowRunState((prev) =>
-                  prev ? { ...prev, status: "cancelling", error: undefined } : null,
-                );
+                await fetch(`/api/runs/${encodeURIComponent(runId)}/cancel${query}`, {
+                  method: "POST",
+                  headers,
+                  credentials: "include",
+                });
                 return;
               } catch {}
             }
-            workflowRunAbortRef.current?.abort();
             setWorkflowRunState((prev) =>
               prev ? { ...prev, status: "cancelled", error: undefined } : null,
             );

@@ -2051,41 +2051,47 @@ export default function BuilderPage() {
   };
 
   const handleCancelRun = async () => {
-    if (runState?.runId) {
+    let runId: string | undefined;
+    setRunState((prev) => {
+      runId = prev?.runId ?? undefined;
+      if (!prev || prev.status !== "running") return prev;
+      return {
+        ...prev,
+        status: "cancelling",
+        error: undefined,
+        logs: [
+          ...(prev.logs || []),
+          {
+            t: Date.now(),
+            level: "warn" as const,
+            text: "Cancellation requested.",
+          },
+        ],
+      };
+    });
+
+    runSessionPollRef.current?.abort();
+    runSessionPollRef.current = null;
+    runAbortRef.current?.abort();
+
+    if (runId) {
       try {
         const accessToken = await getAccessToken();
         const headers: HeadersInit = { "Content-Type": "application/json" };
         if (accessToken) {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }
-        await fetch(`/api/runs/${encodeURIComponent(runState.runId)}/cancel`, {
+        await fetch(`/api/runs/${encodeURIComponent(runId)}/cancel`, {
           method: "POST",
           headers,
           credentials: "include",
         });
-        setRunState((prev) =>
-          prev
-            ? {
-                ...prev,
-                status: "cancelling",
-                logs: [
-                  ...(prev.logs || []),
-                  {
-                    t: Date.now(),
-                    level: "warn" as const,
-                    text: "Cancellation requested.",
-                  },
-                ],
-              }
-            : prev,
-        );
         return;
       } catch {
         // Fall through to legacy abort behavior if cancel endpoint fails.
       }
     }
 
-    runAbortRef.current?.abort();
     setRunState((prev) => (prev ? { ...prev, status: "cancelled", error: undefined } : null));
     setRunning(false);
   };

@@ -183,8 +183,14 @@ function getActiveNodeIds(state: WorkflowRunState): string[] {
 
   const graphNodes = state.graph?.nodes ?? [];
   const graphIdSet = new Set(graphNodes.map((n) => n.id));
+  const beforeGraphIdFilter = candidates;
   if (graphIdSet.size > 0) {
-    candidates = candidates.filter((id) => graphIdSet.has(id));
+    const filtered = candidates.filter((id) => graphIdSet.has(id));
+    if (filtered.length > 0) {
+      candidates = filtered;
+    } else if (beforeGraphIdFilter.length > 0) {
+      candidates = beforeGraphIdFilter;
+    }
   }
 
   if (candidates.length === 0 && state.currentStepId) {
@@ -194,12 +200,15 @@ function getActiveNodeIds(state: WorkflowRunState): string[] {
     if (currentIsActive && (graphIdSet.size === 0 || graphIdSet.has(state.currentStepId))) {
       return [state.currentStepId];
     }
+    if (currentIsActive && graphIdSet.size > 0 && !graphIdSet.has(state.currentStepId)) {
+      return [state.currentStepId];
+    }
   }
   if (candidates.length === 0) {
-    const runningInGraph = state.steps
-      .filter((s) => s.status === "running" && (graphIdSet.size === 0 || graphIdSet.has(s.id)))
-      .map((s) => s.id);
-    if (runningInGraph.length > 0) return runningInGraph.slice(0, 3);
+    const allRunning = state.steps.filter((s) => s.status === "running").map((s) => s.id);
+    const runningInGraph = allRunning.filter((id) => graphIdSet.size === 0 || graphIdSet.has(id));
+    const runningPick = runningInGraph.length > 0 ? runningInGraph : allRunning;
+    if (runningPick.length > 0) return runningPick.slice(0, 3);
     return [];
   }
 

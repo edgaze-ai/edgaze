@@ -41,16 +41,6 @@ const OPENAI_CHAT_PREFIXES = ["gpt-", "o1", "o3", "o4", "chatgpt-"];
 const ANTHROPIC_PREFIXES = ["claude-"];
 const GEMINI_PREFIXES = ["gemini-"];
 
-export function resolveLlmChatProvider(modelId: string): AiKeyProvider {
-  const m = (modelId || "").trim().toLowerCase();
-  if (!m) return "anthropic";
-  if (ANTHROPIC_PREFIXES.some((p) => m.startsWith(p))) return "anthropic";
-  if (GEMINI_PREFIXES.some((p) => m.startsWith(p))) return "google";
-  if (OPENAI_CHAT_PREFIXES.some((p) => m.startsWith(p))) return "openai";
-  // Unknown → assume OpenAI (frontier IDs)
-  return "openai";
-}
-
 /** Image: OpenAI gpt-image-* vs Gemini Nano Banana (flash image) models. */
 export function resolveLlmImageProvider(modelId: string): AiKeyProvider {
   const m = (modelId || "").trim().toLowerCase();
@@ -142,6 +132,31 @@ export const LLM_CHAT_MODEL_OPTIONS: LlmChatOption[] = [
     cost: "$",
   },
 ];
+
+export function resolveLlmChatProvider(modelId: string): AiKeyProvider {
+  const raw = (modelId || "").trim();
+  const m = raw.toLowerCase();
+  if (!m) return "anthropic";
+  const catalogHit = LLM_CHAT_MODEL_OPTIONS.find((o) => o.value === raw || o.value.toLowerCase() === m);
+  if (catalogHit) return catalogHit.provider;
+  if (ANTHROPIC_PREFIXES.some((p) => m.startsWith(p))) return "anthropic";
+  if (GEMINI_PREFIXES.some((p) => m.startsWith(p))) return "google";
+  if (OPENAI_CHAT_PREFIXES.some((p) => m.startsWith(p))) return "openai";
+  // Unknown → assume OpenAI (frontier IDs)
+  return "openai";
+}
+
+/**
+ * OpenAI Chat Completions: newer models reject `max_tokens` and require `max_completion_tokens`.
+ * @see https://platform.openai.com/docs/api-reference/chat/create
+ */
+export function openaiChatUsesMaxCompletionTokens(modelId: string): boolean {
+  const m = (modelId || "").trim().toLowerCase();
+  if (m.startsWith("gpt-5")) return true;
+  // o-series (o1, o3, o4, …) use the completion-tokens parameter name in current API.
+  if (/^o\d/i.test(m)) return true;
+  return false;
+}
 
 export type LlmImageOption = {
   value: string;

@@ -2620,8 +2620,10 @@ export default function PremiumWorkflowRunModal({
                   </div>
                 )}
                 {(state?.status === "running" || state?.status === "cancelling") &&
-                  state?.phase === "executing" && (
+                  state?.phase === "executing" &&
+                  !showCustomerProjection && (
                     <button
+                      type="button"
                       onClick={() => {
                         if (isStopping || state?.status === "cancelling") return;
                         setIsStopping(true);
@@ -2629,10 +2631,7 @@ export default function PremiumWorkflowRunModal({
                           surface: "workflow_modal",
                           workflow_id: state?.workflowId,
                         });
-                        // Show stopping state for 400ms, then cancel
-                        setTimeout(() => {
-                          onCancel?.();
-                        }, 400);
+                        onCancel?.();
                       }}
                       className="rounded-lg border border-transparent bg-white/[0.04] hover:bg-white/[0.08] px-4 py-2 text-sm font-medium text-white/50 hover:text-white/70 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
                       disabled={isStopping || state?.status === "cancelling"}
@@ -2676,6 +2675,7 @@ export default function PremiumWorkflowRunModal({
                   embedded
                   hideHeader
                   hideActionZone
+                  showExecutionTimer={Boolean(builderRunLimit?.isAdmin)}
                   isBuilderTest={isBuilderTest}
                   builderRunLimit={builderRunLimit}
                   requiresApiKeys={requiresApiKeys}

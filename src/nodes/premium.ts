@@ -38,7 +38,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
       model: DEFAULT_LLM_CHAT_MODEL,
       temperature: 0.7,
       maxTokens: 2000,
-      stream: false,
+      stream: true,
       safeMode: true,
       timeout: 120_000,
       retries: 2,

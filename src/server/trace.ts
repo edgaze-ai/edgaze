@@ -160,12 +160,18 @@ function clampTraceValue(value: unknown, depth = 0): unknown {
 }
 
 export function sanitizeTracePayload(payload: unknown): Record<string, unknown> {
-  const redacted = redactSecrets(payload);
+  const redacted = redactSecrets(payload, { preserveExecutionSecrets: false });
   const clamped = clampTraceValue(redacted);
   if (!clamped || typeof clamped !== "object" || Array.isArray(clamped)) {
     return { value: clamped };
   }
   return clamped as Record<string, unknown>;
+}
+
+function sanitizeTraceQuery(query: string | null | undefined): string | null {
+  if (!query) return null;
+  const redacted = redactSecrets(query, { preserveExecutionSecrets: false });
+  return typeof redacted === "string" ? redacted : String(redacted ?? "");
 }
 
 function estimatePayloadSizeBytes(payload: unknown): number {
@@ -185,7 +191,7 @@ function toSessionUpsertRow(session: TraceSessionFields) {
     route_id: session.routeId ?? null,
     method: session.method ?? null,
     request_path: session.requestPath ?? null,
-    request_query: session.requestQuery ?? null,
+    request_query: sanitizeTraceQuery(session.requestQuery),
     correlation_id: session.correlationId ?? null,
     root_correlation_id: session.rootCorrelationId ?? null,
     client_session_id: session.clientSessionId ?? null,
