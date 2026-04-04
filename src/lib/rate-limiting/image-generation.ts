@@ -103,6 +103,14 @@ export async function checkImageGenerationAllowed(
   }
 }
 
+/** Keep tracking rows small: data URLs and huge strings bloat Postgres TOAST. */
+function sanitizeImageUrlForTracking(url: string | null | undefined): string | null {
+  if (url == null || url === "") return null;
+  if (/^data:/i.test(url.trim())) return "inline-data-url-redacted";
+  const max = 2048;
+  return url.length > max ? url.slice(0, max) : url;
+}
+
 /**
  * Record an image generation event
  */
@@ -125,7 +133,7 @@ export async function recordImageGeneration(
       p_user_id: userId || null,
       p_workflow_id: workflowId || null,
       p_node_id: nodeId || null,
-      p_image_url: imageUrl || null,
+      p_image_url: sanitizeImageUrlForTracking(imageUrl),
       p_used_free_tier: usedFreeTier,
       p_api_key_provided: apiKeyProvided,
     });

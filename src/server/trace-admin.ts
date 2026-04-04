@@ -124,6 +124,24 @@ function traceEntryRowToRecord(entry: TraceEntryRow): Record<string, unknown> {
   };
 }
 
+function mergeSessionTraceEntries(
+  storageRows: TraceEntryRow[],
+  dbRows: Record<string, unknown>[],
+): Record<string, unknown>[] {
+  const bySeq = new Map<number, Record<string, unknown>>();
+  for (const r of dbRows) {
+    const seq = Number(r.sequence ?? -1);
+    if (!Number.isFinite(seq) || seq < 0) continue;
+    bySeq.set(seq, r);
+  }
+  for (const e of storageRows) {
+    bySeq.set(e.sequence, traceEntryRowToRecord(e));
+  }
+  return [...bySeq.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, row]) => row);
+}
+
 async function loadTraceEntriesHybridForRun(params: { traceSessionIds: string[] }): Promise<{
   merged: Record<string, unknown>[];
   storageEntryCount: number;
@@ -165,11 +183,16 @@ async function loadTraceEntriesHybridForRun(params: { traceSessionIds: string[] 
 
   for (const sessionId of params.traceSessionIds) {
     const sEntries = bySessionStorage.get(sessionId) ?? [];
-    if (sEntries.length > 0) {
+    const dRows = bySessionDb.get(sessionId) ?? [];
+    if (sEntries.length === 0 && dRows.length === 0) continue;
+    if (sEntries.length > 0 && dRows.length > 0) {
+      storageEntryCount += sEntries.length;
+      dbEntryCount += dRows.length;
+      mergedRecords.push(...mergeSessionTraceEntries(sEntries, dRows));
+    } else if (sEntries.length > 0) {
       storageEntryCount += sEntries.length;
       for (const e of sEntries) mergedRecords.push(traceEntryRowToRecord(e));
     } else {
-      const dRows = bySessionDb.get(sessionId) ?? [];
       dbEntryCount += dRows.length;
       mergedRecords.push(...dRows);
     }

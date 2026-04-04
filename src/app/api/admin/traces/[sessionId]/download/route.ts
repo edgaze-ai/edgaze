@@ -3,12 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
 import { isAdmin } from "@lib/supabase/executions";
 import { buildWorkflowRunTraceBundle } from "src/server/trace-admin";
-import {
-  downloadWorkflowTraceBundleFromStorage,
-  getWorkflowRunTraceBundleRef,
-  uploadWorkflowTraceBundleJson,
-  upsertWorkflowRunTraceBundleRef,
-} from "src/server/trace-storage";
+import { uploadWorkflowTraceBundleJson, upsertWorkflowRunTraceBundleRef } from "src/server/trace-storage";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ sessionId: string }> }) {
   try {
@@ -22,25 +17,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ session
 
     const { sessionId: workflowRunId } = await context.params;
 
-    const ref = await getWorkflowRunTraceBundleRef(workflowRunId);
-    if (ref?.bundle_storage_path) {
-      try {
-        const buf = await downloadWorkflowTraceBundleFromStorage(ref.bundle_storage_path);
-        const parsed = JSON.parse(buf.toString("utf8")) as unknown;
-        const payload = `${JSON.stringify(parsed, null, 2)}\n`;
-        return new NextResponse(payload, {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Content-Disposition": `attachment; filename="trace-${workflowRunId}.json"`,
-            "Cache-Control": "no-store",
-          },
-        });
-      } catch {
-        /* cache stale or missing — rebuild */
-      }
-    }
-
+    // Always merge Storage parts + DB + workflow_run_events fresh. Serving cached bundle.json
+    // caused permanent data loss when the first export ran before the run finished flushing.
     const bundle = await buildWorkflowRunTraceBundle(workflowRunId);
     const payload = `${JSON.stringify(bundle, null, 2)}\n`;
     try {
