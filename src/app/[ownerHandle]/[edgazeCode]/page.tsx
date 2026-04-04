@@ -34,7 +34,7 @@ import {
 } from "../../../lib/workflow/device-tracking";
 import { extractWorkflowInputs } from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
-import { track } from "../../../lib/mixpanel";
+import { track, type TrackProperties } from "../../../lib/mixpanel";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../lib/constants";
 import FoundingCreatorBadge from "../../../components/ui/FoundingCreatorBadge";
 import TurnstileWidget from "../../../components/apply/TurnstileWidget";
@@ -47,7 +47,7 @@ import { handleWorkflowRunStream } from "../../../lib/workflow/run-stream-client
 import { startClientTraceSession } from "../../../lib/workflow/client-trace";
 import type { WorkflowRunState } from "../../../lib/workflow/run-types";
 
-function safeTrack(event: string, props?: Record<string, any>) {
+function safeTrack(event: string, props?: TrackProperties) {
   try {
     track(event, props);
   } catch {}
@@ -967,6 +967,14 @@ export default function WorkflowProductPage() {
       setListing(record);
       setLoading(false);
 
+      const canonical = record.owner_handle?.trim().toLowerCase();
+      const fromUrl = String(ownerHandle).trim().toLowerCase();
+      if (canonical && fromUrl && canonical !== fromUrl && record.owner_handle) {
+        router.replace(
+          `/${encodeURIComponent(record.owner_handle.trim())}/${encodeURIComponent(edgazeCode)}`,
+        );
+      }
+
       supabase
         .from("workflows")
         .update({ views_count: (record.views_count ?? 0) + 1 })
@@ -981,7 +989,7 @@ export default function WorkflowProductPage() {
     return () => {
       cancelled = true;
     };
-  }, [ownerHandle, edgazeCode, supabase]);
+  }, [ownerHandle, edgazeCode, supabase, router]);
 
   const demoImages: string[] = useMemo(() => {
     if (!listing) return [];

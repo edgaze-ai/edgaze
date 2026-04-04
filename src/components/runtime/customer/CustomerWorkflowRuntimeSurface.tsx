@@ -29,6 +29,8 @@ import { bearerAuthHeaders } from "../../../lib/auth/bearer-headers";
 import { useAuth } from "../../auth/AuthContext";
 import type { Components } from "react-markdown";
 
+import { normalizeWorkflowMarkdown } from "../../../lib/markdown/normalize-workflow-markdown";
+
 type BuilderRunLimit = {
   used: number;
   limit: number;
@@ -40,7 +42,7 @@ type CustomerWorkflowRuntimeSurfaceProps = {
   onCancel?: () => void;
   onClose?: () => void;
   onRerun?: () => void;
-  onSubmitInputs?: (values: Record<string, any>) => void;
+  onSubmitInputs?: (values: Record<string, unknown>) => void;
   embedded?: boolean;
   hideHeader?: boolean;
   hideActionZone?: boolean;
@@ -92,7 +94,8 @@ function isProbablyMarkdown(text: string): boolean {
   if (/(^|\n)(-|\*|\+)\s+\S/.test(t)) return true;
   if (/(^|\n)\d+\.\s+\S/.test(t)) return true;
   if (/\[[^\]]+\]\([^)]+\)/.test(t)) return true;
-  if (/(^|\n)\|(.+\|)+\s*(\n\|[-:\s|]+\|)/.test(t)) return true; // table
+  if (/(^|\n)\|(.+\|)+\s*(\n\|[-:\s|]+\|)/.test(t)) return true; // GFM table with separator
+  if (/(^|\n)[^|\n]+\|[^|\n]+(\n[^|\n]+\|[^|\n]+)+/.test(t)) return true; // loose pipe rows (model output)
   if (/`[^`\n]+`/.test(t)) return true;
   return false;
 }
@@ -193,9 +196,10 @@ const LazyMarkdown = React.lazy(async () => {
   };
 
   function MarkdownRenderer({ text }: { text: string }) {
+    const normalized = normalizeWorkflowMarkdown(text);
     return (
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {text}
+        {normalized}
       </ReactMarkdown>
     );
   }
@@ -645,13 +649,13 @@ function ReadyStateSurface({
   onBuyWorkflow,
 }: {
   state: WorkflowRunState;
-  onSubmitInputs?: (values: Record<string, any>) => void;
+  onSubmitInputs?: (values: Record<string, unknown>) => void;
   isBuilderTest?: boolean;
   builderRunLimit?: BuilderRunLimit;
   requiresApiKeys?: string[];
   onBuyWorkflow?: () => void;
 }) {
-  const [values, setValues] = useState<Record<string, any>>(() => state.inputValues ?? {});
+  const [values, setValues] = useState<Record<string, unknown>>(() => state.inputValues ?? {});
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -846,7 +850,7 @@ function ReadyStateSurface({
             disabled={!onSubmitInputs || !canSubmit}
             onClick={() => {
               if (!onSubmitInputs) return;
-              const payload: Record<string, any> = { ...values };
+              const payload: Record<string, unknown> = { ...values };
               if (openaiApiKey.trim()) payload.__openaiApiKey = openaiApiKey.trim();
               if (anthropicApiKey.trim()) payload.__anthropicApiKey = anthropicApiKey.trim();
               if (geminiApiKey.trim()) payload.__geminiApiKey = geminiApiKey.trim();

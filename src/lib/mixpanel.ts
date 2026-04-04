@@ -3,6 +3,8 @@
 import mixpanel from "mixpanel-browser";
 
 type Properties = Record<string, any>;
+/** Event payload; exported for safeTrack helpers in UI code. */
+export type TrackProperties = Properties;
 
 const token = () => process.env.NEXT_PUBLIC_MIXPANEL_TOKEN;
 const hasToken = () => Boolean(token());

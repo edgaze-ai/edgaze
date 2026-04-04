@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../../../lib/supabase/browser";
 import { useAuth } from "../../../../components/auth/AuthContext";
-import { track } from "../../../../lib/mixpanel";
+import { track, type TrackProperties } from "../../../../lib/mixpanel";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../../lib/constants";
 import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
 import CustomerWorkflowRunModal from "../../../../components/runtime/customer/CustomerWorkflowRunModal";
@@ -46,9 +46,9 @@ import { finalizeClientWorkflowRunFromExecutionResult } from "../../../../lib/wo
 import { handleWorkflowRunStream } from "../../../../lib/workflow/run-stream-client";
 import { startClientTraceSession } from "../../../../lib/workflow/client-trace";
 import type { WorkflowRunState } from "../../../../lib/workflow/run-types";
-const CommentsSection = CommentsSectionRaw as unknown as React.ComponentType<any>;
+const CommentsSection = CommentsSectionRaw as React.ComponentType<Record<string, unknown>>;
 
-function safeTrack(event: string, props?: Record<string, any>) {
+function safeTrack(event: string, props?: TrackProperties) {
   try {
     track(event, props);
   } catch {}
@@ -1368,6 +1368,14 @@ export default function PromptProductPage() {
       setListing(record);
       setLoading(false);
 
+      const canonical = record.owner_handle?.trim().toLowerCase();
+      const fromUrl = String(ownerHandle).trim().toLowerCase();
+      if (canonical && fromUrl && canonical !== fromUrl && record.owner_handle) {
+        router.replace(
+          `/p/${encodeURIComponent(record.owner_handle.trim())}/${encodeURIComponent(edgazeCode)}`,
+        );
+      }
+
       {
         // Track product page view only when not removed
         safeTrack("Product Page Viewed", {
@@ -1412,7 +1420,7 @@ export default function PromptProductPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- currentUserId from auth; load runs when route/listing identity changes
-  }, [ownerHandle, edgazeCode, supabase, getAccessToken]);
+  }, [ownerHandle, edgazeCode, supabase, getAccessToken, router]);
 
   // Load creator avatar/name from profiles (handle-based, avoids uuid/text mismatch)
   useEffect(() => {

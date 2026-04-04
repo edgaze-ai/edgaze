@@ -21,50 +21,67 @@ export async function GET(req: Request) {
     }
 
     const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase
+    const columns = [
+      "id",
+      "owner_id",
+      "owner_name",
+      "owner_handle",
+      "title",
+      "description",
+      "tags",
+      "banner_url",
+      "thumbnail_url",
+      "edgaze_code",
+      "is_public",
+      "is_published",
+      "monetisation_mode",
+      "is_paid",
+      "price_usd",
+      "views_count",
+      "likes_count",
+      "demo_images",
+      "output_demo_urls",
+      "graph_json",
+      "graph",
+      "removed_at",
+      "removed_reason",
+      "removed_by",
+      "demo_mode_enabled",
+      "demo_token",
+    ].join(",");
+
+    const { data: primary, error: primaryErr } = await supabase
       .from("workflows")
-      .select(
-        [
-          "id",
-          "owner_id",
-          "owner_name",
-          "owner_handle",
-          "title",
-          "description",
-          "tags",
-          "banner_url",
-          "thumbnail_url",
-          "edgaze_code",
-          "is_public",
-          "is_published",
-          "monetisation_mode",
-          "is_paid",
-          "price_usd",
-          "views_count",
-          "likes_count",
-          "demo_images",
-          "output_demo_urls",
-          "graph_json",
-          "graph",
-          "removed_at",
-          "removed_reason",
-          "removed_by",
-          "demo_mode_enabled",
-          "demo_token",
-        ].join(","),
-      )
+      .select(columns)
       .eq("owner_handle", owner_handle)
       .eq("edgaze_code", edgaze_code)
       .eq("is_published", true)
+      .is("removed_at", null)
       .maybeSingle();
 
-    if (error) {
-      console.error("[workflow/storefront-detail]", error);
+    let resolved: unknown = primary ?? null;
+    if (!primaryErr && !primary) {
+      const { data: byCode, error: err2 } = await supabase
+        .from("workflows")
+        .select(columns)
+        .eq("edgaze_code", edgaze_code)
+        .eq("is_published", true)
+        .is("removed_at", null)
+        .limit(2);
+      if (!err2 && byCode?.length === 1) {
+        resolved = byCode[0] ?? null;
+      }
+    }
+
+    if (primaryErr) {
+      console.error("[workflow/storefront-detail]", primaryErr);
       return NextResponse.json({ listing: null }, { status: 200 });
     }
-    if (!data) return NextResponse.json({ listing: null }, { status: 200 });
+    if (!resolved || typeof resolved !== "object") {
+      return NextResponse.json({ listing: null }, { status: 200 });
+    }
 
-    const row = { ...(data as unknown as Record<string, unknown>) };
+    const row = { ...(resolved as Record<string, unknown>) };
     if (row.is_public === false) return NextResponse.json({ listing: null }, { status: 200 });
 
     const free = isListingFree({

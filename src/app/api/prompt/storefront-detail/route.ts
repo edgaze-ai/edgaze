@@ -36,6 +36,20 @@ export async function GET(req: Request) {
       }
     }
 
+    if (!error && !data) {
+      const { data: byCode, error: err2 } = await supabase
+        .from("prompts")
+        .select("*")
+        .eq("edgaze_code", edgaze_code)
+        .is("removed_at", null)
+        .in("visibility", ["public", "unlisted"])
+        .limit(2);
+      if (!err2 && byCode?.length === 1) {
+        data = byCode[0];
+        error = null;
+      }
+    }
+
     if (error || !data) {
       return NextResponse.json({ listing: null }, { status: 200 });
     }

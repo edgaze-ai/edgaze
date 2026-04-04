@@ -1,6 +1,11 @@
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { redactSecrets } from "src/server/flow/runtime-enforcement";
 import { loadWorkflowRunBootstrap } from "src/server/flow-v2/read-model";
+import type { TraceEntryRow } from "src/server/trace";
+import {
+  fetchStorageRootsForSessions,
+  loadTraceEntriesFromStorageForRun,
+} from "src/server/trace-storage";
 
 type TraceSessionRow = Record<string, unknown>;
 type WorkflowRunRow = Record<string, unknown>;
@@ -93,6 +98,97 @@ async function fetchAllRows(params: {
   }
 
   return rows;
+}
+
+function traceEntryRowToRecord(entry: TraceEntryRow): Record<string, unknown> {
+  return {
+    trace_session_id: entry.trace_session_id,
+    sequence: entry.sequence,
+    phase: entry.phase,
+    source: entry.source,
+    event_name: entry.event_name,
+    severity: entry.severity,
+    timestamp_epoch_ms: entry.timestamp_epoch_ms,
+    since_session_start_ms: entry.since_session_start_ms,
+    duration_ms: entry.duration_ms,
+    route_id: entry.route_id,
+    workflow_run_id: entry.workflow_run_id,
+    analytics_run_id: entry.analytics_run_id,
+    node_id: entry.node_id,
+    attempt_number: entry.attempt_number,
+    stream_id: entry.stream_id,
+    chunk_sequence: entry.chunk_sequence,
+    http_status: entry.http_status,
+    payload_size_bytes: entry.payload_size_bytes,
+    payload: entry.payload,
+  };
+}
+
+async function loadTraceEntriesHybridForRun(params: { traceSessionIds: string[] }): Promise<{
+  merged: Record<string, unknown>[];
+  storageEntryCount: number;
+  dbEntryCount: number;
+}> {
+  if (params.traceSessionIds.length === 0) {
+    return { merged: [], storageEntryCount: 0, dbEntryCount: 0 };
+  }
+  const rootBySessionId = await fetchStorageRootsForSessions(params.traceSessionIds);
+  const fromStorage = await loadTraceEntriesFromStorageForRun({
+    traceSessionIds: params.traceSessionIds,
+    rootBySessionId,
+  });
+  const fromDb = await fetchAllRows({
+    table: "trace_entries",
+    select: "*",
+    filters: [{ column: "trace_session_id", operator: "in", value: params.traceSessionIds }],
+    orderBy: { column: "timestamp_epoch_ms", ascending: true },
+  });
+
+  const bySessionStorage = new Map<string, TraceEntryRow[]>();
+  for (const row of fromStorage) {
+    const sid = row.trace_session_id;
+    if (!bySessionStorage.has(sid)) bySessionStorage.set(sid, []);
+    bySessionStorage.get(sid)!.push(row);
+  }
+
+  const bySessionDb = new Map<string, Record<string, unknown>[]>();
+  for (const row of fromDb) {
+    const sid = String(row.trace_session_id ?? "");
+    if (!sid) continue;
+    if (!bySessionDb.has(sid)) bySessionDb.set(sid, []);
+    bySessionDb.get(sid)!.push(row);
+  }
+
+  const mergedRecords: Record<string, unknown>[] = [];
+  let storageEntryCount = 0;
+  let dbEntryCount = 0;
+
+  for (const sessionId of params.traceSessionIds) {
+    const sEntries = bySessionStorage.get(sessionId) ?? [];
+    if (sEntries.length > 0) {
+      storageEntryCount += sEntries.length;
+      for (const e of sEntries) mergedRecords.push(traceEntryRowToRecord(e));
+    } else {
+      const dRows = bySessionDb.get(sessionId) ?? [];
+      dbEntryCount += dRows.length;
+      mergedRecords.push(...dRows);
+    }
+  }
+
+  mergedRowsSort(mergedRecords);
+  return { merged: mergedRecords, storageEntryCount, dbEntryCount };
+}
+
+function mergedRowsSort(rows: Record<string, unknown>[]): void {
+  rows.sort((a, b) => {
+    const ta = Number(a.timestamp_epoch_ms ?? 0);
+    const tb = Number(b.timestamp_epoch_ms ?? 0);
+    if (ta !== tb) return ta - tb;
+    const sa = String(a.trace_session_id ?? "");
+    const sb = String(b.trace_session_id ?? "");
+    if (sa !== sb) return sa.localeCompare(sb);
+    return Number(a.sequence ?? 0) - Number(b.sequence ?? 0);
+  });
 }
 
 function buildAccountLabel(
@@ -466,14 +562,11 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
   });
 
   const sessionIds = traceSessions.map((session: Record<string, unknown>) => String(session.id));
-  const traceEntries = sessionIds.length
-    ? await fetchAllRows({
-        table: "trace_entries",
-        select: "*",
-        filters: [{ column: "trace_session_id", operator: "in", value: sessionIds }],
-        orderBy: { column: "timestamp_epoch_ms", ascending: true },
-      })
-    : [];
+  const traceHybrid =
+    sessionIds.length > 0
+      ? await loadTraceEntriesHybridForRun({ traceSessionIds: sessionIds })
+      : { merged: [] as Record<string, unknown>[], storageEntryCount: 0, dbEntryCount: 0 };
+  const traceEntries = traceHybrid.merged;
 
   const workflowEvents = await fetchAllRows({
     table: "workflow_run_events",
@@ -566,6 +659,8 @@ export async function buildWorkflowRunTraceBundle(workflowRunId: string) {
     expectedTraceEntryCount,
     actualTraceEntryCount: traceEntries.length,
     missingTraceEntryCount: Math.max(0, expectedTraceEntryCount - traceEntries.length),
+    traceEntriesFromStorage: traceHybrid.storageEntryCount,
+    traceEntriesFromDbFallback: traceHybrid.dbEntryCount,
     actualWorkflowEventCount: workflowEvents.length,
     workflowLastEventSequence:
       typeof bootstrap.run?.lastEventSequence === "number" ? bootstrap.run.lastEventSequence : null,

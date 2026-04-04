@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
 import { isAdmin } from "@lib/supabase/executions";
 import { buildWorkflowRunTraceBundle } from "src/server/trace-admin";
+import {
+  downloadWorkflowTraceBundleFromStorage,
+  getWorkflowRunTraceBundleRef,
+  uploadWorkflowTraceBundleJson,
+  upsertWorkflowRunTraceBundleRef,
+} from "src/server/trace-storage";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ sessionId: string }> }) {
   try {
@@ -14,15 +20,51 @@ export async function GET(req: NextRequest, context: { params: Promise<{ session
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
-    const { sessionId } = await context.params;
-    const bundle = await buildWorkflowRunTraceBundle(sessionId);
+    const { sessionId: workflowRunId } = await context.params;
+
+    const ref = await getWorkflowRunTraceBundleRef(workflowRunId);
+    if (ref?.bundle_storage_path) {
+      try {
+        const buf = await downloadWorkflowTraceBundleFromStorage(ref.bundle_storage_path);
+        const parsed = JSON.parse(buf.toString("utf8")) as unknown;
+        const payload = `${JSON.stringify(parsed, null, 2)}\n`;
+        return new NextResponse(payload, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Disposition": `attachment; filename="trace-${workflowRunId}.json"`,
+            "Cache-Control": "no-store",
+          },
+        });
+      } catch {
+        /* cache stale or missing — rebuild */
+      }
+    }
+
+    const bundle = await buildWorkflowRunTraceBundle(workflowRunId);
     const payload = `${JSON.stringify(bundle, null, 2)}\n`;
+    try {
+      const compact = JSON.stringify(bundle);
+      const { path, bytes } = await uploadWorkflowTraceBundleJson({
+        workflowRunId,
+        jsonCompact: compact,
+      });
+      await upsertWorkflowRunTraceBundleRef({
+        workflowRunId,
+        bundleStoragePath: path,
+        bundleBytes: bytes,
+      });
+    } catch (cacheErr) {
+      if (!(cacheErr instanceof Error) || cacheErr.message !== "BUNDLE_TOO_LARGE") {
+        console.warn("[trace download] bundle cache skipped:", cacheErr);
+      }
+    }
 
     return new NextResponse(payload, {
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="trace-${sessionId}.json"`,
+        "Content-Disposition": `attachment; filename="trace-${workflowRunId}.json"`,
         "Cache-Control": "no-store",
       },
     });

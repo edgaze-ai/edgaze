@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
 
@@ -114,6 +114,39 @@ export default function AdminModerationPage() {
   const [refillWorkflowUsername, setRefillWorkflowUsername] = useState("");
   const [refillWorkflowId, setRefillWorkflowId] = useState("");
   const [refillWorkflowLoading, setRefillWorkflowLoading] = useState(false);
+
+  const [transferType, setTransferType] = useState<"workflow" | "prompt">("workflow");
+  const [transferLoading, setTransferLoading] = useState(false);
+
+  type TransferListingPick = {
+    id: string;
+    title: string | null;
+    edgaze_code: string | null;
+    owner_handle: string | null;
+    is_published: boolean;
+  };
+  type TransferOwnerPick = {
+    id: string;
+    handle: string | null;
+    full_name: string | null;
+    email: string | null;
+  };
+
+  const [transferListingQuery, setTransferListingQuery] = useState("");
+  const [transferListingHits, setTransferListingHits] = useState<TransferListingPick[]>([]);
+  const [transferListingSearching, setTransferListingSearching] = useState(false);
+  const [transferSelectedListing, setTransferSelectedListing] =
+    useState<TransferListingPick | null>(null);
+
+  const [transferOwnerQuery, setTransferOwnerQuery] = useState("");
+  const [transferOwnerHits, setTransferOwnerHits] = useState<TransferOwnerPick[]>([]);
+  const [transferOwnerSearching, setTransferOwnerSearching] = useState(false);
+  const [transferSelectedOwner, setTransferSelectedOwner] = useState<TransferOwnerPick | null>(
+    null,
+  );
+
+  const transferListAbortRef = useRef<AbortController | null>(null);
+  const transferOwnerAbortRef = useRef<AbortController | null>(null);
 
   const [appsPausedLoading, setAppsPausedLoading] = useState(true);
   const [appsPausedSaving, setAppsPausedSaving] = useState(false);
@@ -275,6 +308,111 @@ export default function AdminModerationPage() {
   }, [supabase]);
 
   useEffect(() => {
+    setTransferSelectedListing(null);
+    setTransferListingQuery("");
+    setTransferListingHits([]);
+  }, [transferType]);
+
+  useEffect(() => {
+    if (!authReady) return;
+    const q = transferListingQuery.trim();
+    if (q.length < 2) {
+      setTransferListingHits([]);
+      setTransferListingSearching(false);
+      return;
+    }
+
+    transferListAbortRef.current?.abort();
+    const ac = new AbortController();
+    transferListAbortRef.current = ac;
+    const timer = setTimeout(async () => {
+      setTransferListingSearching(true);
+      try {
+        const token = await getAccessToken();
+        if (!token || ac.signal.aborted) return;
+        const res = await fetch(
+          `/api/admin/listing-search?kind=${encodeURIComponent(transferType)}&q=${encodeURIComponent(q)}`,
+          { headers: { Authorization: `Bearer ${token}` }, signal: ac.signal },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (ac.signal.aborted) return;
+        if (!res.ok) {
+          setTransferListingHits([]);
+          return;
+        }
+        const raw = Array.isArray(data.listings) ? data.listings : [];
+        setTransferListingHits(
+          raw.map((row: Record<string, unknown>) => ({
+            id: String(row.id),
+            title: (row.title as string | null) ?? null,
+            edgaze_code: (row.edgaze_code as string | null) ?? null,
+            owner_handle: (row.owner_handle as string | null) ?? null,
+            is_published: Boolean(row.is_published),
+          })),
+        );
+      } catch {
+        if (!ac.signal.aborted) setTransferListingHits([]);
+      } finally {
+        if (!ac.signal.aborted) setTransferListingSearching(false);
+      }
+    }, 320);
+
+    return () => {
+      clearTimeout(timer);
+      ac.abort();
+    };
+  }, [authReady, transferListingQuery, transferType, getAccessToken]);
+
+  useEffect(() => {
+    if (!authReady) return;
+    const q = transferOwnerQuery.trim();
+    if (q.length < 2) {
+      setTransferOwnerHits([]);
+      setTransferOwnerSearching(false);
+      return;
+    }
+
+    transferOwnerAbortRef.current?.abort();
+    const ac = new AbortController();
+    transferOwnerAbortRef.current = ac;
+    const timer = setTimeout(async () => {
+      setTransferOwnerSearching(true);
+      try {
+        const token = await getAccessToken();
+        if (!token || ac.signal.aborted) return;
+        const res = await fetch(`/api/admin/creator-search?q=${encodeURIComponent(q)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: ac.signal,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (ac.signal.aborted) return;
+        if (!res.ok) {
+          setTransferOwnerHits([]);
+          return;
+        }
+        const raw = Array.isArray(data.creators) ? data.creators : [];
+        setTransferOwnerHits(
+          raw.map((row: Record<string, unknown>) => ({
+            id: String(row.id),
+            handle: (row.handle as string | null) ?? null,
+            full_name: (row.full_name as string | null) ?? null,
+            email: (row.email as string | null) ?? null,
+          })),
+        );
+      } catch {
+        if (!ac.signal.aborted) setTransferOwnerHits([]);
+      } finally {
+        if (!ac.signal.aborted) setTransferOwnerSearching(false);
+      }
+    }, 320);
+
+    return () => {
+      clearTimeout(timer);
+      ac.abort();
+    };
+  }, [authReady, transferOwnerQuery, getAccessToken]);
+
+  useEffect(() => {
     const main = document.querySelector("main");
     if (!main) return;
     main.style.overflowY = "auto";
@@ -414,6 +552,50 @@ export default function AdminModerationPage() {
     setBanReason("");
     setBanExpiresAt("");
     setTakedownReason("");
+  }
+
+  async function transferListingOwnership() {
+    if (!transferSelectedListing?.id || !transferSelectedOwner?.id) {
+      setActionMsg("Search and select a listing and the new owner.");
+      return;
+    }
+    setActionMsg(null);
+    setTransferLoading(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        setActionMsg("Not authenticated.");
+        return;
+      }
+      const res = await fetch("/api/admin/transfer-listing-ownership", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          target_type: transferType,
+          target_id: transferSelectedListing.id,
+          new_owner_id: transferSelectedOwner.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setActionMsg(data.error || "Transfer failed.");
+        return;
+      }
+      const path = typeof data.canonical_path === "string" ? data.canonical_path : "";
+      setActionMsg(
+        path ? `Ownership transferred. Storefront URL is now ${path}` : "Ownership transferred.",
+      );
+      setTransferSelectedListing(null);
+      setTransferSelectedOwner(null);
+      setTransferListingQuery("");
+      setTransferOwnerQuery("");
+      setTransferListingHits([]);
+      setTransferOwnerHits([]);
+    } catch (e: unknown) {
+      setActionMsg(e instanceof Error ? e.message : "Transfer failed.");
+    } finally {
+      setTransferLoading(false);
+    }
   }
 
   async function takeDownListing() {
@@ -859,9 +1041,213 @@ export default function AdminModerationPage() {
       {section === "tools" && (
         <div className="space-y-6">
           <p className="text-[13px] text-white/50 max-w-xl">
-            Replenish demo runs, refill workflow runs (free run count), and manage user bans. Use
-            after reviewing reports when needed.
+            Transfer listings between accounts, replenish demo runs, refill workflow runs, and
+            manage user bans. Use after reviewing reports when needed.
           </p>
+
+          <div className={`${cardClass} p-6`}>
+            <h3 className="text-[15px] font-semibold text-white">Transfer listing ownership</h3>
+            <p className="mt-1.5 text-[13px] text-white/50 leading-relaxed max-w-3xl">
+              Moves a Workflow Studio row (
+              <code className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[12px] font-mono text-white/70">
+                workflows
+              </code>
+              , URL{" "}
+              <code className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[12px] font-mono text-white/70">
+                /@handle/code
+              </code>
+              ) or a Prompt Studio row (
+              <code className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[12px] font-mono text-white/70">
+                prompts
+              </code>
+              , URL{" "}
+              <code className="rounded-md bg-white/[0.08] px-1.5 py-0.5 text-[12px] font-mono text-white/70">
+                /p/@handle/code
+              </code>
+              ) to another user. Updates owner metadata, builder draft ownership when the draft id
+              matches the workflow id, and old product links redirect to the new handle.
+            </p>
+            <div className="mt-6 grid gap-8 lg:grid-cols-2">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">
+                  Listing type
+                </label>
+                <select
+                  value={transferType}
+                  onChange={(e) => setTransferType(e.target.value as "workflow" | "prompt")}
+                  className={inputClass}
+                >
+                  <option value="workflow">Workflow Studio listing</option>
+                  <option value="prompt">Prompt Studio listing</option>
+                </select>
+
+                <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5 mt-5">
+                  Find listing
+                </label>
+                <p className="mb-2 text-[12px] text-white/40">
+                  Search by title, Edgaze code, owner handle, or paste the row UUID (36 characters).
+                </p>
+                <div className="relative">
+                  <input
+                    value={transferListingQuery}
+                    onChange={(e) => setTransferListingQuery(e.target.value)}
+                    disabled={!!transferSelectedListing}
+                    className={inputClass}
+                    placeholder={
+                      transferType === "workflow"
+                        ? "e.g. title, my-workflow, @creator"
+                        : "e.g. title, my-prompt, @creator"
+                    }
+                    autoComplete="off"
+                  />
+                  {transferListingSearching ? (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-white/40">
+                      Searching…
+                    </span>
+                  ) : null}
+                </div>
+                {!transferSelectedListing && transferListingHits.length > 0 ? (
+                  <ul
+                    className="mt-2 max-h-52 overflow-auto rounded-xl border border-white/[0.08] bg-[#0d0e12] py-1 shadow-lg"
+                    role="listbox"
+                  >
+                    {transferListingHits.map((hit) => (
+                      <li key={hit.id}>
+                        <button
+                          type="button"
+                          className="w-full px-3.5 py-2.5 text-left text-[13px] text-white/90 hover:bg-white/[0.06] transition-colors"
+                          onClick={() => {
+                            setTransferSelectedListing(hit);
+                            setTransferListingQuery("");
+                            setTransferListingHits([]);
+                          }}
+                        >
+                          <span className="font-medium text-white">
+                            {hit.title?.trim() || "Untitled"}
+                          </span>
+                          <span className="mt-0.5 block text-[12px] text-white/45">
+                            @{hit.owner_handle || "?"} / {hit.edgaze_code || "—"}
+                            {hit.is_published ? "" : " · draft"}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {transferSelectedListing ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3.5 py-2.5 text-[13px] text-cyan-100/95">
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium text-white">
+                        {transferSelectedListing.title?.trim() || "Untitled"}
+                      </span>
+                      <span className="mt-0.5 block text-[12px] text-white/50">
+                        @{transferSelectedListing.owner_handle || "?"} /{" "}
+                        {transferSelectedListing.edgaze_code || "—"}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTransferSelectedListing(null)}
+                      className="shrink-0 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1 text-[12px] font-medium text-white/80 hover:bg-white/10"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-widest text-white/45 mb-1.5">
+                  New owner
+                </label>
+                <p className="mb-2 text-[12px] text-white/40">
+                  Search creators by handle, name, email, or paste their user UUID.
+                </p>
+                <div className="relative">
+                  <input
+                    value={transferOwnerQuery}
+                    onChange={(e) => setTransferOwnerQuery(e.target.value)}
+                    disabled={!!transferSelectedOwner}
+                    className={inputClass}
+                    placeholder="e.g. @handle, name, or email"
+                    autoComplete="off"
+                  />
+                  {transferOwnerSearching ? (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-white/40">
+                      Searching…
+                    </span>
+                  ) : null}
+                </div>
+                {!transferSelectedOwner && transferOwnerHits.length > 0 ? (
+                  <ul
+                    className="mt-2 max-h-52 overflow-auto rounded-xl border border-white/[0.08] bg-[#0d0e12] py-1 shadow-lg"
+                    role="listbox"
+                  >
+                    {transferOwnerHits.map((hit) => (
+                      <li key={hit.id}>
+                        <button
+                          type="button"
+                          className="w-full px-3.5 py-2.5 text-left text-[13px] text-white/90 hover:bg-white/[0.06] transition-colors"
+                          onClick={() => {
+                            setTransferSelectedOwner(hit);
+                            setTransferOwnerQuery("");
+                            setTransferOwnerHits([]);
+                          }}
+                        >
+                          <span className="font-medium text-white">
+                            @{hit.handle?.trim() || "no handle"}
+                          </span>
+                          <span className="mt-0.5 block text-[12px] text-white/45">
+                            {[hit.full_name?.trim(), hit.email?.trim()]
+                              .filter(Boolean)
+                              .join(" · ") || hit.id.slice(0, 8) + "…"}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {transferSelectedOwner ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3.5 py-2.5 text-[13px] text-cyan-100/95">
+                    <span className="min-w-0 flex-1">
+                      <span className="font-medium text-white">
+                        @{transferSelectedOwner.handle?.trim() || "no handle"}
+                      </span>
+                      <span className="mt-0.5 block text-[12px] text-white/50">
+                        {[
+                          transferSelectedOwner.full_name?.trim(),
+                          transferSelectedOwner.email?.trim(),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || transferSelectedOwner.id}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTransferSelectedOwner(null)}
+                      className="shrink-0 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1 text-[12px] font-medium text-white/80 hover:bg-white/10"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <p className="mt-5 text-[12px] text-white/40">
+              The new account must have a profile handle. Past sales and earnings history stay with
+              the original creator records; new checkouts use the new owner&apos;s Connect account.
+            </p>
+            <button
+              type="button"
+              onClick={transferListingOwnership}
+              disabled={
+                transferLoading || !transferSelectedListing?.id || !transferSelectedOwner?.id
+              }
+              className="mt-5 rounded-xl border border-cyan-500/30 bg-cyan-500/15 px-4 py-2.5 text-[13px] font-medium text-cyan-100 hover:bg-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_1px_0_rgba(34,211,238,0.15)_inset]"
+            >
+              {transferLoading ? "Transferring…" : "Transfer ownership"}
+            </button>
+          </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <div className={`${cardClass} p-6`}>

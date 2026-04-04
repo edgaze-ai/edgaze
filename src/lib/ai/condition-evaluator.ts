@@ -26,7 +26,7 @@ export function buildConditionEvaluationInstruction(params: {
     truthy:
       "TRUTHY mode: answer true if the input is logically true or present—substantive non-empty content, affirmative answers, or meaningful structured data. Answer false for null, missing data, empty strings, explicit false, clear negation, or no substantive content.",
     falsy:
-      "FALSY mode: answer true if the input is logically false or empty (null, undefined, empty text, zero meaning none, explicit false, clear “no”, or lack of substantive content). Answer false when the input is clearly present and affirmative.",
+      'FALSY mode: answer true if the input is logically false or empty (null, undefined, empty text, zero meaning none, explicit false, clear "no", or lack of substantive content). Answer false when the input is clearly present and affirmative.',
     equals: `EQUALS mode: answer true only if the input is equal to the reference value ${JSON.stringify(
       cv,
     )} (normalize strings; for objects, use meaningful equality).`,

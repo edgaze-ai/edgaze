@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { redactSecrets } from "src/server/flow/runtime-enforcement";
+import { ensureTraceSessionStorageRoot, uploadTraceEntryParts } from "src/server/trace-storage";
 
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 
@@ -70,7 +71,7 @@ export type TraceEntryInput = {
   payload?: unknown;
 };
 
-type TraceEntryRow = {
+export type TraceEntryRow = {
   trace_session_id: string;
   sequence: number;
   phase: TracePhase;
@@ -229,28 +230,13 @@ export class TraceSessionRecorder {
     if (sessionError) throw sessionError;
   }
 
-  private async insertEntriesWithFallback(supabase: any, entries: TraceEntryRow[]): Promise<void> {
-    const { error: batchError } = await supabase.from("trace_entries").insert(entries);
-    if (!batchError) return;
-
-    const failures: Array<{ sequence: number; error: string }> = [];
-    for (const entry of entries) {
-      const { error } = await supabase.from("trace_entries").insert(entry);
-      if (error) {
-        failures.push({
-          sequence: entry.sequence,
-          error: error.message,
-        });
-      }
-    }
-
-    if (failures.length > 0) {
-      throw new Error(
-        `trace_entries insert failed for ${failures.length}/${entries.length} rows after fallback: ${JSON.stringify(
-          failures.slice(0, 5),
-        )}`,
-      );
-    }
+  private async persistEntriesToStorage(entries: TraceEntryRow[]): Promise<void> {
+    const storageRootId = await ensureTraceSessionStorageRoot(this.session.id);
+    await uploadTraceEntryParts({
+      storageRootId,
+      traceSessionId: this.session.id,
+      entries,
+    });
   }
 
   constructor(init: {
@@ -442,7 +428,7 @@ export class TraceSessionRecorder {
           await this.upsertSessionRow(supabase);
         }
         if (entries.length > 0) {
-          await this.insertEntriesWithFallback(supabase, entries);
+          await this.persistEntriesToStorage(entries);
         }
         this.lastFlushErrorMessage = null;
       })

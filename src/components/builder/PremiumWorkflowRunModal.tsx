@@ -23,7 +23,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { cx } from "../../lib/cx";
-import { track } from "../../lib/mixpanel";
+import { track, type TrackProperties } from "../../lib/mixpanel";
 import type {
   RunStepStatus,
   WorkflowInput,
@@ -41,6 +41,7 @@ import {
 import { WorkflowInputField } from "./WorkflowInputField";
 import RunCountDiagnosticModal from "./RunCountDiagnosticModal";
 import CustomerWorkflowRuntimeSurface from "../runtime/customer/CustomerWorkflowRuntimeSurface";
+import { WorkflowMarkdown } from "../workflow/WorkflowMarkdown";
 import { UserApiKeysDialog } from "../settings/UserApiKeysDialog";
 import { bearerAuthHeaders } from "../../lib/auth/bearer-headers";
 import { useAuth } from "../auth/AuthContext";
@@ -53,7 +54,7 @@ export type {
   WorkflowRunStep,
 } from "../../lib/workflow/run-types";
 
-function safeTrack(event: string, props?: Record<string, any>) {
+function safeTrack(event: string, props?: TrackProperties) {
   try {
     track(event, props);
   } catch {}
@@ -828,114 +829,6 @@ function StepBox({
   );
 }
 
-// Simple markdown renderer for output display
-function renderMarkdown(text: string): React.ReactNode {
-  const lines = text.split("\n");
-  const elements: React.ReactNode[] = [];
-  let inList = false;
-  let listItems: string[] = [];
-
-  const flushList = () => {
-    if (listItems.length > 0) {
-      elements.push(
-        <ul key={`list-${elements.length}`} className="list-disc list-inside space-y-2.5 my-6 ml-4">
-          {listItems.map((item, i) => {
-            // Process bold text in list items
-            const parts = item.trim().split(/(\*\*.*?\*\*)/g);
-            return (
-              <li key={i} className="text-white/90 leading-[1.85]">
-                {parts.map((part, j) => {
-                  if (part.startsWith("**") && part.endsWith("**")) {
-                    return (
-                      <strong key={j} className="font-semibold text-white">
-                        {part.slice(2, -2)}
-                      </strong>
-                    );
-                  }
-                  return part;
-                })}
-              </li>
-            );
-          })}
-        </ul>,
-      );
-      listItems = [];
-    }
-    inList = false;
-  };
-
-  lines.forEach((line, idx) => {
-    const trimmed = line.trim();
-
-    // Headings
-    if (trimmed.startsWith("### ")) {
-      flushList();
-      elements.push(
-        <h3 key={idx} className="text-xl font-semibold text-white mt-8 mb-4">
-          {trimmed.substring(4)}
-        </h3>,
-      );
-      return;
-    }
-    if (trimmed.startsWith("## ")) {
-      flushList();
-      elements.push(
-        <h2 key={idx} className="text-2xl font-semibold text-white mt-10 mb-5">
-          {trimmed.substring(3)}
-        </h2>,
-      );
-      return;
-    }
-    if (trimmed.startsWith("# ")) {
-      flushList();
-      elements.push(
-        <h1 key={idx} className="text-3xl font-bold text-white mt-12 mb-6">
-          {trimmed.substring(2)}
-        </h1>,
-      );
-      return;
-    }
-
-    // Lists
-    if (trimmed.match(/^[-*•]\s+/) || trimmed.match(/^\d+\.\s+/)) {
-      if (!inList) flushList();
-      inList = true;
-      const itemText = trimmed.replace(/^[-*•]\s+/, "").replace(/^\d+\.\s+/, "");
-      listItems.push(itemText);
-      return;
-    }
-
-    // Regular paragraph
-    flushList();
-    if (trimmed === "") {
-      elements.push(<div key={idx} className="h-6" />);
-      return;
-    }
-
-    // Process bold text
-    const parts = trimmed.split(/(\*\*.*?\*\*)/g);
-    const processedLine = parts.map((part, i) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        return (
-          <strong key={i} className="font-semibold text-white">
-            {part.slice(2, -2)}
-          </strong>
-        );
-      }
-      return part;
-    });
-
-    elements.push(
-      <p key={idx} className="text-base leading-[1.85] text-white/90 mb-6">
-        {processedLine}
-      </p>,
-    );
-  });
-
-  flushList();
-  return <div className="markdown-content">{elements}</div>;
-}
-
 function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isOpenAI?: boolean }) {
   const textColor = isOpenAI ? "text-black/90" : "text-white/90";
   const textColorMuted = isOpenAI ? "text-black/50" : "text-white/50";
@@ -1098,11 +991,7 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
               );
             }
             if (typeof part === "string" && part.trim()) {
-              return (
-                <div key={i} className="text-base leading-7 text-white/90">
-                  {renderMarkdown(part)}
-                </div>
-              );
+              return <WorkflowMarkdown key={i} text={part} theme={isOpenAI ? "light" : "dark"} />;
             }
             return null;
           })}
@@ -1183,12 +1072,8 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
       );
     }
 
-    // Render markdown for string outputs
-    return (
-      <div className={cx("text-base leading-[1.85] [&>p+p]:mt-5 [&>p]:mb-4", textColor)}>
-        {renderMarkdown(displayValue)}
-      </div>
-    );
+    // Render markdown for string outputs (GFM: tables, lists, code, links)
+    return <WorkflowMarkdown text={displayValue} theme={isOpenAI ? "light" : "dark"} />;
   }
   if (typeof value === "number" || typeof value === "boolean") {
     return (
@@ -1249,11 +1134,7 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
     const extracted = extractOpenAIDisplayContent(value);
     if (extracted) {
       if (extracted.kind === "string") {
-        return (
-          <div className={cx("text-base leading-7", textColor)}>
-            {renderMarkdown(extracted.text)}
-          </div>
-        );
+        return <WorkflowMarkdown text={extracted.text} theme={isOpenAI ? "light" : "dark"} />;
       }
       if (extracted.kind === "parts") {
         return (
@@ -1261,9 +1142,7 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
             {extracted.parts.map((part, i) => {
               if (part.type === "text" && part.text.trim()) {
                 return (
-                  <div key={i} className={cx("text-base leading-7", textColor)}>
-                    {renderMarkdown(part.text)}
-                  </div>
+                  <WorkflowMarkdown key={i} text={part.text} theme={isOpenAI ? "light" : "dark"} />
                 );
               }
               if (part.type === "image") {
@@ -1295,11 +1174,7 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
     // Try common API shapes: { content }, { text }, { output }, { message }, etc.
     const genericText = extractGenericDisplayContent(value as Record<string, unknown>);
     if (genericText) {
-      return (
-        <div className={cx("text-base leading-[1.85] [&>p+p]:mt-5 [&>p]:mb-4", textColor)}>
-          {renderMarkdown(genericText)}
-        </div>
-      );
+      return <WorkflowMarkdown text={genericText} theme={isOpenAI ? "light" : "dark"} />;
     }
 
     // Last resort for objects: find any string value, skipping metadata
@@ -1325,11 +1200,7 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
     for (const [k, v] of Object.entries(obj)) {
       if (metadataFields.has(k.toLowerCase())) continue;
       if (typeof v === "string" && v.trim()) {
-        return (
-          <div className={cx("text-base leading-[1.85] [&>p+p]:mt-5 [&>p]:mb-4", textColor)}>
-            {renderMarkdown(v)}
-          </div>
-        );
+        return <WorkflowMarkdown text={v} theme={isOpenAI ? "light" : "dark"} />;
       }
     }
 

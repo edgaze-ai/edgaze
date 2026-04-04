@@ -3,9 +3,9 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { X, CheckCircle2, Loader2, AlertTriangle, Sparkles } from "lucide-react";
 import { cx } from "../../lib/cx";
-import { track } from "../../lib/mixpanel";
+import { track, type TrackProperties } from "../../lib/mixpanel";
 
-function safeTrack(event: string, props?: Record<string, any>) {
+function safeTrack(event: string, props?: TrackProperties) {
   try {
     track(event, props);
   } catch {}

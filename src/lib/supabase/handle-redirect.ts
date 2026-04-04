@@ -11,6 +11,7 @@ export async function getWorkflowRedirectPath(
   if (!ownerHandle?.trim() || !edgazeCode?.trim()) return null;
   const supabase = createSupabaseAdminClient();
   const handleLower = ownerHandle.trim().toLowerCase();
+  const code = edgazeCode.trim();
 
   const { data: historyRow } = await supabase
     .from("handle_history")
@@ -20,27 +21,45 @@ export async function getWorkflowRedirectPath(
     .limit(1)
     .maybeSingle();
 
-  if (!historyRow?.user_id) return null;
+  if (historyRow?.user_id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("handle")
+      .eq("id", historyRow.user_id)
+      .maybeSingle();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("handle")
-    .eq("id", historyRow.user_id)
-    .maybeSingle();
+    if (profile?.handle) {
+      const { data: workflow } = await supabase
+        .from("workflows")
+        .select("id")
+        .eq("owner_id", historyRow.user_id)
+        .eq("edgaze_code", code)
+        .eq("is_published", true)
+        .is("removed_at", null)
+        .maybeSingle();
 
-  if (!profile?.handle) return null;
+      if (workflow) {
+        return `/${encodeURIComponent(profile.handle)}/${encodeURIComponent(code)}`;
+      }
+    }
+  }
 
-  const { data: workflow } = await supabase
+  // Ownership transfer or stale bookmarks: unique published workflow by code → canonical handle
+  const { data: byCode } = await supabase
     .from("workflows")
-    .select("id")
-    .eq("owner_id", historyRow.user_id)
-    .eq("edgaze_code", edgazeCode)
+    .select("owner_handle, is_public")
+    .eq("edgaze_code", code)
     .eq("is_published", true)
     .is("removed_at", null)
-    .maybeSingle();
+    .limit(2);
 
-  if (!workflow) return null;
-  return `/${encodeURIComponent(profile.handle)}/${encodeURIComponent(edgazeCode)}`;
+  if (!byCode || byCode.length !== 1) return null;
+  const w = byCode[0] as { owner_handle: string | null; is_public?: boolean | null };
+  if (w.is_public === false) return null;
+  const canonical = (w.owner_handle ?? "").trim();
+  if (!canonical) return null;
+  if (canonical.toLowerCase() === handleLower) return null;
+  return `/${encodeURIComponent(canonical)}/${encodeURIComponent(code)}`;
 }
 
 /**
@@ -54,6 +73,7 @@ export async function getProductRedirectPath(
   if (!ownerHandle?.trim() || !edgazeCode?.trim()) return null;
   const supabase = createSupabaseAdminClient();
   const handleLower = ownerHandle.trim().toLowerCase();
+  const code = edgazeCode.trim();
 
   const { data: historyRow } = await supabase
     .from("handle_history")
@@ -63,26 +83,42 @@ export async function getProductRedirectPath(
     .limit(1)
     .maybeSingle();
 
-  if (!historyRow?.user_id) return null;
+  if (historyRow?.user_id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("handle")
+      .eq("id", historyRow.user_id)
+      .maybeSingle();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("handle")
-    .eq("id", historyRow.user_id)
-    .maybeSingle();
+    if (profile?.handle) {
+      const { data: prompt } = await supabase
+        .from("prompts")
+        .select("id")
+        .eq("owner_id", String(historyRow.user_id))
+        .eq("edgaze_code", code)
+        .in("visibility", ["public", "unlisted"])
+        .maybeSingle();
 
-  if (!profile?.handle) return null;
+      if (prompt) {
+        return `/p/${encodeURIComponent(profile.handle)}/${encodeURIComponent(code)}`;
+      }
+    }
+  }
 
-  const { data: prompt } = await supabase
+  // Ownership transfer or stale bookmarks: unique prompt listing by code → canonical handle
+  const { data: byCode } = await supabase
     .from("prompts")
-    .select("id")
-    .eq("owner_id", String(historyRow.user_id))
-    .eq("edgaze_code", edgazeCode)
+    .select("owner_handle")
+    .eq("edgaze_code", code)
+    .is("removed_at", null)
     .in("visibility", ["public", "unlisted"])
-    .maybeSingle();
+    .limit(2);
 
-  if (!prompt) return null;
-  return `/p/${encodeURIComponent(profile.handle)}/${encodeURIComponent(edgazeCode)}`;
+  if (!byCode || byCode.length !== 1) return null;
+  const canonical = ((byCode[0] as { owner_handle: string | null }).owner_handle ?? "").trim();
+  if (!canonical) return null;
+  if (canonical.toLowerCase() === handleLower) return null;
+  return `/p/${encodeURIComponent(canonical)}/${encodeURIComponent(code)}`;
 }
 
 /**
