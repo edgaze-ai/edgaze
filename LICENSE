@@ -1,78 +1,119 @@
-EDGAZE PROPRIETARY SOFTWARE LICENSE
+EDGAZE PROPRIETARY SOFTWARE LICENSE AGREEMENT
 
 Copyright (c) 2026 Edge Platforms, Inc.
 All Rights Reserved.
 
-This software and associated documentation (the "Software") are proprietary
-and confidential and are owned exclusively by Edge Platforms, Inc., a
-Delaware corporation ("Company").
+This Software and associated documentation (the "Software") are proprietary and confidential and are owned exclusively by Edge Platforms, Inc., a Delaware corporation ("Company").
+
+BY ACCESSING, VIEWING, OR USING THE SOFTWARE, YOU AGREE TO BE BOUND BY THIS LICENSE. IF YOU DO NOT AGREE, YOU MUST NOT ACCESS OR USE THE SOFTWARE.
+
+---
 
 1. NO OPEN SOURCE LICENSE
 
-This Software is NOT licensed under any open source license.
+The Software is NOT licensed under any open source license.
 No rights are granted except as expressly set forth herein.
+
+---
 
 2. LICENSE GRANT
 
-Subject to a separate written agreement executed by Company, Company grants
-a limited, non-exclusive, non-transferable, non-sublicensable, revocable
-license to use the Software solely for internal purposes and only as
-expressly authorized by Company.
+Subject to a separate written agreement executed by Company, Company grants a limited, non-exclusive, non-transferable, non-sublicensable, revocable license to use the Software solely for internal purposes and only as expressly authorized by Company.
 
-Absent such written agreement, you have no right to use the Software
-for any purpose.
+Absent such written agreement, you have no right to use the Software for any purpose.
+
+---
 
 3. RESTRICTIONS
 
 You may not, directly or indirectly:
 
-- Copy, reproduce, distribute, or publicly display the Software
-- Modify, adapt, translate, or create derivative works
-- Reverse engineer, decompile, disassemble, or attempt to extract source code
-- Sell, sublicense, lease, rent, or commercially exploit the Software
-- Use the Software to build a competing product or service
-- Remove or alter any proprietary notices
+(a) Copy, reproduce, distribute, publicly display, or publicly perform the Software
+(b) Modify, adapt, translate, or create derivative works
+(c) Reverse engineer, decompile, disassemble, or attempt to derive source code, underlying ideas, algorithms, structure, or organization
+(d) Sell, sublicense, lease, rent, lend, or otherwise commercially exploit the Software
+(e) Use the Software to develop, build, or operate a competing product or service
+(f) Remove, alter, or obscure any proprietary notices or labels
+(g) Use the Software in violation of any applicable law or regulation
 
 All rights not expressly granted are reserved by Company.
 
+---
+
 4. OWNERSHIP
 
-The Software, including all intellectual property rights, trade secrets,
-algorithms, workflows, designs, and documentation, remains the sole and
-exclusive property of Edge Platforms, Inc.
+The Software, including all intellectual property rights, trade secrets, algorithms, workflows, designs, interfaces, and documentation, remains the sole and exclusive property of Edge Platforms, Inc.
 
-Nothing in this License transfers ownership rights.
+Nothing in this License transfers or assigns any ownership rights to you.
+
+---
 
 5. CONFIDENTIALITY
 
-The Software contains confidential and proprietary information.
-You agree not to disclose or make available the Software or any part thereof
-to any third party without prior written consent from Company.
+The Software constitutes confidential and proprietary information of Company.
 
-6. TERMINATION
+You agree to:
+
+(a) Maintain the confidentiality of the Software using at least reasonable care
+(b) Not disclose, publish, or make available the Software or any part thereof to any third party
+(c) Use the Software solely as permitted under this License
+
+These obligations survive termination of this License.
+
+---
+
+6. FEEDBACK
+
+If you provide any feedback, suggestions, or ideas regarding the Software ("Feedback"), you hereby grant Company a perpetual, irrevocable, worldwide, royalty-free, fully paid-up license to use, reproduce, modify, and incorporate such Feedback without restriction or obligation.
+
+---
+
+7. TERMINATION
 
 This License is effective until terminated.
-Company may terminate this License at any time upon breach.
-Upon termination, all rights granted herein immediately cease, and you must
-cease all use of the Software.
 
-7. DISCLAIMER OF WARRANTIES
+Company may terminate this License immediately, with or without notice, if you breach any provision of this License.
 
-THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTY OF ANY
-KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+Upon termination:
 
-8. LIMITATION OF LIABILITY
+(a) All rights granted to you immediately cease
+(b) You must immediately stop using the Software
+(c) You must delete or destroy all copies of the Software in your possession or control
 
-TO THE MAXIMUM EXTENT PERMITTED BY LAW, EDGE PLATFORMS, INC. SHALL NOT BE
-LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE
-DAMAGES ARISING OUT OF OR RELATING TO THE SOFTWARE OR ITS USE.
+---
 
-9. GOVERNING LAW
+8. DISCLAIMER OF WARRANTIES
 
-This License shall be governed by and construed in accordance with the laws
-of the State of Delaware, without regard to conflict of law principles.
-Any disputes shall be resolved exclusively in the state or federal courts
-located in Delaware.
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
 
-For licensing inquiries, contact: legal@edgaze.ai
+---
+
+9. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, EDGE PLATFORMS, INC. SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, REVENUE, DATA, OR BUSINESS OPPORTUNITY, ARISING OUT OF OR RELATED TO THE SOFTWARE OR ITS USE.
+
+---
+
+10. EQUITABLE RELIEF
+
+You acknowledge that any breach of this License may cause irreparable harm to Company for which monetary damages would be inadequate.
+
+Accordingly, Company shall be entitled to seek injunctive or equitable relief, without the requirement of posting bond, in addition to any other remedies available at law or in equity.
+
+---
+
+11. GOVERNING LAW
+
+This License shall be governed by and construed in accordance with the laws of the State of Delaware, without regard to conflict of law principles.
+
+Any disputes arising out of or relating to this License shall be resolved exclusively in the state or federal courts located in Delaware, and you consent to the jurisdiction of such courts.
+
+---
+
+12. ENTIRE AGREEMENT
+
+This License constitutes the entire agreement between you and Company regarding the Software and supersedes all prior or contemporaneous agreements or understandings.
+
+---
+
+For licensing inquiries, contact: [legal@edgaze.ai](mailto:legal@edgaze.ai)
