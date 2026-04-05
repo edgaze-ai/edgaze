@@ -32,7 +32,8 @@
     "db:types": "npx supabase gen types typescript --project-id $NEXT_PUBLIC_SUPABASE_PROJECT_ID > src/types/supabase.ts",
     "db:push": "npx supabase db push",
     "db:reset": "npx supabase db reset",
-    "postinstall": "node scripts/copy-pdf-worker.mjs"
+    "postinstall": "node scripts/copy-pdf-worker.mjs",
+    "og:generate": "node scripts/generate-og.mjs"
   },
   "dependencies": {
     "@stripe/connect-js": "^3.3.34",
@@ -73,6 +74,7 @@
     "eslint-config-next": "^16.1.1",
     "postcss": "^8.4.45",
     "prettier": "^3.3.3",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.6.2",
     "vitest": "^3.0.5"

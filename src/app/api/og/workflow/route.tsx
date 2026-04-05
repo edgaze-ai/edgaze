@@ -2,13 +2,20 @@ import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
 import { workflowPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import {
+  imageResponseFromElement,
+  imageResponseFromListingCard,
+  minimalBrandedListingCard,
+  ogImageResponseInit,
+  remoteImageLikelyRenderable,
+} from "@lib/og/og-image-response";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const alt = "Edgaze workflow";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export async function GET(request: NextRequest) {
+async function buildResponse(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const ownerHandle = searchParams.get("ownerHandle") ?? searchParams.get("owner");
   const edgazeCode = searchParams.get("edgazeCode") ?? searchParams.get("code");
@@ -16,7 +23,7 @@ export async function GET(request: NextRequest) {
   let title = "Workflow";
   let creatorName = "Creator";
   let priceLabel = "Free";
-  let imageUrl: string | undefined;
+  let rawImageUrl: string | undefined;
 
   if (ownerHandle && edgazeCode) {
     try {
@@ -29,6 +36,7 @@ export async function GET(request: NextRequest) {
         .eq("owner_handle", ownerHandle)
         .eq("edgaze_code", edgazeCode)
         .eq("is_published", true)
+        .is("removed_at", null)
         .maybeSingle();
 
       if (data) {
@@ -46,98 +54,37 @@ export async function GET(request: NextRequest) {
         creatorName = row.owner_name?.trim() || `@${ownerHandle}` || creatorName;
         if (row.is_paid && row.price_usd != null && row.price_usd > 0) {
           priceLabel = `$${Number(row.price_usd).toFixed(2)}`;
+        } else {
+          priceLabel = "Free";
         }
-        imageUrl = workflowPreviewImageUrl(row);
+        rawImageUrl = workflowPreviewImageUrl(row);
       }
     } catch {
-      // use defaults
+      // fail-soft: defaults above
     }
   }
 
-  return new ImageResponse(
-    <div
-      style={{
-        height: "100%",
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: "#0a0a0a",
-        padding: "48px 56px",
-        fontFamily: "system-ui, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          width: "100%",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <span style={{ fontSize: 24, fontWeight: 600, color: "#22d3ee" }}>Edgaze</span>
-        <span style={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }}>{priceLabel}</span>
-      </div>
+  let imageUrl: string | null | undefined = rawImageUrl;
+  if (imageUrl && !(await remoteImageLikelyRenderable(imageUrl))) {
+    imageUrl = undefined;
+  }
 
-      <div
-        style={{
-          display: "flex",
-          flex: 1,
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "100%",
-          gap: 16,
-        }}
-      >
-        {imageUrl ? (
-          <div
-            style={{
-              display: "flex",
-              width: 280,
-              height: 280,
-              borderRadius: 12,
-              overflow: "hidden",
-              flexShrink: 0,
-            }}
-          >
-            <img
-              src={imageUrl}
-              alt=""
-              width={280}
-              height={280}
-              style={{ objectFit: "cover", width: 280, height: 280 }}
-            />
-          </div>
-        ) : null}
-        <div
-          style={{
-            fontSize: 42,
-            fontWeight: 700,
-            color: "white",
-            textAlign: "center",
-            maxWidth: 900,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {title}
-        </div>
-        <div style={{ fontSize: 22, color: "rgba(255,255,255,0.6)" }}>by {creatorName}</div>
-      </div>
+  return imageResponseFromListingCard({
+    title,
+    creatorName,
+    priceLabel,
+    imageUrl: imageUrl ?? undefined,
+  });
+}
 
-      <div style={{ fontSize: 16, color: "rgba(255,255,255,0.4)" }}>
-        Create, sell, and distribute AI products
-      </div>
-    </div>,
-    {
-      width: 1200,
-      height: 630,
-      headers: {
-        "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
-      },
-    },
-  );
+export async function GET(request: NextRequest) {
+  try {
+    return await buildResponse(request);
+  } catch {
+    try {
+      return imageResponseFromElement(minimalBrandedListingCard());
+    } catch {
+      return new ImageResponse(minimalBrandedListingCard(), ogImageResponseInit());
+    }
+  }
 }

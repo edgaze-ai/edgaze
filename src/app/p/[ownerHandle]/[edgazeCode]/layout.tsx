@@ -25,6 +25,8 @@ async function getListing(ownerHandle: string, edgazeCode: string) {
       )
       .eq("owner_handle", ownerHandle)
       .eq("edgaze_code", edgazeCode)
+      .is("removed_at", null)
+      .in("visibility", ["public", "unlisted"])
       .maybeSingle();
 
     if (error || !data) return null;
@@ -65,7 +67,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         card: "summary_large_image",
         title: "Product | Edgaze",
         description: "View this prompt or workflow on Edgaze",
-        images: fallbackOg,
+        images: [
+          {
+            url: fallbackOg,
+            width: OG_IMAGE_WIDTH,
+            height: OG_IMAGE_HEIGHT,
+            alt: "Edgaze",
+          },
+        ],
       },
     };
   }
@@ -90,7 +99,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     height: OG_IMAGE_HEIGHT,
     alt: title,
   };
-  const twitterImage = dynamicOg;
 
   return {
     title,
@@ -110,7 +118,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title: `${title} | Edgaze`,
       description,
-      images: twitterImage,
+      images: [primaryOg],
     },
   };
 }

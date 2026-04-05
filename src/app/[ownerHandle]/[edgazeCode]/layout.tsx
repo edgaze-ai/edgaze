@@ -25,6 +25,7 @@ async function getWorkflowListing(ownerHandle: string, edgazeCode: string) {
       .eq("owner_handle", ownerHandle)
       .eq("edgaze_code", edgazeCode)
       .eq("is_published", true)
+      .is("removed_at", null)
       .maybeSingle();
 
     if (error || !data) return null;
@@ -65,7 +66,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         card: "summary_large_image",
         title: "Workflow | Edgaze",
         description: "View this AI workflow on Edgaze. Build powerful automation with AI.",
-        images: fallbackOg,
+        images: [
+          {
+            url: fallbackOg,
+            width: OG_IMAGE_WIDTH,
+            height: OG_IMAGE_HEIGHT,
+            alt: "Edgaze",
+          },
+        ],
       },
     };
   }
@@ -87,7 +95,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     height: OG_IMAGE_HEIGHT,
     alt: title,
   };
-  const twitterImage = dynamicOg;
 
   return {
     title,
@@ -107,7 +114,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title: `${title} | Edgaze`,
       description,
-      images: twitterImage,
+      images: [primaryOg],
     },
   };
 }

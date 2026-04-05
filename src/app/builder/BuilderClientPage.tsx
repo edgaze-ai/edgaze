@@ -335,6 +335,8 @@ export default function BuilderPage() {
 
   // deep-link guard (prevents repeated opening)
   const openedWorkflowIdRef = useRef<string | null>(null);
+  /** Avoid spamming sign-in while signed-out preview URL is open. */
+  const previewDeepLinkAuthPromptedRef = useRef(false);
   const activeDraftIdRef = useRef<string | null>(null);
   useEffect(() => {
     activeDraftIdRef.current = activeDraftId;
@@ -1245,6 +1247,18 @@ export default function BuilderPage() {
 
       if (cancelled) return;
 
+      // Preview loads purchases/enforcement via the authenticated Supabase client; without a
+      // session, openMarketplaceWorkflowPreview returns early — but we must not set
+      // openedWorkflowIdRef first or the workflow never opens after sign-in.
+      if (previewParam && !userId) {
+        if (!previewDeepLinkAuthPromptedRef.current) {
+          previewDeepLinkAuthPromptedRef.current = true;
+          requireAuth();
+        }
+        return;
+      }
+      previewDeepLinkAuthPromptedRef.current = false;
+
       const openKey = `${wid}|${previewParam ? "p" : "e"}`;
       if (openedWorkflowIdRef.current === openKey) return;
 
@@ -1584,7 +1598,7 @@ export default function BuilderPage() {
     const inputs = extractWorkflowInputs(graph.nodes || []);
     const hasAiNodes = (graph.nodes || []).some((n: any) => isPremiumAiSpec(n.data?.specId ?? ""));
     const isBuilderTest = !isPreview;
-    const showInputPhase = inputs.length > 0 || (isBuilderTest && hasAiNodes);
+    const showInputPhase = inputs.length > 0 || (hasAiNodes && (isBuilderTest || isPreview));
 
     // Builder test requires authentication (unlike preview/demo)
     if (isBuilderTest) {
