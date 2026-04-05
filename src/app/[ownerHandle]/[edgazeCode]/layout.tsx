@@ -4,8 +4,7 @@ import { redirect } from "next/navigation";
 import { workflowPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowRedirectPath } from "@lib/supabase/handle-redirect";
-
-const METADATA_BASE = "https://edgaze.ai";
+import { getSiteOrigin } from "@lib/site-origin";
 const OG_IMAGE_WIDTH = 1200;
 const OG_IMAGE_HEIGHT = 630;
 
@@ -48,7 +47,8 @@ async function getWorkflowListing(ownerHandle: string, edgazeCode: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ownerHandle, edgazeCode } = await params;
   const listing = await getWorkflowListing(ownerHandle, edgazeCode);
-  const fallbackOg = `${METADATA_BASE}/og.png`;
+  const siteOrigin = getSiteOrigin();
+  const fallbackOg = "/og.png";
 
   if (!listing) {
     return {
@@ -57,7 +57,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       openGraph: {
         title: "Workflow | Edgaze",
         description: "View this AI workflow on Edgaze. Build powerful automation with AI.",
-        url: `${METADATA_BASE}/${ownerHandle}/${edgazeCode}`,
+        url: `${siteOrigin}/${ownerHandle}/${edgazeCode}`,
         images: [
           { url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: "Edgaze" },
         ],
@@ -87,10 +87,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? rawDescription.slice(0, 160).replace(/\s+$/, "") // Trim trailing whitespace
       : "Discover and use this AI workflow on Edgaze. Build powerful automation with AI.";
 
-  const pageUrl = `${METADATA_BASE}/${ownerHandle}/${edgazeCode}`;
-  const dynamicOg = `${METADATA_BASE}/api/og/workflow?${new URLSearchParams({ ownerHandle, edgazeCode }).toString()}`;
+  const pageUrl = `${siteOrigin}/${ownerHandle}/${edgazeCode}`;
+  const dynamicOgPath = `/api/og/workflow?${new URLSearchParams({ ownerHandle, edgazeCode }).toString()}`;
   const primaryOg = {
-    url: dynamicOg,
+    url: dynamicOgPath,
     width: OG_IMAGE_WIDTH,
     height: OG_IMAGE_HEIGHT,
     alt: title,
@@ -142,7 +142,7 @@ function buildWorkflowProductJsonLd(
     listing.is_paid && listing.price_usd != null && listing.price_usd > 0
       ? String(listing.price_usd)
       : "0";
-  const pageUrl = `${METADATA_BASE}/${ownerHandle}/${edgazeCode}`;
+  const pageUrl = `${getSiteOrigin()}/${ownerHandle}/${edgazeCode}`;
 
   return {
     "@context": "https://schema.org",

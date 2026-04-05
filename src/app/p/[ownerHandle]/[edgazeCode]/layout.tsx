@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { promptPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getProductRedirectPath } from "@lib/supabase/handle-redirect";
+import { getSiteOrigin } from "@lib/site-origin";
 
-const METADATA_BASE = "https://edgaze.ai";
 /** Open Graph / Twitter hint dimensions (recommended for link previews; actual asset may differ). */
 const OG_IMAGE_WIDTH = 1200;
 const OG_IMAGE_HEIGHT = 630;
@@ -48,8 +48,9 @@ async function getListing(ownerHandle: string, edgazeCode: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ownerHandle, edgazeCode } = await params;
   const listing = await getListing(ownerHandle, edgazeCode);
+  const siteOrigin = getSiteOrigin();
 
-  const fallbackOg = `${METADATA_BASE}/og.png`;
+  const fallbackOg = "/og.png";
 
   if (!listing) {
     return {
@@ -58,7 +59,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       openGraph: {
         title: "Product | Edgaze",
         description: "View this prompt or workflow on Edgaze",
-        url: `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`,
+        url: `${siteOrigin}/p/${ownerHandle}/${edgazeCode}`,
         images: [
           { url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: "Edgaze" },
         ],
@@ -90,11 +91,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         ? "Discover and use this AI workflow on Edgaze. Build powerful automation with AI."
         : "Discover and use this AI prompt on Edgaze. Create amazing content with AI.";
 
-  const pageUrl = `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`;
-  // Social crawlers reliably fetch same-origin /api/og/* (composed 1200×630 with listing art); raw storage URLs often fail or get skipped.
-  const dynamicOg = `${METADATA_BASE}/api/og/prompt?${new URLSearchParams({ ownerHandle, edgazeCode }).toString()}`;
+  const pageUrl = `${siteOrigin}/p/${ownerHandle}/${edgazeCode}`;
+  // Relative image URL resolves with root metadataBase (same host as shared links, e.g. www) so Meta gets og:image + dimensions without apex↔www redirects.
+  const dynamicOgPath = `/api/og/prompt?${new URLSearchParams({ ownerHandle, edgazeCode }).toString()}`;
   const primaryOg = {
-    url: dynamicOg,
+    url: dynamicOgPath,
     width: OG_IMAGE_WIDTH,
     height: OG_IMAGE_HEIGHT,
     alt: title,
@@ -148,7 +149,7 @@ function buildPromptProductJsonLd(
     listing.is_paid && listing.price_usd != null && listing.price_usd > 0
       ? String(listing.price_usd)
       : "0";
-  const pageUrl = `${METADATA_BASE}/p/${ownerHandle}/${edgazeCode}`;
+  const pageUrl = `${getSiteOrigin()}/p/${ownerHandle}/${edgazeCode}`;
 
   return {
     "@context": "https://schema.org",

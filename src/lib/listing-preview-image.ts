@@ -3,11 +3,11 @@
  * Thumbnail first so link previews match marketplace cards and creator intent.
  */
 
-const DEFAULT_BASE = "https://edgaze.ai";
+import { getSiteOrigin } from "./site-origin";
 
 export function absoluteListingImageUrl(
   url: string | null | undefined,
-  baseUrl: string = DEFAULT_BASE,
+  baseUrl: string = getSiteOrigin(),
 ): string | undefined {
   if (!url || !url.trim()) return undefined;
   const u = url.trim();

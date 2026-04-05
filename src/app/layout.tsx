@@ -9,6 +9,9 @@ import ClientLayoutGate from "./ClientLayoutGate";
 import LazyAnalyticsWrapper from "../components/layout/LazyAnalytics";
 import { MinimalLoadingFallback } from "../components/loading/GlobalLoadingScreen";
 import { WebVitals } from "./web-vitals";
+import { getSiteOrigin } from "@lib/site-origin";
+
+const SITE_ORIGIN = getSiteOrigin();
 
 const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
@@ -36,7 +39,7 @@ const jetbrainsMono = JetBrains_Mono({
 const fbAppId = process.env.FACEBOOK_APP_ID?.trim() || process.env.FACEBOOK_CLIENT_ID?.trim() || "";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://edgaze.ai"),
+  metadataBase: new URL(SITE_ORIGIN),
   title: {
     default: "Edgaze",
     template: "%s | Edgaze",
@@ -47,7 +50,7 @@ export const metadata: Metadata = {
   referrer: "origin-when-cross-origin",
   openGraph: {
     type: "website",
-    url: "https://edgaze.ai",
+    url: SITE_ORIGIN,
     siteName: "Edgaze",
     title: "Edgaze",
     description:
@@ -94,29 +97,29 @@ const siteNavigationJsonLd = {
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://edgaze.ai/#organization",
+      "@id": `${SITE_ORIGIN}/#organization`,
       name: "Edgaze",
-      url: "https://edgaze.ai",
+      url: SITE_ORIGIN,
       logo: {
         "@type": "ImageObject",
-        url: "https://edgaze.ai/brand/edgaze-mark.png",
+        url: `${SITE_ORIGIN}/brand/edgaze-mark.png`,
       },
       sameAs: [],
     },
     {
       "@type": "WebSite",
-      "@id": "https://edgaze.ai/#website",
-      url: "https://edgaze.ai",
+      "@id": `${SITE_ORIGIN}/#website`,
+      url: SITE_ORIGIN,
       name: "Edgaze",
       description: "Create, sell, and distribute AI products.",
       publisher: {
-        "@id": "https://edgaze.ai/#organization",
+        "@id": `${SITE_ORIGIN}/#organization`,
       },
       potentialAction: {
         "@type": "SearchAction",
         target: {
           "@type": "EntryPoint",
-          urlTemplate: "https://edgaze.ai/marketplace?q={search_term_string}",
+          urlTemplate: `${SITE_ORIGIN}/marketplace?q={search_term_string}`,
         },
         "query-input": "required name=search_term_string",
       },
