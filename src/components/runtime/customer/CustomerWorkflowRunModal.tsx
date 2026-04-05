@@ -48,7 +48,9 @@ export default function CustomerWorkflowRunModal({
     <div className="fixed inset-0 z-[9999]">
       <div
         className={cx(
-          "absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(98,190,255,0.10),transparent_34%),rgba(3,3,6,0.92)] backdrop-blur-xl transition-opacity duration-300",
+          "absolute inset-0 transition-opacity duration-300",
+          "bg-[radial-gradient(circle_at_top,rgba(98,190,255,0.10),transparent_34%),rgba(3,3,6,0.92)] backdrop-blur-xl",
+          "max-md:bg-black/18 max-md:backdrop-blur-md",
           open ? "opacity-100" : "opacity-0",
         )}
         onClick={() => {
@@ -57,11 +59,18 @@ export default function CustomerWorkflowRunModal({
       />
 
       <div className="absolute inset-0 overflow-y-auto">
-        <div className="mx-auto flex min-h-full w-full max-w-[1440px] items-center justify-center p-4 md:p-6">
-          <div className="w-full max-w-[1180px]">
+        <div
+          className={cx(
+            "mx-auto flex min-h-full w-full max-w-[1440px] justify-center",
+            "items-end p-0 md:items-center md:p-6",
+          )}
+        >
+          <div className="w-full max-w-[1180px] max-md:max-w-none md:mx-auto">
             <div
               className={cx(
-                "rounded-[34px] border border-white/10 bg-[#090a0e]/85 p-4 shadow-[0_40px_180px_rgba(0,0,0,0.72)] transition-all duration-500 md:p-5",
+                "rounded-[34px] border border-white/10 bg-[#090a0e]/90 p-4 shadow-[0_40px_180px_rgba(0,0,0,0.72)] transition-all duration-500 md:p-5",
+                "max-md:rounded-b-none max-md:rounded-t-[28px] max-md:border-x-0 max-md:border-b-0 max-md:border-t max-md:border-white/12",
+                "max-md:shadow-[0_-32px_120px_rgba(0,0,0,0.45)] max-md:pt-5 max-md:pb-[max(1.25rem,env(safe-area-inset-bottom))]",
                 open ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
               )}
             >
