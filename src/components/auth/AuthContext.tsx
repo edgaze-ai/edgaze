@@ -298,6 +298,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         "apply",
         "dashboard",
       ].includes(pathSegments[0] ?? "");
+    const demoQuery = new URLSearchParams(window.location.search).get("demo")?.trim();
+    // Demo share links: never hijack with full-screen sign-in — modal keeps ?demo= in the URL.
+    if ((isProductPageP || isProductPageWorkflow) && demoQuery) {
+      if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
+        saveReturnPath(currentPath);
+      }
+      modalOpenRef.current = true;
+      setModalOpen(true);
+      safeTrack("Sign In Modal Opened", {
+        surface: "auth_context",
+        user_type: userId ? "authenticated" : "anonymous",
+        reason: "demo_link_product_page",
+      });
+      return;
+    }
     if (isProductPageP || isProductPageWorkflow) {
       const type = isProductPageP ? "prompt" : "workflow";
       if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {

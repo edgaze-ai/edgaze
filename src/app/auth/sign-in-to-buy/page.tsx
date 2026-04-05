@@ -6,11 +6,85 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthContext";
 import { track } from "@/lib/mixpanel";
+import { demoTokensEqual } from "@/lib/demo-token";
 
 const RETURN_KEY = "edgaze:returnTo";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function normalizeInternalReturnPath(returnPath: string): string {
+  const t = returnPath.trim();
+  if (!t) return "/";
+  return t.startsWith("/") ? t : `/${t}`;
+}
+
+/** Remove `action=` so anonymous demo return does not carry purchase/run intent. */
+function stripPurchaseIntentFromPath(returnPath: string): string {
+  if (!returnPath.includes("?")) return returnPath;
+  const q = returnPath.indexOf("?");
+  const base = returnPath.slice(0, q);
+  const sp = new URLSearchParams(returnPath.slice(q + 1));
+  sp.delete("action");
+  const next = sp.toString();
+  return next ? `${base}?${next}` : base;
+}
+
+function parseDemoFromReturnPath(returnPath: string): string | null {
+  try {
+    const u = new URL(returnPath, "http://edgaze.invalid");
+    return u.searchParams.get("demo");
+  } catch {
+    return null;
+  }
+}
+
+const RESERVED_WORKFLOW_FIRST = new Set([
+  "auth",
+  "marketplace",
+  "library",
+  "builder",
+  "creators",
+  "admin",
+  "settings",
+  "profile",
+  "store",
+  "apply",
+  "dashboard",
+  "p",
+]);
+
+type StorefrontIdentity =
+  | { kind: "workflow"; owner_handle: string; edgaze_code: string }
+  | { kind: "prompt"; owner_handle: string; edgaze_code: string };
+
+function parseStorefrontIdentityFromReturnPath(returnPath: string): StorefrontIdentity | null {
+  const pathOnly = (returnPath.split("?")[0] ?? "").split("#")[0] ?? "";
+  const segments = pathOnly
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")
+    .filter(Boolean);
+  if (segments[0] === "p" && segments.length >= 3) {
+    return {
+      kind: "prompt",
+      owner_handle: decodeURIComponent(segments[1] ?? ""),
+      edgaze_code: decodeURIComponent(segments[2] ?? ""),
+    };
+  }
+  if (
+    segments.length === 2 &&
+    segments[0] &&
+    segments[1] &&
+    !RESERVED_WORKFLOW_FIRST.has(segments[0])
+  ) {
+    return {
+      kind: "workflow",
+      owner_handle: decodeURIComponent(segments[0]),
+      edgaze_code: decodeURIComponent(segments[1]),
+    };
+  }
+  return null;
 }
 
 type Listing = {
@@ -44,6 +118,39 @@ export default function SignInToBuyPage() {
   const [fullName, setFullName] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Valid admin demo link: never show this interstitial — go straight to the product.
+  useEffect(() => {
+    if (userId || !returnPath || !isDemoReturn) return;
+    const demo = parseDemoFromReturnPath(returnPath)?.trim();
+    if (!demo) return;
+    const id = parseStorefrontIdentityFromReturnPath(returnPath);
+    if (!id) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const url =
+          id.kind === "workflow"
+            ? `/api/workflow/storefront-detail?owner_handle=${encodeURIComponent(id.owner_handle)}&edgaze_code=${encodeURIComponent(id.edgaze_code)}`
+            : `/api/prompt/storefront-detail?owner_handle=${encodeURIComponent(id.owner_handle)}&edgaze_code=${encodeURIComponent(id.edgaze_code)}`;
+        const res = await fetch(url);
+        const j = (await res.json()) as {
+          listing?: { demo_mode_enabled?: boolean | null; demo_token?: string | null };
+        };
+        if (cancelled) return;
+        const l = j?.listing;
+        if (!l?.demo_mode_enabled || !l.demo_token || !demoTokensEqual(demo, l.demo_token)) return;
+        const target = stripPurchaseIntentFromPath(normalizeInternalReturnPath(returnPath));
+        window.location.replace(target);
+      } catch {
+        /* stay on sign-in */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, returnPath, isDemoReturn]);
 
   // Build redirect URL with action=purchase so product page auto-triggers checkout
   const redirectUrl = useMemo(() => {
@@ -275,12 +382,18 @@ export default function SignInToBuyPage() {
               </p>
 
               {isDemoReturn && (
-                <Link
-                  href={returnPath}
-                  className="mb-6 md:mb-8 block rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-center text-sm font-medium text-amber-200 hover:bg-amber-500/20 transition"
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = stripPurchaseIntentFromPath(
+                      normalizeInternalReturnPath(returnPath),
+                    );
+                    window.location.assign(target);
+                  }}
+                  className="mb-6 md:mb-8 w-full rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-center text-sm font-medium text-amber-200 hover:bg-amber-500/20 transition"
                 >
                   Try demo without signing in →
-                </Link>
+                </button>
               )}
 
               <button

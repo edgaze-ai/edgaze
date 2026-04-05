@@ -137,9 +137,7 @@ function mergeSessionTraceEntries(
   for (const e of storageRows) {
     bySeq.set(e.sequence, traceEntryRowToRecord(e));
   }
-  return [...bySeq.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([, row]) => row);
+  return [...bySeq.entries()].sort((a, b) => a[0] - b[0]).map(([, row]) => row);
 }
 
 async function loadTraceEntriesHybridForRun(params: { traceSessionIds: string[] }): Promise<{

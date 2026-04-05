@@ -46,6 +46,7 @@ import { finalizeClientWorkflowRunFromExecutionResult } from "../../../../lib/wo
 import { handleWorkflowRunStream } from "../../../../lib/workflow/run-stream-client";
 import { startClientTraceSession } from "../../../../lib/workflow/client-trace";
 import type { WorkflowRunState } from "../../../../lib/workflow/run-types";
+import { demoTokensEqual } from "../../../../lib/demo-token";
 const CommentsSection = CommentsSectionRaw as React.ComponentType<Record<string, unknown>>;
 
 function safeTrack(event: string, props?: TrackProperties) {
@@ -1328,7 +1329,7 @@ export default function PromptProductPage() {
     listing?.demo_mode_enabled &&
     listing?.demo_token &&
     demoTokenFromUrl &&
-    String(demoTokenFromUrl).trim() === String(listing.demo_token).trim(),
+    demoTokensEqual(demoTokenFromUrl, listing.demo_token),
   );
 
   // When demo mode is off but URL has ?demo=, redirect to clean URL

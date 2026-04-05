@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
 import { isAdmin } from "@lib/supabase/executions";
 import { buildWorkflowRunTraceBundle } from "src/server/trace-admin";
-import { uploadWorkflowTraceBundleJson, upsertWorkflowRunTraceBundleRef } from "src/server/trace-storage";
+import {
+  uploadWorkflowTraceBundleJson,
+  upsertWorkflowRunTraceBundleRef,
+} from "src/server/trace-storage";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ sessionId: string }> }) {
   try {
