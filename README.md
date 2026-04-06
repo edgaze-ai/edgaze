@@ -1,15 +1,15 @@
 <div align="center">
 
-<img src="public/brand/readme-header.svg" alt="Edgaze" width="760" />
-
-<br />
-
 <img src="public/brand/edgaze-mark.png" alt="Edgaze" width="68" height="68" />
 
 <br /><br />
 
+<img src="public/brand/readme-header.svg" alt="Edgaze" width="760" />
+
+<br />
+
 [![CI](https://github.com/edgaze-ai/edgaze/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/edgaze-ai/edgaze/actions/workflows/ci.yml)&nbsp;
-[![Version](https://img.shields.io/badge/v1.0.0-production-22d3ee?style=flat-square&labelColor=18181b)](CHANGELOG.md)&nbsp;
+[![Version](https://img.shields.io/github/v/tag/edgaze-ai/edgaze?style=flat-square&sort=semver&color=22d3ee&labelColor=18181b&label=version)](https://github.com/edgaze-ai/edgaze/releases)&nbsp;
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org/)&nbsp;
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)&nbsp;
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)&nbsp;
@@ -64,12 +64,12 @@ A visual, node-based automation canvas built on React Flow.
 - **Live canvas** — drag, connect, and run workflows without leaving the builder
 - **Node library** — four categories of nodes, each with typed input/output ports:
 
-  | Category | Nodes |
-  |----------|-------|
-  | **I/O** | Input, Output |
-  | **AI** | LLM Chat, LLM Embeddings, LLM Image |
-  | **Logic** | Merge, Condition, Delay, Loop |
-  | **Utility** | HTTP Request, JSON Parse, Template |
+  | Category    | Nodes                               |
+  | ----------- | ----------------------------------- |
+  | **I/O**     | Input, Output                       |
+  | **AI**      | LLM Chat, LLM Embeddings, LLM Image |
+  | **Logic**   | Merge, Condition, Delay, Loop       |
+  | **Utility** | HTTP Request, JSON Parse, Template  |
 
 - **Execution modes** — private test runs in the builder; production runs via the hosted execution engine
 - **Versioning** — publish named versions; buyers always run the latest published version
@@ -94,7 +94,9 @@ A curated discovery layer for the full catalog of prompts and workflows.
 - **Product management** — edit, unpublish, or remove listings from the library view
 - **Analytics** — view count, like count, and run count per asset
 
----
+<div align="center">
+<img src="public/brand/readme-divider.svg" alt="" width="760" />
+</div>
 
 ## Architecture
 
@@ -108,10 +110,10 @@ graph TD
     end
 
     subgraph API["API Layer (Next.js Route Handlers)"]
-        FAPI[/api/flow/run]
-        MAPI[/api/marketplace/*]
-        SAPI[/api/stripe/*]
-        AAPI[/api/admin/*]
+        FAPI["/api/flow/run"]
+        MAPI["/api/marketplace/*"]
+        SAPI["/api/stripe/*"]
+        AAPI["/api/admin/*"]
     end
 
     subgraph Engine["Execution Engine — flow-v2"]
@@ -146,14 +148,14 @@ graph TD
 
 The production workflow execution engine is an **event-driven, worker-based runtime** with the following pipeline:
 
-| Stage | Component | Responsibility |
-|-------|-----------|----------------|
-| 1 | `orchestrator.ts` | Accepts a run request; initializes run record; marks entry nodes `ready` |
-| 2 | `compiler.ts` | Compiles workflow definition → topological order + dependency map |
-| 3 | `worker-loop.ts` | Polls claimable nodes; drives state transitions; detects termination |
-| 4 | `node-executor.ts` | Executes individual nodes by spec; resolves inputs from upstream outputs |
-| 5 | `payload-store.ts` | Stores and retrieves large intermediate payloads |
-| 6 | `outcome-resolver.ts` | Determines final run outcome from node result set |
+| Stage | Component             | Responsibility                                                           |
+| ----- | --------------------- | ------------------------------------------------------------------------ |
+| 1     | `orchestrator.ts`     | Accepts a run request; initializes run record; marks entry nodes `ready` |
+| 2     | `compiler.ts`         | Compiles workflow definition → topological order + dependency map        |
+| 3     | `worker-loop.ts`      | Polls claimable nodes; drives state transitions; detects termination     |
+| 4     | `node-executor.ts`    | Executes individual nodes by spec; resolves inputs from upstream outputs |
+| 5     | `payload-store.ts`    | Stores and retrieves large intermediate payloads                         |
+| 6     | `outcome-resolver.ts` | Determines final run outcome from node result set                        |
 
 **Run lifecycle states:** `created` → `queued` → `running` → `completed | failed | cancelled`
 
@@ -294,25 +296,25 @@ edgaze-prod/
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server (`localhost:3000`) |
-| `npm run build` | Production build (`next build --webpack`) |
-| `npm run start` | Start production server (requires prior build) |
-| `npm run lint` | ESLint with Next.js Core Web Vitals ruleset |
-| `npm run lint:fix` | ESLint with auto-fix |
-| `npm run typecheck` | TypeScript type-check without emit (`tsc --noEmit`) |
-| `npm run format` | Prettier write across all source files |
-| `npm run format:check` | Prettier check (used in CI) |
-| `npm run test` | Vitest single-run |
-| `npm run test:watch` | Vitest interactive watch mode |
-| `npm run og:generate` | Regenerate `public/og.png` (1200×630 Open Graph image) |
-| `npm run favicon:generate` | Regenerate all favicon and PWA icon rasters from brand mark |
-| `npm run db:types` | Regenerate `src/types/supabase.ts` from the live Supabase schema |
-| `npm run db:push` | Push pending database migrations |
-| `npm run db:reset` | Reset the local development database |
-| `npm run clean` | Remove `.next` and `node_modules` |
-| `npm run reinstall` | Clean and reinstall all dependencies |
+| Command                    | Description                                                      |
+| -------------------------- | ---------------------------------------------------------------- |
+| `npm run dev`              | Start development server (`localhost:3000`)                      |
+| `npm run build`            | Production build (`next build --webpack`)                        |
+| `npm run start`            | Start production server (requires prior build)                   |
+| `npm run lint`             | ESLint with Next.js Core Web Vitals ruleset                      |
+| `npm run lint:fix`         | ESLint with auto-fix                                             |
+| `npm run typecheck`        | TypeScript type-check without emit (`tsc --noEmit`)              |
+| `npm run format`           | Prettier write across all source files                           |
+| `npm run format:check`     | Prettier check (used in CI)                                      |
+| `npm run test`             | Vitest single-run                                                |
+| `npm run test:watch`       | Vitest interactive watch mode                                    |
+| `npm run og:generate`      | Regenerate `public/og.png` (1200×630 Open Graph image)           |
+| `npm run favicon:generate` | Regenerate all favicon and PWA icon rasters from brand mark      |
+| `npm run db:types`         | Regenerate `src/types/supabase.ts` from the live Supabase schema |
+| `npm run db:push`          | Push pending database migrations                                 |
+| `npm run db:reset`         | Reset the local development database                             |
+| `npm run clean`            | Remove `.next` and `node_modules`                                |
+| `npm run reinstall`        | Clean and reinstall all dependencies                             |
 
 ---
 
@@ -434,12 +436,12 @@ Every push and pull request to `main` or `develop` runs the full quality pipelin
 
 ### Prerequisites
 
-| Requirement | Version |
-|-------------|---------|
-| Node.js | ≥ 20 |
-| npm | ≥ 9 (bundled with Node) |
-| Supabase CLI | Latest |
-| Access to internal secrets store | Required |
+| Requirement                      | Version                 |
+| -------------------------------- | ----------------------- |
+| Node.js                          | ≥ 20                    |
+| npm                              | ≥ 9 (bundled with Node) |
+| Supabase CLI                     | Latest                  |
+| Access to internal secrets store | Required                |
 
 ### First-time setup
 
@@ -485,14 +487,14 @@ npm run test:watch
 
 ## Platform Status
 
-| Signal | Status |
-|--------|--------|
-| Production build | ✅ Passing |
-| CI pipeline | ✅ All checks green |
-| Test suite | ✅ 33 tests, 8 suites |
-| Version | 1.0.0 — production release |
-| Access | Invite-only onboarding |
-| Source | Closed — proprietary |
+| Signal           | Status                     |
+| ---------------- | -------------------------- |
+| Production build | ✅ Passing                 |
+| CI pipeline      | ✅ All checks green        |
+| Test suite       | ✅ 33 tests, 8 suites      |
+| Version          | 1.2.2 — production release |
+| Access           | Invite-only onboarding     |
+| Source           | Closed — proprietary       |
 
 ---
 
@@ -516,8 +518,6 @@ See [`LICENSE`](LICENSE) for the full terms.
 
 <br />
 
-<img src="public/brand/edgaze-mark.png" alt="Edgaze" width="32" height="32" />
-
-**Edgaze** — _Create → Sell → Distribute_
+<img src="public/brand/readme-footer.svg" alt="Edgaze" width="760" />
 
 </div>
