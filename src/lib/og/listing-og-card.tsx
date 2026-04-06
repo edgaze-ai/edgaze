@@ -89,7 +89,7 @@ export function ListingOgCard({
         >
           {title}
         </div>
-        <div style={{ fontSize: 22, color: "rgba(255,255,255,0.6)" }}>by {creatorName}</div>
+        <div style={{ fontSize: 22, color: "rgba(255,255,255,0.6)" }}>{`by ${creatorName}`}</div>
       </div>
 
       <div style={{ fontSize: 16, color: "rgba(255,255,255,0.4)" }}>

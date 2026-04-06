@@ -27,6 +27,20 @@ const nextConfig = (() => {
   }
 
   return {
+    // Pure ESM remark/mdast packages need transpilation for the webpack client bundle.
+    transpilePackages: [
+      "react-markdown",
+      "remark-gfm",
+      "remark-rehype",
+      "mdast-util-to-markdown",
+      "mdast-util-to-hast",
+      "mdast-util-from-markdown",
+      "mdast-util-gfm",
+      "mdast-util-gfm-table",
+      "mdast-util-gfm-task-list-item",
+      "mdast-util-gfm-footnote",
+      "mdast-util-gfm-strikethrough",
+    ],
     images: { 
       remotePatterns,
       formats: ['image/avif', 'image/webp'],
@@ -42,8 +56,8 @@ const nextConfig = (() => {
     // Optimize bundle size and loading performance
     experimental: {
       optimizePackageImports: ['lucide-react', 'framer-motion', '@supabase/supabase-js'],
-      // Enable optimized CSS loading
-      optimizeCss: true,
+      // optimizeCss uses a PostCSS path that can break with Tailwind v4 + webpack (enhanced-resolve in workers).
+      optimizeCss: false,
     },
     // Compiler optimizations
     compiler: {

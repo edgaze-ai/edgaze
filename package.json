@@ -33,7 +33,8 @@
     "db:push": "npx supabase db push",
     "db:reset": "npx supabase db reset",
     "postinstall": "node scripts/copy-pdf-worker.mjs",
-    "og:generate": "node scripts/generate-og.mjs"
+    "og:generate": "node scripts/generate-og.mjs",
+    "favicon:generate": "node scripts/generate-favicon-ico.mjs"
   },
   "dependencies": {
     "@stripe/connect-js": "^3.3.34",
@@ -70,12 +71,14 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.2.3",
+    "enhanced-resolve": "^5.20.1",
     "eslint": "^9.39.2",
     "eslint-config-next": "^16.1.1",
     "postcss": "^8.4.45",
     "prettier": "^3.3.3",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.1",
+    "to-ico": "^1.1.5",
     "typescript": "^5.6.2",
     "vitest": "^3.0.5"
   },

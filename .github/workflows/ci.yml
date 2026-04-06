@@ -50,6 +50,12 @@ jobs:
       - name: Verify Open Graph static asset
         run: test -f public/og.png && file public/og.png | grep -qi PNG
 
+      - name: Verify favicon assets
+        run: |
+          test -f public/favicon.ico && file public/favicon.ico | grep -qi icon
+          test -f public/favicon-16x16.png && file public/favicon-16x16.png | grep -qi PNG
+          test -f public/favicon-32x32.png && file public/favicon-32x32.png | grep -qi PNG
+
       - name: 🔧 Setup Node.js
         uses: actions/setup-node@v4
         with:
