@@ -13,7 +13,8 @@ type ValidateOk = {
   valid: true;
   invite: {
     profile_id: string;
-    target_email_masked: string;
+    open_claim?: boolean;
+    target_email_masked: string | null;
     creator_name: string;
     creator_photo_url: string | null;
     custom_message: string;
@@ -61,7 +62,8 @@ export default function ClaimPage() {
           const inv = data.invite as { handle?: string; full_name?: string | null };
           setInvite({
             profile_id: "",
-            target_email_masked: "",
+            open_claim: false,
+            target_email_masked: null,
             creator_name: inv.full_name ?? inv.handle ?? "",
             creator_photo_url: null,
             custom_message: "",
@@ -106,6 +108,19 @@ export default function ClaimPage() {
         claimTerminalFailureRef.current = true;
         if (data.error === "email_mismatch" || data.error === "identity_mismatch") {
           setCompleteErr(data.message || "This account does not match this claim link.");
+          completingRef.current = false;
+          return;
+        }
+        if (
+          res.status === 409 &&
+          (data.error === "already_claimed" ||
+            data.error === "Link is no longer active" ||
+            data.error === "Workspace already claimed")
+        ) {
+          setCompleteErr(
+            data.message ||
+              "Someone else already used this link, or the workspace is no longer available.",
+          );
           completingRef.current = false;
           return;
         }
@@ -239,9 +254,11 @@ export default function ClaimPage() {
           <h1 className="text-2xl font-bold text-white">{invite.creator_name}</h1>
           <p className="text-sm text-white/45">@{invite.handle}</p>
           <p className="mt-3 text-sm text-white/60 leading-relaxed">{invite.custom_message}</p>
-          <p className="mt-2 text-xs text-white/40">
-            Reserved for <span className="text-cyan-200/90">{invite.target_email_masked}</span>
-          </p>
+          {!invite.open_claim && invite.target_email_masked ? (
+            <p className="mt-2 text-xs text-white/40">
+              Reserved for <span className="text-cyan-200/90">{invite.target_email_masked}</span>
+            </p>
+          ) : null}
         </div>
 
         {completeErr && (
@@ -343,7 +360,9 @@ export default function ClaimPage() {
         </form>
 
         <p className="mt-6 text-[11px] text-center text-white/35 leading-relaxed">
-          Use the same email as your invite. If you use another account, claiming will not succeed.
+          {invite.open_claim || !invite.target_email_masked
+            ? "Sign in with the Google or email account you want to use for this workspace."
+            : "Use the same email as your invite. If you use another account, claiming will not succeed."}
         </p>
       </div>
     </motion.div>

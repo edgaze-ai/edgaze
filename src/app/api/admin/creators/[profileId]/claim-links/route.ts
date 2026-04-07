@@ -18,14 +18,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ profileId:
 
     const { profileId } = await ctx.params;
     const body = await req.json().catch(() => ({}));
-    const target_email = String((body as { target_email?: string }).target_email ?? "")
+    const raw = String((body as { target_email?: string }).target_email ?? "")
       .trim()
       .toLowerCase();
+    const target_email: string | null = raw.length > 0 ? raw : null;
     const expires_in_days = Number((body as { expires_in_days?: number }).expires_in_days) || 14;
-
-    if (!target_email) {
-      return NextResponse.json({ error: "target_email required" }, { status: 400 });
-    }
 
     const admin = createSupabaseAdminClient();
 
@@ -91,7 +88,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ profileId:
       effectiveProfileId: profileId,
       resourceType: "creator_claim_links",
       resourceId: (link as { id: string }).id,
-      metadata: { target_email_domain: target_email.split("@")[1] ?? "" },
+      metadata: target_email
+        ? { target_email_domain: target_email.split("@")[1] ?? "" }
+        : { open_claim: true },
     });
 
     const origin = getSiteOrigin();

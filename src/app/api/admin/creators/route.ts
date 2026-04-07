@@ -3,6 +3,7 @@ import { getUserFromRequest } from "@/lib/auth/server";
 import { isAdmin } from "@/lib/supabase/executions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { logCreatorAuditEvent } from "@/lib/creator-provisioning/audit";
+import { generateProvisionedAuthEmail } from "@/lib/creator-provisioning/claim-transfer";
 import { generateOpaqueToken } from "@/lib/creator-provisioning/tokens";
 
 function normalizeHandle(input: string): string {
@@ -69,20 +70,17 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { target_email, handle, full_name, bio, avatar_url, banner_url, socials, country } =
-      body as Record<string, unknown>;
+    const { handle, full_name, bio, avatar_url, banner_url, socials, country } = body as Record<
+      string,
+      unknown
+    >;
 
-    const email = String(target_email ?? "")
-      .trim()
-      .toLowerCase();
+    const email = generateProvisionedAuthEmail();
     const h = normalizeHandle(String(handle ?? ""));
     const name = String(full_name ?? "").trim();
 
-    if (!email || !h || !name) {
-      return NextResponse.json(
-        { error: "target_email, handle, and full_name are required" },
-        { status: 400 },
-      );
+    if (!h || !name) {
+      return NextResponse.json({ error: "handle and full_name are required" }, { status: 400 });
     }
     if (!/^[a-z0-9_]{3,24}$/.test(h)) {
       return NextResponse.json({ error: "Invalid handle" }, { status: 400 });
@@ -151,7 +149,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
-      profile: { id: uid, handle: h, email },
+      profile: { id: uid, handle: h },
     });
   } catch (e: any) {
     console.error("[admin/creators POST]", e);

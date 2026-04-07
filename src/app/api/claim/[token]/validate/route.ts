@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     const row = link as {
       id: string;
       profile_id: string;
-      target_email: string;
+      target_email: string | null;
       status: string;
       expires_at: string;
     };
@@ -74,14 +74,19 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
       });
     }
 
+    const openClaim = !row.target_email?.trim();
+
     return NextResponse.json({
       valid: true,
       invite: {
         profile_id: row.profile_id,
-        target_email_masked: maskEmail(row.target_email),
+        open_claim: openClaim,
+        target_email_masked: row.target_email ? maskEmail(row.target_email) : null,
         creator_name: p.full_name ?? p.handle,
         creator_photo_url: p.avatar_url,
-        custom_message: "Edgaze prepared this workspace for you.",
+        custom_message: openClaim
+          ? "First to sign in with this link claims this workspace. The link then stops working."
+          : "Edgaze prepared this workspace for you.",
         status: row.status,
         expires_at: row.expires_at,
         handle: p.handle,

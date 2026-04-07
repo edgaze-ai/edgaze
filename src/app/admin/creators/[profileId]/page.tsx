@@ -16,7 +16,7 @@ const inputClass =
 type ClaimLink = {
   id: string;
   status: string;
-  target_email: string;
+  target_email: string | null;
   sent_at: string;
   expires_at: string;
   consumed_at: string | null;
@@ -42,7 +42,8 @@ type ImpRow = {
   expires_at: string;
 };
 
-function maskEmail(email: string) {
+function linkRecipientLabel(email: string | null) {
+  if (!email?.trim()) return "Open link (first sign-in wins)";
   const [u, d] = email.split("@");
   if (!d) return "***";
   const prefix = (u ?? "").slice(0, 2);
@@ -71,7 +72,6 @@ export default function AdminCreatorDetailPage() {
   });
 
   const [claimOpen, setClaimOpen] = useState(false);
-  const [claimEmail, setClaimEmail] = useState("");
   const [claimDays, setClaimDays] = useState(14);
   const [claimBusy, setClaimBusy] = useState(false);
   const [claimUrl, setClaimUrl] = useState<string | null>(null);
@@ -105,7 +105,6 @@ export default function AdminCreatorDetailPage() {
           avatar_url: p.avatar_url || "",
           banner_url: p.banner_url || "",
         });
-        setClaimEmail(p.email || "");
       }
     } catch (e: any) {
       setError(e?.message || "Failed to load");
@@ -156,7 +155,6 @@ export default function AdminCreatorDetailPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          target_email: claimEmail.trim().toLowerCase(),
           expires_in_days: claimDays,
         }),
       });
@@ -166,7 +164,7 @@ export default function AdminCreatorDetailPage() {
       setClaimOpen(false);
       await load();
     } catch (e: any) {
-      setError(e?.message || "Failed to send claim");
+      setError(e?.message || "Failed to generate claim link");
     } finally {
       setClaimBusy(false);
     }
@@ -301,7 +299,7 @@ export default function AdminCreatorDetailPage() {
             className="inline-flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.06] px-3 py-2 text-xs font-semibold text-white/90 hover:bg-white/[0.1] disabled:opacity-40"
           >
             <Send className="h-3.5 w-3.5" />
-            Send claim link
+            Generate claim link
           </button>
           <button
             type="button"
@@ -413,7 +411,9 @@ export default function AdminCreatorDetailPage() {
                 key={l.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2"
               >
-                <span className="font-mono text-xs text-white/60">{maskEmail(l.target_email)}</span>
+                <span className="font-mono text-xs text-white/60">
+                  {linkRecipientLabel(l.target_email)}
+                </span>
                 <span className="text-[11px] text-white/45">{l.status}</span>
                 <span className="text-[11px] text-white/35">
                   {new Date(l.sent_at).toLocaleString()}
@@ -459,16 +459,12 @@ export default function AdminCreatorDetailPage() {
       {claimOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className={`${cardClass} w-full max-w-md p-6 space-y-4`}>
-            <h3 className="text-lg font-semibold text-white">Send claim link</h3>
-            <div>
-              <label className="text-[11px] text-white/50">Email</label>
-              <input
-                className={inputClass}
-                type="email"
-                value={claimEmail}
-                onChange={(e) => setClaimEmail(e.target.value)}
-              />
-            </div>
+            <h3 className="text-lg font-semibold text-white">Generate claim link</h3>
+            <p className="text-xs text-white/45 leading-relaxed">
+              Anyone with the link can sign in and claim this workspace once. After a successful
+              claim, the link stops working. Active links for this profile are revoked when you
+              create a new one.
+            </p>
             <div>
               <label className="text-[11px] text-white/50">Expires in (days)</label>
               <input
@@ -494,7 +490,7 @@ export default function AdminCreatorDetailPage() {
                 onClick={() => void sendClaim()}
                 className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
               >
-                {claimBusy ? "Sending…" : "Send"}
+                {claimBusy ? "Generating…" : "Generate link"}
               </button>
             </div>
           </div>

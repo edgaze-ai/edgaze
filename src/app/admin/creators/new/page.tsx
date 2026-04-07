@@ -17,7 +17,6 @@ export default function AdminNewCreatorPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [target_email, setTargetEmail] = useState("");
   const [handle, setHandle] = useState("");
   const [full_name, setFullName] = useState("");
   const [bio, setBio] = useState("");
@@ -36,7 +35,6 @@ export default function AdminNewCreatorPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          target_email: target_email.trim().toLowerCase(),
           handle: handle.trim(),
           full_name: full_name.trim(),
           bio: bio.trim() || undefined,
@@ -70,7 +68,8 @@ export default function AdminNewCreatorPage() {
       <div>
         <h1 className="text-xl font-semibold text-white">Provision creator workspace</h1>
         <p className="mt-1 text-sm text-white/50">
-          Creates a dormant auth user and profile. Send a claim link from the detail page.
+          Creates a dormant auth user and profile. The first person to open your claim link and sign
+          in takes the workspace; generate the link on the detail page.
         </p>
       </div>
 
@@ -80,21 +79,6 @@ export default function AdminNewCreatorPage() {
             {error}
           </div>
         )}
-
-        <div>
-          <label className="mb-1.5 block text-xs font-medium text-white/60">Contact email</label>
-          <input
-            type="email"
-            required
-            className={inputClass}
-            value={target_email}
-            onChange={(e) => setTargetEmail(e.target.value)}
-            placeholder="creator@example.com"
-          />
-          <p className="mt-1 text-[11px] text-white/35">
-            Private — used for claim link validation.
-          </p>
-        </div>
 
         <div>
           <label className="mb-1.5 block text-xs font-medium text-white/60">Handle</label>
