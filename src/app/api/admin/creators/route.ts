@@ -116,7 +116,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Handle already taken" }, { status: 409 });
     }
 
-    const tempPassword = `${generateOpaqueToken()}${generateOpaqueToken()}`;
+    // Supabase hashes passwords with bcrypt (max 72 bytes); one 64-char hex token fits.
+    const tempPassword = generateOpaqueToken();
 
     // Do not auto-confirm: confirmed inserts fire auth.users welcome-email triggers and edge calls
     // for synthetic @provisioned.* addresses; dormant users never sign in with this identity.
