@@ -194,7 +194,7 @@ export default function CustomerRunNodeStage({
 
   const shellClass =
     className ??
-    "relative h-[min(52vh,280px)] w-full min-h-[240px] overflow-hidden rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(67,214,255,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(255,70,201,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] shadow-[0_22px_70px_rgba(0,0,0,0.34)] md:h-[320px] md:min-h-[320px] md:rounded-[30px] md:shadow-[0_28px_90px_rgba(0,0,0,0.38)]";
+    "relative h-[min(32vh,200px)] w-full min-h-[180px] overflow-hidden rounded-[26px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(67,214,255,0.18),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(255,70,201,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] shadow-[0_22px_70px_rgba(0,0,0,0.34)] md:h-[320px] md:min-h-[320px] md:rounded-[30px] md:shadow-[0_28px_90px_rgba(0,0,0,0.38)]";
 
   if (nodes.length === 0) {
     return (

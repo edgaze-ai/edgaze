@@ -45,6 +45,8 @@ import { WorkflowMarkdown } from "../workflow/WorkflowMarkdown";
 import { UserApiKeysDialog } from "../settings/UserApiKeysDialog";
 import { bearerAuthHeaders } from "../../lib/auth/bearer-headers";
 import { useAuth } from "../auth/AuthContext";
+import { downloadWorkflowImageFromUrl } from "../../lib/workflow/client-image-download";
+import { WorkflowImageDownloadOverlayButton } from "../workflow/WorkflowImageDownloadOverlayButton";
 
 export type {
   RunStepStatus,
@@ -883,23 +885,12 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
               }
             }}
           />
-          {/* Download button overlay */}
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const link = document.createElement("a");
-                link.href = value;
-                link.download = `image-${Date.now()}.png`;
-                link.target = "_blank";
-                link.click();
-              }}
-              className="rounded-lg bg-black/80 hover:bg-black/90 p-2 border border-white/20"
-              title="Download image"
-            >
-              <Download className="h-4 w-4 text-white" />
-            </button>
-          </div>
+          <WorkflowImageDownloadOverlayButton
+            imageUrl={value}
+            className="absolute top-2 right-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
+            buttonClassName="border border-white/20 bg-black/80 hover:bg-black/90"
+            iconClassName="text-white"
+          />
         </div>
       );
     }
@@ -971,22 +962,12 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
                       }
                     }}
                   />
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const link = document.createElement("a");
-                        link.href = part.url;
-                        link.download = `image-${Date.now()}.png`;
-                        link.target = "_blank";
-                        link.click();
-                      }}
-                      className="rounded-lg bg-black/80 hover:bg-black/90 p-2 border border-white/20"
-                      title="Download image"
-                    >
-                      <Download className="h-4 w-4 text-white" />
-                    </button>
-                  </div>
+                  <WorkflowImageDownloadOverlayButton
+                    imageUrl={part.url}
+                    className="absolute top-2 right-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
+                    buttonClassName="border border-white/20 bg-black/80 hover:bg-black/90"
+                    iconClassName="text-white"
+                  />
                 </div>
               );
             }
@@ -1052,22 +1033,12 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
               }
             }}
           />
-          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const link = document.createElement("a");
-                link.href = displayValue;
-                link.download = `image-${Date.now()}.png`;
-                link.target = "_blank";
-                link.click();
-              }}
-              className="rounded-lg bg-black/80 hover:bg-black/90 p-2 border border-white/20"
-              title="Download image"
-            >
-              <Download className="h-4 w-4 text-white" />
-            </button>
-          </div>
+          <WorkflowImageDownloadOverlayButton
+            imageUrl={displayValue}
+            className="absolute top-2 right-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
+            buttonClassName="border border-white/20 bg-black/80 hover:bg-black/90"
+            iconClassName="text-white"
+          />
         </div>
       );
     }
@@ -1160,6 +1131,12 @@ function PremiumOutputDisplay({ value, isOpenAI = false }: { value: unknown; isO
                       src={part.url}
                       alt="Response"
                       className="w-full max-h-[500px] object-contain"
+                    />
+                    <WorkflowImageDownloadOverlayButton
+                      imageUrl={part.url}
+                      className="absolute top-2 right-2 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100"
+                      buttonClassName="border border-white/20 bg-black/80 hover:bg-black/90"
+                      iconClassName="text-white"
                     />
                   </div>
                 );
@@ -2050,6 +2027,7 @@ export default function PremiumWorkflowRunModal({
   const { getAccessToken } = useAuth();
   const [projectionMode, setProjectionMode] = useState<"builder" | "customer">("builder");
   const [isStopping, setIsStopping] = useState(false);
+  const [footerOutputDownloadBusy, setFooterOutputDownloadBusy] = useState(false);
 
   const canClose = useMemo(() => {
     if (!state) return true;
@@ -2249,6 +2227,10 @@ export default function PremiumWorkflowRunModal({
   const isOutput = phase === "output";
   const isErrorDuringRun = status === "error" && phase === "executing";
   const isRunExperience = isExecuting || isOutput || isErrorDuringRun;
+  const isCustomerLiveRun =
+    showCustomerProjection &&
+    phase === "executing" &&
+    (status === "running" || status === "cancelling");
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/70" data-workflow-run-modal>
@@ -2491,8 +2473,7 @@ export default function PremiumWorkflowRunModal({
                   </div>
                 )}
                 {(state?.status === "running" || state?.status === "cancelling") &&
-                  state?.phase === "executing" &&
-                  !showCustomerProjection && (
+                  state?.phase === "executing" && (
                     <button
                       type="button"
                       onClick={() => {
@@ -2504,7 +2485,7 @@ export default function PremiumWorkflowRunModal({
                         });
                         onCancel?.();
                       }}
-                      className="rounded-lg border border-transparent bg-white/[0.04] hover:bg-white/[0.08] px-4 py-2 text-sm font-medium text-white/50 hover:text-white/70 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="rounded-lg border border-transparent bg-white/[0.04] hover:bg-white/[0.08] px-4 py-2 text-sm font-medium text-white/50 hover:text-white/70 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed max-md:px-3 max-md:text-[13px]"
                       disabled={isStopping || state?.status === "cancelling"}
                     >
                       {isStopping || state?.status === "cancelling" ? "Cancelling…" : "Cancel"}
@@ -2536,7 +2517,13 @@ export default function PremiumWorkflowRunModal({
           {/* Body - Phase-based content */}
           <div className="flex-1 overflow-hidden flex flex-col">
             {!isLoading && showCustomerProjection && (
-              <div className="h-full overflow-auto px-5 py-5 md:px-6 md:py-6">
+              <div
+                className={cx(
+                  "flex h-full min-h-0 flex-col",
+                  isCustomerLiveRun ? "overflow-hidden" : "overflow-auto",
+                  "px-5 py-5 md:px-6 md:py-6",
+                )}
+              >
                 <CustomerWorkflowRuntimeSurface
                   state={state}
                   onCancel={onCancel}
@@ -2551,6 +2538,7 @@ export default function PremiumWorkflowRunModal({
                   builderRunLimit={builderRunLimit}
                   requiresApiKeys={requiresApiKeys}
                   onBuyWorkflow={onBuyWorkflow}
+                  showInlineExecutionCancel={false}
                 />
               </div>
             )}
@@ -2774,27 +2762,23 @@ export default function PremiumWorkflowRunModal({
                             )}
                           </button>
                           <button
-                            onClick={async () => {
+                            disabled={footerOutputDownloadBusy}
+                            onClick={() => {
                               const firstOutput = state.outputs?.[0];
-                              if (!firstOutput) return;
+                              if (!firstOutput || footerOutputDownloadBusy) return;
                               const value = firstOutput.value;
                               if (typeof value === "string" && isImageUrl(value)) {
-                                try {
-                                  const res = await fetch(value, { mode: "cors" });
-                                  const blob = await res.blob();
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement("a");
-                                  a.href = url;
-                                  a.download = `image-${Date.now()}.png`;
-                                  a.click();
-                                  URL.revokeObjectURL(url);
-                                } catch {
-                                  const a = document.createElement("a");
-                                  a.href = value;
-                                  a.download = `image-${Date.now()}.png`;
-                                  a.target = "_blank";
-                                  a.click();
-                                }
+                                setFooterOutputDownloadBusy(true);
+                                void (async () => {
+                                  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+                                  try {
+                                    await downloadWorkflowImageFromUrl(value);
+                                  } catch {
+                                    // Fallback handled inside download helper / browser
+                                  } finally {
+                                    setFooterOutputDownloadBusy(false);
+                                  }
+                                })();
                                 return;
                               }
                               const text =
@@ -2807,10 +2791,14 @@ export default function PremiumWorkflowRunModal({
                               a.click();
                               URL.revokeObjectURL(url);
                             }}
-                            className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap"
+                            className="h-10 min-h-10 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm font-medium text-white/90 transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            <Download className="h-4 w-4 shrink-0" />
-                            Download
+                            {footerOutputDownloadBusy ? (
+                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4 shrink-0" />
+                            )}
+                            {footerOutputDownloadBusy ? "Downloading…" : "Download"}
                           </button>
                         </>
                       )}

@@ -30,6 +30,10 @@ import { useAuth } from "../../auth/AuthContext";
 import type { Components } from "react-markdown";
 
 import { normalizeWorkflowMarkdown } from "../../../lib/markdown/normalize-workflow-markdown";
+import {
+  downloadWorkflowImageFromUrl,
+  isWorkflowImageOutputUrl,
+} from "../../../lib/workflow/client-image-download";
 
 type BuilderRunLimit = {
   used: number;
@@ -52,13 +56,26 @@ type CustomerWorkflowRuntimeSurfaceProps = {
   builderRunLimit?: BuilderRunLimit;
   requiresApiKeys?: string[];
   onBuyWorkflow?: () => void;
+  /** When false, parent (e.g. modal header) owns the Cancel control during execution. Default true. */
+  showInlineExecutionCancel?: boolean;
+  /** When false, no ExecutionChrome rows are rendered (parent supplies header). Default true. */
+  renderExecutionChrome?: boolean;
 };
 
+function useNarrowViewport() {
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const apply = () => setNarrow(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return narrow;
+}
+
 function isImageLike(value: unknown): boolean {
-  if (typeof value !== "string") return false;
-  const t = value.trim();
-  if (/^data:image\//i.test(t)) return true;
-  return /^(https?:\/\/.*\.(png|jpe?g|gif|webp|avif|svg)(\?.*)?)$/i.test(t);
+  return typeof value === "string" && isWorkflowImageOutputUrl(value);
 }
 
 function isProbablyFileUrl(value: unknown): boolean {
@@ -83,42 +100,6 @@ function downloadValue(filename: string, value: unknown) {
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
-}
-
-async function downloadImageFromSrc(src: string): Promise<void> {
-  const stamp = Date.now();
-  if (/^data:image\//i.test(src)) {
-    const a = document.createElement("a");
-    a.href = src;
-    a.download = `image-${stamp}.png`;
-    a.rel = "noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    return;
-  }
-  const res = await fetch(src, { mode: "cors" });
-  if (!res.ok) throw new Error("Download failed");
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  const mime = blob.type || "";
-  const ext = mime.includes("png")
-    ? "png"
-    : mime.includes("webp")
-      ? "webp"
-      : mime.includes("gif")
-        ? "gif"
-        : mime.includes("svg")
-          ? "svg"
-          : "jpg";
-  a.download = `image-${stamp}.${ext}`;
-  a.rel = "noreferrer";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(objectUrl);
 }
 
 function isProbablyMarkdown(text: string): boolean {
@@ -259,24 +240,34 @@ function MarkdownOrText({ text, streaming }: { text: string; streaming?: boolean
   );
 }
 
-function ProsePanel({ text, streaming = false }: { text: string; streaming?: boolean }) {
+function ProsePanel({
+  text,
+  streaming = false,
+  lockStreamScroll = false,
+}: {
+  text: string;
+  streaming?: boolean;
+  /** When streaming on small viewports, clip latest output instead of scrolling. */
+  lockStreamScroll?: boolean;
+}) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const shouldRenderMarkdown = useMemo(() => isProbablyMarkdown(text), [text]);
+  const streamClip = Boolean(streaming && lockStreamScroll);
 
   useEffect(() => {
-    if (!streaming) return;
+    if (!streaming || streamClip) return;
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [text, streaming, shouldRenderMarkdown]);
+  }, [text, streaming, streamClip, shouldRenderMarkdown]);
 
   return (
     <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_20px_80px_rgba(0,0,0,0.34)]">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.45),transparent)]" />
-      <div className="relative px-6 py-6 md:px-8 md:py-7">
+      <div className="relative px-4 py-4 max-md:px-4 max-md:py-4 md:px-8 md:py-7">
         <div
           className={cx(
-            "mb-4 flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-white/42",
+            "mb-3 flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-white/42 md:mb-4",
             streaming && "justify-center",
           )}
         >
@@ -288,10 +279,18 @@ function ProsePanel({ text, streaming = false }: { text: string; streaming?: boo
             </span>
           )}
         </div>
-        <div ref={scrollRef} className="max-h-[52vh] overflow-auto pr-1">
+        <div
+          ref={scrollRef}
+          className={cx(
+            "min-h-0",
+            streamClip
+              ? "flex max-h-[min(28vh,200px)] flex-col justify-end overflow-hidden md:max-h-[52vh] md:justify-start md:overflow-auto md:pr-1"
+              : "max-h-[52vh] overflow-auto pr-1",
+          )}
+        >
           <div
             className={cx(
-              "max-w-[72ch] text-left text-[15px] leading-8 text-white/90 md:text-[16px]",
+              "max-w-[72ch] text-left text-[15px] leading-7 text-white/90 md:text-[16px] md:leading-8",
               !streaming && "mx-auto",
               !shouldRenderMarkdown && "whitespace-pre-wrap",
             )}
@@ -324,6 +323,7 @@ function ResultPanel({
   const [copied, setCopied] = useState(false);
   const [imageDownloadBusy, setImageDownloadBusy] = useState(false);
   const [imageDownloadError, setImageDownloadError] = useState(false);
+  const [auxFileDownloadBusy, setAuxFileDownloadBusy] = useState(false);
 
   if (isImageLike(value)) {
     const imgSrc = typeof value === "string" ? value.trim() : "";
@@ -394,9 +394,16 @@ function ResultPanel({
               if (!imgSrc || imageDownloadBusy) return;
               setImageDownloadError(false);
               setImageDownloadBusy(true);
-              void downloadImageFromSrc(imgSrc)
-                .catch(() => setImageDownloadError(true))
-                .finally(() => setImageDownloadBusy(false));
+              void (async () => {
+                await new Promise<void>((r) => requestAnimationFrame(() => r()));
+                try {
+                  await downloadWorkflowImageFromUrl(imgSrc);
+                } catch {
+                  setImageDownloadError(true);
+                } finally {
+                  setImageDownloadBusy(false);
+                }
+              })();
             }}
             className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -489,6 +496,30 @@ function ResultPanel({
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? "Copied" : "Copy"}
           </button>
+          <button
+            type="button"
+            disabled={auxFileDownloadBusy}
+            onClick={() => {
+              if (auxFileDownloadBusy) return;
+              setAuxFileDownloadBusy(true);
+              void (async () => {
+                await new Promise<void>((r) => requestAnimationFrame(() => r()));
+                try {
+                  downloadValue(`workflow-output-${Date.now()}.txt`, value);
+                } finally {
+                  setAuxFileDownloadBusy(false);
+                }
+              })();
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {auxFileDownloadBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {auxFileDownloadBusy ? "Downloading…" : "Download"}
+          </button>
           {onRerun && (
             <button
               type="button"
@@ -511,18 +542,48 @@ function ResultPanel({
         expanded && "fixed inset-[8vh] z-[10010] overflow-auto rounded-[32px] bg-[#07080b]/98",
       )}
     >
-      <div className="flex items-center justify-between gap-3 px-5 py-4 text-[11px] uppercase tracking-[0.18em] text-white/42">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-[11px] uppercase tracking-[0.18em] text-white/42">
         <span>{label}</span>
-        {canExpand && (
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={onToggleExpand}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
+            disabled={auxFileDownloadBusy}
+            onClick={() => {
+              if (auxFileDownloadBusy) return;
+              setAuxFileDownloadBusy(true);
+              void (async () => {
+                await new Promise<void>((r) => requestAnimationFrame(() => r()));
+                try {
+                  downloadValue(`workflow-output-${Date.now()}.json`, value);
+                } finally {
+                  setAuxFileDownloadBusy(false);
+                }
+              })();
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-3 py-1.5 text-[10px] font-medium tracking-[0.12em] text-white/72 transition hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Expand className="h-3.5 w-3.5" />}
-            {expanded ? "Minimize" : "Expand"}
+            {auxFileDownloadBusy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            {auxFileDownloadBusy ? "Saving…" : "Download"}
           </button>
-        )}
+          {canExpand && (
+            <button
+              type="button"
+              onClick={onToggleExpand}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
+            >
+              {expanded ? (
+                <Minimize2 className="h-3.5 w-3.5" />
+              ) : (
+                <Expand className="h-3.5 w-3.5" />
+              )}
+              {expanded ? "Minimize" : "Expand"}
+            </button>
+          )}
+        </div>
       </div>
       <pre
         className={cx(
@@ -541,11 +602,13 @@ function ExecutionChrome({
   onCancel,
   onClose,
   showTimer = false,
+  showCancel = true,
 }: {
   state: WorkflowRunState;
   onCancel?: () => void;
   onClose?: () => void;
   showTimer?: boolean;
+  showCancel?: boolean;
 }) {
   const [elapsedTick, setElapsedTick] = useState(0);
   useEffect(() => {
@@ -560,9 +623,9 @@ function ExecutionChrome({
 
   void elapsedTick;
 
-  const showCancel = model.canCancel && onCancel;
+  const showCancelBtn = showCancel && model.canCancel && onCancel;
   const showClose = model.canClose && onClose;
-  if (!showTimer && !showCancel && !showClose) return null;
+  if (!showTimer && !showCancelBtn && !showClose) return null;
 
   return (
     <div className={cx("flex items-center gap-3", showTimer ? "justify-between" : "justify-end")}>
@@ -573,7 +636,7 @@ function ExecutionChrome({
         </div>
       )}
       <div className="flex items-center gap-2">
-        {showCancel && (
+        {showCancelBtn && (
           <button
             type="button"
             onClick={onCancel}
@@ -608,6 +671,7 @@ function ActionZone({
   onRerun,
   embedded,
   showClose = true,
+  showCancel = true,
 }: {
   state: WorkflowRunState;
   onCancel?: () => void;
@@ -615,6 +679,7 @@ function ActionZone({
   onRerun?: () => void;
   embedded?: boolean;
   showClose?: boolean;
+  showCancel?: boolean;
 }) {
   const model = deriveCustomerRuntimeModel(state);
   const [copied, setCopied] = useState(false);
@@ -635,7 +700,7 @@ function ActionZone({
 
   return (
     <div className={cx("flex flex-wrap items-center gap-3", embedded ? "pt-1" : "pt-2")}>
-      {(state.status === "running" || state.status === "cancelling") && onCancel && (
+      {showCancel && (state.status === "running" || state.status === "cancelling") && onCancel && (
         <button
           type="button"
           onClick={onCancel}
@@ -1084,6 +1149,13 @@ function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?:
             />
           ) : model.hasUsefulPartialOutput && model.primaryLiveText?.text ? (
             <ProsePanel text={model.primaryLiveText.text} />
+          ) : model.mode === "failure" ? (
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-10 text-center text-white/62">
+              <div className="text-[16px] font-medium text-white/86">No result to show</div>
+              <div className="mt-2 text-sm leading-6 text-white/58">
+                The run did not complete successfully, so there is no output to display here.
+              </div>
+            </div>
           ) : (
             <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-10 text-center text-white/62">
               <div className="text-[16px] font-medium text-white/86">
@@ -1129,17 +1201,17 @@ function RuntimePhaseAnimation({ variant }: { variant: "connecting" | "finalizin
   const eyebrow = variant === "connecting" ? "Connecting" : "Finalizing";
 
   return (
-    <div className="relative w-full max-w-[940px] py-4">
+    <div className="relative w-full max-w-[940px] py-2 md:py-4">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(109,233,255,0.12),transparent_42%),radial-gradient(circle_at_72%_30%,rgba(255,101,194,0.11),transparent_28%)] runtime-ambient-flow" />
-      <div className="relative flex flex-col items-center gap-8">
-        <div className="relative flex h-[220px] w-full items-center justify-center overflow-hidden">
+      <div className="relative flex flex-col items-center gap-4 md:gap-8">
+        <div className="relative flex h-[130px] w-full items-center justify-center overflow-hidden md:h-[220px]">
           <div className="absolute inset-x-[16%] top-1/2 h-px -translate-y-1/2 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.10),rgba(255,255,255,0.32),rgba(255,255,255,0.10),transparent)]" />
           <div className="absolute inset-x-[22%] top-1/2 h-[72px] -translate-y-1/2 rounded-full border border-white/6 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_70%)] backdrop-blur-[2px]" />
-          <div className="absolute h-[176px] w-[176px] rounded-full border border-cyan-300/12 runtime-signal-rotate" />
-          <div className="absolute h-[122px] w-[122px] rounded-full border border-fuchsia-300/12 [animation-direction:reverse] runtime-signal-rotate" />
-          <div className="absolute h-[74px] w-[74px] rounded-full border border-white/12 bg-white/[0.035] runtime-signal-core" />
-          <div className="absolute h-[240px] w-[240px] rounded-full border border-cyan-200/8 runtime-signal-wave" />
-          <div className="absolute h-[240px] w-[240px] rounded-full border border-fuchsia-200/8 [animation-delay:1.05s] runtime-signal-wave" />
+          <div className="absolute h-[100px] w-[100px] rounded-full border border-cyan-300/12 runtime-signal-rotate md:h-[176px] md:w-[176px]" />
+          <div className="absolute h-[72px] w-[72px] rounded-full border border-fuchsia-300/12 [animation-direction:reverse] runtime-signal-rotate md:h-[122px] md:w-[122px]" />
+          <div className="absolute h-[44px] w-[44px] rounded-full border border-white/12 bg-white/[0.035] runtime-signal-core md:h-[74px] md:w-[74px]" />
+          <div className="absolute h-[150px] w-[150px] rounded-full border border-cyan-200/8 runtime-signal-wave md:h-[240px] md:w-[240px]" />
+          <div className="absolute h-[150px] w-[150px] rounded-full border border-fuchsia-200/8 [animation-delay:1.05s] runtime-signal-wave md:h-[240px] md:w-[240px]" />
           <div className="absolute h-2.5 w-2.5 rounded-full bg-cyan-300/95 shadow-[0_0_24px_rgba(103,232,249,0.7)] runtime-signal-orb" />
           <div className="absolute top-[28%] h-10 w-px bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.18),rgba(255,255,255,0))] runtime-signal-steam-1" />
           <div className="absolute top-[24%] h-14 w-px bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.12),rgba(255,255,255,0))] runtime-signal-steam-2" />
@@ -1149,11 +1221,13 @@ function RuntimePhaseAnimation({ variant }: { variant: "connecting" | "finalizin
             {eyebrow}
           </div>
         </div>
-        <div className="max-w-[48ch] space-y-2 text-center">
-          <div className="text-[22px] font-medium tracking-[-0.03em] text-white/92 md:text-[28px]">
+        <div className="max-w-[48ch] space-y-1.5 text-center md:space-y-2">
+          <div className="text-[17px] font-medium tracking-[-0.03em] text-white/92 md:text-[28px]">
             {title}
           </div>
-          <div className="text-sm leading-7 text-white/56 md:text-[15px]">{subtitle}</div>
+          <div className="text-[12px] leading-6 text-white/56 md:text-[15px] md:leading-7">
+            {subtitle}
+          </div>
         </div>
       </div>
     </div>
@@ -1174,8 +1248,11 @@ export default function CustomerWorkflowRuntimeSurface({
   builderRunLimit,
   requiresApiKeys,
   onBuyWorkflow,
+  showInlineExecutionCancel = true,
+  renderExecutionChrome = true,
 }: CustomerWorkflowRuntimeSurfaceProps) {
   const model = deriveCustomerRuntimeModel(state);
+  const narrow = useNarrowViewport();
   /** Parent shell (e.g. Premium modal) already provides a topbar close — avoid duplicating it here. */
   const executionChromeOnClose = hideHeader ? undefined : onClose;
 
@@ -1184,7 +1261,14 @@ export default function CustomerWorkflowRuntimeSurface({
   }
 
   return (
-    <div className="space-y-4 md:space-y-5">
+    <div
+      className={cx(
+        "min-h-0",
+        state.phase === "executing" && (state.status === "running" || state.status === "cancelling")
+          ? "flex h-full min-h-0 flex-col space-y-3 md:space-y-4"
+          : "space-y-4 md:space-y-5",
+      )}
+    >
       <style
         dangerouslySetInnerHTML={{
           __html: `
@@ -1221,12 +1305,13 @@ export default function CustomerWorkflowRuntimeSurface({
         }}
       />
 
-      {!hideHeader && (
+      {!hideHeader && renderExecutionChrome && (
         <ExecutionChrome
           state={state}
           onCancel={onCancel}
           onClose={executionChromeOnClose}
           showTimer={showExecutionTimer}
+          showCancel={showInlineExecutionCancel}
         />
       )}
 
@@ -1241,12 +1326,13 @@ export default function CustomerWorkflowRuntimeSurface({
         />
       ) : state.status === "success" || state.status === "error" || state.status === "cancelled" ? (
         <>
-          {hideHeader && (
+          {hideHeader && renderExecutionChrome && (
             <ExecutionChrome
               state={state}
               onCancel={onCancel}
               onClose={executionChromeOnClose}
               showTimer={showExecutionTimer}
+              showCancel={showInlineExecutionCancel}
             />
           )}
           <ResultsSurface key={state.runId} state={state} onRerun={onRerun} />
@@ -1258,37 +1344,43 @@ export default function CustomerWorkflowRuntimeSurface({
               onRerun={onRerun}
               embedded={embedded}
               showClose={hideHeader}
+              showCancel={showInlineExecutionCancel}
             />
           )}
         </>
       ) : (
         <>
-          {hideHeader && (
+          {hideHeader && renderExecutionChrome && (
             <ExecutionChrome
               state={state}
               onCancel={onCancel}
               onClose={executionChromeOnClose}
               showTimer={showExecutionTimer}
+              showCancel={showInlineExecutionCancel}
             />
           )}
-          <div className="relative overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(72,214,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,76,198,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(72,214,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,76,198,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(0,190,255,0.10),transparent_35%,rgba(255,0,153,0.10))] runtime-ambient-flow" />
-            <div className="relative flex min-h-[560px] flex-col justify-center px-6 py-8 md:px-10">
-              <div className="mx-auto flex w-full max-w-[980px] flex-col items-center justify-center gap-8 text-center">
-                <div className="max-w-[720px]">
-                  <div className="text-[34px] font-medium tracking-[-0.04em] text-white md:text-[52px]">
+            <div className="relative flex h-full min-h-0 flex-1 flex-col justify-center px-4 py-4 md:min-h-[560px] md:px-10 md:py-8">
+              <div className="mx-auto flex w-full min-h-0 max-w-[980px] flex-col items-center justify-center gap-4 text-center md:gap-8">
+                <div className="max-w-[720px] max-md:shrink-0">
+                  <div className="text-[22px] font-medium tracking-[-0.04em] text-white md:text-[52px]">
                     {model.headline}
                   </div>
                   {model.subline && (
-                    <div className="mx-auto mt-5 max-w-[58ch] text-[15px] leading-7 text-white/62 md:text-[16px]">
+                    <div className="mx-auto mt-2 max-w-[58ch] text-[13px] leading-6 text-white/62 md:mt-5 md:text-[16px] md:leading-7">
                       {model.subline}
                     </div>
                   )}
                 </div>
 
                 {model.mode === "streaming" && model.primaryLiveText?.text ? (
-                  <div className="w-full max-w-[860px]">
-                    <ProsePanel text={model.primaryLiveText.text} streaming />
+                  <div className="w-full max-w-[860px] max-md:min-h-0 max-md:flex-1 max-md:flex max-md:flex-col">
+                    <ProsePanel
+                      text={model.primaryLiveText.text}
+                      streaming
+                      lockStreamScroll={narrow}
+                    />
                   </div>
                 ) : model.mode === "queueing" && model.activeNodeIds.length === 0 ? (
                   <RuntimePhaseAnimation variant="connecting" />
@@ -1296,24 +1388,24 @@ export default function CustomerWorkflowRuntimeSurface({
                   <RuntimePhaseAnimation variant="finalizing" />
                 ) : (model.mode === "node" || model.mode === "queueing") &&
                   model.activeNodeIds.length > 0 ? (
-                  <div className="w-full max-w-[900px]">
+                  <div className="w-full max-w-[900px] max-md:shrink-0">
                     <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
                   </div>
                 ) : model.mode === "stopping" ? (
-                  <div className="flex h-[220px] items-center justify-center">
+                  <div className="flex h-[120px] items-center justify-center md:h-[220px]">
                     <div className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-white/[0.05] px-5 py-3 text-sm text-white/82">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Stopping current execution...
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full max-w-[900px]">
+                  <div className="w-full max-w-[900px] max-md:shrink-0">
                     <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
                   </div>
                 )}
 
                 {model.mode === "node" && model.activeNodeIds.length > 1 && (
-                  <div className="text-sm text-white/52">
+                  <div className="text-xs text-white/52 md:text-sm">
                     {model.activeNodeIds.length > 3
                       ? `Showing 3 active nodes. +${model.activeNodeIds.length - 3} more running.`
                       : `${model.activeNodeIds.length} nodes are running.`}
@@ -1321,7 +1413,9 @@ export default function CustomerWorkflowRuntimeSurface({
                 )}
 
                 {state.connectionState === "reconnecting" && (
-                  <div className="text-sm text-white/48">Reconnecting to live updates...</div>
+                  <div className="text-xs text-white/48 md:text-sm">
+                    Reconnecting to live updates...
+                  </div>
                 )}
               </div>
             </div>

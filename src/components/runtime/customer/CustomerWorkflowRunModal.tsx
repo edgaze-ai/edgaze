@@ -1,8 +1,13 @@
 "use client";
 
 import React from "react";
+import { Clock3, Loader2, StopCircle, X } from "lucide-react";
 
 import { cx } from "../../../lib/cx";
+import {
+  deriveCustomerRuntimeModel,
+  formatRunElapsed,
+} from "../../../lib/workflow/customer-runtime";
 import type { WorkflowRunState } from "../../../lib/workflow/run-types";
 import CustomerWorkflowRuntimeSurface from "./CustomerWorkflowRuntimeSurface";
 
@@ -43,6 +48,12 @@ export default function CustomerWorkflowRunModal({
   if (!open) return null;
 
   const canClose = state?.status !== "running" && state?.status !== "cancelling";
+  const runtimeModel = state ? deriveCustomerRuntimeModel(state) : null;
+  const isLiveExecution =
+    Boolean(state) &&
+    state!.phase === "executing" &&
+    (state!.status === "running" || state!.status === "cancelling");
+  const showHeaderCancel = Boolean(onCancel && runtimeModel?.canCancel && isLiveExecution);
 
   return (
     <div className="fixed inset-0 z-[9999]">
@@ -58,34 +69,97 @@ export default function CustomerWorkflowRunModal({
         }}
       />
 
-      <div className="absolute inset-0 overflow-y-auto">
+      <div
+        className={cx(
+          "absolute inset-0",
+          isLiveExecution ? "max-md:overflow-hidden md:overflow-y-auto" : "overflow-y-auto",
+        )}
+      >
         <div
           className={cx(
-            "mx-auto flex min-h-full w-full max-w-[1440px] justify-center",
+            "mx-auto flex w-full max-w-[1440px] justify-center",
+            isLiveExecution ? "h-[100dvh] max-md:h-[100dvh] md:min-h-full" : "min-h-full",
             "items-end p-0 md:items-center md:p-6",
           )}
         >
           <div className="w-full max-w-[1180px] max-md:max-w-none md:mx-auto">
             <div
               className={cx(
-                "rounded-[34px] border border-white/10 bg-[#090a0e]/90 p-4 shadow-[0_40px_180px_rgba(0,0,0,0.72)] transition-all duration-500 md:p-5",
+                "flex flex-col rounded-[34px] border border-white/10 bg-[#090a0e]/90 shadow-[0_40px_180px_rgba(0,0,0,0.72)] transition-all duration-500",
+                "md:p-5",
+                isLiveExecution
+                  ? "max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-hidden p-0"
+                  : "p-4",
                 "max-md:rounded-b-none max-md:rounded-t-[28px] max-md:border-x-0 max-md:border-b-0 max-md:border-t max-md:border-white/12",
-                "max-md:shadow-[0_-32px_120px_rgba(0,0,0,0.45)] max-md:pt-5 max-md:pb-[max(1.25rem,env(safe-area-inset-bottom))]",
+                "max-md:shadow-[0_-32px_120px_rgba(0,0,0,0.45)]",
                 open ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
               )}
             >
-              <CustomerWorkflowRuntimeSurface
-                state={state}
-                onCancel={onCancel}
-                onClose={canClose ? onClose : undefined}
-                onRerun={onRerun}
-                onSubmitInputs={onSubmitInputs}
-                showExecutionTimer={showExecutionTimer}
-                isBuilderTest={isBuilderTest}
-                builderRunLimit={builderRunLimit}
-                requiresApiKeys={requiresApiKeys}
-                onBuyWorkflow={onBuyWorkflow}
-              />
+              <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3.5">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[15px] font-semibold text-white">
+                    {state?.workflowName ?? "Workflow"}
+                  </div>
+                  {showExecutionTimer &&
+                    state &&
+                    (state.status === "running" || state.status === "cancelling") && (
+                      <div className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/60">
+                        <Clock3 className="h-3 w-3" />
+                        {runtimeModel?.elapsedLabel ??
+                          formatRunElapsed(state.startedAt, state.finishedAt)}
+                      </div>
+                    )}
+                </div>
+                {showHeaderCancel && (
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/88"
+                  >
+                    {state?.status === "cancelling" ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <StopCircle className="h-4 w-4" />
+                    )}
+                    {state?.status === "cancelling" ? "Stopping…" : "Cancel"}
+                  </button>
+                )}
+                {canClose && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/75"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              <div
+                className={cx(
+                  "min-h-0 flex-1",
+                  isLiveExecution
+                    ? "overflow-hidden px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 md:overflow-auto md:p-4"
+                    : "overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 md:p-5",
+                )}
+              >
+                <CustomerWorkflowRuntimeSurface
+                  state={state}
+                  onCancel={onCancel}
+                  onClose={canClose ? onClose : undefined}
+                  onRerun={onRerun}
+                  onSubmitInputs={onSubmitInputs}
+                  showExecutionTimer={showExecutionTimer}
+                  isBuilderTest={isBuilderTest}
+                  builderRunLimit={builderRunLimit}
+                  requiresApiKeys={requiresApiKeys}
+                  onBuyWorkflow={onBuyWorkflow}
+                  hideHeader
+                  showInlineExecutionCancel={false}
+                  renderExecutionChrome={false}
+                />
+              </div>
             </div>
           </div>
         </div>

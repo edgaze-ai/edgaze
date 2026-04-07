@@ -48,6 +48,7 @@ import { extractWorkflowInputs } from "../../lib/workflow/input-extraction";
 import {
   canRunDemo,
   canRunDemoSync,
+  getDeviceFingerprintHash,
   trackDemoRun,
   getRemainingDemoRuns,
   getRemainingDemoRunsSync,
@@ -2051,6 +2052,7 @@ export default function BuilderPage() {
           inputs: processedInputs,
           userApiKeys,
           isDemo: isPreview,
+          ...(isPreview && !accessToken ? { deviceFingerprint: getDeviceFingerprintHash() } : {}),
           isBuilderTest: !isPreview,
           openaiApiKey: !isPreview ? openaiApiKeyFromModal || undefined : undefined,
           anthropicApiKey: !isPreview ? anthropicApiKeyFromModal || undefined : undefined,

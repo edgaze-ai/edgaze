@@ -2150,7 +2150,11 @@ export default function PromptProductPage() {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (userId) {
         const tokenStartedAt = Date.now();
-        const token = await getAccessToken({ eagerRefresh: false });
+        let token = await getAccessToken({ eagerRefresh: false });
+        if (!token) {
+          await refreshAuthSession();
+          token = await getAccessToken();
+        }
         clientTrace.record({
           phase: "request",
           eventName: "auth.token_resolved",
