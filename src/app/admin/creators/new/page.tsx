@@ -11,6 +11,17 @@ const cardClass =
 const inputClass =
   "w-full rounded-lg border border-white/[0.12] bg-black/40 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/50";
 
+function formatApiErrorBody(text: string): string {
+  const t = text.trim();
+  if (!t.startsWith("{")) return t || "Request failed";
+  try {
+    const j = JSON.parse(t) as { error?: string; message?: string };
+    return (j.message || j.error || t).trim() || "Request failed";
+  } catch {
+    return t;
+  }
+}
+
 export default function AdminNewCreatorPage() {
   const router = useRouter();
   const { getAccessToken } = useAuth();
@@ -42,7 +53,7 @@ export default function AdminNewCreatorPage() {
       });
       if (!res.ok) {
         const t = await res.text();
-        throw new Error(t || `HTTP ${res.status}`);
+        throw new Error(formatApiErrorBody(t || `HTTP ${res.status}`));
       }
       const data = await res.json();
       const id = data.profile?.id;

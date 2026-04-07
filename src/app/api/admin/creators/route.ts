@@ -6,6 +6,22 @@ import { logCreatorAuditEvent } from "@/lib/creator-provisioning/audit";
 import { generateProvisionedAuthEmail } from "@/lib/creator-provisioning/claim-transfer";
 import { generateOpaqueToken } from "@/lib/creator-provisioning/tokens";
 
+function supabaseAuthErrMessage(err: unknown): string {
+  if (!err || typeof err !== "object") {
+    return "Failed to create auth user";
+  }
+  const o = err as Record<string, unknown>;
+  const msg = typeof o.message === "string" ? o.message.trim() : "";
+  const code = typeof o.code === "string" ? o.code : "";
+  if (msg && msg !== "Internal Server Error") {
+    return msg;
+  }
+  if (code) {
+    return `Auth error (${code}). Check Supabase Auth logs; if this persists, try again later.`;
+  }
+  return "Auth service returned an error. Check Supabase project health and Auth logs.";
+}
+
 function normalizeHandle(input: string): string {
   return (input || "")
     .trim()
@@ -95,19 +111,27 @@ export async function POST(req: NextRequest) {
 
     const tempPassword = `${generateOpaqueToken()}${generateOpaqueToken()}`;
 
-    const { data: authUser, error: createErr } = await admin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: { full_name: name, handle: h },
-    });
+    // Do not auto-confirm: confirmed inserts fire auth.users welcome-email triggers and edge calls
+    // for synthetic @provisioned.* addresses; dormant users never sign in with this identity.
+    let authUser: Awaited<ReturnType<typeof admin.auth.admin.createUser>>["data"];
+    let createErr: Awaited<ReturnType<typeof admin.auth.admin.createUser>>["error"];
+    try {
+      const created = await admin.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: false,
+        user_metadata: { full_name: name, handle: h },
+      });
+      authUser = created.data;
+      createErr = created.error;
+    } catch (e) {
+      console.error("[admin/creators POST] createUser threw", e);
+      return NextResponse.json({ error: supabaseAuthErrMessage(e) }, { status: 502 });
+    }
 
     if (createErr || !authUser?.user) {
       console.error("[admin/creators POST] createUser", createErr);
-      return NextResponse.json(
-        { error: createErr?.message ?? "Failed to create auth user" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: supabaseAuthErrMessage(createErr) }, { status: 400 });
     }
 
     const uid = authUser.user.id;
@@ -134,7 +158,13 @@ export async function POST(req: NextRequest) {
 
     if (upsertErr) {
       console.error("[admin/creators POST] profile upsert", upsertErr);
-      return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+      await admin.auth.admin.deleteUser(uid).catch((delErr) => {
+        console.error("[admin/creators POST] rollback deleteUser after upsert failure", delErr);
+      });
+      return NextResponse.json(
+        { error: upsertErr.message || "Failed to save profile" },
+        { status: 500 },
+      );
     }
 
     await logCreatorAuditEvent({
@@ -151,8 +181,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       profile: { id: uid, handle: h },
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("[admin/creators POST]", e);
-    return NextResponse.json({ error: e.message ?? "Error" }, { status: 500 });
+    const msg =
+      e instanceof Error && e.message && e.message !== "Internal Server Error"
+        ? e.message
+        : "Something went wrong. Check server logs.";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
