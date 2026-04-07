@@ -1,6 +1,6 @@
 {
   "name": "edgaze-prod",
-  "version": "1.0.0",
+  "version": "1.2.3",
   "description": "Create, sell, and distribute AI products. A curated marketplace for prompts and workflows. [Proprietary]",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "dev": "next dev",
-    "build": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next build --webpack",
+    "build": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && env CI=true next build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import {
   imageResponseFromElement,
   imageResponseFromListingCard,
+  loadBrandMarkDataUrl,
   minimalBrandedListingCard,
   ogImageResponseInit,
   remoteImageLikelyRenderable,
@@ -69,11 +70,14 @@ async function buildResponse(request: NextRequest) {
     imageUrl = undefined;
   }
 
+  const brandMarkSrc = await loadBrandMarkDataUrl();
+
   return imageResponseFromListingCard({
     title,
     creatorName,
     priceLabel,
     imageUrl: imageUrl ?? undefined,
+    brandMarkSrc,
   });
 }
 
@@ -82,7 +86,8 @@ export async function GET(request: NextRequest) {
     return await buildResponse(request);
   } catch {
     try {
-      return imageResponseFromElement(minimalBrandedListingCard());
+      const brandMarkSrc = await loadBrandMarkDataUrl();
+      return imageResponseFromElement(minimalBrandedListingCard(brandMarkSrc));
     } catch {
       return new ImageResponse(minimalBrandedListingCard(), ogImageResponseInit());
     }
