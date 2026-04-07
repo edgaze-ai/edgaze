@@ -492,8 +492,8 @@ npm run test:watch
 | Production build | ✅ Passing                 |
 | CI pipeline      | ✅ All checks green        |
 | Test suite       | ✅ 33 tests, 8 suites      |
-| Version          | 1.2.2 — production release |
-| Access           | Open to everyone           |
+| Version          | 1.2.3 — production release |
+| Access           | Invite-only onboarding     |
 | Source           | Closed — proprietary       |
 
 ---
