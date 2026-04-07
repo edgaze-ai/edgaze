@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { SearchResult } from "../../app/api/search/route";
 import Link from "next/link";
 import { Search, Loader2 } from "lucide-react";
-import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
 
@@ -127,8 +126,7 @@ export default function GlobalSearch({ placeholder }: Props) {
                       <ProfileLink
                         name={p.displayName}
                         handle={p.handle}
-                        showBadge={true}
-                        badgeSize="sm"
+                        verified={Boolean(p.isVerifiedCreator)}
                         className="min-w-0 truncate font-medium"
                       />
                     </div>

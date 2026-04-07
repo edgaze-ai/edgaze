@@ -19,7 +19,6 @@ import { cx } from "../../lib/cx";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
 import { generateWorkflowThumbnailFile } from "./workflowThumbnailGenerator";
-import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
 import {
@@ -363,6 +362,7 @@ export default function WorkflowPublishModal({
     avatarUrl: string | null;
     userId: string;
     canReceivePayments?: boolean;
+    isVerifiedCreator?: boolean;
   } | null>(null);
 
   const [tab, setTab] = useState<PublishTab>("details");
@@ -469,13 +469,14 @@ export default function WorkflowPublishModal({
             avatarUrl: owner?.avatarUrl || null,
             userId: "",
             canReceivePayments: false,
+            isVerifiedCreator: false,
           });
           return;
         }
 
         const { data, error } = await supabase
           .from("profiles")
-          .select("id,full_name,handle,avatar_url,can_receive_payments")
+          .select("id,full_name,handle,avatar_url,can_receive_payments,is_verified_creator")
           .eq("id", user.id)
           .limit(1)
           .maybeSingle();
@@ -491,6 +492,7 @@ export default function WorkflowPublishModal({
           avatarUrl: data?.avatar_url || owner?.avatarUrl || null,
           userId: user.id,
           canReceivePayments: Boolean((data as any)?.can_receive_payments),
+          isVerifiedCreator: Boolean((data as any)?.is_verified_creator),
         });
       } catch {
         setPostingAs({
@@ -499,6 +501,7 @@ export default function WorkflowPublishModal({
           avatarUrl: owner?.avatarUrl || null,
           userId: "",
           canReceivePayments: false,
+          isVerifiedCreator: false,
         });
       }
     })();
@@ -1157,8 +1160,7 @@ export default function WorkflowPublishModal({
                       <ProfileLink
                         name={postingAs?.name || owner?.name || "You"}
                         handle={handle}
-                        showBadge={true}
-                        badgeSize="md"
+                        verified={Boolean(postingAs?.isVerifiedCreator)}
                         className="min-w-0 truncate text-[12px] text-white/90 font-semibold"
                       />
                     </div>
@@ -1211,8 +1213,7 @@ export default function WorkflowPublishModal({
                             <ProfileLink
                               name={postingAs?.name || "You"}
                               handle={handle}
-                              showBadge={true}
-                              badgeSize="md"
+                              verified={Boolean(postingAs?.isVerifiedCreator)}
                               className="min-w-0 truncate text-white/75"
                             />
                           </span>

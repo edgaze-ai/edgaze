@@ -1,6 +1,9 @@
 // src/app/api/marketplace/publish/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getUserAndClient } from "@lib/auth/server";
+import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { resolveActorContext } from "@lib/auth/actor-context";
+import { logCreatorAuditEvent } from "@lib/creator-provisioning/audit";
 import { validatePromptPrice, validateWorkflowPrice } from "@/lib/marketplace/pricing";
 
 type Visibility = "public" | "unlisted" | "private";
@@ -134,7 +137,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const userId = user.id;
+    const actor = await resolveActorContext(req, user);
+    const userId = actor.effectiveProfileId;
+    const adminDb = createSupabaseAdminClient();
 
     const body = (await req.json()) as PublishBody;
     const { type, promptText, placeholders, meta } = body;
@@ -146,16 +151,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Prompt name is required" }, { status: 400 });
     }
 
-    const { data: profileRow } = await supabase
+    const { data: profileRow } = await adminDb
       .from("profiles")
       .select("full_name,handle,plan,email,email_verified,can_receive_payments")
       .eq("id", userId)
       .maybeSingle();
 
     const ownerName =
-      (profileRow as any)?.full_name ?? (user.user_metadata as any)?.full_name ?? "";
+      (profileRow as any)?.full_name ||
+      (actor.actorMode === "creator_self"
+        ? String((user.user_metadata as any)?.full_name ?? "").trim()
+        : "");
     const ownerHandle = slugifyHandle(
-      (profileRow as any)?.handle ?? user.email?.split("@")[0] ?? "user",
+      (profileRow as any)?.handle ??
+        (actor.actorMode === "creator_self" ? user.email?.split("@")[0] : null) ??
+        "user",
     );
 
     const userPlan = ((profileRow as any)?.plan ?? "Free") as "Free" | "Pro" | "Team";
@@ -174,14 +184,14 @@ export async function POST(req: NextRequest) {
       if (!normalised) {
         return NextResponse.json({ error: "Custom code is invalid" }, { status: 400 });
       }
-      if (await isCodeTaken(supabase, normalised)) {
+      if (await isCodeTaken(adminDb, normalised)) {
         return NextResponse.json({ error: "That Edgaze code is already in use" }, { status: 409 });
       }
       code = normalised;
     }
 
     if (!code) {
-      code = await generateEdgazeCode(supabase, meta.name);
+      code = await generateEdgazeCode(adminDb, meta.name);
     }
 
     const priceNumber = monetisationMode === "free" ? 0 : meta.priceUsd ? Number(meta.priceUsd) : 0;
@@ -201,7 +211,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await adminDb
       .from("prompts")
       .insert({
         type, // "prompt" | "workflow"
@@ -233,6 +243,18 @@ export async function POST(req: NextRequest) {
     }
 
     const urlPath = `/@${ownerHandle}/${data.edgaze_code}`;
+
+    await logCreatorAuditEvent({
+      action: "workflow.listing.published",
+      actorUserId: actor.realUserId,
+      actorRole: actor.adminRole,
+      actorMode: actor.actorMode === "admin_impersonation" ? "admin_impersonation" : "creator_self",
+      effectiveProfileId: actor.effectiveProfileId,
+      impersonationSessionId: actor.impersonationSessionId,
+      resourceType: "prompt",
+      resourceId: String(data.id),
+      metadata: { edgaze_code: data.edgaze_code, type },
+    });
 
     return NextResponse.json(
       { id: data.id, edgazeCode: data.edgaze_code, ownerHandle, urlPath },

@@ -23,7 +23,8 @@ function safeHandle(input: unknown) {
 function ProfileRootPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { authReady, loading, userId, profile, openSignIn, refreshProfile } = useAuth();
+  const { authReady, loading, userId, profile, workspaceUserId, openSignIn, refreshProfile } =
+    useAuth();
 
   const [openingModalOnce, setOpeningModalOnce] = useState(false);
   const pushedRef = useRef(false);
@@ -48,7 +49,7 @@ function ProfileRootPageContent() {
     }
 
     // Signed in but profile not ready -> try refresh
-    if (!handle) {
+    if (!workspaceUserId || !handle) {
       refreshProfile().catch(() => {});
       return;
     }
@@ -62,6 +63,7 @@ function ProfileRootPageContent() {
   }, [
     authReady,
     userId,
+    workspaceUserId,
     handle,
     openSignIn,
     openingModalOnce,

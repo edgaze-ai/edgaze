@@ -7,6 +7,7 @@ import { ArrowRight, ArrowLeft, Play, Loader2, RefreshCw, X } from "lucide-react
 import Link from "next/link";
 
 import { useAuth } from "../../components/auth/AuthContext";
+import { useImpersonation } from "../../components/impersonation/ImpersonationContext";
 import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import {
@@ -207,6 +208,9 @@ export default function BuilderPage() {
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { userId, authReady, requireAuth, openSignIn, getAccessToken, profile } = useAuth();
+  const { state: impState } = useImpersonation();
+  const useDraftApi = impState.active;
+  const effectiveWorkspaceId = impState.active ? impState.targetProfileId : (userId ?? null);
 
   const beRef = useRef<BECanvasRef>(null);
 
@@ -606,29 +610,45 @@ export default function BuilderPage() {
 
     setWfLoading(true);
     try {
-      // drafts
-      const { data, error } = await supabase
-        .from("workflow_drafts")
-        .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
-        .eq("owner_id", userId)
-        .order("updated_at", { ascending: false });
+      let rows: DraftRow[] = [];
+      let pubRows: DraftRow[] = [];
 
-      if (error) throw error;
+      if (useDraftApi) {
+        const token = await getAccessToken();
+        const res = await fetch("/api/creator/workflow-drafts", {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error((await res.text()) || "Failed to load workflows");
+        const json = await res.json();
+        rows = Array.isArray(json.drafts) ? (json.drafts as DraftRow[]) : [];
+        pubRows = Array.isArray(json.published) ? (json.published as DraftRow[]) : [];
+      } else {
+        // drafts
+        const { data, error } = await supabase
+          .from("workflow_drafts")
+          .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
+          .eq("owner_id", userId)
+          .order("updated_at", { ascending: false });
 
-      const rows = Array.isArray(data) ? (data as DraftRow[]) : [];
+        if (error) throw error;
+
+        rows = Array.isArray(data) ? (data as DraftRow[]) : [];
+
+        // published workflows (your own)
+        const { data: wfData, error: wfErr } = await supabase
+          .from("workflows")
+          .select("id,owner_id,title,graph,created_at,updated_at")
+          .eq("owner_id", userId)
+          .eq("is_published", true)
+          .order("updated_at", { ascending: false });
+
+        if (wfErr) throw wfErr;
+
+        pubRows = Array.isArray(wfData) ? (wfData as any as DraftRow[]) : [];
+      }
+
       setDrafts(rows);
-
-      // published workflows (your own)
-      const { data: wfData, error: wfErr } = await supabase
-        .from("workflows")
-        .select("id,owner_id,title,graph,created_at,updated_at")
-        .eq("owner_id", userId)
-        .eq("is_published", true)
-        .order("updated_at", { ascending: false });
-
-      if (wfErr) throw wfErr;
-
-      const pubRows = Array.isArray(wfData) ? (wfData as any as DraftRow[]) : [];
       setPublished(pubRows);
 
       safeTrack("Workflows Listed", {
@@ -648,7 +668,7 @@ export default function BuilderPage() {
     } finally {
       setWfLoading(false);
     }
-  }, [authReady, userId, supabase]);
+  }, [authReady, userId, supabase, useDraftApi, getAccessToken]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -782,18 +802,41 @@ export default function BuilderPage() {
         updated_at: updatedAt,
       };
 
-      const { error } = await supabase
-        .from("workflow_drafts")
-        .update(update)
-        .eq("id", activeDraftId)
-        .eq("owner_id", userId);
-
-      if (!error) {
-        lastSavedHashRef.current = h;
-        setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
+      if (useDraftApi) {
+        const token = await getAccessToken();
+        const res = await fetch(
+          `/api/creator/workflow-drafts/${encodeURIComponent(activeDraftId)}`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify(update),
+          },
+        );
+        if (res.ok) {
+          lastSavedHashRef.current = h;
+          setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
+        } else {
+          setSaveUi((s) => ({ ...s, status: "error" }));
+          console.error("Autosave failed", await res.text());
+        }
       } else {
-        setSaveUi((s) => ({ ...s, status: "error" }));
-        console.error("Autosave failed", error);
+        const { error } = await supabase
+          .from("workflow_drafts")
+          .update(update)
+          .eq("id", activeDraftId)
+          .eq("owner_id", userId);
+
+        if (!error) {
+          lastSavedHashRef.current = h;
+          setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
+        } else {
+          setSaveUi((s) => ({ ...s, status: "error" }));
+          console.error("Autosave failed", error);
+        }
       }
     } finally {
       saveInFlightRef.current = false;
@@ -802,7 +845,7 @@ export default function BuilderPage() {
         queueMicrotask(() => void doAutosave());
       }
     }
-  }, [supabase, userId, activeDraftId, name, isPreview]);
+  }, [supabase, userId, activeDraftId, name, isPreview, useDraftApi, getAccessToken]);
 
   const flushAutosaveNow = useCallback(async () => {
     if (autosaveTimerRef.current) {
@@ -911,16 +954,30 @@ export default function BuilderPage() {
 
       setWfLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("workflow_drafts")
-          .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
-          .eq("id", id)
-          .eq("owner_id", userId)
-          .single();
+        let row: DraftRow;
 
-        if (error) throw error;
+        if (useDraftApi) {
+          const token = await getAccessToken();
+          const res = await fetch(`/api/creator/workflow-drafts/${encodeURIComponent(id)}`, {
+            credentials: "include",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (!res.ok) throw new Error((await res.text()) || "Failed to open workflow");
+          const json = await res.json();
+          if (!json.draft) throw new Error("Draft not found");
+          row = json.draft as DraftRow;
+        } else {
+          const { data, error } = await supabase
+            .from("workflow_drafts")
+            .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
+            .eq("id", id)
+            .eq("owner_id", userId)
+            .single();
 
-        const row = data as DraftRow;
+          if (error) throw error;
+          row = data as DraftRow;
+        }
+
         setActiveDraftId(String(row.id));
         setName(row.title || "Untitled Workflow");
         setEditingName(false);
@@ -944,16 +1001,30 @@ export default function BuilderPage() {
           lastSavedAt: tryParseIsoDate(row.updated_at) ?? new Date(),
         });
 
-        supabase
-          .from("workflow_drafts")
-          .update({ last_opened_at: nowIso() })
-          .eq("id", row.id)
-          .eq("owner_id", userId)
-          .then(async () => {
-            try {
-              await Promise.resolve(refreshWorkflows());
-            } catch {}
+        if (useDraftApi) {
+          const token = await getAccessToken();
+          await fetch(`/api/creator/workflow-drafts/${encodeURIComponent(String(row.id))}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ last_opened_at: nowIso() }),
           });
+          await Promise.resolve(refreshWorkflows());
+        } else {
+          supabase
+            .from("workflow_drafts")
+            .update({ last_opened_at: nowIso() })
+            .eq("id", row.id)
+            .eq("owner_id", userId)
+            .then(async () => {
+              try {
+                await Promise.resolve(refreshWorkflows());
+              } catch {}
+            });
+        }
       } catch (e: any) {
         setWfError(e?.message || "Failed to open workflow.");
         setShowLauncher(true);
@@ -967,7 +1038,16 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory, hashPersistedGraph],
+    [
+      requireAuth,
+      userId,
+      supabase,
+      refreshWorkflows,
+      loadGraphAndResetHistory,
+      hashPersistedGraph,
+      useDraftApi,
+      getAccessToken,
+    ],
   );
 
   const openPublishedAsDraft = useCallback(
@@ -981,32 +1061,51 @@ export default function BuilderPage() {
       setWfLoading(true);
 
       try {
-        const { data: wf, error: wfErr } = await supabase
-          .from("workflows")
-          .select("id,owner_id,title,graph")
-          .eq("id", workflowId)
-          .eq("owner_id", userId)
-          .single();
+        let row: DraftRow;
 
-        if (wfErr) throw wfErr;
+        if (useDraftApi) {
+          const token = await getAccessToken();
+          const res = await fetch("/api/creator/workflow-drafts", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ from_published_workflow_id: workflowId }),
+          });
+          if (!res.ok) throw new Error((await res.text()) || "Failed to fork published workflow");
+          const json = await res.json();
+          if (!json.draft) throw new Error("No draft returned");
+          row = json.draft as DraftRow;
+        } else {
+          const { data: wf, error: wfErr } = await supabase
+            .from("workflows")
+            .select("id,owner_id,title,graph")
+            .eq("id", workflowId)
+            .eq("owner_id", userId)
+            .single();
 
-        const wfRow = wf as any;
-        const g = normalizeGraph(wfRow?.graph);
+          if (wfErr) throw wfErr;
 
-        const { data: created, error: insErr } = await supabase
-          .from("workflow_drafts")
-          .insert({
-            owner_id: userId,
-            title: wfRow?.title || "Untitled Workflow",
-            graph: stripGraphSecrets(g) as any,
-            last_opened_at: nowIso(),
-          })
-          .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
-          .single();
+          const wfRow = wf as any;
+          const g = normalizeGraph(wfRow?.graph);
 
-        if (insErr) throw insErr;
+          const { data: created, error: insErr } = await supabase
+            .from("workflow_drafts")
+            .insert({
+              owner_id: userId,
+              title: wfRow?.title || "Untitled Workflow",
+              graph: stripGraphSecrets(g) as any,
+              last_opened_at: nowIso(),
+            })
+            .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
+            .single();
 
-        const row = created as DraftRow;
+          if (insErr) throw insErr;
+
+          row = created as DraftRow;
+        }
 
         setActiveDraftId(String(row.id));
         setName(row.title || "Untitled Workflow");
@@ -1045,7 +1144,16 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory, hashPersistedGraph],
+    [
+      requireAuth,
+      userId,
+      supabase,
+      refreshWorkflows,
+      loadGraphAndResetHistory,
+      hashPersistedGraph,
+      useDraftApi,
+      getAccessToken,
+    ],
   );
 
   const openMarketplaceWorkflowAsDraft = useCallback(
@@ -1073,8 +1181,14 @@ export default function BuilderPage() {
 
         if (wfRow.is_public === false) throw new Error("This workflow is private.");
 
-        const isOwner = String(wfRow.owner_id ?? "") === String(userId);
+        const isOwner = String(wfRow.owner_id ?? "") === String(effectiveWorkspaceId ?? userId);
         const isFree = wfRow.monetisation_mode === "free" || wfRow.is_paid === false;
+
+        if (useDraftApi && !isOwner && !isFree) {
+          throw new Error(
+            "Paid marketplace workflows can’t be opened as drafts while impersonating. End impersonation or use the buyer account.",
+          );
+        }
 
         let hasPurchase = false;
         if (!isOwner && !isFree) {
@@ -1095,20 +1209,42 @@ export default function BuilderPage() {
 
         const g = normalizeGraph(wfRow?.graph);
 
-        const { data: created, error: insErr } = await supabase
-          .from("workflow_drafts")
-          .insert({
-            owner_id: userId,
-            title: wfRow?.title || "Untitled Workflow",
-            graph: stripGraphSecrets(g) as any,
-            last_opened_at: nowIso(),
-          })
-          .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
-          .single();
+        let row: DraftRow;
 
-        if (insErr) throw insErr;
+        if (useDraftApi) {
+          const token = await getAccessToken();
+          const res = await fetch("/api/creator/workflow-drafts", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              title: wfRow?.title || "Untitled Workflow",
+              graph: stripGraphSecrets(g) as any,
+            }),
+          });
+          if (!res.ok) throw new Error((await res.text()) || "Failed to create draft");
+          const json = await res.json();
+          if (!json.draft) throw new Error("No draft returned");
+          row = json.draft as DraftRow;
+        } else {
+          const { data: created, error: insErr } = await supabase
+            .from("workflow_drafts")
+            .insert({
+              owner_id: userId,
+              title: wfRow?.title || "Untitled Workflow",
+              graph: stripGraphSecrets(g) as any,
+              last_opened_at: nowIso(),
+            })
+            .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
+            .single();
 
-        const row = created as DraftRow;
+          if (insErr) throw insErr;
+
+          row = created as DraftRow;
+        }
 
         setActiveDraftId(String(row.id));
         setName(row.title || "Untitled Workflow");
@@ -1126,7 +1262,16 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
+    [
+      requireAuth,
+      userId,
+      supabase,
+      refreshWorkflows,
+      loadGraphAndResetHistory,
+      useDraftApi,
+      getAccessToken,
+      effectiveWorkspaceId,
+    ],
   );
 
   const openMarketplaceWorkflowPreview = useCallback(
@@ -1156,8 +1301,14 @@ export default function BuilderPage() {
 
         if (wfRow.is_public === false) throw new Error("This workflow is private.");
 
-        const isOwner = String(wfRow.owner_id ?? "") === String(userId);
+        const isOwner = String(wfRow.owner_id ?? "") === String(effectiveWorkspaceId ?? userId);
         const isFree = wfRow.monetisation_mode === "free" || wfRow.is_paid === false;
+
+        if (useDraftApi && !isOwner && !isFree) {
+          throw new Error(
+            "Paid marketplace previews aren’t available while impersonating. End impersonation or sign in as the buyer.",
+          );
+        }
 
         let hasPurchase = false;
         if (!isOwner && !isFree) {
@@ -1204,7 +1355,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, loadGraphAndResetHistory],
+    [requireAuth, userId, supabase, loadGraphAndResetHistory, useDraftApi, effectiveWorkspaceId],
   );
 
   // Auto-open from URL param once auth is ready (preview works on mobile, edit is desktop-only).
@@ -1239,7 +1390,10 @@ export default function BuilderPage() {
 
         if (wfOwnerErr || !wf) {
           // Invalid / unavailable id — let openMarketplaceWorkflowAsDraft surface an error.
-        } else if (String((wf as { owner_id?: string }).owner_id ?? "") !== String(userId)) {
+        } else if (
+          String((wf as { owner_id?: string }).owner_id ?? "") !==
+          String(effectiveWorkspaceId ?? userId)
+        ) {
           router.replace(`/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any);
           return;
         }
@@ -1281,7 +1435,17 @@ export default function BuilderPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, isDesktop, authReady, previewParam, userId, searchParams, supabase, router]);
+  }, [
+    mounted,
+    isDesktop,
+    authReady,
+    previewParam,
+    userId,
+    effectiveWorkspaceId,
+    searchParams,
+    supabase,
+    router,
+  ]);
 
   const createDraft = useCallback(async () => {
     setWfError(null);
@@ -1300,15 +1464,34 @@ export default function BuilderPage() {
     try {
       const emptyGraph = { nodes: [], edges: [] };
 
-      const { data, error } = await supabase
-        .from("workflow_drafts")
-        .insert({ owner_id: userId, title, graph: emptyGraph, last_opened_at: nowIso() })
-        .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
-        .single();
+      let row: DraftRow;
 
-      if (error) throw error;
+      if (useDraftApi) {
+        const token = await getAccessToken();
+        const res = await fetch("/api/creator/workflow-drafts", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ title, graph: emptyGraph }),
+        });
+        if (!res.ok) throw new Error((await res.text()) || "Failed to create workflow");
+        const json = await res.json();
+        if (!json.draft) throw new Error("No draft returned");
+        row = json.draft as DraftRow;
+      } else {
+        const { data, error } = await supabase
+          .from("workflow_drafts")
+          .insert({ owner_id: userId, title, graph: emptyGraph, last_opened_at: nowIso() })
+          .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
+          .single();
 
-      const row = data as DraftRow;
+        if (error) throw error;
+
+        row = data as DraftRow;
+      }
 
       setActiveDraftId(String(row.id));
       setName(row.title || "Untitled Workflow");
@@ -1340,7 +1523,16 @@ export default function BuilderPage() {
     } finally {
       setCreating(false);
     }
-  }, [requireAuth, userId, supabase, newTitle, refreshWorkflows, loadGraphAndResetHistory]);
+  }, [
+    requireAuth,
+    userId,
+    supabase,
+    newTitle,
+    refreshWorkflows,
+    loadGraphAndResetHistory,
+    useDraftApi,
+    getAccessToken,
+  ]);
 
   const createDraftFromQuickStart = useCallback(
     async (templateId: string) => {
@@ -1359,20 +1551,42 @@ export default function BuilderPage() {
       try {
         const g = normalizeGraph(template.graph);
 
-        const { data, error } = await supabase
-          .from("workflow_drafts")
-          .insert({
-            owner_id: userId,
-            title: template.title,
-            graph: stripGraphSecrets(g) as any,
-            last_opened_at: nowIso(),
-          })
-          .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
-          .single();
+        let row: DraftRow;
 
-        if (error) throw error;
+        if (useDraftApi) {
+          const token = await getAccessToken();
+          const res = await fetch("/api/creator/workflow-drafts", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              title: template.title,
+              graph: stripGraphSecrets(g) as any,
+            }),
+          });
+          if (!res.ok) throw new Error((await res.text()) || "Failed to create workflow");
+          const json = await res.json();
+          if (!json.draft) throw new Error("No draft returned");
+          row = json.draft as DraftRow;
+        } else {
+          const { data, error } = await supabase
+            .from("workflow_drafts")
+            .insert({
+              owner_id: userId,
+              title: template.title,
+              graph: stripGraphSecrets(g) as any,
+              last_opened_at: nowIso(),
+            })
+            .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
+            .single();
 
-        const row = data as DraftRow;
+          if (error) throw error;
+
+          row = data as DraftRow;
+        }
 
         setActiveDraftId(String(row.id));
         setName(row.title || "Untitled Workflow");
@@ -1406,7 +1620,15 @@ export default function BuilderPage() {
         setCreating(false);
       }
     },
-    [requireAuth, userId, supabase, refreshWorkflows, loadGraphAndResetHistory],
+    [
+      requireAuth,
+      userId,
+      supabase,
+      refreshWorkflows,
+      loadGraphAndResetHistory,
+      useDraftApi,
+      getAccessToken,
+    ],
   );
 
   const ensureDraftSavedNow = useCallback(async () => {
@@ -1431,20 +1653,49 @@ export default function BuilderPage() {
       updated_at: updatedAt,
     };
 
-    const { error } = await supabase
-      .from("workflow_drafts")
-      .update(update)
-      .eq("id", activeDraftId)
-      .eq("owner_id", userId);
-
-    if (!error) {
-      lastSavedHashRef.current = h;
-      setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
+    if (useDraftApi) {
+      const token = await getAccessToken();
+      const res = await fetch(`/api/creator/workflow-drafts/${encodeURIComponent(activeDraftId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(update),
+      });
+      if (res.ok) {
+        lastSavedHashRef.current = h;
+        setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
+      } else {
+        setSaveUi((s) => ({ ...s, status: "error" }));
+        console.error("Failed to save draft:", await res.text());
+      }
     } else {
-      setSaveUi((s) => ({ ...s, status: "error" }));
-      console.error("Failed to save draft:", error);
+      const { error } = await supabase
+        .from("workflow_drafts")
+        .update(update)
+        .eq("id", activeDraftId)
+        .eq("owner_id", userId);
+
+      if (!error) {
+        lastSavedHashRef.current = h;
+        setSaveUi({ status: "idle", lastSavedAt: new Date(updatedAt) });
+      } else {
+        setSaveUi((s) => ({ ...s, status: "error" }));
+        console.error("Failed to save draft:", error);
+      }
     }
-  }, [supabase, userId, activeDraftId, name, isPreview, flushAutosaveNow]);
+  }, [
+    supabase,
+    userId,
+    activeDraftId,
+    name,
+    isPreview,
+    flushAutosaveNow,
+    useDraftApi,
+    getAccessToken,
+  ]);
 
   // ----- Floating window drag/resize (foolproof, no crashes) -----
   useEffect(() => {

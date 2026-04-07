@@ -8,6 +8,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserAndClient } from "@/lib/auth/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
+import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { isAllowedPayoutCountry } from "@lib/creators/allowed-countries";
 import { createV2ConnectedAccount, createV2AccountLink } from "@/lib/stripe/connect-v2";
 import { stripeConfig } from "@/lib/stripe/config";
@@ -23,6 +25,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const { user } = authResult;
+
+    try {
+      const actor = await resolveActorContext(req, user);
+      assertNotImpersonating(actor.actorMode);
+    } catch (e) {
+      if (e instanceof ImpersonationForbiddenError) {
+        return NextResponse.json({ error: e.message }, { status: 403 });
+      }
+      throw e;
+    }
+
     const admin = createSupabaseAdminClient();
 
     const { data: profile } = await admin

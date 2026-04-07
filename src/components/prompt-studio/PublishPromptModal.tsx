@@ -20,9 +20,9 @@ import {
   Lock,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import VerifiedCreatorBadge from "../ui/VerifiedCreatorBadge";
 import AssetPickerModalRaw from "../assets/AssetPickerModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
-import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import {
   PROMPT_MAX_USD,
   MIN_TRANSACTION_USD,
@@ -1280,7 +1280,9 @@ export default function PublishPromptModal({
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/45 min-w-0">
                   <span className="shrink-0">Posting as</span>
                   <span className="min-w-0 truncate">{ownerName}</span>
-                  <FoundingCreatorBadge size="sm" className="shrink-0" />
+                  {profile?.is_verified_creator ? (
+                    <VerifiedCreatorBadge variant="mark" size="xs" className="shrink-0" />
+                  ) : null}
                   <span className="truncate">@{ownerHandle}</span>
                 </div>
               </div>

@@ -37,7 +37,6 @@ import {
 import { extractWorkflowInputs } from "../../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../../lib/workflow/validation";
 import { isPremiumAiSpec } from "../../../../lib/workflow/spec-id-aliases";
-import FoundingCreatorBadge from "../../../../components/ui/FoundingCreatorBadge";
 import ProfileAvatar from "../../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../../components/ui/ProfileLink";
 import ReportModal from "../../../../components/marketplace/ReportModal";
@@ -104,6 +103,7 @@ type PublicProfileLite = {
   full_name: string | null;
   handle: string | null;
   avatar_url: string | null;
+  is_verified_creator?: boolean | null;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -1434,7 +1434,7 @@ export default function PromptProductPage() {
     (async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name,handle,avatar_url")
+        .select("full_name,handle,avatar_url,is_verified_creator")
         .eq("handle", listing.owner_handle)
         .maybeSingle();
 
@@ -2573,8 +2573,7 @@ export default function PromptProductPage() {
                   <ProfileLink
                     name={creatorName}
                     handle={creatorHandle}
-                    showBadge={true}
-                    badgeSize="md"
+                    verified={Boolean(creatorProfile?.is_verified_creator)}
                     className="min-w-0 truncate text-xs font-medium text-white/90"
                   />
                 </div>
@@ -2960,8 +2959,7 @@ export default function PromptProductPage() {
                       <ProfileLink
                         name={creatorName}
                         handle={creatorHandle}
-                        showBadge={true}
-                        badgeSize="md"
+                        verified={Boolean(creatorProfile?.is_verified_creator)}
                         className="min-w-0 truncate text-sm font-medium text-white/90"
                       />
                     </div>
@@ -3219,7 +3217,6 @@ export default function PromptProductPage() {
                             <span className="truncate text-[12px] text-white/55">
                               @{s.owner_handle || s.owner_name || "creator"}
                             </span>
-                            <FoundingCreatorBadge size="sm" className="shrink-0" />
                           </div>
 
                           <div className="mt-1 flex items-center justify-between">
@@ -3512,7 +3509,6 @@ export default function PromptProductPage() {
                               <span className="truncate text-[12px] text-white/55">
                                 @{s.owner_handle || s.owner_name || "creator"}
                               </span>
-                              <FoundingCreatorBadge size="sm" className="shrink-0" />
                             </div>
 
                             <div className="mt-1 flex items-center justify-between">

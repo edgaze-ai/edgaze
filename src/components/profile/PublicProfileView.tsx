@@ -4,17 +4,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Pencil, Loader2, Camera, Heart, Sparkles, ExternalLink } from "lucide-react";
+import { Pencil, Loader2, Heart } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { fetchCreatorListings } from "./creatorListingsAdapter";
 import ErrorModal from "../marketplace/ErrorModal";
 import { DEFAULT_AVATAR_SRC } from "../../config/branding";
-import { compressImageToMaxSize } from "../../lib/compressImage";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../lib/constants";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
+import VerifiedCreatorBadge from "../ui/VerifiedCreatorBadge";
 import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
+import ProfileEditorModal, { type ProfileEditorOpenOptions } from "./ProfileEditorModal";
+import { ProfileSocialIcon } from "./ProfileSocialIcon";
 
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -28,6 +30,10 @@ type PublicProfileRow = {
   banner_url: string | null;
   bio: string | null;
   socials: Record<string, string> | null;
+  source?: string | null;
+  claim_status?: string | null;
+  is_verified_creator?: boolean | null;
+  is_founding_creator?: boolean | null;
 };
 
 type Tab = "all" | "prompts" | "workflows";
@@ -111,6 +117,9 @@ function normalizeHandle(input: string) {
 }
 
 const HANDLE_REGEX = /^[a-z0-9_]{3,24}$/;
+
+/** Saved + editor cap; header uses flex so long names don’t mid-glyph clip. */
+const PROFILE_FULL_NAME_MAX = 50;
 
 function sanitizeUrl(url: string) {
   const v = (url || "").trim();
@@ -531,7 +540,13 @@ function PromptCard({
             </h3>
 
             <div className="mt-1 flex items-center gap-2 text-xs text-white/60">
-              <ProfileLink name={creatorName} handle={creator.handle} className="truncate" />
+              <ProfileLink
+                name={creatorName}
+                handle={creator.handle}
+                verified={!!creator.is_verified_creator}
+                verifiedSize="sm"
+                className="truncate"
+              />
               {creatorHandle && (
                 <ProfileLink
                   name={creatorHandle}
@@ -617,6 +632,7 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
   const auth = useAuth();
 
   const viewerId = auth.userId;
+  const workspaceViewerId = auth.workspaceUserId;
 
   const [loading, setLoading] = useState(true);
   const [creator, setCreator] = useState<PublicProfileRow | null>(null);
@@ -628,17 +644,10 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
 
   const [errTop, setErrTop] = useState<string | null>(null);
 
-  const isOwner = !!viewerId && !!creator?.id && creator.id === viewerId;
+  const isOwner = !!workspaceViewerId && !!creator?.id && creator.id === workspaceViewerId;
 
-  // Edit sheet
-  const [editOpen, setEditOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveErr, setSaveErr] = useState<string | null>(null);
-
-  const [draftName, setDraftName] = useState("");
-  const [draftHandle, setDraftHandle] = useState("");
-  const [draftBio, setDraftBio] = useState("");
-  const [draftSocials, setDraftSocials] = useState<Record<string, string>>({});
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
+  const [profileEditorOptions, setProfileEditorOptions] = useState<ProfileEditorOpenOptions>({});
 
   // Listings
   const [tab, setTab] = useState<Tab>("all");
@@ -646,12 +655,6 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsErr, setListingsErr] = useState<string | null>(null);
   const [listings, setListings] = useState<CreatorListing[]>([]);
-
-  // Upload state
-  const avatarInputRef = useRef<HTMLInputElement | null>(null);
-  const bannerInputRef = useRef<HTMLInputElement | null>(null);
-  const [uploadBusy, setUploadBusy] = useState<"avatar" | "banner" | null>(null);
-  const [uploadErr, setUploadErr] = useState<string | null>(null);
 
   const lastFollowAtRef = useRef<number>(0);
 
@@ -702,15 +705,6 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
     };
   }, []);
 
-  // Pills
-  const PILL =
-    "h-9 inline-flex items-center justify-center rounded-full border px-4 text-xs font-medium transition active:scale-[0.99]";
-  const PILL_ACTIVE = "border-white/20 bg-white text-black";
-  const PILL_INACTIVE =
-    "border-white/12 bg-white/5 text-white/80 hover:bg-white/10 hover:border-white/18";
-  const CTA_GRADIENT =
-    "bg-gradient-to-r from-cyan-300 via-cyan-200 to-pink-300 text-black hover:brightness-110";
-
   useEffect(() => {
     let alive = true;
 
@@ -728,22 +722,43 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
       }
 
       try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, handle, full_name, avatar_url, banner_url, bio, socials")
-          .eq("handle", normalized)
-          .maybeSingle();
+        const base = "id, handle, full_name, avatar_url, banner_url, bio, socials";
+        const provNoFlags = `${base}, source, claim_status`;
+        const withFoundingOnly = `${provNoFlags}, is_founding_creator`;
+        const withVerifiedOnly = `${provNoFlags}, is_verified_creator`;
+        const withProv = `${provNoFlags}, is_verified_creator, is_founding_creator`;
+
+        /** Try selects in order so we never drop OG/verified flags just because one column is missing. */
+        const selectAttempts = [withProv, withFoundingOnly, withVerifiedOnly, provNoFlags, base];
+
+        let row: PublicProfileRow | null = null;
+        let lastError: Error | null = null;
+
+        for (const sel of selectAttempts) {
+          const { data, error } = await supabase
+            .from("profiles")
+            .select(sel)
+            .eq("handle", normalized)
+            .maybeSingle();
+
+          if (!error && data && typeof data === "object" && "id" in data) {
+            row = data as unknown as PublicProfileRow;
+            lastError = null;
+            break;
+          }
+          if (error) lastError = new Error(error.message || "Query failed");
+        }
 
         if (!alive) return;
 
-        if (error) throw error;
-        if (!data) {
+        if (lastError && !row) throw lastError; // e.g. permission / network
+        if (!row) {
           setErrTop("Profile not found.");
           setLoading(false);
           return;
         }
 
-        setCreator(data as any);
+        setCreator(row);
       } catch (e: any) {
         if (!alive) return;
         setErrTop(e?.message || "Failed to load profile.");
@@ -875,128 +890,13 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
     }
   };
 
-  const uploadProfileMedia = async (kind: "avatar" | "banner", file: File) => {
-    if (!creator?.id) return;
-    if (!isOwner) return;
-
-    if (!file.type.startsWith("image/")) {
-      setUploadErr("Please upload an image file.");
-      return;
-    }
-
-    setUploadErr(null);
-    setUploadBusy(kind);
-
-    try {
-      const maxBytes = kind === "avatar" ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
-      const toUpload = await compressImageToMaxSize(file, maxBytes);
-
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const bucket = kind === "avatar" ? "avatars" : "banners";
-      const path = `${creator.id}/${kind}.${ext}`;
-
-      const { error: upErr } = await supabase.storage
-        .from(bucket)
-        .upload(path, toUpload, { upsert: true });
-
-      if (upErr) throw upErr;
-
-      const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path);
-      const publicUrl = pub?.publicUrl || null;
-      if (!publicUrl) throw new Error("Failed to get public URL");
-
-      const patch = kind === "avatar" ? { avatar_url: publicUrl } : { banner_url: publicUrl };
-
-      const { error: dbErr } = await supabase.from("profiles").update(patch).eq("id", creator.id);
-      if (dbErr) throw dbErr;
-
-      setCreator((c) => {
-        if (!c) return c;
-        return kind === "avatar"
-          ? { ...c, avatar_url: publicUrl }
-          : { ...c, banner_url: publicUrl };
-      });
-    } catch (e: any) {
-      setUploadErr(e?.message || "Upload failed");
-    } finally {
-      setUploadBusy(null);
-    }
-  };
-
-  const saveProfile = async () => {
-    if (!creator?.id) return;
-    if (!isOwner) return;
-
-    setSaving(true);
-    setSaveErr(null);
-
-    try {
-      const normalizedHandle = normalizeHandle(draftHandle);
-      const handleChanged =
-        normalizedHandle && normalizedHandle !== (creator.handle || "").toLowerCase();
-
-      if (handleChanged) {
-        if (!HANDLE_REGEX.test(normalizedHandle)) {
-          setSaveErr("Handle must be 3–24 characters, only letters, numbers, and underscores.");
-          setSaving(false);
-          return;
-        }
-        const res = await fetch(
-          `/api/handle-available?handle=${encodeURIComponent(normalizedHandle)}&exclude_user_id=${encodeURIComponent(viewerId ?? "")}`,
-        );
-        const data = await res.json();
-        if (!data.available) {
-          setSaveErr(
-            data.reason === "invalid" ? "Invalid handle format." : "That handle is already taken.",
-          );
-          setSaving(false);
-          return;
-        }
-        const result = await auth.updateProfile({ handle: normalizedHandle });
-        if (!result.ok) {
-          setSaveErr(result.error ?? "Failed to update handle.");
-          setSaving(false);
-          return;
-        }
-      }
-
-      const socials: Record<string, string> = {};
-      Object.entries(draftSocials || {}).forEach(([k, v]) => {
-        const u = sanitizeUrl(v || "");
-        if (u) socials[k] = u;
-      });
-
-      const patch: Record<string, unknown> = {
-        full_name: (draftName || "").trim() || null,
-        bio: (draftBio || "").trim() || null,
-        socials,
-      };
-
-      const { error } = await supabase.from("profiles").update(patch).eq("id", creator.id);
-      if (error) throw error;
-
-      setCreator((c) =>
-        c
-          ? {
-              ...c,
-              ...patch,
-              ...(handleChanged && normalizedHandle ? { handle: normalizedHandle } : {}),
-            }
-          : c,
-      );
-      setEditOpen(false);
-      if (handleChanged && normalizedHandle) {
-        router.replace(`/profile/${encodeURIComponent(normalizedHandle)}`);
-      }
-    } catch (e: any) {
-      setSaveErr(e?.message || "Save failed");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const avatarSrc = creator?.avatar_url || DEFAULT_AVATAR_SRC;
   const bannerSrc = creator?.banner_url || "";
+
+  const openProfileEditor = (opts?: ProfileEditorOpenOptions) => {
+    setProfileEditorOptions(opts ?? {});
+    setProfileEditorOpen(true);
+  };
 
   const socials = Object.entries(creator?.socials || {})
     .map(([k, v]) => [k, sanitizeUrl(v || "")] as const)
@@ -1031,62 +931,44 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
         className="flex-1 overflow-y-auto"
         style={{ overflowY: "auto", WebkitOverflowScrolling: "touch" }}
       >
-        {/* Banner */}
-        <div className="relative w-full overflow-hidden border-b border-white/10 bg-black">
-          <div className="relative h-[240px] w-full sm:h-[300px] lg:h-[360px]">
-            {bannerSrc ? (
-              <Image src={bannerSrc} alt="Banner" fill className="object-cover" priority />
-            ) : (
-              <div className="absolute inset-0 bg-[#0b0b0b]">
-                <div className="absolute inset-0 opacity-[0.92] [background-image:radial-gradient(circle_at_18%_22%,rgba(34,211,238,0.20),transparent_46%),radial-gradient(circle_at_82%_30%,rgba(236,72,153,0.18),transparent_56%)]" />
-                <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:44px_44px]" />
+        {/* Banner — inset frame so desktop isn’t an edge-to-edge slab */}
+        <div className="w-full bg-[#050505] px-4 pt-5 pb-1 sm:px-6 sm:pt-6 sm:pb-2">
+          <div className="mx-auto w-full max-w-[1320px]">
+            <div
+              className={cn(
+                "rounded-[28px] bg-white/[0.03] p-3 sm:p-4",
+                "ring-1 ring-white/[0.08] shadow-[0_24px_80px_rgba(0,0,0,0.45)]",
+              )}
+            >
+              <div className="relative aspect-[5/2] w-full overflow-hidden rounded-2xl sm:aspect-[3/1] sm:rounded-[22px]">
+                {bannerSrc ? (
+                  <Image
+                    src={bannerSrc}
+                    alt="Banner"
+                    fill
+                    sizes="(max-width: 1320px) 100vw, 1320px"
+                    className="object-cover object-center"
+                    priority
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-[#0b0b0b]">
+                    <div className="absolute inset-0 opacity-[0.92] [background-image:radial-gradient(circle_at_18%_22%,rgba(34,211,238,0.20),transparent_46%),radial-gradient(circle_at_82%_30%,rgba(236,72,153,0.18),transparent_56%)]" />
+                    <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:44px_44px]" />
+                  </div>
+                )}
+
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-black/15 to-black/55" />
               </div>
-            )}
-
-            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
-
-            {isOwner && (
-              <>
-                <input
-                  ref={bannerInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) uploadProfileMedia("banner", f);
-                    e.currentTarget.value = "";
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => bannerInputRef.current?.click()}
-                  className={cn(
-                    "absolute right-4 top-4 z-10",
-                    "h-10 inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/60 px-4",
-                    "text-xs font-semibold text-white/90 backdrop-blur-md",
-                    "hover:bg-black/75 hover:border-white/25 transition-all active:scale-[0.98] shadow-lg",
-                  )}
-                  disabled={uploadBusy === "banner"}
-                >
-                  {uploadBusy === "banner" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Pencil className="h-4 w-4" />
-                  )}
-                  Edit Banner
-                </button>
-              </>
-            )}
+            </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="px-4 pb-10 pt-6 sm:px-6 sm:pt-8">
+        <div className="px-4 pt-6 pb-6 sm:px-6 sm:pt-8 sm:pb-8">
           <div className="mx-auto w-full max-w-[1320px]">
-            {(errTop || uploadErr) && (
+            {errTop && (
               <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
-                {uploadErr ? `Upload: ${uploadErr}` : errTop}
+                {errTop}
               </div>
             )}
 
@@ -1101,148 +983,146 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(56,189,248,0.12),transparent_50%)] pointer-events-none" />
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.08),transparent_50%)] pointer-events-none" />
 
-              <div className="relative flex flex-col gap-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4 min-w-0 flex-1">
-                    <div className="relative shrink-0">
-                      <div className="relative h-28 w-28 overflow-hidden rounded-full border-2 border-white/25 bg-black/50 shadow-[0_8px_32px_rgba(0,0,0,0.6)] sm:h-32 sm:w-32 ring-4 ring-white/5">
-                        <Image src={avatarSrc} alt="Avatar" fill className="object-cover" />
-                      </div>
-
-                      {isOwner && (
-                        <>
-                          <input
-                            ref={avatarInputRef}
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp"
-                            className="hidden"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) uploadProfileMedia("avatar", f);
-                              e.currentTarget.value = "";
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => avatarInputRef.current?.click()}
-                            className={cn(
-                              "absolute -bottom-1 -right-1",
-                              "h-10 w-10 rounded-full border-2 border-white/20 bg-black/70 backdrop-blur-md",
-                              "flex items-center justify-center text-white/90 shadow-lg",
-                              "hover:bg-black/85 hover:border-white/30 transition-all active:scale-[0.95]",
-                            )}
-                            disabled={uploadBusy === "avatar"}
-                            title="Change avatar"
-                          >
-                            {uploadBusy === "avatar" ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Camera className="h-4 w-4" />
-                            )}
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-3 min-w-0 mb-3">
-                        <h1 className="flex flex-wrap items-center gap-2 min-w-0 text-2xl font-bold text-white sm:text-3xl tracking-tight">
-                          <span className="min-w-0 truncate">
-                            {creator.full_name || "Unnamed creator"}
-                          </span>
-                          <FoundingCreatorBadge size="lg" className="shrink-0" />
-                        </h1>
-                        <div className="shrink-0 rounded-full border border-white/20 bg-white/[0.06] px-3.5 py-1.5 text-xs font-semibold text-white/90 backdrop-blur-sm">
-                          @{creator.handle}
-                        </div>
-                      </div>
-
-                      {creator.bio ? (
-                        <p className="mt-2 text-sm leading-relaxed text-white/70 sm:text-base">
-                          {creator.bio}
-                        </p>
-                      ) : isOwner ? (
-                        <p className="mt-2 text-sm text-white/45 italic">
-                          Add a bio so people understand what you build.
-                        </p>
-                      ) : null}
-
-                      {socials.length > 0 && (
-                        <div className="mt-5 flex flex-wrap gap-3">
-                          {socials.map(([k, v]) => {
-                            const displayName = k.toLowerCase() === "twitter" ? "X" : k;
-                            return (
-                              <a
-                                key={k}
-                                href={v}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 py-2 text-xs font-semibold text-white/85 hover:bg-white/10 hover:border-white/25 hover:text-white transition-all duration-200 backdrop-blur-sm shadow-sm hover:shadow-md"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5 text-white/60 group-hover:text-white/80 transition-colors" />
-                                <span>{displayName}</span>
-                              </a>
-                            );
-                          })}
-                        </div>
-                      )}
+              <div className="relative flex flex-col gap-5">
+                <div className="flex flex-row items-start gap-5 sm:gap-8">
+                  <div className="relative shrink-0">
+                    <div className="relative h-28 w-28 overflow-hidden rounded-full border-2 border-white/25 bg-black/50 shadow-[0_8px_32px_rgba(0,0,0,0.6)] ring-4 ring-white/5 sm:h-32 sm:w-32">
+                      <Image
+                        src={avatarSrc}
+                        alt="Avatar"
+                        fill
+                        sizes="128px"
+                        className="object-cover object-center"
+                      />
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {!isOwner && (
-                      <button
-                        type="button"
-                        onClick={onFollowToggle}
-                        disabled={followBusy}
-                        className={cn(
-                          "h-10 px-5 rounded-full border text-sm font-semibold transition-all active:scale-[0.98]",
-                          isFollowing
-                            ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
-                            : "border-white/10 bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-black hover:brightness-110 shadow-[0_0_20px_rgba(56,189,248,0.4)]",
-                          "min-w-[120px]",
-                        )}
+                  <div className="min-w-0 flex-1 text-left">
+                    <div className="flex min-w-0 w-full max-w-full items-center gap-2.5">
+                      <h1
+                        className="min-w-0 max-w-full truncate text-lg font-bold tracking-tight text-white sm:text-2xl lg:text-3xl"
+                        title={
+                          (creator.full_name || "").trim().length > PROFILE_FULL_NAME_MAX
+                            ? (creator.full_name || "").trim()
+                            : undefined
+                        }
                       >
-                        {followBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                        ) : isFollowing ? (
-                          "Following"
-                        ) : (
-                          "Follow"
-                        )}
-                      </button>
-                    )}
+                        {(() => {
+                          const raw = (creator.full_name || "").trim();
+                          if (raw) return raw.slice(0, PROFILE_FULL_NAME_MAX);
+                          return creator.handle ? `@${creator.handle}` : "Creator";
+                        })()}
+                      </h1>
+                      {creator.is_verified_creator ? (
+                        <VerifiedCreatorBadge variant="mark" size="md" className="shrink-0" />
+                      ) : null}
+                    </div>
 
-                    {isOwner && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDraftName(creator.full_name || "");
-                          setDraftHandle(creator.handle || "");
-                          setDraftBio(creator.bio || "");
-                          setDraftSocials((creator.socials || {}) as any);
-                          setEditOpen(true);
-                        }}
-                        className={cn(
-                          PILL,
-                          "border-white/15 bg-white/5 text-white/85 hover:bg-white/10 hover:border-white/20",
-                        )}
-                      >
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit
-                      </button>
+                    <p className="mt-1.5 text-sm font-medium tracking-tight text-white/45">
+                      @{creator.handle}
+                    </p>
+
+                    {creator.is_founding_creator ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <FoundingCreatorBadge className="shrink-0" />
+                      </div>
+                    ) : null}
+
+                    {creator.source === "admin_provisioned" &&
+                      creator.claim_status === "unclaimed" && (
+                        <div className="mt-3 flex justify-start">
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full border border-cyan-400/25 bg-cyan-400/10",
+                              "px-3 py-1.5 text-[13px] font-medium leading-snug text-cyan-100/95",
+                              "shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+                            )}
+                          >
+                            Created for you by Edgaze
+                          </span>
+                        </div>
+                      )}
+
+                    {creator.bio?.trim() ? (
+                      <p className="mt-3 text-sm leading-relaxed text-white/70 sm:text-base">
+                        {creator.bio.trim()}
+                      </p>
+                    ) : null}
+
+                    {socials.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-1.5">
+                        {socials.map(([k, v]) => {
+                          const displayLabel =
+                            k.toLowerCase() === "twitter"
+                              ? "X"
+                              : k.charAt(0).toUpperCase() + k.slice(1);
+                          return (
+                            <a
+                              key={k}
+                              href={v}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="group inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-white/75 transition hover:border-white/18 hover:bg-white/[0.07] hover:text-white/90"
+                            >
+                              <ProfileSocialIcon
+                                kind={k}
+                                className="h-3.5 w-3.5 text-white/55 group-hover:text-white/75"
+                              />
+                              <span>{displayLabel}</span>
+                            </a>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4 text-sm">
-                  <div className="rounded-full border border-white/15 bg-white/[0.05] px-6 py-2.5 font-medium text-white/90 backdrop-blur-sm shadow-sm">
-                    <span className="font-bold text-white">{followers}</span>{" "}
-                    <span className="text-white/70">followers</span>
-                  </div>
-                  <div className="rounded-full border border-white/15 bg-white/[0.05] px-6 py-2.5 font-medium text-white/90 backdrop-blur-sm shadow-sm">
-                    <span className="font-bold text-white">{following}</span>{" "}
-                    <span className="text-white/70">following</span>
+                <div className="flex flex-col gap-3 border-t border-white/[0.08] pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                  {isOwner ? (
+                    <button
+                      type="button"
+                      onClick={() => openProfileEditor({})}
+                      className={cn(
+                        "order-first h-10 w-full shrink-0 rounded-full border px-5 text-sm font-semibold transition-all active:scale-[0.98] sm:order-none sm:w-auto sm:min-w-[128px]",
+                        "border-white/18 bg-white text-black hover:bg-white/90",
+                      )}
+                    >
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <Pencil className="h-4 w-4" />
+                        Edit profile
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={onFollowToggle}
+                      disabled={followBusy}
+                      className={cn(
+                        "order-first h-10 w-full shrink-0 rounded-full border px-5 text-sm font-semibold transition-all active:scale-[0.98] sm:order-none sm:w-auto sm:min-w-[128px]",
+                        isFollowing
+                          ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                          : "border-white/18 bg-white text-black hover:bg-white/90",
+                      )}
+                    >
+                      {followBusy ? (
+                        <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                      ) : isFollowing ? (
+                        "Following"
+                      ) : (
+                        "Follow"
+                      )}
+                    </button>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="rounded-full border border-white/15 bg-white/[0.05] px-5 py-2 text-sm font-medium text-white/90 shadow-sm backdrop-blur-sm">
+                      <span className="font-bold text-white">{followers}</span>{" "}
+                      <span className="text-white/70">followers</span>
+                    </div>
+                    <div className="rounded-full border border-white/15 bg-white/[0.05] px-5 py-2 text-sm font-medium text-white/90 shadow-sm backdrop-blur-sm">
+                      <span className="font-bold text-white">{following}</span>{" "}
+                      <span className="text-white/70">following</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1340,120 +1220,43 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
                 </div>
               )}
             </div>
+
+            <footer
+              className="mt-16 border-t border-white/[0.06] pt-10 pb-16 text-center sm:mt-20 sm:pt-12 sm:pb-24"
+              aria-label="Copyright"
+            >
+              <p className="text-[11px] leading-relaxed text-white/40 sm:text-xs sm:text-white/45">
+                © {new Date().getFullYear()} Edge Platforms, Inc. All rights reserved.
+              </p>
+            </footer>
           </div>
         </div>
       </main>
 
-      {/* Edit sheet */}
-      {editOpen && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/70" onClick={() => setEditOpen(false)} />
-          <div className="absolute bottom-0 left-0 right-0 mx-auto w-full max-w-3xl rounded-t-3xl border border-gray-600/50 bg-[#0b0b0b] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-600/50 px-4 py-3">
-              <div>
-                <div className="text-sm font-semibold text-white">Edit profile</div>
-                <div className="text-[11px] text-white/50">Name, handle, bio, and social links</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditOpen(false)}
-                className={cn(PILL, PILL_INACTIVE)}
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="max-h-[70vh] overflow-y-auto px-4 py-4">
-              {saveErr && (
-                <div className="mb-3 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-xs text-red-200">
-                  {saveErr}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-[11px] text-white/60">Name</label>
-                  <input
-                    value={draftName}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-gray-600/50 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
-                    placeholder="Your name"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-white/60">Handle</label>
-                  <input
-                    value={draftHandle}
-                    onChange={(e) => {
-                      const v = e.target.value
-                        .replace(/[^a-zA-Z0-9_]/g, "_")
-                        .toLowerCase()
-                        .slice(0, 24);
-                      setDraftHandle(v);
-                    }}
-                    placeholder="handle"
-                    className="mt-1 h-11 w-full rounded-2xl border border-gray-600/50 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <label className="text-[11px] text-white/60">Bio</label>
-                <textarea
-                  value={draftBio}
-                  onChange={(e) => setDraftBio(e.target.value)}
-                  rows={4}
-                  className="mt-1 w-full rounded-2xl border border-gray-600/50 bg-white/5 px-3 py-3 text-sm text-white outline-none focus:border-cyan-400/60"
-                  placeholder="What do you build?"
-                />
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-gray-600/50 bg-white/[0.03] p-4">
-                <div className="text-xs font-semibold text-white/80">Social links</div>
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {["twitter", "linkedin", "youtube", "website", "github", "instagram"].map((k) => {
-                    const displayLabel =
-                      k.toLowerCase() === "twitter" ? "X" : k.charAt(0).toUpperCase() + k.slice(1);
-                    return (
-                      <div key={k}>
-                        <label className="text-[11px] text-white/55">{displayLabel}</label>
-                        <input
-                          value={draftSocials?.[k] || ""}
-                          onChange={(e) =>
-                            setDraftSocials((p) => ({ ...(p || {}), [k]: e.target.value }))
-                          }
-                          className="mt-1 h-11 w-full rounded-2xl border border-gray-600/50 bg-white/5 px-3 text-sm text-white outline-none focus:border-cyan-400/60"
-                          placeholder="https://"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditOpen(false)}
-                  className={cn(PILL, PILL_INACTIVE)}
-                  disabled={saving}
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={saveProfile}
-                  className={cn(PILL, CTA_GRADIENT, "min-w-[120px]")}
-                  disabled={saving}
-                >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {creator && isOwner && (
+        <ProfileEditorModal
+          open={profileEditorOpen}
+          onClose={() => setProfileEditorOpen(false)}
+          openOptions={profileEditorOptions}
+          creator={{
+            id: creator.id,
+            full_name: creator.full_name,
+            handle: creator.handle,
+            bio: creator.bio,
+            socials: creator.socials,
+            avatar_url: creator.avatar_url,
+            banner_url: creator.banner_url,
+          }}
+          workspaceViewerId={workspaceViewerId}
+          profileFullNameMax={PROFILE_FULL_NAME_MAX}
+          normalizeHandle={normalizeHandle}
+          sanitizeUrl={sanitizeUrl}
+          handleRegex={HANDLE_REGEX}
+          router={router}
+          onPublished={(updates) =>
+            setCreator((current) => (current ? { ...current, ...updates } : current))
+          }
+        />
       )}
     </div>
   );

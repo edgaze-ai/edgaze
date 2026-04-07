@@ -1,31 +1,31 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { getUserAndClient } from "@/lib/auth/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
-    const supabase = await createServerClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const { user } = await getUserAndClient(req);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const actor = await resolveActorContext(req, user);
+    const creatorId = actor.effectiveProfileId;
+    const supabase = createSupabaseAdminClient();
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("total_earnings_cents, available_balance_cents")
-      .eq("id", user.id)
+      .eq("id", creatorId)
       .single();
 
     const { data: earnings } = await supabase
       .from("creator_earnings")
       .select("*")
-      .eq("creator_id", user.id)
+      .eq("creator_id", creatorId)
       .order("created_at", { ascending: false });
 
     const pendingClaimRows = (earnings || []).filter(
@@ -57,7 +57,7 @@ export async function GET(req: Request) {
     const { data: payouts } = await supabase
       .from("creator_payouts")
       .select("*")
-      .eq("creator_id", user.id)
+      .eq("creator_id", creatorId)
       .order("created_at", { ascending: false })
       .limit(5);
 

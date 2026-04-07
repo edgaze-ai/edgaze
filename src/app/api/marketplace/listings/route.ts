@@ -3,6 +3,7 @@
  * Fixes marketplace loading when direct Supabase anon client is blocked by RLS.
  */
 import { NextRequest, NextResponse } from "next/server";
+import { attachOwnerProfileFields } from "../../../../lib/marketplace/attachOwnerProfileFields";
 import { createSupabaseAdminClient } from "../../../../lib/supabase/admin";
 
 const PAGE_SIZE = 9;
@@ -27,6 +28,8 @@ export type MarketplaceListingItem = {
   like_count: number | null;
   created_at: string | null;
   published_at: string | null;
+  owner_avatar_url: string | null;
+  owner_is_verified_creator: boolean | null;
 };
 
 export type MarketplaceListingsResponse = {
@@ -65,6 +68,8 @@ function mapPrompt(row: Record<string, unknown>): MarketplaceListingItem {
           : null,
     created_at: (row.created_at as string) ?? null,
     published_at: null,
+    owner_avatar_url: null,
+    owner_is_verified_creator: null,
   };
 }
 
@@ -89,6 +94,8 @@ function mapWorkflow(row: Record<string, unknown>): MarketplaceListingItem {
     like_count: row.likes_count != null ? Number(row.likes_count) : null,
     created_at: (row.published_at as string) ?? (row.created_at as string) ?? null,
     published_at: (row.published_at as string) ?? null,
+    owner_avatar_url: null,
+    owner_is_verified_creator: null,
   };
 }
 
@@ -270,6 +277,8 @@ export async function GET(request: NextRequest) {
         );
       }
     }
+
+    await attachOwnerProfileFields(supabase, [...prompts, ...workflows]);
 
     const response: MarketplaceListingsResponse = { prompts, workflows };
     return NextResponse.json(response);

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
+import { resolveActorContext } from "@lib/auth/actor-context";
+import { assertNotImpersonating, ImpersonationForbiddenError } from "@lib/auth/sensitive-action";
 import {
   deleteUserApiKeySecret,
   listUserApiKeyMetadata,
@@ -13,6 +15,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: error ?? "Unauthorized" }, { status: 401 });
   }
 
+  try {
+    const actor = await resolveActorContext(req, user);
+    assertNotImpersonating(actor.actorMode);
+  } catch (e) {
+    if (e instanceof ImpersonationForbiddenError) {
+      return NextResponse.json({ ok: false, error: e.message }, { status: 403 });
+    }
+    throw e;
+  }
+
   const keys = await listUserApiKeyMetadata(user.id);
   return NextResponse.json({ ok: true, keys });
 }
@@ -21,6 +33,16 @@ export async function POST(req: Request) {
   const { user, error } = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ ok: false, error: error ?? "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const actor = await resolveActorContext(req, user);
+    assertNotImpersonating(actor.actorMode);
+  } catch (e) {
+    if (e instanceof ImpersonationForbiddenError) {
+      return NextResponse.json({ ok: false, error: e.message }, { status: 403 });
+    }
+    throw e;
   }
 
   let body: unknown;
@@ -52,6 +74,16 @@ export async function DELETE(req: Request) {
   const { user, error } = await getUserFromRequest(req);
   if (!user) {
     return NextResponse.json({ ok: false, error: error ?? "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const actor = await resolveActorContext(req, user);
+    assertNotImpersonating(actor.actorMode);
+  } catch (e) {
+    if (e instanceof ImpersonationForbiddenError) {
+      return NextResponse.json({ ok: false, error: e.message }, { status: 403 });
+    }
+    throw e;
   }
 
   const url = new URL(req.url);

@@ -22,7 +22,8 @@ export default function ProfileImageUploader({
   onDone?: (publicUrl: string) => void;
 }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { userId, updateProfile, requireAuth } = useAuth();
+  const { userId, workspaceUserId, updateProfile, requireAuth } = useAuth();
+  const activeWorkspaceId = workspaceUserId || userId;
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -32,7 +33,7 @@ export default function ProfileImageUploader({
   const upload = async (file: File) => {
     setErr(null);
 
-    if (!requireAuth() || !userId) return;
+    if (!requireAuth() || !activeWorkspaceId) return;
     if (!isImage(file)) {
       setErr("Only image files are allowed.");
       return;
@@ -46,7 +47,7 @@ export default function ProfileImageUploader({
 
       const bucket = kind === "avatar" ? "avatars" : "banners";
       const ext = extFromName(file.name);
-      const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const path = `${activeWorkspaceId}/${crypto.randomUUID()}.${ext}`;
 
       const { error: upErr } = await supabase.storage.from(bucket).upload(path, toUpload, {
         cacheControl: "3600",
@@ -71,7 +72,7 @@ export default function ProfileImageUploader({
     }
   };
 
-  const inputId = `profile-upload-${kind}-${userId || "anon"}`;
+  const inputId = `profile-upload-${kind}-${activeWorkspaceId || "anon"}`;
 
   return (
     <div className="flex flex-col gap-2">

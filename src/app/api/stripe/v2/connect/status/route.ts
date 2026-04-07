@@ -6,7 +6,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { getUserAndClient } from "@/lib/auth/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getV2AccountStatus } from "@/lib/stripe/connect-v2";
 import { syncCreatorPayoutAccount } from "@/lib/stripe/webhook-processing";
@@ -15,21 +16,19 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
-    const supabase = await createServerClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const { user } = await getUserAndClient(req);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: connectAccount } = await supabase
+    const actor = await resolveActorContext(req, user);
+    const creatorId = actor.effectiveProfileId;
+    const admin = createSupabaseAdminClient();
+
+    const { data: connectAccount } = await admin
       .from("stripe_connect_accounts")
       .select("stripe_account_id")
-      .eq("user_id", user.id)
+      .eq("user_id", creatorId)
       .single();
 
     if (!connectAccount) {
@@ -40,12 +39,11 @@ export async function GET(req: Request) {
     }
 
     const status = await getV2AccountStatus(connectAccount.stripe_account_id);
-    const admin = createSupabaseAdminClient();
     const isActive = status.readyToProcessPayments && status.onboardingComplete;
 
     await syncCreatorPayoutAccount({
       supabase: admin,
-      creatorId: user.id,
+      creatorId,
       stripeAccountId: connectAccount.stripe_account_id,
       chargesEnabled: status.readyToProcessPayments,
       payoutsEnabled: isActive,

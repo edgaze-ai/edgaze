@@ -11,6 +11,8 @@
 
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
+import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   createV2ConnectedAccount,
@@ -30,6 +32,9 @@ export async function POST(req: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const actor = await resolveActorContext(req, user);
+    assertNotImpersonating(actor.actorMode);
 
     const admin = createSupabaseAdminClient();
     const { data: profileRow } = await admin
@@ -133,6 +138,9 @@ export async function POST(req: Request) {
       accountId: stripeAccountId,
     });
   } catch (error: any) {
+    if (error instanceof ImpersonationForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     console.error("[STRIPE V2 CONNECT] Account session error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to create account session" },
