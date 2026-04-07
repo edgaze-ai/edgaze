@@ -16,6 +16,13 @@ function supabaseAuthErrMessage(err: unknown): string {
   if (msg && msg !== "Internal Server Error") {
     return msg;
   }
+  if (code === "unexpected_failure") {
+    return (
+      "Auth could not finish creating this user (often a DB trigger / profile row issue). " +
+      "Apply latest Supabase migrations (handle_new_user fix), then retry. " +
+      "If it continues, check Supabase Auth logs and Postgres logs for the failed insert."
+    );
+  }
   if (code) {
     return `Auth error (${code}). Check Supabase Auth logs; if this persists, try again later.`;
   }

@@ -4,15 +4,35 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 
 export type TransferResult = { ok: true } | { ok: false; error: string; status: number };
 
+/**
+ * Domain for synthetic auth emails (dormant provisioned users). Must be unique per user;
+ * avoid long local-parts: many DB triggers fall back to email local-part as profiles.handle,
+ * which is limited to 24 characters in this app.
+ */
 function provisionedEmailDomain(): string {
-  return (
-    process.env.PROVISIONED_CREATOR_EMAIL_DOMAIN?.trim() || "provisioned.users.edgaze.internal"
-  );
+  const explicit = process.env.PROVISIONED_CREATOR_EMAIL_DOMAIN?.trim();
+  if (explicit) return explicit;
+  const app = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (app) {
+    try {
+      const { hostname } = new URL(app);
+      if (hostname && hostname !== "localhost" && !hostname.startsWith("127.")) {
+        return `provisioned.${hostname}`;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return "edgaze-provisioned.invalid";
 }
 
+/** Local-part is exactly 24 chars [a-z0-9] so it never exceeds profiles.handle max length. */
 export function generateProvisionedAuthEmail(): string {
-  const id = crypto.randomUUID().replace(/-/g, "");
-  return `pr-${id}@${provisionedEmailDomain()}`;
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  const local = `p${hex.slice(0, 23)}`;
+  return `${local}@${provisionedEmailDomain()}`;
 }
 
 /**
