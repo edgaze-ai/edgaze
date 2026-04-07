@@ -787,6 +787,7 @@ export async function POST(req: Request) {
 
     // Inject API keys into inputs for premium nodes
     const enrichedInputs: Record<string, unknown> = { ...inputs };
+    delete enrichedInputs["__platform_fund_gemini"];
     const userProvidedOpenai = effectiveIsBuilderTest && Boolean(effectiveOpenaiKey);
     const userProvidedAnthropic = effectiveIsBuilderTest && Boolean(effectiveAnthropicKey);
     const userProvidedGemini = effectiveIsBuilderTest && Boolean(effectiveGeminiKey);
@@ -802,6 +803,10 @@ export async function POST(req: Request) {
     const edgazeOpenAI = enforcement.useEdgazeOpenAI ? getEdgazeApiKey() : null;
     const edgazeAnthropic = enforcement.useEdgazeAnthropic ? getEdgazeAnthropicApiKey() : null;
     const edgazeGemini = enforcement.useEdgazeGemini ? getEdgazeGeminiApiKey() : null;
+
+    if (enforcement.useEdgazeGemini) {
+      enrichedInputs["__platform_fund_gemini"] = true;
+    }
 
     if (enforcement.useEdgazeAnthropic) {
       enrichedInputs["__platform_llm_chat_model"] = FREE_TIER_LLM_CHAT_ANTHROPIC_MODEL;

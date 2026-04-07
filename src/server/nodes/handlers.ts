@@ -44,6 +44,14 @@ import {
   resolveLlmChatProvider,
   resolveLlmImageProvider,
 } from "../../lib/workflow/llm-model-catalog";
+import { getEdgazeGeminiApiKey } from "../../lib/workflow/edgaze-api-key";
+
+/** Hosted run: resolve Gemini from env when per-node __api_key_* injection is missing (handoff / reload). */
+function hostedGeminiKeyFromRunInputs(ctx: RuntimeContext): string | null {
+  const inputs = ctx.inputs as Record<string, unknown> | undefined;
+  if (inputs?.["__platform_fund_gemini"] !== true) return null;
+  return getEdgazeGeminiApiKey();
+}
 
 /**
  * Safely convert any value to a displayable string.
@@ -739,7 +747,8 @@ const openaiChatHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runti
   model = LEGACY_GEMINI_CHAT_MODEL[model] ?? model;
 
   const provider = resolveLlmChatProvider(model);
-  const apiKey = getApiKey(node, ctx);
+  const apiKey =
+    getApiKey(node, ctx) ?? (provider === "google" ? hostedGeminiKeyFromRunInputs(ctx) : null);
   if (!apiKey) {
     throw new Error(
       "API key required for LLM Chat. Add the matching provider key in the run modal or node inspector.",
@@ -1201,7 +1210,8 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     : "";
   const effectivePrompt = `${prompt}${sizeHint}`;
 
-  const apiKey = getApiKey(node, ctx);
+  const apiKey =
+    getApiKey(node, ctx) ?? (imageProvider === "google" ? hostedGeminiKeyFromRunInputs(ctx) : null);
   const hasApiKey = !!apiKey;
   const isUserApiKey = isUserProvidedApiKey(node, ctx);
   const requestMeta = ctx.requestMetadata;

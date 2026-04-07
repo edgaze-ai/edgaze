@@ -322,7 +322,11 @@ function looksLikeUrl(s: string): boolean {
  */
 function shouldPreserveRunInputInjectionField(fieldName: string): boolean {
   const kl = fieldName.toLowerCase();
-  return kl.startsWith("__api_key_") || kl.startsWith("__builder_user_key");
+  return (
+    kl.startsWith("__api_key_") ||
+    kl.startsWith("__builder_user_key") ||
+    kl === "__platform_fund_gemini"
+  );
 }
 
 function normalizeSecretFieldName(fieldName: string): string {

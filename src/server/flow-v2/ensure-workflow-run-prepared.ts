@@ -228,10 +228,14 @@ export async function ensureWorkflowRunPrepared(runId: string): Promise<void> {
         }
 
         const enrichedInputs: Record<string, unknown> = { ...pending.rawInputs };
+        delete enrichedInputs.__platform_fund_gemini;
         if (enforcement.useEdgazeAnthropic) {
           enrichedInputs.__platform_llm_chat_model = FREE_TIER_LLM_CHAT_ANTHROPIC_MODEL;
         } else if (enforcement.useEdgazeOpenAI) {
           enrichedInputs.__platform_llm_chat_model = FREE_TIER_LLM_CHAT_OPENAI_MODEL;
+        }
+        if (enforcement.useEdgazeGemini) {
+          enrichedInputs.__platform_fund_gemini = true;
         }
 
         for (const node of graph.nodes) {

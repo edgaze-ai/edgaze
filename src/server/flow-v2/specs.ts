@@ -262,6 +262,8 @@ export function isPortTypeCompatible(source: PortValueType, target: PortValueTyp
   if (source === target) return true;
 
   if (source === "object" && target === "array") return true;
+  /** Chat / HTTP / merge outputs are coerced to text via extractPipelineContent at runtime. */
+  if (source === "object" && target === "string") return true;
   if (source === "image" && target === "file") return true;
 
   return false;

@@ -30,7 +30,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
     requiresUserKeys: true,
     ports: [
       makePort("in", "input", "Input", "any"),
-      makePort("out", "output", "Response", "object"),
+      makePort("out", "output", "Response", "string"),
     ],
     defaultConfig: {
       prompt: "",
