@@ -32,7 +32,9 @@ export async function GET(req: NextRequest) {
     if (UUID_RE.test(q)) {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, handle, full_name, email")
+        .select(
+          "id, handle, full_name, email, avatar_url, is_verified_creator, is_founding_creator",
+        )
         .eq("id", q)
         .maybeSingle();
       if (error) {
@@ -40,13 +42,17 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
       if (data) {
+        const d = data as Record<string, unknown>;
         return NextResponse.json({
           creators: [
             {
-              id: (data as { id: string }).id,
-              handle: (data as { handle?: string | null }).handle ?? null,
-              full_name: (data as { full_name?: string | null }).full_name ?? null,
-              email: (data as { email?: string | null }).email ?? null,
+              id: d.id as string,
+              handle: (d.handle as string | null) ?? null,
+              full_name: (d.full_name as string | null) ?? null,
+              email: (d.email as string | null) ?? null,
+              avatar_url: (d.avatar_url as string | null) ?? null,
+              is_verified_creator: Boolean(d.is_verified_creator),
+              is_founding_creator: Boolean(d.is_founding_creator),
             },
           ],
         });
@@ -55,7 +61,8 @@ export async function GET(req: NextRequest) {
 
     const escaped = escapeLikePattern(q);
     const pattern = `%${escaped}%`;
-    const cols = "id, handle, full_name, email";
+    const cols =
+      "id, handle, full_name, email, avatar_url, is_verified_creator, is_founding_creator";
 
     const [hRes, nRes, eRes] = await Promise.all([
       supabase.from("profiles").select(cols).ilike("handle", pattern).limit(12),
@@ -80,6 +87,9 @@ export async function GET(req: NextRequest) {
       handle: (r.handle as string | null) ?? null,
       full_name: (r.full_name as string | null) ?? null,
       email: (r.email as string | null) ?? null,
+      avatar_url: (r.avatar_url as string | null) ?? null,
+      is_verified_creator: Boolean(r.is_verified_creator),
+      is_founding_creator: Boolean(r.is_founding_creator),
     }));
 
     return NextResponse.json({ creators });

@@ -23,9 +23,9 @@ import MarketplaceFiltersBar, {
   type MarketplaceFilters,
   type MarketplaceSort,
 } from "../../components/marketplace/MarketplaceFiltersBar";
-import FoundingCreatorBadge from "../../components/ui/FoundingCreatorBadge";
 import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import ProfileLink from "../../components/ui/ProfileLink";
+import VerifiedCreatorBadge from "../../components/ui/VerifiedCreatorBadge";
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription" | "both" | null;
@@ -42,6 +42,8 @@ type MarketplacePrompt = {
   owner_id: string | null;
   owner_name: string | null;
   owner_handle: string | null;
+  owner_avatar_url?: string | null;
+  owner_is_verified_creator?: boolean | null;
 
   tags: string | null;
   visibility: Visibility | null;
@@ -67,12 +69,6 @@ type CodeSuggestion = {
 /** Row shape when selecting like count columns (workflows: likes_count; prompts: likes_count, like_count) */
 type LikeCountRow = { likes_count?: number | null; like_count?: number | null };
 
-type ProfileMini = {
-  handle: string;
-  full_name: string | null;
-  avatar_url: string | null;
-};
-
 type ProfileSuggestion = {
   handle: string;
   full_name: string | null;
@@ -80,6 +76,7 @@ type ProfileSuggestion = {
   bio: string | null;
   runs_count: number | null;
   remixes_count: number | null;
+  is_verified_creator?: boolean | null;
 };
 
 type CursorState = {
@@ -546,7 +543,6 @@ function PromptCard({
   requireAuth,
   supabase,
   supabaseAuth,
-  ownerProfiles,
   onEvent,
 }: {
   prompt: MarketplacePrompt;
@@ -555,7 +551,6 @@ function PromptCard({
   requireAuth: () => boolean;
   supabase: ReturnType<typeof createSupabasePublicBrowserClient>;
   supabaseAuth: ReturnType<typeof createSupabaseBrowserClient>;
-  ownerProfiles: Record<string, ProfileMini | undefined>;
   onEvent: (evt: Omit<MarketplaceEvent, "ts" | "session_id" | "user_id">) => void;
 }) {
   const router = useRouter();
@@ -671,13 +666,7 @@ function PromptCard({
         : `/p/${displayHandle}/${prompt.edgaze_code}`
       : undefined;
 
-  const ownerHandleKey = (displayHandle || prompt.owner_handle || "").toLowerCase();
-  const ownerProfile = ownerHandleKey ? ownerProfiles[ownerHandleKey] : undefined;
-
-  const creatorName =
-    ownerProfile?.full_name ||
-    prompt.owner_name ||
-    (displayHandle ? `@${displayHandle}` : "Unknown");
+  const creatorName = prompt.owner_name || (displayHandle ? `@${displayHandle}` : "Unknown");
 
   const creatorHandle = displayHandle ? `@${displayHandle}` : "";
 
@@ -878,9 +867,9 @@ function PromptCard({
     <div
       ref={cardRef}
       onClick={handleCardClick}
-      className="group w-full cursor-pointer rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20 hover:bg-white/[0.04]"
+      className="group w-full cursor-pointer rounded-xl border border-white/10 bg-white/[0.02] p-2 transition hover:border-white/20 hover:bg-white/[0.04]"
     >
-      <div className="relative overflow-hidden rounded-2xl">
+      <div className="relative overflow-hidden rounded-xl">
         {prompt.thumbnail_url ? (
           <img
             src={prompt.thumbnail_url}
@@ -892,10 +881,10 @@ function PromptCard({
           <BlurredPromptThumbnail text={prompt.prompt_text || prompt.title || "EDGAZE"} />
         )}
 
-        <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-2">
+        <div className="pointer-events-none absolute right-1.5 top-1.5 flex items-center gap-1.5">
           <span
             className={cn(
-              "rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur",
+              "rounded-full border px-2 py-0.5 text-[9px] font-semibold backdrop-blur",
               badgeClass,
               badgeGlow,
             )}
@@ -905,7 +894,7 @@ function PromptCard({
 
           <span
             className={cn(
-              "rounded-full border px-2.5 py-1 text-[10px] font-semibold tabular-nums backdrop-blur",
+              "rounded-full border px-2 py-0.5 text-[9px] font-semibold tabular-nums backdrop-blur",
               isFree
                 ? "border-emerald-400/30 bg-emerald-500/20 text-emerald-300"
                 : "border-white/12 bg-black/55 text-white/85",
@@ -916,26 +905,26 @@ function PromptCard({
         </div>
       </div>
 
-      <div className="mt-3 flex gap-3">
+      <div className="mt-2 flex gap-2">
         <ProfileAvatar
           name={creatorName}
-          avatarUrl={ownerProfile?.avatar_url || null}
-          size={36}
+          avatarUrl={prompt.owner_avatar_url ?? null}
+          size={28}
           handle={displayHandle}
-          className="mt-0.5"
+          className="mt-px"
         />
 
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-white/95">
+          <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-white/95">
             {prompt.title || "Untitled listing"}
           </h3>
 
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-white/60 min-w-0">
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-white/60 min-w-0">
             <ProfileLink
               name={creatorName}
               handle={displayHandle}
-              showBadge={true}
-              badgeSize="sm"
+              verified={Boolean(prompt.owner_is_verified_creator)}
+              verifiedSize="xs"
               className="min-w-0 truncate"
             />
             {creatorHandle && (
@@ -948,17 +937,17 @@ function PromptCard({
           </div>
 
           {desc && (
-            <div className="mt-2 line-clamp-2 text-[12px] leading-snug text-white/55">{desc}</div>
+            <div className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-white/55">{desc}</div>
           )}
 
-          <div className="mt-3 flex items-center justify-between text-[11px] text-white/55">
-            <div className="flex items-center gap-2">
+          <div className="mt-2 flex items-center justify-between text-[10px] text-white/55">
+            <div className="flex min-w-0 items-center gap-1.5">
               {prompt.edgaze_code ? (
-                <span className="rounded-md bg-white/10 px-2 py-[3px] text-[10px] font-semibold text-white/85">
+                <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold text-white/85">
                   /{prompt.edgaze_code}
                 </span>
               ) : (
-                <span className="rounded-md bg-white/5 px-2 py-[3px] text-[10px] text-white/60">
+                <span className="rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-white/60">
                   No code
                 </span>
               )}
@@ -982,7 +971,7 @@ function PromptCard({
               onClick={handleLikeClick}
               disabled={likeLoading}
               className={cn(
-                "flex items-center gap-1 rounded-full border px-2.5 py-[4px] text-[11px] transition-colors",
+                "flex shrink-0 items-center gap-0.5 rounded-full border px-2 py-0.5 text-[10px] transition-colors",
                 isLiked
                   ? prompt.type === "workflow"
                     ? "border-pink-400/40 bg-pink-500/20 text-pink-200"
@@ -994,9 +983,9 @@ function PromptCard({
               )}
             >
               {likeLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <Heart className="h-3.5 w-3.5" fill={isLiked ? "currentColor" : "none"} />
+                <Heart className="h-3 w-3" fill={isLiked ? "currentColor" : "none"} />
               )}
               {SHOW_VIEWS_AND_LIKES_PUBLICLY && <span>{likeCount ?? 0}</span>}
             </button>
@@ -1290,8 +1279,7 @@ function MarketplaceSearchBar({
                               <ProfileLink
                                 name={p.full_name || `@${p.handle}`}
                                 handle={p.handle}
-                                showBadge={true}
-                                badgeSize="sm"
+                                verified={Boolean(p.is_verified_creator)}
                                 className="min-w-0 truncate text-sm font-semibold text-white/85"
                               />
                             </div>
@@ -1354,7 +1342,6 @@ function MarketplaceSearchBar({
                               <span className="truncate text-xs text-white/45">
                                 @{w.owner_handle || "unknown"}
                               </span>
-                              <FoundingCreatorBadge size="sm" className="shrink-0" />
                             </div>
                           </div>
 
@@ -1410,7 +1397,6 @@ function MarketplaceSearchBar({
                             <span className="truncate text-xs text-white/45">
                               @{p.owner_handle || "unknown"}
                             </span>
-                            <FoundingCreatorBadge size="sm" className="shrink-0" />
                           </div>
                         </div>
 
@@ -1542,8 +1528,6 @@ export default function MarketplacePage() {
     topics: [],
   });
 
-  const [ownerProfiles, setOwnerProfiles] = useState<Record<string, ProfileMini | undefined>>({});
-
   const [menuOpen, setMenuOpen] = useState(false);
   const pillRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -1587,53 +1571,6 @@ export default function MarketplacePage() {
   }, [committedDebouncedQuery]);
 
   // close predictor when clicking outside
-
-  const fetchOwnerProfiles = async (
-    prompts: MarketplacePrompt[],
-    opts?: { userId: string | null; currentUserHandle: string | null | undefined },
-  ) => {
-    const handlesSet = new Set<string>();
-    (prompts || []).forEach((p) => {
-      const h = (p.owner_handle || "").toLowerCase();
-      if (h) handlesSet.add(h);
-      if (
-        opts?.userId &&
-        opts?.currentUserHandle &&
-        p.owner_id &&
-        String(p.owner_id) === String(opts.userId)
-      ) {
-        handlesSet.add(opts.currentUserHandle.toLowerCase());
-      }
-    });
-    const handles = Array.from(handlesSet);
-
-    const missing = handles.filter((h) => !ownerProfiles[h]);
-    if (missing.length === 0) return;
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("handle, full_name, avatar_url")
-      .in("handle", missing)
-      .limit(200);
-
-    if (error) {
-      console.error("profiles batch fetch failed", error);
-      return;
-    }
-
-    const map: Record<string, ProfileMini> = {};
-    (data || []).forEach((p: any) => {
-      if (p?.handle) {
-        map[String(p.handle).toLowerCase()] = {
-          handle: String(p.handle),
-          full_name: p.full_name ?? null,
-          avatar_url: p.avatar_url ?? null,
-        };
-      }
-    });
-
-    setOwnerProfiles((prev) => ({ ...prev, ...map }));
-  };
 
   type FetchOpts = {
     q: string;
@@ -1711,6 +1648,13 @@ export default function MarketplacePage() {
           thumbnail_url: (r.thumbnail_url as string) ?? null,
           owner_name: (r.owner_name as string) ?? null,
           owner_handle: (r.owner_handle as string) ?? null,
+          owner_avatar_url: (r.owner_avatar_url as string | null | undefined) ?? null,
+          owner_is_verified_creator:
+            r["owner_is_verified_creator"] !== undefined && r["owner_is_verified_creator"] !== null
+              ? Boolean(r["owner_is_verified_creator"])
+              : r["owner_is_verified"] === true
+                ? true
+                : null,
           tags: (r.tags as string) ?? null,
           visibility: null,
           monetisation_mode: (r.monetisation_mode as MonetisationMode) ?? null,
@@ -1762,8 +1706,6 @@ export default function MarketplacePage() {
         setPending([]);
         setHasMore(false);
         emitEvent({ name: "load_page", meta: { replace, q, sort: "trending" } });
-        const profileOpts = { userId, currentUserHandle: profile?.handle };
-        fetchOwnerProfiles(merged, profileOpts).catch(() => {});
         return false;
       }
 
@@ -1811,10 +1753,6 @@ export default function MarketplacePage() {
 
       setItems((prev) => (replace ? nextPage : [...prev, ...nextPage]));
       setPending(nextPending);
-
-      const profileOpts = { userId, currentUserHandle: profile?.handle };
-      fetchOwnerProfiles(nextPage, profileOpts).catch(() => {});
-      fetchOwnerProfiles(nextPending.slice(0, 24), profileOpts).catch(() => {});
 
       const promptsMore = prompts.length === PAGE_SIZE;
       const workflowsMore = workflows.length === PAGE_SIZE;
@@ -2002,7 +1940,9 @@ export default function MarketplacePage() {
 
         supabase
           .from("profiles")
-          .select("handle, full_name, avatar_url, bio, runs_count, remixes_count")
+          .select(
+            "handle, full_name, avatar_url, bio, runs_count, remixes_count, is_verified_creator",
+          )
           .or(
             [
               `handle.ilike.%${qLower}%`,
@@ -2075,6 +2015,7 @@ export default function MarketplacePage() {
             bio: pr.bio ?? null,
             runs_count: pr.runs_count != null ? Number(pr.runs_count) : null,
             remixes_count: pr.remixes_count != null ? Number(pr.remixes_count) : null,
+            is_verified_creator: pr.is_verified_creator ?? null,
           },
           score: 0,
         });
@@ -2357,7 +2298,9 @@ export default function MarketplacePage() {
             <span className="text-sm text-white/85 break-words">
               {profile.full_name || `@${profile.handle}`}
             </span>
-            <FoundingCreatorBadge size="xs" compact className="shrink-0" />
+            {profile.is_verified_creator ? (
+              <VerifiedCreatorBadge size="xs" variant="mark" className="shrink-0" />
+            ) : null}
           </div>
           <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/70">
             {profile.plan || "Free"}
@@ -2635,8 +2578,13 @@ export default function MarketplacePage() {
                                 >
                                   <div className="min-w-0 flex-1">
                                     <div className="flex flex-wrap items-center gap-2 text-xs text-white/55 min-w-0">
-                                      <span className="truncate">@{p.owner_handle}</span>
-                                      <FoundingCreatorBadge size="sm" className="shrink-0" />
+                                      <ProfileLink
+                                        name={`@${p.owner_handle}`}
+                                        handle={p.owner_handle}
+                                        verified={false}
+                                        verifiedSize="xs"
+                                        className="min-w-0 truncate"
+                                      />
                                     </div>
                                     <div className="truncate text-sm font-medium">
                                       /{p.edgaze_code}
@@ -2725,43 +2673,43 @@ export default function MarketplacePage() {
           )}
 
           {loadingFirst ? (
-            <div className="grid grid-cols-1 gap-6 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                  <div className="aspect-video w-full animate-pulse rounded-2xl bg-white/5" />
-                  <div className="mt-3 flex gap-3">
-                    <div className="h-9 w-9 animate-pulse rounded-full bg-white/5" />
+                <div key={i} className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
+                  <div className="aspect-video w-full animate-pulse rounded-xl bg-white/5" />
+                  <div className="mt-2 flex gap-2">
+                    <div className="h-7 w-7 animate-pulse rounded-full bg-white/5" />
                     <div className="flex-1">
-                      <div className="h-4 w-3/4 animate-pulse rounded bg-white/5" />
-                      <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-white/5" />
-                      <div className="mt-3 h-3 w-2/3 animate-pulse rounded bg-white/5" />
+                      <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/5" />
+                      <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-white/5" />
+                      <div className="mt-2 h-2.5 w-2/3 animate-pulse rounded bg-white/5" />
                     </div>
                   </div>
                 </div>
               ))}
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3" aria-hidden>
-                <div className="aspect-video w-full animate-pulse rounded-2xl bg-white/5" />
-                <div className="mt-3 flex gap-3">
-                  <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="h-4 w-3/4 animate-pulse rounded bg-white/5" />
-                    <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-white/5" />
-                    <div className="mt-3 h-3 w-2/3 animate-pulse rounded bg-white/5" />
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2" aria-hidden>
+                <div className="aspect-video w-full animate-pulse rounded-xl bg-white/5" />
+                <div className="mt-2 flex gap-2">
+                  <div className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-white/5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/5" />
+                    <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-white/5" />
+                    <div className="mt-2 h-2.5 w-2/3 animate-pulse rounded bg-white/5" />
                   </div>
                 </div>
               </div>
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={`s-${i}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-3"
+                  className="rounded-xl border border-white/10 bg-white/[0.03] p-2"
                 >
-                  <div className="aspect-video w-full animate-pulse rounded-2xl bg-white/5" />
-                  <div className="mt-3 flex gap-3">
-                    <div className="h-9 w-9 animate-pulse rounded-full bg-white/5" />
+                  <div className="aspect-video w-full animate-pulse rounded-xl bg-white/5" />
+                  <div className="mt-2 flex gap-2">
+                    <div className="h-7 w-7 animate-pulse rounded-full bg-white/5" />
                     <div className="flex-1">
-                      <div className="h-4 w-3/4 animate-pulse rounded bg-white/5" />
-                      <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-white/5" />
-                      <div className="mt-3 h-3 w-2/3 animate-pulse rounded bg-white/5" />
+                      <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/5" />
+                      <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-white/5" />
+                      <div className="mt-2 h-2.5 w-2/3 animate-pulse rounded bg-white/5" />
                     </div>
                   </div>
                 </div>
@@ -2771,7 +2719,7 @@ export default function MarketplacePage() {
             <div className="text-sm text-white/60">No listings found.</div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-6 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {showFeaturedCTA
                   ? (() => {
                       const pos = featuredCTAPosition ?? 0;
@@ -2788,7 +2736,6 @@ export default function MarketplacePage() {
                               requireAuth={requireAuth}
                               supabase={supabase}
                               supabaseAuth={supabaseAuth}
-                              ownerProfiles={ownerProfiles}
                               onEvent={emitEvent}
                             />
                           ))}
@@ -2802,7 +2749,6 @@ export default function MarketplacePage() {
                               requireAuth={requireAuth}
                               supabase={supabase}
                               supabaseAuth={supabaseAuth}
-                              ownerProfiles={ownerProfiles}
                               onEvent={emitEvent}
                             />
                           ))}
@@ -2818,7 +2764,6 @@ export default function MarketplacePage() {
                         requireAuth={requireAuth}
                         supabase={supabase}
                         supabaseAuth={supabaseAuth}
-                        ownerProfiles={ownerProfiles}
                         onEvent={emitEvent}
                       />
                     ))}

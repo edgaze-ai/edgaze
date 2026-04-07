@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserAndClient } from "@/lib/auth/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
+import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/client";
 
@@ -13,6 +15,9 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const actor = await resolveActorContext(req, user);
+    assertNotImpersonating(actor.actorMode);
 
     const admin = createSupabaseAdminClient();
     const { data: connectAccount } = await admin
@@ -36,6 +41,9 @@ export async function POST(req: Request) {
       url: loginLink.url,
     });
   } catch (error: any) {
+    if (error instanceof ImpersonationForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     console.error("[STRIPE CONNECT] Dashboard link error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to create dashboard link" },

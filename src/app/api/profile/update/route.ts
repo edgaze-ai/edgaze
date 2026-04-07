@@ -3,10 +3,12 @@ import { getUserAndClient } from "@lib/auth/server";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { sanitizeSocials, sanitizeUrl } from "@lib/sanitize-url";
 import { isAllowedPayoutCountry } from "@lib/creators/allowed-countries";
+import { resolveActorContext } from "@lib/auth/actor-context";
+import { logCreatorAuditEvent } from "@lib/creator-provisioning/audit";
 
 /** Max lengths for profile fields (user data security) */
 const MAX_HANDLE = 24;
-const MAX_FULL_NAME = 120;
+const MAX_FULL_NAME = 50;
 const MAX_BIO = 1000;
 const MAX_AVATAR_URL = 2000;
 const MAX_BANNER_URL = 2000;
@@ -22,6 +24,9 @@ export async function POST(req: Request) {
     if (!user?.id) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+
+    const actor = await resolveActorContext(req, user);
+    const targetUserId = actor.effectiveProfileId;
 
     const body = await req.json();
     let { handle, full_name, avatar_url, banner_url, bio, socials, country } = body;
@@ -77,14 +82,14 @@ export async function POST(req: Request) {
       const { data: currentProfile } = await admin
         .from("profiles")
         .select("handle")
-        .eq("id", user.id)
+        .eq("id", targetUserId)
         .single();
 
       // Only check cooldown if handle is actually changing
       if (currentProfile?.handle !== handle) {
         // Check if handle change is allowed
         const { data: cooldownCheck, error: cooldownError } = await admin.rpc("can_change_handle", {
-          user_id_input: user.id,
+          user_id_input: targetUserId,
         });
 
         if (cooldownError) {
@@ -123,12 +128,24 @@ export async function POST(req: Request) {
     const { error: updateError } = await admin
       .from("profiles")
       .update(updatePayload)
-      .eq("id", user.id);
+      .eq("id", targetUserId);
 
     if (updateError) {
       console.error("[profile/update] Update failed:", updateError);
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
+
+    await logCreatorAuditEvent({
+      action: "profile.updated",
+      actorUserId: actor.realUserId,
+      actorRole: actor.adminRole,
+      actorMode: actor.actorMode === "admin_impersonation" ? "admin_impersonation" : "creator_self",
+      effectiveProfileId: actor.effectiveProfileId,
+      impersonationSessionId: actor.impersonationSessionId,
+      resourceType: "profile",
+      resourceId: targetUserId,
+      metadata: { fields: Object.keys(updatePayload) },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e) {

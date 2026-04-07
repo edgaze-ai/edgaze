@@ -1,65 +1,31 @@
 "use client";
 
 import React from "react";
+import { Sparkles } from "lucide-react";
 
-type Size = "xs" | "sm" | "md" | "lg";
-
-/** Premium OG badge text */
-const BADGE_TEXT = "★ OG";
-
-/** Subtle glass styling - Edgaze brand: cyan/glass/dark */
-const baseStyles = [
-  "inline-flex shrink-0 items-center justify-center rounded-full",
-  "bg-white/5",
-  "border border-white/10",
-  "text-cyan-300",
-  "px-1.5 py-[1px]",
-  "text-[10px] font-medium leading-tight",
-].join(" ");
-
-const sizeClasses: Record<Size, string> = {
-  xs: "text-[9px] px-1 py-[0.5px]",
-  sm: "text-[9px] px-1.5 py-[1px]",
-  md: "text-[10px] px-1.5 py-[1px]",
-  lg: "text-[10px] px-2 py-[1px]",
-};
-
-/** Compact (pill): subtle glass with tighter padding */
-const compactStyles = [
-  "inline-flex shrink-0 items-center justify-center rounded-full",
-  "bg-white/5",
-  "border border-white/10",
-  "text-cyan-300",
-  "px-1 py-[0.5px]",
-  "text-[9px]",
-].join(" ");
+const TOOLTIP =
+  "This creator joined while Edgaze was in beta and was an early supporter of the platform.";
 
 /**
- * Subtle "★ OG" badge. Glass aesthetic, cyan brand colors, minimal design.
- * Matches Edgaze brand: Linear/Vercel/GitHub style - not gamified.
- * title/aria-label stay "Founding Creator" for accessibility.
- * Use compact in profile pill only.
+ * OG / founding creator — **public profile only** (not marketplace or comments).
  */
-export default function FoundingCreatorBadge({
-  className = "",
-  size = "md",
-  compact = false,
-}: {
-  className?: string;
-  size?: Size;
-  compact?: boolean;
-}) {
-  const styles = compact ? compactStyles : baseStyles;
-  const sz = compact ? sizeClasses[size] : sizeClasses[size];
-
+export default function FoundingCreatorBadge({ className = "" }: { className?: string }) {
   return (
     <span
-      className={[styles, sz, className].filter(Boolean).join(" ")}
-      title="Founding Creator"
-      role="status"
-      aria-label="Founding Creator"
+      className={[
+        "inline-flex select-none items-center gap-1.5 rounded-full",
+        "border border-cyan-300/[0.22] bg-gradient-to-r from-cyan-400/[0.14] via-white/[0.06] to-fuchsia-400/[0.12]",
+        "px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/95",
+        "ring-1 ring-inset ring-white/10 backdrop-blur-sm",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      title={TOOLTIP}
+      aria-label={TOOLTIP}
     >
-      {BADGE_TEXT}
+      <Sparkles className="h-3 w-3 shrink-0 text-cyan-200/95" strokeWidth={2} aria-hidden />
+      OG Creator
     </span>
   );
 }

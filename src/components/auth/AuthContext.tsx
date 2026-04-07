@@ -28,9 +28,15 @@ export type Profile = {
   country?: string | null;
   plan: UserPlan;
   email_verified?: boolean | null;
+  /** Platform verified badge (marketplace, etc.). */
+  is_verified_creator?: boolean | null;
+  /** OG / founding — public profile only. */
   is_founding_creator?: boolean | null;
   handle_last_changed_at?: string | null;
   can_receive_payments?: boolean | null;
+  /** admin_provisioned | self_signup (column may be missing until migration runs) */
+  source?: string | null;
+  claim_status?: string | null;
 };
 
 export type HandleChangeStatus = {
@@ -54,6 +60,9 @@ type AuthContextValue = {
   userEmail: string | null;
   isVerified: boolean;
   profile: Profile | null;
+  workspaceUserId: string | null;
+  workspaceProfile: Profile | null;
+  impersonationActive: boolean;
 
   isAdmin: boolean;
   isBanned: boolean;
@@ -71,6 +80,7 @@ type AuthContextValue = {
 
   refresh: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshImpersonation: () => Promise<void>;
 
   updateProfile: (patch: Partial<Profile>) => Promise<{ ok: boolean; error?: string }>;
 
@@ -249,6 +259,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [workspaceProfile, setWorkspaceProfile] = useState<Profile | null>(null);
+  const [impersonationActive, setImpersonationActive] = useState(false);
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
@@ -268,6 +280,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Track if we've just signed in to handle redirect
   const justSignedInRef = useRef(false);
+
+  /** Supabase session user_metadata fallback when profile row is slow or select fails */
+  const [authSessionMeta, setAuthSessionMeta] = useState<{
+    full_name?: string;
+    handle?: string;
+  } | null>(null);
+
+  /** Last resolved user id for SIGNED_IN redirect (avoid unstable effect deps / INITIAL_SESSION false positives) */
+  const lastUserIdRef = useRef<string | null>(null);
 
   const openSignIn = useCallback(() => {
     if (modalOpenRef.current) return;
@@ -345,11 +366,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     safeTrack("Sign In Modal Closed", { surface: "auth_context" });
   }, []);
 
+  const clearImpersonation = useCallback(() => {
+    setImpersonationActive(false);
+    setWorkspaceProfile(null);
+  }, []);
+
   const applyNoUser = useCallback(() => {
+    setAuthSessionMeta(null);
     setUserId(null);
     setUserEmail(null);
     setIsVerified(false);
     setProfile(null);
+    clearImpersonation();
 
     setIsAdmin(false);
     setIsBanned(false);
@@ -360,23 +388,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Critical: clears Mixpanel distinct_id to avoid cross-account contamination
     safeResetIdentity();
-  }, []);
+  }, [clearImpersonation]);
+
+  const PROFILE_SELECT_BASE =
+    "id,email,full_name,handle,avatar_url,banner_url,bio,socials,country,plan,email_verified,is_founding_creator,is_verified_creator,can_receive_payments";
 
   const loadProfile = useCallback(
     async (uid: string) => {
-      const { data, error } = await supabase
+      const withProvisioning = `${PROFILE_SELECT_BASE},source,claim_status`;
+
+      const first = await supabase
         .from("profiles")
-        .select(
-          "id,email,full_name,handle,avatar_url,banner_url,bio,socials,country,plan,email_verified,is_founding_creator,can_receive_payments",
-        )
+        .select(withProvisioning)
         .eq("id", uid)
         .maybeSingle();
 
+      let row: Profile | null = first.data as Profile | null;
+      let error = first.error;
+
       if (error) {
+        const msg = (error.message || "").toLowerCase();
+        const code = (error as { code?: string }).code;
+
+        if (msg.includes("is_verified_creator")) {
+          const withFounding =
+            "id,email,full_name,handle,avatar_url,banner_url,bio,socials,country,plan,email_verified,is_founding_creator,can_receive_payments,source,claim_status";
+          const second = await supabase
+            .from("profiles")
+            .select(withFounding)
+            .eq("id", uid)
+            .maybeSingle();
+          row = second.data as Profile | null;
+          error = second.error;
+          if (row) {
+            const r = row as Profile & { is_founding_creator?: boolean | null };
+            row = { ...r, is_verified_creator: false };
+          }
+        } else if (code === "42703" || msg.includes("claim_status") || msg.includes("source")) {
+          const legacyBase =
+            "id,email,full_name,handle,avatar_url,banner_url,bio,socials,country,plan,email_verified,is_founding_creator,can_receive_payments";
+          const second = await supabase
+            .from("profiles")
+            .select(legacyBase)
+            .eq("id", uid)
+            .maybeSingle();
+          row = second.data as Profile | null;
+          error = second.error;
+        }
+      }
+
+      if (error) {
+        console.warn("[Auth] loadProfile failed:", error.message);
         setProfile(null);
         return;
       }
-      setProfile((data as Profile) ?? null);
+      setProfile(row);
     },
     [supabase],
   );
@@ -438,6 +504,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         applyNoUser();
         return;
       }
+
+      setAuthSessionMeta({
+        full_name: user.user_metadata?.full_name ?? user.user_metadata?.name,
+        handle: user.user_metadata?.handle,
+      });
 
       setUserId(user.id);
       setUserEmail(user.email ?? null);
@@ -509,9 +580,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (error) {
+          lastUserIdRef.current = null;
           applyNoUser();
         } else {
           await applyUser(data.session?.user ?? null);
+          lastUserIdRef.current = data.session?.user?.id ?? null;
         }
       } finally {
         setLoading(false);
@@ -522,11 +595,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return inflightRef.current;
   }, [applyNoUser, applyUser, supabase]);
-
-  const refreshProfile = useCallback(async () => {
-    if (!userId) return;
-    await loadProfile(userId);
-  }, [loadProfile, userId]);
 
   // Update People properties once profile is available (no aliasing here)
   // This updates user properties without re-aliasing
@@ -548,12 +616,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, profile]);
 
+  const effectiveProfile = impersonationActive && workspaceProfile ? workspaceProfile : profile;
+  const effectiveWorkspaceId =
+    impersonationActive && workspaceProfile?.id ? workspaceProfile.id : userId;
+
   const updateProfile = useCallback(
     async (patch: Partial<Profile>) => {
       if (!userId) return { ok: false, error: "Not signed in" };
 
       const payload: any = { ...patch };
-      const previousHandle = profile?.handle ?? undefined;
+      const previousHandle = effectiveProfile?.handle ?? undefined;
       if (typeof payload.handle === "string") payload.handle = normalizeHandle(payload.handle);
 
       // Use backend API endpoint that enforces 60-day cooldown for handle changes
@@ -577,6 +649,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         await loadProfile(userId);
+        if (impersonationActive) {
+          setWorkspaceProfile((current) =>
+            current
+              ? {
+                  ...current,
+                  ...payload,
+                }
+              : current,
+          );
+        }
 
         // Cascade handle/full_name to workflows, prompts, comments; record old handle for redirects
         if (payload.handle !== undefined || payload.full_name !== undefined) {
@@ -608,7 +690,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, error: e.message || "Network error" };
       }
     },
-    [loadProfile, supabase, userId, profile?.handle],
+    [effectiveProfile?.handle, impersonationActive, loadProfile, supabase, userId],
   );
 
   useEffect(() => {
@@ -622,22 +704,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      const previousUserId = userId;
+      const previousUserId = lastUserIdRef.current;
       await applyUser(session?.user ?? null);
       setLoading(false);
       setAuthReady(true);
 
-      // Handle redirect after successful sign-in (for email sign-in, not OAuth)
-      // OAuth redirects are handled by the callback handler
-      // Check if we transitioned from no user to having a user
-      if (!previousUserId && session?.user && typeof window !== "undefined") {
-        // Only handle redirect if we're NOT on the callback page (OAuth handles its own redirect)
+      const newUserId = session?.user?.id ?? null;
+      lastUserIdRef.current = newUserId;
+
+      // Only SIGNED_IN: skip INITIAL_SESSION so refresh + existing cookie does not spuriously redirect
+      if (event === "SIGNED_IN" && !previousUserId && newUserId && typeof window !== "undefined") {
         const isOnCallback = window.location.pathname.startsWith("/auth/callback");
 
         if (!isOnCallback) {
           justSignedInRef.current = true;
 
-          // Small delay to ensure state is updated and modal is closed
           setTimeout(() => {
             try {
               const returnPath = getReturnPath();
@@ -652,14 +733,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (cleaned && pathname !== cleaned) {
                   console.warn("[Auth State Change] Redirecting to:", cleaned);
-                  // Clear storage and redirect
                   clearReturnPath();
                   router.push(cleaned);
                 } else {
                   console.warn(
                     "[Auth State Change] Invalid path or already on target, clearing storage",
                   );
-                  // Invalid path or already on that path - just clear storage
                   clearReturnPath();
                 }
               } else {
@@ -682,7 +761,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => data.subscription.unsubscribe();
-  }, [applyUser, refresh, supabase, router, pathname, userId]);
+  }, [applyUser, refresh, supabase, router, pathname]);
 
   const requireAuth = () => {
     if (userId) return true;
@@ -968,6 +1047,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabase, applyNoUser, applyUser],
   );
 
+  const refreshImpersonation = useCallback(async () => {
+    if (!userId || !isAdmin) {
+      clearImpersonation();
+      return;
+    }
+
+    try {
+      const token = await getAccessToken();
+      const res = await fetch("/api/admin/impersonation/current", {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+      if (!res.ok) {
+        clearImpersonation();
+        return;
+      }
+
+      const data = await res.json();
+      if (!data?.active || !data?.profile) {
+        clearImpersonation();
+        return;
+      }
+
+      setImpersonationActive(true);
+      setWorkspaceProfile(data.profile as Profile);
+    } catch {
+      clearImpersonation();
+    }
+  }, [clearImpersonation, getAccessToken, isAdmin, userId]);
+
+  const refreshProfile = useCallback(async () => {
+    const tasks: Promise<unknown>[] = [];
+    if (userId) tasks.push(loadProfile(userId));
+    if (isAdmin) tasks.push(refreshImpersonation());
+    if (tasks.length === 0) return;
+    await Promise.all(tasks);
+  }, [isAdmin, loadProfile, refreshImpersonation, userId]);
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (!userId || !isAdmin) {
+      clearImpersonation();
+      return;
+    }
+    void refreshImpersonation();
+  }, [authReady, clearImpersonation, isAdmin, refreshImpersonation, userId]);
+
   const refreshAuthSession = useCallback(async () => {
     try {
       const { data, error } = await supabase.auth.refreshSession();
@@ -981,15 +1108,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [supabase, applyNoUser, applyUser]);
 
-  const user: AuthUser | null =
-    userId && profile
-      ? {
-          id: userId,
-          email: userEmail,
-          name: profile.full_name || profile.handle || "Creator",
-          handle: profile.handle,
-        }
-      : null;
+  const user: AuthUser | null = userId
+    ? {
+        id: effectiveWorkspaceId ?? userId,
+        email: effectiveProfile?.email ?? userEmail,
+        name:
+          effectiveProfile?.full_name ||
+          effectiveProfile?.handle ||
+          authSessionMeta?.full_name ||
+          authSessionMeta?.handle ||
+          (userEmail?.split("@")[0] ?? "") ||
+          "Creator",
+        handle:
+          effectiveProfile?.handle ||
+          authSessionMeta?.handle ||
+          (userEmail
+            ? userEmail
+                .split("@")[0]!
+                .toLowerCase()
+                .replace(/[^a-z0-9_]/g, "_")
+                .replace(/_{2,}/g, "_")
+                .slice(0, 24) || "user"
+            : "user"),
+      }
+    : null;
 
   const value: AuthContextValue = {
     user,
@@ -997,7 +1139,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userId,
     userEmail,
     isVerified,
-    profile,
+    profile: effectiveProfile,
+    workspaceUserId: effectiveWorkspaceId,
+    workspaceProfile: effectiveProfile,
+    impersonationActive,
 
     isAdmin,
     isBanned,
@@ -1015,6 +1160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     refresh,
     refreshProfile,
+    refreshImpersonation,
     updateProfile,
 
     signOut,

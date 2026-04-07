@@ -36,7 +36,6 @@ import { extractWorkflowInputs } from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
 import { track, type TrackProperties } from "../../../lib/mixpanel";
 import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../lib/constants";
-import FoundingCreatorBadge from "../../../components/ui/FoundingCreatorBadge";
 import TurnstileWidget from "../../../components/apply/TurnstileWidget";
 import ProfileAvatar from "../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../components/ui/ProfileLink";
@@ -101,6 +100,7 @@ type PublicProfileLite = {
   full_name: string | null;
   handle: string | null;
   avatar_url: string | null;
+  is_verified_creator?: boolean | null;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -1020,7 +1020,7 @@ export default function WorkflowProductPage() {
     (async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("full_name,handle,avatar_url")
+        .select("full_name,handle,avatar_url,is_verified_creator")
         .eq("handle", listing.owner_handle)
         .maybeSingle();
 
@@ -2099,8 +2099,7 @@ export default function WorkflowProductPage() {
                   <ProfileLink
                     name={creatorProfile?.full_name || listing.owner_name || "Creator"}
                     handle={creatorHandle}
-                    showBadge={true}
-                    badgeSize="md"
+                    verified={Boolean(creatorProfile?.is_verified_creator)}
                     className="min-w-0 truncate text-xs font-medium text-white/90"
                   />
                 </div>
@@ -2333,8 +2332,7 @@ export default function WorkflowProductPage() {
                       <ProfileLink
                         name={creatorProfile?.full_name || listing.owner_name || "Creator"}
                         handle={creatorHandle}
-                        showBadge={true}
-                        badgeSize="md"
+                        verified={Boolean(creatorProfile?.is_verified_creator)}
                         className="min-w-0 truncate text-sm font-medium text-white/90"
                       />
                     </div>
@@ -2544,7 +2542,6 @@ export default function WorkflowProductPage() {
                             <span className="truncate text-[12px] text-white/55">
                               @{s.owner_handle || s.owner_name || "creator"}
                             </span>
-                            <FoundingCreatorBadge size="sm" className="shrink-0" />
                           </div>
                           <div className="mt-1 flex items-center justify-between">
                             <p className="truncate text-[11px] text-white/40">
@@ -2831,7 +2828,6 @@ export default function WorkflowProductPage() {
                               <span className="truncate text-[12px] text-white/55">
                                 @{s.owner_handle || s.owner_name || "creator"}
                               </span>
-                              <FoundingCreatorBadge size="sm" className="shrink-0" />
                             </div>
                             <div className="mt-1 flex items-center justify-between">
                               <p className="truncate text-[11px] text-white/40">

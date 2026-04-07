@@ -170,8 +170,7 @@ function TrendCard({ item }: TrendCardProps) {
             <ProfileLink
               name={creatorName}
               handle={displayHandle || undefined}
-              showBadge={true}
-              badgeSize="sm"
+              verified={Boolean(item.owner_is_verified)}
               className="min-w-0 truncate"
             />
           </div>

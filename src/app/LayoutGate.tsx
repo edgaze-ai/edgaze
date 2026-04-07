@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import AppShell from "./AppShell";
 import VerifyEmailBanner from "../components/auth/VerifyEmailBanner";
 import MaintenanceGate from "../components/maintenance/MaintenanceGate";
+import ImpersonationBanner from "../components/impersonation/ImpersonationBanner";
 
 export default function LayoutGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "";
@@ -22,13 +23,19 @@ export default function LayoutGate({ children }: { children: React.ReactNode }) 
 
   // Minimal layout (no sidebar, no topbar): always for these routes so we never flash AppShell.
   if (useMinimalLayout) {
-    return <>{children}</>;
+    return (
+      <>
+        <ImpersonationBanner />
+        {children}
+      </>
+    );
   }
 
   // Defer pathname-dependent layout for other routes until mounted (avoid hydration mismatch).
   if (!mounted) {
     return (
       <MaintenanceGate>
+        <ImpersonationBanner />
         <VerifyEmailBanner />
         <AppShell>{children}</AppShell>
       </MaintenanceGate>
@@ -37,6 +44,7 @@ export default function LayoutGate({ children }: { children: React.ReactNode }) 
 
   return (
     <MaintenanceGate>
+      <ImpersonationBanner />
       <VerifyEmailBanner />
       <AppShell>{children}</AppShell>
     </MaintenanceGate>

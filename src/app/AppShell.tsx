@@ -49,6 +49,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isLibraryPage = pathname === "/library";
   const isCreatorsOnboarding = pathname === "/creators/onboarding";
   const isDashboardEarnings = pathname === "/dashboard/earnings";
+  const isAdminPage = pathname.startsWith("/admin");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -67,8 +68,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const mainClasses =
-    isCreatorsOnboarding || isDashboardEarnings
-      ? "flex-1 min-h-0 overflow-y-auto"
+    isCreatorsOnboarding || isDashboardEarnings || isAdminPage
+      ? "flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
       : isLibraryPage
         ? "flex-1 overflow-hidden library-page-main"
         : "flex-1 overflow-hidden";

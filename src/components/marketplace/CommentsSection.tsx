@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../auth/AuthContext";
-import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
 
@@ -118,6 +117,7 @@ type CommentItemProps = {
   depth: number;
   isCreator: boolean;
   creatorAvatarUrl: string | null;
+  verifiedByUserId: Record<string, boolean>;
 
   onReply: (parentId: string, content: string) => Promise<void>;
   onReact: (id: string, type: "like" | "dislike") => Promise<void>;
@@ -130,6 +130,7 @@ function CommentItem({
   depth,
   isCreator,
   creatorAvatarUrl,
+  verifiedByUserId,
   onReply,
   onReact,
   onTogglePin,
@@ -193,8 +194,9 @@ function CommentItem({
               name={comment.user_name || comment.user_handle || "Anonymous"}
               handle={comment.user_handle}
               userId={comment.user_id}
-              showBadge={true}
-              badgeSize="md"
+              verified={
+                comment.user_id ? Boolean(verifiedByUserId[String(comment.user_id)]) : false
+              }
               className="min-w-0 truncate text-[13px] font-semibold text-white"
             />
             {comment.user_handle && (
@@ -346,6 +348,7 @@ function CommentItem({
                   depth={depth + 1}
                   isCreator={isCreator}
                   creatorAvatarUrl={creatorAvatarUrl}
+                  verifiedByUserId={verifiedByUserId}
                   onReply={onReply}
                   onReact={onReact}
                   onTogglePin={onTogglePin}
@@ -365,6 +368,7 @@ export default function CommentsSection({ listingId, listingOwnerId }: CommentsS
   const { userId, profile, requireAuth } = useAuth();
 
   const [rows, setRows] = useState<CommentRow[]>([]);
+  const [verifiedByUserId, setVerifiedByUserId] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [newContent, setNewContent] = useState("");
@@ -486,6 +490,31 @@ export default function CommentsSection({ listingId, listingOwnerId }: CommentsS
 
   const tree = useMemo(() => buildCommentTree(rows), [rows]);
 
+  useEffect(() => {
+    const ids = [...new Set(rows.map((r) => r.user_id).filter(Boolean) as string[])] as string[];
+    if (ids.length === 0) {
+      setVerifiedByUserId({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, is_verified_creator")
+        .in("id", ids);
+      if (cancelled || error) return;
+      const m: Record<string, boolean> = {};
+      for (const p of data ?? []) {
+        if (p?.id != null)
+          m[String(p.id)] = Boolean((p as { is_verified_creator?: boolean }).is_verified_creator);
+      }
+      setVerifiedByUserId(m);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, supabase]);
+
   const handleAddComment = async (parentId: string | null, content: string) => {
     if (!content.trim()) return;
     if (!requireAuth()) return;
@@ -534,6 +563,9 @@ export default function CommentsSection({ listingId, listingOwnerId }: CommentsS
 
       if (data && isCommentRow(data)) {
         setRows((prev) => [...prev, data]);
+        if (userId && profile?.is_verified_creator) {
+          setVerifiedByUserId((prev) => ({ ...prev, [String(userId)]: true }));
+        }
       } else if (data) {
         // Supabase returned a weird shape; reload to be safe
         loadComments();
@@ -732,6 +764,7 @@ export default function CommentsSection({ listingId, listingOwnerId }: CommentsS
                 depth={0}
                 isCreator={isCreator}
                 creatorAvatarUrl={creatorAvatarUrl}
+                verifiedByUserId={verifiedByUserId}
                 onReply={(parentId, content) => handleAddComment(parentId, content)}
                 onReact={handleReact}
                 onTogglePin={handleTogglePin}

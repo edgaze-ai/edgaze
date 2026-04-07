@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getUserAndClient } from "@/lib/auth/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
+import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { stripe } from "@/lib/stripe/client";
 import { stripeConfig, calculatePaymentSplit } from "@/lib/stripe/config";
 import { MIN_TRANSACTION_USD, WORKFLOW_MIN_USD } from "@/lib/marketplace/pricing";
@@ -16,6 +18,16 @@ export async function POST(req: Request) {
 
     if (!user || !supabase) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const actor = await resolveActorContext(req, user);
+      assertNotImpersonating(actor.actorMode);
+    } catch (e) {
+      if (e instanceof ImpersonationForbiddenError) {
+        return NextResponse.json({ error: e.message }, { status: 403 });
+      }
+      throw e;
     }
 
     const body = await req.json();

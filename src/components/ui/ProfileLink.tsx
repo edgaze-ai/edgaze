@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { cn } from "../../lib/utils";
-import FoundingCreatorBadge from "./FoundingCreatorBadge";
+import VerifiedCreatorBadge from "./VerifiedCreatorBadge";
 
 type ProfileLinkProps = {
   name: string | null | undefined;
@@ -12,9 +12,9 @@ type ProfileLinkProps = {
   href?: string | null;
   className?: string;
   linkClassName?: string;
-  showBadge?: boolean;
-  badgeSize?: "xs" | "sm" | "md" | "lg";
-  badgeCompact?: boolean;
+  /** Edgaze verified creator (identity + quality reviewed). */
+  verified?: boolean;
+  verifiedSize?: "xs" | "sm" | "md";
   children?: React.ReactNode;
   onClick?: () => void;
 };
@@ -26,9 +26,8 @@ export default function ProfileLink({
   href,
   className,
   linkClassName,
-  showBadge = false,
-  badgeSize = "sm",
-  badgeCompact = false,
+  verified = false,
+  verifiedSize = "sm",
   children,
   onClick,
 }: ProfileLinkProps) {
@@ -39,17 +38,16 @@ export default function ProfileLink({
     return null;
   }, [href, handle, userId]);
 
-  const content = (
-    <>
-      {children || (
-        <span className={cn("min-w-0 truncate", showBadge && "flex-1", className)}>
-          {name || "Creator"}
-        </span>
-      )}
-      {showBadge && (
-        <FoundingCreatorBadge size={badgeSize} compact={badgeCompact} className="shrink-0" />
-      )}
-    </>
+  const nameClasses = cn("min-w-0 truncate", className);
+
+  const nameEl = children ?? <span className={nameClasses}>{name || "Creator"}</span>;
+  const content = verified ? (
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+      {nameEl}
+      <VerifiedCreatorBadge size={verifiedSize} variant="mark" />
+    </span>
+  ) : (
+    nameEl
   );
 
   const linkClasses = cn("cursor-pointer hover:opacity-80 transition-opacity", linkClassName);

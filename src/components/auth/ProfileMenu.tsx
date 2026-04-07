@@ -7,7 +7,6 @@ import Image from "next/image";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { useAuth } from "./AuthContext";
 import { DEFAULT_AVATAR_SRC } from "../../config/branding";
-import FoundingCreatorBadge from "../ui/FoundingCreatorBadge";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
 
@@ -31,7 +30,8 @@ function safeHandle(input: unknown) {
 }
 
 export default function ProfileMenu() {
-  const { user, profile, signOut, openSignIn, userId } = useAuth();
+  const { user, profile, signOut, openSignIn, userId, workspaceUserId } = useAuth();
+  const activeUserId = workspaceUserId || userId;
 
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -54,7 +54,7 @@ export default function ProfileMenu() {
   const avatarSrc = profile?.avatar_url || DEFAULT_AVATAR_SRC;
 
   // Signed out
-  if (!userId) {
+  if (!activeUserId) {
     return (
       <button
         type="button"
@@ -81,7 +81,7 @@ export default function ProfileMenu() {
           avatarUrl={profile?.avatar_url || null}
           size={28}
           handle={readyHandle}
-          userId={userId}
+          userId={activeUserId}
           href={null}
           className="border-0"
         />
@@ -91,11 +91,10 @@ export default function ProfileMenu() {
             <ProfileLink
               name={profile?.full_name || profile?.handle || (user as any)?.name || "Creator"}
               handle={readyHandle}
-              userId={userId}
+              userId={activeUserId}
               href={null}
-              showBadge={true}
-              badgeSize="xs"
-              badgeCompact={true}
+              verified={Boolean(profile?.is_verified_creator)}
+              verifiedSize="xs"
               className="text-xs font-medium text-white/90 break-words"
             />
           </div>

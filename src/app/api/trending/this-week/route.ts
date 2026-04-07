@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
+import { attachOwnerProfileFields } from "../../../../lib/marketplace/attachOwnerProfileFields";
 import { createSupabaseAdminClient } from "../../../../lib/supabase/admin";
 
 const LIMIT = 15;
@@ -26,6 +27,9 @@ export type TrendingItem = {
   like_count: number | null;
   created_at: string | null;
   published_at?: string | null;
+  owner_avatar_url?: string | null;
+  owner_is_verified_creator?: boolean | null;
+  owner_is_verified?: boolean;
 };
 
 export type TrendingThisWeekResponse = {
@@ -205,12 +209,23 @@ async function fetchTrendingData(): Promise<TrendingThisWeekResponse> {
     .sort((a, b) => b.s - a.s)
     .slice(0, LIMIT);
 
-  const topWorkflowsThisWeek = scoredWorkflows.map(({ w }) =>
+  const topWorkflowsRaw = scoredWorkflows.map(({ w }) =>
     toItem(w as Record<string, unknown>, "workflow"),
   );
-  const topPromptsThisWeek = scoredPrompts.map(({ p }) =>
+  const topPromptsRaw = scoredPrompts.map(({ p }) =>
     toItem(p as Record<string, unknown>, "prompt"),
   );
+
+  await attachOwnerProfileFields(supabase, [...topWorkflowsRaw, ...topPromptsRaw]);
+
+  const attach = (items: TrendingItem[]): TrendingItem[] =>
+    items.map((it) => ({
+      ...it,
+      owner_is_verified: Boolean(it.owner_is_verified_creator),
+    }));
+
+  const topWorkflowsThisWeek = attach(topWorkflowsRaw);
+  const topPromptsThisWeek = attach(topPromptsRaw);
 
   return { topWorkflowsThisWeek, topPromptsThisWeek };
 }

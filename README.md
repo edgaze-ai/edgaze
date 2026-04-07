@@ -39,7 +39,7 @@ Creators build in the **Prompt Studio** or **Workflow Builder**, set a price, an
 <td width="25%" align="center"><strong>Hosted Execution</strong><br/><sub>Runs happen on-platform. Buyers get results, not configuration.</sub></td>
 <td width="25%" align="center"><strong>Creator Economy</strong><br/><sub>Stripe Connect payouts, earnings dashboards, tier-based run quotas.</sub></td>
 <td width="25%" align="center"><strong>Canonical Identity</strong><br/><sub>Every asset has a permanent URL and a short Edgaze code.</sub></td>
-<td width="25%" align="center"><strong>Curated Quality</strong><br/><sub>Invite-gated onboarding and moderation keep the catalog clean.</sub></td>
+<td width="25%" align="center"><strong>Curated Quality</strong><br/><sub>Open onboarding with moderation to keep the catalog clean.</sub></td>
 </tr>
 </table>
 

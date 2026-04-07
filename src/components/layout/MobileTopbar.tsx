@@ -41,7 +41,8 @@ function Avatar({
 
 export default function MobileTopbar() {
   const { toggleMobile } = useSidebar();
-  const { userId, profile, openSignIn, signOut } = useAuth();
+  const { userId, workspaceUserId, profile, openSignIn, signOut } = useAuth();
+  const activeUserId = workspaceUserId || userId;
   const router = useRouter();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -82,7 +83,7 @@ export default function MobileTopbar() {
 
       {/* RIGHT */}
       <div className="relative">
-        {userId && profile ? (
+        {activeUserId && profile ? (
           <>
             <button
               ref={pillRef}
@@ -96,7 +97,7 @@ export default function MobileTopbar() {
                 avatarUrl={profile.avatar_url || null}
                 size={26}
                 handle={profile.handle}
-                userId={userId}
+                userId={activeUserId}
                 className="border-0"
               />
             </button>

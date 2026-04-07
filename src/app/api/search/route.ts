@@ -12,6 +12,7 @@ export type ProfileHit = {
   displayName: string;
   handle: string | null;
   avatarUrl: string | null;
+  isVerifiedCreator?: boolean;
 };
 
 export type WorkflowHit = {
@@ -68,7 +69,7 @@ export async function GET(req: NextRequest) {
     // ---- Profiles search ----
     const { data: profileRows, error: profileError } = await supabase
       .from("profiles")
-      .select("id, display_name, handle, avatar_url")
+      .select("id, display_name, handle, avatar_url, is_verified_creator")
       .or(
         `display_name.ilike.%${escaped}%,handle.ilike.%${escaped}%`, // name or handle (escaped to prevent LIKE wildcard abuse)
       )
@@ -84,6 +85,7 @@ export async function GET(req: NextRequest) {
         displayName: p.display_name ?? "Creator",
         handle: p.handle ?? null,
         avatarUrl: p.avatar_url ?? null,
+        isVerifiedCreator: Boolean(p.is_verified_creator),
       })) ?? [];
 
     // ---- Workflows search ----

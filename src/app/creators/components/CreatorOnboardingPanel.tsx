@@ -18,7 +18,8 @@ type State =
 
 export default function CreatorOnboardingPanel() {
   const router = useRouter();
-  const { userId, profile, authReady, openSignIn, refreshProfile } = useAuth();
+  const { userId, profile, workspaceUserId, authReady, openSignIn, refreshProfile } = useAuth();
+  const activeWorkspaceId = workspaceUserId || userId;
   const [connectStatus, setConnectStatus] = useState<{
     hasAccount?: boolean;
     status?: string;
@@ -29,7 +30,7 @@ export default function CreatorOnboardingPanel() {
   const [pendingClaimCents, setPendingClaimCents] = useState<number | null>(null);
 
   const fetchStatus = useCallback(async () => {
-    if (!userId) {
+    if (!activeWorkspaceId) {
       setConnectStatus(null);
       return;
     }
@@ -42,11 +43,11 @@ export default function CreatorOnboardingPanel() {
     } catch {
       setConnectStatus(null);
     }
-  }, [userId]);
+  }, [activeWorkspaceId]);
 
   useEffect(() => {
     if (!authReady) return;
-    if (!userId) {
+    if (!activeWorkspaceId) {
       queueMicrotask(() => {
         setLoading(false);
         setConnectStatus(null);
@@ -58,10 +59,10 @@ export default function CreatorOnboardingPanel() {
       setLoading(true);
       fetchStatus().finally(() => setLoading(false));
     });
-  }, [authReady, userId, fetchStatus]);
+  }, [activeWorkspaceId, authReady, fetchStatus]);
 
   useEffect(() => {
-    if (!userId || connectStatus?.readyToProcessPayments) return;
+    if (!activeWorkspaceId || connectStatus?.readyToProcessPayments) return;
     (async () => {
       try {
         const res = await fetch("/api/creator/earnings");
@@ -73,11 +74,11 @@ export default function CreatorOnboardingPanel() {
         // ignore
       }
     })();
-  }, [userId, connectStatus?.readyToProcessPayments]);
+  }, [activeWorkspaceId, connectStatus?.readyToProcessPayments]);
 
   const state: State = (() => {
     if (!authReady || loading) return "loading";
-    if (!userId) return "logged_out";
+    if (!activeWorkspaceId) return "logged_out";
     if (!profile?.avatar_url || profile.avatar_url === "") return "no_avatar";
     if (connectStatus?.readyToProcessPayments) return "complete";
     if (connectStatus?.hasAccount && !connectStatus?.readyToProcessPayments)
@@ -198,7 +199,7 @@ export default function CreatorOnboardingPanel() {
                     avatarUrl={profile?.avatar_url || null}
                     size={72}
                     handle={profile?.handle}
-                    userId={userId || ""}
+                    userId={activeWorkspaceId || ""}
                   />
                 </div>
                 <div className="min-w-0 flex-1">

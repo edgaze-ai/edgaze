@@ -8,6 +8,7 @@ import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import HandleChangeWarningDialog from "../../components/settings/HandleChangeWarningDialog";
 import HandleCooldownBanner from "../../components/settings/HandleCooldownBanner";
 import { UserApiKeysPanel } from "../../components/settings/UserApiKeysPanel";
+import { CreatorProgramSettingsPanel } from "../../components/settings/CreatorProgramSettingsPanel";
 import {
   ArrowLeft,
   Shield,
@@ -22,6 +23,7 @@ import {
   BadgeCheck,
   LogIn,
   KeyRound,
+  Sparkles,
 } from "lucide-react";
 
 function normalizeHandle(input: string) {
@@ -38,6 +40,7 @@ const HANDLE_REGEX = /^[a-z0-9_]{3,24}$/;
 
 const SECTIONS = [
   { id: "account", label: "Account", icon: User },
+  { id: "creator-program", label: "Creator program", icon: Sparkles },
   { id: "api-keys", label: "API keys", icon: KeyRound },
   { id: "preferences", label: "Preferences", icon: Bell },
 ] as const;
@@ -542,6 +545,22 @@ export default function SettingsPage() {
               </section>
             )}
 
+            {activeSection === "creator-program" && (
+              <section id="creator-program" className="space-y-8">
+                <div>
+                  <h2 className="text-[24px] lg:text-[28px] font-semibold text-white tracking-tight">
+                    Creator program
+                  </h2>
+                  <p className="text-[14px] text-white/50 mt-1.5">
+                    Your creator identity, Stripe payout status, and marketplace earnings
+                  </p>
+                </div>
+                <CreatorProgramSettingsPanel
+                  shouldAutoRedirect={activeSection === "creator-program"}
+                />
+              </section>
+            )}
+
             {activeSection === "api-keys" && (
               <section id="api-keys" className="space-y-8">
                 <div>
@@ -658,6 +677,19 @@ export default function SettingsPage() {
                   )}
                 </div>
               </SettingSection>
+            </section>
+
+            <section id="creator-program-mobile" className="space-y-8">
+              <div className="pb-4 border-b border-white/[0.12]">
+                <h2 className="text-[24px] font-semibold text-white tracking-tight flex items-center gap-3">
+                  <Sparkles className="h-6 w-6 text-white/60" />
+                  Creator program
+                </h2>
+                <p className="text-[14px] text-white/50 mt-2">
+                  Payout status, earnings, and your public creator profile
+                </p>
+              </div>
+              <CreatorProgramSettingsPanel shouldAutoRedirect={false} />
             </section>
 
             <section id="api-keys-mobile" className="space-y-8">

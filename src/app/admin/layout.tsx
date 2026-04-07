@@ -54,6 +54,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   Traces
                 </Link>
                 <Link
+                  href="/admin/creators"
+                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
+                >
+                  Creators
+                </Link>
+                <Link
+                  href="/admin/verified-creators"
+                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
+                >
+                  Verified
+                </Link>
+                <Link
                   href="/admin/invites"
                   className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
                 >

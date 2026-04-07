@@ -32,6 +32,9 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
+const SIDEBAR_SPRING = "duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]";
+const SIDEBAR_FADE = "duration-200 ease-out";
+
 /* -------------------- NAV GROUPS -------------------- */
 
 const WORKSPACE_ITEMS: NavItem[] = [
@@ -50,11 +53,9 @@ function getCreatorItems(canReceivePayments: boolean | null | undefined): NavIte
     canReceivePayments
       ? { href: "/dashboard/earnings", label: "Earnings", icon: DollarSign }
       : { href: "/creators", label: "Monetisation", icon: DollarSign },
+    { href: "/profile?from=sidebar", label: "Profile", icon: User },
   ];
 }
-
-// Include a query param so /profile can show a sign-in CTA only when opened from sidebar.
-const ACCOUNT_ITEMS: NavItem[] = [{ href: "/profile?from=sidebar", label: "Profile", icon: User }];
 
 const FOOTER_ITEMS: NavItem[] = [
   { href: "/help", label: "Help", icon: HelpCircle },
@@ -68,7 +69,8 @@ export default function Sidebar() {
   const { collapsed, setCollapsed } = useSidebar();
 
   // Supabase auth
-  const { profile, userId, openSignIn, signOut, loading } = useAuth();
+  const { profile, userId, workspaceUserId, openSignIn, signOut, loading } = useAuth();
+  const activeUserId = workspaceUserId || userId;
 
   const displayName =
     profile?.full_name?.trim() || (profile?.handle ? `@${profile.handle}` : "") || "Your account";
@@ -100,28 +102,42 @@ export default function Sidebar() {
       className={cn(
         // z-index: keep sidebar above any page-level fixed/absolute backgrounds in content
         "relative z-[90] flex-shrink-0 h-screen border-r border-white/10 bg-[#050505]",
-        "transition-[width] duration-200 ease-out will-change-[width]",
+        `transition-[width] will-change-[width] ${SIDEBAR_SPRING}`,
         widthClass,
       )}
     >
-      <div className="relative flex h-full flex-col px-3 pt-4 pb-3 gap-6">
+      <div className="relative flex h-full flex-col gap-4 px-3 pt-3.5 pb-2.5">
         {/* TOP LOGO */}
-        <div className={cn("flex items-center gap-3 overflow-hidden", collapsed ? "pl-[2px]" : "")}>
-          <div className="flex items-center gap-3 overflow-hidden">
+        <div className="overflow-hidden">
+          <div
+            className={cn(
+              "grid items-center overflow-hidden",
+              `transition-[grid-template-columns] ${SIDEBAR_SPRING}`,
+              collapsed ? "grid-cols-[44px_0fr]" : "grid-cols-[44px_minmax(0,1fr)]",
+            )}
+          >
             <div className="relative h-11 w-11 flex-shrink-0">
               <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="44px" />
             </div>
-            {!collapsed && (
-              <span className="truncate text-[20px] font-semibold tracking-tight text-white">
+            <div className="min-w-0 overflow-hidden">
+              <span
+                className={cn(
+                  "block whitespace-nowrap pl-3 text-[20px] font-semibold tracking-tight text-white",
+                  `transition-[opacity,transform] ${SIDEBAR_FADE}`,
+                  collapsed
+                    ? "pointer-events-none -translate-x-2 opacity-0"
+                    : "translate-x-0 opacity-100 delay-75",
+                )}
+              >
                 edgaze
               </span>
-            )}
+            </div>
           </div>
         </div>
 
         {/* ACCOUNT CHIP (expanded only) */}
         {!collapsed ? (
-          <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset] px-3.5 py-3">
+          <div className="min-h-[56px] rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] px-3.5 py-2.5 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset]">
             {loading ? (
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/10" />
@@ -130,14 +146,14 @@ export default function Sidebar() {
                   <div className="h-3 w-16 rounded bg-white/5" />
                 </div>
               </div>
-            ) : userId && profile ? (
+            ) : activeUserId && profile ? (
               <div className="flex items-center gap-3 min-w-0">
                 <ProfileAvatar
                   name={displayName}
                   avatarUrl={profile?.avatar_url || null}
                   size={36}
                   handle={profile?.handle}
-                  userId={userId}
+                  userId={activeUserId}
                 />
 
                 <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
@@ -145,8 +161,9 @@ export default function Sidebar() {
                     <ProfileLink
                       name={displayName}
                       handle={profile?.handle}
-                      userId={userId}
-                      showBadge={false}
+                      userId={activeUserId}
+                      verified={Boolean(profile?.is_verified_creator)}
+                      verifiedSize="xs"
                       linkClassName="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
                       className="truncate text-[13px] font-semibold text-white/95"
                     />
@@ -184,16 +201,16 @@ export default function Sidebar() {
             )}
           </div>
         ) : (
-          <div className="flex justify-center rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset] px-3.5 py-2.5">
+          <div className="flex min-h-[56px] items-center justify-center rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] px-3.5 py-2 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset]">
             {loading ? (
               <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
-            ) : userId && profile ? (
+            ) : activeUserId && profile ? (
               <ProfileAvatar
                 name={displayName}
                 avatarUrl={profile?.avatar_url || null}
                 size={32}
                 handle={profile?.handle}
-                userId={userId}
+                userId={activeUserId}
               />
             ) : (
               <button
@@ -217,8 +234,8 @@ export default function Sidebar() {
         )}
 
         {/* NAVIGATION */}
-        <div className="flex-1 flex flex-col justify-between gap-4">
-          <div className="flex flex-col gap-3">
+        <div className="flex-1 flex flex-col justify-between gap-3">
+          <div className="flex flex-col gap-2">
             <NavGroup
               title={collapsed ? "" : "Workspace"}
               items={WORKSPACE_ITEMS}
@@ -237,15 +254,9 @@ export default function Sidebar() {
               collapsed={collapsed}
               isActive={isActive}
             />
-            <NavGroup
-              title={collapsed ? "" : "Account"}
-              items={ACCOUNT_ITEMS}
-              collapsed={collapsed}
-              isActive={isActive}
-            />
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             <NavGroup
               title={collapsed ? "" : "Support"}
               items={FOOTER_ITEMS}
@@ -270,13 +281,22 @@ type NavGroupProps = {
 
 function NavGroup({ title, items, collapsed, isActive }: NavGroupProps) {
   return (
-    <div className="flex flex-col gap-1.5">
-      {title && (
-        <div className="px-1 text-[11px] font-medium uppercase tracking-[0.12em] text-white/35">
+    <div className="flex flex-col gap-1">
+      <div className="flex h-3 items-end overflow-hidden px-1">
+        <span
+          aria-hidden={collapsed}
+          className={cn(
+            "block whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.1em] text-white/35",
+            `transition-[opacity,transform] ${SIDEBAR_FADE}`,
+            collapsed
+              ? "pointer-events-none -translate-y-1 opacity-0"
+              : "translate-y-0 opacity-100 delay-75",
+          )}
+        >
           {title}
-        </div>
-      )}
-      <div className="flex flex-col gap-1.5">
+        </span>
+      </div>
+      <div className="flex flex-col gap-1">
         {items.map((item) => (
           <NavButton
             key={item.href}
@@ -310,14 +330,26 @@ function NavButton({ item, collapsed, active }: NavButtonProps) {
       <div
         className={cn(
           "flex items-center gap-3 rounded-2xl px-3.5 py-3",
-          "transition-colors duration-150",
+          `transition-[background-color,border-color,box-shadow,transform] ${SIDEBAR_FADE}`,
           active
             ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.55)]"
             : "border border-white/15 bg-white/[0.03] text-white/75 hover:bg-white/[0.06] hover:border-white/25",
         )}
       >
         <Icon className="h-5 w-5 shrink-0" />
-        {!collapsed && <span className="text-sm font-medium truncate">{item.label}</span>}
+        <div className="min-w-0 overflow-hidden">
+          <span
+            className={cn(
+              "block whitespace-nowrap text-sm font-medium",
+              `transition-[max-width,opacity,transform] ${SIDEBAR_SPRING}`,
+              collapsed
+                ? "pointer-events-none max-w-0 -translate-x-2 opacity-0"
+                : "max-w-[140px] translate-x-0 opacity-100 delay-75",
+            )}
+          >
+            {item.label}
+          </span>
+        </div>
       </div>
     </Link>
   );

@@ -13,6 +13,9 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createServerClient } from "@/lib/supabase/server";
+import { getUserAndClient } from "@/lib/auth/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
+import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { stripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/stripe/config";
 
@@ -21,16 +24,24 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createServerClient();
+    const bearerAuth = await getUserAndClient(req);
+    const user = bearerAuth.user;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    try {
+      const actor = await resolveActorContext(req, user);
+      assertNotImpersonating(actor.actorMode);
+    } catch (e) {
+      if (e instanceof ImpersonationForbiddenError) {
+        return NextResponse.json({ error: e.message }, { status: 403 });
+      }
+      throw e;
+    }
+
+    const supabase = await createServerClient();
 
     const body = await req.json();
     const {

@@ -7,9 +7,9 @@ import { useAuth } from "src/components/auth/AuthContext";
 import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, BadgeCheck, Compass, Link2, Search, Sparkles } from "lucide-react";
-import FoundingCreatorBadge from "src/components/ui/FoundingCreatorBadge";
 import Footer from "src/components/layout/Footer";
 import TrendingThisWeekSection from "src/components/home/TrendingThisWeekSection";
+import ProfileLink from "src/components/ui/ProfileLink";
 import dynamic from "next/dynamic";
 import { HeroCollectToBox } from "src/components/home/HeroCollectToBox";
 import { LandingNav } from "src/components/landing-nav";
@@ -1308,6 +1308,7 @@ function CodeEntry() {
   const [status, setStatus] = useState<"idle" | "searching" | "going">("idle");
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [verifiedByHandle, setVerifiedByHandle] = useState<Record<string, boolean>>({});
   const [openSug, setOpenSug] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -1397,6 +1398,7 @@ function CodeEntry() {
 
     if (!q0) {
       setSuggestions([]);
+      setVerifiedByHandle({});
       setOpenSug(false);
       setStatus("idle");
       setDismissed(false);
@@ -1421,6 +1423,24 @@ function CodeEntry() {
         if (reqIdRef.current !== id) return;
         setSuggestions(res);
         setActiveIdx(0);
+        const handles = [...new Set(res.map((s) => s.owner_handle.toLowerCase()).filter(Boolean))];
+        if (handles.length === 0) {
+          setVerifiedByHandle({});
+        } else {
+          const { data: vrows } = await supabase
+            .from("profiles")
+            .select("handle, is_verified_creator")
+            .in("handle", handles);
+          const m: Record<string, boolean> = {};
+          for (const r of vrows ?? []) {
+            if (r && (r as { handle?: string }).handle) {
+              m[String((r as { handle: string }).handle).toLowerCase()] = Boolean(
+                (r as { is_verified_creator?: boolean }).is_verified_creator,
+              );
+            }
+          }
+          setVerifiedByHandle(m);
+        }
       } catch {
         // keep panel open; error handled via empty state
       } finally {
@@ -1636,10 +1656,15 @@ function CodeEntry() {
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge kind={s.kind} />
                                 <div className="flex flex-wrap items-center gap-2 min-w-0">
-                                  <span className="truncate text-xs text-white/60">
-                                    @{s.owner_handle}
-                                  </span>
-                                  <FoundingCreatorBadge size="sm" className="shrink-0" />
+                                  <ProfileLink
+                                    name={`@${s.owner_handle}`}
+                                    handle={s.owner_handle}
+                                    verified={Boolean(
+                                      verifiedByHandle[s.owner_handle.toLowerCase()],
+                                    )}
+                                    verifiedSize="xs"
+                                    className="min-w-0 truncate text-xs text-white/60"
+                                  />
                                 </div>
                                 <div className="text-xs text-white/40">·</div>
                                 <div className="text-xs font-semibold text-white/70 truncate">

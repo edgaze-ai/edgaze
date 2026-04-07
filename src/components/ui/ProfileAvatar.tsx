@@ -13,6 +13,38 @@ function initialsFromName(name: string | null | undefined): string {
     .join("");
 }
 
+function AvatarImageOrFallback({
+  avatarUrl,
+  name,
+  showFallback,
+  fontSize,
+}: {
+  avatarUrl: string;
+  name: string | null | undefined;
+  showFallback: boolean;
+  fontSize: string;
+}) {
+  const [imageError, setImageError] = useState(false);
+  const initials = useMemo(() => initialsFromName(name), [name]);
+
+  if (imageError || !avatarUrl) {
+    return showFallback ? (
+      <div className="flex h-full w-full items-center justify-center bg-gray-600 text-white/80">
+        <span className={cn("font-semibold", fontSize)}>{initials}</span>
+      </div>
+    ) : null;
+  }
+
+  return (
+    <img
+      src={avatarUrl}
+      alt={name || "Profile"}
+      className="h-full w-full object-cover"
+      onError={() => setImageError(true)}
+    />
+  );
+}
+
 type ProfileAvatarProps = {
   name: string | null | undefined;
   avatarUrl?: string | null;
@@ -36,9 +68,6 @@ export default function ProfileAvatar({
   onClick,
   href,
 }: ProfileAvatarProps) {
-  const [imageError, setImageError] = useState(false);
-  const [imageLoading, setImageLoading] = useState(true);
-
   const initials = useMemo(() => initialsFromName(name), [name]);
 
   const profileHref = useMemo(() => {
@@ -59,29 +88,15 @@ export default function ProfileAvatar({
       )}
       style={{ width: px, height: px }}
     >
-      {avatarUrl && !imageError ? (
-        // Show image with fallback while loading
-        <>
-          {imageLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-600 text-white/80 z-10">
-              <span className={cn("font-semibold", fontSize)}>{initials}</span>
-            </div>
-          )}
-          {}
-          <img
-            src={avatarUrl}
-            alt={name || "Profile"}
-            className="h-full w-full object-cover"
-            onLoad={() => setImageLoading(false)}
-            onError={() => {
-              setImageError(true);
-              setImageLoading(false);
-            }}
-            loading="lazy"
-          />
-        </>
+      {avatarUrl ? (
+        <AvatarImageOrFallback
+          key={avatarUrl}
+          avatarUrl={avatarUrl}
+          name={name}
+          showFallback={showFallback}
+          fontSize={fontSize}
+        />
       ) : showFallback ? (
-        // Show fallback initials
         <div className="flex h-full w-full items-center justify-center bg-gray-600 text-white/80">
           <span className={cn("font-semibold", fontSize)}>{initials}</span>
         </div>

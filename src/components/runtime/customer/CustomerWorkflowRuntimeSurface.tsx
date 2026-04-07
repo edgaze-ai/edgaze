@@ -85,6 +85,42 @@ function downloadValue(filename: string, value: unknown) {
   URL.revokeObjectURL(url);
 }
 
+async function downloadImageFromSrc(src: string): Promise<void> {
+  const stamp = Date.now();
+  if (/^data:image\//i.test(src)) {
+    const a = document.createElement("a");
+    a.href = src;
+    a.download = `image-${stamp}.png`;
+    a.rel = "noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return;
+  }
+  const res = await fetch(src, { mode: "cors" });
+  if (!res.ok) throw new Error("Download failed");
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  const mime = blob.type || "";
+  const ext = mime.includes("png")
+    ? "png"
+    : mime.includes("webp")
+      ? "webp"
+      : mime.includes("gif")
+        ? "gif"
+        : mime.includes("svg")
+          ? "svg"
+          : "jpg";
+  a.download = `image-${stamp}.${ext}`;
+  a.rel = "noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 function isProbablyMarkdown(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
@@ -286,11 +322,18 @@ function ResultPanel({
 }) {
   const canExpand = Boolean(onToggleExpand);
   const [copied, setCopied] = useState(false);
+  const [imageDownloadBusy, setImageDownloadBusy] = useState(false);
+  const [imageDownloadError, setImageDownloadError] = useState(false);
 
   if (isImageLike(value)) {
     const imgSrc = typeof value === "string" ? value.trim() : "";
     return (
-      <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.34)]">
+      <div
+        className={cx(
+          "rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.34)]",
+          expanded && "flex min-h-0 flex-1 flex-col",
+        )}
+      >
         <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-white/42">
           <span>{label}</span>
           {canExpand && (
@@ -311,18 +354,24 @@ function ResultPanel({
         <div className="mt-3 text-[16px] font-medium text-white/92">Your image is ready</div>
         <div
           className={cx(
-            // Avoid cropping: let the <img> size itself, only cap max-height.
-            "mt-4 rounded-2xl border border-white/10 bg-black/30 p-3",
-            expanded ? "max-h-[72vh]" : "max-h-[420px]",
+            "mt-4 flex min-h-0 justify-center rounded-2xl border border-white/10 bg-black/30 p-3",
+            expanded ? "min-h-0 flex-1 items-center py-4 sm:py-6" : "max-h-[420px]",
           )}
         >
-          <div className="h-full w-full overflow-auto">
+          <div
+            className={cx(
+              "w-full overflow-auto",
+              expanded && "flex max-h-[min(80dvh,900px)] items-center justify-center",
+            )}
+          >
             <img
               src={imgSrc}
               alt="Generated image"
               className={cx(
-                "mx-auto block w-full object-contain",
-                expanded ? "max-h-[68vh]" : "max-h-[392px]",
+                "mx-auto block object-contain",
+                expanded
+                  ? "h-auto max-h-[min(80dvh,860px)] w-auto max-w-full"
+                  : "max-h-[392px] w-full",
               )}
               style={{ height: "auto" }}
               onError={(e) => {
@@ -333,31 +382,30 @@ function ResultPanel({
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
+          {imageDownloadError && (
+            <span className="text-xs text-rose-300/90">
+              Couldn&apos;t download. Try expanding and saving from your browser.
+            </span>
+          )}
           <button
             type="button"
+            disabled={!imgSrc || imageDownloadBusy}
             onClick={() => {
-              if (!imgSrc) return;
-              window.open(imgSrc, "_blank", "noopener,noreferrer");
+              if (!imgSrc || imageDownloadBusy) return;
+              setImageDownloadError(false);
+              setImageDownloadBusy(true);
+              void downloadImageFromSrc(imgSrc)
+                .catch(() => setImageDownloadError(true))
+                .finally(() => setImageDownloadBusy(false));
             }}
-            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09]"
+            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Open image
-            <ArrowRight className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (!imgSrc) return;
-              const a = document.createElement("a");
-              a.href = imgSrc;
-              a.download = `image-${Date.now()}.jpg`;
-              a.rel = "noreferrer";
-              a.click();
-            }}
-            className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09]"
-          >
-            Download
-            <Download className="h-4 w-4" />
+            {imageDownloadBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {imageDownloadBusy ? "Downloading…" : "Download"}
           </button>
         </div>
       </div>
@@ -512,6 +560,10 @@ function ExecutionChrome({
 
   void elapsedTick;
 
+  const showCancel = model.canCancel && onCancel;
+  const showClose = model.canClose && onClose;
+  if (!showTimer && !showCancel && !showClose) return null;
+
   return (
     <div className={cx("flex items-center gap-3", showTimer ? "justify-between" : "justify-end")}>
       {showTimer && (
@@ -521,7 +573,7 @@ function ExecutionChrome({
         </div>
       )}
       <div className="flex items-center gap-2">
-        {model.canCancel && onCancel && (
+        {showCancel && (
           <button
             type="button"
             onClick={onCancel}
@@ -535,7 +587,7 @@ function ExecutionChrome({
             {state.status === "cancelling" ? "Stopping..." : "Cancel"}
           </button>
         )}
-        {model.canClose && onClose && (
+        {showClose && (
           <button
             type="button"
             onClick={onClose}
@@ -929,8 +981,8 @@ function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?:
   const singleOutput = outputs.length <= 1;
 
   const chrome = (
-    <div className="space-y-5">
-      <div className="text-center">
+    <div className={cx(expanded ? "flex min-h-[min(88dvh,920px)] flex-col gap-5" : "space-y-5")}>
+      <div className={cx("text-center", expanded && "shrink-0")}>
         <div className="text-[34px] font-medium tracking-[-0.04em] text-white md:text-[46px]">
           {title}
         </div>
@@ -942,7 +994,7 @@ function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?:
       </div>
 
       {outputs.length > 1 && (
-        <div className="md:hidden">
+        <div className={cx("md:hidden", expanded && "shrink-0")}>
           <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-2">
             <div className="mb-1 px-3 pt-1.5 text-[11px] uppercase tracking-[0.18em] text-white/42">
               Outputs
@@ -980,6 +1032,8 @@ function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?:
         className={cx(
           "gap-4",
           singleOutput ? "space-y-4" : "grid md:grid-cols-[240px_minmax(0,1fr)]",
+          expanded && "min-h-0 flex-1 flex-col md:min-h-0",
+          expanded && !singleOutput && "md:items-stretch",
         )}
       >
         {outputs.length > 1 && (
@@ -1013,7 +1067,13 @@ function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?:
           </div>
         )}
 
-        <div className={cx("space-y-4", singleOutput && "mx-auto w-full max-w-[1100px]")}>
+        <div
+          className={cx(
+            "space-y-4",
+            singleOutput && "mx-auto w-full max-w-[1100px]",
+            expanded && "flex min-h-0 flex-1 flex-col",
+          )}
+        >
           {activeOutput ? (
             <ResultPanel
               label={formatOutputLabel(activeOutput.label)}
@@ -1051,8 +1111,8 @@ function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?:
             className="fixed inset-0 z-[10005] bg-black/75 backdrop-blur-sm"
             aria-label="Close expanded output"
           />
-          <div className="fixed inset-0 z-[10010] overflow-auto px-4 py-6 md:px-8 md:py-10">
-            <div className="mx-auto w-full max-w-[1260px]">{chrome}</div>
+          <div className="fixed inset-0 z-[10010] overflow-auto px-3 py-5 sm:px-5 sm:py-7 md:px-10 md:py-10">
+            <div className="mx-auto w-full max-w-[min(96vw,1420px)]">{chrome}</div>
           </div>
         </>
       )}
@@ -1116,6 +1176,8 @@ export default function CustomerWorkflowRuntimeSurface({
   onBuyWorkflow,
 }: CustomerWorkflowRuntimeSurfaceProps) {
   const model = deriveCustomerRuntimeModel(state);
+  /** Parent shell (e.g. Premium modal) already provides a topbar close — avoid duplicating it here. */
+  const executionChromeOnClose = hideHeader ? undefined : onClose;
 
   if (!state || !model) {
     return null;
@@ -1163,7 +1225,7 @@ export default function CustomerWorkflowRuntimeSurface({
         <ExecutionChrome
           state={state}
           onCancel={onCancel}
-          onClose={onClose}
+          onClose={executionChromeOnClose}
           showTimer={showExecutionTimer}
         />
       )}
@@ -1183,7 +1245,7 @@ export default function CustomerWorkflowRuntimeSurface({
             <ExecutionChrome
               state={state}
               onCancel={onCancel}
-              onClose={onClose}
+              onClose={executionChromeOnClose}
               showTimer={showExecutionTimer}
             />
           )}
@@ -1205,7 +1267,7 @@ export default function CustomerWorkflowRuntimeSurface({
             <ExecutionChrome
               state={state}
               onCancel={onCancel}
-              onClose={onClose}
+              onClose={executionChromeOnClose}
               showTimer={showExecutionTimer}
             />
           )}
