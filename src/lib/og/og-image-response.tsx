@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
 import type { ReactElement } from "react";
 import { ListingOgCard, type ListingOgCardProps } from "./listing-og-card";
@@ -20,6 +22,16 @@ export function ogImageResponseInit(): {
 }
 
 /** Probes URL so we only pass images into Satori that are likely to decode (fail-soft). */
+/** Reads `public/brand/edgaze-mark.png` for OG cards (Satori-compatible data URL). */
+export async function loadBrandMarkDataUrl(): Promise<string | undefined> {
+  try {
+    const buf = await readFile(path.join(process.cwd(), "public/brand/edgaze-mark.png"));
+    return `data:image/png;base64,${buf.toString("base64")}`;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function remoteImageLikelyRenderable(url: string): Promise<boolean> {
   try {
     const r = await fetch(url, {
@@ -46,8 +58,14 @@ export function imageResponseFromElement(element: ReactElement): ImageResponse {
   return new ImageResponse(element, ogImageResponseInit());
 }
 
-export function minimalBrandedListingCard(): ReactElement {
+export function minimalBrandedListingCard(brandMarkSrc?: string | null): ReactElement {
   return (
-    <ListingOgCard title="Edgaze" creatorName="edgaze.ai" priceLabel="Free" imageUrl={undefined} />
+    <ListingOgCard
+      title="Edgaze"
+      creatorName="edgaze.ai"
+      priceLabel="Free"
+      imageUrl={undefined}
+      brandMarkSrc={brandMarkSrc}
+    />
   );
 }

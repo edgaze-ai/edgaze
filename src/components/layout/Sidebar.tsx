@@ -237,19 +237,14 @@ export default function Sidebar() {
         <div className="flex-1 flex flex-col justify-between gap-3">
           <div className="flex flex-col gap-2">
             <NavGroup
-              title={collapsed ? "" : "Workspace"}
+              title="Workspace"
               items={WORKSPACE_ITEMS}
               collapsed={collapsed}
               isActive={isActive}
             />
+            <NavGroup title="Build" items={BUILD_ITEMS} collapsed={collapsed} isActive={isActive} />
             <NavGroup
-              title={collapsed ? "" : "Build"}
-              items={BUILD_ITEMS}
-              collapsed={collapsed}
-              isActive={isActive}
-            />
-            <NavGroup
-              title={collapsed ? "" : "Creator"}
+              title="Creator"
               items={getCreatorItems(profile?.can_receive_payments)}
               collapsed={collapsed}
               isActive={isActive}
@@ -258,7 +253,7 @@ export default function Sidebar() {
 
           <div className="flex flex-col gap-2">
             <NavGroup
-              title={collapsed ? "" : "Support"}
+              title="Support"
               items={FOOTER_ITEMS}
               collapsed={collapsed}
               isActive={isActive}
@@ -282,14 +277,14 @@ type NavGroupProps = {
 function NavGroup({ title, items, collapsed, isActive }: NavGroupProps) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex h-3 items-end overflow-hidden px-1">
+      <div className="overflow-hidden px-1">
         <span
           aria-hidden={collapsed}
           className={cn(
-            "block whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.1em] text-white/35",
-            `transition-[opacity,transform] ${SIDEBAR_FADE}`,
+            "block h-3 whitespace-nowrap text-[10px] font-medium uppercase leading-[12px] tracking-[0.1em] text-white/35",
+            `transition-[height,opacity,transform] ${SIDEBAR_FADE}`,
             collapsed
-              ? "pointer-events-none -translate-y-1 opacity-0"
+              ? "pointer-events-none h-0 -translate-y-1 opacity-0"
               : "translate-y-0 opacity-100 delay-75",
           )}
         >
@@ -329,14 +324,16 @@ function NavButton({ item, collapsed, active }: NavButtonProps) {
     >
       <div
         className={cn(
-          "flex items-center gap-3 rounded-2xl px-3.5 py-3",
+          "grid grid-cols-[20px_minmax(0,1fr)] items-center gap-3 rounded-2xl px-3.5 py-3",
           `transition-[background-color,border-color,box-shadow,transform] ${SIDEBAR_FADE}`,
           active
             ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.55)]"
             : "border border-white/15 bg-white/[0.03] text-white/75 hover:bg-white/[0.06] hover:border-white/25",
         )}
       >
-        <Icon className="h-5 w-5 shrink-0" />
+        <div className="flex h-5 w-5 items-center justify-center">
+          <Icon className="h-5 w-5 shrink-0" />
+        </div>
         <div className="min-w-0 overflow-hidden">
           <span
             className={cn(

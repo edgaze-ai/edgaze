@@ -102,7 +102,11 @@ const nextConfig = (() => {
       if (!isDev) {
         headers.push(
           { source: '/:path*\\.(jpg|jpeg|png|gif|ico|svg|webp|avif)', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
-          { source: '/:path*\\.(js|css|woff|woff2|ttf|otf)', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
+          // Hashed build output only — avoids long immutable caching on arbitrary .js elsewhere.
+          {
+            source: '/_next/static/:path*',
+            headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+          },
           { source: '/brand/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] }
         );
       }

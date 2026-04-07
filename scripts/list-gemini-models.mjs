@@ -7,6 +7,16 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const geminiEnvNamesPath = path.resolve(
+  __dirname,
+  "../src/lib/workflow/gemini-platform-env-var-names.json",
+);
+const { names: geminiPlatformEnvNames } = JSON.parse(
+  fs.readFileSync(geminiEnvNamesPath, "utf8"),
+);
 
 function parseDotenv(src) {
   const out = {};
@@ -28,10 +38,15 @@ function parseDotenv(src) {
   return out;
 }
 
-let apiKey =
-  process.env.EDGAZE_GEMINI_API_KEY ||
-  process.env.GOOGLE_API_KEY ||
-  process.env.GEMINI_API_KEY;
+function firstSetEnvValue(env, keys) {
+  for (const k of keys) {
+    const v = typeof env[k] === "string" ? env[k].trim() : "";
+    if (v) return v;
+  }
+  return "";
+}
+
+let apiKey = firstSetEnvValue(process.env, geminiPlatformEnvNames);
 
 if (!apiKey) {
   // Best-effort: read repo-local .env.local (common Next.js dev setup).
@@ -39,7 +54,7 @@ if (!apiKey) {
     const envPath = path.resolve(process.cwd(), ".env.local");
     const envRaw = fs.readFileSync(envPath, "utf8");
     const parsed = parseDotenv(envRaw);
-    apiKey = parsed.EDGAZE_GEMINI_API_KEY || parsed.GOOGLE_API_KEY || parsed.GEMINI_API_KEY;
+    apiKey = firstSetEnvValue(parsed, geminiPlatformEnvNames);
   } catch {
     // ignore
   }
@@ -47,7 +62,7 @@ if (!apiKey) {
 
 if (!apiKey) {
   console.error(
-    "Missing EDGAZE_GEMINI_API_KEY (or GOOGLE_API_KEY / GEMINI_API_KEY). Set it or add to .env.local.",
+    `Missing Gemini API key. Set one of (${geminiPlatformEnvNames.join(", ")}) in the environment or .env.local.`,
   );
   process.exit(1);
 }
