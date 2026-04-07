@@ -5,6 +5,8 @@ import { collectTraceHeaders, startTraceSession } from "src/server/trace";
 import { SupabaseWorkflowExecutionRepository } from "src/server/flow-v2/repository";
 import { ensureWorkflowRunWorker } from "src/server/flow-v2/worker-service";
 
+export const runtime = "nodejs";
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ runId: string }> }) {
   const startedAt = Date.now();
   const { runId } = await params;

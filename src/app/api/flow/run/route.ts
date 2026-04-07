@@ -73,6 +73,8 @@ import type {
   SerializableValue,
 } from "src/server/flow-v2/types";
 
+/** Node runtime so workflow code reads deployment `process.env` (platform API keys). */
+export const runtime = "nodejs";
 export const maxDuration = 300;
 
 const FREE_BUILDER_RUNS = 10;

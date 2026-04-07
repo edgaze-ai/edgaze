@@ -10,21 +10,25 @@ function trimEnvKey(v: string | undefined): string | undefined {
   return t.length > 0 ? t : undefined;
 }
 
-const EDGAZE_OPENAI_API_KEY = trimEnvKey(process.env.EDGAZE_OPENAI_API_KEY);
-const EDGAZE_ANTHROPIC_API_KEY = trimEnvKey(process.env.EDGAZE_ANTHROPIC_API_KEY);
+/**
+ * Read deployment/runtime secrets without static `process.env.NAME` patterns.
+ * Next/SWC may inline those at build time as `undefined` when vars exist only on the
+ * hosting provider at runtime (e.g. Vercel Production env not present during `next build`).
+ */
+function readProcessEnv(name: string): string | undefined {
+  if (typeof process === "undefined") return undefined;
+  const env = process.env as Record<string, string | undefined>;
+  return env[name];
+}
 
-if (!EDGAZE_OPENAI_API_KEY) {
-  console.warn("EDGAZE_OPENAI_API_KEY not set. Edgaze-funded runs will not work.");
-}
-if (!EDGAZE_ANTHROPIC_API_KEY) {
-  console.warn("EDGAZE_ANTHROPIC_API_KEY not set. Platform Claude runs will not work.");
-}
+let warnedOpenai = false;
+let warnedAnthropic = false;
+let geminiPlatformKeyWarned = false;
 
 /** Read on each access so serverless/runtime env matches deployment (see gemini-platform-env-var-names.json). */
-let geminiPlatformKeyWarned = false;
 function readGeminiPlatformKey(): string | undefined {
   for (const name of geminiPlatformEnvVarNames.names) {
-    const t = trimEnvKey(process.env[name]);
+    const t = trimEnvKey(readProcessEnv(name));
     if (t) return t;
   }
   if (!geminiPlatformKeyWarned) {
@@ -41,19 +45,29 @@ function readGeminiPlatformKey(): string | undefined {
  * Get Edgaze OpenAI API key (LLM Chat / Image / Embeddings via OpenAI).
  */
 export function getEdgazeApiKey(): string | null {
-  return EDGAZE_OPENAI_API_KEY || null;
+  const key = trimEnvKey(readProcessEnv("EDGAZE_OPENAI_API_KEY"));
+  if (!key && !warnedOpenai) {
+    warnedOpenai = true;
+    console.warn("EDGAZE_OPENAI_API_KEY not set. Edgaze-funded runs will not work.");
+  }
+  return key ?? null;
 }
 
 export function hasEdgazeApiKey(): boolean {
-  return !!EDGAZE_OPENAI_API_KEY;
+  return !!trimEnvKey(readProcessEnv("EDGAZE_OPENAI_API_KEY"));
 }
 
 export function getEdgazeAnthropicApiKey(): string | null {
-  return EDGAZE_ANTHROPIC_API_KEY || null;
+  const key = trimEnvKey(readProcessEnv("EDGAZE_ANTHROPIC_API_KEY"));
+  if (!key && !warnedAnthropic) {
+    warnedAnthropic = true;
+    console.warn("EDGAZE_ANTHROPIC_API_KEY not set. Platform Claude runs will not work.");
+  }
+  return key ?? null;
 }
 
 export function hasEdgazeAnthropicApiKey(): boolean {
-  return !!EDGAZE_ANTHROPIC_API_KEY;
+  return !!trimEnvKey(readProcessEnv("EDGAZE_ANTHROPIC_API_KEY"));
 }
 
 export function getEdgazeGeminiApiKey(): string | null {

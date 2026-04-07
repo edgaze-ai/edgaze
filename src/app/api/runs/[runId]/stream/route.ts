@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 
+export const runtime = "nodejs";
 export const maxDuration = 300;
 
 import { isWorkflowExecutionV2StreamingEnabled } from "src/server/flow-v2/flags";

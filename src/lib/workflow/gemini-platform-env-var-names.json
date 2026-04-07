@@ -1,3 +1,8 @@
 {
-  "names": ["EDGAZE_GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_API_KEY"]
+  "names": [
+    "EDGAZE_GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "GEMINI_API_KEY",
+    "GOOGLE_GENERATIVE_AI_API_KEY"
+  ]
 }
