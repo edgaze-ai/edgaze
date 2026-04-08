@@ -111,8 +111,17 @@ export async function POST(req: NextRequest) {
 
     const admin = createSupabaseAdminClient();
 
-    const { data: clash } = await admin.from("profiles").select("id").eq("handle", h).maybeSingle();
-    if (clash) {
+    const { data: clashRows, error: clashErr } = await admin.rpc(
+      "get_profile_by_handle_insensitive",
+      {
+        handle_input: h,
+      },
+    );
+    if (clashErr) {
+      console.error("[admin/creators POST] handle clash check", clashErr);
+      return NextResponse.json({ error: clashErr.message }, { status: 500 });
+    }
+    if (clashRows && clashRows.length > 0) {
       return NextResponse.json({ error: "Handle already taken" }, { status: 409 });
     }
 

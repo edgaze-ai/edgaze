@@ -50,16 +50,14 @@ export async function GET(req: Request) {
       auth: { persistSession: false },
     });
 
-    let query = admin.from("profiles").select("id").eq("handle", handleRaw).limit(2);
-    if (excludeUserId) {
-      query = query.neq("id", excludeUserId);
-    }
-    const { data, error } = await query;
+    const { data: rows, error } = await admin.rpc("get_profile_by_handle_insensitive", {
+      handle_input: handleRaw,
+    });
 
     if (error) return json(500, { available: false, reason: "db_error" });
 
-    // Taken if any row exists (when excluding, only "other" users count as taken)
-    const taken = (data?.length ?? 0) > 0;
+    const row = rows?.[0] as { id?: string } | undefined;
+    const taken = !!row && (!excludeUserId || row.id !== excludeUserId);
     return json(200, { available: !taken });
   } catch {
     return json(500, { available: false, reason: "unknown" });
