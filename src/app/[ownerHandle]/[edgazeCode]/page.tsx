@@ -815,9 +815,9 @@ function PurchaseSuccessModal({
               <div className="text-[12px] text-white/70">You unlocked</div>
               <div className="mt-1 text-[16px] font-semibold text-white leading-snug">{title}</div>
               <div className="mt-3 space-y-2 text-[12px] text-white/75">
-                <div>• Open in Workflow Studio (read-only)</div>
-                <div>• Run the workflow</div>
-                <div>• Remix license coming soon</div>
+                <div>• 10 hosted runs included</div>
+                <div>• Use your own API key after hosted runs are finished</div>
+                <div>• Workflow Studio in preview mode (no edit access)</div>
               </div>
             </div>
 
@@ -840,8 +840,9 @@ function PurchaseSuccessModal({
             </div>
 
             <div className="mt-3 text-[11px] text-white/45">
-              This opens in <span className="text-white/70 font-semibold">preview mode</span> (no
-              editing). Owners still get full edit mode.
+              Opens in <span className="text-white/70 font-semibold">preview mode</span>: you can
+              run and move nodes, but not edit, publish, or use the block library or inspector.
+              Listing owners still have full edit access.
             </div>
           </div>
         </div>
@@ -2378,6 +2379,15 @@ export default function WorkflowProductPage() {
                 )}
               </div>
 
+              <div className="lg:hidden mt-4 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
+                <div className="font-semibold text-white/80">What you get</div>
+                <div className="mt-2 space-y-1.5 leading-relaxed">
+                  <div>• 10 hosted runs included</div>
+                  <div>• Use your own API key after hosted runs are finished</div>
+                  <div>• Workflow Studio in preview mode (no edit access)</div>
+                </div>
+              </div>
+
               {/* Mobile: Try demo - available to anyone (anonymous + logged in) */}
               <div className="sm:hidden mt-4 flex flex-col gap-2">
                 {listing && (
@@ -2756,27 +2766,14 @@ export default function WorkflowProductPage() {
                     </button>
                   </div>
 
-                  {!isOwned && (
-                    <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
-                      <div className="font-semibold text-white/80">What you get</div>
-                      <div className="mt-2 space-y-1">
-                        <div>• Open in Workflow Studio (read-only)</div>
-                        <div>• Run the workflow</div>
-                        <div>• Remix license coming soon</div>
-                      </div>
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
+                    <div className="font-semibold text-white/80">What you get</div>
+                    <div className="mt-2 space-y-1.5 leading-relaxed">
+                      <div>• 10 hosted runs included</div>
+                      <div>• Use your own API key after hosted runs are finished</div>
+                      <div>• Workflow Studio in preview mode (no edit access)</div>
                     </div>
-                  )}
-
-                  {isOwned && !isOwner && (
-                    <div className="mt-3 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
-                      <div className="font-semibold text-white/80">Preview mode</div>
-                      <div className="mt-2 space-y-1">
-                        <div>• No editing, no publish</div>
-                        <div>• No block library / inspector</div>
-                        <div>• You can run (and move nodes)</div>
-                      </div>
-                    </div>
-                  )}
+                  </div>
                 </section>
 
                 <section className="mt-6">
