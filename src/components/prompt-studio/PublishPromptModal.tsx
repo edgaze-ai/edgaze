@@ -20,6 +20,7 @@ import {
   Lock,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { uploadListingMedia } from "../../lib/creator-provisioning/upload-listing-media";
 import VerifiedCreatorBadge from "../ui/VerifiedCreatorBadge";
 import AssetPickerModalRaw from "../assets/AssetPickerModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -64,8 +65,6 @@ type Props = {
   editId?: string | null; // If provided, we're editing an existing prompt
   onPublished: () => void;
 };
-
-const BUCKET = "workflow-media";
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -289,11 +288,6 @@ function safeArr(v: any): string[] {
     .filter(Boolean);
 }
 
-function toPublicUrl(supabase: any, path: string) {
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return data?.publicUrl || "";
-}
-
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
   let t: any;
   const timeout = new Promise<T>((_, reject) => {
@@ -387,29 +381,6 @@ async function qrWithCenteredLogoDataUrl(text: string) {
   }
 
   return canvas.toDataURL("image/png");
-}
-
-async function uploadFileToBucket(opts: {
-  supabase: any;
-  userId: string;
-  promptId: string;
-  kind: "thumbnail" | "demo" | "qr";
-  index?: number;
-  file: File;
-}) {
-  const { supabase, userId, promptId, kind, index, file } = opts;
-  const safeKind = kind === "demo" ? `demo-${String(index ?? 0).padStart(2, "0")}` : kind;
-  const ext = (file.name.split(".").pop() || "png").toLowerCase();
-  const path = `prompts/${userId}/${promptId}/${safeKind}.${ext}`;
-
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    upsert: true,
-    contentType: file.type || "application/octet-stream",
-  });
-  if (error) throw error;
-
-  const publicUrl = toPublicUrl(supabase, path);
-  return { path, url: publicUrl };
 }
 
 function ConfettiSides({ active }: { active: boolean }) {
@@ -545,7 +516,7 @@ export default function PublishPromptModal({
   editId,
   onPublished,
 }: Props) {
-  const { userId, workspaceUserId, profile, requireAuth } = useAuth();
+  const { userId, workspaceUserId, profile, requireAuth, getAccessToken } = useAuth();
   const listingOwnerId = workspaceUserId ?? userId;
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
@@ -868,7 +839,7 @@ export default function PublishPromptModal({
     a.remove();
   }
 
-  async function generateQrAndUpload(opts: { url: string; userId: string; promptId: string }) {
+  async function generateQrAndUpload(opts: { url: string; promptId: string }) {
     setQrErr(null);
     setQrBusy(true);
     try {
@@ -881,10 +852,10 @@ export default function PublishPromptModal({
           type: "image/png",
         });
         await withTimeout(
-          uploadFileToBucket({
-            supabase,
-            userId: opts.userId,
-            promptId: opts.promptId,
+          uploadListingMedia({
+            getAccessToken,
+            listingType: "prompt",
+            resourceId: opts.promptId,
             kind: "qr",
             file: qrFile,
           }),
@@ -1101,14 +1072,14 @@ export default function PublishPromptModal({
         }
         const thumbToUpload = thumbnailFile ?? autoThumbFile;
         if (thumbToUpload) {
-          const up = await uploadFileToBucket({
-            supabase,
-            userId: listingOwnerId,
-            promptId,
+          const up = await uploadListingMedia({
+            getAccessToken,
+            listingType: "prompt",
+            resourceId: promptId,
             kind: "thumbnail",
             file: thumbToUpload,
           });
-          thumbnailUrl = up.url || null;
+          thumbnailUrl = up.publicUrl || null;
         }
       } else if (editId) {
         // When editing, preserve existing thumbnail if no new one provided
@@ -1141,15 +1112,15 @@ export default function PublishPromptModal({
       for (let i = 0; i < demoFiles.length; i++) {
         const f = demoFiles[i];
         if (!f) continue;
-        const up = await uploadFileToBucket({
-          supabase,
-          userId: listingOwnerId,
-          promptId,
+        const up = await uploadListingMedia({
+          getAccessToken,
+          listingType: "prompt",
+          resourceId: promptId,
           kind: "demo",
           index: i,
           file: f,
         });
-        if (up.url) demoUrls.push(up.url);
+        if (up.publicUrl) demoUrls.push(up.publicUrl);
       }
 
       const demoFinal = demoUrls.filter(Boolean).slice(0, 6);
@@ -1190,7 +1161,7 @@ export default function PublishPromptModal({
       setConfetti(true);
       setTimeout(() => setConfetti(false), 1200);
 
-      await generateQrAndUpload({ url, userId: listingOwnerId, promptId });
+      await generateQrAndUpload({ url, promptId });
 
       setCompleted((c) => ({ ...c, review: true }));
       // do NOT auto-close

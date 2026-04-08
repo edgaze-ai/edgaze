@@ -18,6 +18,7 @@ import {
 import { cx } from "../../lib/cx";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../auth/AuthContext";
+import { uploadListingMedia } from "../../lib/creator-provisioning/upload-listing-media";
 import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
 import { generateWorkflowThumbnailFile } from "./workflowThumbnailGenerator";
 import ProfileAvatar from "../ui/ProfileAvatar";
@@ -63,7 +64,6 @@ type Props = {
   onPublished?: () => void; // will be called ONLY when user clicks Done
 };
 
-const BUCKET = "workflow-media";
 type PublishTab = "details" | "pricing" | "media" | "visibility";
 
 function clamp(n: number, a: number, b: number) {
@@ -107,42 +107,6 @@ function randomSuffix(len = 4) {
   return Math.random()
     .toString(36)
     .slice(2, 2 + len);
-}
-
-function toPublicUrl(supabase: any, path: string) {
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return data?.publicUrl || "";
-}
-
-async function uploadFileToBucket(opts: {
-  supabase: any;
-  userId: string;
-  workflowId: string;
-  kind: "thumbnail" | "demo" | "qr";
-  index?: number;
-  file: File;
-}) {
-  const ext = (opts.file.name.split(".").pop() || "png").toLowerCase();
-  const cleanExt = ext.replace(/[^a-z0-9]/g, "").slice(0, 6) || "png";
-
-  const filename =
-    opts.kind === "thumbnail"
-      ? `thumbnail.${cleanExt}`
-      : opts.kind === "qr"
-        ? `edgaze-qr.${cleanExt}`
-        : `demo-${String(opts.index ?? 0).padStart(2, "0")}.${cleanExt}`;
-
-  const path = `${opts.userId}/workflows/${opts.workflowId}/${filename}`;
-
-  const { error } = await opts.supabase.storage.from(BUCKET).upload(path, opts.file, {
-    upsert: true,
-    cacheControl: "3600",
-    contentType: opts.file.type || undefined,
-  });
-
-  if (error) throw error;
-
-  return { path, url: toPublicUrl(opts.supabase, path) };
 }
 
 async function codeExistsInTables(supabase: any, code: string, excludeWorkflowId?: string | null) {
@@ -677,11 +641,7 @@ export default function WorkflowPublishModal({
     }
   }
 
-  async function generateQrAndMaybeUpload(opts: {
-    url: string;
-    userId: string;
-    workflowId: string;
-  }) {
+  async function generateQrAndMaybeUpload(opts: { url: string; workflowId: string }) {
     setQrBusy(true);
     try {
       const qr = await qrWithCenteredLogoDataUrl(opts.url);
@@ -693,10 +653,10 @@ export default function WorkflowPublishModal({
         const qrFile = new File([blob], `edgaze-qr-${normalizeEdgazeCode(edgazeCode)}.png`, {
           type: "image/png",
         });
-        await uploadFileToBucket({
-          supabase,
-          userId: opts.userId,
-          workflowId: opts.workflowId,
+        await uploadListingMedia({
+          getAccessToken,
+          listingType: "workflow",
+          resourceId: opts.workflowId,
           kind: "qr",
           file: qrFile,
         });
@@ -726,7 +686,6 @@ export default function WorkflowPublishModal({
 
       const graph = draftGraph;
       const workflowId = draft.id;
-      const userId = postingAs.userId;
 
       // Ensure code is available or auto-fix
       const normalized = normalizeEdgazeCode(edgazeCode);
@@ -751,14 +710,14 @@ export default function WorkflowPublishModal({
       let thumbnailUrl: string | null = null;
       const thumbToUpload = thumbnailFile ?? autoThumbFile;
       if (thumbToUpload) {
-        const up = await uploadFileToBucket({
-          supabase,
-          userId,
-          workflowId,
+        const up = await uploadListingMedia({
+          getAccessToken,
+          listingType: "workflow",
+          resourceId: workflowId,
           kind: "thumbnail",
           file: thumbToUpload,
         });
-        thumbnailUrl = up.url || null;
+        thumbnailUrl = up.publicUrl || null;
       } else if (editId && (draft as any)?.thumbnail_url) {
         // Preserve existing thumbnail when editing
         thumbnailUrl = (draft as any).thumbnail_url;
@@ -779,15 +738,15 @@ export default function WorkflowPublishModal({
       for (let i = 0; i < demoFiles.length; i++) {
         const f = demoFiles[i];
         if (!f) continue;
-        const up = await uploadFileToBucket({
-          supabase,
-          userId,
-          workflowId,
+        const up = await uploadListingMedia({
+          getAccessToken,
+          listingType: "workflow",
+          resourceId: workflowId,
           kind: "demo",
           index: i,
           file: f,
         });
-        if (up.url) demoUrls.push(up.url);
+        if (up.publicUrl) demoUrls.push(up.publicUrl);
       }
 
       const effectiveMonetisation: MonetisationMode =
@@ -839,7 +798,7 @@ export default function WorkflowPublishModal({
       setPublishedUrl(url);
 
       // Generate QR now (inside modal)
-      await generateQrAndMaybeUpload({ url, userId, workflowId });
+      await generateQrAndMaybeUpload({ url, workflowId });
 
       // Show success UI (DO NOT call onPublished here; parent would close modal)
       setPublished(true);
@@ -996,10 +955,9 @@ export default function WorkflowPublishModal({
                       <button
                         onClick={() => {
                           // Allow regenerating QR if it failed
-                          if (!publishedUrl || !postingAs?.userId || !draft?.id) return;
+                          if (!publishedUrl || !draft?.id) return;
                           generateQrAndMaybeUpload({
                             url: publishedUrl,
-                            userId: postingAs.userId,
                             workflowId: draft.id,
                           }).catch(() => {});
                         }}
