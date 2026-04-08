@@ -86,19 +86,6 @@ function initials(name?: string | null) {
   return parts.map((p) => p[0]?.toUpperCase()).join("");
 }
 
-function slugify(input: string) {
-  const base = (input || "")
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 70);
-
-  const suffix = Math.random().toString(36).slice(2, 6);
-  return base ? `${base}-${suffix}` : `workflow-${suffix}`;
-}
-
 function normalizeEdgazeCode(input: string) {
   return (input || "")
     .toLowerCase()
@@ -356,7 +343,7 @@ export default function WorkflowPublishModal({
   onPublished,
 }: Props) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { user: authUser, profile: authProfile } = useAuth();
+  const { user: authUser, profile: authProfile, getAccessToken } = useAuth();
 
   const [postingAs, setPostingAs] = useState<{
     name: string;
@@ -760,8 +747,6 @@ export default function WorkflowPublishModal({
         finalCode = fixed;
       }
 
-      const slug = slugify(safeTitle);
-
       // Upload thumbnail (only if new file provided, otherwise preserve existing)
       let thumbnailUrl: string | null = null;
       const thumbToUpload = thumbnailFile ?? autoThumbFile;
@@ -816,44 +801,37 @@ export default function WorkflowPublishModal({
             })()
           : 0;
 
-      const row: any = {
-        id: workflowId,
-        owner_id: userId, // uuid column
-        user_id: userId, // text column in your schema (keep both)
-        owner_name: postingAs.name,
-        owner_handle: postingAs.handle,
+      const token = await getAccessToken();
+      if (!token) throw new Error("Not authenticated.");
 
-        title: safeTitle,
-        slug,
+      const saveRes = await fetch("/api/creator/workflow-listing", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          workflowId,
+          isEdit: Boolean(editId),
+          title: safeTitle,
+          description: safeDescription,
+          tags: cleanTags,
+          visibility,
+          monetisationMode: effectiveMonetisation,
+          priceUsd: effectivePrice,
+          edgazeCode: finalCode,
+          thumbnailUrl,
+          demoUrls,
+          graph: stripGraphSecrets(graph),
+          creatorTermsAccepted: acceptedCreatorTerms,
+        }),
+      });
 
-        description: safeDescription,
-        tags: cleanTags.join(","),
-
-        visibility,
-        is_public: visibility !== "private",
-
-        monetisation_mode: effectiveMonetisation,
-        is_paid: effectiveMonetisation === "paywall",
-        price_usd: effectivePrice,
-
-        thumbnail_url: thumbnailUrl,
-        demo_images: demoUrls.length ? demoUrls : null,
-
-        graph_json: stripGraphSecrets(graph) as any,
-        graph: stripGraphSecrets(graph) as any,
-
-        edgaze_code: finalCode,
-
-        is_published: true,
-        // Only set published_at if this is a new publish, not an edit
-        ...(editId ? {} : { published_at: new Date().toISOString() }),
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error: upsertErr } = await supabase
-        .from("workflows")
-        .upsert(row, { onConflict: "id" });
-      if (upsertErr) throw upsertErr;
+      const saveJson = await saveRes.json().catch(() => ({}));
+      if (!saveRes.ok) {
+        throw new Error((saveJson as { error?: string }).error || "Publish failed.");
+      }
 
       // Build published URL - use current origin (works for localhost and production)
       const origin = typeof window !== "undefined" ? window.location.origin : "https://edgaze.ai";
