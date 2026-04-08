@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
 
 export const metadata: Metadata = {
   title: "Prompt Studio",
@@ -9,14 +10,14 @@ export const metadata: Metadata = {
     description:
       "Create, test, and publish AI prompts with dynamic placeholders. Turn prompts into reusable products on Edgaze.",
     url: "https://edgaze.ai/prompt-studio",
-    images: ["/og.png"],
+    images: [DEFAULT_SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "Prompt Studio | Edgaze",
     description:
       "Create, test, and publish AI prompts with dynamic placeholders. Turn prompts into reusable products on Edgaze.",
-    images: ["/og.png"],
+    images: [DEFAULT_SOCIAL_IMAGE],
   },
 };
 

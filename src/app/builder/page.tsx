@@ -1,6 +1,7 @@
 // src/app/builder/page.tsx
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
 import BuilderClientPage from "./BuilderClientPage";
 
 export const metadata: Metadata = {
@@ -12,14 +13,14 @@ export const metadata: Metadata = {
     description:
       "Build, test, and publish AI workflows in a visual studio. Turn prompts into tools and ship production-grade automation on Edgaze.",
     url: "https://edgaze.ai/builder",
-    images: ["/og.png"],
+    images: [DEFAULT_SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "Workflow Builder | Edgaze",
     description:
       "Build, test, and publish AI workflows in a visual studio. Turn prompts into tools and ship production-grade automation on Edgaze.",
-    images: ["/og.png"],
+    images: [DEFAULT_SOCIAL_IMAGE],
   },
 };
 export default function BuilderPage() {

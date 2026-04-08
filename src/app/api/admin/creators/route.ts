@@ -39,6 +39,12 @@ function normalizeHandle(input: string): string {
     .slice(0, 24);
 }
 
+/** PostgREST RPCs usually return an array; normalize single-row or null shapes. */
+function rpcResultRows<T>(data: T[] | T | null | undefined): T[] {
+  if (data == null) return [];
+  return Array.isArray(data) ? data : [data];
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { user, error: authError } = await getUserFromRequest(req);
@@ -121,7 +127,7 @@ export async function POST(req: NextRequest) {
       console.error("[admin/creators POST] handle clash check", clashErr);
       return NextResponse.json({ error: clashErr.message }, { status: 500 });
     }
-    if (clashRows && clashRows.length > 0) {
+    if (rpcResultRows(clashRows).length > 0) {
       return NextResponse.json({ error: "Handle already taken" }, { status: 409 });
     }
 

@@ -47,8 +47,10 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify Open Graph static asset
-        run: test -f public/og.png && file public/og.png | grep -qi PNG
+      - name: Verify Open Graph static assets
+        run: |
+          test -f public/og.png && file public/og.png | grep -qi PNG
+          test -f public/og2.png && file public/og2.png | grep -qi PNG
 
       - name: Verify favicon assets
         run: |

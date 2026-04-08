@@ -5,6 +5,7 @@ import { promptPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getProductRedirectPath } from "@lib/supabase/handle-redirect";
 import { getSiteOrigin } from "@lib/site-origin";
+import { DEFAULT_SOCIAL_IMAGE_PATH } from "@lib/default-social-image";
 
 /** Open Graph / Twitter hint dimensions (recommended for link previews; actual asset may differ). */
 const OG_IMAGE_WIDTH = 1200;
@@ -50,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const listing = await getListing(ownerHandle, edgazeCode);
   const siteOrigin = getSiteOrigin();
 
-  const fallbackOg = "/og.png";
+  const fallbackOg = DEFAULT_SOCIAL_IMAGE_PATH;
 
   if (!listing) {
     return {

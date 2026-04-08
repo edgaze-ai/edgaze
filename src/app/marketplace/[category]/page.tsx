@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
 import MarketplaceCategoryClient from "./MarketplaceCategoryClient";
 import { MARKETPLACE_CATEGORIES } from "./categories";
 
@@ -29,13 +30,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: `${title} | Edgaze Marketplace`,
       description,
       url: `https://edgaze.ai/marketplace/${category}`,
-      images: ["/og.png"],
+      images: [DEFAULT_SOCIAL_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} | Edgaze Marketplace`,
       description,
-      images: ["/og.png"],
+      images: [DEFAULT_SOCIAL_IMAGE],
     },
   };
 }

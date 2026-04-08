@@ -4,6 +4,11 @@ import { checkSimpleIpRateLimit } from "@lib/rate-limiting/simple-ip";
 
 export const runtime = "nodejs";
 
+function rpcResultRows<T>(data: T[] | T | null | undefined): T[] {
+  if (data == null) return [];
+  return Array.isArray(data) ? data : [data];
+}
+
 function json(status: number, body: any) {
   return new NextResponse(JSON.stringify(body), {
     status,
@@ -56,7 +61,8 @@ export async function GET(req: Request) {
 
     if (error) return json(500, { available: false, reason: "db_error" });
 
-    const row = rows?.[0] as { id?: string } | undefined;
+    const list = rpcResultRows(rows as { id?: string }[] | { id?: string } | null);
+    const row = list[0];
     const taken = !!row && (!excludeUserId || row.id !== excludeUserId);
     return json(200, { available: !taken });
   } catch {

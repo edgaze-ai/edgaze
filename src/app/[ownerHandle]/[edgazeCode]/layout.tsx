@@ -5,6 +5,7 @@ import { workflowPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowRedirectPath } from "@lib/supabase/handle-redirect";
 import { getSiteOrigin } from "@lib/site-origin";
+import { DEFAULT_SOCIAL_IMAGE_PATH } from "@lib/default-social-image";
 const OG_IMAGE_WIDTH = 1200;
 const OG_IMAGE_HEIGHT = 630;
 
@@ -48,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ownerHandle, edgazeCode } = await params;
   const listing = await getWorkflowListing(ownerHandle, edgazeCode);
   const siteOrigin = getSiteOrigin();
-  const fallbackOg = "/og.png";
+  const fallbackOg = DEFAULT_SOCIAL_IMAGE_PATH;
 
   if (!listing) {
     return {

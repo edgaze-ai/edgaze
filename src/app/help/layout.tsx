@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
 
 export const metadata: Metadata = {
   title: "Help",
@@ -9,14 +10,14 @@ export const metadata: Metadata = {
     description:
       "Get help with Edgaze. Contact support, find answers, and get the most out of the AI prompts and workflows marketplace.",
     url: "https://edgaze.ai/help",
-    images: ["/og.png"],
+    images: [DEFAULT_SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "Help | Edgaze",
     description:
       "Get help with Edgaze. Contact support, find answers, and get the most out of the AI prompts and workflows marketplace.",
-    images: ["/og.png"],
+    images: [DEFAULT_SOCIAL_IMAGE],
   },
 };
 
