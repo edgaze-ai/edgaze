@@ -494,7 +494,9 @@ function isBadPurchaseStatus(status: string | null | undefined) {
 export default function LibraryPage() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { userId, profile } = useAuth();
+  const { userId, profile, workspaceUserId } = useAuth();
+  /** Creator/workspace id: target profile when admin impersonates, else signed-in user. */
+  const libraryOwnerId = workspaceUserId ?? userId;
 
   const [mobileTab, setMobileTab] = useState<MobileTab>("created");
 
@@ -618,7 +620,7 @@ export default function LibraryPage() {
     let cancelled = false;
 
     async function loadCreated() {
-      if (!userId) {
+      if (!libraryOwnerId) {
         setCreated([]);
         setPromptRawById(new Map());
         setWorkflowRawById(new Map());
@@ -665,7 +667,7 @@ export default function LibraryPage() {
                 "removed_by",
               ].join(","),
             )
-            .eq("owner_id", userId)
+            .eq("owner_id", libraryOwnerId)
             .order("updated_at", { ascending: false }),
 
           supabase
@@ -700,7 +702,7 @@ export default function LibraryPage() {
                 "removed_by",
               ].join(","),
             )
-            .eq("owner_id", userId)
+            .eq("owner_id", libraryOwnerId)
             .order("updated_at", { ascending: false }),
         ]);
 
@@ -744,14 +746,14 @@ export default function LibraryPage() {
     return () => {
       cancelled = true;
     };
-  }, [userId, supabase, refreshNonce]);
+  }, [libraryOwnerId, supabase, refreshNonce]);
 
   // Load PURCHASED (FIXED)
   useEffect(() => {
     let cancelled = false;
 
     async function loadPurchased() {
-      if (!userId) {
+      if (!libraryOwnerId) {
         setPurchased([]);
         setLoadingPurchased(false);
         return;
@@ -766,7 +768,7 @@ export default function LibraryPage() {
           supabase
             .from("prompt_purchases")
             .select("id, created_at, prompt_id, buyer_id, status")
-            .eq("buyer_id", userId)
+            .eq("buyer_id", libraryOwnerId)
             .order("created_at", { ascending: false }),
 
           supabase
@@ -774,7 +776,7 @@ export default function LibraryPage() {
             .select(
               "id, created_at, workflow_id, buyer_id, status, provider, currency, price_usd, external_ref, workflow_version_id",
             )
-            .eq("buyer_id", userId)
+            .eq("buyer_id", libraryOwnerId)
             .order("created_at", { ascending: false }),
         ]);
 
@@ -928,7 +930,7 @@ export default function LibraryPage() {
     return () => {
       cancelled = true;
     };
-  }, [userId, supabase, refreshNonce]);
+  }, [libraryOwnerId, supabase, refreshNonce]);
 
   function openEdit(kind: LibraryKind, id: string) {
     if (kind === "prompt") {
@@ -985,13 +987,13 @@ export default function LibraryPage() {
   const ownerForWorkflowModal = useMemo<
     { name?: string; handle?: string; avatarUrl?: string | null } | undefined
   >(() => {
-    if (!userId) return undefined;
+    if (!libraryOwnerId) return undefined;
     return {
       name: profile?.full_name || (profile as any)?.handle || "You",
       handle: (profile as any)?.handle || "you",
       avatarUrl: (profile as any)?.avatar_url || null,
     };
-  }, [userId, profile]);
+  }, [libraryOwnerId, profile]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white relative" data-library-page>
