@@ -545,7 +545,8 @@ export default function PublishPromptModal({
   editId,
   onPublished,
 }: Props) {
-  const { userId, profile, requireAuth } = useAuth();
+  const { userId, workspaceUserId, profile, requireAuth } = useAuth();
+  const listingOwnerId = workspaceUserId ?? userId;
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   // Guided step (0..4)
@@ -642,7 +643,7 @@ export default function PublishPromptModal({
     isVisibilityValid &&
     (!needsTermsAcceptance || acceptedCreatorTerms);
 
-  const canPublish = !busy && !!userId && codeStatus === "available" && isReviewValid;
+  const canPublish = !busy && !!listingOwnerId && codeStatus === "available" && isReviewValid;
 
   useEffect(() => {
     if (!open) return;
@@ -972,7 +973,7 @@ export default function PublishPromptModal({
   async function handlePublish() {
     setErr(null);
 
-    if (!requireAuth() || !userId) {
+    if (!requireAuth() || !listingOwnerId) {
       setErr("You must be signed in to publish.");
       return;
     }
@@ -1048,7 +1049,7 @@ export default function PublishPromptModal({
       } else {
         // Create new prompt
         const insertRow: any = {
-          owner_id: userId,
+          owner_id: listingOwnerId,
           owner_name: ownerName,
           owner_handle: ownerHandle,
 
@@ -1102,7 +1103,7 @@ export default function PublishPromptModal({
         if (thumbToUpload) {
           const up = await uploadFileToBucket({
             supabase,
-            userId,
+            userId: listingOwnerId,
             promptId,
             kind: "thumbnail",
             file: thumbToUpload,
@@ -1142,7 +1143,7 @@ export default function PublishPromptModal({
         if (!f) continue;
         const up = await uploadFileToBucket({
           supabase,
-          userId,
+          userId: listingOwnerId,
           promptId,
           kind: "demo",
           index: i,
@@ -1189,7 +1190,7 @@ export default function PublishPromptModal({
       setConfetti(true);
       setTimeout(() => setConfetti(false), 1200);
 
-      await generateQrAndUpload({ url, userId, promptId });
+      await generateQrAndUpload({ url, userId: listingOwnerId, promptId });
 
       setCompleted((c) => ({ ...c, review: true }));
       // do NOT auto-close

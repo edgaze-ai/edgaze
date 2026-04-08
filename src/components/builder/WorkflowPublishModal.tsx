@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cx } from "../../lib/cx";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
+import { useAuth } from "../auth/AuthContext";
 import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
 import { generateWorkflowThumbnailFile } from "./workflowThumbnailGenerator";
 import ProfileAvatar from "../ui/ProfileAvatar";
@@ -355,6 +356,7 @@ export default function WorkflowPublishModal({
   onPublished,
 }: Props) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const { user: authUser, profile: authProfile } = useAuth();
 
   const [postingAs, setPostingAs] = useState<{
     name: string;
@@ -450,66 +452,36 @@ export default function WorkflowPublishModal({
     return null;
   }, [thumbnailFile, autoThumbDataUrl]);
 
-  // Load auth/profile for postingAs
+  // Effective listing owner (creator when admin impersonates). Do not use supabase.auth.getUser()
+  // for owner_id — JWT stays the admin, which fails workflows RLS on update.
   useEffect(() => {
     if (!open) return;
 
-    let alive = true;
-    (async () => {
-      try {
-        const { data: auth } = await supabase.auth.getUser();
-        const user = auth?.user;
+    const uid = authUser?.id ?? null;
+    if (!uid) {
+      setPostingAs({
+        name: owner?.name || "You",
+        handle: owner?.handle || "you",
+        avatarUrl: owner?.avatarUrl || null,
+        userId: "",
+        canReceivePayments: false,
+        isVerifiedCreator: false,
+      });
+      return;
+    }
 
-        if (!alive) return;
+    const name = authProfile?.full_name || owner?.name || "You";
+    const handle = authProfile?.handle || owner?.handle || "you";
 
-        if (!user?.id) {
-          setPostingAs({
-            name: owner?.name || "You",
-            handle: owner?.handle || "you",
-            avatarUrl: owner?.avatarUrl || null,
-            userId: "",
-            canReceivePayments: false,
-            isVerifiedCreator: false,
-          });
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id,full_name,handle,avatar_url,can_receive_payments,is_verified_creator")
-          .eq("id", user.id)
-          .limit(1)
-          .maybeSingle();
-
-        if (error) throw error;
-
-        const name = data?.full_name || owner?.name || "You";
-        const handle = data?.handle || owner?.handle || "you";
-
-        setPostingAs({
-          name,
-          handle,
-          avatarUrl: data?.avatar_url || owner?.avatarUrl || null,
-          userId: user.id,
-          canReceivePayments: Boolean((data as any)?.can_receive_payments),
-          isVerifiedCreator: Boolean((data as any)?.is_verified_creator),
-        });
-      } catch {
-        setPostingAs({
-          name: owner?.name || "You",
-          handle: owner?.handle || "you",
-          avatarUrl: owner?.avatarUrl || null,
-          userId: "",
-          canReceivePayments: false,
-          isVerifiedCreator: false,
-        });
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [open, supabase, owner?.name, owner?.handle, owner?.avatarUrl]);
+    setPostingAs({
+      name,
+      handle,
+      avatarUrl: authProfile?.avatar_url ?? owner?.avatarUrl ?? null,
+      userId: uid,
+      canReceivePayments: Boolean(authProfile?.can_receive_payments),
+      isVerifiedCreator: Boolean(authProfile?.is_verified_creator),
+    });
+  }, [open, authUser?.id, authProfile, owner?.name, owner?.handle, owner?.avatarUrl]);
 
   // Reset modal state on open
   useEffect(() => {
