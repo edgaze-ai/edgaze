@@ -11,7 +11,11 @@ import { generateOpaqueToken } from "@/lib/creator-provisioning/tokens";
 function mapProfileUpsertFailure(err: unknown): { text: string; status: number } {
   const full = formatSupabaseErrorForDisplay(err);
   const m = flattenSupabaseError(err).message || "";
-  if (/duplicate key|profiles_username_key|unique constraint|already exists/i.test(m + full)) {
+  if (
+    /duplicate key|profiles_username_key|profiles_pkey|unique constraint|already exists/i.test(
+      m + full,
+    )
+  ) {
     return {
       text:
         "That handle is already in use. Another profile may have claimed it during provisioning.\n\n" +
@@ -149,15 +153,14 @@ export async function POST(req: NextRequest) {
     let authUser: Awaited<ReturnType<typeof admin.auth.admin.createUser>>["data"];
     let createErr: Awaited<ReturnType<typeof admin.auth.admin.createUser>>["error"];
     try {
-      // Do not pass `handle` in user_metadata here: handle_new_user() runs on auth insert and would
-      // INSERT into public.profiles with that handle. Any trigger/DB edge case then surfaces only as
-      // Auth code `unexpected_failure`. Instead the trigger derives a unique handle from the synthetic
-      // email local-part; we set the real handle in the upsert below.
+      // `edgaze_defer_profile_row` skips handle_new_user()'s INSERT; GoTrue often hides trigger failures
+      // behind `unexpected_failure`. We create the profile row in the upsert below with the real handle.
       const created = await admin.auth.admin.createUser({
         email,
         password: tempPassword,
         email_confirm: false,
-        user_metadata: { full_name: name },
+        user_metadata: { full_name: name, edgaze_defer_profile_row: true },
+        app_metadata: { edgaze_defer_profile_row: true },
       });
       authUser = created.data;
       createErr = created.error;
@@ -176,37 +179,63 @@ export async function POST(req: NextRequest) {
 
     const uid = authUser.user.id;
 
-    const { error: upsertErr } = await admin.from("profiles").upsert(
-      {
-        id: uid,
-        email,
-        handle: h,
-        full_name: name,
-        bio: bio != null ? String(bio).slice(0, 1000) : null,
-        avatar_url: avatar_url != null ? String(avatar_url).slice(0, 2000) : null,
-        banner_url: banner_url != null ? String(banner_url).slice(0, 2000) : null,
-        socials: socials && typeof socials === "object" ? socials : {},
-        country: country != null ? String(country).toUpperCase().slice(0, 2) : null,
-        plan: "Free",
-        source: "admin_provisioned",
-        claim_status: "unclaimed",
-        provisioned_by_admin_id: user.id,
-        provisioned_at: new Date().toISOString(),
-      },
-      { onConflict: "id" },
-    );
+    const profilePayload = {
+      id: uid,
+      email,
+      handle: h,
+      full_name: name,
+      bio: bio != null ? String(bio).slice(0, 1000) : null,
+      avatar_url: avatar_url != null ? String(avatar_url).slice(0, 2000) : null,
+      banner_url: banner_url != null ? String(banner_url).slice(0, 2000) : null,
+      socials: socials && typeof socials === "object" ? socials : {},
+      country: country != null ? String(country).toUpperCase().slice(0, 2) : null,
+      plan: "Free",
+      source: "admin_provisioned",
+      claim_status: "unclaimed",
+      provisioned_by_admin_id: user.id,
+      provisioned_at: new Date().toISOString(),
+    };
 
-    if (upsertErr) {
-      console.error("[admin/creators POST] profile upsert", upsertErr);
+    // Plain upsert can still issue INSERT and hit profiles_pkey if a row already exists (e.g. trigger
+    // ran, or PostgREST merge semantics). Insert-or-update explicitly avoids duplicate (id) errors.
+    const { data: existingProfile, error: existingErr } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("id", uid)
+      .maybeSingle();
+
+    if (existingErr) {
+      console.error("[admin/creators POST] profile existence check", existingErr);
       await admin.auth.admin.deleteUser(uid).catch((delErr) => {
-        console.error("[admin/creators POST] rollback deleteUser after upsert failure", delErr);
+        console.error(
+          "[admin/creators POST] rollback deleteUser after profile check failure",
+          delErr,
+        );
       });
-      const mapped = mapProfileUpsertFailure(upsertErr);
+      return NextResponse.json(
+        { error: formatSupabaseErrorForDisplay(existingErr) },
+        { status: 500 },
+      );
+    }
+
+    const saveRes = existingProfile
+      ? await admin.from("profiles").update(profilePayload).eq("id", uid)
+      : await admin.from("profiles").insert(profilePayload);
+
+    if (saveRes.error) {
+      console.error("[admin/creators POST] profile save", saveRes.error);
+      await admin.auth.admin.deleteUser(uid).catch((delErr) => {
+        console.error(
+          "[admin/creators POST] rollback deleteUser after profile save failure",
+          delErr,
+        );
+      });
+      const mapped = mapProfileUpsertFailure(saveRes.error);
       return NextResponse.json({ error: mapped.text }, { status: mapped.status });
     }
 
     const { error: metaErr } = await admin.auth.admin.updateUserById(uid, {
-      user_metadata: { full_name: name, handle: h },
+      user_metadata: { full_name: name, handle: h, edgaze_defer_profile_row: false },
     });
     if (metaErr) {
       console.error("[admin/creators POST] updateUserById user_metadata", metaErr);

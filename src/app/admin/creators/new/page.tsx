@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -32,6 +32,7 @@ export default function AdminNewCreatorPage() {
   const { getAccessToken } = useAuth();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitLock = useRef(false);
 
   const [handle, setHandle] = useState("");
   const [full_name, setFullName] = useState("");
@@ -39,6 +40,8 @@ export default function AdminNewCreatorPage() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLock.current) return;
+    submitLock.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -67,6 +70,7 @@ export default function AdminNewCreatorPage() {
     } catch (err: any) {
       setError(err?.message || "Provisioning failed");
     } finally {
+      submitLock.current = false;
       setBusy(false);
     }
   };
