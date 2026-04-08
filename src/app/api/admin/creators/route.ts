@@ -6,6 +6,22 @@ import { logCreatorAuditEvent } from "@/lib/creator-provisioning/audit";
 import { generateProvisionedAuthEmail } from "@/lib/creator-provisioning/claim-transfer";
 import { generateOpaqueToken } from "@/lib/creator-provisioning/tokens";
 
+function mapAuthUserCreateFailure(err: unknown): string {
+  const base = supabaseAuthErrMessage(err);
+  const raw =
+    err && typeof err === "object" && typeof (err as { message?: string }).message === "string"
+      ? (err as { message: string }).message
+      : "";
+  const combined = `${raw} ${base}`;
+  if (/duplicate key|profiles_username_key|already exists/i.test(combined)) {
+    return "That handle is already in use (or clashes ignoring case). Choose a different handle.";
+  }
+  if (/Database error creating new user/i.test(raw) || /database error/i.test(base)) {
+    return `${base} If the handle should be free, check Postgres logs—often a duplicate handle on public.profiles.`;
+  }
+  return base;
+}
+
 function supabaseAuthErrMessage(err: unknown): string {
   if (!err || typeof err !== "object") {
     return "Failed to create auth user";
@@ -43,6 +59,72 @@ function normalizeHandle(input: string): string {
 function rpcResultRows<T>(data: T[] | T | null | undefined): T[] {
   if (data == null) return [];
   return Array.isArray(data) ? data : [data];
+}
+
+/**
+ * Detect handle clashes without relying only on RPC EXECUTE grants (service_role).
+ * - eq: exact match (normalized handle is lowercase)
+ * - ilike: case-insensitive when pattern has no '_' (ILIKE treats '_' as wildcard)
+ * - RPCs: full lower(trim) match including underscores (needs GRANTs on live DB)
+ */
+async function isProvisionHandleTaken(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  h: string,
+): Promise<{ taken: boolean; fatalError?: string }> {
+  const { data: exactRow, error: eqErr } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("handle", h)
+    .maybeSingle();
+  if (eqErr) {
+    return { taken: false, fatalError: eqErr.message };
+  }
+  if (exactRow) {
+    return { taken: true };
+  }
+
+  if (!h.includes("_")) {
+    const { data: ilRows, error: ilErr } = await admin
+      .from("profiles")
+      .select("id")
+      .ilike("handle", h)
+      .limit(1);
+    if (ilErr) {
+      return { taken: false, fatalError: ilErr.message };
+    }
+    if (ilRows && ilRows.length > 0) {
+      return { taken: true };
+    }
+  }
+
+  const { data: batchHits, error: batchErr } = await admin.rpc("profiles_min_by_handles", {
+    handles: [h],
+  });
+  if (!batchErr && rpcResultRows(batchHits).length > 0) {
+    return { taken: true };
+  }
+
+  const { data: rpcRow, error: rpcErr } = await admin.rpc("get_profile_by_handle_insensitive", {
+    handle_input: h,
+  });
+  if (!rpcErr && rpcResultRows(rpcRow).length > 0) {
+    return { taken: true };
+  }
+
+  if (h.includes("_") && batchErr && rpcErr) {
+    console.error(
+      "[admin/creators POST] handle RPC checks failed for underscore handle",
+      batchErr,
+      rpcErr,
+    );
+    return {
+      taken: false,
+      fatalError:
+        "Could not verify handle (service_role needs EXECUTE on profiles_min_by_handles and get_profile_by_handle_insensitive). Apply latest Supabase migrations, then retry.",
+    };
+  }
+
+  return { taken: false };
 }
 
 export async function GET(req: NextRequest) {
@@ -117,17 +199,11 @@ export async function POST(req: NextRequest) {
 
     const admin = createSupabaseAdminClient();
 
-    const { data: clashRows, error: clashErr } = await admin.rpc(
-      "get_profile_by_handle_insensitive",
-      {
-        handle_input: h,
-      },
-    );
-    if (clashErr) {
-      console.error("[admin/creators POST] handle clash check", clashErr);
-      return NextResponse.json({ error: clashErr.message }, { status: 500 });
+    const { taken, fatalError } = await isProvisionHandleTaken(admin, h);
+    if (fatalError) {
+      return NextResponse.json({ error: fatalError }, { status: 503 });
     }
-    if (rpcResultRows(clashRows).length > 0) {
+    if (taken) {
       return NextResponse.json({ error: "Handle already taken" }, { status: 409 });
     }
 
@@ -154,7 +230,7 @@ export async function POST(req: NextRequest) {
 
     if (createErr || !authUser?.user) {
       console.error("[admin/creators POST] createUser", createErr);
-      return NextResponse.json({ error: supabaseAuthErrMessage(createErr) }, { status: 400 });
+      return NextResponse.json({ error: mapAuthUserCreateFailure(createErr) }, { status: 400 });
     }
 
     const uid = authUser.user.id;
