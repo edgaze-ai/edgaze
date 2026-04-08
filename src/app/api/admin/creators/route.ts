@@ -61,11 +61,18 @@ function rpcResultRows<T>(data: T[] | T | null | undefined): T[] {
   return Array.isArray(data) ? data : [data];
 }
 
+function rpcReturnsTrue(data: unknown): boolean {
+  return data === true || data === "true" || data === "t";
+}
+
+function rpcReturnsFalse(data: unknown): boolean {
+  return data === false || data === "false" || data === "f";
+}
+
 /**
- * Detect handle clashes without relying only on RPC EXECUTE grants (service_role).
- * - eq: exact match (normalized handle is lowercase)
- * - ilike: case-insensitive when pattern has no '_' (ILIKE treats '_' as wildcard)
- * - RPCs: full lower(trim) match including underscores (needs GRANTs on live DB)
+ * Underscores cannot use ILIKE (single-char wildcard). Prefer profile_handle_exists_ci;
+ * if that migration is not applied, both legacy RPCs must succeed with empty rows to treat as free
+ * (OR on "empty" alone wrongly marked handles free when the other RPC errored).
  */
 async function isProvisionHandleTaken(
   admin: ReturnType<typeof createSupabaseAdminClient>,
@@ -97,30 +104,45 @@ async function isProvisionHandleTaken(
     }
   }
 
-  const { data: batchHits, error: batchErr } = await admin.rpc("profiles_min_by_handles", {
-    handles: [h],
-  });
-  if (!batchErr && rpcResultRows(batchHits).length > 0) {
-    return { taken: true };
-  }
-
-  const { data: rpcRow, error: rpcErr } = await admin.rpc("get_profile_by_handle_insensitive", {
+  const { data: existsRaw, error: existsErr } = await admin.rpc("profile_handle_exists_ci", {
     handle_input: h,
   });
-  if (!rpcErr && rpcResultRows(rpcRow).length > 0) {
+  if (!existsErr) {
+    if (rpcReturnsTrue(existsRaw)) {
+      return { taken: true };
+    }
+    if (rpcReturnsFalse(existsRaw)) {
+      return { taken: false };
+    }
+    /* unexpected scalar shape from PostgREST — fall through to legacy RPCs */
+  }
+
+  const batch = await admin.rpc("profiles_min_by_handles", { handles: [h] });
+  const batchOk = !batch.error;
+  const batchRows = rpcResultRows(batch.data);
+  if (batchOk && batchRows.length > 0) {
     return { taken: true };
   }
 
-  if (h.includes("_") && batchErr && rpcErr) {
+  const row = await admin.rpc("get_profile_by_handle_insensitive", { handle_input: h });
+  const rowOk = !row.error;
+  const rowRows = rpcResultRows(row.data);
+  if (rowOk && rowRows.length > 0) {
+    return { taken: true };
+  }
+
+  const definitiveFree = batchOk && rowOk && batchRows.length === 0 && rowRows.length === 0;
+  if (!definitiveFree) {
     console.error(
-      "[admin/creators POST] handle RPC checks failed for underscore handle",
-      batchErr,
-      rpcErr,
+      "[admin/creators POST] could not verify handle availability",
+      existsErr,
+      batch.error,
+      row.error,
     );
     return {
       taken: false,
       fatalError:
-        "Could not verify handle (service_role needs EXECUTE on profiles_min_by_handles and get_profile_by_handle_insensitive). Apply latest Supabase migrations, then retry.",
+        "Could not verify handle availability. Apply latest Supabase migrations (profile_handle_exists_ci and service_role RPC grants), then retry.",
     };
   }
 
