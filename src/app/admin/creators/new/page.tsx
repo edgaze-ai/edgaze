@@ -15,8 +15,13 @@ function formatApiErrorBody(text: string): string {
   const t = text.trim();
   if (!t.startsWith("{")) return t || "Request failed";
   try {
-    const j = JSON.parse(t) as { error?: string; message?: string };
-    return (j.message || j.error || t).trim() || "Request failed";
+    const j = JSON.parse(t) as { error?: string; message?: string; details?: string };
+    const main = (j.message || j.error || "").trim();
+    const details = typeof j.details === "string" ? j.details.trim() : "";
+    if (details && !main.includes(details)) {
+      return `${main}\n\n${details}`.trim() || "Request failed";
+    }
+    return main || t || "Request failed";
   } catch {
     return t;
   }
@@ -86,7 +91,7 @@ export default function AdminNewCreatorPage() {
 
       <form onSubmit={onSubmit} className={`${cardClass} p-6 space-y-4`}>
         {error && (
-          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+          <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200 whitespace-pre-wrap break-words">
             {error}
           </div>
         )}

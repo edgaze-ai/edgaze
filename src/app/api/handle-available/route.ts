@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { checkSimpleIpRateLimit } from "@lib/rate-limiting/simple-ip";
+import { parseRpcBoolean } from "@/lib/supabase/rpc-boolean";
 
 export const runtime = "nodejs";
-
-function rpcResultRows<T>(data: T[] | T | null | undefined): T[] {
-  if (data == null) return [];
-  return Array.isArray(data) ? data : [data];
-}
 
 function json(status: number, body: any) {
   return new NextResponse(JSON.stringify(body), {
@@ -55,16 +51,15 @@ export async function GET(req: Request) {
       auth: { persistSession: false },
     });
 
-    const { data: rows, error } = await admin.rpc("get_profile_by_handle_insensitive", {
+    const { data, error } = await admin.rpc("is_profile_handle_available", {
       handle_input: handleRaw,
+      exclude_profile_id: excludeUserId,
     });
 
     if (error) return json(500, { available: false, reason: "db_error" });
-
-    const list = rpcResultRows(rows as { id?: string }[] | { id?: string } | null);
-    const row = list[0];
-    const taken = !!row && (!excludeUserId || row.id !== excludeUserId);
-    return json(200, { available: !taken });
+    const ok = parseRpcBoolean(data);
+    if (ok === null) return json(500, { available: false, reason: "db_error" });
+    return json(200, { available: ok });
   } catch {
     return json(500, { available: false, reason: "unknown" });
   }

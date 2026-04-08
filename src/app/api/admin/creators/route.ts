@@ -2,47 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth/server";
 import { isAdmin } from "@/lib/supabase/executions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { formatSupabaseErrorForDisplay, flattenSupabaseError } from "@/lib/supabase/error-format";
+import { parseRpcBoolean } from "@/lib/supabase/rpc-boolean";
 import { logCreatorAuditEvent } from "@/lib/creator-provisioning/audit";
 import { generateProvisionedAuthEmail } from "@/lib/creator-provisioning/claim-transfer";
 import { generateOpaqueToken } from "@/lib/creator-provisioning/tokens";
 
-function mapAuthUserCreateFailure(err: unknown): string {
-  const base = supabaseAuthErrMessage(err);
-  const raw =
-    err && typeof err === "object" && typeof (err as { message?: string }).message === "string"
-      ? (err as { message: string }).message
-      : "";
-  const combined = `${raw} ${base}`;
-  if (/duplicate key|profiles_username_key|already exists/i.test(combined)) {
-    return "That handle is already in use (or clashes ignoring case). Choose a different handle.";
+function mapProfileUpsertFailure(err: unknown): { text: string; status: number } {
+  const full = formatSupabaseErrorForDisplay(err);
+  const m = flattenSupabaseError(err).message || "";
+  if (/duplicate key|profiles_username_key|unique constraint|already exists/i.test(m + full)) {
+    return {
+      text:
+        "That handle is already in use. Another profile may have claimed it during provisioning.\n\n" +
+        full,
+      status: 409,
+    };
   }
-  if (/Database error creating new user/i.test(raw) || /database error/i.test(base)) {
-    return `${base} If the handle should be free, check Postgres logs—often a duplicate handle on public.profiles.`;
-  }
-  return base;
-}
-
-function supabaseAuthErrMessage(err: unknown): string {
-  if (!err || typeof err !== "object") {
-    return "Failed to create auth user";
-  }
-  const o = err as Record<string, unknown>;
-  const msg = typeof o.message === "string" ? o.message.trim() : "";
-  const code = typeof o.code === "string" ? o.code : "";
-  if (msg && msg !== "Internal Server Error") {
-    return msg;
-  }
-  if (code === "unexpected_failure") {
-    return (
-      "Auth could not finish creating this user (often a DB trigger / profile row issue). " +
-      "Apply latest Supabase migrations (handle_new_user fix), then retry. " +
-      "If it continues, check Supabase Auth logs and Postgres logs for the failed insert."
-    );
-  }
-  if (code) {
-    return `Auth error (${code}). Check Supabase Auth logs; if this persists, try again later.`;
-  }
-  return "Auth service returned an error. Check Supabase project health and Auth logs.";
+  return { text: full || "Failed to save profile", status: 500 };
 }
 
 function normalizeHandle(input: string): string {
@@ -55,98 +32,33 @@ function normalizeHandle(input: string): string {
     .slice(0, 24);
 }
 
-/** PostgREST RPCs usually return an array; normalize single-row or null shapes. */
-function rpcResultRows<T>(data: T[] | T | null | undefined): T[] {
-  if (data == null) return [];
-  return Array.isArray(data) ? data : [data];
-}
-
-function rpcReturnsTrue(data: unknown): boolean {
-  return data === true || data === "true" || data === "t";
-}
-
-function rpcReturnsFalse(data: unknown): boolean {
-  return data === false || data === "false" || data === "f";
-}
-
 /**
- * Underscores cannot use ILIKE (single-char wildcard). Prefer profile_handle_exists_ci;
- * if that migration is not applied, both legacy RPCs must succeed with empty rows to treat as free
- * (OR on "empty" alone wrongly marked handles free when the other RPC errored).
+ * One RPC mirrors DB reality (trim+lower, full table visible, no ILIKE wildcards).
  */
-async function isProvisionHandleTaken(
+async function isProvisionHandleAvailable(
   admin: ReturnType<typeof createSupabaseAdminClient>,
-  h: string,
-): Promise<{ taken: boolean; fatalError?: string }> {
-  const { data: exactRow, error: eqErr } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("handle", h)
-    .maybeSingle();
-  if (eqErr) {
-    return { taken: false, fatalError: eqErr.message };
-  }
-  if (exactRow) {
-    return { taken: true };
-  }
-
-  if (!h.includes("_")) {
-    const { data: ilRows, error: ilErr } = await admin
-      .from("profiles")
-      .select("id")
-      .ilike("handle", h)
-      .limit(1);
-    if (ilErr) {
-      return { taken: false, fatalError: ilErr.message };
-    }
-    if (ilRows && ilRows.length > 0) {
-      return { taken: true };
-    }
-  }
-
-  const { data: existsRaw, error: existsErr } = await admin.rpc("profile_handle_exists_ci", {
-    handle_input: h,
+  handle: string,
+): Promise<{ available: boolean; error?: string }> {
+  const { data, error } = await admin.rpc("is_profile_handle_available", {
+    handle_input: handle,
+    exclude_profile_id: null,
   });
-  if (!existsErr) {
-    if (rpcReturnsTrue(existsRaw)) {
-      return { taken: true };
-    }
-    if (rpcReturnsFalse(existsRaw)) {
-      return { taken: false };
-    }
-    /* unexpected scalar shape from PostgREST — fall through to legacy RPCs */
-  }
-
-  const batch = await admin.rpc("profiles_min_by_handles", { handles: [h] });
-  const batchOk = !batch.error;
-  const batchRows = rpcResultRows(batch.data);
-  if (batchOk && batchRows.length > 0) {
-    return { taken: true };
-  }
-
-  const row = await admin.rpc("get_profile_by_handle_insensitive", { handle_input: h });
-  const rowOk = !row.error;
-  const rowRows = rpcResultRows(row.data);
-  if (rowOk && rowRows.length > 0) {
-    return { taken: true };
-  }
-
-  const definitiveFree = batchOk && rowOk && batchRows.length === 0 && rowRows.length === 0;
-  if (!definitiveFree) {
-    console.error(
-      "[admin/creators POST] could not verify handle availability",
-      existsErr,
-      batch.error,
-      row.error,
-    );
+  if (error) {
+    console.error("[admin/creators POST] is_profile_handle_available", error);
     return {
-      taken: false,
-      fatalError:
-        "Could not verify handle availability. Apply latest Supabase migrations (profile_handle_exists_ci and service_role RPC grants), then retry.",
+      available: false,
+      error: "Could not verify handle availability.\n\n" + formatSupabaseErrorForDisplay(error),
     };
   }
-
-  return { taken: false };
+  const parsed = parseRpcBoolean(data);
+  if (parsed === null) {
+    console.error("[admin/creators POST] is_profile_handle_available unexpected payload", data);
+    return {
+      available: false,
+      error: "Handle check failed (unexpected server response). Retry or check API logs.",
+    };
+  }
+  return { available: parsed };
 }
 
 export async function GET(req: NextRequest) {
@@ -221,11 +133,11 @@ export async function POST(req: NextRequest) {
 
     const admin = createSupabaseAdminClient();
 
-    const { taken, fatalError } = await isProvisionHandleTaken(admin, h);
-    if (fatalError) {
-      return NextResponse.json({ error: fatalError }, { status: 503 });
+    const { available, error: handleCheckErr } = await isProvisionHandleAvailable(admin, h);
+    if (handleCheckErr) {
+      return NextResponse.json({ error: handleCheckErr }, { status: 503 });
     }
-    if (taken) {
+    if (!available) {
       return NextResponse.json({ error: "Handle already taken" }, { status: 409 });
     }
 
@@ -237,22 +149,29 @@ export async function POST(req: NextRequest) {
     let authUser: Awaited<ReturnType<typeof admin.auth.admin.createUser>>["data"];
     let createErr: Awaited<ReturnType<typeof admin.auth.admin.createUser>>["error"];
     try {
+      // Do not pass `handle` in user_metadata here: handle_new_user() runs on auth insert and would
+      // INSERT into public.profiles with that handle. Any trigger/DB edge case then surfaces only as
+      // Auth code `unexpected_failure`. Instead the trigger derives a unique handle from the synthetic
+      // email local-part; we set the real handle in the upsert below.
       const created = await admin.auth.admin.createUser({
         email,
         password: tempPassword,
         email_confirm: false,
-        user_metadata: { full_name: name, handle: h },
+        user_metadata: { full_name: name },
       });
       authUser = created.data;
       createErr = created.error;
     } catch (e) {
       console.error("[admin/creators POST] createUser threw", e);
-      return NextResponse.json({ error: supabaseAuthErrMessage(e) }, { status: 502 });
+      return NextResponse.json({ error: formatSupabaseErrorForDisplay(e) }, { status: 502 });
     }
 
     if (createErr || !authUser?.user) {
       console.error("[admin/creators POST] createUser", createErr);
-      return NextResponse.json({ error: mapAuthUserCreateFailure(createErr) }, { status: 400 });
+      return NextResponse.json(
+        { error: formatSupabaseErrorForDisplay(createErr) },
+        { status: 400 },
+      );
     }
 
     const uid = authUser.user.id;
@@ -282,10 +201,15 @@ export async function POST(req: NextRequest) {
       await admin.auth.admin.deleteUser(uid).catch((delErr) => {
         console.error("[admin/creators POST] rollback deleteUser after upsert failure", delErr);
       });
-      return NextResponse.json(
-        { error: upsertErr.message || "Failed to save profile" },
-        { status: 500 },
-      );
+      const mapped = mapProfileUpsertFailure(upsertErr);
+      return NextResponse.json({ error: mapped.text }, { status: mapped.status });
+    }
+
+    const { error: metaErr } = await admin.auth.admin.updateUserById(uid, {
+      user_metadata: { full_name: name, handle: h },
+    });
+    if (metaErr) {
+      console.error("[admin/creators POST] updateUserById user_metadata", metaErr);
     }
 
     await logCreatorAuditEvent({
