@@ -45,7 +45,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Verify Open Graph static assets
         run: |
@@ -92,7 +92,7 @@ jobs:
 
     steps:
       - name: 📥 Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 📊 Build / PR Info
         run: |
