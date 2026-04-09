@@ -33,33 +33,16 @@ function Badge({ type }: { type: "New" | "Popular" }) {
   );
 }
 
+/** 40×40 frosted tile, 20×20 Lucide glyph — same as app sidebar nav. */
+const MEGA_NAV_ICON_TILE = cn(
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+  "bg-white/[0.06] ring-1 ring-white/[0.08]",
+);
+
 export function MegaNavItemIcon({ item }: { item: MegaNavItem }) {
-  if (item.iconSrc && item.iconSpriteAlign) {
-    return (
-      <div
-        className={cn(
-          "h-10 w-10 shrink-0 rounded-xl ring-1 ring-white/[0.08]",
-          "overflow-hidden bg-[#090a0f]",
-        )}
-        style={{
-          backgroundImage: `url(${item.iconSrc})`,
-          backgroundSize: "100% 200%",
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: item.iconSpriteAlign === "bottom" ? "center bottom" : "center top",
-        }}
-        aria-hidden
-      />
-    );
-  }
   const Icon = item.icon;
   return (
-    <div
-      className={cn(
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-        "bg-white/[0.06] ring-1 ring-white/[0.08]",
-      )}
-      aria-hidden
-    >
+    <div className={MEGA_NAV_ICON_TILE} aria-hidden>
       <Icon className="h-5 w-5 text-white/80" strokeWidth={1.75} />
     </div>
   );

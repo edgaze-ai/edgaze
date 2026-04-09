@@ -90,17 +90,12 @@ export default function MobileTopbar() {
 
         {isAdmin ? (
           <div className="flex items-center gap-2.5 min-w-0 pl-0.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white/[0.14] to-white/[0.04] border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
-              <span className="text-cyan-400 font-semibold text-xs tracking-tight">A</span>
+            <div className="relative h-9 w-9 shrink-0">
+              <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="36px" />
             </div>
-            <div className="min-w-0 leading-tight">
-              <span className="block text-[15px] font-semibold tracking-tight text-white truncate">
-                Admin
-              </span>
-              <span className="block text-[10px] font-medium uppercase tracking-[0.16em] text-white/45 truncate">
-                Control center
-              </span>
-            </div>
+            <span className="min-w-0 truncate text-[1.125rem] font-semibold tracking-[-0.02em] text-white/90">
+              Edgaze <span className="font-semibold text-emerald-400">Admin</span>
+            </span>
           </div>
         ) : (
           <div className="flex items-center gap-1">

@@ -4,7 +4,6 @@ import {
   Briefcase,
   Building2,
   FileText,
-  GitBranch,
   HelpCircle,
   Library,
   Mail,
@@ -18,6 +17,7 @@ import {
   Target,
   Trophy,
   User,
+  Workflow,
 } from "lucide-react";
 
 export type MegaNavBadge = "New" | "Popular";
@@ -27,9 +27,6 @@ export type MegaNavItem = {
   description: string;
   href: string;
   icon: LucideIcon;
-  /** Brand mark image; use `iconSpriteAlign` with a vertical 2-row sprite. */
-  iconSrc?: string;
-  iconSpriteAlign?: "top" | "bottom";
   badge?: MegaNavBadge;
 };
 
@@ -88,9 +85,7 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
             description:
               "Design visual workflows with inputs, prompts, tools, and logic—then publish.",
             href: "/builder",
-            icon: GitBranch,
-            iconSrc: "/brand/studio-nav-icons-sprite.png",
-            iconSpriteAlign: "top",
+            icon: Workflow,
           },
           {
             title: "Hosted runs",
@@ -104,8 +99,6 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
               "Structure prompts, versions, and inputs—publish prompt packs and single prompts.",
             href: "/prompt-studio",
             icon: Sparkles,
-            iconSrc: "/brand/studio-nav-icons-sprite.png",
-            iconSpriteAlign: "bottom",
           },
           {
             title: "Library",
@@ -143,9 +136,7 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
             description:
               "The visual builder for multi-step workflows, tools, and publish-ready pages.",
             href: "/builder",
-            icon: GitBranch,
-            iconSrc: "/brand/studio-nav-icons-sprite.png",
-            iconSpriteAlign: "top",
+            icon: Workflow,
             badge: "Popular",
           },
           {
@@ -154,8 +145,6 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
               "Templates, inputs, and versions so prompts ship like products—not screenshots.",
             href: "/prompt-studio",
             icon: Sparkles,
-            iconSrc: "/brand/studio-nav-icons-sprite.png",
-            iconSpriteAlign: "bottom",
           },
         ],
       },

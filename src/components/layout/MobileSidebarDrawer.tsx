@@ -193,17 +193,18 @@ function AdminDrawerBody({ pathname, onNavigate }: { pathname: string; onNavigat
               "radial-gradient(120% 90% at 0% 0%, rgba(34,211,238,0.14) 0%, transparent 55%), radial-gradient(80% 70% at 100% 0%, rgba(249,115,22,0.06) 0%, transparent 50%)",
           }}
         />
-        <div className="relative flex items-start justify-between gap-3">
-          <div className="min-w-0 pt-0.5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/40">
-              Admin
-            </p>
-            <p className="mt-1 text-[18px] font-semibold tracking-tight text-white leading-snug">
-              Control center
-            </p>
-            <p className="mt-1 text-[12px] text-white/50 leading-relaxed">
-              Navigate operations, trust, and demos.
-            </p>
+        <div className="relative flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3 pt-0.5">
+            <Image
+              src="/brand/edgaze-mark.png"
+              alt="Edgaze"
+              width={36}
+              height={36}
+              className="shrink-0 translate-y-[1px]"
+            />
+            <span className="text-[1.25rem] font-semibold tracking-[-0.02em] text-white/90 leading-tight">
+              Edgaze <span className="font-semibold text-emerald-400">Admin</span>
+            </span>
           </div>
           <button
             type="button"

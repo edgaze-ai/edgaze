@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import AdminGate from "../../components/admin/AdminGate";
 import AdminHeaderNav from "../../components/admin/AdminHeaderNav";
@@ -18,23 +19,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Desktop / large viewports: full chrome. Below xl, mobile AppShell topbar + admin drawer handle navigation. */}
         <header className="hidden xl:block sticky top-0 z-10 border-b border-white/[0.06] bg-[#070708]/90 backdrop-blur-2xl backdrop-saturate-150">
-          <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto flex min-h-[4.5rem] max-w-[1600px] items-center justify-between px-4 py-2 sm:px-6 lg:px-8">
             <div className="flex items-center gap-8">
               <Link
                 href="/admin/moderation"
-                className="flex items-center gap-3 transition-opacity hover:opacity-90"
+                className="group flex items-center gap-3.5 transition-opacity hover:opacity-90"
+                aria-label="Edgaze Admin home"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-white/[0.12] to-white/[0.04] border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
-                  <span className="text-cyan-400 font-semibold text-sm tracking-tight">A</span>
-                </div>
-                <div>
-                  <span className="block text-[15px] font-semibold tracking-tight text-white">
-                    Admin
-                  </span>
-                  <span className="block text-[11px] font-medium uppercase tracking-widest text-white/40">
-                    Control center
-                  </span>
-                </div>
+                <Image
+                  src="/brand/edgaze-mark.png"
+                  alt="Edgaze"
+                  width={40}
+                  height={40}
+                  priority
+                  className="shrink-0 translate-y-[2px]"
+                />
+                <span className="text-[1.35rem] font-semibold tracking-[-0.02em] text-white/90 sm:text-[1.65rem] sm:tracking-[-0.03em] -translate-x-[3px]">
+                  Edgaze <span className="font-semibold text-emerald-400">Admin</span>
+                </span>
               </Link>
               <AdminHeaderNav />
             </div>
