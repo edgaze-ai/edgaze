@@ -199,6 +199,29 @@ function badgeClassFor(type: "prompt" | "workflow") {
       };
 }
 
+/** Matches marketplace `PromptCard` routes: workflows `/:handle/:code`, prompts `/p/:handle/:code`. */
+function listingDetailPathFromProfile(
+  listing: { type: "prompt" | "workflow"; edgaze_code?: string | null },
+  profile: { id: string; handle: string },
+  viewerWorkspaceId: string | null,
+  viewerHandle: string | null | undefined,
+): string | null {
+  const code = (listing.edgaze_code || "").trim();
+  if (!code) return null;
+  const profileHandleNorm = normalizeHandle(profile.handle);
+  const viewerH = viewerHandle ? normalizeHandle(viewerHandle) : "";
+  const displayHandle =
+    viewerWorkspaceId &&
+    String(viewerWorkspaceId) === String(profile.id) &&
+    viewerH
+      ? viewerH
+      : profileHandleNorm;
+  if (!displayHandle) return null;
+  return listing.type === "workflow"
+    ? `/${displayHandle}/${code}`
+    : `/p/${displayHandle}/${code}`;
+}
+
 function BlurredPromptThumbnail({ text }: { text: string }) {
   const snippet =
     (text || "EDGAZE").replace(/\s+/g, " ").trim().slice(0, 28).toUpperCase() || "EDGAZE";
@@ -1195,15 +1218,13 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
               ) : (
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {listings.map((it) => {
-                    // Prefer edgaze code route when available (matches marketplace UX)
-                    const code = (it.edgaze_code || "").trim();
-                    const open =
-                      code && creator.handle
-                        ? () => router.push(`/p/${creator.handle}/${code}`)
-                        : () =>
-                            router.push(
-                              `/${it.type === "prompt" ? "prompts" : "workflows"}/${it.id}`,
-                            );
+                    const path = listingDetailPathFromProfile(
+                      it,
+                      creator,
+                      workspaceViewerId,
+                      auth.user?.handle,
+                    );
+                    const open = path ? () => router.push(path) : () => {};
 
                     return (
                       <PromptCard

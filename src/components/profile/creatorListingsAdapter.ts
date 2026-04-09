@@ -112,6 +112,7 @@ async function fetchPrompts(
     .eq("owner_id", creatorId)
     .in("type", ["prompt", "workflow"])
     .in("visibility", ["public", "unlisted"])
+    .is("removed_at", null)
     .limit(limit);
 
   // Sorting

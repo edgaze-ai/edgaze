@@ -14,8 +14,6 @@ import {
   Sparkles,
   BookOpen,
   DollarSign,
-  FileText,
-  Shield,
 } from "lucide-react";
 
 import { useSidebar } from "./SidebarContext";
@@ -64,11 +62,6 @@ const FOOTER_ITEMS: NavItem[] = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-const ADMIN_ITEMS: NavItem[] = [
-  { href: "/admin/accounting", label: "Accounting", icon: FileText },
-  { href: "/admin/moderation", label: "Admin", icon: Shield },
-];
-
 /* -------------------- SIDEBAR COMPONENT -------------------- */
 
 export default function Sidebar() {
@@ -83,7 +76,6 @@ export default function Sidebar() {
     openSignIn,
     signOut,
     loading,
-    isAdmin: userIsAdmin,
   } = useAuth();
   const activeUserId = workspaceUserId || userId;
 
@@ -264,14 +256,6 @@ export default function Sidebar() {
               collapsed={collapsed}
               isActive={isActive}
             />
-            {userIsAdmin ? (
-              <NavGroup
-                title="Admin"
-                items={ADMIN_ITEMS}
-                collapsed={collapsed}
-                isActive={isActive}
-              />
-            ) : null}
           </div>
 
           <div className="flex flex-col gap-2">
