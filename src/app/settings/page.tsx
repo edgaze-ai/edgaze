@@ -199,7 +199,7 @@ export default function SettingsPage() {
             </p>
             <button
               type="button"
-              onClick={openSignIn}
+              onClick={() => openSignIn()}
               className="mt-8 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white text-black px-6 py-4 text-[15px] font-semibold hover:bg-white/95 transition-colors"
             >
               <LogIn className="h-5 w-5" />

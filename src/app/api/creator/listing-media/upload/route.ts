@@ -100,7 +100,12 @@ export async function POST(req: NextRequest) {
 
     if (uploadError) {
       console.error("[listing-media/upload]", uploadError);
-      return NextResponse.json({ error: uploadError.message || "Upload failed" }, { status: 500 });
+      const err = uploadError as { message?: string; error?: string };
+      const msg =
+        (typeof err.message === "string" && err.message.trim()) ||
+        (typeof err.error === "string" && err.error.trim()) ||
+        "Storage upload failed (check workflow-media bucket exists)";
+      return NextResponse.json({ error: msg }, { status: 500 });
     }
 
     const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(path);

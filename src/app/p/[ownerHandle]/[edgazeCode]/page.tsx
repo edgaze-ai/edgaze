@@ -40,6 +40,7 @@ import { isPremiumAiSpec } from "../../../../lib/workflow/spec-id-aliases";
 import ProfileAvatar from "../../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../../components/ui/ProfileLink";
 import ReportModal from "../../../../components/marketplace/ReportModal";
+import ListingImageLightbox from "../../../../components/marketplace/ListingImageLightbox";
 import { toRuntimeGraph } from "../../../../lib/workflow/customer-runtime";
 import { finalizeClientWorkflowRunFromExecutionResult } from "../../../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../../../lib/workflow/run-stream-client";
@@ -1463,28 +1464,6 @@ export default function PromptProductPage() {
 
   const activeDemo = demoImages[mainDemoIndex] || null;
 
-  // Lightbox: lock body scroll and close on Escape
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLightboxOpen(false);
-      if (demoImages.length > 1) {
-        if (e.key === "ArrowLeft") {
-          setMainDemoIndex((i) => (i === 0 ? demoImages.length - 1 : i - 1));
-        } else if (e.key === "ArrowRight") {
-          setMainDemoIndex((i) => (i === demoImages.length - 1 ? 0 : i + 1));
-        }
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [lightboxOpen, demoImages.length]);
-
   const currentUserId = userId ?? null;
   const currentUserName = (profile as any)?.full_name ?? null;
   const currentUserHandle = (profile as any)?.handle ?? null;
@@ -2723,7 +2702,16 @@ export default function PromptProductPage() {
                       alt={listing.title || "Demo image"}
                       className="h-full w-full cursor-pointer object-cover object-center"
                       style={{ aspectRatio: "16/9" }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="View larger image"
                       onClick={() => setLightboxOpen(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setLightboxOpen(true);
+                        }
+                      }}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-xs text-white/50">
@@ -2805,79 +2793,23 @@ export default function PromptProductPage() {
                 </div>
               )}
 
-              {/* In-app image lightbox: no external links, show bigger with arrows */}
-              {lightboxOpen && activeDemo && (
-                <div
-                  className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Image viewer"
-                  onClick={() => setLightboxOpen(false)}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setLightboxOpen(false)}
-                    className="absolute right-4 top-4 z-10 rounded-full border border-white/20 bg-black/50 p-2 text-white hover:bg-white/10"
-                    aria-label="Close"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                  <div
-                    className="relative flex max-h-[100vh] max-w-[100vw] items-center justify-center p-4"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {demoImages.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newIndex =
-                            mainDemoIndex === 0 ? demoImages.length - 1 : mainDemoIndex - 1;
-                          setMainDemoIndex(newIndex);
-                          safeTrack("Demo Image Navigated", {
-                            surface: "lightbox",
-                            direction: "previous",
-                            index: newIndex,
-                            total_images: demoImages.length,
-                            listing_id: listing?.id,
-                          });
-                        }}
-                        className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white hover:bg-white/10 sm:left-4"
-                        aria-label="Previous image"
-                      >
-                        <ChevronLeft className="h-6 w-6 sm:h-8 sm:w-8" />
-                      </button>
-                    )}
-                    {}
-                    <img
-                      src={activeDemo}
-                      alt={listing?.title || `Demo ${mainDemoIndex + 1}`}
-                      className="max-h-[90vh] max-w-full object-contain"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    {demoImages.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newIndex =
-                            mainDemoIndex === demoImages.length - 1 ? 0 : mainDemoIndex + 1;
-                          setMainDemoIndex(newIndex);
-                          safeTrack("Demo Image Navigated", {
-                            surface: "lightbox",
-                            direction: "next",
-                            index: newIndex,
-                            total_images: demoImages.length,
-                            listing_id: listing?.id,
-                          });
-                        }}
-                        className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white hover:bg-white/10 sm:right-4"
-                        aria-label="Next image"
-                      >
-                        <ChevronRight className="h-6 w-6 sm:h-8 sm:w-8" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
+              <ListingImageLightbox
+                open={lightboxOpen}
+                onClose={() => setLightboxOpen(false)}
+                images={demoImages}
+                activeIndex={mainDemoIndex}
+                onActiveIndexChange={setMainDemoIndex}
+                title={listing?.title}
+                onNavigate={(direction, newIndex) => {
+                  safeTrack("Demo Image Navigated", {
+                    surface: "lightbox",
+                    direction,
+                    index: newIndex,
+                    total_images: demoImages.length,
+                    listing_id: listing?.id,
+                  });
+                }}
+              />
 
               <div className="mt-4">
                 <div className="mb-2 flex flex-wrap items-center gap-2">

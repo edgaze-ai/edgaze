@@ -2342,7 +2342,7 @@ export default function MarketplacePage() {
     ) : (
       <button
         type="button"
-        onClick={openSignIn}
+        onClick={() => openSignIn()}
         className="rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-4 py-2 text-sm font-semibold text-black shadow-[0_0_22px_rgba(56,189,248,0.55)]"
       >
         Sign in

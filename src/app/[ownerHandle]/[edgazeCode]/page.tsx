@@ -40,6 +40,7 @@ import TurnstileWidget from "../../../components/apply/TurnstileWidget";
 import ProfileAvatar from "../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../components/ui/ProfileLink";
 import ReportModal from "../../../components/marketplace/ReportModal";
+import ListingImageLightbox from "../../../components/marketplace/ListingImageLightbox";
 import { toRuntimeGraph } from "../../../lib/workflow/customer-runtime";
 import { finalizeClientWorkflowRunFromExecutionResult } from "../../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../../lib/workflow/run-stream-client";
@@ -864,6 +865,7 @@ export default function WorkflowProductPage() {
   const [loading, setLoading] = useState(true);
 
   const [mainDemoIndex, setMainDemoIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -2192,7 +2194,16 @@ export default function WorkflowProductPage() {
                       src={activeDemo}
                       alt={listing.title || "Workflow demo image"}
                       className="h-full w-full cursor-pointer object-cover object-center"
-                      onClick={() => window.open(activeDemo, "_blank", "noopener,noreferrer")}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="View larger image"
+                      onClick={() => setLightboxOpen(true)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setLightboxOpen(true);
+                        }
+                      }}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-xs text-white/50">
@@ -2233,7 +2244,10 @@ export default function WorkflowProductPage() {
                     <button
                       key={img + idx}
                       type="button"
-                      onClick={() => setMainDemoIndex(idx)}
+                      onClick={() => {
+                        setMainDemoIndex(idx);
+                        setLightboxOpen(true);
+                      }}
                       className={cn(
                         "relative aspect-video w-20 flex-none overflow-hidden rounded-xl border border-white/10 bg-black/60",
                         idx === mainDemoIndex &&
@@ -2251,6 +2265,24 @@ export default function WorkflowProductPage() {
                   ))}
                 </div>
               )}
+
+              <ListingImageLightbox
+                open={lightboxOpen}
+                onClose={() => setLightboxOpen(false)}
+                images={demoImages}
+                activeIndex={mainDemoIndex}
+                onActiveIndexChange={setMainDemoIndex}
+                title={listing?.title}
+                onNavigate={(direction, newIndex) => {
+                  safeTrack("Demo Image Navigated", {
+                    surface: "lightbox",
+                    direction,
+                    index: newIndex,
+                    total_images: demoImages.length,
+                    listing_id: listing?.id,
+                  });
+                }}
+              />
 
               <div className="mt-4">
                 <div className="mb-2 flex flex-wrap items-center gap-2">

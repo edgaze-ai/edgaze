@@ -11,7 +11,6 @@ const FOOTER_SECTIONS = [
       { label: "Workflow Studio", href: "/builder" },
       { label: "Prompt Studio", href: "/prompt-studio" },
       { label: "Creator Program", href: "/creators" },
-      { label: "Pricing", href: "/pricing" },
       { label: "Library", href: "/library" },
     ],
   },
@@ -21,6 +20,7 @@ const FOOTER_SECTIONS = [
       { label: "Documentation", href: "/docs" },
       { label: "Blog", href: "/blogs" },
       { label: "Changelog", href: "/docs/changelog" },
+      { label: "Pricing", href: "/pricing" },
     ],
   },
   {
@@ -136,20 +136,31 @@ export default function Footer() {
                   rel="noopener noreferrer"
                   aria-label={link.label}
                   title={link.label}
-                  className="text-white/55 hover:text-white transition-colors py-0.5 -my-0.5"
+                  className="group inline-flex h-6 w-6 shrink-0 items-center justify-center text-white/55 transition-colors duration-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#07080c] rounded-sm"
                 >
                   {link.kind === "edgaze" ? (
                     <img
                       src="/brand/edgaze-mark.png"
                       alt=""
-                      className="h-[18px] w-[18px] opacity-50 grayscale hover:opacity-100 hover:grayscale-0 transition-[opacity,filter]"
+                      width={24}
+                      height={24}
+                      className="h-6 w-6 object-contain [filter:brightness(0)_invert(1)] opacity-[0.55] transition-[opacity,transform] duration-200 ease-out group-hover:opacity-100 group-hover:scale-[1.06]"
                     />
                   ) : link.kind === "x" ? (
-                    <FaXTwitter className="h-[18px] w-[18px]" aria-hidden />
+                    <FaXTwitter
+                      className="h-6 w-6 transition-transform duration-200 ease-out group-hover:scale-[1.06]"
+                      aria-hidden
+                    />
                   ) : link.kind === "github" ? (
-                    <FaGithub className="h-[18px] w-[18px]" aria-hidden />
+                    <FaGithub
+                      className="h-6 w-6 transition-transform duration-200 ease-out group-hover:scale-[1.06]"
+                      aria-hidden
+                    />
                   ) : (
-                    <FaLinkedinIn className="h-[18px] w-[18px]" aria-hidden />
+                    <FaLinkedinIn
+                      className="h-6 w-6 transition-transform duration-200 ease-out group-hover:scale-[1.06]"
+                      aria-hidden
+                    />
                   )}
                 </a>
               ))}

@@ -55,7 +55,7 @@ export default function ReportModal({
 
   useEffect(() => {
     if (!open || !authReady || userId) return;
-    openSignIn();
+    openSignIn({ preferModal: true });
     onClose();
   }, [open, authReady, userId, openSignIn, onClose]);
 
@@ -82,7 +82,7 @@ export default function ReportModal({
       setError("Please select a reason");
       return;
     }
-    if (!requireAuth()) return;
+    if (!requireAuth({ preferModal: true })) return;
 
     setSubmitting(true);
     setError(null);

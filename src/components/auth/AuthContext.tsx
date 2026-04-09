@@ -53,6 +53,11 @@ export type AuthUser = {
   handle: string;
 };
 
+/** Use the standard SignInModal even on product URLs (e.g. report flow — not sign-in-to-buy). */
+export type OpenSignInOptions = {
+  preferModal?: boolean;
+};
+
 type AuthContextValue = {
   user: AuthUser | null;
 
@@ -72,10 +77,10 @@ type AuthContextValue = {
   loading: boolean;
   authReady: boolean;
 
-  openSignIn: () => void;
+  openSignIn: (opts?: OpenSignInOptions) => void;
   closeSignIn: () => void;
 
-  requireAuth: () => boolean;
+  requireAuth: (opts?: OpenSignInOptions) => boolean;
   requireVerifiedEmail: () => boolean;
 
   refresh: () => Promise<void>;
@@ -290,75 +295,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /** Last resolved user id for SIGNED_IN redirect (avoid unstable effect deps / INITIAL_SESSION false positives) */
   const lastUserIdRef = useRef<string | null>(null);
 
-  const openSignIn = useCallback(() => {
-    if (modalOpenRef.current) return;
+  const openSignIn = useCallback(
+    (opts?: OpenSignInOptions) => {
+      if (modalOpenRef.current) return;
 
-    if (typeof window === "undefined") return;
+      if (typeof window === "undefined") return;
 
-    const currentPath = window.location.pathname + window.location.search + window.location.hash;
+      const preferModal = Boolean(opts?.preferModal);
+      const currentPath = window.location.pathname + window.location.search + window.location.hash;
 
-    // Product page: /p/owner/code (prompts+workflows) or /owner/code (workflow storefront)
-    // Send to full-screen sign-in-to-buy with product on side and conversion copy (never use modal here)
-    const pathSegments = window.location.pathname
-      .replace(/^\/+|\/+$/g, "")
-      .split("/")
-      .filter(Boolean);
-    const isProductPageP = pathSegments[0] === "p" && pathSegments.length >= 3;
-    const isProductPageWorkflow =
-      pathSegments.length === 2 &&
-      ![
-        "auth",
-        "marketplace",
-        "library",
-        "builder",
-        "creators",
-        "admin",
-        "settings",
-        "profile",
-        "store",
-        "apply",
-        "dashboard",
-      ].includes(pathSegments[0] ?? "");
-    const demoQuery = new URLSearchParams(window.location.search).get("demo")?.trim();
-    // Demo share links: never hijack with full-screen sign-in — modal keeps ?demo= in the URL.
-    if ((isProductPageP || isProductPageWorkflow) && demoQuery) {
+      // Product page: /p/owner/code (prompts+workflows) or /owner/code (workflow storefront)
+      // Default: full-screen sign-in-to-buy. preferModal: keep traditional SignInModal (e.g. report).
+      const pathSegments = window.location.pathname
+        .replace(/^\/+|\/+$/g, "")
+        .split("/")
+        .filter(Boolean);
+      const isProductPageP = pathSegments[0] === "p" && pathSegments.length >= 3;
+      const isProductPageWorkflow =
+        pathSegments.length === 2 &&
+        ![
+          "auth",
+          "marketplace",
+          "library",
+          "builder",
+          "creators",
+          "admin",
+          "settings",
+          "profile",
+          "store",
+          "apply",
+          "dashboard",
+        ].includes(pathSegments[0] ?? "");
+      const demoQuery = new URLSearchParams(window.location.search).get("demo")?.trim();
+      // Demo share links: never hijack with full-screen sign-in — modal keeps ?demo= in the URL.
+      if ((isProductPageP || isProductPageWorkflow) && demoQuery) {
+        if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
+          saveReturnPath(currentPath);
+        }
+        modalOpenRef.current = true;
+        setModalOpen(true);
+        safeTrack("Sign In Modal Opened", {
+          surface: "auth_context",
+          user_type: userId ? "authenticated" : "anonymous",
+          reason: "demo_link_product_page",
+        });
+        return;
+      }
+      if (!preferModal && (isProductPageP || isProductPageWorkflow)) {
+        const type = isProductPageP ? "prompt" : "workflow";
+        if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
+          safeTrack("Sign In To Buy Redirect", {
+            surface: "auth_context",
+            from_product_page: true,
+            type,
+          });
+          window.location.href = `/auth/sign-in-to-buy?return=${encodeURIComponent(currentPath)}&type=${type}`;
+        }
+        return;
+      }
+
+      // Save current path BEFORE opening modal (non-product pages)
       if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
         saveReturnPath(currentPath);
       }
+
       modalOpenRef.current = true;
       setModalOpen(true);
       safeTrack("Sign In Modal Opened", {
         surface: "auth_context",
         user_type: userId ? "authenticated" : "anonymous",
-        reason: "demo_link_product_page",
       });
-      return;
-    }
-    if (isProductPageP || isProductPageWorkflow) {
-      const type = isProductPageP ? "prompt" : "workflow";
-      if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
-        safeTrack("Sign In To Buy Redirect", {
-          surface: "auth_context",
-          from_product_page: true,
-          type,
-        });
-        window.location.href = `/auth/sign-in-to-buy?return=${encodeURIComponent(currentPath)}&type=${type}`;
-      }
-      return;
-    }
-
-    // Save current path BEFORE opening modal (non-product pages)
-    if (currentPath && currentPath !== "/" && !currentPath.startsWith("/auth/")) {
-      saveReturnPath(currentPath);
-    }
-
-    modalOpenRef.current = true;
-    setModalOpen(true);
-    safeTrack("Sign In Modal Opened", {
-      surface: "auth_context",
-      user_type: userId ? "authenticated" : "anonymous",
-    });
-  }, [userId]);
+    },
+    [userId],
+  );
 
   const closeSignIn = useCallback(() => {
     modalOpenRef.current = false;
@@ -763,10 +772,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => data.subscription.unsubscribe();
   }, [applyUser, refresh, supabase, router, pathname]);
 
-  const requireAuth = () => {
+  const requireAuth = (opts?: OpenSignInOptions) => {
     if (userId) return true;
     // openSignIn already saves the current path, so just call it
-    openSignIn();
+    openSignIn(opts);
     return false;
   };
 

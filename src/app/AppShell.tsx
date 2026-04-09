@@ -33,7 +33,6 @@ const HIDE_SIDEBAR_ROUTES = new Set([
   "/about", // about page - full-width marketing
   "/blogs", // blog portal - own sidebar, full-width
   "/pricing", // pricing page - full-width marketing
-  "/help", // help page - full-width, scrollable
   "/press", // press page - full-width, scrollable
   "/invest", // investor funnel — full-width, no sidebar
   "/auth/sign-in-to-buy", // full-screen sign-in for purchase — no sidebar/topbar, scrollable
@@ -49,6 +48,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isLibraryPage = pathname === "/library";
   const isCreatorsOnboarding = pathname === "/creators/onboarding";
   const isDashboardEarnings = pathname === "/dashboard/earnings";
+  const isHelpPage = pathname === "/help";
   const isAdminPage = pathname.startsWith("/admin");
   const [mounted, setMounted] = useState(false);
 
@@ -68,7 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const mainClasses =
-    isCreatorsOnboarding || isDashboardEarnings || isAdminPage
+    isCreatorsOnboarding || isDashboardEarnings || isAdminPage || isHelpPage
       ? "flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
       : isLibraryPage
         ? "flex-1 overflow-hidden library-page-main"

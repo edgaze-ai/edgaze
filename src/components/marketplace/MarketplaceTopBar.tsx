@@ -28,7 +28,7 @@ export default function MarketplaceTopBar() {
       ) : (
         <button
           type="button"
-          onClick={openSignIn}
+          onClick={() => openSignIn()}
           className="inline-flex h-10 items-center rounded-full border border-white/15 bg-white/5 px-4 text-xs uppercase tracking-wide text-white/80 hover:bg-white/10"
         >
           Sign in

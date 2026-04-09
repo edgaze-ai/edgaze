@@ -192,7 +192,7 @@ export default function Sidebar() {
 
                 <button
                   type="button"
-                  onClick={openSignIn}
+                  onClick={() => openSignIn()}
                   className="shrink-0 whitespace-nowrap rounded-lg border border-white/15 bg-white/10 px-4 py-2.5 text-[12px] font-semibold text-white/95 transition-all duration-200 hover:bg-white/15 hover:border-white/25 active:scale-[0.98]"
                 >
                   Sign in
@@ -215,7 +215,7 @@ export default function Sidebar() {
             ) : (
               <button
                 type="button"
-                onClick={openSignIn}
+                onClick={() => openSignIn()}
                 className="block rounded-full transition-opacity hover:opacity-90"
                 aria-label="Sign in"
               >

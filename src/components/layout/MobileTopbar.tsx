@@ -167,7 +167,7 @@ export default function MobileTopbar() {
         ) : (
           <button
             type="button"
-            onClick={openSignIn}
+            onClick={() => openSignIn()}
             className="rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-3 py-1.5 text-xs font-semibold text-black shadow-[0_0_18px_rgba(56,189,248,0.55)]"
           >
             Sign in

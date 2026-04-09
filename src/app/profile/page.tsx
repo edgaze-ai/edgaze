@@ -83,7 +83,7 @@ function ProfileRootPageContent() {
 
           <button
             type="button"
-            onClick={openSignIn}
+            onClick={() => openSignIn()}
             className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_0_24px_rgba(56,189,248,0.35)] hover:opacity-95 active:scale-[0.99]"
           >
             Sign in

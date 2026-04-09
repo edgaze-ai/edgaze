@@ -32,13 +32,25 @@ export async function uploadListingMedia(opts: {
     body: form,
   });
 
-  const data = (await res.json().catch(() => ({}))) as {
-    error?: string;
-    path?: string;
-    publicUrl?: string;
-  };
+  const raw = await res.text();
+  let data: { error?: string; message?: string; path?: string; publicUrl?: string } = {};
+  if (raw) {
+    try {
+      data = JSON.parse(raw) as typeof data;
+    } catch {
+      /* non-JSON error page */
+    }
+  }
+
   if (!res.ok) {
-    throw new Error(data.error || "Upload failed");
+    const fromJson =
+      (typeof data.error === "string" && data.error.trim()) ||
+      (typeof data.message === "string" && data.message.trim());
+    const detail =
+      fromJson ||
+      (raw && !fromJson ? raw.slice(0, 500).trim() : "") ||
+      `${res.status} ${res.statusText || ""}`.trim();
+    throw new Error(detail || "Upload failed");
   }
   if (!data.path || !data.publicUrl) {
     throw new Error("Upload returned no URL");
