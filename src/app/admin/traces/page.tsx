@@ -194,18 +194,21 @@ export default function AdminTracesPage() {
 
   return (
     <div className="space-y-8 pb-24">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Trace timeline</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">
+            Trace timeline
+          </h1>
           <p className="mt-1 text-[13px] text-white/50">
             One heavily detailed trace bundle per workflow run, with the full ordered timeline in
             one place.
           </p>
         </div>
         <button
+          type="button"
           onClick={downloadTrace}
           disabled={!selectedSessionId}
-          className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50 sm:h-auto sm:w-auto sm:py-2"
         >
           <Download className="h-4 w-4" />
           Download trace
@@ -213,13 +216,13 @@ export default function AdminTracesPage() {
       </div>
 
       <div className={`${cardClass} p-4`}>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex max-w-full overflow-x-auto rounded-xl border border-white/[0.08] bg-white/[0.03] p-1 [-webkit-overflow-scrolling:touch]">
             {(["7d", "30d", "90d"] as const).map((value) => (
               <button
                 key={value}
                 onClick={() => setRange(value)}
-                className={`rounded-lg px-4 py-2 text-[13px] font-medium transition ${
+                className={`shrink-0 rounded-lg px-4 py-2 text-[13px] font-medium transition ${
                   range === value ? "bg-white/10 text-white" : "text-white/55 hover:text-white/85"
                 }`}
               >
@@ -230,7 +233,7 @@ export default function AdminTracesPage() {
           <select
             value={phase}
             onChange={(event) => setPhase(event.target.value)}
-            className="rounded-xl border border-white/[0.08] bg-[#0d0d10] px-4 py-2 text-[13px] text-white/80 outline-none"
+            className="w-full min-w-0 rounded-xl border border-white/[0.08] bg-[#0d0d10] px-4 py-2 text-[13px] text-white/80 outline-none sm:w-auto"
           >
             <option value="">All phases</option>
             <option value="request">request</option>
@@ -240,7 +243,7 @@ export default function AdminTracesPage() {
             <option value="background_job">background_job</option>
             <option value="admin">admin</option>
           </select>
-          <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#0d0d10] px-4 py-2">
+          <div className="flex min-w-0 w-full flex-1 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#0d0d10] px-4 py-2 sm:min-w-[260px]">
             <Search className="h-4 w-4 text-white/35" />
             <input
               value={query}
@@ -253,23 +256,26 @@ export default function AdminTracesPage() {
             />
           </div>
           <button
+            type="button"
             onClick={() => setSearch(query)}
-            className="rounded-xl bg-cyan-500 px-4 py-2 text-[13px] font-medium text-black transition hover:bg-cyan-400"
+            className="h-11 w-full shrink-0 rounded-xl bg-cyan-500 px-4 text-[13px] font-medium text-black transition hover:bg-cyan-400 sm:h-auto sm:w-auto sm:py-2"
           >
             Search
           </button>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-        <div className={`${cardClass} p-3`}>
-          <div className="mb-3 flex items-center justify-between px-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+        <div
+          className={`${cardClass} flex max-h-[min(42vh,400px)] min-h-0 flex-col p-3 lg:max-h-none`}
+        >
+          <div className="mb-3 flex shrink-0 items-center justify-between px-2">
             <span className="text-[12px] font-medium uppercase tracking-[0.18em] text-white/45">
               Workflow Runs
             </span>
             {loading ? <Loader2 className="h-4 w-4 animate-spin text-white/45" /> : null}
           </div>
-          <div className="space-y-2">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
             {sessions.map((session) => (
               <button
                 key={session.id}
@@ -313,7 +319,7 @@ export default function AdminTracesPage() {
           </div>
         </div>
 
-        <div className={`${cardClass} p-5`}>
+        <div className={`${cardClass} min-w-0 p-4 sm:p-5`}>
           {detailLoading ? (
             <div className="flex min-h-[420px] items-center justify-center text-white/45">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />

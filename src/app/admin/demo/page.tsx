@@ -166,7 +166,7 @@ export default function AdminDemoPage() {
             return (
               <div
                 key={`${p.type}-${p.id}`}
-                className={`${cardClass} p-4 flex flex-col sm:flex-row sm:items-center gap-4`}
+                className={`${cardClass} flex flex-col gap-4 p-4 sm:flex-row sm:items-center`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -188,12 +188,12 @@ export default function AdminDemoPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 sm:shrink-0">
+                <div className="flex flex-wrap items-stretch gap-2 sm:shrink-0 sm:items-center">
                   <button
                     type="button"
                     onClick={() => toggleDemo(p)}
                     disabled={isToggling}
-                    className={`rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-all ${
+                    className={`inline-flex min-h-11 min-w-[7.5rem] flex-1 items-center justify-center rounded-lg border px-3 py-2 text-[12px] font-medium transition-all sm:min-h-0 sm:flex-initial sm:py-1.5 ${
                       p.demo_mode_enabled
                         ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-200"
                         : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
@@ -214,7 +214,7 @@ export default function AdminDemoPage() {
                         href={demoUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-lg border border-white/10 bg-white/5 p-1.5 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                        className="inline-flex min-h-11 min-w-11 flex-1 items-center justify-center rounded-lg border border-white/10 bg-white/5 p-2 text-white/70 hover:bg-white/10 hover:text-white transition-colors sm:min-h-0 sm:min-w-0 sm:flex-initial sm:p-1.5"
                         title="Open demo link"
                       >
                         <ExternalLink className="h-4 w-4" />
@@ -222,7 +222,7 @@ export default function AdminDemoPage() {
                       <button
                         type="button"
                         onClick={() => copyDemoLink(p)}
-                        className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors flex items-center gap-1.5"
+                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[12px] font-medium text-white/70 hover:bg-white/10 hover:text-white transition-colors sm:min-h-0 sm:flex-initial sm:py-1.5"
                       >
                         <Copy className="h-3.5 w-3.5" />
                         {isCopied ? "Copied" : "Copy link"}

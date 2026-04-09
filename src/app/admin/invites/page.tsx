@@ -279,16 +279,19 @@ export default function AdminInvitesPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 max-w-full">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Creator Invites</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            Creator Invites
+          </h1>
           <p className="mt-1 text-sm text-white/50">Manage personalized onboarding invites</p>
         </div>
         <button
+          type="button"
           onClick={() => setShowForm(!showForm)}
-          className="rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-black transition-all hover:bg-cyan-400"
+          className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-cyan-500 px-4 text-sm font-semibold text-black transition-all hover:bg-cyan-400 sm:h-auto sm:py-2.5"
         >
           {showForm ? "Cancel" : "Create Invite"}
         </button>
@@ -325,16 +328,17 @@ export default function AdminInvitesPage() {
           <p className="mb-4 text-sm text-white/60">
             Copy the link from the table below and send it to the creator.
           </p>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Link
               href={`/admin/invites/${success.id}/preview`}
-              className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-center text-sm font-medium text-white/70 transition-all hover:bg-white/[0.06]"
+              className="flex-1 rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-center text-sm font-medium text-white/70 transition-all hover:bg-white/[0.06] sm:py-2"
             >
               Preview
             </Link>
             <button
+              type="button"
               onClick={() => setSuccess(null)}
-              className="ml-auto rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm font-medium text-white/70 transition-all hover:bg-white/[0.06]"
+              className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-medium text-white/70 transition-all hover:bg-white/[0.06] sm:ml-auto sm:py-2"
             >
               Send Another
             </button>
@@ -440,15 +444,15 @@ export default function AdminInvitesPage() {
 
       {/* Invites Table */}
       <div className={cardClass}>
-        <div className="border-b border-white/[0.08] p-6">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="border-b border-white/[0.08] p-4 sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <h2 className="text-lg font-semibold text-white">All Invites</h2>
               <p className="mt-1 text-xs text-white/40">
-                Hover over an active invite to copy its link or revoke it
+                Tap copy or revoke on active invites. On desktop, actions appear on row hover.
               </p>
             </div>
-            <span className="text-sm font-semibold text-cyan-400">
+            <span className="shrink-0 text-sm font-semibold text-cyan-400 tabular-nums">
               {invites.length} in database
             </span>
           </div>
@@ -463,86 +467,132 @@ export default function AdminInvitesPage() {
             <p className="text-sm text-white/40">No invites yet. Create one above.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/[0.08]">
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40">
-                    Creator
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40">
-                    Created
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40">
-                    Expires
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-white/40">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {invites.map((invite) => (
-                  <tr
-                    key={invite.id}
-                    className="group border-b border-white/[0.08] transition-colors hover:bg-white/[0.02]"
-                  >
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={invite.creator_photo_url}
-                          alt={invite.creator_name}
-                          className="h-8 w-8 rounded-full object-cover"
-                        />
-                        <span className="text-sm font-medium text-white">
-                          {invite.creator_name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-3">{getStatusPill(invite.status)}</td>
-                    <td className="px-6 py-3">
-                      <span className="text-sm text-white/60">
-                        {new Date(invite.created_at).toLocaleDateString()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3">
-                      <span className="text-sm text-white/60">
-                        {new Date(invite.expires_at).toLocaleDateString()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center justify-end gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                        {invite.status === "active" && (
-                          <>
-                            <button
-                              onClick={() =>
-                                handleCopyLink(
-                                  `${window.location.origin}/c/${invite.raw_token}`,
-                                  invite.id,
-                                )
-                              }
-                              className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white/70 transition-all hover:bg-white/[0.06]"
-                            >
-                              {copiedId === invite.id ? "Copied!" : "Copy Link"}
-                            </button>
-                            <button
-                              onClick={() => setRevokeConfirm(invite.id)}
-                              className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-all hover:bg-red-500/20"
-                            >
-                              Revoke
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
+          <>
+            <div className="md:hidden divide-y divide-white/[0.08]">
+              {invites.map((invite) => (
+                <div key={invite.id} className="space-y-3 p-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={invite.creator_photo_url}
+                      alt=""
+                      className="h-11 w-11 shrink-0 rounded-full object-cover"
+                    />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="truncate font-medium text-white">{invite.creator_name}</div>
+                      {getStatusPill(invite.status)}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/50">
+                    <span>Created {new Date(invite.created_at).toLocaleDateString()}</span>
+                    <span>Expires {new Date(invite.expires_at).toLocaleDateString()}</span>
+                  </div>
+                  {invite.status === "active" ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyLink(
+                            `${typeof window !== "undefined" ? window.location.origin : ""}/c/${invite.raw_token}`,
+                            invite.id,
+                          )
+                        }
+                        className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 text-xs font-medium text-white/80 transition-all hover:bg-white/[0.06] sm:flex-initial"
+                      >
+                        {copiedId === invite.id ? "Copied!" : "Copy link"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRevokeConfirm(invite.id)}
+                        className="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/10 px-3 text-xs font-medium text-red-400 transition-all hover:bg-red-500/20 sm:flex-initial"
+                      >
+                        Revoke
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[640px]">
+                <thead>
+                  <tr className="border-b border-white/[0.08]">
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+                      Creator
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-white/40">
+                      Expires
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-white/40">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {invites.map((invite) => (
+                    <tr
+                      key={invite.id}
+                      className="group border-b border-white/[0.08] transition-colors hover:bg-white/[0.02]"
+                    >
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={invite.creator_photo_url}
+                            alt={invite.creator_name}
+                            className="h-8 w-8 rounded-full object-cover"
+                          />
+                          <span className="text-sm font-medium text-white">
+                            {invite.creator_name}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3">{getStatusPill(invite.status)}</td>
+                      <td className="px-6 py-3">
+                        <span className="text-sm text-white/60">
+                          {new Date(invite.created_at).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className="text-sm text-white/60">
+                          {new Date(invite.expires_at).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3">
+                        <div className="flex items-center justify-end gap-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+                          {invite.status === "active" && (
+                            <>
+                              <button
+                                onClick={() =>
+                                  handleCopyLink(
+                                    `${window.location.origin}/c/${invite.raw_token}`,
+                                    invite.id,
+                                  )
+                                }
+                                className="rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-white/70 transition-all hover:bg-white/[0.06]"
+                              >
+                                {copiedId === invite.id ? "Copied!" : "Copy Link"}
+                              </button>
+                              <button
+                                onClick={() => setRevokeConfirm(invite.id)}
+                                className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-all hover:bg-red-500/20"
+                              >
+                                Revoke
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

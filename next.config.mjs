@@ -51,6 +51,8 @@ const nextConfig = (() => {
     compress: true,
     poweredByHeader: false,
     reactStrictMode: true,
+    // pdfkit pulls optional native deps; keep it external for the server bundle.
+    serverExternalPackages: ['pdfkit'],
     // Optimize production builds
     productionBrowserSourceMaps: false,
     // Optimize bundle size and loading performance

@@ -343,7 +343,7 @@ export default function AdminCreatorDetailPage() {
         </div>
       </div>
 
-      <div className={`${cardClass} p-6 space-y-4`}>
+      <div className={`${cardClass} p-4 sm:p-6 space-y-4`}>
         <h2 className="text-sm font-semibold text-white flex items-center gap-2">
           <UserCircle className="h-4 w-4 text-cyan-300" />
           Public fields
@@ -400,7 +400,7 @@ export default function AdminCreatorDetailPage() {
         </button>
       </div>
 
-      <div className={`${cardClass} p-6`}>
+      <div className={`${cardClass} p-4 sm:p-6`}>
         <h2 className="text-sm font-semibold text-white mb-3">Claim links</h2>
         <div className="space-y-2 text-sm">
           {claimLinks.length === 0 ? (
@@ -424,7 +424,7 @@ export default function AdminCreatorDetailPage() {
         </div>
       </div>
 
-      <div className={`${cardClass} p-6`}>
+      <div className={`${cardClass} p-4 sm:p-6`}>
         <h2 className="text-sm font-semibold text-white mb-3">Impersonation history</h2>
         <div className="space-y-2 text-xs text-white/60">
           {impSessions.length === 0 ? (
@@ -441,7 +441,7 @@ export default function AdminCreatorDetailPage() {
         </div>
       </div>
 
-      <div className={`${cardClass} p-6`}>
+      <div className={`${cardClass} p-4 sm:p-6`}>
         <h2 className="text-sm font-semibold text-white mb-3">Recent audit</h2>
         <div className="max-h-64 overflow-y-auto space-y-2 text-xs font-mono text-white/55">
           {audits.length === 0 ? (

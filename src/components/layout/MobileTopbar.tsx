@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Menu, User, LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { useSidebar } from "./SidebarContext";
 import { useAuth } from "../auth/AuthContext";
@@ -40,6 +40,8 @@ function Avatar({
 }
 
 export default function MobileTopbar() {
+  const pathname = usePathname() || "";
+  const isAdmin = pathname.startsWith("/admin");
   const { toggleMobile } = useSidebar();
   const { userId, workspaceUserId, profile, openSignIn, signOut } = useAuth();
   const activeUserId = workspaceUserId || userId;
@@ -61,24 +63,53 @@ export default function MobileTopbar() {
   }, []);
 
   return (
-    <div className="xl:hidden flex items-center justify-between px-3 h-14 border-b border-white/10 bg-[#050505]">
+    <div
+      className={cn(
+        "xl:hidden flex items-center justify-between px-3 h-14 shrink-0",
+        "border-b backdrop-blur-xl backdrop-saturate-150",
+        isAdmin
+          ? "border-white/[0.06] bg-[#070708]/92 shadow-[0_1px_0_0_rgba(255,255,255,0.04)]"
+          : "border-white/10 bg-[#050505]",
+      )}
+    >
       {/* LEFT */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 min-w-0">
         <button
           type="button"
           onClick={toggleMobile}
-          aria-label="Open menu"
-          className="inline-flex items-center justify-center h-10 w-10 rounded-lg text-white/85 hover:bg-white/5 active:bg-white/10 active:scale-[0.98] transition"
+          aria-label={isAdmin ? "Open admin navigation" : "Open menu"}
+          className={cn(
+            "inline-flex items-center justify-center h-10 w-10 rounded-xl shrink-0 transition active:scale-[0.98]",
+            isAdmin
+              ? "text-white/90 border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.07] hover:border-white/[0.12]"
+              : "rounded-lg text-white/85 hover:bg-white/5 active:bg-white/10",
+          )}
         >
-          <Menu className="h-6 w-6" />
+          <Menu className="h-[22px] w-[22px]" />
         </button>
 
-        <div className="flex items-center gap-1">
-          <div className="relative h-7 w-7">
-            <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="28px" />
+        {isAdmin ? (
+          <div className="flex items-center gap-2.5 min-w-0 pl-0.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white/[0.14] to-white/[0.04] border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
+              <span className="text-cyan-400 font-semibold text-xs tracking-tight">A</span>
+            </div>
+            <div className="min-w-0 leading-tight">
+              <span className="block text-[15px] font-semibold tracking-tight text-white truncate">
+                Admin
+              </span>
+              <span className="block text-[10px] font-medium uppercase tracking-[0.16em] text-white/45 truncate">
+                Control center
+              </span>
+            </div>
           </div>
-          <span className="text-[16px] font-semibold tracking-tight text-white">edgaze</span>
-        </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <div className="relative h-7 w-7">
+              <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="28px" />
+            </div>
+            <span className="text-[16px] font-semibold tracking-tight text-white">edgaze</span>
+          </div>
+        )}
       </div>
 
       {/* RIGHT */}

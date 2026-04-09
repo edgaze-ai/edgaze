@@ -153,14 +153,14 @@ export default function AdminVerifiedCreatorsPage() {
           </div>
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-white">Verified creators</h1>
-            <p className="mt-1 text-sm text-white/50">
+            <p className="mt-1 text-sm text-white/50 leading-relaxed">
               Search by handle, name, email, or profile ID. Granting verification sends email via
               Resend from{" "}
-              <code className="rounded bg-white/10 px-1 py-0.5 text-[11px] text-white/80">
+              <code className="break-all rounded bg-white/10 px-1 py-0.5 text-[11px] text-white/80">
                 RESEND_FROM_EMAIL
               </code>{" "}
               or <strong className="text-white/80">sellers@edgaze.ai</strong>. Requires{" "}
-              <code className="rounded bg-white/10 px-1 py-0.5 text-[11px] text-white/80">
+              <code className="break-all rounded bg-white/10 px-1 py-0.5 text-[11px] text-white/80">
                 RESEND_API_KEY
               </code>{" "}
               on the <strong className="text-white/80">Next.js</strong> host (not only Supabase
@@ -206,7 +206,7 @@ export default function AdminVerifiedCreatorsPage() {
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-white/45">
             Results {hits.length ? `(${hits.length})` : ""}
           </h2>
-          <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[min(48vh,420px)] overflow-y-auto overscroll-contain pr-1 [-webkit-overflow-scrolling:touch] sm:max-h-[540px]">
             {!debounced ? (
               <p className="text-sm text-white/40 py-6 text-center">Type to search profiles.</p>
             ) : hits.length === 0 && !searching ? (
@@ -264,7 +264,7 @@ export default function AdminVerifiedCreatorsPage() {
               Select a creator to grant or remove verification.
             </div>
           ) : (
-            <div className={`${cardClass} p-6 space-y-6`}>
+            <div className={`${cardClass} space-y-6 p-4 sm:p-6`}>
               <div className="flex items-start gap-4">
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
                   <Image

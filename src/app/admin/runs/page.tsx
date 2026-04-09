@@ -221,13 +221,13 @@ export default function AdminRunsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1 overflow-x-auto max-w-full [-webkit-overflow-scrolling:touch]">
           {(["7d", "30d", "90d"] as const).map((r) => (
             <button
               key={r}
               onClick={() => setRange(r)}
-              className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-all ${
+              className={`shrink-0 rounded-lg px-4 py-2 text-[13px] font-medium transition-all ${
                 range === r
                   ? "bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                   : "text-white/55 hover:text-white/85 hover:bg-white/[0.05]"
@@ -237,12 +237,12 @@ export default function AdminRunsPage() {
             </button>
           ))}
         </div>
-        <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1">
+        <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-1 overflow-x-auto max-w-full [-webkit-overflow-scrolling:touch]">
           {(["", "workflow", "prompt"] as const).map((k) => (
             <button
               key={k || "all"}
               onClick={() => setKind(k)}
-              className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-all flex items-center gap-2 ${
+              className={`shrink-0 rounded-lg px-4 py-2 text-[13px] font-medium transition-all flex items-center gap-2 ${
                 kind === k
                   ? "bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                   : "text-white/55 hover:text-white/85 hover:bg-white/[0.05]"
@@ -259,7 +259,7 @@ export default function AdminRunsPage() {
             </button>
           ))}
         </div>
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative w-full min-w-0 sm:flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
           <input
             type="text"
@@ -391,7 +391,7 @@ export default function AdminRunsPage() {
 
       {/* Run list */}
       <div className={`${cardClass} overflow-hidden`}>
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-4">
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-4 sm:px-6">
           <h3 className="text-[13px] font-semibold uppercase tracking-wider text-white/55">
             Run log
           </h3>
@@ -426,7 +426,7 @@ export default function AdminRunsPage() {
                       setExpandedId(isExpanded ? null : run.id);
                       if (!isExpanded) openDetail(run);
                     }}
-                    className="w-full flex items-center gap-4 px-6 py-4 text-left"
+                    className="w-full flex items-center gap-3 px-4 py-4 text-left sm:gap-4 sm:px-6"
                   >
                     <span className="text-white/40">
                       {isExpanded ? (
@@ -480,7 +480,7 @@ export default function AdminRunsPage() {
                     </div>
                   </button>
                   {isExpanded && (
-                    <div className="px-6 pb-4 pl-[4.5rem]">
+                    <div className="px-4 pb-4 pl-11 sm:px-6 sm:pl-[4.5rem]">
                       <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-2">
                         <div className="grid gap-2 text-[12px] sm:grid-cols-2">
                           <div className="flex items-center gap-2">
@@ -534,7 +534,7 @@ export default function AdminRunsPage() {
                                   {log.model && <span className="text-white/45">{log.model}</span>}
                                   {log.error_message && (
                                     <span
-                                      className="text-red-300/80 truncate max-w-[200px]"
+                                      className="text-red-300/80 truncate max-w-full sm:max-w-[200px]"
                                       title={log.error_message}
                                     >
                                       {log.error_message}
@@ -554,7 +554,7 @@ export default function AdminRunsPage() {
           </div>
         )}
         {runs.length > 0 && total > runs.length && (
-          <div className="border-t border-white/[0.06] px-6 py-3 flex justify-center">
+          <div className="border-t border-white/[0.06] px-4 py-3 flex justify-center sm:px-6">
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={loading}

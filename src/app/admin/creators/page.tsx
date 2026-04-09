@@ -143,45 +143,33 @@ export default function AdminCreatorsPage() {
             No creators match this filter. Create a workspace to get started.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06] text-[11px] font-semibold uppercase tracking-wider text-white/40">
-                  <th className="px-4 py-3">Creator</th>
-                  <th className="px-4 py-3">Claim</th>
-                  <th className="px-4 py-3">Source</th>
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/creators/${r.id}`}
-                        className="flex items-center gap-3 min-w-0 group"
-                      >
-                        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10">
-                          <Image
-                            src={r.avatar_url || DEFAULT_AVATAR_SRC}
-                            alt=""
-                            fill
-                            className="object-cover"
-                            sizes="36px"
-                          />
+          <>
+            <div className="md:hidden divide-y divide-white/[0.06]">
+              {rows.map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/admin/creators/${r.id}`}
+                  className="flex items-center gap-3 px-4 py-4 min-w-0 active:bg-white/[0.04] transition-colors"
+                >
+                  <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-white/10">
+                    <Image
+                      src={r.avatar_url || DEFAULT_AVATAR_SRC}
+                      alt=""
+                      fill
+                      className="object-cover"
+                      sizes="44px"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-white truncate">
+                          {r.full_name || "Unnamed"}
                         </div>
-                        <div className="min-w-0">
-                          <div className="truncate font-medium text-white group-hover:text-cyan-200 transition-colors">
-                            {r.full_name || "Unnamed"}
-                          </div>
-                          <div className="truncate text-xs text-white/45">@{r.handle}</div>
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
+                        <div className="text-xs text-white/45 truncate">@{r.handle}</div>
+                      </div>
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                           r.claim_status === "claimed"
                             ? "bg-emerald-500/15 text-emerald-200"
                             : "bg-amber-500/15 text-amber-100"
@@ -189,24 +177,80 @@ export default function AdminCreatorsPage() {
                       >
                         {r.claim_status || "—"}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-white/60">{r.source || "—"}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-white/50">
-                      {maskEmail(r.email)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/admin/creators/${r.id}`}
-                        className="text-xs font-semibold text-cyan-300 hover:text-cyan-200"
-                      >
-                        Open
-                      </Link>
-                    </td>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/45">
+                      <span>{r.source || "—"}</span>
+                      <span className="font-mono text-white/40">{maskEmail(r.email)}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.06] text-[11px] font-semibold uppercase tracking-wider text-white/40">
+                    <th className="px-4 py-3">Creator</th>
+                    <th className="px-4 py-3">Claim</th>
+                    <th className="px-4 py-3">Source</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.id} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+                      <td className="px-4 py-3">
+                        <Link
+                          href={`/admin/creators/${r.id}`}
+                          className="flex items-center gap-3 min-w-0 group"
+                        >
+                          <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10">
+                            <Image
+                              src={r.avatar_url || DEFAULT_AVATAR_SRC}
+                              alt=""
+                              fill
+                              className="object-cover"
+                              sizes="36px"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate font-medium text-white group-hover:text-cyan-200 transition-colors">
+                              {r.full_name || "Unnamed"}
+                            </div>
+                            <div className="truncate text-xs text-white/45">@{r.handle}</div>
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            r.claim_status === "claimed"
+                              ? "bg-emerald-500/15 text-emerald-200"
+                              : "bg-amber-500/15 text-amber-100"
+                          }`}
+                        >
+                          {r.claim_status || "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-white/60">{r.source || "—"}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-white/50">
+                        {maskEmail(r.email)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/admin/creators/${r.id}`}
+                          className="text-xs font-semibold text-cyan-300 hover:text-cyan-200"
+                        >
+                          Open
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -1,11 +1,12 @@
 import React from "react";
 import Link from "next/link";
 import AdminGate from "../../components/admin/AdminGate";
+import AdminHeaderNav from "../../components/admin/AdminHeaderNav";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <AdminGate>
-      <div className="min-h-screen bg-[#070708] text-white antialiased">
+      <div className="min-h-screen min-w-0 bg-[#070708] text-white antialiased overflow-x-hidden">
         {/* Subtle gradient + noise for depth */}
         <div className="fixed inset-0 -z-10 bg-gradient-to-b from-[#0c0c0e] via-[#080809] to-[#060607]" />
         <div
@@ -15,7 +16,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           }}
         />
 
-        <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-[#070708]/90 backdrop-blur-2xl backdrop-saturate-150">
+        {/* Desktop / large viewports: full chrome. Below xl, mobile AppShell topbar + admin drawer handle navigation. */}
+        <header className="hidden xl:block sticky top-0 z-10 border-b border-white/[0.06] bg-[#070708]/90 backdrop-blur-2xl backdrop-saturate-150">
           <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-8">
               <Link
@@ -34,50 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </span>
                 </div>
               </Link>
-              <nav className="hidden sm:flex items-center gap-0.5">
-                <Link
-                  href="/admin/moderation"
-                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
-                >
-                  Moderation
-                </Link>
-                <Link
-                  href="/admin/runs"
-                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
-                >
-                  Runs
-                </Link>
-                <Link
-                  href="/admin/traces"
-                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
-                >
-                  Traces
-                </Link>
-                <Link
-                  href="/admin/creators"
-                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
-                >
-                  Creators
-                </Link>
-                <Link
-                  href="/admin/verified-creators"
-                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
-                >
-                  Verified
-                </Link>
-                <Link
-                  href="/admin/invites"
-                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
-                >
-                  Invites
-                </Link>
-                <Link
-                  href="/admin/demo"
-                  className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-white/90 hover:bg-white/[0.06] hover:text-white transition-colors"
-                >
-                  Demo mode
-                </Link>
-              </nav>
+              <AdminHeaderNav />
             </div>
             <div className="flex items-center gap-2">
               <Link
@@ -90,7 +49,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">{children}</main>
+        <main className="mx-auto w-full min-w-0 max-w-[1600px] px-3 py-6 sm:px-6 sm:py-8 lg:px-8 xl:py-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+          {children}
+        </main>
       </div>
     </AdminGate>
   );
