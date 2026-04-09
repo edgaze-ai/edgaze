@@ -35,7 +35,7 @@ BEGIN
       ON public.workflows FOR INSERT TO authenticated
       WITH CHECK (
         EXISTS (SELECT 1 FROM public.admin_roles ar WHERE ar.user_id = auth.uid())
-        AND owner_id = public.active_impersonation_target_profile_id()
+        AND owner_id::text = public.active_impersonation_target_profile_id()::text
         AND public.active_impersonation_target_profile_id() IS NOT NULL
       );
 
@@ -44,12 +44,12 @@ BEGIN
       ON public.workflows FOR UPDATE TO authenticated
       USING (
         EXISTS (SELECT 1 FROM public.admin_roles ar WHERE ar.user_id = auth.uid())
-        AND owner_id = public.active_impersonation_target_profile_id()
+        AND owner_id::text = public.active_impersonation_target_profile_id()::text
         AND public.active_impersonation_target_profile_id() IS NOT NULL
       )
       WITH CHECK (
         EXISTS (SELECT 1 FROM public.admin_roles ar WHERE ar.user_id = auth.uid())
-        AND owner_id = public.active_impersonation_target_profile_id()
+        AND owner_id::text = public.active_impersonation_target_profile_id()::text
         AND public.active_impersonation_target_profile_id() IS NOT NULL
       );
   END IF;
@@ -63,7 +63,7 @@ BEGIN
       ON public.prompts FOR INSERT TO authenticated
       WITH CHECK (
         EXISTS (SELECT 1 FROM public.admin_roles ar WHERE ar.user_id = auth.uid())
-        AND owner_id = public.active_impersonation_target_profile_id()
+        AND owner_id::text = public.active_impersonation_target_profile_id()::text
         AND public.active_impersonation_target_profile_id() IS NOT NULL
       );
 
@@ -72,12 +72,12 @@ BEGIN
       ON public.prompts FOR UPDATE TO authenticated
       USING (
         EXISTS (SELECT 1 FROM public.admin_roles ar WHERE ar.user_id = auth.uid())
-        AND owner_id = public.active_impersonation_target_profile_id()
+        AND owner_id::text = public.active_impersonation_target_profile_id()::text
         AND public.active_impersonation_target_profile_id() IS NOT NULL
       )
       WITH CHECK (
         EXISTS (SELECT 1 FROM public.admin_roles ar WHERE ar.user_id = auth.uid())
-        AND owner_id = public.active_impersonation_target_profile_id()
+        AND owner_id::text = public.active_impersonation_target_profile_id()::text
         AND public.active_impersonation_target_profile_id() IS NOT NULL
       );
   END IF;

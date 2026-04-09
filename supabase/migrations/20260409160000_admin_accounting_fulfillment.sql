@@ -203,7 +203,12 @@ AS $$
       'prompt'::text,
       pp.prompt_id,
       pp.buyer_id,
-      p.owner_id,
+      (
+        CASE
+          WHEN p.owner_id IS NOT NULL AND p.owner_id ~ '^[0-9a-fA-F-]{36}$' THEN p.owner_id::uuid
+          ELSE NULL::uuid
+        END
+      ),
       pp.status,
       pp.amount_cents,
       pp.platform_fee_cents,
@@ -275,10 +280,10 @@ AS $$
       END
     FROM public.prompt_purchases pp
     JOIN public.prompts p ON p.id = pp.prompt_id
-    LEFT JOIN public.profiles cprof2 ON cprof2.id = p.owner_id
+    LEFT JOIN public.profiles cprof2 ON cprof2.id::text = p.owner_id
     LEFT JOIN public.profiles bprof2 ON bprof2.id = pp.buyer_id
     LEFT JOIN public.creator_earnings ce2 ON ce2.stripe_payment_intent_id = pp.stripe_payment_intent_id
-    LEFT JOIN public.stripe_connect_accounts sca2 ON sca2.user_id = p.owner_id
+    LEFT JOIN public.stripe_connect_accounts sca2 ON sca2.user_id::text = p.owner_id
     WHERE (
       pp.stripe_payment_intent_id IS NOT NULL
       OR pp.stripe_checkout_session_id IS NOT NULL
