@@ -5,6 +5,35 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+const GMV_SUM_PAGE_SIZE = 2000;
+
+/** Paid GMV (sum of amount_cents) without PostgREST aggregates — some projects disable `select(col.sum())`. */
+async function sumPaidMarketplaceGmvCents(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  table: "workflow_purchases" | "prompt_purchases",
+): Promise<number> {
+  let offset = 0;
+  let total = 0;
+  for (;;) {
+    const { data, error } = await admin
+      .from(table)
+      .select("amount_cents")
+      .not("stripe_payment_intent_id", "is", null)
+      .eq("status", "paid")
+      .is("refunded_at", null)
+      .order("id", { ascending: true })
+      .range(offset, offset + GMV_SUM_PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    for (const row of rows) {
+      total += Number(row.amount_cents ?? 0);
+    }
+    if (rows.length < GMV_SUM_PAGE_SIZE) break;
+    offset += GMV_SUM_PAGE_SIZE;
+  }
+  return total;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { user, error: authError } = await getUserFromRequest(req);
@@ -81,45 +110,43 @@ export async function GET(req: NextRequest) {
       totalCount = pr.count || 0;
     }
 
-    const [statsRes, rowsRes] = await Promise.all([
-      admin.rpc("admin_marketplace_stats"),
-      admin.rpc("admin_marketplace_transactions_page", {
-        p_limit: limit,
-        p_offset: offset,
-        p_purchase_type: pPurchaseType,
-        p_status: pStatus,
-        p_from: pFrom,
-        p_to: pTo,
-      }),
-    ]);
+    // Inline stats (same rules as admin_marketplace_stats migration). GMV is summed in JS
+    // because PostgREST may reject aggregate selects ("Use of aggregate functions is not allowed").
+    const [wfSalesRes, prSalesRes, rowsRes, paidWorkflowGmvCents, paidPromptGmvCents] =
+      await Promise.all([
+        admin
+          .from("workflow_purchases")
+          .select("*", { count: "exact", head: true })
+          .not("stripe_payment_intent_id", "is", null),
+        admin
+          .from("prompt_purchases")
+          .select("*", { count: "exact", head: true })
+          .not("stripe_payment_intent_id", "is", null),
+        admin.rpc("admin_marketplace_transactions_page", {
+          p_limit: limit,
+          p_offset: offset,
+          p_purchase_type: pPurchaseType,
+          p_status: pStatus,
+          p_from: pFrom,
+          p_to: pTo,
+        }),
+        sumPaidMarketplaceGmvCents(admin, "workflow_purchases"),
+        sumPaidMarketplaceGmvCents(admin, "prompt_purchases"),
+      ]);
 
-    if (statsRes.error) {
-      console.error("[admin/accounting/transactions] stats", statsRes.error);
-      return NextResponse.json({ error: statsRes.error.message }, { status: 500 });
+    const statsErr = wfSalesRes.error || prSalesRes.error || rowsRes.error;
+    if (statsErr) {
+      console.error("[admin/accounting/transactions]", statsErr);
+      return NextResponse.json({ error: statsErr.message }, { status: 500 });
     }
-    if (rowsRes.error) {
-      console.error("[admin/accounting/transactions] page", rowsRes.error);
-      return NextResponse.json({ error: rowsRes.error.message }, { status: 500 });
-    }
-
-    const statsRow = (statsRes.data as unknown as Record<string, unknown>[])?.[0] as
-      | {
-          workflow_sales_total: number;
-          prompt_sales_total: number;
-          paid_workflow_gmv_cents: number;
-          paid_prompt_gmv_cents: number;
-        }
-      | undefined;
 
     return NextResponse.json({
-      stats: statsRow
-        ? {
-            workflowSalesTotal: Number(statsRow.workflow_sales_total),
-            promptSalesTotal: Number(statsRow.prompt_sales_total),
-            paidWorkflowGmvCents: Number(statsRow.paid_workflow_gmv_cents),
-            paidPromptGmvCents: Number(statsRow.paid_prompt_gmv_cents),
-          }
-        : null,
+      stats: {
+        workflowSalesTotal: wfSalesRes.count ?? 0,
+        promptSalesTotal: prSalesRes.count ?? 0,
+        paidWorkflowGmvCents,
+        paidPromptGmvCents,
+      },
       transactions: rowsRes.data ?? [],
       pagination: {
         page,
