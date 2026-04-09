@@ -211,15 +211,11 @@ function listingDetailPathFromProfile(
   const profileHandleNorm = normalizeHandle(profile.handle);
   const viewerH = viewerHandle ? normalizeHandle(viewerHandle) : "";
   const displayHandle =
-    viewerWorkspaceId &&
-    String(viewerWorkspaceId) === String(profile.id) &&
-    viewerH
+    viewerWorkspaceId && String(viewerWorkspaceId) === String(profile.id) && viewerH
       ? viewerH
       : profileHandleNorm;
   if (!displayHandle) return null;
-  return listing.type === "workflow"
-    ? `/${displayHandle}/${code}`
-    : `/p/${displayHandle}/${code}`;
+  return listing.type === "workflow" ? `/${displayHandle}/${code}` : `/p/${displayHandle}/${code}`;
 }
 
 function BlurredPromptThumbnail({ text }: { text: string }) {

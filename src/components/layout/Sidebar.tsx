@@ -69,14 +69,7 @@ export default function Sidebar() {
   const { collapsed, setCollapsed } = useSidebar();
 
   // Supabase auth
-  const {
-    profile,
-    userId,
-    workspaceUserId,
-    openSignIn,
-    signOut,
-    loading,
-  } = useAuth();
+  const { profile, userId, workspaceUserId, openSignIn, signOut, loading } = useAuth();
   const activeUserId = workspaceUserId || userId;
 
   const displayName =
