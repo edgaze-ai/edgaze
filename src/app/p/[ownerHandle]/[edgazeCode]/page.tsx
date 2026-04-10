@@ -7,7 +7,6 @@ import Image from "next/image";
 import {
   ArrowLeft,
   Loader2,
-  Eye,
   Heart,
   Sparkles,
   Share2,
@@ -17,6 +16,7 @@ import {
   Download,
   RotateCcw,
   ExternalLink,
+  Zap,
   Lock,
   CheckCircle2,
   Flag,
@@ -26,7 +26,7 @@ import {
 import { createSupabaseBrowserClient } from "../../../../lib/supabase/browser";
 import { useAuth } from "../../../../components/auth/AuthContext";
 import { track, type TrackProperties } from "../../../../lib/mixpanel";
-import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../../lib/constants";
+import { SHOW_PUBLIC_LIKES_AND_RUNS } from "../../../../lib/constants";
 import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
 import CustomerWorkflowRunModal from "../../../../components/runtime/customer/CustomerWorkflowRunModal";
 import {
@@ -87,7 +87,10 @@ type PromptListing = {
   is_paid: boolean | null;
   price_usd: number | null;
   view_count: number | null;
+  views_count?: number | null;
   like_count: number | null;
+  likes_count?: number | null;
+  runs_count?: number | null;
   removed_at?: string | null;
   removed_reason?: string | null;
   removed_by?: string | null;
@@ -891,6 +894,12 @@ function RunModal({
   async function trackPromptRun(provider?: string) {
     try {
       const token = await getAccessToken();
+      let deviceFingerprint: string | undefined;
+      try {
+        deviceFingerprint = (await getDeviceFingerprintHash()) ?? undefined;
+      } catch {
+        deviceFingerprint = undefined;
+      }
       const res = await fetch("/api/runs/track-prompt", {
         method: "POST",
         headers: {
@@ -898,7 +907,7 @@ function RunModal({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
-        body: JSON.stringify({ promptId, provider }),
+        body: JSON.stringify({ promptId, provider, deviceFingerprint }),
       });
       if (!res.ok) console.warn("[trackPromptRun] Failed:", await res.text());
     } catch (e) {
@@ -928,7 +937,6 @@ function RunModal({
       template_length: template.length,
       has_required_fields: placeholders.some((p) => Boolean(p.required)),
     });
-    trackPromptRun();
 
     const init: Record<string, string> = {};
     placeholders.forEach((p) => {
@@ -970,6 +978,24 @@ function RunModal({
       time_in_modal_ms: openedAtRef.current ? Date.now() - openedAtRef.current : undefined,
     });
 
+    if (p === "edgaze") {
+      if (filled.trim()) {
+        const ok = await copyToClipboard(filled);
+        setCopied(ok);
+        if (ok) {
+          await trackPromptRun("edgaze");
+          safeTrack("Prompt Copied", {
+            surface: "run_modal",
+            provider: p,
+            prompt_length: filledLength,
+            filled_fields: filledFields,
+          });
+        }
+        setTimeout(() => setCopied(false), 900);
+      }
+      return;
+    }
+
     if (filled.trim()) {
       const ok = await copyToClipboard(filled);
       setCopied(ok);
@@ -984,9 +1010,9 @@ function RunModal({
       setTimeout(() => setCopied(false), 900);
     }
 
-    if (p === "edgaze") return;
     const url = buildProviderUrl(p, filled);
     if (!url) return;
+    await trackPromptRun(p);
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
@@ -1126,6 +1152,7 @@ function RunModal({
             const ok = await copyToClipboard(filled);
             setCopied(ok);
             if (ok) {
+              await trackPromptRun("copy");
               safeTrack("Prompt Copied", {
                 surface: "run_modal",
                 location: "prompt_panel_button",
@@ -1321,6 +1348,10 @@ export default function PromptProductPage() {
   const workflowRunIsDemoRef = useRef(false);
   const workflowRunAutoExecuteRef = useRef(false);
 
+  const [likeCount, setLikeCount] = useState(0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
+
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
 
@@ -1340,6 +1371,31 @@ export default function PromptProductPage() {
     const cleanPath = `/p/${ownerHandle}/${edgazeCode}`;
     router.replace(cleanPath);
   }, [listing, demoTokenFromUrl, isDemoModeActive, ownerHandle, edgazeCode, router]);
+
+  useEffect(() => {
+    if (!listing?.id) return;
+    const lc = listing.likes_count ?? listing.like_count ?? 0;
+    setLikeCount(Number(lc) || 0);
+    let alive = true;
+    const itemType = listing.type === "workflow" ? "workflow" : "prompt";
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/marketplace/like?itemId=${encodeURIComponent(listing.id)}&itemType=${itemType}`,
+          { credentials: "include" },
+        );
+        const j = (await res.json().catch(() => ({}))) as { isLiked?: boolean };
+        if (!alive) return;
+        setIsLiked(Boolean(j.isLiked));
+      } catch {
+        if (!alive) return;
+        setIsLiked(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [listing?.id, listing?.type, listing?.likes_count, listing?.like_count]);
 
   useEffect(() => {
     if (!ownerHandle || !edgazeCode) return;
@@ -1410,7 +1466,11 @@ export default function PromptProductPage() {
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
               },
               credentials: "include",
-              body: JSON.stringify({ listingId: record.id }),
+              body: JSON.stringify({
+                listingId: record.id,
+                listingType: record.type === "workflow" ? "workflow" : "prompt",
+                deviceFingerprint: getDeviceFingerprintHash(),
+              }),
             });
           } catch {}
         })();
@@ -2869,14 +2929,58 @@ export default function PromptProductPage() {
                   </div>
                 </div>
 
-                {SHOW_VIEWS_AND_LIKES_PUBLICLY && (
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-white/60">
-                    <span className="inline-flex items-center gap-1">
-                      <Eye className="h-4 w-4" /> {listing.view_count ?? 0} views
+                {SHOW_PUBLIC_LIKES_AND_RUNS && (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-[12px]">
+                    <span className="inline-flex items-center gap-1.5 tabular-nums text-white/65">
+                      <Zap className="h-4 w-4 shrink-0 text-cyan-300/90" />
+                      {listing.runs_count ?? 0} runs
                     </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Heart className="h-4 w-4" /> {listing.like_count ?? 0} likes
-                    </span>
+                    <button
+                      type="button"
+                      disabled={likeBusy}
+                      onClick={async () => {
+                        if (!requireAuth()) return;
+                        if (!listing) return;
+                        setLikeBusy(true);
+                        try {
+                          const token = await getAccessToken();
+                          const itemType = listing.type === "workflow" ? "workflow" : "prompt";
+                          const res = await fetch("/api/marketplace/like", {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            },
+                            credentials: "include",
+                            body: JSON.stringify({
+                              itemId: listing.id,
+                              itemType,
+                            }),
+                          });
+                          const j = (await res.json().catch(() => ({}))) as {
+                            likesCount?: number;
+                            isLiked?: boolean;
+                          };
+                          if (res.ok && typeof j.likesCount === "number") {
+                            setLikeCount(j.likesCount);
+                            setIsLiked(Boolean(j.isLiked));
+                          }
+                        } finally {
+                          setLikeBusy(false);
+                        }
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
+                        isLiked
+                          ? listing.type === "workflow"
+                            ? "border-pink-400/40 bg-pink-500/15 text-pink-100"
+                            : "border-cyan-400/40 bg-cyan-500/15 text-cyan-100"
+                          : "border-white/15 bg-white/[0.06] text-white/70 hover:border-white/25 hover:text-white/90",
+                      )}
+                    >
+                      <Heart className="h-4 w-4" fill={isLiked ? "currentColor" : "none"} />
+                      {likeCount} likes
+                    </button>
                   </div>
                 )}
               </div>

@@ -7,12 +7,12 @@ export default function Head() {
   const h = String(DEFAULT_SOCIAL_IMAGE.height);
   return (
     <>
-      <title>Prompt Studio | Edgaze</title>
+      <title>Prompt Studio</title>
       <meta
         name="description"
         content="Create, test, and publish AI prompts with dynamic placeholders."
       />
-      <meta property="og:title" content="Prompt Studio | Edgaze" />
+      <meta property="og:title" content="Prompt Studio" />
       <meta
         property="og:description"
         content="Create, test, and publish AI prompts with dynamic placeholders."

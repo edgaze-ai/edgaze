@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getSiteOrigin } from "@lib/site-origin";
 import { getAllDocs } from "./docs/utils/docs";
 import { getAllBlogs } from "./blogs/utils/blogs";
 import { MARKETPLACE_CATEGORIES } from "./marketplace/[category]/categories";
@@ -46,15 +47,6 @@ const STATIC_ROUTES = [
   "/builder",
 ] as const;
 
-function getBaseUrl() {
-  const explicit =
-    process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXTAUTH_URL;
-
-  if (explicit) return explicit.replace(/\/+$/, "");
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "https://edgaze.ai";
-}
-
 async function safeFetchJson<T>(url: string, timeoutMs = 6000): Promise<T | null> {
   try {
     const controller = new AbortController();
@@ -76,7 +68,7 @@ async function safeFetchJson<T>(url: string, timeoutMs = 6000): Promise<T | null
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = getBaseUrl();
+  const base = getSiteOrigin();
   const now = new Date();
 
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({

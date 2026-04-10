@@ -297,6 +297,7 @@ async function finishUnifiedRun(
     });
   } catch (e) {
     console.error("[Runs] Update unified run failed:", e);
+    return;
   }
 }
 
@@ -418,6 +419,13 @@ export async function POST(req: Request) {
     if (shouldUltraFastAuthenticatedStreamConnection) {
       const runAccessToken = randomUUID();
       try {
+        const [{ user: ultraFastUser }, workflowRowExists] = await Promise.all([
+          getUserFromRequest(req),
+          workflowExists(workflowId),
+        ]);
+        const ultraFastRunnerId =
+          ultraFastUser && /^[0-9a-f-]{36}$/i.test(ultraFastUser.id) ? ultraFastUser.id : null;
+
         const run = await trace.measure(
           "ultra_fast_stream.create_run",
           () =>
@@ -470,6 +478,26 @@ export async function POST(req: Request) {
             err,
           );
         });
+        if (workflowRowExists) {
+          try {
+            const creatorUserId = await getCreatorUserIdForWorkflowRun(workflowId, null);
+            const unifiedRun = await createRun({
+              kind: "workflow",
+              workflowId,
+              runnerUserId: ultraFastRunnerId,
+              creatorUserId,
+              workflowRunId: run.id,
+              metadata: {
+                nodeCount: nodes.length,
+                isBuilderTest: false,
+                isDemo: false,
+              },
+            });
+            trace.updateLinks({ analyticsRunId: unifiedRun.id });
+          } catch (runErr: unknown) {
+            console.warn("[Runs] ultra-fast unified run create failed:", runErr);
+          }
+        }
         return traceJson(
           {
             ok: true,

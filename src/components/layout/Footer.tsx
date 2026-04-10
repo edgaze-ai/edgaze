@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FaGithub, FaLinkedinIn, FaXTwitter } from "react-icons/fa6";
+import { SITE_META_DESCRIPTION } from "@lib/constants";
 
 const FOOTER_SECTIONS = [
   {
@@ -82,8 +83,8 @@ export default function Footer() {
               />
               <div>
                 <div className="text-sm font-semibold text-white">Edgaze</div>
-                <div className="mt-0.5 text-xs sm:text-sm text-white/55 sm:text-white/60">
-                  Create, sell, and distribute AI products.
+                <div className="mt-0.5 text-xs sm:text-sm text-white/55 sm:text-white/60 max-w-md">
+                  {SITE_META_DESCRIPTION}
                 </div>
               </div>
             </div>

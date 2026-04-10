@@ -1,4 +1,5 @@
 import { getSiteOrigin } from "@lib/site-origin";
+import { SITE_META_DESCRIPTION } from "@lib/constants";
 import { defaultSocialImageAbsoluteUrl, DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
 
 export default function Head() {
@@ -8,9 +9,9 @@ export default function Head() {
   return (
     <>
       <title>Edgaze</title>
-      <meta name="description" content="Create, sell, and distribute AI products." />
+      <meta name="description" content={SITE_META_DESCRIPTION} />
       <meta property="og:title" content="Edgaze" />
-      <meta property="og:description" content="Create, sell, and distribute AI products." />
+      <meta property="og:description" content={SITE_META_DESCRIPTION} />
       <meta property="og:type" content="website" />
       <meta property="og:url" content={getSiteOrigin()} />
       <meta property="og:image" content={ogImage} />

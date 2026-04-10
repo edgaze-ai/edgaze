@@ -5,7 +5,7 @@ import { promptPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getProductRedirectPath } from "@lib/supabase/handle-redirect";
 import { getSiteOrigin } from "@lib/site-origin";
-import { DEFAULT_SOCIAL_IMAGE_PATH } from "@lib/default-social-image";
+import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
 
 /** Open Graph / Twitter hint dimensions (recommended for link previews; actual asset may differ). */
 const OG_IMAGE_WIDTH = 1200;
@@ -51,14 +51,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const listing = await getListing(ownerHandle, edgazeCode);
   const siteOrigin = getSiteOrigin();
 
-  const fallbackOg = DEFAULT_SOCIAL_IMAGE_PATH;
+  const fallbackOg = DEFAULT_SOCIAL_IMAGE.url;
 
   if (!listing) {
     return {
       title: "Product",
       description: "View this prompt or workflow on Edgaze",
       openGraph: {
-        title: "Product | Edgaze",
+        title: "Product",
         description: "View this prompt or workflow on Edgaze",
         url: `${siteOrigin}/p/${ownerHandle}/${edgazeCode}`,
         images: [
@@ -67,7 +67,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
       twitter: {
         card: "summary_large_image",
-        title: "Product | Edgaze",
+        title: "Product",
         description: "View this prompt or workflow on Edgaze",
         images: [
           {
@@ -81,7 +81,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  // Use title as-is (root layout template will add "| Edgaze")
+  // Listing title only (no site suffix)
   const title = listing.title?.trim() || (listing.type === "workflow" ? "Workflow" : "Prompt");
   // Optimize description for SEO (150-160 chars is ideal, max 160)
   const rawDescription = listing.description?.trim() || "";
@@ -112,13 +112,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "website",
       url: pageUrl,
       siteName: "Edgaze",
-      title: `${title} | Edgaze`,
+      title,
       description,
       images: [primaryOg],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} | Edgaze`,
+      title,
       description,
       images: [primaryOg],
     },

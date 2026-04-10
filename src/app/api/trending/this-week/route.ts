@@ -100,6 +100,24 @@ async function fetchTrendingData(): Promise<TrendingThisWeekResponse> {
     }
   }
 
+  const { data: viewEventRows } = await supabase
+    .from("listing_view_events")
+    .select("listing_type, listing_id")
+    .gte("counted_at", since);
+
+  const workflowViewWeek = new Map<string, number>();
+  const promptViewWeek = new Map<string, number>();
+  for (const v of viewEventRows ?? []) {
+    const row = v as { listing_type?: string; listing_id?: string };
+    const lid = row.listing_id;
+    if (!lid) continue;
+    if (row.listing_type === "workflow") {
+      workflowViewWeek.set(lid, (workflowViewWeek.get(lid) ?? 0) + 1);
+    } else if (row.listing_type === "prompt") {
+      promptViewWeek.set(lid, (promptViewWeek.get(lid) ?? 0) + 1);
+    }
+  }
+
   // 2. Fetch all public workflows and prompts with stats
   const baseSelectWorkflows = [
     "id",
@@ -191,7 +209,8 @@ async function fetchTrendingData(): Promise<TrendingThisWeekResponse> {
     .map((w: Record<string, unknown>) => {
       const id = String(w.id ?? "");
       const runs = workflowRunCounts.get(id) ?? 0;
-      const views = Number(w.views_count ?? 0);
+      const wk = workflowViewWeek.get(id) ?? 0;
+      const views = wk > 0 ? wk : Number(w.views_count ?? 0);
       const likes = Number(w.likes_count ?? 0);
       return { w, s: score(runs, views, likes) };
     })
@@ -202,7 +221,9 @@ async function fetchTrendingData(): Promise<TrendingThisWeekResponse> {
     .map((p) => {
       const id = String(p.id ?? "");
       const runs = promptRunCounts.get(id) ?? 0;
-      const views = Number(p.views_count ?? p.view_count ?? 0);
+      const wk = promptViewWeek.get(id) ?? 0;
+      const views =
+        wk > 0 ? wk : Number((p as { views_count?: unknown }).views_count ?? p.view_count ?? 0);
       const likes = Number(p.likes_count ?? p.like_count ?? 0);
       return { p, s: score(runs, views, likes) };
     })

@@ -1981,92 +1981,9 @@ export default function EdgazeLandingPage() {
     );
   }
 
-  const siteNavigationJsonLd = {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "WebSite",
-        "@id": "https://edgaze.ai/#website",
-        url: "https://edgaze.ai",
-        name: "Edgaze",
-        description: "Create, sell, and distribute AI products.",
-        potentialAction: {
-          "@type": "SearchAction",
-          target: {
-            "@type": "EntryPoint",
-            urlTemplate: "https://edgaze.ai/marketplace?q={search_term_string}",
-          },
-          "query-input": "required name=search_term_string",
-        },
-      },
-      {
-        "@type": "SiteLinksSearchBox",
-        target: "https://edgaze.ai/marketplace?q={search_term_string}",
-        potentialAction: [
-          {
-            "@type": "SearchAction",
-            target: "https://edgaze.ai/marketplace?q={search_term_string}",
-            "query-input": "required name=search_term_string",
-          },
-        ],
-      },
-      {
-        "@type": "ItemList",
-        name: "Edgaze Site Navigation",
-        itemListElement: [
-          {
-            "@type": "SiteLinksSearchBox",
-            name: "Marketplace",
-            url: "https://edgaze.ai/marketplace",
-          },
-          {
-            "@type": "ListItem",
-            position: 1,
-            name: "Marketplace",
-            url: "https://edgaze.ai/marketplace",
-          },
-          {
-            "@type": "ListItem",
-            position: 2,
-            name: "Prompt Studio",
-            url: "https://edgaze.ai/prompt-studio",
-          },
-          {
-            "@type": "ListItem",
-            position: 3,
-            name: "Docs",
-            url: "https://edgaze.ai/docs",
-          },
-          {
-            "@type": "ListItem",
-            position: 4,
-            name: "Creator Program",
-            url: "https://edgaze.ai/creators",
-          },
-          {
-            "@type": "ListItem",
-            position: 5,
-            name: "Help",
-            url: "https://edgaze.ai/help",
-          },
-          {
-            "@type": "ListItem",
-            position: 6,
-            name: "Feedback",
-            url: "https://edgaze.ai/feedback",
-          },
-        ],
-      },
-    ],
-  };
-
   return (
     <ScrollContext.Provider value={{ scrollerRef }}>
       <div className="relative text-white">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationJsonLd) }}
-        />
         <Gradients />
         <LandingNav onTop={onTop} scrollerRef={scrollerRef} />
 

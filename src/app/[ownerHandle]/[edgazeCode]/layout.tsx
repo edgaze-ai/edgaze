@@ -5,7 +5,7 @@ import { workflowPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowRedirectPath } from "@lib/supabase/handle-redirect";
 import { getSiteOrigin } from "@lib/site-origin";
-import { DEFAULT_SOCIAL_IMAGE_PATH } from "@lib/default-social-image";
+import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
 const OG_IMAGE_WIDTH = 1200;
 const OG_IMAGE_HEIGHT = 630;
 
@@ -49,14 +49,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ownerHandle, edgazeCode } = await params;
   const listing = await getWorkflowListing(ownerHandle, edgazeCode);
   const siteOrigin = getSiteOrigin();
-  const fallbackOg = DEFAULT_SOCIAL_IMAGE_PATH;
+  const fallbackOg = DEFAULT_SOCIAL_IMAGE.url;
 
   if (!listing) {
     return {
       title: "Workflow",
       description: "View this AI workflow on Edgaze. Build powerful automation with AI.",
       openGraph: {
-        title: "Workflow | Edgaze",
+        title: "Workflow",
         description: "View this AI workflow on Edgaze. Build powerful automation with AI.",
         url: `${siteOrigin}/${ownerHandle}/${edgazeCode}`,
         images: [
@@ -65,7 +65,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
       twitter: {
         card: "summary_large_image",
-        title: "Workflow | Edgaze",
+        title: "Workflow",
         description: "View this AI workflow on Edgaze. Build powerful automation with AI.",
         images: [
           {
@@ -79,7 +79,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  // Use title as-is (root layout template will add "| Edgaze")
+  // Listing title only (no site suffix)
   const title = listing.title?.trim() || "Workflow";
   // Optimize description for SEO (150-160 chars is ideal, max 160)
   const rawDescription = listing.description?.trim() || "";
@@ -107,13 +107,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type: "website",
       url: pageUrl,
       siteName: "Edgaze",
-      title: `${title} | Edgaze`,
+      title,
       description,
       images: [primaryOg],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} | Edgaze`,
+      title,
       description,
       images: [primaryOg],
     },

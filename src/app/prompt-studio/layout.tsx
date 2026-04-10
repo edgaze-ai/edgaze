@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     "Create, test, and publish AI prompts with dynamic placeholders. Turn prompts into reusable products on Edgaze.",
   openGraph: {
-    title: "Prompt Studio | Edgaze",
+    title: "Prompt Studio",
     description:
       "Create, test, and publish AI prompts with dynamic placeholders. Turn prompts into reusable products on Edgaze.",
     url: "https://edgaze.ai/prompt-studio",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Prompt Studio | Edgaze",
+    title: "Prompt Studio",
     description:
       "Create, test, and publish AI prompts with dynamic placeholders. Turn prompts into reusable products on Edgaze.",
     images: [DEFAULT_SOCIAL_IMAGE],

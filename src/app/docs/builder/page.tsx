@@ -7,18 +7,18 @@ import { getDoc } from "../utils/docs";
 import { extractToc } from "../utils/extractToc";
 
 export const metadata: Metadata = {
-  title: "Builder Documentation | Edgaze",
+  title: "Builder Documentation",
   description:
     "Learn how to use Workflow Studio and Prompt Studio to create AI products. Complete guides for building workflows and prompts.",
   openGraph: {
-    title: "Builder Documentation | Edgaze",
+    title: "Builder Documentation",
     description:
       "Learn how to use Workflow Studio and Prompt Studio to create AI products. Complete guides for building workflows and prompts.",
     type: "article",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Builder Documentation | Edgaze",
+    title: "Builder Documentation",
     description:
       "Learn how to use Workflow Studio and Prompt Studio to create AI products. Complete guides for building workflows and prompts.",
   },

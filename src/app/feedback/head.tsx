@@ -7,9 +7,9 @@ export default function Head() {
   const h = String(DEFAULT_SOCIAL_IMAGE.height);
   return (
     <>
-      <title>Feedback | Edgaze</title>
+      <title>Feedback</title>
       <meta name="description" content="Provide feedback about Edgaze." />
-      <meta property="og:title" content="Feedback | Edgaze" />
+      <meta property="og:title" content="Feedback" />
       <meta property="og:description" content="Provide feedback about Edgaze." />
       <meta property="og:type" content="website" />
       <meta property="og:url" content={`${getSiteOrigin()}/feedback`} />

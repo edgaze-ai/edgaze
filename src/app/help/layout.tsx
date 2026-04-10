@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     "Get help with Edgaze. Contact support, find answers, and get the most out of the AI prompts and workflows marketplace.",
   openGraph: {
-    title: "Help | Edgaze",
+    title: "Help",
     description:
       "Get help with Edgaze. Contact support, find answers, and get the most out of the AI prompts and workflows marketplace.",
     url: "https://edgaze.ai/help",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Help | Edgaze",
+    title: "Help",
     description:
       "Get help with Edgaze. Contact support, find answers, and get the most out of the AI prompts and workflows marketplace.",
     images: [DEFAULT_SOCIAL_IMAGE],

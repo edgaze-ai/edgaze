@@ -19,7 +19,6 @@ import { cx } from "../../lib/cx";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import { useAuth } from "../auth/AuthContext";
 import { uploadListingMedia } from "../../lib/creator-provisioning/upload-listing-media";
-import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
 import { generateWorkflowThumbnailFile } from "./workflowThumbnailGenerator";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
@@ -684,7 +683,6 @@ export default function WorkflowPublishModal({
     try {
       if (onEnsureDraftSaved) await onEnsureDraftSaved();
 
-      const graph = draftGraph;
       const workflowId = draft.id;
 
       // Ensure code is available or auto-fix
@@ -782,7 +780,6 @@ export default function WorkflowPublishModal({
           edgazeCode: finalCode,
           thumbnailUrl,
           demoUrls,
-          graph: stripGraphSecrets(graph),
           creatorTermsAccepted: acceptedCreatorTerms,
         }),
       });

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     "Discover AI prompts and workflows on Edgaze. Browse, run, and buy prompts and automation built by creators. One link to share, one tap to run.",
   openGraph: {
-    title: "Marketplace | Edgaze",
+    title: "Marketplace",
     description:
       "Discover AI prompts and workflows on Edgaze. Browse, run, and buy prompts and automation built by creators.",
     url: "https://edgaze.ai/marketplace",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Marketplace | Edgaze",
+    title: "Marketplace",
     description:
       "Discover AI prompts and workflows on Edgaze. Browse, run, and buy prompts and automation built by creators.",
     images: [DEFAULT_SOCIAL_IMAGE],

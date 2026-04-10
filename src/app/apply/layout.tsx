@@ -5,14 +5,14 @@ export const metadata: Metadata = {
   title: "Beta",
   description: "Join the Edgaze beta.",
   openGraph: {
-    title: "Beta | Edgaze",
+    title: "Beta",
     description: "Join the Edgaze beta.",
     url: "https://edgaze.ai/apply",
     images: [DEFAULT_SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Beta | Edgaze",
+    title: "Beta",
     description: "Join the Edgaze beta.",
     images: [DEFAULT_SOCIAL_IMAGE],
   },

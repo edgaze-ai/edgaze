@@ -39,6 +39,7 @@ export async function GET(req: Request) {
       "price_usd",
       "views_count",
       "likes_count",
+      "runs_count",
       "demo_images",
       "output_demo_urls",
       "graph_json",

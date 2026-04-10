@@ -7,6 +7,7 @@ import { validateWorkflowPrice } from "@/lib/marketplace/pricing";
 import { getMinimumWorkflowPrice } from "@/lib/workflow/cost-estimation";
 import { logCreatorAuditEvent } from "@/lib/creator-provisioning/audit";
 import type { WorkflowGraph } from "@/lib/workflow/cost-estimation";
+import { loadWorkflowGraphJsonForPublishing } from "@/server/flow/load-workflow-graph";
 
 function normalizeEdgazeCode(input: string) {
   return (input || "")
@@ -45,7 +46,8 @@ type Body = {
   edgazeCode: string;
   thumbnailUrl: string | null;
   demoUrls: string[];
-  graph: WorkflowGraph | unknown;
+  /** @deprecated Ignored; graph is loaded from workflow_drafts / workflows to keep request size under limits. */
+  graph?: WorkflowGraph | unknown;
   creatorTermsAccepted?: boolean;
 };
 
@@ -143,12 +145,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "That Edgaze code is already in use" }, { status: 409 });
     }
 
-    const graph = body.graph as WorkflowGraph;
-    const safeGraph = stripGraphSecrets(graph ?? { nodes: [], edges: [] }) as Record<
+    let graphRaw: Record<string, unknown>;
+    try {
+      graphRaw = await loadWorkflowGraphJsonForPublishing(workflowId, ownerId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Graph load failed";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+
+    const safeGraph = stripGraphSecrets(graphRaw ?? { nodes: [], edges: [] }) as Record<
       string,
       unknown
     >;
-    const minPrice = getMinimumWorkflowPrice(graph ?? null);
+    const minPrice = getMinimumWorkflowPrice(safeGraph as WorkflowGraph);
 
     let priceUsd = Number(body.priceUsd) || 0;
     if (monetisationMode === "free") {

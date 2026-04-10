@@ -2,6 +2,55 @@ import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowVersionById } from "@lib/supabase/workflow-versions";
 import type { GraphEdge, GraphNode } from "./types";
 
+/**
+ * Canonical graph JSON for publishing a listing — read from DB so the publish API
+ * request body stays small (avoids serverless payload limits).
+ */
+export async function loadWorkflowGraphJsonForPublishing(
+  workflowId: string,
+  ownerId: string,
+): Promise<Record<string, unknown>> {
+  const supabase = createSupabaseAdminClient();
+
+  const { data: draft, error: draftErr } = await supabase
+    .from("workflow_drafts")
+    .select("graph")
+    .eq("id", workflowId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+
+  if (!draftErr && draft?.graph != null && typeof draft.graph === "object") {
+    return draft.graph as Record<string, unknown>;
+  }
+
+  const { data: wf, error: wfErr } = await supabase
+    .from("workflows")
+    .select("graph_json, graph, active_version_id")
+    .eq("id", workflowId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+
+  if (wfErr || !wf) {
+    throw new Error("Workflow graph not found. Save your draft and try again.");
+  }
+
+  const versionId = (wf as { active_version_id?: string | null }).active_version_id;
+  if (versionId) {
+    const ver = await getWorkflowVersionById(versionId);
+    if (ver?.graph_json && typeof ver.graph_json === "object") {
+      return ver.graph_json as Record<string, unknown>;
+    }
+  }
+
+  const raw =
+    (wf as { graph_json?: unknown; graph?: unknown }).graph_json ??
+    (wf as { graph?: unknown }).graph;
+  if (raw && typeof raw === "object") {
+    return raw as Record<string, unknown>;
+  }
+  return { nodes: [], edges: [] };
+}
+
 async function workflowRowExists(workflowId: string): Promise<boolean> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase

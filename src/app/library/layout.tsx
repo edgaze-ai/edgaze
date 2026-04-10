@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     "Your created and purchased prompts and workflows in one place. Run, manage, and share your Edgaze library.",
   openGraph: {
-    title: "Library | Edgaze",
+    title: "Library",
     description:
       "Your created and purchased prompts and workflows in one place. Run, manage, and share your Edgaze library.",
     url: "https://edgaze.ai/library",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Library | Edgaze",
+    title: "Library",
     description:
       "Your created and purchased prompts and workflows in one place. Run, manage, and share your Edgaze library.",
     images: [DEFAULT_SOCIAL_IMAGE],

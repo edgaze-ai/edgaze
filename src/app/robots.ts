@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
+import { getSiteOrigin } from "@lib/site-origin";
 
 export default function robots(): MetadataRoute.Robots {
-  const base = "https://edgaze.ai";
+  const base = getSiteOrigin();
 
   return {
     rules: [

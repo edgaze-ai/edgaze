@@ -1,7 +1,7 @@
 {
   "name": "Edgaze",
   "short_name": "Edgaze",
-  "description": "Create, sell, and distribute AI products",
+  "description": "Edgaze is the runtime and distribution layer for AI workflows. Build once, deploy as executable products, and monetize through a global marketplace.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#07080b",

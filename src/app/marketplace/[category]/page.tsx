@@ -24,17 +24,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = `Discover AI workflows and prompts for ${title.toLowerCase()} on Edgaze. Browse and run ${title} automation built by creators.`;
 
   return {
-    title: `${title} | Edgaze Marketplace`,
+    title,
     description,
     openGraph: {
-      title: `${title} | Edgaze Marketplace`,
+      title,
       description,
       url: `https://edgaze.ai/marketplace/${category}`,
       images: [DEFAULT_SOCIAL_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${title} | Edgaze Marketplace`,
+      title,
       description,
       images: [DEFAULT_SOCIAL_IMAGE],
     },
@@ -78,7 +78,7 @@ export default async function MarketplaceCategoryPage({ params }: Props) {
   const collectionPageJsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: `${title} | Edgaze Marketplace`,
+    name: title,
     url: `${base}/marketplace/${category}`,
     description: `Discover AI workflows and prompts for ${title.toLowerCase()} on Edgaze. Browse and run ${title} automation built by creators.`,
     mainEntity: {

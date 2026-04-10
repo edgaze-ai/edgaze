@@ -3,7 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 import { getAllDocs } from "./utils/docs";
 
 export const metadata = {
-  title: "Edgaze Documentation",
+  title: "Documentation",
   description: "Explore all Edgaze documentation, from builder guides to policies and changelogs.",
 };
 

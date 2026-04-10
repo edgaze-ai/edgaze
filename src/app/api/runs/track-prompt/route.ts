@@ -1,23 +1,29 @@
 /**
- * Track a prompt run for analytics.
- * Prompts are always accessible after purchase; we count each run.
+ * Track a prompt run for analytics and public runs_count.
+ * Call when the user actually runs (e.g. opens provider / copies filled prompt)—not on modal open alone.
  */
-import { NextResponse } from "next/server";
-import { getUserFromRequest } from "@lib/auth/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getUserAndClient } from "@lib/auth/server";
 import { createRun, updateRun } from "@lib/supabase/runs";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { incrementMarketplaceListingRunCount } from "@lib/metrics/publicRunCount";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as { promptId?: string; provider?: string };
+    const body = (await req.json()) as {
+      promptId?: string;
+      provider?: string;
+      deviceFingerprint?: string;
+    };
     const { promptId, provider } = body;
 
     if (!promptId || typeof promptId !== "string") {
       return NextResponse.json({ error: "promptId is required" }, { status: 400 });
     }
 
-    const { user } = await getUserFromRequest(req);
+    const { user } = await getUserAndClient(req);
     const runnerUserId = user?.id ?? null;
+    const isUuidRunner = runnerUserId ? /^[0-9a-f-]{36}$/i.test(runnerUserId) : false;
 
     const supabase = createSupabaseAdminClient();
     const { data: prompt, error: promptError } = await supabase
@@ -36,7 +42,7 @@ export async function POST(req: Request) {
     const run = await createRun({
       kind: "prompt",
       promptId,
-      runnerUserId,
+      runnerUserId: isUuidRunner ? runnerUserId : null,
       creatorUserId,
       metadata,
     });
@@ -46,6 +52,11 @@ export async function POST(req: Request) {
       endedAt: new Date().toISOString(),
       durationMs: 0,
       metadata,
+    });
+
+    await incrementMarketplaceListingRunCount({
+      listingType: "prompt",
+      listingId: promptId,
     });
 
     return NextResponse.json({ ok: true, runId: run.id });

@@ -13,6 +13,7 @@ import {
   Zap,
   Sparkles,
   EyeOff,
+  LineChart,
 } from "lucide-react";
 
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -429,6 +430,20 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
                       Remove from marketplace
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(
+                        `/library/analytics?kind=${encodeURIComponent(item.kind)}&id=${encodeURIComponent(item.id)}`,
+                      );
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/25 bg-gradient-to-r from-cyan-500/10 to-pink-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-100/95 transition-all duration-200 hover:border-cyan-400/50"
+                    title="Listing analytics"
+                  >
+                    <LineChart className="h-3.5 w-3.5" />
+                    Analytics
+                  </button>
                   <button
                     type="button"
                     onClick={(e) => {

@@ -7,6 +7,8 @@ export type ListingSort = "newest" | "popular" | "oldest";
 export type CreatorListing = {
   id: string;
   type: ListingType;
+  /** Table used for likes: `prompts` rows always use `prompt`, `workflows` rows use `workflow` (even when `type` is workflow-style). */
+  likeItemType: ListingType;
   title?: string | null;
   description?: string | null;
   prompt_text?: string | null;
@@ -20,6 +22,7 @@ export type CreatorListing = {
   view_count?: number | null;
   likes_count?: number | null;
   like_count?: number | null;
+  runs_count?: number | null;
 
   // pricing
   is_paid?: boolean | null;
@@ -106,6 +109,7 @@ async function fetchPrompts(
         "likes_count",
         "view_count",
         "like_count",
+        "runs_count",
         "created_at",
       ].join(","),
     )
@@ -134,6 +138,7 @@ async function fetchPrompts(
   return (data ?? []).map((p: any) => ({
     id: String(p.id),
     type: (p.type as any) ?? "prompt",
+    likeItemType: "prompt",
     edgaze_code: p.edgaze_code ?? null,
     title: p.title ?? null,
     description: p.description ?? null,
@@ -144,6 +149,7 @@ async function fetchPrompts(
     view_count: p.view_count != null ? Number(p.view_count) : null,
     likes_count: p.likes_count != null ? Number(p.likes_count) : null,
     like_count: p.like_count != null ? Number(p.like_count) : null,
+    runs_count: p.runs_count != null ? Number(p.runs_count) : null,
     is_paid: p.is_paid ?? null,
     price_usd: p.price_usd != null ? Number(p.price_usd) : null,
     monetisation_mode: (p.monetisation_mode as any) ?? null,
@@ -171,6 +177,7 @@ async function fetchWorkflows(
     "price_usd",
     "views_count",
     "likes_count",
+    "runs_count",
     "created_at",
     "published_at",
     "is_published",
@@ -219,6 +226,7 @@ async function fetchWorkflows(
   return (res.data ?? []).map((w: any) => ({
     id: String(w.id),
     type: (w.type as any) ?? "workflow",
+    likeItemType: "workflow",
     edgaze_code: w.edgaze_code ?? null,
     title: w.title ?? null,
     description: w.description ?? null,
@@ -228,6 +236,7 @@ async function fetchWorkflows(
     published_at: w.published_at ?? null,
     views_count: w.views_count != null ? Number(w.views_count) : null,
     likes_count: w.likes_count != null ? Number(w.likes_count) : null,
+    runs_count: w.runs_count != null ? Number(w.runs_count) : null,
     is_paid: w.is_paid ?? null,
     price_usd: w.price_usd != null ? Number(w.price_usd) : null,
     monetisation_mode: (w.monetisation_mode as any) ?? null,

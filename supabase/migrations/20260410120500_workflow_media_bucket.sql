@@ -1,5 +1,6 @@
 -- Public bucket for workflow/prompt listing images (thumbnails, demos, QR assets).
 -- Uploaded via /api/creator/listing-media/upload using the service role.
+-- NOTE: Version must differ from 20260410120000_listing_views_polymorphic.sql (Supabase uses the numeric prefix as schema_migrations PK).
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (

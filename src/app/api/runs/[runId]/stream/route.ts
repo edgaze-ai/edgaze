@@ -14,6 +14,7 @@ import { SupabaseWorkflowExecutionRepository } from "src/server/flow-v2/reposito
 import { collectTraceHeaders, startTraceSession } from "src/server/trace";
 import { ensureWorkflowRunWorker } from "src/server/flow-v2/worker-service";
 import { ensureWorkflowRunPrepared } from "src/server/flow-v2/ensure-workflow-run-prepared";
+import { syncUnifiedRunWithWorkflowCompletion } from "@lib/supabase/runs";
 
 function encodeSseChunk(params: {
   event?: string;
@@ -262,6 +263,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
           });
 
           let lastPeriodicSnapshotAt = Date.now();
+          let unifiedAnalyticsSyncDone = false;
 
           const pollLoop = async () => {
             while (!req.signal.aborted) {
@@ -329,10 +331,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
                 });
               }
 
+              const runStatus = String(runPeek.status);
               const isTerminal =
-                runPeek.status === "completed" ||
-                runPeek.status === "failed" ||
-                runPeek.status === "cancelled";
+                runStatus === "completed" ||
+                runStatus === "failed" ||
+                runStatus === "cancelled" ||
+                runStatus === "timeout";
 
               const now = Date.now();
               if (
@@ -362,6 +366,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ runI
                     runStatus: refresh.run.status,
                   },
                 });
+              }
+
+              if (isTerminal && !unifiedAnalyticsSyncDone) {
+                unifiedAnalyticsSyncDone = true;
+                try {
+                  await syncUnifiedRunWithWorkflowCompletion({
+                    workflowRunId: runId,
+                    workflowStatus: runStatus,
+                  });
+                } catch (syncErr) {
+                  console.error("[runs/stream] unified analytics sync failed:", syncErr);
+                }
               }
 
               if (isTerminal && afterSequence >= runPeek.lastEventSequence) {

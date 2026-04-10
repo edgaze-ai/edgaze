@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     "Edgaze is the distribution layer for AI workflows: a marketplace and execution layer where AI workflows become products.",
   openGraph: {
-    title: "Invest | Edgaze",
+    title: "Invest",
     description:
       "Edgaze is the distribution layer for AI workflows: a marketplace and execution layer where AI workflows become products.",
     url: "https://edgaze.ai/invest",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Invest | Edgaze",
+    title: "Invest",
     description:
       "Edgaze is the distribution layer for AI workflows: a marketplace and execution layer where AI workflows become products.",
     images: [DEFAULT_SOCIAL_IMAGE],

@@ -10,7 +10,9 @@ import LazyAnalyticsWrapper from "../components/layout/LazyAnalytics";
 import { MinimalLoadingFallback } from "../components/loading/GlobalLoadingScreen";
 import { WebVitals } from "./web-vitals";
 import { getSiteOrigin } from "@lib/site-origin";
+import { SITE_META_DESCRIPTION } from "@lib/constants";
 import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
+import { buildPrimarySitelinksItemList, ORGANIZATION_SAME_AS } from "@lib/primary-sitelinks";
 
 const SITE_ORIGIN = getSiteOrigin();
 
@@ -41,12 +43,8 @@ const fbAppId = process.env.FACEBOOK_APP_ID?.trim() || process.env.FACEBOOK_CLIE
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
-  title: {
-    default: "Edgaze",
-    template: "%s | Edgaze",
-  },
-  description:
-    "Edgaze is the marketplace for AI prompts and workflows. Build once, publish a clean page, share one link. Creators monetize; buyers discover and run.",
+  title: "Edgaze",
+  description: SITE_META_DESCRIPTION,
   applicationName: "Edgaze",
   referrer: "origin-when-cross-origin",
   openGraph: {
@@ -54,15 +52,13 @@ export const metadata: Metadata = {
     url: SITE_ORIGIN,
     siteName: "Edgaze",
     title: "Edgaze",
-    description:
-      "Edgaze is the marketplace for AI prompts and workflows. Build once, publish a clean page, share one link. Creators monetize; buyers discover and run.",
+    description: SITE_META_DESCRIPTION,
     images: [DEFAULT_SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "Edgaze",
-    description:
-      "Edgaze is the marketplace for AI prompts and workflows. Build once, publish a clean page, share one link. Creators monetize; buyers discover and run.",
+    description: SITE_META_DESCRIPTION,
     images: [DEFAULT_SOCIAL_IMAGE],
   },
   ...(fbAppId ? { other: { "fb:app_id": fbAppId } } : {}),
@@ -101,14 +97,14 @@ const siteNavigationJsonLd = {
         "@type": "ImageObject",
         url: `${SITE_ORIGIN}/brand/edgaze-mark.png`,
       },
-      sameAs: [],
+      sameAs: [...ORGANIZATION_SAME_AS],
     },
     {
       "@type": "WebSite",
       "@id": `${SITE_ORIGIN}/#website`,
       url: SITE_ORIGIN,
       name: "Edgaze",
-      description: "Create, sell, and distribute AI products.",
+      description: SITE_META_DESCRIPTION,
       publisher: {
         "@id": `${SITE_ORIGIN}/#organization`,
       },
@@ -121,6 +117,7 @@ const siteNavigationJsonLd = {
         "query-input": "required name=search_term_string",
       },
     },
+    buildPrimarySitelinksItemList(SITE_ORIGIN),
   ],
 };
 

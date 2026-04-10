@@ -21,7 +21,7 @@ export async function generateMetadata({
 
   if (!doc) {
     return {
-      title: "Builder Documentation | Edgaze",
+      title: "Builder Documentation",
       description: "Learn how to use Edgaze builders",
     };
   }
@@ -39,16 +39,16 @@ export async function generateMetadata({
   };
 
   return {
-    title: titleMap[subslug] || `${doc.title} | Edgaze Documentation`,
+    title: titleMap[subslug] || doc.title,
     description: descMap[subslug] || doc.description || `Learn about ${doc.title}`,
     openGraph: {
-      title: titleMap[subslug] || `${doc.title} | Edgaze Documentation`,
+      title: titleMap[subslug] || doc.title,
       description: descMap[subslug] || doc.description || `Learn about ${doc.title}`,
       type: "article",
     },
     twitter: {
       card: "summary_large_image",
-      title: titleMap[subslug] || `${doc.title} | Edgaze Documentation`,
+      title: titleMap[subslug] || doc.title,
       description: descMap[subslug] || doc.description || `Learn about ${doc.title}`,
     },
   };

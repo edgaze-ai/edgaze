@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     "Share feedback on Edgaze. Help us improve the AI prompts and workflows marketplace.",
   openGraph: {
-    title: "Feedback | Edgaze",
+    title: "Feedback",
     description:
       "Share feedback on Edgaze. Help us improve the AI prompts and workflows marketplace.",
     url: "https://edgaze.ai/feedback",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Feedback | Edgaze",
+    title: "Feedback",
     description:
       "Share feedback on Edgaze. Help us improve the AI prompts and workflows marketplace.",
     images: [DEFAULT_SOCIAL_IMAGE],

@@ -107,3 +107,53 @@ export async function updateRun(runId: string, params: UpdateRunParams): Promise
   if (error) throw error;
   return data as RunRow;
 }
+
+/**
+ * V2 SSE path: when workflow_runs reaches a terminal status, close out the linked `runs` row
+ * (API handoff returns before finishUnifiedRun in the same request).
+ */
+export async function syncUnifiedRunWithWorkflowCompletion(params: {
+  workflowRunId: string;
+  workflowStatus: string;
+}): Promise<void> {
+  const { workflowRunId, workflowStatus } = params;
+  const supabase = createSupabaseAdminClient();
+  const { data: unified } = await supabase
+    .from("runs")
+    .select("id, ended_at")
+    .eq("workflow_run_id", workflowRunId)
+    .maybeSingle();
+
+  if (!unified?.id || unified.ended_at) return;
+
+  const ok = workflowStatus === "completed" || workflowStatus === "success";
+  const status: RunStatus = ok ? "success" : "error";
+
+  const { data: wr } = await supabase
+    .from("workflow_runs")
+    .select("duration_ms, started_at, completed_at")
+    .eq("id", workflowRunId)
+    .maybeSingle();
+
+  let durationMs = 0;
+  const wrRow = wr as {
+    duration_ms?: number | null;
+    started_at?: string;
+    completed_at?: string | null;
+  } | null;
+  if (wrRow && typeof wrRow.duration_ms === "number" && wrRow.duration_ms >= 0) {
+    durationMs = wrRow.duration_ms;
+  } else if (
+    wrRow?.started_at &&
+    typeof wrRow.completed_at === "string" &&
+    wrRow.completed_at.length > 0
+  ) {
+    durationMs = Math.max(0, Date.parse(wrRow.completed_at) - Date.parse(wrRow.started_at));
+  }
+
+  await updateRun(unified.id, {
+    status,
+    endedAt: new Date().toISOString(),
+    durationMs,
+  });
+}

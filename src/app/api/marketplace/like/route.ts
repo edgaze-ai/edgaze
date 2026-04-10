@@ -35,8 +35,25 @@ export async function POST(req: NextRequest) {
     // Determine which table to use for likes tracking
     const likesTable = itemType === "workflow" ? "workflow_likes" : "prompt_likes";
     const itemsTable = itemType === "workflow" ? "workflows" : "prompts";
-    const likesCountColumn = "likes_count";
     const itemIdColumn = itemType === "workflow" ? "workflow_id" : "prompt_id";
+
+    const refetchLikesCount = async (): Promise<number> => {
+      if (itemType === "workflow") {
+        const { data } = await supabase
+          .from(itemsTable)
+          .select("likes_count")
+          .eq("id", itemId)
+          .single();
+        return Math.max(0, Number((data as { likes_count?: number | null })?.likes_count ?? 0));
+      }
+      const { data } = await supabase
+        .from(itemsTable)
+        .select("likes_count, like_count")
+        .eq("id", itemId)
+        .single();
+      const row = data as { likes_count?: number | null; like_count?: number | null } | null;
+      return Math.max(0, Number(row?.likes_count ?? row?.like_count ?? 0));
+    };
 
     // Convert UUID to text for user_id (schema uses text, not uuid)
     const userIdStr = String(user.id);
@@ -99,23 +116,9 @@ export async function POST(req: NextRequest) {
             headers: { "Content-Type": "application/json" },
           },
         );
-      } else {
-        // Successfully deleted like - decrement count
-        const { data: item } = await supabase
-          .from(itemsTable)
-          .select(likesCountColumn)
-          .eq("id", itemId)
-          .single();
-
-        const currentCount = (item as any)?.[likesCountColumn] ?? 0;
-        newLikesCount = Math.max(0, currentCount - 1);
-        isLiked = false;
-
-        await supabase
-          .from(itemsTable)
-          .update({ [likesCountColumn]: newLikesCount })
-          .eq("id", itemId);
       }
+      newLikesCount = await refetchLikesCount();
+      isLiked = false;
     } else {
       // User hasn't liked - add the like directly (RLS will enforce security)
       const insertData =
@@ -132,14 +135,7 @@ export async function POST(req: NextRequest) {
           insertError.message.includes("duplicate") ||
           insertError.message.includes("already")
         ) {
-          // User already liked - get current count
-          const { data: item } = await supabase
-            .from(itemsTable)
-            .select(likesCountColumn)
-            .eq("id", itemId)
-            .single();
-
-          newLikesCount = (item as any)?.[likesCountColumn] ?? 0;
+          newLikesCount = await refetchLikesCount();
           isLiked = true;
 
           return NextResponse.json(
@@ -160,21 +156,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Successfully inserted like - increment count
-      const { data: item } = await supabase
-        .from(itemsTable)
-        .select(likesCountColumn)
-        .eq("id", itemId)
-        .single();
-
-      const currentCount = (item as any)?.[likesCountColumn] ?? 0;
-      newLikesCount = currentCount + 1;
+      newLikesCount = await refetchLikesCount();
       isLiked = true;
-
-      await supabase
-        .from(itemsTable)
-        .update({ [likesCountColumn]: newLikesCount })
-        .eq("id", itemId);
     }
 
     return NextResponse.json(

@@ -46,6 +46,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/blogs") ||
     pathname.startsWith("/auth/sign-in-to-buy");
   const isLibraryPage = pathname === "/library";
+  const isLibraryAnalytics = pathname.startsWith("/library/analytics");
   const isCreatorsOnboarding = pathname === "/creators/onboarding";
   const isDashboardEarnings = pathname === "/dashboard/earnings";
   const isHelpPage = pathname === "/help";
@@ -68,7 +69,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const mainClasses =
-    isCreatorsOnboarding || isDashboardEarnings || isAdminPage || isHelpPage
+    isCreatorsOnboarding || isDashboardEarnings || isAdminPage || isHelpPage || isLibraryAnalytics
       ? "flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
       : isLibraryPage
         ? "flex-1 overflow-hidden library-page-main"

@@ -7,12 +7,12 @@ export default function Head() {
   const h = String(DEFAULT_SOCIAL_IMAGE.height);
   return (
     <>
-      <title>Library | Edgaze</title>
+      <title>Library</title>
       <meta
         name="description"
         content="Your created and purchased prompts and workflows in one place."
       />
-      <meta property="og:title" content="Library | Edgaze" />
+      <meta property="og:title" content="Library" />
       <meta
         property="og:description"
         content="Your created and purchased prompts and workflows in one place."

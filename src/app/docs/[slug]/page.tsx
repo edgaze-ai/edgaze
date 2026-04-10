@@ -26,16 +26,16 @@ export async function generateMetadata({
   }
 
   return {
-    title: `${doc.title} | Edgaze Documentation`,
+    title: doc.title,
     description: doc.description || `Learn about ${doc.title} in Edgaze`,
     openGraph: {
-      title: `${doc.title} | Edgaze Documentation`,
+      title: doc.title,
       description: doc.description || `Learn about ${doc.title} in Edgaze`,
       type: "article",
     },
     twitter: {
       card: "summary_large_image",
-      title: `${doc.title} | Edgaze Documentation`,
+      title: doc.title,
       description: doc.description || `Learn about ${doc.title} in Edgaze`,
     },
   };

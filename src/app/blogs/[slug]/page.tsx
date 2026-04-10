@@ -19,21 +19,21 @@ export async function generateMetadata({
   const blog = getBlog(slug);
 
   if (!blog) {
-    return { title: "Blog | Edgaze" };
+    return { title: "Blog" };
   }
 
   return {
-    title: `${blog.title} | Edgaze Blog`,
+    title: blog.title,
     description: blog.description || `Read ${blog.title} on the Edgaze blog`,
     openGraph: {
-      title: `${blog.title} | Edgaze Blog`,
+      title: blog.title,
       description: blog.description || `Read ${blog.title} on the Edgaze blog`,
       type: "article",
       publishedTime: blog.date,
     },
     twitter: {
       card: "summary_large_image",
-      title: `${blog.title} | Edgaze Blog`,
+      title: blog.title,
       description: blog.description || `Read ${blog.title} on the Edgaze blog`,
     },
   };

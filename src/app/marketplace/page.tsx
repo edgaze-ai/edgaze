@@ -11,12 +11,13 @@ import {
   User,
   Heart,
   RefreshCw,
+  Zap,
 } from "lucide-react";
 
 import { useAuth } from "../../components/auth/AuthContext";
-import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../lib/constants";
+import { SHOW_PUBLIC_LIKES_AND_RUNS } from "../../lib/constants";
+import { formatClientError } from "../../lib/format-client-error";
 import { createSupabasePublicBrowserClient } from "../../lib/supabase/public";
-import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
 import ErrorModal from "../../components/marketplace/ErrorModal";
 import FeaturedBuildCTA from "../../components/marketplace/FeaturedBuildCTA";
 import MarketplaceFiltersBar, {
@@ -33,6 +34,8 @@ type MonetisationMode = "free" | "paywall" | "subscription" | "both" | null;
 type MarketplacePrompt = {
   id: string;
   type: "prompt" | "workflow" | null;
+  /** Which likes table / API `itemType` to use (`prompts` rows may have `type: workflow`). */
+  likeItemType?: "prompt" | "workflow";
   edgaze_code: string | null;
   title: string | null;
   description: string | null;
@@ -52,6 +55,7 @@ type MarketplacePrompt = {
   price_usd: number | null;
   view_count: number | null;
   like_count: number | null;
+  runs_count?: number | null;
   created_at?: string | null;
   published_at?: string | null;
 };
@@ -541,16 +545,16 @@ function PromptCard({
   currentUserId,
   currentUserHandle,
   requireAuth,
+  getAccessToken,
   supabase,
-  supabaseAuth,
   onEvent,
 }: {
   prompt: MarketplacePrompt;
   currentUserId: string | null;
   currentUserHandle: string | null | undefined;
   requireAuth: () => boolean;
+  getAccessToken: () => Promise<string | null>;
   supabase: ReturnType<typeof createSupabasePublicBrowserClient>;
-  supabaseAuth: ReturnType<typeof createSupabaseBrowserClient>;
   onEvent: (evt: Omit<MarketplaceEvent, "ts" | "session_id" | "user_id">) => void;
 }) {
   const router = useRouter();
@@ -600,15 +604,17 @@ function PromptCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompt.id]);
 
+  const likeKind: "prompt" | "workflow" =
+    prompt.likeItemType ?? (prompt.type === "workflow" ? "workflow" : "prompt");
+
   // Check if user has liked this item and refresh count
   useEffect(() => {
     const checkLikeStatus = async () => {
       try {
-        const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
+        const itemsTable = likeKind === "workflow" ? "workflows" : "prompts";
 
         // Refresh count from database first (workflows has likes_count only; prompts has both)
-        const likeCountCols =
-          prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
+        const likeCountCols = likeKind === "workflow" ? "likes_count" : "likes_count, like_count";
         const { data: itemData } = await supabase
           .from(itemsTable)
           .select(likeCountCols)
@@ -621,27 +627,23 @@ function PromptCard({
           setLikeCount(actualCount);
         }
 
-        // Check if user has liked
         if (!currentUserId) {
           setIsLiked(false);
           return;
         }
 
-        const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
-        const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
-
-        const { data, error } = await supabaseAuth
-          .from(likesTable)
-          .select("id")
-          .eq("user_id", currentUserId)
-          .eq(itemIdColumn, prompt.id)
-          .maybeSingle();
-
-        if (error && !error.message.includes("permission") && !error.message.includes("JWT")) {
-          console.error("Error checking like status:", error);
-        }
-
-        setIsLiked(!!data);
+        const token = await getAccessToken();
+        const res = await fetch(
+          `/api/marketplace/like?itemId=${encodeURIComponent(prompt.id)}&itemType=${likeKind}`,
+          {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: "include",
+          },
+        );
+        const j = (await res.json().catch(() => ({}))) as { isLiked?: boolean };
+        setIsLiked(Boolean(j.isLiked));
       } catch (error) {
         console.error("Error checking like status:", error);
         setIsLiked(false);
@@ -649,7 +651,7 @@ function PromptCard({
     };
 
     checkLikeStatus();
-  }, [prompt.id, prompt.type, currentUserId, supabaseAuth, supabase]);
+  }, [prompt.id, likeKind, currentUserId, supabase, getAccessToken]);
 
   const displayHandle =
     currentUserId &&
@@ -725,106 +727,28 @@ function PromptCard({
     try {
       setLikeLoading(true);
 
-      // Use Supabase client directly (like comments do) - RLS handles security
-      const likesTable = prompt.type === "workflow" ? "workflow_likes" : "prompt_likes";
-      const itemsTable = prompt.type === "workflow" ? "workflows" : "prompts";
-      const itemIdColumn = prompt.type === "workflow" ? "workflow_id" : "prompt_id";
-
-      if (wasLiked) {
-        // Remove like
-        const { error: deleteError } = await supabaseAuth
-          .from(likesTable)
-          .delete()
-          .eq("user_id", currentUserId)
-          .eq(itemIdColumn, prompt.id);
-
-        if (deleteError) {
-          throw deleteError;
-        }
-
-        setIsLiked(false);
-
-        // Small delay to ensure triggers have updated the count
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        // Refresh count from database (triggers update it)
-        const likeCountCols =
-          prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
-        const { data: itemData } = await supabase
-          .from(itemsTable)
-          .select(likeCountCols)
-          .eq("id", prompt.id)
-          .single();
-
-        if (itemData) {
-          const raw = itemData as LikeCountRow;
-          const actualCount = raw.likes_count ?? raw.like_count ?? 0;
-          setLikeCount(actualCount);
-        } else {
-          // Fallback: decrement optimistically
-          setLikeCount((prev) => Math.max(0, prev - 1));
-        }
-      } else {
-        // Add like
-        const insertData =
-          prompt.type === "workflow"
-            ? { user_id: currentUserId, workflow_id: prompt.id }
-            : { user_id: currentUserId, prompt_id: prompt.id };
-
-        const { error: insertError } = await supabaseAuth.from(likesTable).insert(insertData);
-
-        if (insertError) {
-          // If duplicate, user already liked - refresh from DB
-          if (insertError.message.includes("unique") || insertError.message.includes("duplicate")) {
-            setIsLiked(true);
-
-            // Small delay to ensure triggers have updated the count
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            // Refresh count from database
-            const likeCountColsDup =
-              prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
-            const { data: itemDataDup } = await supabase
-              .from(itemsTable)
-              .select(likeCountColsDup)
-              .eq("id", prompt.id)
-              .single();
-
-            if (itemDataDup) {
-              const raw = itemDataDup as LikeCountRow;
-              const actualCount = raw.likes_count ?? raw.like_count ?? 0;
-              setLikeCount(actualCount);
-            } else {
-              // Fallback: increment optimistically
-              setLikeCount((prev) => prev + 1);
-            }
-            return;
-          }
-          throw insertError;
-        }
-
-        setIsLiked(true);
-
-        // Small delay to ensure triggers have updated the count
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        // Refresh count from database (triggers update it)
-        const likeCountCols2 =
-          prompt.type === "workflow" ? "likes_count" : "likes_count, like_count";
-        const { data: itemData2 } = await supabase
-          .from(itemsTable)
-          .select(likeCountCols2)
-          .eq("id", prompt.id)
-          .single();
-
-        if (itemData2) {
-          const raw = itemData2 as LikeCountRow;
-          const actualCount = raw.likes_count ?? raw.like_count ?? 0;
-          setLikeCount(actualCount);
-        } else {
-          // Fallback: increment optimistically
-          setLikeCount((prev) => prev + 1);
-        }
+      const token = await getAccessToken();
+      const res = await fetch("/api/marketplace/like", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({ itemId: prompt.id, itemType: likeKind }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        details?: string;
+        likesCount?: number;
+        isLiked?: boolean;
+      };
+      if (!res.ok) {
+        throw new Error(j.details || j.error || `Request failed (${res.status})`);
+      }
+      if (typeof j.likesCount === "number") {
+        setLikeCount(j.likesCount);
+        setIsLiked(Boolean(j.isLiked));
       }
     } catch (error) {
       console.error("Error toggling like:", error);
@@ -832,16 +756,18 @@ function PromptCard({
       setIsLiked(wasLiked);
       setLikeCount((prev) => (wasLiked ? prev + 1 : Math.max(0, prev - 1)));
 
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = formatClientError(error);
 
-      // Check if it's an auth error
-      if (
-        errorMessage.includes("JWT") ||
-        errorMessage.includes("session") ||
-        errorMessage.includes("auth") ||
-        errorMessage.includes("permission") ||
-        errorMessage.includes("row-level security")
-      ) {
+      const looksLikeAuth =
+        !currentUserId ||
+        /\b401\b/.test(errorMessage) ||
+        /not authenticated/i.test(errorMessage) ||
+        /jwt expired/i.test(errorMessage) ||
+        /invalid jwt/i.test(errorMessage) ||
+        /refresh token/i.test(errorMessage) ||
+        (/session/i.test(errorMessage) && /expired|invalid|missing/i.test(errorMessage));
+
+      if (looksLikeAuth) {
         setErrorModal({
           open: true,
           title: "Authentication Required",
@@ -952,12 +878,12 @@ function PromptCard({
                 </span>
               )}
 
-              {SHOW_VIEWS_AND_LIKES_PUBLICLY && (
+              {SHOW_PUBLIC_LIKES_AND_RUNS && (
                 <>
                   <span className="text-white/25">•</span>
-                  <span className="flex items-center gap-1">
-                    <span className="text-white/35">views</span>
-                    <span>{prompt.view_count ?? 0}</span>
+                  <span className="flex items-center gap-1 tabular-nums">
+                    <Zap className="h-3 w-3 text-cyan-300/90" />
+                    <span>{prompt.runs_count ?? 0}</span>
                   </span>
                   <span className="text-white/25">•</span>
                 </>
@@ -987,7 +913,7 @@ function PromptCard({
               ) : (
                 <Heart className="h-3 w-3" fill={isLiked ? "currentColor" : "none"} />
               )}
-              {SHOW_VIEWS_AND_LIKES_PUBLICLY && <span>{likeCount ?? 0}</span>}
+              {SHOW_PUBLIC_LIKES_AND_RUNS && <span>{likeCount ?? 0}</span>}
             </button>
           </div>
         </div>
@@ -1418,8 +1344,7 @@ function MarketplaceSearchBar({
 
 export default function MarketplacePage() {
   const supabase = useMemo(() => createSupabasePublicBrowserClient(), []);
-  const supabaseAuth = useMemo(() => createSupabaseBrowserClient(), []);
-  const { requireAuth, userId, profile, openSignIn, signOut } = useAuth();
+  const { requireAuth, userId, profile, openSignIn, signOut, getAccessToken } = useAuth();
   const router = useRouter();
 
   const sessionId = useMemo(() => getOrCreateSessionId(), []);
@@ -1613,8 +1538,10 @@ export default function MarketplacePage() {
       throw new Error(`HTTP ${res.status}: ${body.slice(0, 500)}`);
     }
     const json = await res.json();
-    const prompts = (json.prompts ?? []) as MarketplacePrompt[];
-    const workflows = (json.workflows ?? []) as MarketplacePrompt[];
+    const rawPrompts = (json.prompts ?? []) as MarketplacePrompt[];
+    const rawWorkflows = (json.workflows ?? []) as MarketplacePrompt[];
+    const prompts = rawPrompts.map((p) => ({ ...p, likeItemType: "prompt" as const }));
+    const workflows = rawWorkflows.map((w) => ({ ...w, likeItemType: "workflow" as const }));
     return { prompts, workflows };
   };
 
@@ -1641,6 +1568,7 @@ export default function MarketplacePage() {
           id: String(r.id ?? ""),
           owner_id: r.owner_id != null ? String(r.owner_id) : null,
           type,
+          likeItemType: type,
           edgaze_code: (r.edgaze_code as string) ?? null,
           title: (r.title as string) ?? null,
           description: (r.description as string) ?? null,
@@ -1672,6 +1600,7 @@ export default function MarketplacePage() {
               : r.like_count != null
                 ? Number(r.like_count)
                 : null,
+          runs_count: r.runs_count != null ? Number(r.runs_count) : null,
           created_at: (r.created_at as string) ?? (r.published_at as string) ?? null,
           published_at: (r.published_at as string) ?? null,
         });
@@ -2734,8 +2663,8 @@ export default function MarketplacePage() {
                               currentUserId={userId}
                               currentUserHandle={profile?.handle ?? null}
                               requireAuth={requireAuth}
+                              getAccessToken={getAccessToken}
                               supabase={supabase}
-                              supabaseAuth={supabaseAuth}
                               onEvent={emitEvent}
                             />
                           ))}
@@ -2747,8 +2676,8 @@ export default function MarketplacePage() {
                               currentUserId={userId}
                               currentUserHandle={profile?.handle ?? null}
                               requireAuth={requireAuth}
+                              getAccessToken={getAccessToken}
                               supabase={supabase}
-                              supabaseAuth={supabaseAuth}
                               onEvent={emitEvent}
                             />
                           ))}
@@ -2762,8 +2691,8 @@ export default function MarketplacePage() {
                         currentUserId={userId}
                         currentUserHandle={profile?.handle ?? null}
                         requireAuth={requireAuth}
+                        getAccessToken={getAccessToken}
                         supabase={supabase}
-                        supabaseAuth={supabaseAuth}
                         onEvent={emitEvent}
                       />
                     ))}

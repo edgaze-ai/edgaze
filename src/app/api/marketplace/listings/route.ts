@@ -26,6 +26,7 @@ export type MarketplaceListingItem = {
   price_usd: number | null;
   view_count: number | null;
   like_count: number | null;
+  runs_count: number | null;
   created_at: string | null;
   published_at: string | null;
   owner_avatar_url: string | null;
@@ -66,6 +67,7 @@ function mapPrompt(row: Record<string, unknown>): MarketplaceListingItem {
         : row.like_count != null
           ? Number(row.like_count)
           : null,
+    runs_count: row.runs_count != null ? Number(row.runs_count) : null,
     created_at: (row.created_at as string) ?? null,
     published_at: null,
     owner_avatar_url: null,
@@ -92,6 +94,7 @@ function mapWorkflow(row: Record<string, unknown>): MarketplaceListingItem {
     price_usd: row.price_usd != null ? Number(row.price_usd) : null,
     view_count: row.views_count != null ? Number(row.views_count) : null,
     like_count: row.likes_count != null ? Number(row.likes_count) : null,
+    runs_count: row.runs_count != null ? Number(row.runs_count) : null,
     created_at: (row.published_at as string) ?? (row.created_at as string) ?? null,
     published_at: (row.published_at as string) ?? null,
     owner_avatar_url: null,
@@ -138,6 +141,7 @@ export async function GET(request: NextRequest) {
       "likes_count",
       "view_count",
       "like_count",
+      "runs_count",
       "created_at",
     ].join(",");
 
@@ -159,6 +163,7 @@ export async function GET(request: NextRequest) {
       "price_usd",
       "views_count",
       "likes_count",
+      "runs_count",
       "created_at",
       "published_at",
       "is_public",

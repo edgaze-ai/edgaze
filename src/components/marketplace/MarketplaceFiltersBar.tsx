@@ -231,40 +231,6 @@ export default function MarketplaceFiltersBar({
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             <div className="flex flex-nowrap items-center gap-1.5 sm:gap-2 min-w-max py-0.5">
-              {/* Sort */}
-              <div className="hidden flex items-center gap-1.5 shrink-0">
-                <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-zinc-600 shrink-0" />
-                <span className="text-[7.5px] font-semibold tracking-[0.08em] text-zinc-600 uppercase hidden sm:inline">
-                  Sort
-                </span>
-              </div>
-              <div className="hidden xl:flex items-center gap-1.5 shrink-0">
-                {SORT_OPTIONS.map((opt) => {
-                  const Icon = opt.icon;
-                  const active = filters.sort === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => updateFilters({ sort: opt.value })}
-                      className={cn(
-                        "inline-flex shrink-0 items-center gap-0 rounded-md h-7 px-2.5 text-[10px] font-medium transition-all duration-200 border leading-none",
-                        active ? pillActive : pillInactive,
-                      )}
-                    >
-                      <Icon
-                        className={cn(
-                          "hidden h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0",
-                          active ? "text-zinc-300" : "text-zinc-600",
-                        )}
-                      />
-                      <span className="whitespace-nowrap">{opt.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {/* Divider */}
-              <div className="hidden h-4 w-px bg-zinc-800/50 shrink-0 mx-1" aria-hidden />
               {/* Topics */}
               <div className="hidden flex items-center gap-1.5 shrink-0 min-w-0">
                 <Tag className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-zinc-600 shrink-0" />
@@ -399,8 +365,8 @@ export default function MarketplaceFiltersBar({
               className="overflow-hidden border-t border-zinc-800/50"
             >
               <div className="px-4 py-4 sm:px-5 sm:py-5 space-y-5">
-                {/* Sort — bar on lg+; mobile uses this panel */}
-                <div className="xl:hidden">
+                {/* Sort — only in this panel (not in the horizontal bar) */}
+                <div>
                   <div className="flex items-center gap-2 mb-3">
                     <Sparkles className="h-3.5 w-3.5 text-white/40" />
                     <span className="text-[11px] font-semibold tracking-wider text-white/45 uppercase">

@@ -7,7 +7,6 @@ import Image from "next/image";
 import {
   ArrowLeft,
   Loader2,
-  Eye,
   Heart,
   Sparkles,
   Share2,
@@ -17,6 +16,7 @@ import {
   Download,
   RotateCcw,
   ExternalLink,
+  Zap,
   Lock,
   CheckCircle2,
   Play,
@@ -35,7 +35,7 @@ import {
 import { extractWorkflowInputs } from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
 import { track, type TrackProperties } from "../../../lib/mixpanel";
-import { SHOW_VIEWS_AND_LIKES_PUBLICLY } from "../../../lib/constants";
+import { SHOW_PUBLIC_LIKES_AND_RUNS } from "../../../lib/constants";
 import TurnstileWidget from "../../../components/apply/TurnstileWidget";
 import ProfileAvatar from "../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../components/ui/ProfileLink";
@@ -78,6 +78,7 @@ type WorkflowListing = {
 
   views_count: number | null;
   likes_count: number | null;
+  runs_count?: number | null;
 
   demo_images: string[] | null;
   output_demo_urls: string[] | null;
@@ -864,6 +865,10 @@ export default function WorkflowProductPage() {
   const [listing, setListing] = useState<WorkflowListing | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const [likeCount, setLikeCount] = useState(0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
+
   const [mainDemoIndex, setMainDemoIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -979,21 +984,56 @@ export default function WorkflowProductPage() {
         );
       }
 
-      supabase
-        .from("workflows")
-        .update({ views_count: (record.views_count ?? 0) + 1 })
-        .eq("id", record.id)
-        .then(
-          () => {},
-          () => {},
-        );
+      (async () => {
+        try {
+          const token = await getAccessToken();
+          await fetch("/api/views/track", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              listingId: record.id,
+              listingType: "workflow",
+              deviceFingerprint: getDeviceFingerprintHash(),
+            }),
+          });
+        } catch {
+          /* best-effort */
+        }
+      })();
     }
 
     load();
     return () => {
       cancelled = true;
     };
-  }, [ownerHandle, edgazeCode, supabase, router]);
+  }, [ownerHandle, edgazeCode, router, getAccessToken]);
+
+  useEffect(() => {
+    if (!listing?.id) return;
+    setLikeCount(Number(listing.likes_count ?? 0) || 0);
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/marketplace/like?itemId=${encodeURIComponent(listing.id)}&itemType=workflow`,
+          { credentials: "include" },
+        );
+        const j = (await res.json().catch(() => ({}))) as { isLiked?: boolean };
+        if (!alive) return;
+        setIsLiked(Boolean(j.isLiked));
+      } catch {
+        if (!alive) return;
+        setIsLiked(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [listing?.id, listing?.likes_count]);
 
   const demoImages: string[] = useMemo(() => {
     if (!listing) return [];
@@ -2342,16 +2382,55 @@ export default function WorkflowProductPage() {
                   </div>
                 </div>
 
-                {SHOW_VIEWS_AND_LIKES_PUBLICLY && (
-                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-white/60">
-                    <span className="inline-flex items-center gap-1">
-                      <Eye className="h-4 w-4" />
-                      {listing.views_count ?? 0} views
+                {SHOW_PUBLIC_LIKES_AND_RUNS && (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-[12px]">
+                    <span className="inline-flex items-center gap-1.5 tabular-nums text-white/65">
+                      <Zap className="h-4 w-4 shrink-0 text-cyan-300/90" />
+                      {listing.runs_count ?? 0} runs
                     </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Heart className="h-4 w-4" />
-                      {listing.likes_count ?? 0} likes
-                    </span>
+                    <button
+                      type="button"
+                      disabled={likeBusy}
+                      onClick={async () => {
+                        if (!requireAuth()) return;
+                        if (!listing) return;
+                        setLikeBusy(true);
+                        try {
+                          const token = await getAccessToken();
+                          const res = await fetch("/api/marketplace/like", {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            },
+                            credentials: "include",
+                            body: JSON.stringify({
+                              itemId: listing.id,
+                              itemType: "workflow",
+                            }),
+                          });
+                          const j = (await res.json().catch(() => ({}))) as {
+                            likesCount?: number;
+                            isLiked?: boolean;
+                          };
+                          if (res.ok && typeof j.likesCount === "number") {
+                            setLikeCount(j.likesCount);
+                            setIsLiked(Boolean(j.isLiked));
+                          }
+                        } finally {
+                          setLikeBusy(false);
+                        }
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors",
+                        isLiked
+                          ? "border-pink-400/40 bg-pink-500/15 text-pink-100"
+                          : "border-white/15 bg-white/[0.06] text-white/70 hover:border-white/25 hover:text-white/90",
+                      )}
+                    >
+                      <Heart className="h-4 w-4" fill={isLiked ? "currentColor" : "none"} />
+                      {likeCount} likes
+                    </button>
                   </div>
                 )}
               </div>
