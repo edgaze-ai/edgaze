@@ -7,6 +7,7 @@ import {
   PlayCircle,
   Shield,
   Sparkles,
+  TrendingUp,
   Users,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ export type AdminNavItem = {
 
 export const ADMIN_NAV_ITEMS: ReadonlyArray<AdminNavItem> = [
   { href: "/admin/moderation", label: "Moderation", icon: Shield },
+  { href: "/admin/trending", label: "Trending", icon: TrendingUp },
   { href: "/admin/accounting", label: "Accounting", icon: FileText },
   { href: "/admin/runs", label: "Runs", icon: PlayCircle },
   { href: "/admin/traces", label: "Traces", icon: Activity },

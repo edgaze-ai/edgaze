@@ -148,7 +148,7 @@ function TrendCard({ item }: TrendCardProps) {
         <div onClick={(e) => e.stopPropagation()} className="shrink-0">
           <ProfileAvatar
             name={creatorName}
-            avatarUrl={null}
+            avatarUrl={item.owner_avatar_url ?? null}
             size={36}
             handle={displayHandle ?? undefined}
             className="mt-0.5"
@@ -305,7 +305,7 @@ function TrendingRow({
             style={{ minHeight: 280 }}
           >
             {loading ? (
-              Array.from({ length: 10 }).map((_, i) => <CardSkeleton key={i} />)
+              Array.from({ length: 8 }).map((_, i) => <CardSkeleton key={i} />)
             ) : items.length === 0 ? (
               <div className="flex min-w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02] py-12 text-center">
                 <div>
@@ -385,7 +385,9 @@ export default function TrendingThisWeekSection() {
           <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             Trending on Edgaze
           </h2>
-          <p className="mt-2 text-sm text-white/60">Top picks from the last 7 days</p>
+          <p className="mt-2 text-sm text-white/60">
+            Top 8 workflows and prompts by run count in the last 7 days
+          </p>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur-sm sm:p-8">
