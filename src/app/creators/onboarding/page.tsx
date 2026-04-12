@@ -19,6 +19,10 @@ import {
   User,
 } from "lucide-react";
 import { useAuth } from "src/components/auth/AuthContext";
+import {
+  ALLOWED_PAYOUT_COUNTRIES_SORTED,
+  isAllowedPayoutCountry,
+} from "src/lib/creators/allowed-countries";
 import { isAllowedOnboardingRef } from "src/lib/creators/onboarding-gate";
 
 type PageState = "loading" | "error" | "ready" | "complete" | "incomplete";
@@ -108,11 +112,34 @@ function EmbeddedOnboardingContent({
 function CreatorsOnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { userId, authReady, loading, openSignIn, refreshProfile, getAccessToken } = useAuth();
+  const {
+    userId,
+    authReady,
+    loading,
+    openSignIn,
+    refreshProfile,
+    getAccessToken,
+    profile,
+    updateProfile,
+  } = useAuth();
   const [pageState, setPageState] = useState<PageState>("loading");
+  const [payoutCountryCode, setPayoutCountryCode] = useState("");
+  const [countrySaving, setCountrySaving] = useState(false);
+  const [countryError, setCountryError] = useState<string | null>(null);
 
   const fromRef = searchParams.get("from");
   const hasValidRef = isAllowedOnboardingRef(fromRef);
+
+  const countryOk = Boolean(
+    profile?.country && isAllowedPayoutCountry(String(profile.country).trim().toUpperCase()),
+  );
+
+  useEffect(() => {
+    if (!userId || !authReady || loading) return;
+    if (!profile) {
+      void refreshProfile();
+    }
+  }, [userId, authReady, loading, profile, refreshProfile]);
 
   useEffect(() => {
     if (!hasValidRef) {
@@ -141,7 +168,12 @@ function CreatorsOnboardingPageContent() {
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.error || "Failed to create account session");
+      const msg =
+        data?.code === "missing_payout_country"
+          ? data.error ||
+            "Choose your payout country first so we can open the correct Stripe bank flow for your region."
+          : data.error || "Failed to create account session";
+      throw new Error(msg);
     }
     if (data.status === "active") {
       return { clientSecret: data.clientSecret, alreadyComplete: true };
@@ -153,6 +185,7 @@ function CreatorsOnboardingPageContent() {
     if (!hasValidRef) return;
     if (loading || !authReady) return;
     if (!userId) return;
+    if (!profile || !countryOk) return;
     if (!publishableKey) return;
 
     let cancelled = false;
@@ -200,9 +233,18 @@ function CreatorsOnboardingPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [hasValidRef, loading, authReady, userId, publishableKey, fetchClientSecret]);
+  }, [
+    hasValidRef,
+    loading,
+    authReady,
+    userId,
+    profile,
+    countryOk,
+    publishableKey,
+    fetchClientSecret,
+  ]);
 
-  const handleOnboardingExit = useCallback(async () => {
+  const checkConnectStatusAndMaybeComplete = useCallback(async (): Promise<boolean> => {
     try {
       const res = await fetch("/api/stripe/v2/connect/status");
       const data = await res.json();
@@ -210,13 +252,31 @@ function CreatorsOnboardingPageContent() {
       if (ready) {
         await refreshProfile();
         setPageState("complete");
-      } else {
-        setPageState("incomplete");
+        return true;
       }
+      return false;
     } catch {
-      setPageState("incomplete");
+      return false;
     }
   }, [refreshProfile]);
+
+  const handleOnboardingExit = useCallback(async () => {
+    const ready = await checkConnectStatusAndMaybeComplete();
+    if (!ready) {
+      setPageState("incomplete");
+    }
+  }, [checkConnectStatusAndMaybeComplete]);
+
+  /** Stripe often ends on “Information submitted” without calling onExit; poll until payouts activate. */
+  useEffect(() => {
+    if (pageState !== "ready" && pageState !== "incomplete") return;
+    const tick = () => {
+      void checkConnectStatusAndMaybeComplete();
+    };
+    tick();
+    const id = window.setInterval(tick, 12_000);
+    return () => window.clearInterval(id);
+  }, [pageState, checkConnectStatusAndMaybeComplete]);
 
   const handleRetry = useCallback(async () => {
     setPageState("loading");
@@ -276,6 +336,23 @@ function CreatorsOnboardingPageContent() {
       });
   }, [publishableKey, getAccessToken]);
 
+  const handleSavePayoutCountry = useCallback(async () => {
+    const code = payoutCountryCode.trim().toUpperCase();
+    if (!code || !isAllowedPayoutCountry(code)) {
+      setCountryError("Choose your country from the list.");
+      return;
+    }
+    setCountrySaving(true);
+    setCountryError(null);
+    const result = await updateProfile({ country: code });
+    setCountrySaving(false);
+    if (!result.ok) {
+      setCountryError(result.error ?? "Could not save country.");
+      return;
+    }
+    await refreshProfile();
+  }, [payoutCountryCode, updateProfile, refreshProfile]);
+
   if (!hasValidRef) {
     return (
       <div className="min-h-screen flex items-center justify-center px-6 bg-[#0d0d0d]">
@@ -299,6 +376,83 @@ function CreatorsOnboardingPageContent() {
           <Loader2 className="h-5 w-5 animate-spin shrink-0" />
           Loading…
         </div>
+      </div>
+    );
+  }
+
+  if (userId && authReady && !loading && !profile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6 bg-[#0d0d0d]">
+        <div className="flex items-center gap-3 text-white/50 text-[15px]">
+          <Loader2 className="h-5 w-5 animate-spin shrink-0" />
+          Loading your profile…
+        </div>
+      </div>
+    );
+  }
+
+  if (userId && authReady && !loading && profile && !countryOk) {
+    return (
+      <div className="min-h-screen overflow-y-auto bg-[#0d0d0d]">
+        <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-cyan-500/[0.06] blur-[120px]" />
+          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-pink-500/[0.04] blur-[100px]" />
+        </div>
+
+        <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16 sm:pt-8 sm:pb-20">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mb-6">
+            Creator Onboarding
+          </h1>
+          <div className="grid gap-6 lg:grid-cols-[1fr,320px]">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-8 sm:p-10">
+              <h2 className="text-lg font-semibold text-white mb-2">
+                Where will you receive payouts?
+              </h2>
+              <p className="text-sm text-white/55 leading-relaxed mb-6">
+                We create your Stripe account in this country first so bank linking matches your
+                region (Stripe cannot change country later).
+              </p>
+              <label htmlFor="payout-country" className="sr-only">
+                Payout country
+              </label>
+              <select
+                id="payout-country"
+                value={payoutCountryCode}
+                onChange={(e) => setPayoutCountryCode(e.target.value)}
+                className="w-full rounded-xl border border-white/15 bg-[#14171D] text-white text-[15px] px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-500/40"
+              >
+                <option value="">Select your country</option>
+                {ALLOWED_PAYOUT_COUNTRIES_SORTED.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {countryError ? <p className="mt-3 text-sm text-red-400/90">{countryError}</p> : null}
+              <button
+                type="button"
+                onClick={handleSavePayoutCountry}
+                disabled={countrySaving}
+                className="mt-6 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white text-black px-8 py-3.5 text-[15px] font-semibold hover:bg-white/95 transition-colors disabled:opacity-50"
+              >
+                {countrySaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Continue to Stripe setup"
+                )}
+              </button>
+            </div>
+            <aside className="hidden lg:block">
+              <SupportPanel />
+            </aside>
+          </div>
+          <div className="mt-8 lg:hidden">
+            <SupportPanel />
+          </div>
+        </main>
       </div>
     );
   }
@@ -383,9 +537,25 @@ function CreatorsOnboardingPageContent() {
       </div>
 
       <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16 sm:pt-8 sm:pb-20">
-        <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mb-6">
-          Creator Onboarding
-        </h1>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight">
+            Creator Onboarding
+          </h1>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <Link href="/dashboard" className="text-cyan-400 hover:text-cyan-300 transition-colors">
+              ← Creator dashboard
+            </Link>
+            <span className="text-white/20 hidden sm:inline" aria-hidden>
+              ·
+            </span>
+            <Link
+              href="/dashboard/earnings"
+              className="text-white/50 hover:text-white/70 transition-colors"
+            >
+              Earnings
+            </Link>
+          </div>
+        </div>
         <div
           className={`grid gap-6 lg:gap-8 ${pageState === "complete" ? "grid-cols-1" : "lg:grid-cols-[1fr,320px]"}`}
         >
@@ -453,6 +623,15 @@ function CreatorsOnboardingPageContent() {
                   exit={{ opacity: 0, y: -8 }}
                   className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-visible"
                 >
+                  {pageState === "incomplete" ? (
+                    <div className="px-4 sm:px-6 pt-4 pb-2 border-b border-white/10 bg-[#14171D]">
+                      <p className="text-sm text-white/70">
+                        If Stripe shows &quot;Information submitted&quot;, verification may take a
+                        short time. You can return to Edgaze now—we&apos;ll enable payouts
+                        automatically when Stripe finishes.
+                      </p>
+                    </div>
+                  ) : null}
                   <div className="p-4 sm:p-6 min-h-[260px] overflow-y-auto bg-[#14171D]">
                     {connectInstance ? (
                       <EmbeddedOnboardingContent
@@ -460,6 +639,27 @@ function CreatorsOnboardingPageContent() {
                         onExit={handleOnboardingExit}
                       />
                     ) : null}
+                  </div>
+                  <div className="px-4 sm:px-6 py-4 border-t border-white/10 bg-[#1a1f28] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-xs text-white/45">
+                      This page isn&apos;t a dead end—leave anytime. We check payout status in the
+                      background.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void checkConnectStatusAndMaybeComplete()}
+                        className="inline-flex items-center justify-center rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium text-white hover:bg-white/10 transition-colors"
+                      >
+                        Refresh payout status
+                      </button>
+                      <Link
+                        href="/dashboard"
+                        className="inline-flex items-center justify-center rounded-lg bg-white/90 px-4 py-2 text-xs font-semibold text-black hover:bg-white transition-colors"
+                      >
+                        Go to dashboard
+                      </Link>
+                    </div>
                   </div>
                   <p className="px-4 sm:px-6 pb-4 text-xs text-white/40 bg-[#14171D]">
                     Your information is processed securely by Stripe for identity and payout

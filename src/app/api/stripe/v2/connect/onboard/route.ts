@@ -11,8 +11,11 @@ import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/
 import {
   createExpressAccountLink,
   createExpressMarketplaceConnectedAccount,
+  getExpressConnectAccountPayoutStatus,
 } from "@/lib/stripe/connect-marketplace";
+import { replaceConnectAccountIfCountryMismatch } from "@/lib/stripe/replace-connect-account-for-country";
 import { stripeConfig } from "@/lib/stripe/config";
+import { isAllowedPayoutCountry } from "@lib/creators/allowed-countries";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -39,7 +42,7 @@ export async function POST(req: Request) {
 
     const { data: profile } = await admin
       .from("profiles")
-      .select("handle, full_name, email")
+      .select("handle, full_name, email, country")
       .eq("id", user.id)
       .single();
 
@@ -49,6 +52,15 @@ export async function POST(req: Request) {
 
     if (!profile.email) {
       return NextResponse.json({ error: "Email required for Stripe onboarding" }, { status: 400 });
+    }
+
+    const rawCountry = (profile.country as string)?.trim()?.toUpperCase();
+    const payoutCountry = rawCountry && isAllowedPayoutCountry(rawCountry) ? rawCountry : null;
+    if (!payoutCountry) {
+      return NextResponse.json(
+        { error: "Set your payout country on your profile before continuing." },
+        { status: 400 },
+      );
     }
 
     const handle = profile.handle ?? `user_${user.id.replace(/-/g, "").slice(0, 12)}`;
@@ -62,9 +74,17 @@ export async function POST(req: Request) {
     let stripeAccountId: string;
 
     if (existingAccount) {
-      stripeAccountId = existingAccount.stripe_account_id;
+      const { stripeAccountId: resolved } = await replaceConnectAccountIfCountryMismatch(admin, {
+        userId: user.id,
+        payoutCountry,
+        email: profile.email,
+        handle,
+        currentStripeAccountId: existingAccount.stripe_account_id,
+      });
+      stripeAccountId = resolved;
 
-      if (existingAccount.account_status === "active") {
+      const live = await getExpressConnectAccountPayoutStatus(stripeAccountId);
+      if (live.readyForPayouts) {
         return NextResponse.json({
           success: true,
           accountId: stripeAccountId,
@@ -77,6 +97,7 @@ export async function POST(req: Request) {
         email: profile.email,
         handle,
         userId: user.id,
+        country: payoutCountry,
       });
 
       stripeAccountId = account.id;
@@ -89,7 +110,7 @@ export async function POST(req: Request) {
         payouts_enabled: account.payouts_enabled ?? false,
         details_submitted: account.details_submitted ?? false,
         country: account.country ?? null,
-        currency: "usd",
+        currency: account.default_currency || "usd",
       });
 
       await admin

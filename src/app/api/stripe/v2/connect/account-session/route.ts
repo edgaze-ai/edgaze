@@ -15,7 +15,9 @@ import {
   createExpressMarketplaceConnectedAccount,
   getExpressConnectAccountPayoutStatus,
 } from "@/lib/stripe/connect-marketplace";
+import { replaceConnectAccountIfCountryMismatch } from "@/lib/stripe/replace-connect-account-for-country";
 import { syncCreatorPayoutAccount } from "@/lib/stripe/webhook-processing";
+import { isAllowedPayoutCountry } from "@lib/creators/allowed-countries";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -34,9 +36,12 @@ export async function POST(req: Request) {
     const admin = createSupabaseAdminClient();
     const { data: profileRow } = await admin
       .from("profiles")
-      .select("handle, full_name, email")
+      .select("handle, full_name, email, country")
       .eq("id", user.id)
       .single();
+
+    const rawCountry = (profileRow?.country as string)?.trim()?.toUpperCase();
+    const payoutCountry = rawCountry && isAllowedPayoutCountry(rawCountry) ? rawCountry : null;
 
     const profile = {
       email: profileRow?.email ?? user.email ?? "",
@@ -53,6 +58,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email required for Stripe onboarding" }, { status: 400 });
     }
 
+    if (!payoutCountry) {
+      return NextResponse.json(
+        {
+          error:
+            "Choose your payout country on your profile (or on the onboarding page) before bank setup. It must match where you receive payouts.",
+          code: "missing_payout_country",
+        },
+        { status: 400 },
+      );
+    }
+
     const { data: existingAccount } = await admin
       .from("stripe_connect_accounts")
       .select("stripe_account_id, account_status")
@@ -62,7 +78,15 @@ export async function POST(req: Request) {
     let stripeAccountId: string;
 
     if (existingAccount) {
-      stripeAccountId = existingAccount.stripe_account_id;
+      const { stripeAccountId: resolvedId, replaced } =
+        await replaceConnectAccountIfCountryMismatch(admin, {
+          userId: user.id,
+          payoutCountry,
+          email: profile.email,
+          handle: profile.handle,
+          currentStripeAccountId: existingAccount.stripe_account_id,
+        });
+      stripeAccountId = resolvedId;
 
       const status = await getExpressConnectAccountPayoutStatus(stripeAccountId);
 
@@ -74,7 +98,7 @@ export async function POST(req: Request) {
         payoutsEnabled: status.payoutsEnabled,
         detailsSubmitted: status.detailsSubmitted,
         payoutSetupComplete: status.readyForPayouts,
-        source: "v2.account-session",
+        source: replaced ? "v2.account-session.country_replace" : "v2.account-session",
       });
 
       if (status.readyForPayouts) {
@@ -90,6 +114,7 @@ export async function POST(req: Request) {
         email: profile.email,
         handle: profile.handle,
         userId: user.id,
+        country: payoutCountry,
       });
 
       stripeAccountId = account.id;

@@ -886,8 +886,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPasswordForEmail = async (email: string) => {
     const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
-    // Route via /auth/callback?flow=recovery so we land on callback (always allowlisted), then redirect to reset form
-    const redirectTo = `${currentOrigin}/auth/callback?flow=recovery`;
+    // Land directly on the reset page with ?code=… — Supabase often drops extra query params on /auth/callback,
+    // which used to lose flow=recovery and send users to the marketplace default.
+    const redirectTo = `${currentOrigin}/auth/reset-password`;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo,

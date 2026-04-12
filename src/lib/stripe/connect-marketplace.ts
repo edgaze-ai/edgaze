@@ -9,9 +9,9 @@
  * extra Stripe verification (and onboarding failures in regions where that path is heavier).
  * Request only `transfers` so the account can receive platform payouts.
  *
- * Country is omitted on `accounts.create` so Stripe-hosted / embedded onboarding can collect it
- * (see Stripe Account Create: `country` is optional). The app allowlist (`allowed-countries`) is
- * still a product gate elsewhere; we do not pass profile country into account creation.
+ * We set `country` on `accounts.create` from the creator profile (operational allowlist). Stripe
+ * cannot change connected-account country later; a wrong country yields the wrong bank rails (e.g.
+ * US Financial Connections). Request only `transfers` (no `card_payments`).
  */
 
 import type Stripe from "stripe";
@@ -22,9 +22,17 @@ export async function createExpressMarketplaceConnectedAccount(params: {
   email?: string | null;
   handle: string;
   userId: string;
+  /** ISO 3166-1 alpha-2 — must match payout destination / Stripe Connect country. */
+  country: string;
 }): Promise<Stripe.Account> {
+  const country = params.country.trim().toUpperCase();
+  if (country.length !== 2) {
+    throw new Error("country must be a 2-letter ISO code");
+  }
+
   return stripe.accounts.create({
     type: "express",
+    country,
     email: params.email || undefined,
     capabilities: {
       transfers: { requested: true },
@@ -55,6 +63,13 @@ export async function createExpressMarketplaceConnectedAccount(params: {
       edgaze_profile_url: `${stripeConfig.appUrl}/profile/@${params.handle}`,
     },
   });
+}
+
+export async function retrieveExpressAccountCountry(
+  stripeAccountId: string,
+): Promise<string | null> {
+  const acct = await stripe.accounts.retrieve(stripeAccountId);
+  return acct.country ? acct.country.toUpperCase() : null;
 }
 
 export type ConnectAccountPayoutStatus = {

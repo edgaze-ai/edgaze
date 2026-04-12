@@ -85,6 +85,28 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** Password-recovery sessions include amr: [{ method: "recovery", ... }] in the access token. */
+function isPasswordRecoveryAccessToken(accessToken: string | undefined): boolean {
+  if (!accessToken) return false;
+  try {
+    const part = accessToken.split(".")[1];
+    if (!part) return false;
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "==".slice(0, (4 - (b64.length % 4)) % 4);
+    const json = JSON.parse(atob(padded)) as { amr?: unknown };
+    const amr = json.amr;
+    return (
+      Array.isArray(amr) &&
+      amr.some(
+        (e) =>
+          typeof e === "object" && e !== null && (e as { method?: string }).method === "recovery",
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
 export default function CallbackClient() {
   const router = useRouter();
   const params = useSearchParams();
@@ -143,7 +165,7 @@ export default function CallbackClient() {
       let fromStorage: string | null = null;
 
       // Highest priority: Password reset flow — send to reset-password page to set new password
-      const isRecoveryFlow = params.get("flow") === "recovery";
+      const isRecoveryFlow = params.get("flow") === "recovery" || params.get("type") === "recovery";
       if (isRecoveryFlow) {
         returnTo = "/auth/reset-password";
         redirectReason = "password recovery flow";
@@ -265,9 +287,12 @@ export default function CallbackClient() {
       // 1) If already signed in, redirect immediately
       const existing = await supabase.auth.getSession();
       if (existing.data.session) {
-        console.warn("[Auth Callback] Already signed in, redirecting to:", returnTo);
+        const dest = isPasswordRecoveryAccessToken(existing.data.session.access_token)
+          ? "/auth/reset-password"
+          : returnTo;
+        console.warn("[Auth Callback] Already signed in, redirecting to:", dest);
         clearReturnPath(); // Clear only after we're about to redirect
-        router.replace(returnTo);
+        router.replace(dest);
         return;
       }
 
@@ -284,9 +309,12 @@ export default function CallbackClient() {
       const { error, data } = await supabase.auth.exchangeCodeForSession(code);
 
       if (!error && data.session) {
-        console.warn("[Auth Callback] Session created successfully, redirecting to:", returnTo);
+        const dest = isPasswordRecoveryAccessToken(data.session.access_token)
+          ? "/auth/reset-password"
+          : returnTo;
+        console.warn("[Auth Callback] Session created successfully, redirecting to:", dest);
         clearReturnPath(); // Clear only after we're about to redirect
-        router.replace(returnTo);
+        router.replace(dest);
         return;
       }
 
@@ -300,9 +328,12 @@ export default function CallbackClient() {
       const again = await supabase.auth.getSession();
 
       if (again.data.session) {
-        console.warn("[Auth Callback] Session found after wait, redirecting to:", returnTo);
+        const dest = isPasswordRecoveryAccessToken(again.data.session.access_token)
+          ? "/auth/reset-password"
+          : returnTo;
+        console.warn("[Auth Callback] Session found after wait, redirecting to:", dest);
         clearReturnPath(); // Clear only after we're about to redirect
-        router.replace(returnTo);
+        router.replace(dest);
         return;
       }
 

@@ -9,6 +9,8 @@ import {
   getExpressConnectAccountPayoutStatus,
 } from "@/lib/stripe/connect-marketplace";
 import { stripeConfig } from "@/lib/stripe/config";
+import { replaceConnectAccountIfCountryMismatch } from "@/lib/stripe/replace-connect-account-for-country";
+import { isAllowedPayoutCountry } from "@lib/creators/allowed-countries";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -35,12 +37,25 @@ export async function POST(req: Request) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("handle, full_name, email")
+      .select("handle, full_name, email, country")
       .eq("id", user.id)
       .single();
 
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    if (!profile.email) {
+      return NextResponse.json({ error: "Email required for Stripe onboarding" }, { status: 400 });
+    }
+
+    const rawCountry = (profile.country as string)?.trim()?.toUpperCase();
+    const payoutCountry = rawCountry && isAllowedPayoutCountry(rawCountry) ? rawCountry : null;
+    if (!payoutCountry) {
+      return NextResponse.json(
+        { error: "Set your payout country on your profile before continuing." },
+        { status: 400 },
+      );
     }
 
     const handle = profile.handle ?? `user_${user.id.replace(/-/g, "").slice(0, 12)}`;
@@ -54,11 +69,18 @@ export async function POST(req: Request) {
     let stripeAccountId: string;
 
     if (existingAccount) {
-      stripeAccountId = existingAccount.stripe_account_id;
+      const { stripeAccountId: resolved } = await replaceConnectAccountIfCountryMismatch(supabase, {
+        userId: user.id,
+        payoutCountry,
+        email: profile.email,
+        handle,
+        currentStripeAccountId: existingAccount.stripe_account_id,
+      });
+      stripeAccountId = resolved;
 
       const live = await getExpressConnectAccountPayoutStatus(stripeAccountId);
 
-      if (existingAccount.account_status === "active" && live.readyForPayouts) {
+      if (live.readyForPayouts) {
         return NextResponse.json({
           success: true,
           accountId: stripeAccountId,
@@ -71,6 +93,7 @@ export async function POST(req: Request) {
         email: profile.email,
         handle,
         userId: user.id,
+        country: payoutCountry,
       });
 
       stripeAccountId = account.id;
