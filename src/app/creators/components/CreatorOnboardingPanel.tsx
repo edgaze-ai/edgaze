@@ -18,7 +18,15 @@ type State =
 
 export default function CreatorOnboardingPanel() {
   const router = useRouter();
-  const { userId, profile, workspaceUserId, authReady, openSignIn, refreshProfile } = useAuth();
+  const {
+    userId,
+    profile,
+    workspaceUserId,
+    authReady,
+    openSignIn,
+    refreshProfile,
+    getAccessToken,
+  } = useAuth();
   const activeWorkspaceId = workspaceUserId || userId;
   const [connectStatus, setConnectStatus] = useState<{
     hasAccount?: boolean;
@@ -71,7 +79,11 @@ export default function CreatorOnboardingPanel() {
       return;
     (async () => {
       try {
-        const res = await fetch("/api/creator/earnings");
+        const token = await getAccessToken({ eagerRefresh: true });
+        const res = await fetch("/api/creator/earnings", {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.pendingClaimCents > 0) setPendingClaimCents(data.pendingClaimCents);
@@ -80,7 +92,12 @@ export default function CreatorOnboardingPanel() {
         // ignore
       }
     })();
-  }, [activeWorkspaceId, connectStatus?.readyForPayouts, connectStatus?.readyToProcessPayments]);
+  }, [
+    activeWorkspaceId,
+    connectStatus?.readyForPayouts,
+    connectStatus?.readyToProcessPayments,
+    getAccessToken,
+  ]);
 
   const state: State = (() => {
     if (!authReady || loading) return "loading";

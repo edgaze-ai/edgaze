@@ -76,7 +76,11 @@ export default function EarningsDashboardPage() {
 
     (async () => {
       try {
-        const res = await fetch("/api/creator/earnings");
+        const token = await getAccessToken({ eagerRefresh: true });
+        const res = await fetch("/api/creator/earnings", {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.pendingClaimCents > 0) {
@@ -91,7 +95,7 @@ export default function EarningsDashboardPage() {
         // ignore
       }
     })();
-  }, [authReady, userId]);
+  }, [authReady, userId, getAccessToken]);
 
   useEffect(() => {
     if (!authReady || !userId || !publishableKey || !fetchClientSecret) {

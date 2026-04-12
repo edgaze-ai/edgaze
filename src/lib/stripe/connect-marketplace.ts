@@ -191,6 +191,14 @@ export async function createConnectAccountSessionForOnboarding(stripeAccountId: 
 
 /** Embedded Connect.js — earnings / payout dashboard components. */
 export async function createConnectDashboardAccountSession(stripeAccountId: string) {
+  // Stripe requires `features[standard_payouts]` (and related payout features) to match
+  // between `payouts` and `balances` when both components are enabled.
+  const payoutFeatures = {
+    standard_payouts: true,
+    external_account_collection: true,
+    edit_payout_schedule: true,
+  };
+
   const accountSession = await stripe.accountSessions.create({
     account: stripeAccountId,
     components: {
@@ -198,18 +206,17 @@ export async function createConnectDashboardAccountSession(stripeAccountId: stri
       // No `payments` component: creators are payout recipients only (no card_payments on account).
       payouts: {
         enabled: true,
-        features: {
-          standard_payouts: true,
-          external_account_collection: true,
-          edit_payout_schedule: true,
-        },
+        features: { ...payoutFeatures },
       },
       account_management: {
         enabled: true,
         features: { external_account_collection: true },
       },
       documents: { enabled: true },
-      balances: { enabled: true },
+      balances: {
+        enabled: true,
+        features: { ...payoutFeatures },
+      },
     },
   });
 

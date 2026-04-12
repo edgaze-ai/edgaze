@@ -88,7 +88,7 @@ export function CreatorProgramSettingsPanel({
   shouldAutoRedirect?: boolean;
 }) {
   const router = useRouter();
-  const { userId, userEmail, profile, authReady, impersonationActive } = useAuth();
+  const { userId, userEmail, profile, authReady, impersonationActive, getAccessToken } = useAuth();
   const [connectStatus, setConnectStatus] = useState<ConnectStatus | null>(null);
   const [earnings, setEarnings] = useState<EarningsPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,9 +102,16 @@ export function CreatorProgramSettingsPanel({
     if (!userId) return;
     setLoading(true);
     try {
+      const token = await getAccessToken({ eagerRefresh: true });
       const [cRes, eRes] = await Promise.all([
-        fetch("/api/stripe/v2/connect/status"),
-        fetch("/api/creator/earnings"),
+        fetch("/api/stripe/v2/connect/status", {
+          credentials: "include",
+          ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+        }),
+        fetch("/api/creator/earnings", {
+          credentials: "include",
+          ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+        }),
       ]);
       if (cRes.ok) {
         const data = await cRes.json();
@@ -123,7 +130,7 @@ export function CreatorProgramSettingsPanel({
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, getAccessToken]);
 
   useEffect(() => {
     if (!authReady || !userId) return;
