@@ -83,6 +83,10 @@ export async function GET(req: Request) {
     }
 
     const row = { ...(resolved as Record<string, unknown>) };
+    // Keep the response shape tolerant while older databases do not expose newer storefront fields.
+    if (!Object.prototype.hasOwnProperty.call(row, "sample_output")) {
+      row.sample_output = null;
+    }
     if (row.is_public === false) return NextResponse.json({ listing: null }, { status: 200 });
 
     const free = isListingFree({
