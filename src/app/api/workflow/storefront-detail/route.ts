@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { extractWorkflowInputs } from "@lib/workflow/input-extraction";
+import { buildWorkflowStorefrontExampleInputs } from "@lib/workflow/storefront-examples";
 
 export const dynamic = "force-dynamic";
 
@@ -83,11 +85,19 @@ export async function GET(req: Request) {
     }
 
     const row = { ...(resolved as Record<string, unknown>) };
-    // Keep the response shape tolerant while older databases do not expose newer storefront fields.
-    if (!Object.prototype.hasOwnProperty.call(row, "sample_output")) {
-      row.sample_output = null;
-    }
     if (row.is_public === false) return NextResponse.json({ listing: null }, { status: 200 });
+    row.sample_output = null;
+
+    const graphLike =
+      row.graph_json && typeof row.graph_json === "object"
+        ? (row.graph_json as { nodes?: unknown[]; edges?: unknown[] })
+        : row.graph && typeof row.graph === "object"
+          ? (row.graph as { nodes?: unknown[]; edges?: unknown[] })
+          : null;
+
+    const storefrontInputs = graphLike?.nodes ? extractWorkflowInputs(graphLike.nodes as any[]) : [];
+    row.storefront_inputs = storefrontInputs;
+    row.storefront_example_inputs = buildWorkflowStorefrontExampleInputs(storefrontInputs);
 
     const free = isListingFree({
       is_paid: row.is_paid as boolean | null,

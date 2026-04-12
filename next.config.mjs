@@ -67,6 +67,15 @@ const nextConfig = (() => {
         exclude: ['error', 'warn'],
       } : false,
     },
+    // Dev-only: avoid webpack filesystem pack cache (rename .pack.gz_ → .pack.gz) racing when `.next` is
+    // touched by another process, sync tools, or a second `next dev` on the same repo — a common cause of
+    // ENOENT manifest/cache errors and flaky `ERR_INTERNAL_ASSERTION` noise.
+    webpack: (config, { dev }) => {
+      if (dev) {
+        config.cache = { type: "memory" };
+      }
+      return config;
+    },
     // Optimize module resolution
     modularizeImports: {
       'lucide-react': {
