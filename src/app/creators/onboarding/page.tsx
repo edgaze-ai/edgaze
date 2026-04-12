@@ -27,6 +27,16 @@ import { isAllowedOnboardingRef } from "src/lib/creators/onboarding-gate";
 
 type PageState = "loading" | "error" | "ready" | "complete" | "incomplete";
 
+function syncPayoutCountrySelectFromProfile(
+  profile: { country?: string | null } | null | undefined,
+  setCode: React.Dispatch<React.SetStateAction<string>>,
+) {
+  const c = profile?.country?.trim().toUpperCase();
+  if (c && isAllowedPayoutCountry(c)) {
+    setCode(c);
+  }
+}
+
 function SupportPanel() {
   return (
     <motion.div
@@ -149,6 +159,8 @@ function CreatorsOnboardingPageContent() {
 
   const [error, setError] = useState<string | null>(null);
   const [connectInstance, setConnectInstance] = useState<unknown>(null);
+  /** Bumps when payout country changes after a failure so we recreate the Connect session with a fresh account if needed. */
+  const [onboardingAttemptKey, setOnboardingAttemptKey] = useState(0);
 
   const publishableKey =
     typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string) : "";
@@ -224,6 +236,7 @@ function CreatorsOnboardingPageContent() {
       } catch (err: unknown) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : "Something went wrong";
+        syncPayoutCountrySelectFromProfile(profile, setPayoutCountryCode);
         setError(msg);
         setPageState("error");
       }
@@ -242,6 +255,7 @@ function CreatorsOnboardingPageContent() {
     countryOk,
     publishableKey,
     fetchClientSecret,
+    onboardingAttemptKey,
   ]);
 
   const checkConnectStatusAndMaybeComplete = useCallback(async (): Promise<boolean> => {
@@ -331,10 +345,11 @@ function CreatorsOnboardingPageContent() {
         setPageState("ready");
       })
       .catch((err) => {
+        syncPayoutCountrySelectFromProfile(profile, setPayoutCountryCode);
         setError(err?.message || "Retry failed");
         setPageState("error");
       });
-  }, [publishableKey, getAccessToken]);
+  }, [publishableKey, getAccessToken, profile]);
 
   const handleSavePayoutCountry = useCallback(async () => {
     const code = payoutCountryCode.trim().toUpperCase();
@@ -351,6 +366,28 @@ function CreatorsOnboardingPageContent() {
       return;
     }
     await refreshProfile();
+  }, [payoutCountryCode, updateProfile, refreshProfile]);
+
+  /** After Stripe or API errors: pick another country and restart (server may replace the Connect account). */
+  const handleSavePayoutCountryAfterError = useCallback(async () => {
+    const code = payoutCountryCode.trim().toUpperCase();
+    if (!code || !isAllowedPayoutCountry(code)) {
+      setCountryError("Choose your country from the list.");
+      return;
+    }
+    setCountrySaving(true);
+    setCountryError(null);
+    const result = await updateProfile({ country: code });
+    if (!result.ok) {
+      setCountrySaving(false);
+      setCountryError(result.error ?? "Could not save country.");
+      return;
+    }
+    await refreshProfile();
+    setCountrySaving(false);
+    setConnectInstance(null);
+    setError(null);
+    setOnboardingAttemptKey((k) => k + 1);
   }, [payoutCountryCode, updateProfile, refreshProfile]);
 
   if (!hasValidRef) {
@@ -594,24 +631,77 @@ function CreatorsOnboardingPageContent() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  className="rounded-2xl border border-red-500/20 bg-red-500/5 p-8 sm:p-10 text-center"
+                  className="rounded-2xl border border-red-500/20 bg-red-500/5 p-8 sm:p-10"
                 >
-                  <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl text-red-400">!</span>
+                  <div className="text-center">
+                    <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl text-red-400">!</span>
+                    </div>
+                    <h2 className="text-lg font-semibold text-white mb-2">
+                      We couldn&apos;t load payout setup
+                    </h2>
+                    <p className="text-white/60 text-sm mb-4 max-w-md mx-auto">
+                      {error || "Please try again. If the issue persists, contact support."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 px-6 py-3 text-sm font-medium text-white transition-colors"
+                    >
+                      Retry with same country
+                    </button>
                   </div>
-                  <h2 className="text-lg font-semibold text-white mb-2">
-                    We couldn&apos;t load payout setup
-                  </h2>
-                  <p className="text-white/60 text-sm mb-6 max-w-md mx-auto">
-                    {error || "Please try again. If the issue persists, contact support."}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleRetry}
-                    className="inline-flex items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 px-6 py-3 text-sm font-medium text-white transition-colors"
-                  >
-                    Retry setup
-                  </button>
+
+                  <div className="mt-8 max-w-md mx-auto text-left rounded-xl border border-white/10 bg-black/20 p-5">
+                    <h3 className="text-sm font-semibold text-white mb-2">Wrong payout country?</h3>
+                    <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                      Your platform country (US) doesn&apos;t lock creators to US banks—each creator
+                      picks a country that matches where they get paid. If Stripe rejected the
+                      region, choose a different country below. We only show this on errors, not
+                      while Stripe onboarding is in progress.
+                    </p>
+                    <label htmlFor="payout-country-error" className="sr-only">
+                      Payout country
+                    </label>
+                    <select
+                      id="payout-country-error"
+                      value={payoutCountryCode}
+                      onChange={(e) => setPayoutCountryCode(e.target.value)}
+                      className="w-full rounded-lg border border-white/15 bg-[#14171D] text-white text-sm px-3 py-2.5 outline-none focus:ring-2 focus:ring-cyan-500/40"
+                    >
+                      <option value="">Select country</option>
+                      {ALLOWED_PAYOUT_COUNTRIES_SORTED.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    {countryError ? (
+                      <p className="mt-2 text-xs text-red-400/90">{countryError}</p>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => void handleSavePayoutCountryAfterError()}
+                      disabled={countrySaving}
+                      className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-white text-black px-5 py-2.5 text-sm font-semibold hover:bg-white/95 transition-colors disabled:opacity-50"
+                    >
+                      {countrySaving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save country & try again"
+                      )}
+                    </button>
+                    <p className="mt-4 text-[11px] text-white/40 leading-relaxed">
+                      If onboarding still looks like “accept payments as a business,” in Stripe go
+                      to <strong className="text-white/55">Settings → Connect → Onboarding</strong>{" "}
+                      and turn off <strong className="text-white/55">Payments</strong> for connected
+                      accounts—keep <strong className="text-white/55">Transfers</strong> only so
+                      creators are payout recipients, not merchants taking cards.
+                    </p>
+                  </div>
                 </motion.div>
               )}
 

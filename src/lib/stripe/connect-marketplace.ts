@@ -12,11 +12,15 @@
  * We set `country` on `accounts.create` from the creator profile (operational allowlist). Stripe
  * cannot change connected-account country later; a wrong country yields the wrong bank rails (e.g.
  * US Financial Connections). Request only `transfers` (no `card_payments`).
+ *
+ * Cross-border (e.g. US platform → IN creator): Stripe requires the **recipient** service agreement
+ * (`tos_acceptance.service_agreement: recipient`) — payout recipients only, not full merchant /
+ * `card_payments`. Set `STRIPE_CONNECT_PLATFORM_COUNTRY` (ISO-2) if your platform account isn’t US.
  */
 
 import type Stripe from "stripe";
 import { stripe } from "./client";
-import { stripeConfig } from "./config";
+import { getStripeConnectPlatformCountry, stripeConfig } from "./config";
 
 export async function createExpressMarketplaceConnectedAccount(params: {
   email?: string | null;
@@ -30,17 +34,22 @@ export async function createExpressMarketplaceConnectedAccount(params: {
     throw new Error("country must be a 2-letter ISO code");
   }
 
-  return stripe.accounts.create({
+  const platformCountry = getStripeConnectPlatformCountry();
+  const isCrossBorderPayoutRecipient = country !== platformCountry;
+
+  const createParams: Stripe.AccountCreateParams = {
     type: "express",
     country,
     email: params.email || undefined,
     capabilities: {
       transfers: { requested: true },
+      // Explicitly opt out so Connect onboarding doesn’t follow Dashboard “Payments” defaults for merchants.
+      card_payments: { requested: false },
     },
     business_type: "individual",
     business_profile: {
       name: params.handle,
-      product_description: "AI workflows and prompts on Edgaze",
+      product_description: "Creator earnings paid out by Edgaze (marketplace)",
       url: `${stripeConfig.appUrl}/profile/@${params.handle}`,
     },
     settings: {
@@ -62,7 +71,15 @@ export async function createExpressMarketplaceConnectedAccount(params: {
       edgaze_handle: params.handle,
       edgaze_profile_url: `${stripeConfig.appUrl}/profile/@${params.handle}`,
     },
-  });
+  };
+
+  if (isCrossBorderPayoutRecipient) {
+    createParams.tos_acceptance = {
+      service_agreement: "recipient",
+    };
+  }
+
+  return stripe.accounts.create(createParams);
 }
 
 export async function retrieveExpressAccountCountry(

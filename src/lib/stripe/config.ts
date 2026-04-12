@@ -1,3 +1,9 @@
+/** ISO country of the platform Stripe account (Connect “home” country). Used for cross-border payout routing. */
+export function getStripeConnectPlatformCountry(): string {
+  const c = (process.env.STRIPE_CONNECT_PLATFORM_COUNTRY || "US").trim().toUpperCase();
+  return c.length === 2 ? c : "US";
+}
+
 export const stripeConfig = {
   apiVersion: "2026-02-25.clover" as const,
   secretKey: process.env.STRIPE_SECRET_KEY!,
