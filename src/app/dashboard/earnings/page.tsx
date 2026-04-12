@@ -27,6 +27,10 @@ import {
 } from "lucide-react";
 import { useAuth } from "src/components/auth/AuthContext";
 import { stripeConfig } from "@/lib/stripe/config";
+import {
+  connectEmbeddedAppearance,
+  connectEmbeddedFonts,
+} from "@/lib/stripe/connect-embedded-theme";
 
 const DASHBOARD_SESSION_URL = "/api/stripe/v2/connect/dashboard-session";
 const EXPRESS_DASHBOARD_URL = "/api/stripe/connect/dashboard";
@@ -48,7 +52,7 @@ export default function EarningsDashboardPage() {
   const publishableKey = stripeConfig.publishableKey;
 
   const fetchClientSecret = useCallback(async (): Promise<string> => {
-    const token = await getAccessToken();
+    const token = await getAccessToken({ eagerRefresh: true });
     const res = await fetch(DASHBOARD_SESSION_URL, {
       method: "POST",
       headers: {
@@ -102,15 +106,8 @@ export default function EarningsDashboardPage() {
         const instance = loadConnectAndInitialize({
           publishableKey,
           fetchClientSecret,
-          appearance: {
-            variables: {
-              colorText: "#f3f4f6",
-              colorBackground: "#14171D",
-              colorPrimary: "#22d3ee",
-              colorDanger: "#f87171",
-              borderRadius: "12px",
-            },
-          },
+          appearance: connectEmbeddedAppearance,
+          fonts: connectEmbeddedFonts,
         });
         setConnectInstance(instance);
       } catch (err) {
@@ -124,7 +121,7 @@ export default function EarningsDashboardPage() {
   const openExpressDashboard = useCallback(async () => {
     setExpressLoading(true);
     try {
-      const token = await getAccessToken();
+      const token = await getAccessToken({ eagerRefresh: true });
       const res = await fetch(EXPRESS_DASHBOARD_URL, {
         method: "POST",
         headers: {
@@ -206,7 +203,7 @@ export default function EarningsDashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               className="earnings-card p-8"
             >
-              <h1 className="font-instrument text-2xl font-normal text-white mb-2">
+              <h1 className="text-2xl font-semibold text-white mb-2">
                 Unable to load earnings dashboard
               </h1>
               <p className="text-white/60 mb-6">{error}</p>
@@ -265,7 +262,7 @@ export default function EarningsDashboardPage() {
             transition={{ duration: 0.4 }}
             className="mb-10"
           >
-            <h1 className="font-instrument text-4xl md:text-5xl font-normal text-white mb-2 tracking-tight">
+            <h1 className="text-4xl md:text-5xl font-semibold text-white mb-2 tracking-tight">
               Earnings Dashboard
             </h1>
             <p className="text-white/55 text-base md:text-lg max-w-xl">
@@ -427,9 +424,7 @@ export default function EarningsDashboardPage() {
             className="earnings-card earnings-card-cta p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5"
           >
             <div>
-              <h2 className="font-instrument text-xl font-normal text-white mb-1">
-                Full Stripe Dashboard
-              </h2>
+              <h2 className="text-xl font-semibold text-white mb-1">Full Stripe Dashboard</h2>
               <p className="text-white/55 text-sm">
                 Open Stripe Express for advanced features, tax forms, and reporting.
               </p>

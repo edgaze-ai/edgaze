@@ -7,6 +7,10 @@ import { ConnectComponentsProvider } from "@stripe/react-connect-js";
 import { Loader2, ArrowRight } from "lucide-react";
 import { useAuth } from "src/components/auth/AuthContext";
 import { stripeConfig } from "@/lib/stripe/config";
+import {
+  connectEmbeddedAppearance,
+  connectEmbeddedFonts,
+} from "@/lib/stripe/connect-embedded-theme";
 
 const DASHBOARD_SESSION_URL = "/api/stripe/v2/connect/dashboard-session";
 
@@ -29,7 +33,7 @@ export function ConnectDashboardShell({
   const publishableKey = stripeConfig.publishableKey;
 
   const fetchClientSecret = useCallback(async (): Promise<string> => {
-    const token = await getAccessToken();
+    const token = await getAccessToken({ eagerRefresh: true });
     const res = await fetch(DASHBOARD_SESSION_URL, {
       method: "POST",
       headers: {
@@ -61,15 +65,8 @@ export function ConnectDashboardShell({
         const instance = loadConnectAndInitialize({
           publishableKey,
           fetchClientSecret,
-          appearance: {
-            variables: {
-              colorText: "#f3f4f6",
-              colorBackground: "#14171D",
-              colorPrimary: "#22d3ee",
-              colorDanger: "#f87171",
-              borderRadius: "12px",
-            },
-          },
+          appearance: connectEmbeddedAppearance,
+          fonts: connectEmbeddedFonts,
         });
         setConnectInstance(instance);
       } catch (err) {
@@ -99,9 +96,7 @@ export function ConnectDashboardShell({
       <div className="min-h-screen bg-earnings-page p-4 md:p-8">
         <div className="max-w-2xl mx-auto text-center py-16">
           <div className="earnings-card p-8">
-            <h1 className="font-instrument text-2xl font-normal text-white mb-2">
-              Unable to load this page
-            </h1>
+            <h1 className="text-2xl font-semibold text-white mb-2">Unable to load this page</h1>
             <p className="text-white/60 mb-6">{error}</p>
             <p className="text-sm text-white/40 mb-6">
               Complete payout setup first if you haven&apos;t already.
@@ -138,7 +133,7 @@ export function ConnectDashboardShell({
             >
               ← Back to Earnings Dashboard
             </Link>
-            <h1 className="font-instrument text-3xl md:text-4xl font-normal text-white tracking-tight">
+            <h1 className="text-3xl md:text-4xl font-semibold text-white tracking-tight">
               {title}
             </h1>
             {description && <p className="text-white/55 mt-1.5 text-base">{description}</p>}

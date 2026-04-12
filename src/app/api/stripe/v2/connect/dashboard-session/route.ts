@@ -8,7 +8,9 @@
  */
 
 import { NextResponse } from "next/server";
-import { getUserFromRequest } from "@/lib/auth/server";
+import { getUserAndClient } from "@/lib/auth/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
+import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createConnectDashboardAccountSession } from "@/lib/stripe/connect-marketplace";
 
@@ -17,11 +19,14 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const { user, error: authError } = await getUserFromRequest(req);
+    const { user } = await getUserAndClient(req);
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const actor = await resolveActorContext(req, user);
+    assertNotImpersonating(actor.actorMode);
 
     const admin = createSupabaseAdminClient();
     const { data: connectAccount, error: dbError } = await admin
@@ -44,6 +49,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ clientSecret });
   } catch (error: unknown) {
+    if (error instanceof ImpersonationForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     const message = error instanceof Error ? error.message : "Failed to create dashboard session";
     console.error("[STRIPE V2 CONNECT] Dashboard session error:", error);
     return NextResponse.json({ error: message }, { status: 500 });
