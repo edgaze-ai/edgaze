@@ -36,9 +36,9 @@ export async function createExpressMarketplaceConnectedAccount(params: {
       url: `${stripeConfig.appUrl}/profile/@${params.handle}`,
     },
     settings: {
+      // Do not set branding.icon: Stripe downloads it from their infrastructure and rejects many
+      // public URLs ("No such file upload"), breaking embedded onboarding. Theme colors are enough.
       branding: {
-        // Stripe fetches this URL server-side; must 200 with a real image. /edgaze-icon.png is not in public/.
-        icon: `${stripeConfig.appUrl.replace(/\/$/, "")}/brand/icons/icon-192x192.png`,
         primary_color: "#22d3ee",
         secondary_color: "#e879f9",
       },
