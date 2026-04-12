@@ -41,7 +41,10 @@ export async function replaceConnectAccountIfCountryMismatch(
   });
 
   try {
-    const { error: delErr } = await admin.from("stripe_connect_accounts").delete().eq("user_id", userId);
+    const { error: delErr } = await admin
+      .from("stripe_connect_accounts")
+      .delete()
+      .eq("user_id", userId);
     if (delErr) {
       throw new Error(delErr.message);
     }
