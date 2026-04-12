@@ -9,9 +9,7 @@ export default function NotificationBannerPage() {
       title="Notification banner"
       description="Outstanding risk and compliance requirements"
     >
-      <div className="p-4 sm:p-6 min-h-[200px]">
-        <ConnectNotificationBanner />
-      </div>
+      <ConnectNotificationBanner />
     </ConnectDashboardShell>
   );
 }

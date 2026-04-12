@@ -93,9 +93,9 @@ export function ConnectDashboardShell({
 
   if (error) {
     return (
-      <div className="min-h-screen bg-earnings-page p-4 md:p-8">
-        <div className="max-w-2xl mx-auto text-center py-16">
-          <div className="earnings-card p-8">
+      <div className="min-h-screen bg-earnings-page px-5 py-10 sm:px-8 md:py-16">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="earnings-card p-8 sm:p-10">
             <h1 className="text-2xl font-semibold text-white mb-2">Unable to load this page</h1>
             <p className="text-white/60 mb-6">{error}</p>
             <p className="text-sm text-white/40 mb-6">
@@ -124,22 +124,26 @@ export function ConnectDashboardShell({
 
   return (
     <ConnectComponentsProvider connectInstance={connectInstance}>
-      <div className="min-h-screen bg-earnings-page p-4 md:p-8 lg:p-10">
+      <div className="min-h-screen bg-earnings-page px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
         <div className="max-w-4xl mx-auto">
-          <header className="mb-8">
+          <header className="mb-9">
             <Link
               href="/dashboard/earnings"
-              className="text-xs font-medium uppercase tracking-widest text-white/45 hover:text-white/70 transition-colors mb-4 inline-block"
+              className="text-xs font-medium uppercase tracking-[0.12em] text-white/42 hover:text-white/70 transition-colors mb-5 inline-block"
             >
               ← Back to Earnings Dashboard
             </Link>
             <h1 className="text-3xl md:text-4xl font-semibold text-white tracking-tight">
               {title}
             </h1>
-            {description && <p className="text-white/55 mt-1.5 text-base">{description}</p>}
+            {description && (
+              <p className="text-white/[0.52] mt-2 text-[15px] sm:text-base leading-relaxed">
+                {description}
+              </p>
+            )}
           </header>
           <div className="earnings-card overflow-hidden min-h-[400px] overflow-y-auto">
-            {children}
+            <div className="earnings-connect-body">{children}</div>
           </div>
         </div>
       </div>

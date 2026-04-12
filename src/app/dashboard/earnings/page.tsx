@@ -20,7 +20,6 @@ import {
   ArrowRight,
   Sparkles,
   Wallet,
-  CreditCard,
   Banknote,
   UserCog,
   FileText,
@@ -164,8 +163,8 @@ export default function EarningsDashboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-earnings-page p-4 md:p-8">
-        <div className="max-w-2xl mx-auto py-16">
+      <div className="min-h-screen bg-earnings-page px-5 py-10 sm:px-8 md:py-16">
+        <div className="max-w-2xl mx-auto">
           {pendingClaim && pendingClaim.pendingClaimCents > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -257,21 +256,21 @@ export default function EarningsDashboardPage() {
 
   return (
     <ConnectComponentsProvider connectInstance={connectInstance}>
-      <div className="min-h-screen bg-earnings-page p-4 md:p-8 lg:p-10">
+      <div className="min-h-screen bg-earnings-page px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <motion.header
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="mb-10"
+            className="mb-11 md:mb-12"
           >
-            <h1 className="text-4xl md:text-5xl font-semibold text-white mb-2 tracking-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-[2.75rem] font-semibold text-white mb-3 tracking-tight">
               Earnings Dashboard
             </h1>
-            <p className="text-white/55 text-base md:text-lg max-w-xl">
-              Track balances, payouts, and account details. Buyer checkout runs on Edgaze; your
-              share is paid out from your Stripe connected account.
+            <p className="text-white/[0.52] text-[15px] sm:text-base leading-relaxed max-w-2xl">
+              Balances, payouts, and payout account settings. Sales are collected by Edgaze at
+              checkout; your share settles in this connected Stripe account.
             </p>
           </motion.header>
 
@@ -321,101 +320,89 @@ export default function EarningsDashboardPage() {
           )}
 
           {/* Overview: Notifications + Balances */}
-          <section className="mb-8">
+          <section className="mb-10 md:mb-11">
             <h2 className="earnings-section-label mb-4">Overview</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1, duration: 0.35 }}
-                className="earnings-card overflow-hidden min-h-[180px] overflow-y-auto"
+                className="earnings-card overflow-hidden min-h-[200px] overflow-y-auto"
               >
                 <div className="earnings-card-header">
-                  <Sparkles className="h-4 w-4 text-white/50" />
+                  <Sparkles className="h-4 w-4 text-cyan-400/55 shrink-0" />
                   <span>Notifications</span>
                 </div>
-                <ConnectNotificationBanner />
+                <div className="earnings-connect-body">
+                  <ConnectNotificationBanner />
+                </div>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.35 }}
-                className="earnings-card overflow-hidden min-h-[180px] overflow-y-auto"
+                className="earnings-card overflow-hidden min-h-[200px] overflow-y-auto"
               >
                 <div className="earnings-card-header">
-                  <Wallet className="h-4 w-4 text-white/50" />
+                  <Wallet className="h-4 w-4 text-cyan-400/55 shrink-0" />
                   <span>Balances</span>
                 </div>
-                <ConnectBalances />
+                <div className="earnings-connect-body">
+                  <ConnectBalances />
+                </div>
               </motion.div>
             </div>
           </section>
 
-          {/* Payouts (ConnectPayments removed: creators are not card merchants on the connected account) */}
-          <section className="mb-8">
-            <h2 className="earnings-section-label mb-4">Sales & payouts</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.35 }}
-                className="earnings-card overflow-hidden min-h-[220px]"
-              >
-                <div className="earnings-card-header">
-                  <CreditCard className="h-4 w-4 text-white/50" />
-                  <span>Checkout & earnings</span>
-                </div>
-                <div className="p-5 sm:p-6 text-sm text-white/60 leading-relaxed">
-                  <p>
-                    Buyers pay Edgaze at checkout. Your earnings (after Edgaze&apos;s platform fee)
-                    are transferred to this Stripe account and show up under Balances and Payouts —
-                    not under a &quot;Payments&quot; list on the connected account, because you are
-                    not processing cards directly on this account.
-                  </p>
-                </div>
-              </motion.div>
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25, duration: 0.35 }}
-                className="earnings-card overflow-hidden min-h-[400px] overflow-y-auto"
-              >
-                <div className="earnings-card-header">
-                  <Banknote className="h-4 w-4 text-white/50" />
-                  <span>Payouts</span>
-                </div>
+          <section className="mb-10 md:mb-11">
+            <h2 className="earnings-section-label mb-4">Payouts</h2>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.35 }}
+              className="earnings-card overflow-hidden min-h-[440px] overflow-y-auto"
+            >
+              <div className="earnings-card-header">
+                <Banknote className="h-4 w-4 text-cyan-400/55 shrink-0" />
+                <span>Payout history & schedule</span>
+              </div>
+              <div className="earnings-connect-body">
                 <ConnectPayouts />
-              </motion.div>
-            </div>
+              </div>
+            </motion.div>
           </section>
 
           {/* Account + Documents */}
-          <section className="mb-8">
+          <section className="mb-10 md:mb-11">
             <h2 className="earnings-section-label mb-4">Account</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.35 }}
-                className="earnings-card overflow-hidden min-h-[320px] overflow-y-auto"
+                className="earnings-card overflow-hidden min-h-[360px] overflow-y-auto"
               >
                 <div className="earnings-card-header">
-                  <UserCog className="h-4 w-4 text-white/50" />
+                  <UserCog className="h-4 w-4 text-cyan-400/55 shrink-0" />
                   <span>Account details</span>
                 </div>
-                <ConnectAccountManagement />
+                <div className="earnings-connect-body">
+                  <ConnectAccountManagement />
+                </div>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.35, duration: 0.35 }}
-                className="earnings-card overflow-hidden min-h-[320px] overflow-y-auto"
+                className="earnings-card overflow-hidden min-h-[360px] overflow-y-auto"
               >
                 <div className="earnings-card-header">
-                  <FileText className="h-4 w-4 text-white/50" />
+                  <FileText className="h-4 w-4 text-cyan-400/55 shrink-0" />
                   <span>Documents</span>
                 </div>
-                <ConnectDocuments />
+                <div className="earnings-connect-body">
+                  <ConnectDocuments />
+                </div>
               </motion.div>
             </div>
           </section>
@@ -425,12 +412,14 @@ export default function EarningsDashboardPage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.35 }}
-            className="earnings-card earnings-card-cta p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5"
+            className="earnings-card earnings-card-cta p-7 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6"
           >
-            <div>
-              <h2 className="text-xl font-semibold text-white mb-1">Full Stripe Dashboard</h2>
-              <p className="text-white/55 text-sm">
-                Open Stripe Express for advanced features, tax forms, and reporting.
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-semibold text-white mb-1.5">
+                Full Stripe Dashboard
+              </h2>
+              <p className="text-white/[0.52] text-sm leading-relaxed max-w-md">
+                Open Stripe Express for tax forms, full reporting, and account tools.
               </p>
             </div>
             <button
@@ -452,7 +441,7 @@ export default function EarningsDashboardPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.5 }}
-            className="mt-10 text-xs text-white/35 flex items-center justify-center gap-1.5 flex-wrap"
+            className="mt-12 text-xs text-white/35 flex items-center justify-center gap-1.5 flex-wrap"
           >
             <HelpCircle className="h-3.5 w-3.5" />
             <Link href="/help" className="text-white/50 hover:text-cyan-400 transition-colors">

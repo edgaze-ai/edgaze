@@ -9,9 +9,7 @@ export default function AccountManagementPage() {
       title="Account management"
       description="View and edit payment information like SSN and payout bank account"
     >
-      <div className="p-4 sm:p-6 min-h-[400px]">
-        <ConnectAccountManagement />
-      </div>
+      <ConnectAccountManagement />
     </ConnectDashboardShell>
   );
 }

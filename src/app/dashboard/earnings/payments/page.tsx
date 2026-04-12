@@ -14,7 +14,7 @@ export default function PaymentsPage() {
       title="Sales & checkout"
       description="How buyer payments relate to your Stripe account"
     >
-      <div className="p-4 sm:p-6 min-h-[280px] text-sm text-white/65 leading-relaxed space-y-4">
+      <div className="min-h-[280px] text-sm text-white/[0.62] leading-relaxed space-y-4 max-w-prose">
         <p>
           Edgaze collects payment from buyers at checkout on the platform. Your creator share is
           transferred to your connected account and is visible under{" "}
