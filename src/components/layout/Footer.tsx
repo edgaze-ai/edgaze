@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FaGithub, FaLinkedinIn, FaXTwitter } from "react-icons/fa6";
-import { SITE_META_DESCRIPTION } from "@lib/constants";
+import { SITE_FOOTER_TAGLINE } from "@lib/constants";
 
 const FOOTER_SECTIONS = [
   {
@@ -83,9 +83,9 @@ export default function Footer() {
               />
               <div>
                 <div className="text-sm font-semibold text-white">Edgaze</div>
-                <div className="mt-0.5 text-xs sm:text-sm text-white/55 sm:text-white/60 max-w-md">
-                  {SITE_META_DESCRIPTION}
-                </div>
+                <p className="mt-1 text-[13px] sm:text-sm font-medium leading-snug tracking-[0.01em] text-white/[0.58] max-w-[16rem]">
+                  {SITE_FOOTER_TAGLINE}
+                </p>
               </div>
             </div>
 

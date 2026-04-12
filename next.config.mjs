@@ -67,6 +67,14 @@ const nextConfig = (() => {
         exclude: ['error', 'warn'],
       } : false,
     },
+    // Dev: disable webpack persistent filesystem cache so `.next/dev/cache/webpack/**` pack renames
+    // cannot race (ENOENT 0.pack.gz_ → 0.pack.gz) when the tree is synced, deleted, or contended.
+    webpack: (config, { dev }) => {
+      if (dev) {
+        config.cache = false;
+      }
+      return config;
+    },
     // Optimize module resolution
     modularizeImports: {
       'lucide-react': {

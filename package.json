@@ -16,7 +16,9 @@
     "supabase"
   ],
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-singleton.mjs",
+    "dev:clean": "rm -rf .next && node scripts/dev-singleton.mjs",
+    "dev:turbo": "next dev --turbopack",
     "build": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && env CI=true next build --webpack",
     "start": "next start",
     "lint": "eslint .",
