@@ -12,6 +12,7 @@ import Stripe from "stripe";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/stripe/config";
+import { computeExpressPayoutReadiness } from "@/lib/stripe/connect-marketplace";
 
 type AdminSupabaseClient = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -76,6 +77,16 @@ export async function syncCreatorPayoutAccount({
   payoutSetupComplete,
   source,
 }: AccountSyncInput) {
+  const { data: connectLink } = await supabase
+    .from("stripe_connect_accounts")
+    .select("user_id")
+    .eq("stripe_account_id", stripeAccountId)
+    .maybeSingle();
+
+  if (!connectLink || connectLink.user_id !== creatorId) {
+    return;
+  }
+
   const isActive =
     payoutSetupComplete !== undefined
       ? payoutSetupComplete
@@ -639,18 +650,14 @@ async function handleAccountUpdated(account: Stripe.Account, supabase: AdminSupa
     .from("stripe_connect_accounts")
     .select("user_id")
     .eq("stripe_account_id", account.id)
-    .single();
+    .maybeSingle();
 
-  const userId = connectRow?.user_id ?? account.metadata?.edgaze_user_id;
-  if (!userId) return;
+  if (!connectRow?.user_id) {
+    return;
+  }
 
-  const transfersActive = account.capabilities?.transfers === "active";
-  const payoutSetupComplete = Boolean(
-    account.payouts_enabled &&
-    account.details_submitted &&
-    transfersActive &&
-    !account.requirements?.disabled_reason,
-  );
+  const userId = connectRow.user_id;
+  const payoutSetupComplete = computeExpressPayoutReadiness(account);
 
   await syncCreatorPayoutAccount({
     supabase,

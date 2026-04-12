@@ -89,6 +89,38 @@ export async function retrieveExpressAccountCountry(
   return acct.country ? acct.country.toUpperCase() : null;
 }
 
+/**
+ * Whether an Express connected account can receive marketplace payouts / transfers.
+ * Stripe may leave `capabilities.transfers` as `pending` briefly while `payouts_enabled` is already true;
+ * treating only `inactive` as a hard block matches dashboard “Enabled” more reliably than requiring `active`.
+ */
+export function computeExpressPayoutReadiness(account: Stripe.Account): boolean {
+  if (account.requirements?.disabled_reason) {
+    return false;
+  }
+  if (!account.payouts_enabled || !account.details_submitted) {
+    return false;
+  }
+  const transfers = account.capabilities?.transfers ?? null;
+  if (transfers === "inactive") {
+    return false;
+  }
+  return true;
+}
+
+/** Best-effort remove a connected account (e.g. after country replace). May fail if balance or live rules apply. */
+export async function tryDeleteConnectedAccount(stripeAccountId: string): Promise<void> {
+  try {
+    await stripe.accounts.del(stripeAccountId);
+  } catch (e) {
+    console.warn(
+      "[STRIPE] tryDeleteConnectedAccount: could not delete (balance, live mode, or permissions)",
+      stripeAccountId,
+      e,
+    );
+  }
+}
+
 export type ConnectAccountPayoutStatus = {
   accountId: string;
   /** Set after Stripe collects country during onboarding (may be null until then). */
@@ -120,12 +152,9 @@ export async function getExpressConnectAccountPayoutStatus(
   const account = await stripe.accounts.retrieve(stripeAccountId);
 
   const transfersStatus = account.capabilities?.transfers ?? null;
-  const transfersActive = transfersStatus === "active";
   const disabledReason = account.requirements?.disabled_reason ?? null;
 
-  const readyForPayouts = Boolean(
-    account.payouts_enabled && account.details_submitted && transfersActive && !disabledReason,
-  );
+  const readyForPayouts = computeExpressPayoutReadiness(account);
 
   const meta = account.metadata as Record<string, string> | undefined;
 

@@ -14,6 +14,7 @@ import {
   createConnectAccountSessionForOnboarding,
   createExpressMarketplaceConnectedAccount,
   getExpressConnectAccountPayoutStatus,
+  tryDeleteConnectedAccount,
 } from "@/lib/stripe/connect-marketplace";
 import { replaceConnectAccountIfCountryMismatch } from "@/lib/stripe/replace-connect-account-for-country";
 import { syncCreatorPayoutAccount } from "@/lib/stripe/webhook-processing";
@@ -117,23 +118,43 @@ export async function POST(req: Request) {
         country: payoutCountry,
       });
 
-      stripeAccountId = account.id;
-
-      await admin.from("stripe_connect_accounts").insert({
+      const insertPayload = {
         user_id: user.id,
-        stripe_account_id: stripeAccountId,
-        account_status: "pending",
+        stripe_account_id: account.id,
+        account_status: "pending" as const,
         charges_enabled: account.charges_enabled ?? false,
         payouts_enabled: account.payouts_enabled ?? false,
         details_submitted: account.details_submitted ?? false,
         country: account.country ?? null,
         currency: account.default_currency || "usd",
-      });
+      };
 
-      await admin
-        .from("profiles")
-        .update({ stripe_onboarding_status: "pending" })
-        .eq("id", user.id);
+      const { error: insErr } = await admin.from("stripe_connect_accounts").insert(insertPayload);
+
+      if (insErr) {
+        const pgCode = (insErr as { code?: string }).code;
+        if (pgCode === "23505") {
+          await tryDeleteConnectedAccount(account.id);
+          const { data: winner } = await admin
+            .from("stripe_connect_accounts")
+            .select("stripe_account_id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (!winner?.stripe_account_id) {
+            throw new Error(insErr.message);
+          }
+          stripeAccountId = winner.stripe_account_id;
+        } else {
+          await tryDeleteConnectedAccount(account.id);
+          throw new Error(insErr.message);
+        }
+      } else {
+        stripeAccountId = account.id;
+        await admin
+          .from("profiles")
+          .update({ stripe_onboarding_status: "pending" })
+          .eq("id", user.id);
+      }
     }
 
     const session = await createConnectAccountSessionForOnboarding(stripeAccountId);

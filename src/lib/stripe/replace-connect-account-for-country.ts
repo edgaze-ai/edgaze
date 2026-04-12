@@ -2,6 +2,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   createExpressMarketplaceConnectedAccount,
   retrieveExpressAccountCountry,
+  tryDeleteConnectedAccount,
 } from "./connect-marketplace";
 
 type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -12,7 +13,8 @@ type AdminClient = ReturnType<typeof createSupabaseAdminClient>;
  *
  * We delete and re-insert `stripe_connect_accounts` so we never assign a new `stripe_account_id`
  * on the same row while child FKs still point at the old id (Postgres would reject that).
- * Related rows: `connect_account_subscriptions` cascade-delete; earnings/payouts null out `stripe_account_id`.
+ * After a successful swap, we best-effort delete the old Stripe account so it stops sending
+ * webhooks and doesn’t appear as a duplicate in the Dashboard.
  */
 export async function replaceConnectAccountIfCountryMismatch(
   admin: AdminClient,
@@ -30,6 +32,7 @@ export async function replaceConnectAccountIfCountryMismatch(
     return { stripeAccountId: currentStripeAccountId, replaced: false };
   }
 
+  const previousStripeId = currentStripeAccountId;
   const fresh = await createExpressMarketplaceConnectedAccount({
     email,
     handle,
@@ -37,39 +40,43 @@ export async function replaceConnectAccountIfCountryMismatch(
     country: payoutCountry,
   });
 
-  const { error: delErr } = await admin
-    .from("stripe_connect_accounts")
-    .delete()
-    .eq("user_id", userId);
-  if (delErr) {
-    throw new Error(delErr.message);
+  try {
+    const { error: delErr } = await admin.from("stripe_connect_accounts").delete().eq("user_id", userId);
+    if (delErr) {
+      throw new Error(delErr.message);
+    }
+
+    const { error: insErr } = await admin.from("stripe_connect_accounts").insert({
+      user_id: userId,
+      stripe_account_id: fresh.id,
+      account_status: "pending",
+      charges_enabled: fresh.charges_enabled ?? false,
+      payouts_enabled: fresh.payouts_enabled ?? false,
+      details_submitted: fresh.details_submitted ?? false,
+      country: fresh.country ?? payoutCountry,
+      currency: fresh.default_currency || "usd",
+    });
+    if (insErr) {
+      throw new Error(insErr.message);
+    }
+
+    const { error: profileError } = await admin
+      .from("profiles")
+      .update({
+        stripe_onboarding_status: "pending",
+        can_receive_payments: false,
+      })
+      .eq("id", userId);
+
+    if (profileError) {
+      throw new Error(profileError.message);
+    }
+  } catch (e) {
+    await tryDeleteConnectedAccount(fresh.id);
+    throw e;
   }
 
-  const { error: insErr } = await admin.from("stripe_connect_accounts").insert({
-    user_id: userId,
-    stripe_account_id: fresh.id,
-    account_status: "pending",
-    charges_enabled: fresh.charges_enabled ?? false,
-    payouts_enabled: fresh.payouts_enabled ?? false,
-    details_submitted: fresh.details_submitted ?? false,
-    country: fresh.country ?? payoutCountry,
-    currency: fresh.default_currency || "usd",
-  });
-  if (insErr) {
-    throw new Error(insErr.message);
-  }
-
-  const { error: profileError } = await admin
-    .from("profiles")
-    .update({
-      stripe_onboarding_status: "pending",
-      can_receive_payments: false,
-    })
-    .eq("id", userId);
-
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
+  await tryDeleteConnectedAccount(previousStripeId);
 
   return { stripeAccountId: fresh.id, replaced: true };
 }
