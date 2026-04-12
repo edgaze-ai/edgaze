@@ -37,7 +37,8 @@ export async function createExpressMarketplaceConnectedAccount(params: {
     },
     settings: {
       branding: {
-        icon: `${stripeConfig.appUrl}/edgaze-icon.png`,
+        // Stripe fetches this URL server-side; must 200 with a real image. /edgaze-icon.png is not in public/.
+        icon: `${stripeConfig.appUrl.replace(/\/$/, "")}/brand/icons/icon-192x192.png`,
         primary_color: "#22d3ee",
         secondary_color: "#e879f9",
       },
