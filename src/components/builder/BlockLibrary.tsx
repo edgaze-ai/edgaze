@@ -27,39 +27,43 @@ type LibraryCategoryId = "core" | "llm" | "integrations" | "conditions" | "loops
 type LibraryCategory = {
   id: LibraryCategoryId;
   label: string;
-  icon: (p: { active?: boolean }) => ReactElement;
+  icon: (p: { active?: boolean; size?: number }) => ReactElement;
 };
 
 const CATEGORIES: LibraryCategory[] = [
   {
     id: "all",
     label: "All",
-    icon: ({ active }) => <IconGrid size={18} tone={active ? "brand" : "muted"} />,
+    icon: ({ active, size = 18 }) => <IconGrid size={size} tone={active ? "brand" : "muted"} />,
   },
   {
     id: "core",
     label: "Core",
-    icon: ({ active }) => <IconCore size={18} tone={active ? "brand" : "muted"} />,
+    icon: ({ active, size = 18 }) => <IconCore size={size} tone={active ? "brand" : "muted"} />,
   },
   {
     id: "llm",
     label: "LLM",
-    icon: ({ active }) => <IconLLM size={18} tone={active ? "brand" : "muted"} />,
+    icon: ({ active, size = 18 }) => <IconLLM size={size} tone={active ? "brand" : "muted"} />,
   },
   {
     id: "integrations",
     label: "Integrations",
-    icon: ({ active }) => <IconIntegrations size={18} tone={active ? "brand" : "muted"} />,
+    icon: ({ active, size = 18 }) => (
+      <IconIntegrations size={size} tone={active ? "brand" : "muted"} />
+    ),
   },
   {
     id: "conditions",
     label: "Conditions",
-    icon: ({ active }) => <IconConditions size={18} tone={active ? "brand" : "muted"} />,
+    icon: ({ active, size = 18 }) => (
+      <IconConditions size={size} tone={active ? "brand" : "muted"} />
+    ),
   },
   {
     id: "loops",
     label: "Loops",
-    icon: ({ active }) => <IconLoops size={18} tone={active ? "brand" : "muted"} />,
+    icon: ({ active, size = 18 }) => <IconLoops size={size} tone={active ? "brand" : "muted"} />,
   },
 ];
 
@@ -110,12 +114,14 @@ function EdgazeTooltip({
 
 /* ---------- Quick-start pill ---------- */
 function QuickStartItem({
+  compact,
   icon,
   title,
   caption,
   templateId,
   onLoad,
 }: {
+  compact?: boolean;
   icon: React.ReactNode;
   title: string;
   caption: string;
@@ -127,25 +133,45 @@ function QuickStartItem({
       type="button"
       onClick={() => onLoad(templateId)}
       className={cx(
-        "group relative flex w-full items-center gap-3 overflow-hidden text-left",
-        "rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]",
+        "group relative flex w-full items-center overflow-hidden text-left",
+        compact ? "gap-2 rounded-xl px-1 py-1" : "gap-3 rounded-2xl",
+        "border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]",
         "shadow-[0_18px_70px_rgba(0,0,0,0.42)]",
         "transition-[transform,background,border-color] duration-200",
         "hover:-translate-y-[1px] hover:border-white/14 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.024))]",
       )}
     >
       <div className="pointer-events-none absolute inset-x-5 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-40" />
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/10 bg-black/25">
+      <div
+        className={cx(
+          "grid shrink-0 place-items-center rounded-lg border border-white/10 bg-black/25",
+          compact ? "h-7 w-7" : "h-9 w-9 rounded-xl",
+        )}
+      >
         {icon}
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 py-0.5">
         <div className="flex items-center gap-1.5">
-          <div className="font-semibold text-[12px] tracking-[-0.01em] text-white/92">{title}</div>
-          <span className="opacity-55 shrink-0 text-[10px] tracking-[0.14em] uppercase text-white/45">
+          <div
+            className={cx(
+              "font-semibold tracking-[-0.01em] text-white/92",
+              compact ? "text-[11px]" : "text-[12px]",
+            )}
+          >
+            {title}
+          </div>
+          <span
+            className={cx(
+              "opacity-55 shrink-0 tracking-[0.14em] uppercase text-white/45",
+              compact ? "text-[8px]" : "text-[10px]",
+            )}
+          >
             Open
           </span>
         </div>
-        <div className="truncate text-[11px] text-white/60">{caption}</div>
+        <div className={cx("truncate text-white/60", compact ? "text-[9px]" : "text-[11px]")}>
+          {caption}
+        </div>
       </div>
     </button>
   );
@@ -153,9 +179,11 @@ function QuickStartItem({
 
 /* ---------- Block library ---------- */
 function BlockLibrary({
+  compact,
   onAdd,
   onLoadQuickStart,
 }: {
+  compact?: boolean;
   onAdd?: (specId: string) => void;
   onLoadQuickStart?: (templateId: string) => void;
 }) {
@@ -207,20 +235,30 @@ function BlockLibrary({
     return () => clearTimeout(t);
   }, [aiSearchOpen]);
 
+  const iconSize = compact ? 14 : 18;
+
   return (
-    <div className="relative flex h-full flex-col">
+    <div className={cx("relative flex h-full flex-col", compact && "library-compact")}>
       {/* Search + AI button */}
-      <div className="px-3 pt-3">
+      <div className={cx(compact ? "px-1.5 pt-1.5" : "px-3 pt-3")}>
         <div className="relative">
-          <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/55">
-            <IconSearch size={18} />
+          <div
+            className={cx(
+              "pointer-events-none absolute top-1/2 -translate-y-1/2 text-white/55",
+              compact ? "left-2.5" : "left-3",
+            )}
+          >
+            <IconSearch size={compact ? 14 : 18} />
           </div>
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search blocks..."
             className={cx(
-              "w-full rounded-2xl border border-white/10 bg-black/25 py-2.5 pl-10 pr-10 text-[12px] text-white/92 placeholder:text-white/35",
+              "w-full border border-white/10 bg-black/25 text-white/92 placeholder:text-white/35",
+              compact
+                ? "rounded-xl py-1 pl-8 pr-8 text-[10px]"
+                : "rounded-2xl py-2.5 pl-10 pr-10 text-[12px]",
               "outline-none transition-[border-color,background] duration-200 focus:border-white/18 focus:bg-black/30",
             )}
           />
@@ -228,24 +266,39 @@ function BlockLibrary({
             <button
               type="button"
               onClick={() => setQ("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 edg-builder-btn h-8 w-8 rounded-full grid place-items-center"
+              className={cx(
+                "absolute top-1/2 -translate-y-1/2 edg-builder-btn rounded-full grid place-items-center",
+                compact ? "right-1.5 h-6 w-6" : "right-2 h-8 w-8",
+              )}
               title="Clear search"
             >
-              <IconClose size={16} className="text-white/70" />
+              <IconClose size={compact ? 14 : 16} className="text-white/70" />
             </button>
           )}
         </div>
 
-        <div className="mt-2 flex items-center gap-2">
+        <div className={cx("flex items-center gap-2", compact ? "mt-1" : "mt-2")}>
           <button
-            className="edgaze-flow w-full rounded-[16px] p-[1.2px]"
+            className={cx(
+              "edgaze-flow w-full p-[1.2px]",
+              compact ? "rounded-xl" : "rounded-[16px]",
+            )}
             title="Search nodes with AI"
             type="button"
             onClick={() => setAiSearchOpen(true)}
           >
-            <div className="relative flex w-full items-center justify-center gap-2 rounded-[14px] bg-[#0f0f10] px-3 py-2.5 text-[12px] font-medium text-white/90">
-              <IconSpark size={18} tone="brand" />
-              <span>Search nodes with AI</span>
+            <div
+              className={cx(
+                "relative flex w-full items-center justify-center bg-[#0f0f10] font-medium text-white/90",
+                compact
+                  ? "gap-1.5 rounded-[11px] px-2 py-1 text-[9px] leading-tight"
+                  : "gap-2 rounded-[14px] px-3 py-2.5 text-[12px]",
+              )}
+            >
+              <IconSpark size={compact ? 13 : 18} tone="brand" />
+              <span className={compact ? "truncate" : undefined}>
+                {compact ? "AI search" : "Search nodes with AI"}
+              </span>
             </div>
           </button>
         </div>
@@ -354,8 +407,13 @@ function BlockLibrary({
       {/* Scrollable content */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Internal category rail */}
-        <div className="shrink-0 w-[52px] border-r border-white/8 bg-black/15 px-2 py-3">
-          <div className="flex flex-col items-center gap-2">
+        <div
+          className={cx(
+            "shrink-0 border-r border-white/8 bg-black/15",
+            compact ? "w-[38px] px-1 py-1.5" : "w-[52px] px-2 py-3",
+          )}
+        >
+          <div className={cx("flex flex-col items-center", compact ? "gap-1" : "gap-2")}>
             {CATEGORIES.map((cat) => {
               const active = cat.id === activeCategory;
               const hovered = hoveredCategory === cat.id;
@@ -370,14 +428,15 @@ function BlockLibrary({
                     onBlur={() => setHoveredCategory(null)}
                     onClick={() => setActiveCategory(cat.id)}
                     className={cx(
-                      "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-2xl grid place-items-center",
+                      "edg-builder-btn edg-builder-accent-ring grid place-items-center",
+                      compact ? "h-7 w-7 rounded-xl" : "h-9 w-9 rounded-2xl",
                       active ? "text-white" : "text-white/70",
                     )}
                     data-active={active ? "true" : "false"}
                     aria-label={cat.label}
                     title={cat.label}
                   >
-                    {cat.icon({ active })}
+                    {cat.icon({ active, size: iconSize })}
                   </button>
                 </div>
               );
@@ -385,37 +444,55 @@ function BlockLibrary({
           </div>
         </div>
 
-        <div className="library-scroll -mr-3 flex-1 min-h-0 overflow-y-auto pr-4 pb-5">
+        <div
+          className={cx(
+            "library-scroll -mr-3 flex-1 min-h-0 overflow-y-auto",
+            compact ? "pr-2 pb-3" : "pr-4 pb-5",
+          )}
+        >
           {/* Quick start */}
-          <div className="px-3 pt-3">
-            <div className="mb-1.5 flex items-center justify-between">
-              <h4 className="text-[10px] tracking-[0.22em] text-white/55">QUICK START</h4>
+          <div className={cx(compact ? "px-1.5 pt-1.5" : "px-3 pt-3")}>
+            <div className={cx("flex items-center justify-between", compact ? "mb-1" : "mb-1.5")}>
+              <h4
+                className={cx(
+                  "tracking-[0.22em] text-white/55",
+                  compact ? "text-[8px]" : "text-[10px]",
+                )}
+              >
+                QUICK START
+              </h4>
               <button
                 onClick={() => setShowQS((s) => !s)}
-                className="edg-builder-btn h-8 px-3 text-[11px] font-medium"
+                className={cx(
+                  "edg-builder-btn font-medium",
+                  compact ? "h-6 px-2 text-[9px]" : "h-8 px-3 text-[11px]",
+                )}
                 type="button"
               >
                 {showQS ? "Hide" : "Show"}
               </button>
             </div>
             {showQS && (
-              <div className="grid gap-2.5">
+              <div className={cx("grid", compact ? "gap-1.5" : "gap-2.5")}>
                 <QuickStartItem
-                  icon={<span className="text-[15px]">📧</span>}
+                  compact={compact}
+                  icon={<span className={compact ? "text-[12px]" : "text-[15px]"}>📧</span>}
                   title="Email Parser"
                   caption="Turn emails into structured data."
                   templateId="email-parser"
                   onLoad={(id) => onLoadQuickStart?.(id)}
                 />
                 <QuickStartItem
-                  icon={<span className="text-[15px]">✍️</span>}
+                  compact={compact}
+                  icon={<span className={compact ? "text-[12px]" : "text-[15px]"}>✍️</span>}
                   title="Writer"
                   caption="Generate posts with AI."
                   templateId="writer"
                   onLoad={(id) => onLoadQuickStart?.(id)}
                 />
                 <QuickStartItem
-                  icon={<span className="text-[15px]">🎨</span>}
+                  compact={compact}
+                  icon={<span className={compact ? "text-[12px]" : "text-[15px]"}>🎨</span>}
                   title="Images"
                   caption="Text-to-image generation."
                   templateId="images"
@@ -426,7 +503,7 @@ function BlockLibrary({
           </div>
 
           {/* Node list */}
-          <div className="mt-5 space-y-3 px-3">
+          <div className={cx(compact ? "mt-2 space-y-1.5 px-1.5" : "mt-5 space-y-3 px-3")}>
             {items.map((spec) => {
               const onDragStart = (e: React.DragEvent) => {
                 e.dataTransfer.setData(
@@ -443,49 +520,92 @@ function BlockLibrary({
                 <div
                   key={spec.id}
                   className={cx(
-                    "group relative overflow-hidden rounded-2xl border border-white/10",
+                    "group relative overflow-hidden border border-white/10",
                     "bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))]",
                     "shadow-[0_18px_70px_rgba(0,0,0,0.42)]",
                     "transition-[transform,border-color,background] duration-200",
                     "hover:-translate-y-[1px] hover:border-white/14 hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.024))]",
+                    compact ? "rounded-xl" : "rounded-2xl",
                   )}
                 >
                   <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-40" />
 
-                  <div className="flex items-start justify-between gap-3 px-4 pt-3">
+                  <div
+                    className={cx(
+                      "flex items-start justify-between",
+                      compact ? "gap-2 px-2 pt-1.5" : "gap-3 px-4 pt-3",
+                    )}
+                  >
                     <div className="min-w-0">
-                      <div className="truncate text-[13px] font-semibold tracking-[-0.01em] text-white/92">
+                      <div
+                        className={cx(
+                          "truncate font-semibold tracking-[-0.01em] text-white/92",
+                          compact ? "text-[11px]" : "text-[13px]",
+                        )}
+                      >
                         {spec.label}
                       </div>
-                      <div className="mt-0.5 text-[11px] leading-5 text-white/60 line-clamp-2">
+                      <div
+                        className={cx(
+                          "mt-0.5 text-white/60",
+                          compact
+                            ? "line-clamp-1 text-[9px] leading-tight"
+                            : "line-clamp-2 text-[11px] leading-5",
+                        )}
+                      >
                         {spec.summary}
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className="text-[10px] font-mono text-white/45">{spec.id}</div>
-                      <div className="mt-1 text-[10px] tracking-[0.16em] uppercase text-white/40">
+                      <div
+                        className={cx(
+                          "font-mono text-white/45",
+                          compact ? "text-[9px]" : "text-[10px]",
+                        )}
+                      >
+                        {spec.id}
+                      </div>
+                      <div
+                        className={cx(
+                          "mt-1 tracking-[0.16em] uppercase text-white/40",
+                          compact ? "text-[9px]" : "text-[10px]",
+                        )}
+                      >
                         {String((spec as any)?.category ?? normalizeCategory(spec)).toString()}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 px-4">
-                    <div className="preview-stage rounded-2xl py-4 px-4">
-                      <NodePreviewCard spec={spec} onDragStart={onDragStart} />
+                  <div className={cx(compact ? "mt-1.5 px-2" : "mt-3 px-4")}>
+                    <div
+                      className={cx(
+                        "preview-stage",
+                        compact ? "rounded-lg px-1 py-1" : "rounded-2xl py-4 px-4",
+                      )}
+                    >
+                      <NodePreviewCard spec={spec} compact={compact} onDragStart={onDragStart} />
                     </div>
                   </div>
 
-                  <div className="mt-3 flex items-center justify-between gap-3 px-4 pb-4 text-[11px]">
+                  <div
+                    className={cx(
+                      "flex items-center justify-between gap-2",
+                      compact ? "mt-1.5 px-2 pb-2 text-[9px]" : "mt-3 px-4 pb-4 text-[11px]",
+                    )}
+                  >
                     <div className="text-white/55">
                       {inputs} in · {outputs} out
                     </div>
                     <button
                       type="button"
                       onClick={() => handleAdd(spec.id)}
-                      className="edg-builder-btn-add inline-flex items-center gap-2 rounded-full px-3 py-2 text-[11px] font-semibold text-white/92"
+                      className={cx(
+                        "edg-builder-btn-add inline-flex items-center rounded-full font-semibold text-white/92",
+                        compact ? "gap-1 px-2 py-1 text-[9px]" : "gap-2 px-3 py-2 text-[11px]",
+                      )}
                       aria-label="Add to canvas"
                     >
-                      <IconPlus size={16} tone="brand" />
+                      <IconPlus size={compact ? 12 : 16} tone="brand" />
                       Add
                     </button>
                   </div>
@@ -494,7 +614,7 @@ function BlockLibrary({
             })}
           </div>
 
-          <div className="h-3" />
+          <div className={compact ? "h-2" : "h-3"} />
         </div>
       </div>
 
@@ -508,7 +628,7 @@ function BlockLibrary({
           display: flex;
           justify-content: center;
           align-items: center;
-          min-height: 120px;
+          min-height: 96px;
           overflow: hidden;
           width: 100%;
           border-radius: 18px;
@@ -516,6 +636,12 @@ function BlockLibrary({
           border: 1px solid rgba(255, 255, 255, 0.08);
           background-image: radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
           background-size: 14px 14px;
+        }
+
+        .library-compact .preview-stage {
+          min-height: 48px;
+          border-radius: 10px;
+          background-size: 10px 10px;
         }
 
         .preview-stage .node-preview-card {

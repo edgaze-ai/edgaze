@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { stripe } from "@/lib/stripe/client";
+import { getExpressConnectAccountPayoutStatus } from "@/lib/stripe/connect-marketplace";
 import { syncCreatorPayoutAccount } from "@/lib/stripe/webhook-processing";
 
 export const dynamic = "force-dynamic";
@@ -33,21 +33,22 @@ export async function GET(req: Request) {
       });
     }
 
-    const account = await stripe.accounts.retrieve(connectAccount.stripe_account_id);
+    const status = await getExpressConnectAccountPayoutStatus(connectAccount.stripe_account_id);
 
     const needsUpdate =
-      connectAccount.charges_enabled !== account.charges_enabled ||
-      connectAccount.payouts_enabled !== account.payouts_enabled ||
-      connectAccount.details_submitted !== account.details_submitted;
+      connectAccount.charges_enabled !== status.chargesEnabled ||
+      connectAccount.payouts_enabled !== status.payoutsEnabled ||
+      connectAccount.details_submitted !== status.detailsSubmitted;
 
-    if (needsUpdate || (account.charges_enabled && account.payouts_enabled)) {
+    if (needsUpdate || status.readyForPayouts) {
       await syncCreatorPayoutAccount({
         supabase: admin,
         creatorId: user.id,
         stripeAccountId: connectAccount.stripe_account_id,
-        chargesEnabled: account.charges_enabled,
-        payoutsEnabled: account.payouts_enabled,
-        detailsSubmitted: account.details_submitted,
+        chargesEnabled: status.chargesEnabled,
+        payoutsEnabled: status.payoutsEnabled,
+        detailsSubmitted: status.detailsSubmitted,
+        payoutSetupComplete: status.readyForPayouts,
         source: "connect.status",
       });
     }
@@ -55,12 +56,18 @@ export async function GET(req: Request) {
     return NextResponse.json({
       hasAccount: true,
       accountId: connectAccount.stripe_account_id,
-      status: account.charges_enabled && account.payouts_enabled ? "active" : "pending",
-      chargesEnabled: account.charges_enabled,
-      payoutsEnabled: account.payouts_enabled,
-      detailsSubmitted: account.details_submitted,
-      country: account.country,
-      currency: account.default_currency,
+      status: status.readyForPayouts ? "active" : "pending",
+      readyForPayouts: status.readyForPayouts,
+      readyToProcessPayments: status.readyToProcessPayments,
+      chargesEnabled: status.chargesEnabled,
+      payoutsEnabled: status.payoutsEnabled,
+      detailsSubmitted: status.detailsSubmitted,
+      transfersCapabilityStatus: status.transfersCapabilityStatus,
+      requirementsCurrentlyDue: status.requirementsCurrentlyDue,
+      requirementsPastDue: status.requirementsPastDue,
+      requirementsEventuallyDue: status.requirementsEventuallyDue,
+      requirementsDisabledReason: status.requirementsDisabledReason,
+      country: status.country,
     });
   } catch (error: any) {
     console.error("[STRIPE CONNECT] Status check error:", error);

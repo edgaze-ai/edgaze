@@ -72,9 +72,12 @@ function getPreviewText(specId: string, spec: NodeSpec): string {
 export function NodePreviewCard({
   spec,
   onDragStart,
+  compact,
 }: {
   spec: NodeSpec;
   onDragStart: (e: React.DragEvent) => void;
+  /** Narrow block library: slightly smaller preview width. */
+  compact?: boolean;
 }) {
   const registry = getNodeRegistryEntry(spec.id);
   const nodeColor = registry?.color ?? "#8b5cf6";
@@ -82,8 +85,9 @@ export function NodePreviewCard({
   const iconComp = ICON_MAP[registry?.icon ?? "MessageSquare"] ?? MessageSquare;
   const brandIcon = brandIconPathForSpec(spec.id);
 
+  const previewW = compact ? 168 : 200;
   const cardWrapperStyle: React.CSSProperties = {
-    width: 200,
+    width: previewW,
     overflow: "hidden",
     flexShrink: 0,
   };

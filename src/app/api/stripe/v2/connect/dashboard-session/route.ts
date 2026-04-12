@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createDashboardAccountSession } from "@/lib/stripe/connect-v2";
+import { createConnectDashboardAccountSession } from "@/lib/stripe/connect-marketplace";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -38,7 +38,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Connect account not active yet" }, { status: 400 });
     }
 
-    const { clientSecret } = await createDashboardAccountSession(connectAccount.stripe_account_id);
+    const { clientSecret } = await createConnectDashboardAccountSession(
+      connectAccount.stripe_account_id,
+    );
 
     return NextResponse.json({ clientSecret });
   } catch (error: unknown) {

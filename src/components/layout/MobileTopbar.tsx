@@ -41,6 +41,8 @@ function Avatar({
 
 export default function MobileTopbar() {
   const pathname = usePathname() || "";
+  /** Builder renders its own chrome; never stack the global header here (saves vertical space). */
+  const isBuilderRoute = pathname.startsWith("/builder");
   const isAdmin = pathname.startsWith("/admin");
   const { toggleMobile } = useSidebar();
   const { userId, workspaceUserId, profile, openSignIn, signOut } = useAuth();
@@ -61,6 +63,8 @@ export default function MobileTopbar() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, []);
+
+  if (isBuilderRoute) return null;
 
   return (
     <div

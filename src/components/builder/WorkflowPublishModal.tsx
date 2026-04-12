@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -284,14 +285,14 @@ function RailButton({
     <button
       onClick={onClick}
       className={cx(
-        "w-full text-left rounded-2xl border p-4 transition-colors",
+        "w-full text-left rounded-xl border p-3 transition-colors",
         active
           ? "border-white/14 bg-white/[0.06]"
           : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]",
       )}
     >
-      <div className="text-[12px] font-semibold text-white/90">{title}</div>
-      <div className="mt-1 text-[11px] text-white/45">{desc}</div>
+      <div className="text-[11px] font-semibold text-white/90">{title}</div>
+      <div className="mt-0.5 text-[10px] text-white/45">{desc}</div>
     </button>
   );
 }
@@ -826,30 +827,30 @@ export default function WorkflowPublishModal({
   const handle = postingAs?.handle || owner?.handle || "you";
   const shownCode = normalizeEdgazeCode(edgazeCode);
 
-  return (
-    <div className="fixed inset-0 z-[90]">
+  const shell = (
+    <div className="fixed inset-0 z-[200]">
       <div className="absolute inset-0 bg-black/80" onClick={published ? undefined : closeNow} />
 
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="relative w-[min(1180px,96vw)] h-[min(780px,92vh)] rounded-3xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] overflow-hidden">
+      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
+        <div className="relative w-[min(900px,96vw)] h-[min(620px,88vh)] max-h-[92vh] rounded-2xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] overflow-hidden">
           <ConfettiSides active={confetti} />
 
           {/* Header */}
-          <div className="h-[76px] px-6 flex items-center justify-between border-b border-white/10">
-            <div className="flex items-center gap-3">
+          <div className="h-[56px] px-4 sm:px-5 flex items-center justify-between border-b border-white/10">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <Image
                 src="/brand/edgaze-mark.png"
                 alt="Edgaze"
-                width={32}
-                height={32}
-                className="h-8 w-8"
+                width={28}
+                height={28}
+                className="h-7 w-7 shrink-0"
                 priority
               />
-              <div>
-                <div className="text-[16px] font-semibold text-white leading-tight">
+              <div className="min-w-0">
+                <div className="text-[13px] sm:text-[14px] font-semibold text-white leading-tight truncate">
                   {published ? "Published" : editId ? "Edit workflow" : "Publish workflow"}
                 </div>
-                <div className="text-[11px] text-white/45">
+                <div className="text-[10px] sm:text-[11px] text-white/45 truncate">
                   Posting as {postingAs?.name || owner?.name || "…"} @{handle}
                 </div>
               </div>
@@ -861,7 +862,7 @@ export default function WorkflowPublishModal({
                   onClick={handlePublish}
                   disabled={!canPublish}
                   className={cx(
-                    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold",
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold",
                     "bg-white text-black hover:bg-white/90 transition-colors",
                     !canPublish && "opacity-60 cursor-not-allowed",
                   )}
@@ -897,7 +898,7 @@ export default function WorkflowPublishModal({
                       onClose();
                     }
                   }}
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold bg-white text-black hover:bg-white/90"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold bg-white text-black hover:bg-white/90"
                 >
                   Done
                 </button>
@@ -906,7 +907,7 @@ export default function WorkflowPublishModal({
               <button
                 onClick={published ? () => {} : closeNow}
                 className={cx(
-                  "h-10 w-10 rounded-full border border-white/12 bg-white/5 text-white/85 grid place-items-center",
+                  "h-9 w-9 shrink-0 rounded-full border border-white/12 bg-white/5 text-white/85 grid place-items-center",
                   published ? "opacity-40 cursor-not-allowed" : "hover:bg-white/10",
                 )}
                 aria-label="Close"
@@ -920,7 +921,7 @@ export default function WorkflowPublishModal({
 
           {/* Body */}
           {published ? (
-            <div className="h-[calc(100%-76px)] p-6">
+            <div className="h-[calc(100%-56px)] p-6">
               <div className="h-full rounded-3xl border border-white/10 bg-[radial-gradient(1200px_600px_at_50%_-20%,rgba(34,211,238,0.14),transparent_55%),radial-gradient(900px_500px_at_90%_0%,rgba(232,121,249,0.12),transparent_55%),linear-gradient(180deg,rgba(0,0,0,0.25),rgba(0,0,0,0.55))] p-8 flex flex-col">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-6 w-6 text-white" />
@@ -1025,7 +1026,7 @@ export default function WorkflowPublishModal({
               </div>
             </div>
           ) : (
-            <div className="h-[calc(100%-76px)] grid grid-cols-12 overflow-hidden">
+            <div className="h-[calc(100%-56px)] grid grid-cols-12 overflow-hidden">
               {/* Left rail */}
               <div className="col-span-12 md:col-span-3 border-r border-white/10 p-6 overflow-auto">
                 <div className="text-[12px] font-semibold text-white/85">Publish</div>
@@ -1569,4 +1570,7 @@ export default function WorkflowPublishModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(shell, document.body);
 }

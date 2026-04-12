@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   alreadyUsedNames: string[];
@@ -42,8 +43,8 @@ export default function PlaceholderModal({ alreadyUsedNames, onClose, onConfirm 
     onConfirm(cleaned, question.trim());
   };
 
-  return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 px-4">
+  const shell = (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/75 px-4">
       <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/12 bg-[#050505] shadow-2xl">
         <div className="border-b border-white/10 px-5 py-4">
           <div className="flex items-center justify-between">
@@ -108,4 +109,7 @@ export default function PlaceholderModal({ alreadyUsedNames, onClose, onConfirm 
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(shell, document.body);
 }

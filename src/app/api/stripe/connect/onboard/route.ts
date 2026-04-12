@@ -3,7 +3,11 @@ import { getUserAndClient } from "@/lib/auth/server";
 import { resolveActorContext } from "@/lib/auth/actor-context";
 import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { stripe } from "@/lib/stripe/client";
+import {
+  createExpressAccountLink,
+  createExpressMarketplaceConnectedAccount,
+  getExpressConnectAccountPayoutStatus,
+} from "@/lib/stripe/connect-marketplace";
 import { stripeConfig } from "@/lib/stripe/config";
 
 export const dynamic = "force-dynamic";
@@ -31,13 +35,15 @@ export async function POST(req: Request) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("handle, full_name, email, country")
+      .select("handle, full_name, email")
       .eq("id", user.id)
       .single();
 
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
+
+    const handle = profile.handle ?? `user_${user.id.replace(/-/g, "").slice(0, 12)}`;
 
     const { data: existingAccount } = await supabase
       .from("stripe_connect_accounts")
@@ -50,11 +56,9 @@ export async function POST(req: Request) {
     if (existingAccount) {
       stripeAccountId = existingAccount.stripe_account_id;
 
-      if (
-        existingAccount.account_status === "active" &&
-        existingAccount.charges_enabled &&
-        existingAccount.payouts_enabled
-      ) {
+      const live = await getExpressConnectAccountPayoutStatus(stripeAccountId);
+
+      if (existingAccount.account_status === "active" && live.readyForPayouts) {
         return NextResponse.json({
           success: true,
           accountId: stripeAccountId,
@@ -63,38 +67,10 @@ export async function POST(req: Request) {
         });
       }
     } else {
-      const account = await stripe.accounts.create({
-        type: "express",
-        country: profile.country || "US",
+      const account = await createExpressMarketplaceConnectedAccount({
         email: profile.email,
-        capabilities: {
-          card_payments: { requested: true },
-          transfers: { requested: true },
-        },
-        business_type: "individual",
-        business_profile: {
-          name: profile.handle,
-          product_description: "AI workflows and prompts on Edgaze",
-          url: `${stripeConfig.appUrl}/profile/@${profile.handle}`,
-        },
-        settings: {
-          branding: {
-            icon: `${stripeConfig.appUrl}/edgaze-icon.png`,
-            primary_color: "#22d3ee",
-            secondary_color: "#e879f9",
-          },
-          payouts: {
-            schedule: {
-              interval: "weekly",
-              weekly_anchor: "monday",
-            },
-          },
-        },
-        metadata: {
-          edgaze_user_id: user.id,
-          edgaze_handle: profile.handle,
-          edgaze_profile_url: `${stripeConfig.appUrl}/profile/@${profile.handle}`,
-        },
+        handle,
+        userId: user.id,
       });
 
       stripeAccountId = account.id;
@@ -103,10 +79,10 @@ export async function POST(req: Request) {
         user_id: user.id,
         stripe_account_id: account.id,
         account_status: "pending",
-        charges_enabled: false,
-        payouts_enabled: false,
-        details_submitted: false,
-        country: account.country,
+        charges_enabled: account.charges_enabled ?? false,
+        payouts_enabled: account.payouts_enabled ?? false,
+        details_submitted: account.details_submitted ?? false,
+        country: account.country ?? null,
         currency: account.default_currency || "usd",
       });
 
@@ -116,12 +92,10 @@ export async function POST(req: Request) {
         .eq("id", user.id);
     }
 
-    const accountLink = await stripe.accountLinks.create({
-      account: stripeAccountId,
-      refresh_url: `${stripeConfig.appUrl}/onboarding?refresh=true`,
-      return_url: `${stripeConfig.appUrl}/onboarding/success`,
-      type: "account_onboarding",
-      collect: "eventually_due",
+    const accountLink = await createExpressAccountLink({
+      accountId: stripeAccountId,
+      refreshUrl: `${stripeConfig.appUrl}/onboarding?refresh=true`,
+      returnUrl: `${stripeConfig.appUrl}/onboarding/success`,
     });
 
     return NextResponse.json({

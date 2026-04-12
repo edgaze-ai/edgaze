@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { stripe } from "@/lib/stripe/client";
+import { getExpressConnectAccountPayoutStatus } from "@/lib/stripe/connect-marketplace";
 import { syncCreatorPayoutAccount } from "@/lib/stripe/webhook-processing";
 
 export const dynamic = "force-dynamic";
@@ -30,26 +30,27 @@ export async function GET(req: Request) {
       return NextResponse.redirect(new URL("/onboarding?error=account_not_found", req.url));
     }
 
-    const account = await stripe.accounts.retrieve(connectAccount.stripe_account_id);
+    const status = await getExpressConnectAccountPayoutStatus(connectAccount.stripe_account_id);
 
     await syncCreatorPayoutAccount({
       supabase: admin,
       creatorId: user.id,
       stripeAccountId: connectAccount.stripe_account_id,
-      chargesEnabled: account.charges_enabled,
-      payoutsEnabled: account.payouts_enabled,
-      detailsSubmitted: account.details_submitted,
+      chargesEnabled: status.chargesEnabled,
+      payoutsEnabled: status.payoutsEnabled,
+      detailsSubmitted: status.detailsSubmitted,
+      payoutSetupComplete: status.readyForPayouts,
       source: "connect.callback",
     });
 
     await admin
       .from("stripe_connect_accounts")
       .update({
-        onboarding_completed_at: account.details_submitted ? new Date().toISOString() : null,
+        onboarding_completed_at: status.detailsSubmitted ? new Date().toISOString() : null,
       })
       .eq("user_id", user.id);
 
-    if (account.charges_enabled && account.payouts_enabled) {
+    if (status.readyForPayouts) {
       return NextResponse.redirect(new URL("/onboarding/success", req.url));
     } else {
       return NextResponse.redirect(new URL("/onboarding?status=incomplete", req.url));

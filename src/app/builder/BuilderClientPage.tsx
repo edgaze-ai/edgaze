@@ -198,11 +198,13 @@ function getExecutionOrder(
   return order.length === nodes.length ? order : nodes.map((n) => n.id);
 }
 
-const DESKTOP_MIN_W = 1100;
-const DESKTOP_MIN_H = 680;
+/** Edit mode blocked only on phone-sized viewports; preview still works. */
+const BUILDER_MOBILE_MAX_W = 768;
+/** Below this width, use compact topbar + narrower panels (tablets / small laptops). */
+const FULL_LAYOUT_MIN_W = 1280;
 
 // If you have a left icon-rail sidebar, this keeps the launcher overlay from blocking it.
-const LEFT_RAIL_SAFE_PX = 76;
+const LEFT_RAIL_SAFE_PX = 52;
 
 export default function BuilderPage() {
   const router = useRouter();
@@ -217,7 +219,8 @@ export default function BuilderPage() {
 
   const [mounted, setMounted] = useState(false);
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
-  const isDesktop = viewport.w >= DESKTOP_MIN_W && viewport.h >= DESKTOP_MIN_H;
+  const isMobileBlocked = mounted && viewport.w > 0 && viewport.w < BUILDER_MOBILE_MAX_W;
+  const isCompactLayout = viewport.w >= BUILDER_MOBILE_MAX_W && viewport.w < FULL_LAYOUT_MIN_W;
 
   const previewParam =
     searchParams?.get("preview") === "1" || searchParams?.get("mode") === "preview";
@@ -352,7 +355,8 @@ export default function BuilderPage() {
     if (!mounted) return;
     safeTrack("Builder Viewed", {
       surface: "builder",
-      isDesktop,
+      layout: isCompactLayout ? "compact" : "default",
+      isMobileBlocked,
       previewParam,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -397,11 +401,13 @@ export default function BuilderPage() {
       const innerRight = innerRect.right - rootRect.left;
       const headerBottom = headerRect.bottom - rootRect.top;
 
-      const gapBelowTopbar = 5;
+      const rootW = rootRect.width;
+      const compactPanels = rootW >= BUILDER_MOBILE_MAX_W && rootW < FULL_LAYOUT_MIN_W;
+      const gapBelowTopbar = compactPanels ? 4 : 5;
       const panelTopY = Math.round(headerBottom + gapBelowTopbar);
 
-      const blocksW = 340;
-      const inspectorW = 320;
+      const blocksW = compactPanels ? 232 : 340;
+      const inspectorW = compactPanels ? 232 : 320;
 
       const edgeInset = 0;
       const blocksX = Math.round(innerLeft + edgeInset);
@@ -410,7 +416,6 @@ export default function BuilderPage() {
       const safeLeft = 12;
       const safeRight = 12;
 
-      const rootW = rootRect.width;
       const rootH = rootRect.height;
 
       const blocksXClamped = clamp(blocksX, safeLeft, rootW - blocksW - safeRight);
@@ -499,7 +504,7 @@ export default function BuilderPage() {
       window.removeEventListener("resize", onWinResize);
       ro.disconnect();
     };
-  }, [mounted]);
+  }, [mounted, viewport.w]);
 
   // stats polling (safe + cheap)
   useEffect(() => {
@@ -1359,7 +1364,7 @@ export default function BuilderPage() {
     [requireAuth, userId, supabase, loadGraphAndResetHistory, useDraftApi, effectiveWorkspaceId],
   );
 
-  // Auto-open from URL param once auth is ready (preview works on mobile, edit is desktop-only).
+  // Auto-open from URL param once auth is ready (preview works on phones; edit skips phones).
   // Edit deep-links require the published workflow owner; others are forced back to preview.
   useEffect(() => {
     if (!mounted) return;
@@ -1368,8 +1373,7 @@ export default function BuilderPage() {
     const wid = searchParams?.get("workflowId");
     if (!wid) return;
 
-    // For edit mode, require desktop. Preview mode works on mobile.
-    if (!previewParam && !isDesktop) return;
+    if (!previewParam && isMobileBlocked) return;
 
     let cancelled = false;
 
@@ -1438,7 +1442,7 @@ export default function BuilderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     mounted,
-    isDesktop,
+    isMobileBlocked,
     authReady,
     previewParam,
     userId,
@@ -2407,14 +2411,14 @@ export default function BuilderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only auto-run when modal opens and inputs empty
   }, [runModalOpen, runState?.phase, runState?.status, runState?.inputs?.length]);
 
-  // If user is on small viewport, keep builder unavailable (except in preview mode).
+  // Phones: don’t keep run/launcher state when edit isn’t usable.
   useEffect(() => {
     if (!mounted) return;
-    if (!isDesktop && !isPreview) {
+    if (isMobileBlocked && !isPreview) {
       setRunning(false);
       setShowLauncher(false);
     }
-  }, [mounted, isDesktop, isPreview]);
+  }, [mounted, isMobileBlocked, isPreview]);
 
   const publishDraftForModal =
     !isPreview &&
@@ -2449,6 +2453,7 @@ export default function BuilderPage() {
         <ReactFlowCanvas
           ref={beRef}
           mode={mode}
+          compact={isCompactLayout}
           onGraphChange={onGraphChange}
           onSelectionChange={onSelectionChange}
         />
@@ -2459,7 +2464,7 @@ export default function BuilderPage() {
         ref={headerRef}
         className={cx(
           "absolute top-0 left-0 right-0 z-20 transition-all duration-200",
-          isPreview ? "px-3 pt-3 md:px-5 md:pt-4" : "px-5 pt-4",
+          isPreview ? "px-3 pt-3 md:px-5 md:pt-4" : isCompactLayout ? "px-2.5 pt-2" : "px-5 pt-4",
         )}
       >
         {/* Preparing Toast Notification */}
@@ -2576,36 +2581,59 @@ export default function BuilderPage() {
             </div>
           </div>
         ) : (
-          /* Edit Mode Topbar (existing) */
+          /* Edit Mode Topbar */
           <div
             ref={topbarInnerRef}
-            className="w-full rounded-2xl px-4 py-3 flex items-center justify-between gap-4 min-h-[56px] overflow-x-auto transition-all duration-200 edg-builder-glass relative"
+            className={cx(
+              "w-full rounded-xl md:rounded-2xl flex items-center justify-between overflow-x-auto transition-all duration-200 edg-builder-glass relative",
+              isCompactLayout ? "gap-2 px-2 py-1.5 min-h-[40px]" : "gap-4 px-4 py-3 min-h-[56px]",
+            )}
           >
             <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-[0.55]" />
 
-            <div className="flex items-center gap-3 min-w-0">
+            <div className={cx("flex items-center min-w-0", isCompactLayout ? "gap-2" : "gap-3")}>
               <div className="shrink-0">
                 <ProfileAvatar
                   name={profile?.full_name}
                   avatarUrl={profile?.avatar_url}
-                  size={36}
+                  size={isCompactLayout ? 28 : 36}
                   handle={profile?.handle}
                   showFallback
                 />
               </div>
 
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <div className="text-[10px] uppercase tracking-widest text-white/50">
+                <div
+                  className={cx(
+                    "flex items-center flex-wrap",
+                    isCompactLayout ? "gap-1.5" : "gap-2",
+                  )}
+                >
+                  <div
+                    className={cx(
+                      "uppercase tracking-widest text-white/50",
+                      isCompactLayout ? "text-[8px]" : "text-[10px]",
+                    )}
+                  >
                     Workflow
                   </div>
 
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-white/70">
+                  <span
+                    className={cx(
+                      "rounded-full border border-white/10 bg-white/5 font-semibold text-white/70",
+                      isCompactLayout ? "px-1.5 py-0.5 text-[8px]" : "px-2 py-0.5 text-[10px]",
+                    )}
+                  >
                     v1 Alpha preview
                   </span>
 
                   {activeDraftId && (
-                    <span className="text-[10px] text-white/40">
+                    <span
+                      className={cx(
+                        "text-white/40",
+                        isCompactLayout ? "text-[8px]" : "text-[10px]",
+                      )}
+                    >
                       {saveUi.status === "saving"
                         ? "Saving…"
                         : saveUi.lastSavedAt
@@ -2615,10 +2643,18 @@ export default function BuilderPage() {
                   )}
                 </div>
 
-                <div className="mt-1 flex items-end gap-2 min-w-0">
+                <div
+                  className={cx(
+                    "flex items-end min-w-0",
+                    isCompactLayout ? "mt-0.5 gap-1.5" : "mt-1 gap-2",
+                  )}
+                >
                   {!editingName ? (
                     <button
-                      className="text-[18px] font-semibold text-white truncate hover:text-white/90 transition-colors"
+                      className={cx(
+                        "font-semibold text-white truncate hover:text-white/90 transition-colors text-left",
+                        isCompactLayout ? "text-sm max-w-[min(200px,28vw)]" : "text-[18px]",
+                      )}
                       onClick={() => setEditingName(true)}
                       title="Rename"
                     >
@@ -2626,7 +2662,12 @@ export default function BuilderPage() {
                     </button>
                   ) : (
                     <input
-                      className="w-[min(420px,50vw)] rounded-xl bg-black/40 border border-white/10 px-3 py-1.5 text-[14px] text-white outline-none"
+                      className={cx(
+                        "rounded-lg bg-black/40 border border-white/10 text-white outline-none",
+                        isCompactLayout
+                          ? "w-[min(320px,45vw)] px-2 py-1 text-[12px]"
+                          : "w-[min(420px,50vw)] px-3 py-1.5 text-[14px]",
+                      )}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       onBlur={() => setEditingName(false)}
@@ -2639,33 +2680,57 @@ export default function BuilderPage() {
                   )}
 
                   {activeDraftId ? (
-                    <span className="text-[11px] text-white/45">
+                    <span
+                      className={cx(
+                        "text-white/45",
+                        isCompactLayout ? "text-[9px]" : "text-[11px]",
+                      )}
+                    >
                       {stats.nodes} nodes · {stats.edges} edges
                     </span>
                   ) : (
-                    <span className="text-[11px] text-white/45">No workflow open</span>
+                    <span
+                      className={cx(
+                        "text-white/45",
+                        isCompactLayout ? "text-[9px]" : "text-[11px]",
+                      )}
+                    >
+                      No workflow open
+                    </span>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div
+              className={cx("flex items-center flex-shrink-0", isCompactLayout ? "gap-1" : "gap-2")}
+            >
               <Link
                 href={getDocsLink("/docs/builder/workflow-studio")}
-                className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
+                className={cx(
+                  "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
+                  isCompactLayout
+                    ? "h-7 w-[4.5rem] px-2 text-[11px]"
+                    : "h-9 w-[6rem] px-3 text-base",
+                )}
                 title="Documentation"
               >
-                <IconDocs size={18} />
+                <IconDocs size={isCompactLayout ? 15 : 18} />
                 <span className="hidden truncate sm:inline">Docs</span>
               </Link>
 
               <button
                 type="button"
                 onClick={openLauncher}
-                className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
+                className={cx(
+                  "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
+                  isCompactLayout
+                    ? "h-7 w-[4.5rem] px-2 text-[11px]"
+                    : "h-9 w-[6rem] px-3 text-base",
+                )}
                 title="Home"
               >
-                <IconPanels size={18} />
+                <IconPanels size={isCompactLayout ? 15 : 18} />
                 <span className="hidden truncate sm:inline">Home</span>
               </button>
 
@@ -2673,7 +2738,10 @@ export default function BuilderPage() {
                 onClick={runWorkflow}
                 disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
                 className={cx(
-                  "edg-builder-btn-run inline-flex h-9 w-[6rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none text-white/95",
+                  "edg-builder-btn-run inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none text-white/95",
+                  isCompactLayout
+                    ? "h-7 w-[4.5rem] px-2 text-[11px]"
+                    : "h-9 w-[6rem] px-3 text-base",
                   (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) &&
                     "opacity-60 cursor-not-allowed",
                 )}
@@ -2683,7 +2751,7 @@ export default function BuilderPage() {
                     : "Run Workflow"
                 }
               >
-                <IconRun size={20} tone="brand" className="text-white/95" />
+                <IconRun size={isCompactLayout ? 16 : 20} tone="brand" className="text-white/95" />
                 <span className="hidden truncate sm:inline">Run</span>
               </button>
 
@@ -2691,68 +2759,89 @@ export default function BuilderPage() {
                 onClick={publishWorkflow}
                 disabled={!activeDraftId}
                 className={cx(
-                  "edg-builder-btn edg-builder-sheen inline-flex h-9 w-[7.25rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none",
+                  "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
+                  isCompactLayout
+                    ? "h-7 min-w-[5.25rem] px-2 text-[11px]"
+                    : "h-9 w-[7.25rem] px-3 text-base",
                   !activeDraftId && "opacity-60 cursor-not-allowed",
                 )}
                 title="Publish"
               >
-                <IconRocket size={18} />
+                <IconRocket size={isCompactLayout ? 15 : 18} />
                 <span className="hidden whitespace-nowrap sm:inline">Publish</span>
               </button>
 
               <button
                 onClick={refreshWorkflows}
-                className="edg-builder-btn edg-builder-sheen inline-flex h-9 w-[7.5rem] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-base leading-none"
+                className={cx(
+                  "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
+                  isCompactLayout
+                    ? "h-7 min-w-[5.25rem] px-2 text-[11px]"
+                    : "h-9 w-[7.5rem] px-3 text-base",
+                )}
                 title="Refresh"
               >
                 <IconRefresh
-                  size={18}
+                  size={isCompactLayout ? 15 : 18}
                   className={cx("text-white/85", wfLoading && "animate-spin")}
                 />
                 <span className="hidden whitespace-nowrap sm:inline">Refresh</span>
               </button>
 
               {/* Canvas controls: Undo, Redo, Zoom, Grid, Lock */}
-              <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+              <div
+                className={cx(
+                  "flex items-center border-l border-white/10",
+                  isCompactLayout ? "gap-0.5 pl-1.5" : "gap-1 pl-2",
+                )}
+              >
                 <button
                   onClick={undo}
                   disabled={!activeDraftId || undoStack.length === 0}
                   className={cx(
-                    "edg-builder-btn h-9 w-9 rounded-full grid place-items-center",
+                    "edg-builder-btn rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
                     activeDraftId && undoStack.length > 0
                       ? "text-white/85"
                       : "text-white/40 cursor-not-allowed",
                   )}
                   title="Undo (Ctrl+Z)"
                 >
-                  <IconUndo size={18} className="text-white/85" />
+                  <IconUndo size={isCompactLayout ? 15 : 18} className="text-white/85" />
                 </button>
                 <button
                   onClick={redo}
                   disabled={!activeDraftId || redoStack.length === 0}
                   className={cx(
-                    "edg-builder-btn h-9 w-9 rounded-full grid place-items-center",
+                    "edg-builder-btn rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
                     activeDraftId && redoStack.length > 0
                       ? "text-white/85"
                       : "text-white/40 cursor-not-allowed",
                   )}
                   title="Redo (Ctrl+Shift+Z)"
                 >
-                  <IconRedo size={18} className="text-white/85" />
+                  <IconRedo size={isCompactLayout ? 15 : 18} className="text-white/85" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomOut?.()}
                   title="Zoom out (−)"
-                  className="edg-builder-btn h-9 w-9 rounded-full grid place-items-center"
+                  className={cx(
+                    "edg-builder-btn rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                  )}
                 >
-                  <IconZoomOut size={18} className="text-white/80" />
+                  <IconZoomOut size={isCompactLayout ? 15 : 18} className="text-white/80" />
                 </button>
                 <button
                   onClick={() => beRef.current?.zoomIn?.()}
                   title="Zoom in (+)"
-                  className="edg-builder-btn h-9 w-9 rounded-full grid place-items-center"
+                  className={cx(
+                    "edg-builder-btn rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                  )}
                 >
-                  <IconZoomIn size={18} className="text-white/80" />
+                  <IconZoomIn size={isCompactLayout ? 15 : 18} className="text-white/80" />
                 </button>
                 <button
                   onClick={() => {
@@ -2763,12 +2852,16 @@ export default function BuilderPage() {
                   }}
                   title={`Toggle grid (G) – ${showGrid ? "On" : "Off"}`}
                   className={cx(
-                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
                     showGrid ? "text-white" : "text-white/60",
                   )}
                   data-active={showGrid ? "true" : "false"}
                 >
-                  <IconGrid size={18} className={showGrid ? "text-white/90" : "text-white/70"} />
+                  <IconGrid
+                    size={isCompactLayout ? 15 : 18}
+                    className={showGrid ? "text-white/90" : "text-white/70"}
+                  />
                 </button>
                 <button
                   onClick={() => {
@@ -2779,15 +2872,16 @@ export default function BuilderPage() {
                   }}
                   title={`Toggle lock (L) – ${locked ? "Locked" : "Free"}`}
                   className={cx(
-                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
                     locked ? "text-white" : "text-white/70",
                   )}
                   data-active={locked ? "true" : "false"}
                 >
                   {locked ? (
-                    <IconLock size={18} className="text-white/85" />
+                    <IconLock size={isCompactLayout ? 15 : 18} className="text-white/85" />
                   ) : (
-                    <IconUnlock size={18} className="text-white/75" />
+                    <IconUnlock size={isCompactLayout ? 15 : 18} className="text-white/75" />
                   )}
                 </button>
                 <button
@@ -2799,23 +2893,33 @@ export default function BuilderPage() {
                   }}
                   title="Toggle fullscreen (F)"
                   className={cx(
-                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
                     isFullscreen ? "text-white" : "text-white/70",
                   )}
                   data-active={isFullscreen ? "true" : "false"}
                 >
                   {isFullscreen ? (
-                    <IconExitFullscreen size={18} className="text-white/80" />
+                    <IconExitFullscreen
+                      size={isCompactLayout ? 15 : 18}
+                      className="text-white/80"
+                    />
                   ) : (
-                    <IconFullscreen size={18} className="text-white/80" />
+                    <IconFullscreen size={isCompactLayout ? 15 : 18} className="text-white/80" />
                   )}
                 </button>
               </div>
 
-              <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+              <div
+                className={cx(
+                  "flex items-center border-l border-white/10",
+                  isCompactLayout ? "gap-0.5 pl-1.5" : "gap-1 pl-2",
+                )}
+              >
                 <button
                   className={cx(
-                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
                     windows.blocks.visible && "text-white",
                     !windows.blocks.visible && "text-white/70",
                   )}
@@ -2823,11 +2927,12 @@ export default function BuilderPage() {
                   onClick={() => toggleWindow("blocks")}
                   data-active={windows.blocks.visible ? "true" : "false"}
                 >
-                  <IconPanels size={18} className="text-white/80" />
+                  <IconPanels size={isCompactLayout ? 15 : 18} className="text-white/80" />
                 </button>
                 <button
                   className={cx(
-                    "edg-builder-btn edg-builder-accent-ring h-9 w-9 rounded-full grid place-items-center",
+                    "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
                     windows.inspector.visible && "text-white",
                     !windows.inspector.visible && "text-white/70",
                   )}
@@ -2835,7 +2940,7 @@ export default function BuilderPage() {
                   onClick={() => toggleWindow("inspector")}
                   data-active={windows.inspector.visible ? "true" : "false"}
                 >
-                  <IconInspector size={18} className="text-white/80" />
+                  <IconInspector size={isCompactLayout ? 15 : 18} className="text-white/80" />
                 </button>
               </div>
             </div>
@@ -2849,6 +2954,7 @@ export default function BuilderPage() {
         {!isPreview && windows.blocks.visible && (
           <FloatingWindow
             title="Blocks"
+            compact={isCompactLayout}
             state={windows.blocks}
             onMove={startDrag("blocks", "move")}
             onMinimize={() => minimizeWindow("blocks")}
@@ -2863,6 +2969,7 @@ export default function BuilderPage() {
             {!windows.blocks.minimized && (
               <div className="h-full">
                 <BlockLibrary
+                  compact={isCompactLayout}
                   onAdd={(specId: string) => {
                     emit("builder:addNode", { specId });
                   }}
@@ -2877,6 +2984,7 @@ export default function BuilderPage() {
         {!isPreview && windows.inspector.visible && (
           <FloatingWindow
             title="Inspector"
+            compact={isCompactLayout}
             state={windows.inspector}
             onMove={startDrag("inspector", "move")}
             onMinimize={() => minimizeWindow("inspector")}
@@ -2893,6 +3001,7 @@ export default function BuilderPage() {
             {!windows.inspector.minimized && (
               <div className="h-full">
                 <InspectorPanel
+                  compact={isCompactLayout}
                   selection={selection}
                   fieldHint={inspectorFieldHint}
                   workflowId={activeDraftId ?? undefined}
@@ -2979,16 +3088,16 @@ export default function BuilderPage() {
         />
       )}
 
-      {/* Desktop-only gating (only for edit mode, preview works on mobile) */}
-      {!isDesktop && !isPreview && !previewParam && mounted && (
+      {/* Phone-only gating for edit (preview still works) */}
+      {isMobileBlocked && !isPreview && !previewParam && mounted && (
         <div className="absolute inset-0 z-[80]">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
           <div className="absolute inset-0 flex items-center justify-center p-6">
             <div className="w-[min(560px,92vw)] rounded-3xl border border-white/12 bg-[#0c0c0c] shadow-[0_30px_140px_rgba(0,0,0,0.75)] p-6">
-              <div className="text-white text-lg font-semibold">Builder is desktop-only</div>
+              <div className="text-white text-lg font-semibold">Builder needs a wider screen</div>
               <div className="mt-2 text-sm text-white/60 leading-relaxed">
-                Open the workflow builder on a larger screen (min {DESKTOP_MIN_W}px wide and{" "}
-                {DESKTOP_MIN_H}px tall).
+                Editing workflows needs at least {BUILDER_MOBILE_MAX_W}px width. Preview still works
+                on this device.
               </div>
 
               <div className="mt-5 flex gap-2">
@@ -3011,7 +3120,7 @@ export default function BuilderPage() {
       )}
 
       {/* Confined Workflows launcher overlay (disabled in preview) */}
-      {!isPreview && showLauncher && isDesktop && (
+      {!isPreview && showLauncher && !isMobileBlocked && (
         <LauncherOverlay
           leftSafe={LEFT_RAIL_SAFE_PX}
           busy={wfLoading || creating}
@@ -3411,6 +3520,7 @@ function GraphPreviewSquare({ graph }: { graph: any }) {
 
 function FloatingWindow({
   title,
+  compact,
   state,
   children,
   onMove,
@@ -3424,6 +3534,7 @@ function FloatingWindow({
   onResizeN,
 }: {
   title: string;
+  compact?: boolean;
   state: WindowState;
   children: React.ReactNode;
   onMove: (e: React.MouseEvent) => void;
@@ -3443,36 +3554,57 @@ function FloatingWindow({
         left: state.x,
         top: state.y,
         width: state.width,
-        height: state.minimized ? 56 : state.height,
+        height: state.minimized ? (compact ? 48 : 56) : state.height,
       }}
     >
-      <div className="h-full rounded-2xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] overflow-hidden">
+      <div className="h-full rounded-xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] overflow-hidden md:rounded-2xl">
         <div
-          className="h-14 px-4 flex items-center justify-between border-b border-white/10 bg-black/20 cursor-grab active:cursor-grabbing"
+          className={cx(
+            "flex items-center justify-between border-b border-white/10 bg-black/20 cursor-grab active:cursor-grabbing",
+            compact ? "h-11 px-2.5" : "h-14 px-4",
+          )}
           onMouseDown={onMove}
         >
-          <div className="text-sm font-semibold text-white/90">{title}</div>
-          <div className="flex items-center gap-2">
+          <div className={cx("font-semibold text-white/90", compact ? "text-xs" : "text-sm")}>
+            {title}
+          </div>
+          <div className={cx("flex items-center", compact ? "gap-1" : "gap-2")}>
             <button
-              className="h-8 w-8 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/80 transition-colors"
+              className={cx(
+                "rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/80 transition-colors",
+                compact ? "h-7 w-7" : "h-8 w-8",
+              )}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={onMinimize}
               title="Minimize"
             >
-              <span className="block text-center leading-[28px]">–</span>
+              <span
+                className={cx("block text-center", compact ? "leading-[26px]" : "leading-[28px]")}
+              >
+                –
+              </span>
             </button>
             <button
-              className="h-8 w-8 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/80 transition-colors"
+              className={cx(
+                "rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/80 transition-colors",
+                compact ? "h-7 w-7" : "h-8 w-8",
+              )}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={onClose}
               title="Close"
             >
-              <span className="block text-center leading-[28px]">×</span>
+              <span
+                className={cx("block text-center", compact ? "leading-[26px]" : "leading-[28px]")}
+              >
+                ×
+              </span>
             </button>
           </div>
         </div>
 
-        {!state.minimized && <div className="h-[calc(100%-56px)]">{children}</div>}
+        {!state.minimized && (
+          <div className={compact ? "h-[calc(100%-44px)]" : "h-[calc(100%-56px)]"}>{children}</div>
+        )}
       </div>
 
       {!state.minimized && (

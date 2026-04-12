@@ -228,8 +228,8 @@ function MiniGraphPreview({ graph }: { graph?: any }) {
   });
 
   return (
-    <div className="h-[44px] w-[64px] overflow-hidden rounded-xl border border-gray-700/40 bg-black/40 backdrop-blur-sm">
-      <svg viewBox="0 0 64 44" className="h-full w-full">
+    <div className="h-[44px] w-[52px] overflow-hidden rounded-xl border border-gray-700/40 bg-black/40 backdrop-blur-sm">
+      <svg viewBox="0 0 64 44" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="edg" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0" stopColor="rgba(34,211,238,0.9)" />

@@ -29,6 +29,12 @@ type AccountSyncInput = {
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
+  /**
+   * When set, this is the authoritative “creator can receive marketplace payouts” flag.
+   * Marketplace creators do not charge buyers on the connected account (`charges_enabled` is
+   * often false); use payout / transfers readiness instead of charges_enabled && payouts_enabled.
+   */
+  payoutSetupComplete?: boolean;
   source: string;
 };
 
@@ -67,9 +73,13 @@ export async function syncCreatorPayoutAccount({
   chargesEnabled,
   payoutsEnabled,
   detailsSubmitted,
+  payoutSetupComplete,
   source,
 }: AccountSyncInput) {
-  const isActive = chargesEnabled && payoutsEnabled;
+  const isActive =
+    payoutSetupComplete !== undefined
+      ? payoutSetupComplete
+      : Boolean(payoutsEnabled && detailsSubmitted);
   const now = new Date().toISOString();
 
   await supabase
@@ -634,13 +644,22 @@ async function handleAccountUpdated(account: Stripe.Account, supabase: AdminSupa
   const userId = connectRow?.user_id ?? account.metadata?.edgaze_user_id;
   if (!userId) return;
 
+  const transfersActive = account.capabilities?.transfers === "active";
+  const payoutSetupComplete = Boolean(
+    account.payouts_enabled &&
+    account.details_submitted &&
+    transfersActive &&
+    !account.requirements?.disabled_reason,
+  );
+
   await syncCreatorPayoutAccount({
     supabase,
     creatorId: userId,
     stripeAccountId: account.id,
-    chargesEnabled: account.charges_enabled,
-    payoutsEnabled: account.payouts_enabled,
-    detailsSubmitted: account.details_submitted,
+    chargesEnabled: account.charges_enabled ?? false,
+    payoutsEnabled: account.payouts_enabled ?? false,
+    detailsSubmitted: account.details_submitted ?? false,
+    payoutSetupComplete,
     source: "account.updated",
   });
 }

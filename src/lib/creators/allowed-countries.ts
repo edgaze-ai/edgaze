@@ -1,6 +1,7 @@
 /**
- * Allowed countries for Stripe Connect payout onboarding.
- * Only these countries (ticked in Stripe dashboard) can be selected.
+ * Product-level list of regions where we surface creator payout signup (e.g. settings, marketing).
+ * Stripe Connect country availability is configured in the Stripe Dashboard; we do not pass this
+ * into Express account creation so onboarding can collect country.
  * ISO 3166-1 alpha-2 codes.
  */
 export const ALLOWED_PAYOUT_COUNTRIES = [
@@ -21,6 +22,7 @@ export const ALLOWED_PAYOUT_COUNTRIES = [
   { code: "IL", name: "Israel" },
   { code: "IT", name: "Italy" },
   { code: "JP", name: "Japan" },
+  { code: "KE", name: "Kenya" },
   { code: "KW", name: "Kuwait" },
   { code: "MY", name: "Malaysia" },
   { code: "MX", name: "Mexico" },

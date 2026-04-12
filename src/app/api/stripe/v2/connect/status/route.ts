@@ -1,15 +1,12 @@
 /**
- * V2 Connect Status - Get account status from Stripe API directly
- *
- * Per spec: Always get account status from API (do not trust DB for status).
- * Returns onboarding completion and payment capability status.
+ * Connect status — Express marketplace payout readiness (live Stripe API).
  */
 
 import { NextResponse } from "next/server";
 import { getUserAndClient } from "@/lib/auth/server";
 import { resolveActorContext } from "@/lib/auth/actor-context";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getV2AccountStatus } from "@/lib/stripe/connect-v2";
+import { getExpressConnectAccountPayoutStatus } from "@/lib/stripe/connect-marketplace";
 import { syncCreatorPayoutAccount } from "@/lib/stripe/webhook-processing";
 
 export const dynamic = "force-dynamic";
@@ -38,29 +35,37 @@ export async function GET(req: Request) {
       });
     }
 
-    const status = await getV2AccountStatus(connectAccount.stripe_account_id);
-    const isActive = status.readyToProcessPayments && status.onboardingComplete;
+    const status = await getExpressConnectAccountPayoutStatus(connectAccount.stripe_account_id);
 
     await syncCreatorPayoutAccount({
       supabase: admin,
       creatorId,
       stripeAccountId: connectAccount.stripe_account_id,
-      chargesEnabled: status.readyToProcessPayments,
-      payoutsEnabled: isActive,
-      detailsSubmitted: status.onboardingComplete,
+      chargesEnabled: status.chargesEnabled,
+      payoutsEnabled: status.payoutsEnabled,
+      detailsSubmitted: status.detailsSubmitted,
+      payoutSetupComplete: status.readyForPayouts,
       source: "v2.status",
     });
 
     return NextResponse.json({
       hasAccount: true,
       accountId: status.accountId,
-      status: isActive ? "active" : "pending",
+      country: status.country,
+      status: status.readyForPayouts ? "active" : "pending",
+      readyForPayouts: status.readyForPayouts,
       readyToProcessPayments: status.readyToProcessPayments,
-      onboardingComplete: status.onboardingComplete,
-      requirementsStatus: status.requirementsStatus,
+      chargesEnabled: status.chargesEnabled,
+      payoutsEnabled: status.payoutsEnabled,
+      detailsSubmitted: status.detailsSubmitted,
+      transfersCapabilityStatus: status.transfersCapabilityStatus,
+      requirementsCurrentlyDue: status.requirementsCurrentlyDue,
+      requirementsPastDue: status.requirementsPastDue,
+      requirementsEventuallyDue: status.requirementsEventuallyDue,
+      requirementsDisabledReason: status.requirementsDisabledReason,
     });
   } catch (error: any) {
-    console.error("[STRIPE V2 CONNECT] Status error:", error);
+    console.error("[STRIPE CONNECT] Status error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to check account status" },
       { status: 500 },

@@ -849,12 +849,14 @@ const FIELD_HINT_LABELS: Record<string, string> = {
 };
 
 export default function InspectorPanel({
+  compact,
   selection,
   fieldHint,
   workflowId,
   onUpdate,
   getLatestGraph,
 }: {
+  compact?: boolean;
   selection?: Selection; // <-- keep optional + foolproof
   fieldHint?: string | null;
   workflowId?: string;
@@ -916,11 +918,13 @@ export default function InspectorPanel({
 
   return (
     <div className="h-full w-full min-w-0 text-white flex flex-col">
-      <div className="px-4 pt-4 pb-2 shrink-0">
+      <div className={`shrink-0 ${compact ? "px-3 pt-3 pb-1.5" : "px-4 pt-4 pb-2"}`}>
         <div className="relative flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
           <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-50" />
           <Eye size={16} className="text-white/60" />
-          <span className="text-[12px] font-semibold tracking-[0.02em] text-white/92">
+          <span
+            className={`font-semibold tracking-[0.02em] text-white/92 ${compact ? "text-[11px]" : "text-[12px]"}`}
+          >
             Inspector
           </span>
         </div>
@@ -957,7 +961,9 @@ export default function InspectorPanel({
       </div>
 
       {/* Scroll area (this fixes the “scrolling not working inside inspector” bug) */}
-      <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden px-4 pb-4 overscroll-contain">
+      <div
+        className={`flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain ${compact ? "px-3 pb-3" : "px-4 pb-4"}`}
+      >
         {multiSelected && (
           <div className="pt-6 text-center">
             <div className="mx-auto h-12 w-12 rounded-full bg-white/[0.04] border border-white/[0.06] grid place-items-center">

@@ -36,6 +36,7 @@ function formatDate(value: string | null | undefined) {
 type ConnectStatus = {
   hasAccount?: boolean;
   status?: string;
+  readyForPayouts?: boolean;
   readyToProcessPayments?: boolean;
   onboardingComplete?: boolean;
   requirementsStatus?: string;
@@ -130,7 +131,9 @@ export function CreatorProgramSettingsPanel({
   }, [authReady, userId, load]);
 
   const hasStripeAccount = Boolean(connectStatus?.hasAccount);
-  const stripeReady = Boolean(connectStatus?.readyToProcessPayments);
+  const stripeReady = Boolean(
+    connectStatus?.readyForPayouts ?? connectStatus?.readyToProcessPayments,
+  );
   const financialsLive = canReceivePayments && stripeReady;
 
   useEffect(() => {

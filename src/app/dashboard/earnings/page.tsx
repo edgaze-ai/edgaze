@@ -7,7 +7,6 @@ import { loadConnectAndInitialize, type StripeConnectInstance } from "@stripe/co
 import {
   ConnectComponentsProvider,
   ConnectNotificationBanner,
-  ConnectPayments,
   ConnectPayouts,
   ConnectAccountManagement,
   ConnectDocuments,
@@ -270,7 +269,8 @@ export default function EarningsDashboardPage() {
               Earnings Dashboard
             </h1>
             <p className="text-white/55 text-base md:text-lg max-w-xl">
-              Manage payments, payouts, and account details in one place.
+              Track balances, payouts, and account details. Buyer checkout runs on Edgaze; your
+              share is paid out from your Stripe connected account.
             </p>
           </motion.header>
 
@@ -350,21 +350,28 @@ export default function EarningsDashboardPage() {
             </div>
           </section>
 
-          {/* Payments + Payouts */}
+          {/* Payouts (ConnectPayments removed: creators are not card merchants on the connected account) */}
           <section className="mb-8">
-            <h2 className="earnings-section-label mb-4">Payments & Payouts</h2>
+            <h2 className="earnings-section-label mb-4">Sales & payouts</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.35 }}
-                className="earnings-card overflow-hidden min-h-[400px] overflow-y-auto"
+                className="earnings-card overflow-hidden min-h-[220px]"
               >
                 <div className="earnings-card-header">
                   <CreditCard className="h-4 w-4 text-white/50" />
-                  <span>Payments</span>
+                  <span>Checkout & earnings</span>
                 </div>
-                <ConnectPayments />
+                <div className="p-5 sm:p-6 text-sm text-white/60 leading-relaxed">
+                  <p>
+                    Buyers pay Edgaze at checkout. Your earnings (after Edgaze&apos;s platform fee)
+                    are transferred to this Stripe account and show up under Balances and Payouts —
+                    not under a &quot;Payments&quot; list on the connected account, because you are
+                    not processing cards directly on this account.
+                  </p>
+                </div>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 16 }}

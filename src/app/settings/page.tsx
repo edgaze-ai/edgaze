@@ -58,10 +58,10 @@ function SettingSection({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-8 sm:p-10 lg:p-12">
-      <div className="mb-6">
-        <h3 className="text-[16px] font-medium text-white mb-2">{title}</h3>
-        <p className="text-[14px] text-white/50 leading-relaxed max-w-2xl">{description}</p>
+    <div className="rounded-lg border border-white/[0.08] bg-white/[0.02] p-5 sm:p-7 lg:p-8">
+      <div className="mb-5">
+        <h3 className="text-[14px] font-medium text-white mb-1.5">{title}</h3>
+        <p className="text-[13px] text-white/50 leading-relaxed max-w-2xl">{description}</p>
       </div>
       <div className="mb-6">{children}</div>
       {action && <div className="flex justify-end">{action}</div>}

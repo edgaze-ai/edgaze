@@ -23,6 +23,7 @@ export default function CreatorOnboardingPanel() {
   const [connectStatus, setConnectStatus] = useState<{
     hasAccount?: boolean;
     status?: string;
+    readyForPayouts?: boolean;
     readyToProcessPayments?: boolean;
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +63,12 @@ export default function CreatorOnboardingPanel() {
   }, [activeWorkspaceId, authReady, fetchStatus]);
 
   useEffect(() => {
-    if (!activeWorkspaceId || connectStatus?.readyToProcessPayments) return;
+    if (
+      !activeWorkspaceId ||
+      connectStatus?.readyForPayouts ||
+      connectStatus?.readyToProcessPayments
+    )
+      return;
     (async () => {
       try {
         const res = await fetch("/api/creator/earnings");
@@ -74,14 +80,18 @@ export default function CreatorOnboardingPanel() {
         // ignore
       }
     })();
-  }, [activeWorkspaceId, connectStatus?.readyToProcessPayments]);
+  }, [activeWorkspaceId, connectStatus?.readyForPayouts, connectStatus?.readyToProcessPayments]);
 
   const state: State = (() => {
     if (!authReady || loading) return "loading";
     if (!activeWorkspaceId) return "logged_out";
     if (!profile?.avatar_url || profile.avatar_url === "") return "no_avatar";
-    if (connectStatus?.readyToProcessPayments) return "complete";
-    if (connectStatus?.hasAccount && !connectStatus?.readyToProcessPayments)
+    if (connectStatus?.readyForPayouts || connectStatus?.readyToProcessPayments) return "complete";
+    if (
+      connectStatus?.hasAccount &&
+      !connectStatus?.readyForPayouts &&
+      !connectStatus?.readyToProcessPayments
+    )
       return "stripe_in_progress";
     return "ready_stripe";
   })();

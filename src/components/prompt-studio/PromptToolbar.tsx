@@ -29,41 +29,41 @@ export default function PromptToolbar({
 }: Props) {
   return (
     <div className="bg-[#070708]">
-      <div className="flex items-center justify-between px-5 py-3">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-white/90 truncate">{title}</div>
-            <div className="text-[11px] text-white/45 truncate">
+            <div className="truncate text-[12px] font-semibold text-white/90">{title}</div>
+            <div className="truncate text-[9px] text-white/45 sm:text-[10px]">
               Write, version, and publish prompts with placeholders.
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           <Link
             href={getDocsLink("/docs/builder/prompt-studio")}
-            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-[12px] font-semibold text-white/85 hover:bg-white/10 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-semibold text-white/85 transition-colors hover:bg-white/10"
             title="Documentation"
           >
-            <BookOpen className="h-4 w-4" />
+            <BookOpen className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Docs</span>
           </Link>
 
           <button
             type="button"
             onClick={onPublish}
-            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-4 py-2 text-[12px] font-semibold text-black shadow-[0_0_18px_rgba(56,189,248,0.18)] hover:brightness-110"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-2.5 py-1.5 text-[11px] font-semibold text-black shadow-[0_0_14px_rgba(56,189,248,0.14)] hover:brightness-110"
           >
-            <Upload className="h-4 w-4" />
+            <Upload className="h-3.5 w-3.5" />
             Publish
           </button>
         </div>
       </div>
 
       {/* Ribbon panel */}
-      <div className="px-5 pb-4">
-        <div className="rounded-3xl bg-[#111214] shadow-[0_18px_70px_rgba(0,0,0,0.70),inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <div className="flex flex-wrap items-center gap-2 px-3 py-3">
+      <div className="px-3 pb-2 sm:px-4">
+        <div className="rounded-xl bg-[#111214] shadow-[0_12px_40px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="flex flex-wrap items-center gap-1 px-2 py-1.5">
             <TileButton
               onClick={onInsertPlaceholder}
               icon={Plus}
@@ -107,15 +107,15 @@ function TileButton({ onClick, icon: Icon, label, sub, accent }: TileProps) {
       type="button"
       onClick={onClick}
       className={[
-        "group flex h-[66px] w-[96px] flex-col items-center justify-center rounded-2xl",
-        "bg-[#17181b] shadow-[0_10px_30px_rgba(0,0,0,0.50),inset_0_1px_0_rgba(255,255,255,0.04)]",
+        "group flex h-[44px] w-[68px] flex-col items-center justify-center rounded-lg",
+        "bg-[#17181b] shadow-[0_6px_20px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.04)]",
         "hover:bg-[#1c1d21] transition",
         accent ? "ring-1 ring-cyan-400/14" : "ring-1 ring-white/5",
       ].join(" ")}
     >
-      <Icon className="h-[18px] w-[18px] text-white/85 group-hover:text-white" />
-      <div className="mt-1 text-[11px] font-semibold text-white/85 leading-none">{label}</div>
-      <div className="mt-0.5 text-[10px] text-white/40 leading-none">{sub}</div>
+      <Icon className="h-[15px] w-[15px] text-white/85 group-hover:text-white" />
+      <div className="mt-0.5 text-[10px] font-semibold text-white/85 leading-none">{label}</div>
+      <div className="text-[9px] text-white/40 leading-none">{sub}</div>
     </button>
   );
 }
@@ -130,19 +130,23 @@ function MetricTile({
   value: string;
 }) {
   return (
-    <div className="flex h-[66px] w-[96px] flex-col items-center justify-center rounded-2xl bg-[#17181b] ring-1 ring-white/5 shadow-[0_10px_30px_rgba(0,0,0,0.50),inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <Icon className="h-[16px] w-[16px] text-white/60" />
-      <div className="mt-1 text-[10px] text-white/40 leading-none">{label}</div>
-      <div className="mt-0.5 text-[12px] font-semibold text-white/85 leading-none">{value}</div>
+    <div className="flex h-[44px] w-[68px] flex-col items-center justify-center rounded-lg bg-[#17181b] ring-1 ring-white/5 shadow-[0_6px_20px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <Icon className="h-[14px] w-[14px] text-white/60" />
+      <div className="mt-0.5 text-[9px] text-white/40 leading-none">{label}</div>
+      <div className="text-[11px] font-semibold tabular-nums text-white/85 leading-none">
+        {value}
+      </div>
     </div>
   );
 }
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-[#17181b] ring-1 ring-white/5 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <div className="text-[10px] text-white/40 leading-none">{label}</div>
-      <div className="text-[12px] font-semibold text-white/85 leading-none">{value}</div>
+    <div className="rounded-lg bg-[#17181b] ring-1 ring-white/5 px-2 py-1.5 shadow-[0_6px_20px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="text-[9px] text-white/40 leading-none">{label}</div>
+      <div className="text-[11px] font-semibold tabular-nums text-white/85 leading-none">
+        {value}
+      </div>
     </div>
   );
 }

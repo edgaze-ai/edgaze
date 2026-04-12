@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -481,14 +482,14 @@ function StepDot({
       type="button"
       onClick={canClick ? onClick : undefined}
       className={cx(
-        "group flex items-center gap-3 rounded-2xl px-3 py-2 text-left transition-colors",
+        "group flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-left transition-colors",
         canClick ? "hover:bg-white/[0.04]" : "opacity-80",
         active && "bg-white/[0.05]",
       )}
     >
       <div
         className={cx(
-          "grid h-8 w-8 place-items-center rounded-full border text-[12px] font-semibold",
+          "grid h-7 w-7 place-items-center rounded-full border text-[11px] font-semibold",
           done
             ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
             : active
@@ -499,10 +500,10 @@ function StepDot({
         {done ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
       </div>
       <div className="min-w-0">
-        <div className={cx("text-[12px] font-semibold", active ? "text-white" : "text-white/85")}>
+        <div className={cx("text-[11px] font-semibold", active ? "text-white" : "text-white/85")}>
           {title}
         </div>
-        <div className="text-[11px] text-white/45 truncate">{desc}</div>
+        <div className="text-[10px] text-white/45 truncate">{desc}</div>
       </div>
     </button>
   );
@@ -1198,7 +1199,7 @@ export default function PublishPromptModal({
       onClick={stepKey === "review" ? handlePublish : goNext}
       disabled={published ? true : stepKey === "review" ? !canPublish : !stepCanAdvance(step)}
       className={cx(
-        "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold",
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold",
         "bg-white text-black hover:bg-white/90 transition-colors",
         (stepKey === "review" ? !canPublish : !stepCanAdvance(step)) &&
           "opacity-60 cursor-not-allowed",
@@ -1224,37 +1225,37 @@ export default function PublishPromptModal({
   ) : (
     <button
       onClick={handleDone}
-      className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[12px] font-semibold bg-white text-black hover:bg-white/90 transition-colors"
+      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold bg-white text-black hover:bg-white/90 transition-colors"
     >
       Done
     </button>
   );
 
-  return (
-    <div className="fixed inset-0 z-[90]">
+  const shell = (
+    <div className="fixed inset-0 z-[200]">
       <div className="absolute inset-0 bg-black/80" onClick={published ? undefined : closeNow} />
 
       <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
-        <div className="relative w-[min(1180px,96vw)] h-[min(780px,92vh)] rounded-3xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] overflow-hidden">
+        <div className="relative w-[min(900px,96vw)] h-[min(620px,88vh)] max-h-[92vh] rounded-2xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] overflow-hidden">
           <ConfettiSides active={confetti} />
 
           {/* Header */}
-          <div className="h-[72px] sm:h-[76px] px-4 sm:px-6 flex items-center justify-between border-b border-white/10">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="h-[56px] px-4 sm:px-5 flex items-center justify-between border-b border-white/10">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <Image
                 src="/brand/edgaze-mark.png"
                 alt="Edgaze"
-                width={32}
-                height={32}
-                className="h-8 w-8"
+                width={28}
+                height={28}
+                className="h-7 w-7 shrink-0"
                 priority
                 style={{ width: "auto", height: "auto" }}
               />
               <div className="min-w-0">
-                <div className="text-[15px] sm:text-[16px] font-semibold text-white leading-tight truncate">
+                <div className="text-[13px] sm:text-[14px] font-semibold text-white leading-tight truncate">
                   {published ? "Published" : editId ? "Edit prompt" : "Publish prompt"}
                 </div>
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/45 min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-white/45 min-w-0">
                   <span className="shrink-0">Posting as</span>
                   <span className="min-w-0 truncate">{ownerName}</span>
                   {profile?.is_verified_creator ? (
@@ -1270,7 +1271,7 @@ export default function PublishPromptModal({
               <button
                 onClick={published ? undefined : closeNow}
                 className={cx(
-                  "grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10",
+                  "grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10",
                   published && "opacity-60 cursor-not-allowed",
                 )}
                 aria-label="Close"
@@ -1281,12 +1282,12 @@ export default function PublishPromptModal({
           </div>
 
           {/* Body */}
-          <div className="grid grid-cols-12 gap-0 h-[calc(100%-72px)] sm:h-[calc(100%-76px)]">
+          <div className="grid grid-cols-12 gap-0 h-[calc(100%-56px)]">
             {/* Left: Stepper */}
             <div className="col-span-12 md:col-span-4 border-b md:border-b-0 md:border-r border-white/10 p-4 sm:p-5">
               <div className="flex items-center justify-between">
-                <div className="text-[12px] font-semibold text-white/80">Progress</div>
-                <div className="text-[11px] text-white/45">
+                <div className="text-[11px] font-semibold text-white/80">Progress</div>
+                <div className="text-[10px] text-white/45">
                   Step {Math.min(step + 1, STEPS.length)}/{STEPS.length}
                 </div>
               </div>
@@ -2172,4 +2173,7 @@ export default function PublishPromptModal({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(shell, document.body);
 }

@@ -1,8 +1,6 @@
 /**
- * V2 Connect Onboard - Create V2 account and return onboarding URL
- *
- * Uses Stripe Accounts V2 API. Never uses type: 'express'|'standard'|'custom'.
- * Stores user_id → account_id mapping in stripe_connect_accounts.
+ * Hosted onboarding link — Express marketplace payouts (redirect flow).
+ * Prefer `/api/stripe/v2/connect/account-session` for embedded Connect.js from the creators UI.
  */
 
 import { NextResponse } from "next/server";
@@ -10,8 +8,10 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUserAndClient } from "@/lib/auth/server";
 import { resolveActorContext } from "@/lib/auth/actor-context";
 import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
-import { isAllowedPayoutCountry } from "@lib/creators/allowed-countries";
-import { createV2ConnectedAccount, createV2AccountLink } from "@/lib/stripe/connect-v2";
+import {
+  createExpressAccountLink,
+  createExpressMarketplaceConnectedAccount,
+} from "@/lib/stripe/connect-marketplace";
 import { stripeConfig } from "@/lib/stripe/config";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,6 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    // Support Bearer token + cookies (same as account-session) for invite flow and creators portal
     const authResult = await getUserAndClient(req);
     if (!authResult.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -40,7 +39,7 @@ export async function POST(req: Request) {
 
     const { data: profile } = await admin
       .from("profiles")
-      .select("handle, full_name, email, country")
+      .select("handle, full_name, email")
       .eq("id", user.id)
       .single();
 
@@ -52,14 +51,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email required for Stripe onboarding" }, { status: 400 });
     }
 
-    const rawCountry = (profile.country as string)?.trim()?.toUpperCase();
-    const country = rawCountry && isAllowedPayoutCountry(rawCountry) ? rawCountry : null;
-    if (!country) {
-      return NextResponse.json(
-        { error: "Select your country first. Complete the country step before continuing." },
-        { status: 400 },
-      );
-    }
+    const handle = profile.handle ?? `user_${user.id.replace(/-/g, "").slice(0, 12)}`;
 
     const { data: existingAccount } = await admin
       .from("stripe_connect_accounts")
@@ -81,14 +73,10 @@ export async function POST(req: Request) {
         });
       }
     } else {
-      const account = await createV2ConnectedAccount({
-        displayName: profile.full_name || profile.handle || "Creator",
-        contactEmail: profile.email,
-        country,
-        metadata: {
-          edgaze_user_id: user.id,
-          edgaze_handle: profile.handle || "",
-        },
+      const account = await createExpressMarketplaceConnectedAccount({
+        email: profile.email,
+        handle,
+        userId: user.id,
       });
 
       stripeAccountId = account.id;
@@ -97,10 +85,10 @@ export async function POST(req: Request) {
         user_id: user.id,
         stripe_account_id: account.id,
         account_status: "pending",
-        charges_enabled: false,
-        payouts_enabled: false,
-        details_submitted: false,
-        country: (account.identity as { country?: string })?.country || "us",
+        charges_enabled: account.charges_enabled ?? false,
+        payouts_enabled: account.payouts_enabled ?? false,
+        details_submitted: account.details_submitted ?? false,
+        country: account.country ?? null,
         currency: "usd",
       });
 
@@ -110,7 +98,7 @@ export async function POST(req: Request) {
         .eq("id", user.id);
     }
 
-    const accountLink = await createV2AccountLink({
+    const accountLink = await createExpressAccountLink({
       accountId: stripeAccountId,
       refreshUrl: `${stripeConfig.appUrl}/onboarding?refresh=true`,
       returnUrl: `${stripeConfig.appUrl}/onboarding/success?accountId=${stripeAccountId}`,
@@ -122,7 +110,7 @@ export async function POST(req: Request) {
       accountId: stripeAccountId,
     });
   } catch (error: any) {
-    console.error("[STRIPE V2 CONNECT] Onboard error:", error);
+    console.error("[STRIPE CONNECT] Onboard error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to create onboarding link" },
       { status: 500 },

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { Copy, X, Check } from "lucide-react";
 
 type Props = {
@@ -39,12 +40,12 @@ export default function JsonPreviewModal({ open, onClose, json, title = "JSON Pr
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[140]">
+  const shell = (
+    <div className="fixed inset-0 z-[200]">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
 
-      <div className="absolute inset-0 flex items-center justify-center p-4">
-        <div className="relative w-[min(800px,95vw)] max-h-[90vh] overflow-hidden rounded-3xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.8)]">
+      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
+        <div className="relative w-[min(720px,95vw)] max-h-[88vh] overflow-hidden rounded-2xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.8)]">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
             <div className="text-[14px] font-semibold text-white">{title}</div>
@@ -91,4 +92,7 @@ export default function JsonPreviewModal({ open, onClose, json, title = "JSON Pr
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(shell, document.body);
 }

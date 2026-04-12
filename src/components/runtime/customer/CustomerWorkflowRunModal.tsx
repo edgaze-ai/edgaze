@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { Clock3, Loader2, StopCircle, X } from "lucide-react";
 
 import { cx } from "../../../lib/cx";
@@ -10,6 +11,14 @@ import {
 } from "../../../lib/workflow/customer-runtime";
 import type { WorkflowRunState } from "../../../lib/workflow/run-types";
 import CustomerWorkflowRuntimeSurface from "./CustomerWorkflowRuntimeSurface";
+
+function useDocumentBody(): HTMLElement | null {
+  return useSyncExternalStore(
+    () => () => {},
+    () => (typeof document !== "undefined" ? document.body : null),
+    () => null,
+  );
+}
 
 type BuilderRunLimit = {
   used: number;
@@ -45,7 +54,10 @@ export default function CustomerWorkflowRunModal({
   requiresApiKeys,
   onBuyWorkflow,
 }: CustomerWorkflowRunModalProps) {
+  const portalEl = useDocumentBody();
+
   if (!open) return null;
+  if (!portalEl) return null;
 
   const canClose = state?.status !== "running" && state?.status !== "cancelling";
   const runtimeModel = state ? deriveCustomerRuntimeModel(state) : null;
@@ -55,7 +67,7 @@ export default function CustomerWorkflowRunModal({
     (state!.status === "running" || state!.status === "cancelling");
   const showHeaderCancel = Boolean(onCancel && runtimeModel?.canCancel && isLiveExecution);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9999]">
       <div
         className={cx(
@@ -77,12 +89,14 @@ export default function CustomerWorkflowRunModal({
       >
         <div
           className={cx(
-            "mx-auto flex w-full max-w-[1440px] justify-center",
-            isLiveExecution ? "h-[100dvh] max-md:h-[100dvh] md:min-h-full" : "min-h-full",
-            "items-end p-0 md:items-center md:p-6",
+            "mx-auto flex w-full justify-center",
+            isLiveExecution
+              ? "max-w-[min(1024px,calc(100vw-1.5rem))] h-[100dvh] max-md:h-[100dvh] md:min-h-full"
+              : "max-w-[min(560px,calc(100vw-1.5rem))] min-h-full",
+            "items-end p-0 md:items-center md:p-5",
           )}
         >
-          <div className="w-full max-w-[1180px] max-md:max-w-none md:mx-auto">
+          <div className="w-full max-md:max-w-none md:mx-auto">
             <div
               className={cx(
                 "flex flex-col rounded-[34px] border border-white/10 bg-[#090a0e]/90 shadow-[0_40px_180px_rgba(0,0,0,0.72)] transition-all duration-500",
@@ -164,6 +178,7 @@ export default function CustomerWorkflowRunModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    portalEl,
   );
 }

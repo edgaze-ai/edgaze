@@ -11,15 +11,14 @@ const Sidebar = dynamic(() => import("../components/layout/Sidebar"), {
   // when navigating to routes where the sidebar mounts.
   loading: () => (
     <div
-      className="w-[76px] bg-[#0b0b0b] border-r border-white/10 transition-[width] duration-250 ease-out"
+      className="w-[52px] bg-[#0b0b0b] border-r border-white/10 transition-[width] duration-250 ease-out"
       aria-hidden
     />
   ),
 });
 
-const MobileTopbar = dynamic(() => import("../components/layout/MobileTopbar"), {
+const MobileNavFab = dynamic(() => import("../components/layout/MobileNavFab"), {
   ssr: false,
-  loading: () => <div className="h-16 bg-[#0b0b0b] border-b border-white/10 md:hidden" />,
 });
 
 const MobileSidebarDrawer = dynamic(() => import("../components/layout/MobileSidebarDrawer"), {
@@ -68,12 +67,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return <main className="min-h-screen">{children}</main>;
   }
 
-  const mainClasses =
-    isCreatorsOnboarding || isDashboardEarnings || isAdminPage || isHelpPage || isLibraryAnalytics
-      ? "flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
+  const isBuilderPage = pathname.startsWith("/builder");
+  const mainClasses = isBuilderPage
+    ? "app-shell-main flex-1 min-h-0 h-0 overflow-hidden"
+    : isCreatorsOnboarding || isDashboardEarnings || isAdminPage || isHelpPage || isLibraryAnalytics
+      ? "app-shell-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
       : isLibraryPage
-        ? "flex-1 overflow-hidden library-page-main"
-        : "flex-1 overflow-hidden";
+        ? "app-shell-main flex-1 overflow-hidden library-page-main"
+        : "app-shell-main flex-1 overflow-hidden";
   const containerClasses = isLibraryPage
     ? "relative isolate flex h-screen overflow-hidden library-page-container"
     : "relative isolate flex h-screen overflow-hidden";
@@ -91,13 +92,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar />
       </div>
 
-      {/* Content column */}
+      {/* Content column — no mobile topbar; use FAB + drawer for nav */}
       <div className={contentClasses}>
-        {/* Mobile topbar only */}
-        <MobileTopbar />
         <main className={mainClasses}>{children}</main>
       </div>
 
+      {mounted && <MobileNavFab />}
       {/* Mobile drawer overlay */}
       {mounted && <MobileSidebarDrawer />}
     </div>

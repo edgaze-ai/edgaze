@@ -79,7 +79,7 @@ export default function Sidebar() {
   const sidebarRootRef = React.useRef<HTMLElement | null>(null);
 
   const isActive = (href: string) => pathname.startsWith(href);
-  const widthClass = collapsed ? "w-[76px]" : "w-[260px]";
+  const widthClass = collapsed ? "w-[52px]" : "w-[220px]";
 
   const expandSidebar = () => setCollapsed(false);
   const collapseSidebar = () => setCollapsed(true);
@@ -106,23 +106,23 @@ export default function Sidebar() {
         widthClass,
       )}
     >
-      <div className="relative flex h-full flex-col gap-4 px-3 pt-3.5 pb-2.5">
+      <div className="relative flex h-full flex-col gap-3 px-2 pt-3 pb-2">
         {/* TOP LOGO */}
         <div className="overflow-hidden">
           <div
             className={cn(
               "grid items-center overflow-hidden",
               `transition-[grid-template-columns] ${SIDEBAR_SPRING}`,
-              collapsed ? "grid-cols-[44px_0fr]" : "grid-cols-[44px_minmax(0,1fr)]",
+              collapsed ? "grid-cols-[36px_0fr]" : "grid-cols-[36px_minmax(0,1fr)]",
             )}
           >
-            <div className="relative h-11 w-11 flex-shrink-0">
-              <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="44px" />
+            <div className="relative h-9 w-9 flex-shrink-0">
+              <Image src="/brand/edgaze-mark.png" alt="Edgaze" fill priority sizes="36px" />
             </div>
             <div className="min-w-0 overflow-hidden">
               <span
                 className={cn(
-                  "block whitespace-nowrap pl-3 text-[20px] font-semibold tracking-tight text-white",
+                  "block whitespace-nowrap pl-2 text-[17px] font-semibold tracking-tight text-white",
                   `transition-[opacity,transform] ${SIDEBAR_FADE}`,
                   collapsed
                     ? "pointer-events-none -translate-x-2 opacity-0"
@@ -137,7 +137,7 @@ export default function Sidebar() {
 
         {/* ACCOUNT CHIP (expanded only) */}
         {!collapsed ? (
-          <div className="min-h-[56px] rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] px-3.5 py-2.5 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset]">
+          <div className="min-h-[52px] rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] px-2.5 py-2 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset]">
             {loading ? (
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/10" />
@@ -151,7 +151,7 @@ export default function Sidebar() {
                 <ProfileAvatar
                   name={displayName}
                   avatarUrl={profile?.avatar_url || null}
-                  size={36}
+                  size={32}
                   handle={profile?.handle}
                   userId={activeUserId}
                 />
@@ -165,7 +165,7 @@ export default function Sidebar() {
                       verified={Boolean(profile?.is_verified_creator)}
                       verifiedSize="xs"
                       linkClassName="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
-                      className="truncate text-[13px] font-semibold text-white/95"
+                      className="truncate text-[12px] font-semibold text-white/95"
                     />
                   </div>
                   <span className="truncate text-[11px] text-white/50">{planLabel}</span>
@@ -201,14 +201,14 @@ export default function Sidebar() {
             )}
           </div>
         ) : (
-          <div className="flex min-h-[56px] items-center justify-center rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] px-3.5 py-2 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset]">
+          <div className="flex justify-center">
             {loading ? (
-              <div className="h-8 w-8 animate-pulse rounded-full bg-white/10" />
+              <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/10" />
             ) : activeUserId && profile ? (
               <ProfileAvatar
                 name={displayName}
                 avatarUrl={profile?.avatar_url || null}
-                size={32}
+                size={36}
                 handle={profile?.handle}
                 userId={activeUserId}
               />
@@ -216,26 +216,24 @@ export default function Sidebar() {
               <button
                 type="button"
                 onClick={() => openSignIn()}
-                className="block rounded-full transition-opacity hover:opacity-90"
+                className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10 bg-gray-600 transition-opacity hover:opacity-90"
                 aria-label="Sign in"
               >
-                <div className="relative h-8 w-8 overflow-hidden rounded-full border border-white/10 bg-gray-600">
-                  <Image
-                    src="/brand/profile-default.png"
-                    alt="Default profile"
-                    fill
-                    sizes="32px"
-                    className="object-cover"
-                  />
-                </div>
+                <Image
+                  src="/brand/profile-default.png"
+                  alt="Default profile"
+                  fill
+                  sizes="36px"
+                  className="object-cover"
+                />
               </button>
             )}
           </div>
         )}
 
         {/* NAVIGATION */}
-        <div className="flex-1 flex flex-col justify-between gap-3">
-          <div className="flex flex-col gap-2">
+        <div className="flex-1 flex flex-col justify-between gap-2">
+          <div className="flex flex-col gap-1.5">
             <NavGroup
               title="Workspace"
               items={WORKSPACE_ITEMS}
@@ -251,7 +249,7 @@ export default function Sidebar() {
             />
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <NavGroup
               title="Support"
               items={FOOTER_ITEMS}
@@ -281,7 +279,7 @@ function NavGroup({ title, items, collapsed, isActive }: NavGroupProps) {
         <span
           aria-hidden={collapsed}
           className={cn(
-            "block h-3 whitespace-nowrap text-[10px] font-medium uppercase leading-[12px] tracking-[0.1em] text-white/35",
+            "block h-2.5 whitespace-nowrap text-[9px] font-medium uppercase leading-[10px] tracking-[0.1em] text-white/35",
             `transition-[height,opacity,transform] ${SIDEBAR_FADE}`,
             collapsed
               ? "pointer-events-none h-0 -translate-y-1 opacity-0"
@@ -314,40 +312,51 @@ type NavButtonProps = {
 function NavButton({ item, collapsed, active }: NavButtonProps) {
   const Icon = item.icon;
 
+  const pillStyles = cn(
+    `transition-[background-color,border-color,box-shadow,transform] ${SIDEBAR_FADE}`,
+    active
+      ? "bg-gradient-to-br from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_16px_rgba(56,189,248,0.45)]"
+      : "border border-white/15 bg-white/[0.03] text-white/75 hover:bg-white/[0.06] hover:border-white/25",
+  );
+
   return (
     <Link
       href={item.href}
       className={cn(
-        "group block rounded-2xl transition-transform duration-150",
-        "hover:translate-x-[1px]",
+        "group rounded-2xl transition-transform duration-150",
+        collapsed ? "flex justify-center" : "block",
+        !collapsed && "hover:translate-x-[1px]",
       )}
     >
-      <div
-        className={cn(
-          "grid grid-cols-[20px_minmax(0,1fr)] items-center gap-3 rounded-2xl px-3.5 py-3",
-          `transition-[background-color,border-color,box-shadow,transform] ${SIDEBAR_FADE}`,
-          active
-            ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 text-white shadow-[0_0_20px_rgba(56,189,248,0.55)]"
-            : "border border-white/15 bg-white/[0.03] text-white/75 hover:bg-white/[0.06] hover:border-white/25",
-        )}
-      >
-        <div className="flex h-5 w-5 items-center justify-center">
-          <Icon className="h-5 w-5 shrink-0" />
+      {collapsed ? (
+        <div
+          className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", pillStyles)}
+        >
+          <Icon className="h-4 w-4 shrink-0" />
         </div>
-        <div className="min-w-0 overflow-hidden">
-          <span
-            className={cn(
-              "block whitespace-nowrap text-sm font-medium",
-              `transition-[max-width,opacity,transform] ${SIDEBAR_SPRING}`,
-              collapsed
-                ? "pointer-events-none max-w-0 -translate-x-2 opacity-0"
-                : "max-w-[140px] translate-x-0 opacity-100 delay-75",
-            )}
-          >
-            {item.label}
-          </span>
+      ) : (
+        <div
+          className={cn(
+            "grid grid-cols-[18px_minmax(0,1fr)] items-center gap-2 rounded-xl px-2.5 py-2",
+            pillStyles,
+          )}
+        >
+          <div className="flex h-4 w-4 items-center justify-center">
+            <Icon className="h-4 w-4 shrink-0" />
+          </div>
+          <div className="min-w-0 overflow-hidden">
+            <span
+              className={cn(
+                "block whitespace-nowrap text-[12px] font-medium leading-tight",
+                `transition-[max-width,opacity,transform] ${SIDEBAR_SPRING}`,
+                "max-w-[128px] translate-x-0 opacity-100 delay-75",
+              )}
+            >
+              {item.label}
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </Link>
   );
 }

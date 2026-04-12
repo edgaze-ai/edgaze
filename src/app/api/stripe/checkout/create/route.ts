@@ -101,14 +101,14 @@ export async function POST(req: Request) {
 
     const { data: connectAccount } = await supabase
       .from("stripe_connect_accounts")
-      .select("stripe_account_id, account_status, charges_enabled")
+      .select("stripe_account_id, account_status, payouts_enabled")
       .eq("user_id", resource.owner_id)
       .single();
 
     const creatorHasConnect =
       connectAccount &&
       connectAccount.account_status === "active" &&
-      connectAccount.charges_enabled === true;
+      connectAccount.payouts_enabled === true;
 
     const { data: buyer } = await supabase
       .from("profiles")

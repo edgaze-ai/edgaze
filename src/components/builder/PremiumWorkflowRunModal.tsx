@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   CheckCircle2,
@@ -2028,6 +2029,11 @@ export default function PremiumWorkflowRunModal({
   const [projectionMode, setProjectionMode] = useState<"builder" | "customer">("builder");
   const [isStopping, setIsStopping] = useState(false);
   const [footerOutputDownloadBusy, setFooterOutputDownloadBusy] = useState(false);
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    setPortalEl(document.body);
+  }, []);
 
   const canClose = useMemo(() => {
     if (!state) return true;
@@ -2220,6 +2226,7 @@ export default function PremiumWorkflowRunModal({
   };
 
   if (!open && !isLoading) return null;
+  if (!portalEl) return null;
 
   const phase = state?.phase;
   const status = state?.status;
@@ -2232,7 +2239,7 @@ export default function PremiumWorkflowRunModal({
     phase === "executing" &&
     (status === "running" || status === "cancelling");
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9999] bg-black/70" data-workflow-run-modal>
       {/* Static gradient background (no blur animations - reduces GPU load on low-end devices) */}
       <div
@@ -2365,12 +2372,12 @@ export default function PremiumWorkflowRunModal({
         }}
       />
 
-      {/* Modal */}
-      <div className="absolute inset-0 flex items-center justify-center p-4 md:p-6">
+      {/* Modal — portal to body + modest max size so it stays centered on the viewport */}
+      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4 md:p-6">
         <div
           className={cx(
-            "w-[min(1220px,96vw)] h-[min(840px,92vh)] rounded-2xl overflow-hidden flex flex-col",
-            "border border-white/15 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.4)]",
+            "flex w-full max-w-[min(960px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl",
+            "max-h-[min(680px,88dvh)] min-h-0 border border-white/15 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.4)]",
           )}
         >
           {/* Instant Loading Screen - Shows immediately */}
@@ -2521,7 +2528,7 @@ export default function PremiumWorkflowRunModal({
                 className={cx(
                   "flex h-full min-h-0 flex-col",
                   isCustomerLiveRun ? "overflow-hidden" : "overflow-auto",
-                  "px-5 py-5 md:px-6 md:py-6",
+                  "px-4 py-4 md:px-4 md:py-4",
                 )}
               >
                 <CustomerWorkflowRuntimeSurface
@@ -2880,6 +2887,7 @@ export default function PremiumWorkflowRunModal({
           }
         }}
       />
-    </div>
+    </div>,
+    portalEl,
   );
 }

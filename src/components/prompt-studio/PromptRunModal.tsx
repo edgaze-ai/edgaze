@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { Copy, X, ExternalLink } from "lucide-react";
 
@@ -330,12 +331,12 @@ export default function PromptRunModal({ open, onClose, title, template, placeho
     </div>
   );
 
-  return (
-    <div className="fixed inset-0 z-[140]">
+  const shell = (
+    <div className="fixed inset-0 z-[200]">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
 
       <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4">
-        <div className="relative w-[min(1120px,98vw)] max-h-[92vh] overflow-hidden rounded-3xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.8)]">
+        <div className="relative w-[min(900px,96vw)] max-h-[90vh] overflow-hidden rounded-2xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.8)]">
           {/* Header */}
           <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5 sm:py-4">
             <div className="min-w-0">
@@ -402,7 +403,7 @@ export default function PromptRunModal({ open, onClose, title, template, placeho
                 </div>
 
                 {/* Mobile sticky action bar */}
-                <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[145] p-3">
+                <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[210] p-3">
                   <div className="pointer-events-auto rounded-3xl border border-white/10 bg-[#0b0c10]/90 backdrop-blur-md p-2 shadow-[0_-20px_80px_rgba(0,0,0,0.7)]">
                     <button
                       type="button"
@@ -435,4 +436,7 @@ export default function PromptRunModal({ open, onClose, title, template, placeho
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(shell, document.body);
 }

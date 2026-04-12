@@ -292,7 +292,7 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
       <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-fuchsia-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
       {/* Content */}
-      <div className="relative p-5 sm:p-6">
+      <div className="relative p-4 sm:p-5">
         {isRemoved && (
           <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
             <EyeOff className="h-4 w-4 shrink-0" />
@@ -337,9 +337,9 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
             </div>
           </div>
         )}
-        <div className="flex items-start gap-4">
-          {/* Thumbnail - larger and more prominent */}
-          <div className="relative h-24 w-32 sm:h-28 sm:w-40 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900/90 to-slate-800/80 shrink-0 ring-1 ring-white/5 group-hover:ring-white/10 transition-all duration-300">
+        <div className="flex flex-col gap-3 min-[480px]:flex-row min-[480px]:items-start min-[480px]:gap-4">
+          {/* Thumbnail */}
+          <div className="relative mx-auto min-[480px]:mx-0 h-[88px] w-[118px] sm:h-24 sm:w-32 md:h-28 md:w-40 overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-br from-slate-900/90 to-slate-800/80 shrink-0 ring-1 ring-white/5 group-hover:ring-white/10 transition-all duration-300">
             {item.thumbnail_url ? (
               <img
                 src={item.thumbnail_url}
@@ -373,11 +373,11 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
             {/* Title and price */}
             <div className="flex items-start justify-between gap-3 mb-2">
               <div className="min-w-0 flex-1">
-                <h3 className="text-[15px] sm:text-[16px] font-semibold text-white group-hover:text-white/90 transition-colors line-clamp-1">
+                <h3 className="text-[13px] sm:text-[14px] font-semibold text-white group-hover:text-white/90 transition-colors line-clamp-2 min-[480px]:line-clamp-1">
                   {item.title || "Untitled"}
                 </h3>
                 {item.description && (
-                  <p className="mt-1.5 text-[12px] sm:text-[13px] text-white/60 line-clamp-2 leading-relaxed">
+                  <p className="mt-1 text-[11px] sm:text-[12px] text-white/60 line-clamp-2 leading-snug">
                     {item.description}
                   </p>
                 )}
@@ -386,7 +386,7 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
               {/* Price badge */}
               <div
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-[11px] font-semibold tabular-nums shrink-0",
+                  "rounded-md px-2 py-0.5 text-[10px] font-semibold tabular-nums shrink-0 self-start",
                   isFree ? "bg-emerald-500/20 text-emerald-300" : "bg-white/10 text-white/90",
                 )}
               >
@@ -395,8 +395,8 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
             </div>
 
             {/* Stats and actions */}
-            <div className="mt-auto pt-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 text-[11px] text-white/50">
+            <div className="mt-auto pt-2 sm:pt-3 flex flex-col gap-2 min-[560px]:flex-row min-[560px]:items-center min-[560px]:justify-between min-[560px]:gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-white/50 min-w-0">
                 {context === "created" && (
                   <>
                     <span className="flex items-center gap-1">
@@ -416,7 +416,7 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
               </div>
 
               {context === "created" && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-stretch justify-end gap-1.5 w-full min-[560px]:w-auto min-[560px]:justify-end">
                   {!isRemoved && (
                     <button
                       type="button"
@@ -425,11 +425,11 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
                         setRemoveConfirmOpen(true);
                       }}
                       disabled={removing}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 text-[11px] font-medium text-amber-200/90 hover:bg-amber-500/10 disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1 text-[10px] font-medium text-amber-200/90 hover:bg-amber-500/10 disabled:opacity-50 min-h-[28px]"
                       title="Remove from marketplace"
                     >
-                      <EyeOff className="h-3.5 w-3.5" />
-                      Remove from marketplace
+                      <EyeOff className="h-3 w-3 shrink-0" />
+                      Remove
                     </button>
                   )}
                   <button
@@ -440,10 +440,10 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
                         `/library/analytics?kind=${encodeURIComponent(item.kind)}&id=${encodeURIComponent(item.id)}`,
                       );
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/25 bg-gradient-to-r from-cyan-500/10 to-pink-500/10 px-3 py-1.5 text-[11px] font-medium text-cyan-100/95 transition-all duration-200 hover:border-cyan-400/50"
+                    className="inline-flex items-center justify-center gap-1 rounded-md border border-cyan-400/25 bg-gradient-to-r from-cyan-500/10 to-pink-500/10 px-2 py-1 text-[10px] font-medium text-cyan-100/95 transition-all duration-200 hover:border-cyan-400/50 min-h-[28px]"
                     title="Listing analytics"
                   >
-                    <LineChart className="h-3.5 w-3.5" />
+                    <LineChart className="h-3 w-3 shrink-0" />
                     Analytics
                   </button>
                   <button
@@ -452,10 +452,10 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
                       e.stopPropagation();
                       onEdit?.(item.kind, item.id);
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/80 transition-all duration-200 border border-white/5 hover:border-white/10"
+                    className="inline-flex items-center justify-center gap-1 rounded-md bg-white/5 hover:bg-white/10 px-2 py-1 text-[10px] font-medium text-white/80 transition-all duration-200 border border-white/5 hover:border-white/10 min-h-[28px]"
                     title="Edit & republish"
                   >
-                    <Edit3 className="h-3.5 w-3.5" />
+                    <Edit3 className="h-3 w-3 shrink-0" />
                     Edit
                   </button>
                 </div>
@@ -1041,21 +1041,21 @@ export default function LibraryPage() {
       </div>
       {/* Header */}
       <header className="sticky top-0 z-30 bg-[#050505]/95 backdrop-blur-xl border-b border-white/5">
-        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           {/* Mobile */}
           <div className="sm:hidden">
-            <div className="text-[15px] font-semibold text-white mb-4">Library</div>
+            <div className="text-[12px] font-semibold text-white mb-2">Library</div>
 
-            {/* Toggle */}
-            <div className="rounded-2xl bg-white/[0.03] p-1 border border-white/5">
-              <div className="grid grid-cols-2 gap-1">
+            {/* Toggle — compact segmented control */}
+            <div className="rounded-xl bg-white/[0.03] p-0.5 border border-white/5">
+              <div className="grid grid-cols-2 gap-0.5">
                 <button
                   type="button"
                   onClick={() => setMobileTab("created")}
                   className={cn(
-                    "rounded-xl px-4 py-2.5 text-[12px] font-semibold transition-all duration-200",
+                    "rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all duration-200 min-w-0 truncate",
                     mobileTab === "created"
-                      ? "bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 text-white shadow-lg shadow-cyan-500/10"
+                      ? "bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 text-white shadow-sm shadow-cyan-500/10"
                       : "text-white/60 hover:text-white/80",
                   )}
                 >
@@ -1065,9 +1065,9 @@ export default function LibraryPage() {
                   type="button"
                   onClick={() => setMobileTab("purchased")}
                   className={cn(
-                    "rounded-xl px-4 py-2.5 text-[12px] font-semibold transition-all duration-200",
+                    "rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-all duration-200 min-w-0 truncate",
                     mobileTab === "purchased"
-                      ? "bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 text-white shadow-lg shadow-cyan-500/10"
+                      ? "bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20 text-white shadow-sm shadow-cyan-500/10"
                       : "text-white/60 hover:text-white/80",
                   )}
                 >
@@ -1079,12 +1079,12 @@ export default function LibraryPage() {
 
           {/* Desktop+ */}
           <div className="hidden sm:flex items-center justify-between">
-            <div className="flex items-center gap-4 min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
               {}
-              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-7 w-7" />
+              <img src="/brand/edgaze-mark.png" alt="Edgaze" className="h-6 w-6" />
               <div className="min-w-0">
-                <div className="text-[16px] font-semibold text-white">Library</div>
-                <div className="text-[12px] text-white/50 truncate">
+                <div className="text-[13px] font-semibold text-white">Library</div>
+                <div className="text-[10px] text-white/50 truncate">
                   Your created + purchased prompts & workflows
                 </div>
               </div>
@@ -1094,7 +1094,7 @@ export default function LibraryPage() {
               <button
                 type="button"
                 onClick={() => router.push("/marketplace")}
-                className="inline-flex items-center gap-2 rounded-xl bg-white/5 hover:bg-white/10 px-4 py-2 text-[12px] font-medium text-white/90 transition-all duration-200 border border-white/5 hover:border-white/10"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-[11px] font-medium text-white/90 transition-all duration-200 border border-white/5 hover:border-white/10"
               >
                 <ShoppingBag className="h-4 w-4" />
                 Marketplace
@@ -1107,7 +1107,7 @@ export default function LibraryPage() {
 
       <main className="w-full">
         {/* Mobile: single column with tab - allow natural scrolling */}
-        <div className="sm:hidden px-4 py-6 pb-20">
+        <div className="sm:hidden px-4 py-4 pb-24">
           {mobileTab === "created" ? (
             <section>
               <div className="flex items-center gap-2 mb-5">
@@ -1191,8 +1191,8 @@ export default function LibraryPage() {
                   <Layers className="h-5 w-5 text-white/90" />
                 </div>
                 <div>
-                  <div className="text-[15px] font-semibold text-white/90">Created</div>
-                  <div className="text-[12px] text-white/50">
+                  <div className="text-[13px] font-semibold text-white/90">Created</div>
+                  <div className="text-[11px] text-white/50">
                     {created.length} {created.length === 1 ? "item" : "items"}
                   </div>
                 </div>
@@ -1236,8 +1236,8 @@ export default function LibraryPage() {
                   <ShoppingBag className="h-5 w-5 text-white/90" />
                 </div>
                 <div>
-                  <div className="text-[15px] font-semibold text-white/90">Purchased</div>
-                  <div className="text-[12px] text-white/50">
+                  <div className="text-[13px] font-semibold text-white/90">Purchased</div>
+                  <div className="text-[11px] text-white/50">
                     {purchased.length} {purchased.length === 1 ? "item" : "items"}
                   </div>
                 </div>

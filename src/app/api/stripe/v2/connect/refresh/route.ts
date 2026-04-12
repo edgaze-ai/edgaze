@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { createV2AccountLink } from "@/lib/stripe/connect-v2";
+import { createExpressAccountLink } from "@/lib/stripe/connect-marketplace";
 import { stripeConfig } from "@/lib/stripe/config";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const accountLink = await createV2AccountLink({
+    const accountLink = await createExpressAccountLink({
       accountId: connectAccount.stripe_account_id,
       refreshUrl: `${stripeConfig.appUrl}/onboarding?refresh=true`,
       returnUrl: `${stripeConfig.appUrl}/onboarding/success?accountId=${connectAccount.stripe_account_id}`,

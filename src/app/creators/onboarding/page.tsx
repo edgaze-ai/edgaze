@@ -20,19 +20,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "src/components/auth/AuthContext";
 import { isAllowedOnboardingRef } from "src/lib/creators/onboarding-gate";
-import {
-  ALLOWED_PAYOUT_COUNTRIES,
-  isAllowedPayoutCountry,
-} from "src/lib/creators/allowed-countries";
 
-type PageState =
-  | "country_picker"
-  | "loading"
-  | "error"
-  | "ready"
-  | "complete"
-  | "incomplete"
-  | "logged_out";
+type PageState = "loading" | "error" | "ready" | "complete" | "incomplete";
 
 function SupportPanel() {
   return (
@@ -119,34 +108,20 @@ function EmbeddedOnboardingContent({
 function CreatorsOnboardingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const {
-    userId,
-    profile,
-    authReady,
-    loading,
-    openSignIn,
-    refreshProfile,
-    getAccessToken,
-    updateProfile,
-  } = useAuth();
+  const { userId, authReady, loading, openSignIn, refreshProfile, getAccessToken } = useAuth();
   const [pageState, setPageState] = useState<PageState>("loading");
-  const [gateChecked, setGateChecked] = useState(false);
 
   const fromRef = searchParams.get("from");
   const hasValidRef = isAllowedOnboardingRef(fromRef);
 
   useEffect(() => {
-    if (gateChecked) return;
-    setGateChecked(true);
     if (!hasValidRef) {
       router.replace("/creators");
-      return;
     }
-  }, [hasValidRef, router, gateChecked]);
+  }, [hasValidRef, router]);
+
   const [error, setError] = useState<string | null>(null);
   const [connectInstance, setConnectInstance] = useState<unknown>(null);
-  const [countrySaving, setCountrySaving] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState("");
 
   const publishableKey =
     typeof window !== "undefined" ? (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string) : "";
@@ -174,31 +149,18 @@ function CreatorsOnboardingPageContent() {
     return { clientSecret: data.clientSecret };
   }, [getAccessToken]);
 
-  const profileCountry = (profile?.country as string)?.trim()?.toUpperCase();
-  const hasValidCountry = profileCountry && isAllowedPayoutCountry(profileCountry);
-
   useEffect(() => {
-    if (!gateChecked || !hasValidRef) return;
+    if (!hasValidRef) return;
     if (loading || !authReady) return;
-    if (!userId) {
-      setPageState("logged_out");
-      return;
-    }
-    if (!publishableKey) {
-      setError("Stripe publishable key not configured");
-      setPageState("error");
-      return;
-    }
-    if (!hasValidCountry) {
-      setPageState("country_picker");
-      return;
-    }
-
-    setPageState("loading");
-    setError(null);
+    if (!userId) return;
+    if (!publishableKey) return;
 
     let cancelled = false;
     const fetchSecret = async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setPageState("loading");
+      setError(null);
       try {
         const result = await fetchClientSecret();
         if (cancelled) return;
@@ -229,12 +191,6 @@ function CreatorsOnboardingPageContent() {
       } catch (err: unknown) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : "Something went wrong";
-        const needsCountry =
-          /country|select your country/i.test(msg) || /identity\.country is required/i.test(msg);
-        if (needsCountry) {
-          setPageState("country_picker");
-          return;
-        }
         setError(msg);
         setPageState("error");
       }
@@ -244,41 +200,14 @@ function CreatorsOnboardingPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [
-    gateChecked,
-    hasValidRef,
-    loading,
-    authReady,
-    userId,
-    publishableKey,
-    hasValidCountry,
-    fetchClientSecret,
-  ]);
-
-  const handleCountrySubmit = useCallback(
-    async (countryCode: string) => {
-      if (!countryCode || !isAllowedPayoutCountry(countryCode)) return;
-      setCountrySaving(true);
-      setError(null);
-      try {
-        const res = await updateProfile({ country: countryCode });
-        if (!res.ok) throw new Error(res.error || "Failed to save country");
-        await refreshProfile();
-        setPageState("loading");
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to save country");
-      } finally {
-        setCountrySaving(false);
-      }
-    },
-    [updateProfile, refreshProfile],
-  );
+  }, [hasValidRef, loading, authReady, userId, publishableKey, fetchClientSecret]);
 
   const handleOnboardingExit = useCallback(async () => {
     try {
       const res = await fetch("/api/stripe/v2/connect/status");
       const data = await res.json();
-      if (data?.readyToProcessPayments) {
+      const ready = data?.readyForPayouts === true || data?.readyToProcessPayments === true;
+      if (ready) {
         await refreshProfile();
         setPageState("complete");
       } else {
@@ -347,7 +276,7 @@ function CreatorsOnboardingPageContent() {
       });
   }, [publishableKey, getAccessToken]);
 
-  if (gateChecked && !hasValidRef) {
+  if (!hasValidRef) {
     return (
       <div className="min-h-screen flex items-center justify-center px-6 bg-[#0d0d0d]">
         <div className="text-center">
@@ -363,7 +292,7 @@ function CreatorsOnboardingPageContent() {
     );
   }
 
-  if (loading || !authReady || !gateChecked) {
+  if (loading || !authReady) {
     return (
       <div className="min-h-screen flex items-center justify-center px-6 bg-[#0d0d0d]">
         <div className="flex items-center gap-3 text-white/50 text-[15px]">
@@ -374,115 +303,7 @@ function CreatorsOnboardingPageContent() {
     );
   }
 
-  if (pageState === "country_picker") {
-    return (
-      <div className="min-h-screen w-full bg-[#0d0d0d] text-white flex flex-col items-center justify-center px-6 py-16">
-        <div className="fixed inset-0 -z-10 pointer-events-none">
-          <div className="absolute inset-0 bg-[#0d0d0d]" />
-          <div
-            className="absolute inset-0 opacity-40"
-            style={{
-              backgroundImage:
-                "radial-gradient(ellipse 100% 60% at 50% 0%, rgba(120,119,198,0.12), transparent 60%), radial-gradient(ellipse 80% 50% at 80% 80%, rgba(34,211,238,0.06), transparent 50%)",
-            }}
-          />
-        </div>
-        <div className="w-full max-w-md mx-auto">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-8 sm:p-10 shadow-2xl">
-            <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mb-2">
-              Select your country
-            </h1>
-            <p className="text-sm text-white/55 mb-6">
-              Payouts are available in the countries below. Choose yours to continue.
-            </p>
-            <select
-              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3.5 text-[15px] text-white font-medium appearance-none cursor-pointer
-                focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/40
-                hover:border-white/25 transition-colors
-                [&>option]:bg-[#1a1a1a] [&>option]:text-white"
-              style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "right 14px center",
-                paddingRight: "40px",
-              }}
-              value={selectedCountry}
-              onChange={(e) => setSelectedCountry(e.target.value)}
-              disabled={countrySaving}
-            >
-              <option value="">Choose your country</option>
-              {ALLOWED_PAYOUT_COUNTRIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => selectedCountry && handleCountrySubmit(selectedCountry)}
-              disabled={!selectedCountry || countrySaving}
-              className="mt-6 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-6 py-4 text-[15px] font-semibold text-white shadow-[0_0_24px_rgba(56,189,248,0.35)] transition-all hover:opacity-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {countrySaving ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  Continue
-                  <ArrowLeft className="h-5 w-5 rotate-180" />
-                </>
-              )}
-            </button>
-            {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
-            {countrySaving && (
-              <p className="mt-4 text-sm text-white/55 flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving…
-              </p>
-            )}
-            <p className="mt-6 text-xs text-white/45">
-              By continuing, you agree to Stripe&apos;s{" "}
-              <a
-                href="https://stripe.com/legal/connect-account"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan-400 hover:underline"
-              >
-                Connected Account Agreement
-              </a>{" "}
-              and Edgaze&apos;s{" "}
-              <Link href="/docs/creator-terms" className="text-cyan-400 hover:underline">
-                Creator Terms
-              </Link>
-              ,{" "}
-              <Link href="/docs/terms-of-service" className="text-cyan-400 hover:underline">
-                Terms of Service
-              </Link>
-              ,{" "}
-              <Link href="/docs/privacy-policy" className="text-cyan-400 hover:underline">
-                Privacy Policy
-              </Link>
-              , and{" "}
-              <Link href="/docs/payments-overview" className="text-cyan-400 hover:underline">
-                Payment Policies
-              </Link>
-              .
-            </p>
-            <Link
-              href="/creators"
-              className="mt-8 inline-block text-sm text-white/50 hover:text-white/70 transition-colors"
-            >
-              ← Back to Creator Program
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (pageState === "logged_out") {
+  if (!userId) {
     return (
       <div className="min-h-screen w-full bg-[#0d0d0d] text-white flex flex-col items-center justify-center px-6 py-16">
         <div className="fixed inset-0 -z-10 pointer-events-none">
@@ -522,6 +343,34 @@ function CreatorsOnboardingPageContent() {
             </Link>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (!publishableKey) {
+    return (
+      <div className="min-h-screen overflow-y-auto bg-[#0d0d0d]">
+        <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-cyan-500/[0.06] blur-[120px]" />
+          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-pink-500/[0.04] blur-[100px]" />
+        </div>
+
+        <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16 sm:pt-8 sm:pb-20">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white tracking-tight mb-6">
+            Creator Onboarding
+          </h1>
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-8 sm:p-10 text-center">
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl text-red-400">!</span>
+            </div>
+            <h2 className="text-lg font-semibold text-white mb-2">
+              We couldn&apos;t load payout setup
+            </h2>
+            <p className="text-white/60 text-sm max-w-md mx-auto">
+              Stripe publishable key not configured
+            </p>
+          </div>
+        </main>
       </div>
     );
   }

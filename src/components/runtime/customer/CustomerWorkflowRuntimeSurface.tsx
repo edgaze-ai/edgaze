@@ -764,6 +764,7 @@ function ReadyStateSurface({
   builderRunLimit,
   requiresApiKeys,
   onBuyWorkflow,
+  embedded,
 }: {
   state: WorkflowRunState;
   onSubmitInputs?: (values: Record<string, unknown>) => void;
@@ -771,6 +772,8 @@ function ReadyStateSurface({
   builderRunLimit?: BuilderRunLimit;
   requiresApiKeys?: string[];
   onBuyWorkflow?: () => void;
+  /** Smaller type + padding when shown inside Premium modal / narrow shell */
+  embedded?: boolean;
 }) {
   const [values, setValues] = useState<Record<string, unknown>>(() => state.inputValues ?? {});
   const [openaiApiKey, setOpenaiApiKey] = useState("");
@@ -855,23 +858,50 @@ function ReadyStateSurface({
         vaultKeysConfigured.gemini));
 
   return (
-    <div className="rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(113,207,255,0.08),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.03))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.34)] md:p-8">
-      <div className="mx-auto max-w-[720px]">
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[11px] uppercase tracking-[0.18em] text-white/45">
-          <Sparkles className="h-3.5 w-3.5" />
+    <div
+      className={cx(
+        "rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(113,207,255,0.08),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.03))] shadow-[0_28px_90px_rgba(0,0,0,0.34)]",
+        embedded ? "p-4 md:p-5" : "p-6 md:p-8",
+      )}
+    >
+      <div className={cx("mx-auto", embedded ? "max-w-[520px]" : "max-w-[720px]")}>
+        <div
+          className={cx(
+            "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] uppercase tracking-[0.18em] text-white/45",
+            embedded ? "px-2.5 py-1 text-[9px]" : "px-3 py-1.5 text-[11px]",
+          )}
+        >
+          <Sparkles className={embedded ? "h-3 w-3" : "h-3.5 w-3.5"} />
           Ready to run
         </div>
-        <div className="mt-5 text-[32px] font-medium tracking-[-0.04em] text-white md:text-[42px]">
+        <div
+          className={cx(
+            "font-medium tracking-[-0.04em] text-white",
+            embedded
+              ? "mt-3 text-[22px] leading-tight md:text-[26px]"
+              : "mt-5 text-[32px] md:text-[42px]",
+          )}
+        >
           {showFields ? "Set up this run" : "Everything is ready"}
         </div>
-        <div className="mt-4 max-w-[58ch] text-[15px] leading-7 text-white/64">
+        <div
+          className={cx(
+            "max-w-[58ch] text-white/64",
+            embedded ? "mt-2 text-[13px] leading-6" : "mt-4 text-[15px] leading-7",
+          )}
+        >
           {showFields
             ? "Add the required inputs and start the workflow when you are ready."
             : "This workflow does not need any additional input. Start it whenever you want."}
         </div>
 
         {isBuilderTest && builderRunLimit && (
-          <div className="mt-6 rounded-[22px] border border-white/10 bg-black/25 px-5 py-4">
+          <div
+            className={cx(
+              "rounded-[22px] border border-white/10 bg-black/25",
+              embedded ? "mt-4 px-3 py-3" : "mt-6 px-5 py-4",
+            )}
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm font-medium text-white/90">Free runs</div>
               {builderRunLimit.isAdmin ? (
@@ -896,8 +926,13 @@ function ReadyStateSurface({
         )}
 
         {(showFields || needsApiKey) && (
-          <div className="mt-8 rounded-[28px] border border-white/10 bg-black/25 p-5 md:p-6">
-            <div className="space-y-5">
+          <div
+            className={cx(
+              "rounded-[28px] border border-white/10 bg-black/25",
+              embedded ? "mt-5 p-4 md:p-5" : "mt-8 p-5 md:p-6",
+            )}
+          >
+            <div className={embedded ? "space-y-4" : "space-y-5"}>
               {showFields &&
                 inputs.map((input: WorkflowInput) => (
                   <div key={input.nodeId} className="space-y-2">
@@ -961,7 +996,7 @@ function ReadyStateSurface({
           </div>
         )}
 
-        <div className="mt-8 flex flex-wrap items-center gap-3">
+        <div className={cx("flex flex-wrap items-center gap-3", embedded ? "mt-5" : "mt-8")}>
           <button
             type="button"
             disabled={!onSubmitInputs || !canSubmit}
@@ -1323,6 +1358,7 @@ export default function CustomerWorkflowRuntimeSurface({
           builderRunLimit={builderRunLimit}
           requiresApiKeys={requiresApiKeys}
           onBuyWorkflow={onBuyWorkflow}
+          embedded={embedded}
         />
       ) : state.status === "success" || state.status === "error" || state.status === "cancelled" ? (
         <>

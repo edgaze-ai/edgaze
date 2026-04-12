@@ -440,24 +440,24 @@ export default function PromptStudioPage() {
         onPublish={handleOpenPublish}
       />
 
-      <div className="flex flex-1 overflow-hidden px-5 pb-5">
+      <div className="flex min-h-0 flex-1 overflow-hidden px-3 pb-3 pt-0 sm:px-4 sm:pb-4">
         {/* Editor */}
-        <div className="flex-1 pr-4 overflow-hidden">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-[11px] tracking-wide text-white/45">Editor</div>
-            <div className="text-[11px] text-white/35">
+        <div className="min-w-0 flex-1 overflow-hidden pr-2 sm:pr-3">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <div className="text-[10px] tracking-wide text-white/45">Editor</div>
+            <div className="hidden text-[10px] text-white/35 md:block">
               Overlay + textarea use identical typography. Caret stays outside tokens.
             </div>
           </div>
 
-          <div className="relative h-full w-full overflow-hidden rounded-3xl bg-[#0b0b0c] shadow-[0_18px_70px_rgba(0,0,0,0.70),inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="relative h-full min-h-[200px] w-full overflow-hidden rounded-2xl bg-[#0b0b0c] shadow-[0_12px_48px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.04)]">
             {/* overlay (scroll is synced to textarea) */}
             <div
               ref={overlayScrollRef}
-              className="pointer-events-none absolute inset-0 overflow-auto px-6 py-6"
+              className="pointer-events-none absolute inset-0 overflow-auto px-4 py-4 sm:px-5 sm:py-5"
               aria-hidden="true"
             >
-              <div className="whitespace-pre-wrap break-words font-sans text-[15px] leading-[1.65] tracking-normal">
+              <div className="whitespace-pre-wrap break-words font-sans text-[13px] leading-[1.55] tracking-normal">
                 {overlaySegments.map((seg, idx) => {
                   if (!seg.placeholder) {
                     return (
@@ -513,26 +513,26 @@ export default function PromptStudioPage() {
                 syncOverlayScrollFromTextarea();
               }}
               spellCheck={false}
-              className="absolute inset-0 h-full w-full resize-none overflow-auto bg-transparent px-6 py-6 font-sans text-[15px] leading-[1.65] tracking-normal text-transparent caret-white outline-none"
+              className="absolute inset-0 h-full w-full resize-none overflow-auto bg-transparent px-4 py-4 font-sans text-[13px] leading-[1.55] tracking-normal text-transparent caret-white outline-none sm:px-5 sm:py-5"
               placeholder="Write your system / user prompt here..."
             />
           </div>
         </div>
 
         {/* Side preview */}
-        <div className="w-[380px] flex-shrink-0 overflow-hidden">
-          <div className="mb-2 text-[11px] tracking-wide text-white/45">
+        <div className="w-[260px] shrink-0 overflow-hidden sm:w-[280px] lg:w-[300px]">
+          <div className="mb-1.5 text-[10px] tracking-wide text-white/45">
             Customer experience preview
           </div>
 
-          <div className="h-full overflow-hidden rounded-3xl bg-[#0b0b0c] shadow-[0_18px_70px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.04)]">
-            <div className="px-4 py-3">
-              <div className="text-[12px] font-semibold text-white/85">User form</div>
-              <div className="text-[11px] text-white/40">
+          <div className="flex h-full min-h-[200px] flex-col overflow-hidden rounded-2xl bg-[#0b0b0c] shadow-[0_12px_48px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="shrink-0 px-3 py-2">
+              <div className="text-[11px] font-semibold text-white/85">User form</div>
+              <div className="text-[10px] text-white/40">
                 What they fill before running your prompt.
               </div>
             </div>
-            <div className="h-full overflow-y-auto px-3 pb-4">
+            <div className="min-h-0 flex-1 overflow-y-auto px-2.5 pb-3">
               <UserFormPreview placeholders={placeholders} />
             </div>
           </div>
@@ -540,16 +540,16 @@ export default function PromptStudioPage() {
       </div>
 
       {/* Bottom versions */}
-      <div className="px-5 pb-5">
-        <div className="rounded-3xl bg-[#0b0b0c] shadow-[0_18px_70px_rgba(0,0,0,0.65),inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="text-[11px] font-semibold text-white/65">Version history</div>
-            <div className="text-[11px] text-white/35">Stored locally for now.</div>
+      <div className="shrink-0 px-3 pb-3 sm:px-4 sm:pb-4">
+        <div className="rounded-2xl bg-[#0b0b0c] shadow-[0_12px_48px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="flex items-center justify-between px-3 py-2">
+            <div className="text-[10px] font-semibold text-white/65">Version history</div>
+            <div className="text-[10px] text-white/35">Stored locally for now.</div>
           </div>
 
-          <div className="px-4 pb-4">
+          <div className="px-3 pb-3">
             {versions.length === 0 ? (
-              <div className="rounded-2xl bg-white/[0.03] px-3 py-3 text-[11px] text-white/40 ring-1 ring-white/5">
+              <div className="rounded-xl bg-white/[0.03] px-2.5 py-2 text-[10px] text-white/40 ring-1 ring-white/5">
                 Save a version from the toolbar to see it here.
               </div>
             ) : (
@@ -563,7 +563,7 @@ export default function PromptStudioPage() {
                       key={v.id}
                       type="button"
                       onClick={() => handlePickVersion(v.id)}
-                      className="min-w-[300px] max-w-[340px] flex-shrink-0 rounded-3xl bg-white/[0.03] px-3 py-2.5 text-left ring-1 ring-white/5 hover:bg-white/[0.06] transition"
+                      className="min-w-[220px] max-w-[300px] shrink-0 rounded-xl bg-white/[0.03] px-2.5 py-2 text-left ring-1 ring-white/5 transition hover:bg-white/[0.06]"
                     >
                       <div className="mb-1 flex items-center justify-between text-[10px] text-white/45">
                         <span>

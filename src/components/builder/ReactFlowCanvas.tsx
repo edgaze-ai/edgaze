@@ -120,6 +120,8 @@ type BuilderMode = "edit" | "preview";
 
 type Props = {
   mode?: BuilderMode; // "preview" enables read-only mode
+  /** Narrow viewports: slightly smaller node cards via CSS (.builder-compact). */
+  compact?: boolean;
   onSelectionChange?: (s: {
     nodeId: string | null;
     nodeIds?: string[];
@@ -136,7 +138,7 @@ type BubbleState =
   | { kind: "edge"; id: string; x: number; y: number };
 
 const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
-  { mode = "edit", onSelectionChange, onGraphChange },
+  { mode = "edit", compact = false, onSelectionChange, onGraphChange },
   ref,
 ) {
   const isPreview = mode === "preview";
@@ -952,10 +954,10 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     "rounded-full border border-white/10 bg-[#0c0c0c] shadow-[0_18px_60px_rgba(0,0,0,0.75)]";
 
   const selectionBtnClass =
-    "inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium text-white/85 hover:text-white hover:bg-white/10 active:scale-[0.98] transition";
+    "inline-flex items-center gap-1 h-7 px-2 rounded-full text-[11px] font-medium text-white/85 hover:text-white hover:bg-white/10 active:scale-[0.98] transition";
 
   const selectionDangerClass =
-    "inline-flex items-center gap-2 h-9 px-3 rounded-full text-[12px] font-medium text-white/85 hover:text-white hover:bg-white/10 active:scale-[0.98] transition";
+    "inline-flex items-center gap-1 h-7 px-2 rounded-full text-[11px] font-medium text-white/85 hover:text-white hover:bg-white/10 active:scale-[0.98] transition";
 
   // Preview allows only position/selection/dimensions changes.
   // In edit mode: when nodes are removed, also remove any edges connected to them.
@@ -1015,7 +1017,10 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   return (
     <div
       ref={wrapperRef}
-      className="relative h-full w-full rounded-2xl bg-[#0c0c0c]"
+      className={cx(
+        "relative h-full w-full rounded-2xl bg-[#0c0c0c]",
+        compact && "builder-compact",
+      )}
       onDrop={onDrop}
       onDragOver={onDragOver}
     >
@@ -1033,13 +1038,13 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         <div className="absolute z-40" style={{ left: bubble.x, top: bubble.y }}>
           <div className={selectionShellClass}>
             {bubble.kind === "node" ? (
-              <div className="flex items-center gap-1 px-1.5 py-1">
+              <div className="flex items-center gap-0.5 px-1 py-0.5">
                 <button onClick={onCopy} className={selectionBtnClass}>
-                  <Copy size={14} className="text-white/80" />
+                  <Copy size={12} className="text-white/80" />
                   <span>Copy</span>
                 </button>
 
-                <div className="mx-1 h-5 w-px bg-white/10" />
+                <div className="mx-0.5 h-4 w-px bg-white/10" />
 
                 <button
                   onClick={onPaste}
@@ -1049,7 +1054,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                     locked && "opacity-50 cursor-not-allowed hover:bg-transparent",
                   )}
                 >
-                  <ClipboardPaste size={14} className="text-white/80" />
+                  <ClipboardPaste size={12} className="text-white/80" />
                   <span>Paste</span>
                 </button>
 
@@ -1061,11 +1066,11 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                     locked && "opacity-50 cursor-not-allowed hover:bg-transparent",
                   )}
                 >
-                  <CopyPlus size={14} className="text-white/80" />
+                  <CopyPlus size={12} className="text-white/80" />
                   <span>Duplicate</span>
                 </button>
 
-                <div className="mx-1 h-5 w-px bg-white/10" />
+                <div className="mx-0.5 h-4 w-px bg-white/10" />
 
                 <button
                   onClick={onDeleteNode}
@@ -1076,23 +1081,23 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
                   )}
                   title="Delete"
                 >
-                  <Trash2 size={14} className="text-white/80" />
+                  <Trash2 size={12} className="text-white/80" />
                   <span>Delete</span>
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1 px-1.5 py-1">
+              <div className="flex items-center gap-0.5 px-1 py-0.5">
                 <button
                   onClick={onDeleteEdge}
                   disabled={locked}
                   className={cx(
                     selectionDangerClass,
-                    "px-4",
+                    "px-2",
                     locked && "opacity-50 cursor-not-allowed hover:bg-transparent",
                   )}
                   title="Delete connection"
                 >
-                  <Trash2 size={14} className="text-white/80" />
+                  <Trash2 size={12} className="text-white/80" />
                   <span>Delete</span>
                 </button>
               </div>

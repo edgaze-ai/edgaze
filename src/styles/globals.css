@@ -268,6 +268,18 @@ body {
   touch-action: pan-y;
 }
 
+/* Signed-in app (AppShell main): denser default type than marketing pages */
+.app-shell-main {
+  font-size: 0.75rem;
+  line-height: 1.42;
+}
+@media (min-width: 640px) {
+  .app-shell-main {
+    font-size: 0.8125rem;
+    line-height: 1.48;
+  }
+}
+
 /* iOS Safari auto-zoom trigger: form controls < 16px font-size.
    Apply only on touch / small screens so desktop UIs can use compact typography. */
 @media (max-width: 768px), (pointer: coarse) {
@@ -1052,4 +1064,9 @@ input:-webkit-autofill:active {
   .infinite-carousel-track-reverse {
     animation: none;
   }
+}
+
+/* Builder: narrow viewports — slightly smaller node cards (scoped to canvas wrapper) */
+.builder-compact .react-flow__node .base-node {
+  width: 220px !important;
 }
