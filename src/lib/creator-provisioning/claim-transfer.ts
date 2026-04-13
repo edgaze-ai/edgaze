@@ -2,6 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function isProfilesPrimaryKeyConflict(err: { code?: string; message?: string } | null | undefined) {
+  const msg = err?.message ?? "";
+  return err?.code === "23505" || /duplicate key|unique constraint|profiles_pkey/i.test(msg);
+}
+
 export type TransferResult = { ok: true } | { ok: false; error: string; status: number };
 
 /**
@@ -61,7 +66,20 @@ export async function transferProvisionedWorkspaceToClaimant(args: {
     .eq("id", oldProfileId)
     .maybeSingle();
 
-  if (provErr || !provRow) {
+  if (provErr) {
+    return { ok: false, error: "Provisioned profile not found", status: 404 };
+  }
+
+  if (!provRow) {
+    const { data: claimantProf } = await admin
+      .from("profiles")
+      .select("claim_status, source")
+      .eq("id", newUserId)
+      .maybeSingle();
+    const cp = claimantProf as { claim_status?: string; source?: string } | null;
+    if (cp?.claim_status === "claimed" && cp?.source === "self_signup") {
+      return { ok: true };
+    }
     return { ok: false, error: "Provisioned profile not found", status: 404 };
   }
 
@@ -250,6 +268,19 @@ export async function transferProvisionedWorkspaceToClaimant(args: {
   const { error: insProf } = await admin.from("profiles").insert(insertRow as any);
 
   if (insProf) {
+    if (isProfilesPrimaryKeyConflict(insProf)) {
+      const { data: row } = await admin
+        .from("profiles")
+        .select("claim_status, source, handle")
+        .eq("id", newUserId)
+        .maybeSingle();
+      const r = row as { claim_status?: string; source?: string; handle?: string } | null;
+      const handleOk =
+        r?.handle != null && String(r.handle).toLowerCase() === ownerHandle.toLowerCase();
+      if (r?.claim_status === "claimed" && r?.source === "self_signup" && handleOk) {
+        return { ok: true };
+      }
+    }
     console.error("[claim-transfer] insert claimant profile", insProf);
     return { ok: false, error: insProf.message, status: 500 };
   }

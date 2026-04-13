@@ -17,9 +17,18 @@ export default function LayoutGate({ children }: { children: React.ReactNode }) 
 
   const isDocsRoute = pathname === "/docs" || pathname.startsWith("/docs/");
   const isInviteRoute = pathname.startsWith("/c/");
+  const isClaimRoute = pathname === "/claim" || pathname.startsWith("/claim/");
+  const isCreatorOnboardingRoute =
+    pathname === "/creators/onboarding" || pathname.startsWith("/creators/onboarding/");
   const isBlogsRoute = pathname === "/blogs" || pathname.startsWith("/blogs/");
   const isSignInToBuy = pathname.startsWith("/auth/sign-in-to-buy");
-  const useMinimalLayout = isDocsRoute || isInviteRoute || isBlogsRoute || isSignInToBuy;
+  const useMinimalLayout =
+    isDocsRoute ||
+    isInviteRoute ||
+    isClaimRoute ||
+    isCreatorOnboardingRoute ||
+    isBlogsRoute ||
+    isSignInToBuy;
 
   // Minimal layout (no sidebar, no topbar): always for these routes so we never flash AppShell.
   if (useMinimalLayout) {

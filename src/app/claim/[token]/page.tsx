@@ -43,13 +43,14 @@ export default function ClaimPage() {
   const [authBusy, setAuthBusy] = useState(false);
   const [authErr, setAuthErr] = useState<string | null>(null);
   const [completeErr, setCompleteErr] = useState<string | null>(null);
-  const completingRef = useRef(false);
+  /** Single shared completion promise so email submit + useEffect + Google return never double-POST. */
+  const claimInFlightRef = useRef<Promise<void> | null>(null);
   /** Stop auto-retry loops when completion fails (user stays signed in). */
   const claimTerminalFailureRef = useRef(false);
 
   const runValidate = useCallback(async () => {
     claimTerminalFailureRef.current = false;
-    completingRef.current = false;
+    claimInFlightRef.current = null;
     setLoading(true);
     setReason(null);
     try {
@@ -88,50 +89,62 @@ export default function ClaimPage() {
     void runValidate();
   }, [runValidate]);
 
-  const tryCompleteClaim = useCallback(async () => {
-    if (!token || !valid || completingRef.current) return;
-    const access = await getAccessToken();
-    if (!access) return;
-    completingRef.current = true;
-    setCompleteErr(null);
-    try {
-      const res = await fetch(`/api/claim/${encodeURIComponent(token)}/complete`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${access}`,
-        },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+  const tryCompleteClaim = useCallback((): Promise<void> => {
+    if (!token || !valid) return Promise.resolve();
+
+    const existing = claimInFlightRef.current;
+    if (existing) return existing;
+
+    const p = (async () => {
+      try {
+        setCompleteErr(null);
+        const access = await getAccessToken();
+        if (!access) return;
+
+        const res = await fetch(`/api/claim/${encodeURIComponent(token)}/complete`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${access}`,
+          },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          claimTerminalFailureRef.current = true;
+          if (data.error === "email_mismatch" || data.error === "identity_mismatch") {
+            setCompleteErr(data.message || "This account does not match this claim link.");
+            return;
+          }
+          if (
+            res.status === 409 &&
+            (data.error === "already_claimed" ||
+              data.error === "Link is no longer active" ||
+              data.error === "Workspace already claimed")
+          ) {
+            setCompleteErr(
+              data.message ||
+                "Someone else already used this link, or the workspace is no longer available.",
+            );
+            return;
+          }
+          throw new Error(data.error || data.message || `HTTP ${res.status}`);
+        }
+        router.replace(`/creators/onboarding`);
+      } catch (e: any) {
         claimTerminalFailureRef.current = true;
-        if (data.error === "email_mismatch" || data.error === "identity_mismatch") {
-          setCompleteErr(data.message || "This account does not match this claim link.");
-          completingRef.current = false;
-          return;
-        }
-        if (
-          res.status === 409 &&
-          (data.error === "already_claimed" ||
-            data.error === "Link is no longer active" ||
-            data.error === "Workspace already claimed")
-        ) {
-          setCompleteErr(
-            data.message ||
-              "Someone else already used this link, or the workspace is no longer available.",
-          );
-          completingRef.current = false;
-          return;
-        }
-        throw new Error(data.error || data.message || `HTTP ${res.status}`);
+        setCompleteErr(e?.message || "Could not complete claim");
       }
-      router.replace(`/creators/onboarding`);
-    } catch (e: any) {
-      claimTerminalFailureRef.current = true;
-      setCompleteErr(e?.message || "Could not complete claim");
-      completingRef.current = false;
-    }
+    })();
+
+    claimInFlightRef.current = p;
+    void p.finally(() => {
+      if (claimInFlightRef.current === p) {
+        claimInFlightRef.current = null;
+      }
+    });
+
+    return p;
   }, [getAccessToken, router, token, valid]);
 
   useEffect(() => {
@@ -146,7 +159,11 @@ export default function ClaimPage() {
     try {
       const { error: e } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/claim/${encodeURIComponent(token)}` },
+        options: {
+          redirectTo: `${window.location.origin}/claim/${encodeURIComponent(token)}`,
+          // Avoid a stuck Google session picking the wrong account; PKCE + full redirect still apply.
+          queryParams: { prompt: "select_account" },
+        },
       });
       if (e) throw e;
     } catch (err: any) {
@@ -160,7 +177,6 @@ export default function ClaimPage() {
     setAuthBusy(true);
     setAuthErr(null);
     setCompleteErr(null);
-    completingRef.current = false;
     claimTerminalFailureRef.current = false;
     try {
       if (mode === "signup") {
