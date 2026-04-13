@@ -2,11 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function isProfilesPrimaryKeyConflict(err: { code?: string; message?: string } | null | undefined) {
-  const msg = err?.message ?? "";
-  return err?.code === "23505" || /duplicate key|unique constraint|profiles_pkey/i.test(msg);
-}
-
 export type TransferResult = { ok: true } | { ok: false; error: string; status: number };
 
 /**
@@ -232,12 +227,6 @@ export async function transferProvisionedWorkspaceToClaimant(args: {
     return { ok: false, error: runsRunner.message, status: 500 };
   }
 
-  const { error: delClaimerProf } = await admin.from("profiles").delete().eq("id", newUserId);
-  if (delClaimerProf) {
-    console.error("[claim-transfer] delete claimer stub profile", delClaimerProf);
-    return { ok: false, error: delClaimerProf.message, status: 500 };
-  }
-
   const releaseHandle = ("rel" + oldProfileId.replace(/-/g, "") + Date.now().toString(36))
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, "_")
@@ -265,24 +254,14 @@ export async function transferProvisionedWorkspaceToClaimant(args: {
   insertRow.source = "self_signup";
   insertRow.updated_at = now;
 
-  const { error: insProf } = await admin.from("profiles").insert(insertRow as any);
+  // Upsert: claimant has a stub from handle_new_user; DELETE+INSERT could duplicate PK under races.
+  const { error: profErr } = await admin.from("profiles").upsert(insertRow as any, {
+    onConflict: "id",
+  });
 
-  if (insProf) {
-    if (isProfilesPrimaryKeyConflict(insProf)) {
-      const { data: row } = await admin
-        .from("profiles")
-        .select("claim_status, source, handle")
-        .eq("id", newUserId)
-        .maybeSingle();
-      const r = row as { claim_status?: string; source?: string; handle?: string } | null;
-      const handleOk =
-        r?.handle != null && String(r.handle).toLowerCase() === ownerHandle.toLowerCase();
-      if (r?.claim_status === "claimed" && r?.source === "self_signup" && handleOk) {
-        return { ok: true };
-      }
-    }
-    console.error("[claim-transfer] insert claimant profile", insProf);
-    return { ok: false, error: insProf.message, status: 500 };
+  if (profErr) {
+    console.error("[claim-transfer] upsert claimant profile", profErr);
+    return { ok: false, error: profErr.message, status: 500 };
   }
 
   await admin
