@@ -7,7 +7,11 @@ import { useRouter } from "next/navigation";
 import { Pencil, Loader2, Heart, Zap } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
-import { fetchCreatorListings, type CreatorListing } from "./creatorListingsAdapter";
+import {
+  fetchCreatorListings,
+  fetchCreatorPublicListingCounts,
+  type CreatorListing,
+} from "./creatorListingsAdapter";
 import ErrorModal from "../marketplace/ErrorModal";
 import { DEFAULT_AVATAR_SRC } from "../../config/branding";
 import { SHOW_PUBLIC_LIKES_AND_RUNS } from "../../lib/constants";
@@ -31,6 +35,7 @@ type PublicProfileRow = {
   banner_url: string | null;
   bio: string | null;
   socials: Record<string, string> | null;
+  created_at?: string | null;
   source?: string | null;
   claim_status?: string | null;
   is_verified_creator?: boolean | null;
@@ -119,6 +124,16 @@ function clampText(s: string | null | undefined, max = 140) {
 function safeDateMs(s?: string | null) {
   const t = s ? Date.parse(s) : NaN;
   return Number.isFinite(t) ? t : 0;
+}
+
+function formatMemberSince(iso: string | null | undefined): string | null {
+  const ms = safeDateMs(iso);
+  if (!ms) return null;
+  try {
+    return new Intl.DateTimeFormat("en", { month: "short", year: "numeric" }).format(new Date(ms));
+  } catch {
+    return null;
+  }
 }
 
 function formatRelativeTime(iso: string | null | undefined) {
@@ -582,8 +597,14 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
   const [listingsLoading, setListingsLoading] = useState(false);
   const [listingsErr, setListingsErr] = useState<string | null>(null);
   const [listings, setListings] = useState<CreatorListing[]>([]);
+  const [publicListingCounts, setPublicListingCounts] = useState<{
+    prompts: number;
+    workflows: number;
+  } | null>(null);
 
   const lastFollowAtRef = useRef<number>(0);
+
+  const profileMainMaxClass = "mx-auto w-full max-w-full lg:max-w-5xl xl:max-w-6xl";
 
   // Force enable scrolling - override all global CSS
   useEffect(() => {
@@ -649,7 +670,7 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
       }
 
       try {
-        const base = "id, handle, full_name, avatar_url, banner_url, bio, socials";
+        const base = "id, handle, full_name, avatar_url, banner_url, bio, socials, created_at";
         const provNoFlags = `${base}, source, claim_status`;
         const withFoundingOnly = `${provNoFlags}, is_founding_creator`;
         const withVerifiedOnly = `${provNoFlags}, is_verified_creator`;
@@ -712,15 +733,19 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
         .select("follower_id", { count: "exact", head: true })
         .eq("following_id", creator.id);
 
-      const followingRes = await supabase
-        .from("follows")
-        .select("following_id", { count: "exact", head: true })
-        .eq("follower_id", creator.id);
+      const isProfileOwner =
+        !!workspaceViewerId && String(workspaceViewerId) === String(creator.id);
+      const followingRes = isProfileOwner
+        ? await supabase
+            .from("follows")
+            .select("following_id", { count: "exact", head: true })
+            .eq("follower_id", creator.id)
+        : { count: 0 as number | null };
 
       if (!alive) return;
 
       setFollowers(followersRes.count ?? 0);
-      setFollowing(followingRes.count ?? 0);
+      setFollowing(isProfileOwner ? (followingRes.count ?? 0) : 0);
 
       if (viewerId) {
         const viewerFollowRes = await supabase
@@ -753,7 +778,29 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
     return () => {
       alive = false;
     };
-  }, [creator?.id, supabase, viewerId]);
+  }, [creator?.id, supabase, viewerId, workspaceViewerId]);
+
+  useEffect(() => {
+    let alive = true;
+
+    const run = async () => {
+      if (!creator?.id) return;
+      try {
+        const c = await fetchCreatorPublicListingCounts(creator.id);
+        if (!alive) return;
+        setPublicListingCounts(c);
+      } catch {
+        if (!alive) return;
+        setPublicListingCounts(null);
+      }
+    };
+
+    setPublicListingCounts(null);
+    run();
+    return () => {
+      alive = false;
+    };
+  }, [creator?.id]);
 
   useEffect(() => {
     let alive = true;
@@ -842,6 +889,8 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
     .filter(([_, v]) => !!v)
     .slice(0, 6);
 
+  const memberSinceLabel = formatMemberSince(creator?.created_at);
+
   if (loading) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
@@ -872,7 +921,7 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
       >
         {/* Banner — inset frame so desktop isn’t an edge-to-edge slab */}
         <div className="w-full bg-[#050505] px-4 pt-5 pb-1 sm:px-6 sm:pt-6 sm:pb-2">
-          <div className="mx-auto w-full max-w-[1320px]">
+          <div className={profileMainMaxClass}>
             <div
               className={cn(
                 "rounded-[28px] bg-white/[0.03] p-3 sm:p-4",
@@ -885,7 +934,7 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
                     src={bannerSrc}
                     alt="Banner"
                     fill
-                    sizes="(max-width: 1320px) 100vw, 1320px"
+                    sizes="(max-width: 1152px) 100vw, 1152px"
                     className="object-cover object-center"
                     priority
                   />
@@ -904,7 +953,7 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
 
         {/* Content */}
         <div className="px-4 pt-6 pb-6 sm:px-6 sm:pt-8 sm:pb-8">
-          <div className="mx-auto w-full max-w-[1320px]">
+          <div className={profileMainMaxClass}>
             {errTop && (
               <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-200">
                 {errTop}
@@ -1013,6 +1062,40 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
                         })}
                       </div>
                     )}
+
+                    {(publicListingCounts || memberSinceLabel) && (
+                      <div className="mt-4 sm:mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3.5 sm:px-5">
+                        <div className="flex flex-col gap-2 text-[13px] leading-snug text-white/55 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1">
+                          {publicListingCounts ? (
+                            <p className="text-white/60">
+                              <span className="font-semibold text-white/85">
+                                {publicListingCounts.prompts + publicListingCounts.workflows}
+                              </span>{" "}
+                              public{" "}
+                              {publicListingCounts.prompts + publicListingCounts.workflows === 1
+                                ? "listing"
+                                : "listings"}{" "}
+                              on Edgaze
+                              <span className="text-white/35"> · </span>
+                              {publicListingCounts.prompts} prompt
+                              {publicListingCounts.prompts === 1 ? "" : "s"},{" "}
+                              {publicListingCounts.workflows} workflow
+                              {publicListingCounts.workflows === 1 ? "" : "s"}
+                            </p>
+                          ) : null}
+                          {memberSinceLabel ? (
+                            <p
+                              className={cn(
+                                publicListingCounts ? "sm:border-l sm:border-white/10 sm:pl-4" : "",
+                              )}
+                            >
+                              Member since{" "}
+                              <span className="font-medium text-white/80">{memberSinceLabel}</span>
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1054,24 +1137,36 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
                   )}
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="rounded-full border border-white/15 bg-white/[0.05] px-5 py-2 text-sm font-medium text-white/90 shadow-sm backdrop-blur-sm">
-                      <span className="font-bold text-white">{followers}</span>{" "}
-                      <span className="text-white/70">followers</span>
+                    <div className="inline-flex h-10 items-center rounded-full border border-white/15 bg-white/[0.05] px-5 text-sm font-medium text-white/90 shadow-sm backdrop-blur-sm">
+                      <span className="inline-flex items-baseline gap-1.5 leading-none">
+                        <span className="font-bold tabular-nums text-white">{followers}</span>
+                        <span className="font-medium text-white/70">followers</span>
+                      </span>
                     </div>
-                    <div className="rounded-full border border-white/15 bg-white/[0.05] px-5 py-2 text-sm font-medium text-white/90 shadow-sm backdrop-blur-sm">
-                      <span className="font-bold text-white">{following}</span>{" "}
-                      <span className="text-white/70">following</span>
-                    </div>
+                    {isOwner ? (
+                      <div className="inline-flex h-10 items-center rounded-full border border-white/15 bg-white/[0.05] px-5 text-sm font-medium text-white/90 shadow-sm backdrop-blur-sm">
+                        <span className="inline-flex items-baseline gap-1.5 leading-none">
+                          <span className="font-bold tabular-nums text-white">{following}</span>
+                          <span className="font-medium text-white/70">following</span>
+                        </span>
+                      </div>
+                    ) : null}
                     {lifetimeRuns != null && (
                       <div
-                        className="rounded-full border border-cyan-400/25 bg-gradient-to-r from-cyan-500/10 via-sky-500/10 to-pink-500/10 px-5 py-2 text-sm font-medium text-white/90 shadow-[0_0_20px_-8px_rgba(56,189,248,0.4)] backdrop-blur-sm"
+                        className="inline-flex h-10 items-center gap-2 rounded-full border border-cyan-400/25 bg-gradient-to-r from-cyan-500/10 via-sky-500/10 to-pink-500/10 px-5 text-sm shadow-[0_0_20px_-8px_rgba(56,189,248,0.4)] backdrop-blur-sm"
                         title="Total completed runs across all public workflows and prompts"
                       >
-                        <span className="inline-flex items-center gap-1.5 font-bold tabular-nums text-white">
-                          <Zap className="h-3.5 w-3.5 text-cyan-200" />
-                          {lifetimeRuns.toLocaleString()}
-                        </span>{" "}
-                        <span className="text-white/70">total runs</span>
+                        <Zap
+                          className="h-4 w-4 shrink-0 text-cyan-200"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                        <span className="inline-flex items-center gap-1.5 leading-none">
+                          <span className="font-bold tabular-nums text-white">
+                            {lifetimeRuns.toLocaleString()}
+                          </span>
+                          <span className="font-medium text-white/70">total runs</span>
+                        </span>
                       </div>
                     )}
                   </div>

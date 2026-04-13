@@ -40,6 +40,57 @@ type FetchArgs = {
   limit?: number;
 };
 
+/** Exact public listing counts for profile credibility (not capped by list fetch limits). */
+export async function fetchCreatorPublicListingCounts(
+  creatorId: string,
+): Promise<{ prompts: number; workflows: number }> {
+  const supabase = createSupabasePublicBrowserClient();
+
+  const countWorkflows = async (): Promise<number> => {
+    const run = async (mode: "visibility" | "is_public") => {
+      let b = supabase
+        .from("workflows")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", creatorId)
+        .eq("is_published", true)
+        .is("removed_at", null);
+      if (mode === "visibility") b = b.in("visibility", ["public", "unlisted"]);
+      else b = b.eq("is_public", true);
+      return b;
+    };
+    let res = await run("visibility");
+    if (res.error) {
+      const msg = String((res.error as any)?.message || "");
+      if (
+        msg.toLowerCase().includes("visibility") &&
+        msg.toLowerCase().includes("does not exist")
+      ) {
+        res = await run("is_public");
+      }
+    }
+    if (res.error) throw res.error;
+    return res.count ?? 0;
+  };
+
+  const [promptRes, workflowCount] = await Promise.all([
+    supabase
+      .from("prompts")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", creatorId)
+      .in("type", ["prompt", "workflow"])
+      .in("visibility", ["public", "unlisted"])
+      .is("removed_at", null),
+    countWorkflows(),
+  ]);
+
+  if (promptRes.error) throw promptRes.error;
+
+  return {
+    prompts: promptRes.count ?? 0,
+    workflows: workflowCount,
+  };
+}
+
 /**
  * Fetch creator listings - matches marketplace page exactly
  */
