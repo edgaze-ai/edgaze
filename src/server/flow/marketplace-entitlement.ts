@@ -24,6 +24,18 @@ export type AuthenticatedRunEntitlement =
       draftIdForCount: string | null;
       /** When true, /api/flow/run should use server-resolved graph (active version). */
       useServerMarketplaceGraph: boolean;
+      /** True only when the authenticated user is the workflow owner. */
+      isOwner: boolean;
+      /**
+       * True only for admins running a builder-test against a workflowId that has no
+       * published version and no draft on the server. In that case the caller may supply
+       * their own graph in the request body for debugging.
+       *
+       * For every other caller this is always false. If the server graph resolution
+       * returns null and this is false, /api/flow/run MUST reject the request — it must
+       * never silently fall back to executing a client-supplied graph.
+       */
+      allowClientGraph: boolean;
     }
   | { ok: false; message: string };
 
@@ -48,8 +60,12 @@ export async function getAuthenticatedRunEntitlement(
       ok: true,
       effectiveIsBuilderTest: clientRequestedBuilderTest,
       draftIdForCount: draftId,
-      // Admins may debug arbitrary client graphs when exercising builder test flows.
       useServerMarketplaceGraph: !!(exists && !clientRequestedBuilderTest),
+      isOwner: false,
+      // Only admins testing a workflow that has no server-side graph at all may
+      // supply their own graph in the request body (debugging convenience).
+      // When the workflow exists on the server, the server graph always wins.
+      allowClientGraph: !exists && !draftId && clientRequestedBuilderTest,
     };
   }
 
@@ -75,6 +91,8 @@ export async function getAuthenticatedRunEntitlement(
       effectiveIsBuilderTest: true,
       draftIdForCount: draftId,
       useServerMarketplaceGraph: false,
+      isOwner: true,
+      allowClientGraph: false,
     };
   }
 
@@ -101,6 +119,8 @@ export async function getAuthenticatedRunEntitlement(
       effectiveIsBuilderTest: clientRequestedBuilderTest,
       draftIdForCount: null,
       useServerMarketplaceGraph: !clientRequestedBuilderTest,
+      isOwner: true,
+      allowClientGraph: false,
     };
   }
 
@@ -110,6 +130,8 @@ export async function getAuthenticatedRunEntitlement(
       effectiveIsBuilderTest: false,
       draftIdForCount: null,
       useServerMarketplaceGraph: true,
+      isOwner: false,
+      allowClientGraph: false,
     };
   }
 
@@ -137,5 +159,7 @@ export async function getAuthenticatedRunEntitlement(
     effectiveIsBuilderTest: false,
     draftIdForCount: null,
     useServerMarketplaceGraph: true,
+    isOwner: false,
+    allowClientGraph: false,
   };
 }

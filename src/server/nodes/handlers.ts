@@ -8,6 +8,7 @@ import {
 import {
   stripSensitiveHeaders,
   validateUrlForWorkflow,
+  resolveAndValidateHostnameIp,
   MAX_HTTP_RESPONSE_BYTES,
   MAX_JSON_DEPTH,
   exceedsJsonDepth,
@@ -1487,6 +1488,18 @@ const httpRequestHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
   });
   if (!urlCheck.allowed) {
     throw new Error(urlCheck.error ?? "URL validation failed");
+  }
+
+  // Resolve the hostname right now and re-validate the actual IP addresses returned
+  // by the DNS resolver. This closes two attack vectors:
+  //   1. DNS rebinding: attacker initially points domain at a public IP (passes the
+  //      string check above), then flips DNS to 127.0.0.1 before fetch() runs.
+  //   2. Alternate IP notation: hex/decimal/short IP literals that some resolvers
+  //      expand to private addresses are caught here because resolved addresses are
+  //      always in canonical form.
+  const dnsCheck = await resolveAndValidateHostnameIp(new URL(url).hostname);
+  if (!dnsCheck.allowed) {
+    throw new Error(dnsCheck.error ?? "URL validation failed (resolved IP)");
   }
 
   const method = (config.method || "GET").toUpperCase();
