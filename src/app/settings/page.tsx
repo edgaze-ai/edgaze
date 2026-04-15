@@ -573,8 +573,8 @@ export default function SettingsPage() {
                 </div>
 
                 <SettingSection
-                  title="Encrypted key vault"
-                  description="Store OpenAI, Anthropic, and Google AI keys for your account. Values are encrypted with AES-256-GCM on the server. After saving, you can rotate or delete a key but never read it back from Edgaze."
+                  title="Key vault"
+                  description="Save OpenAI, Anthropic, and Google AI keys for your account. You can update or remove them anytime."
                 >
                   <UserApiKeysPanel showIntro={false} heading="" description="" />
                 </SettingSection>
@@ -698,14 +698,12 @@ export default function SettingsPage() {
                   <KeyRound className="h-6 w-6 text-white/60" />
                   API keys
                 </h2>
-                <p className="text-[14px] text-white/50 mt-2">
-                  Encrypted provider keys for workflow runs
-                </p>
+                <p className="text-[14px] text-white/50 mt-2">Provider keys for workflow runs</p>
               </div>
 
               <SettingSection
-                title="Encrypted key vault"
-                description="Store OpenAI, Anthropic, and Google AI keys. After saving, you can rotate or delete but not view the secret again."
+                title="Key vault"
+                description="Save OpenAI, Anthropic, and Google AI keys for your account. You can update or remove them anytime."
               >
                 <UserApiKeysPanel showIntro={false} heading="" description="" />
               </SettingSection>

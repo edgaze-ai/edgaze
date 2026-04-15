@@ -275,7 +275,7 @@ export async function enforceRuntimeLimits(params: {
         useEdgazeOpenAI: false,
         useEdgazeAnthropic: false,
         useEdgazeGemini: false,
-        error: `You've used your ${freeRunLimit} free runs for this workflow. Add the API keys required by your workflow in the run modal (OpenAI, Claude, and/or Gemini) or in each node's inspector.`,
+        error: `You've used your ${freeRunLimit} free runs for this workflow. Add the API keys this workflow needs in the run panel, or set them in each block's settings.`,
       };
     }
 

@@ -1,6 +1,14 @@
 "use client";
 
-import React, { Suspense, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ArrowRight,
   Check,
@@ -24,7 +32,11 @@ import type { WorkflowInput, WorkflowRunState } from "../../../lib/workflow/run-
 import { isPremiumAiSpec, providerForAiSpec } from "../../../lib/workflow/spec-id-aliases";
 import { WorkflowInputField } from "../../builder/WorkflowInputField";
 import CustomerRunNodeStage from "./CustomerRunNodeStage";
-import { UserApiKeysDialog } from "../../settings/UserApiKeysDialog";
+import { UserApiKeysPanel } from "../../settings/UserApiKeysPanel";
+import {
+  vaultProvidersForWorkflowKeys,
+  type UserApiKeyMetadata,
+} from "../../../lib/user-api-keys/constants";
 import { bearerAuthHeaders } from "../../../lib/auth/bearer-headers";
 import { useAuth } from "../../auth/AuthContext";
 import type { Components } from "react-markdown";
@@ -779,7 +791,6 @@ function ReadyStateSurface({
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
-  const [showVaultKeysDialog, setShowVaultKeysDialog] = useState(false);
   const [vaultKeysConfigured, setVaultKeysConfigured] = useState({
     openai: false,
     anthropic: false,
@@ -820,6 +831,21 @@ function ReadyStateSurface({
     return providersRequired;
   }, [needsApiKey, providersRequired]);
 
+  const vaultProvidersForRun = useMemo(
+    () => vaultProvidersForWorkflowKeys(effectiveKeyProviders),
+    [effectiveKeyProviders],
+  );
+
+  const applyVaultMetadata = useCallback((meta: UserApiKeyMetadata[]) => {
+    const next = { openai: false, anthropic: false, gemini: false };
+    for (const k of meta) {
+      if (k.provider === "openai" && k.configured) next.openai = true;
+      else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
+      else if (k.provider === "gemini" && k.configured) next.gemini = true;
+    }
+    setVaultKeysConfigured(next);
+  }, []);
+
   useEffect(() => {
     if (!needsApiKey) return;
     let cancelled = false;
@@ -830,20 +856,14 @@ function ReadyStateSurface({
       });
       const data = await res.json().catch(() => ({}));
       if (cancelled) return;
-      const next = { openai: false, anthropic: false, gemini: false };
       if (res.ok && data.ok && Array.isArray(data.keys)) {
-        for (const k of data.keys) {
-          if (k.provider === "openai" && k.configured) next.openai = true;
-          else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
-          else if (k.provider === "gemini" && k.configured) next.gemini = true;
-        }
+        applyVaultMetadata(data.keys as UserApiKeyMetadata[]);
       }
-      setVaultKeysConfigured(next);
     })();
     return () => {
       cancelled = true;
     };
-  }, [needsApiKey, getAccessToken]);
+  }, [needsApiKey, getAccessToken, applyVaultMetadata]);
 
   const canSubmit =
     !needsApiKey ||
@@ -918,8 +938,8 @@ function ReadyStateSurface({
             {!builderRunLimit.isAdmin &&
               (builderRunLimit.used ?? 0) >= (builderRunLimit.limit ?? 10) && (
                 <div className="mt-2 text-xs leading-6 text-white/55">
-                  You’ve hit the free run limit. Add BYOK (Saved keys or paste below) to keep
-                  running.
+                  You’ve hit the free run limit. Add the keys this workflow needs below (or save
+                  them to your account) to keep running.
                 </div>
               )}
           </div>
@@ -951,43 +971,58 @@ function ReadyStateSurface({
                 ))}
 
               {needsApiKey && (
-                <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-sm font-medium text-white/90">Provider keys</div>
-                    <button
-                      type="button"
-                      onClick={() => setShowVaultKeysDialog(true)}
-                      className="text-xs font-medium text-cyan-300/90 hover:text-cyan-200 underline underline-offset-2"
-                    >
-                      Saved keys…
-                    </button>
+                <div className="rounded-[22px] border border-white/10 bg-white/[0.03] p-4 space-y-5">
+                  <div>
+                    <div className="text-sm font-medium text-white/90">Keys for this run</div>
+                    {builderRunLimit?.isAdmin ? (
+                      <div className="mt-1 text-xs text-amber-200/80">
+                        Admin bypass is on — add keys only if you want your own provider billing.
+                      </div>
+                    ) : null}
                   </div>
-                  <div className="mt-2 text-sm leading-6 text-white/55">
-                    {builderRunLimit?.isAdmin
-                      ? "Admin bypass is enabled. Add keys only if you want to use your own provider billing."
-                      : "Add a key below or use encrypted keys from your account (Saved keys)."}
+                  <div className="flex flex-col gap-3">
+                    {effectiveKeyProviders.has("openai") && (
+                      <input
+                        type="password"
+                        value={openaiApiKey}
+                        onChange={(event) => setOpenaiApiKey(event.target.value)}
+                        placeholder="OpenAI API key"
+                        autoComplete="off"
+                        className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-cyan-300/30 focus:outline-none"
+                      />
+                    )}
+                    {effectiveKeyProviders.has("anthropic") && (
+                      <input
+                        type="password"
+                        value={anthropicApiKey}
+                        onChange={(event) => setAnthropicApiKey(event.target.value)}
+                        placeholder="Anthropic API key"
+                        autoComplete="off"
+                        className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-cyan-300/30 focus:outline-none"
+                      />
+                    )}
+                    {effectiveKeyProviders.has("google") && (
+                      <input
+                        type="password"
+                        value={geminiApiKey}
+                        onChange={(event) => setGeminiApiKey(event.target.value)}
+                        placeholder="Google AI (Gemini) API key"
+                        autoComplete="off"
+                        className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-cyan-300/30 focus:outline-none"
+                      />
+                    )}
                   </div>
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <input
-                      type="password"
-                      value={openaiApiKey}
-                      onChange={(event) => setOpenaiApiKey(event.target.value)}
-                      placeholder="OpenAI key"
-                      className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-cyan-300/30 focus:outline-none"
-                    />
-                    <input
-                      type="password"
-                      value={anthropicApiKey}
-                      onChange={(event) => setAnthropicApiKey(event.target.value)}
-                      placeholder="Anthropic key"
-                      className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-cyan-300/30 focus:outline-none"
-                    />
-                    <input
-                      type="password"
-                      value={geminiApiKey}
-                      onChange={(event) => setGeminiApiKey(event.target.value)}
-                      placeholder="Gemini key"
-                      className="rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:border-cyan-300/30 focus:outline-none"
+                  <div className="border-t border-white/10 pt-4 space-y-2">
+                    <div className="text-xs font-medium uppercase tracking-wide text-white/45">
+                      Save to your account
+                    </div>
+                    <UserApiKeysPanel
+                      showIntro={false}
+                      heading=""
+                      description=""
+                      providersOnly={vaultProvidersForRun}
+                      variant="embedded"
+                      onKeysUpdated={applyVaultMetadata}
                     />
                   </div>
                 </div>
@@ -1024,33 +1059,6 @@ function ReadyStateSurface({
             </button>
           )}
         </div>
-
-        <UserApiKeysDialog
-          open={showVaultKeysDialog}
-          onClose={() => {
-            setShowVaultKeysDialog(false);
-            if (!needsApiKey) return;
-            void (async () => {
-              const res = await fetch("/api/user/api-keys", {
-                credentials: "include",
-                headers: await bearerAuthHeaders(getAccessToken),
-              });
-              return res.json();
-            })()
-              .then((data) => {
-                const next = { openai: false, anthropic: false, gemini: false };
-                if (data?.ok && Array.isArray(data.keys)) {
-                  for (const k of data.keys) {
-                    if (k.provider === "openai" && k.configured) next.openai = true;
-                    else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
-                    else if (k.provider === "gemini" && k.configured) next.gemini = true;
-                  }
-                }
-                setVaultKeysConfigured(next);
-              })
-              .catch(() => {});
-          }}
-        />
       </div>
     </div>
   );

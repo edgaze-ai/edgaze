@@ -27,13 +27,20 @@ function formatProviderUpdated(at: string | null): string {
 
 export function UserApiKeysPanel({
   heading = "API keys",
-  description = "BYO keys for AI providers. Once saved, keys cannot be viewed—only replaced or removed. Stored encrypted on our servers.",
+  description = "",
   showIntro = true,
+  providersOnly,
+  variant = "default",
+  onKeysUpdated,
 }: {
   heading?: string;
   description?: string;
   /** When false, only the key list is shown (parent supplies section title). */
   showIntro?: boolean;
+  /** If set, only these providers are shown (e.g. keys required for the current workflow). */
+  providersOnly?: UserApiKeyProvider[];
+  variant?: "default" | "embedded";
+  onKeysUpdated?: (keys: UserApiKeyMetadata[]) => void;
 }) {
   const { getAccessToken } = useAuth();
   const [keys, setKeys] = useState<UserApiKeyMetadata[] | null>(null);
@@ -44,6 +51,19 @@ export function UserApiKeysPanel({
   const [saving, setSaving] = useState<UserApiKeyProvider | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<UserApiKeyProvider | null>(null);
+  const [vaultConfigured, setVaultConfigured] = useState(true);
+
+  const providerList: UserApiKeyProvider[] = providersOnly?.length
+    ? providersOnly.filter((p) => USER_API_KEY_PROVIDERS.includes(p))
+    : [...USER_API_KEY_PROVIDERS];
+
+  const applyKeys = useCallback(
+    (next: UserApiKeyMetadata[]) => {
+      setKeys(next);
+      onKeysUpdated?.(next);
+    },
+    [onKeysUpdated],
+  );
 
   const refresh = useCallback(async () => {
     setLoadError(null);
@@ -57,8 +77,9 @@ export function UserApiKeysPanel({
       setKeys(null);
       return;
     }
-    setKeys(data.keys as UserApiKeyMetadata[]);
-  }, [getAccessToken]);
+    setVaultConfigured(data.vaultConfigured !== false);
+    applyKeys(data.keys as UserApiKeyMetadata[]);
+  }, [getAccessToken, applyKeys]);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,7 +125,8 @@ export function UserApiKeysPanel({
         setFormError(typeof data.error === "string" ? data.error : "Save failed");
         return;
       }
-      setKeys(data.keys as UserApiKeyMetadata[]);
+      setVaultConfigured(data.vaultConfigured !== false);
+      applyKeys(data.keys as UserApiKeyMetadata[]);
       setReplacing(null);
       setNewSecrets((s) => {
         const next = { ...s };
@@ -131,14 +153,17 @@ export function UserApiKeysPanel({
         setFormError(typeof data.error === "string" ? data.error : "Remove failed");
         return;
       }
-      setKeys(data.keys as UserApiKeyMetadata[]);
+      setVaultConfigured(data.vaultConfigured !== false);
+      applyKeys(data.keys as UserApiKeyMetadata[]);
     } finally {
       setRemoving(null);
     }
   };
 
+  const embed = variant === "embedded";
+
   return (
-    <div className="space-y-6">
+    <div className={embed ? "space-y-4" : "space-y-6"}>
       {showIntro && (heading || description) && (
         <div className="flex items-start gap-3">
           <div className="rounded-lg border border-white/[0.1] bg-white/[0.04] p-2.5 shrink-0">
@@ -152,6 +177,13 @@ export function UserApiKeysPanel({
               </p>
             ) : null}
           </div>
+        </div>
+      )}
+
+      {!vaultConfigured && (
+        <div className="rounded-lg bg-amber-500/10 border border-amber-500/25 p-3 text-amber-200/90 text-[13px] leading-relaxed">
+          Saving keys to your account isn’t available here. Use the fields above for this run, or
+          try again from a full Edgaze deployment.
         </div>
       )}
 
@@ -174,16 +206,21 @@ export function UserApiKeysPanel({
       )}
 
       {!loading && keys && (
-        <div className="space-y-4">
-          {USER_API_KEY_PROVIDERS.map((provider) => {
+        <div className={embed ? "space-y-3" : "space-y-4"}>
+          {providerList.map((provider) => {
             const meta = keys.find((k) => k.provider === provider);
             const configured = meta?.configured ?? false;
             const isEditing = replacing === provider;
+            const vaultActionsDisabled = !vaultConfigured;
 
             return (
               <div
                 key={provider}
-                className="rounded-xl border border-white/[0.1] bg-[#0c0c0c] p-4 sm:p-5 space-y-3"
+                className={
+                  embed
+                    ? "rounded-xl border border-white/[0.1] bg-[#0c0c0c] p-3 sm:p-4 space-y-2"
+                    : "rounded-xl border border-white/[0.1] bg-[#0c0c0c] p-4 sm:p-5 space-y-3"
+                }
               >
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div>
@@ -193,12 +230,13 @@ export function UserApiKeysPanel({
                     <div className="text-[12px] text-white/45 mt-1">
                       {configured ? (
                         <>
-                          Saved — last updated{" "}
-                          {formatProviderUpdated(meta?.updatedAt ?? null) || "recently"}. You cannot
-                          view this key again.
+                          Saved
+                          {formatProviderUpdated(meta?.updatedAt ?? null)
+                            ? ` · ${formatProviderUpdated(meta?.updatedAt ?? null)}`
+                            : ""}
                         </>
                       ) : (
-                        <>No key saved.</>
+                        <>Not saved yet.</>
                       )}
                     </div>
                   </div>
@@ -207,7 +245,7 @@ export function UserApiKeysPanel({
                       <button
                         type="button"
                         onClick={() => removeKey(provider)}
-                        disabled={removing === provider}
+                        disabled={removing === provider || vaultActionsDisabled}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.04] px-3 py-1.5 text-[12px] text-white/70 hover:bg-white/[0.08] disabled:opacity-50"
                       >
                         {removing === provider ? (
@@ -221,7 +259,8 @@ export function UserApiKeysPanel({
                     <button
                       type="button"
                       onClick={() => (isEditing ? cancelReplace() : startReplace(provider))}
-                      className="rounded-lg bg-white text-black px-3 py-1.5 text-[12px] font-medium hover:bg-white/90"
+                      disabled={vaultActionsDisabled && !isEditing}
+                      className="rounded-lg bg-white text-black px-3 py-1.5 text-[12px] font-medium hover:bg-white/90 disabled:opacity-50"
                     >
                       {configured ? (isEditing ? "Cancel" : "Replace key") : "Add key"}
                     </button>
@@ -234,15 +273,16 @@ export function UserApiKeysPanel({
                       type="password"
                       value={newSecrets[provider] ?? ""}
                       onChange={(e) => setNewSecrets((s) => ({ ...s, [provider]: e.target.value }))}
-                      placeholder={configured ? "Paste new secret to replace" : "Paste secret key"}
+                      placeholder={configured ? "Paste new key" : "Paste API key"}
                       autoComplete="off"
-                      className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-2.5 text-[13px] text-white placeholder-white/35 focus:border-cyan-500/35 focus:outline-none focus:ring-1 focus:ring-cyan-500/25"
+                      disabled={vaultActionsDisabled}
+                      className="w-full rounded-lg border border-white/10 bg-black/40 px-4 py-2.5 text-[13px] text-white placeholder-white/35 focus:border-cyan-500/35 focus:outline-none focus:ring-1 focus:ring-cyan-500/25 disabled:opacity-50"
                     />
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => saveKey(provider)}
-                        disabled={saving === provider}
+                        disabled={saving === provider || vaultActionsDisabled}
                         className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/90 text-black px-4 py-2 text-[13px] font-medium hover:bg-emerald-400 disabled:opacity-50"
                       >
                         {saving === provider && <Loader2 className="h-4 w-4 animate-spin" />}

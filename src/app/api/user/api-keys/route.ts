@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
 import { resolveActorContext } from "@lib/auth/actor-context";
 import { assertNotImpersonating, ImpersonationForbiddenError } from "@lib/auth/sensitive-action";
+import { isUserApiKeyVaultConfigured } from "@lib/crypto/user-api-key-vault-crypto";
 import {
   deleteUserApiKeySecret,
   listUserApiKeyMetadata,
@@ -26,7 +27,11 @@ export async function GET(req: Request) {
   }
 
   const keys = await listUserApiKeyMetadata(user.id);
-  return NextResponse.json({ ok: true, keys });
+  return NextResponse.json({
+    ok: true,
+    keys,
+    vaultConfigured: isUserApiKeyVaultConfigured(),
+  });
 }
 
 export async function POST(req: Request) {
@@ -67,7 +72,11 @@ export async function POST(req: Request) {
   }
 
   const keys = await listUserApiKeyMetadata(user.id);
-  return NextResponse.json({ ok: true, keys });
+  return NextResponse.json({
+    ok: true,
+    keys,
+    vaultConfigured: isUserApiKeyVaultConfigured(),
+  });
 }
 
 export async function DELETE(req: Request) {
@@ -98,5 +107,9 @@ export async function DELETE(req: Request) {
   }
 
   const keys = await listUserApiKeyMetadata(user.id);
-  return NextResponse.json({ ok: true, keys });
+  return NextResponse.json({
+    ok: true,
+    keys,
+    vaultConfigured: isUserApiKeyVaultConfigured(),
+  });
 }

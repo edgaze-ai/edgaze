@@ -67,7 +67,11 @@ export async function upsertUserApiKeySecret(
     return { ok: false, error: "Invalid user" };
   }
   if (!isUserApiKeyVaultConfigured()) {
-    return { ok: false, error: "API key storage is not configured on this server." };
+    return {
+      ok: false,
+      error:
+        "Saved keys aren’t available in this environment. Paste your key for this run, or ask your host to enable account key storage.",
+    };
   }
 
   const trimmed = plaintextSecret.trim();

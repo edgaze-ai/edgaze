@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -43,7 +43,11 @@ import { WorkflowInputField } from "./WorkflowInputField";
 import RunCountDiagnosticModal from "./RunCountDiagnosticModal";
 import CustomerWorkflowRuntimeSurface from "../runtime/customer/CustomerWorkflowRuntimeSurface";
 import { WorkflowMarkdown } from "../workflow/WorkflowMarkdown";
-import { UserApiKeysDialog } from "../settings/UserApiKeysDialog";
+import { UserApiKeysPanel } from "../settings/UserApiKeysPanel";
+import {
+  vaultProvidersForWorkflowKeys,
+  type UserApiKeyMetadata,
+} from "../../lib/user-api-keys/constants";
 import { bearerAuthHeaders } from "../../lib/auth/bearer-headers";
 import { useAuth } from "../auth/AuthContext";
 import { downloadWorkflowImageFromUrl } from "../../lib/workflow/client-image-download";
@@ -2019,7 +2023,6 @@ export default function PremiumWorkflowRunModal({
   const [copiedOutput, setCopiedOutput] = useState<string | null>(null);
   const [showTechnicalLogs, setShowTechnicalLogs] = useState(false);
   const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
-  const [showVaultKeysDialog, setShowVaultKeysDialog] = useState(false);
   const [vaultKeysConfigured, setVaultKeysConfigured] = useState({
     openai: false,
     anthropic: false,
@@ -2180,6 +2183,21 @@ export default function PremiumWorkflowRunModal({
     return providersRequired;
   }, [needsApiKey, providersRequired]);
 
+  const vaultProvidersForRun = useMemo(
+    () => vaultProvidersForWorkflowKeys(effectiveKeyProviders),
+    [effectiveKeyProviders],
+  );
+
+  const applyVaultMetadata = useCallback((meta: UserApiKeyMetadata[]) => {
+    const next = { openai: false, anthropic: false, gemini: false };
+    for (const k of meta) {
+      if (k.provider === "openai" && k.configured) next.openai = true;
+      else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
+      else if (k.provider === "gemini" && k.configured) next.gemini = true;
+    }
+    setVaultKeysConfigured(next);
+  }, []);
+
   useEffect(() => {
     if (!open || !needsApiKey) return;
     let cancelled = false;
@@ -2190,20 +2208,14 @@ export default function PremiumWorkflowRunModal({
       });
       const data = await res.json().catch(() => ({}));
       if (cancelled) return;
-      const next = { openai: false, anthropic: false, gemini: false };
       if (res.ok && data.ok && Array.isArray(data.keys)) {
-        for (const k of data.keys) {
-          if (k.provider === "openai" && k.configured) next.openai = true;
-          else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
-          else if (k.provider === "gemini" && k.configured) next.gemini = true;
-        }
+        applyVaultMetadata(data.keys as UserApiKeyMetadata[]);
       }
-      setVaultKeysConfigured(next);
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, needsApiKey, getAccessToken]);
+  }, [open, needsApiKey, getAccessToken, applyVaultMetadata]);
 
   const keysOk =
     (!effectiveKeyProviders.has("openai") ||
@@ -2570,16 +2582,9 @@ export default function PremiumWorkflowRunModal({
                         <div className="rounded-xl border border-white/10 bg-[#0c0c0c] p-5 space-y-5">
                           <div className="flex items-center justify-between gap-3 flex-wrap">
                             <label className="block text-sm font-semibold text-white/90">
-                              API keys
+                              Keys for this run
                               <span className="text-red-400 ml-1.5">*</span>
                             </label>
-                            <button
-                              type="button"
-                              onClick={() => setShowVaultKeysDialog(true)}
-                              className="text-xs font-medium text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
-                            >
-                              Saved keys…
-                            </button>
                             {builderRunLimit?.isAdmin ? (
                               <span className="text-xs text-amber-300 font-medium">Admin</span>
                             ) : builderRunLimit ? (
@@ -2590,21 +2595,27 @@ export default function PremiumWorkflowRunModal({
                               <span className="text-xs text-white/50">Free runs used</span>
                             )}
                           </div>
-                          <p className="text-xs text-white/50 leading-relaxed">
-                            {requiresApiKeys?.length
-                              ? "You've used your free runs for this workflow. Paste keys below or open Saved keys to use encrypted keys from your account (Settings → API keys)."
-                              : "Free tier uses lower-cost defaults. With your keys, inspector models apply. You can paste once here or save encrypted keys under Saved keys."}
-                          </p>
+                          {requiresApiKeys?.length ? (
+                            <p className="text-xs text-white/50 leading-relaxed">
+                              Free runs are used up for this workflow. Add the keys it needs below,
+                              or save them under your account in the same box.
+                            </p>
+                          ) : (
+                            <p className="text-xs text-white/50 leading-relaxed">
+                              Paste keys for the models in this workflow, or save them to your
+                              account below.
+                            </p>
+                          )}
                           {effectiveKeyProviders.has("openai") && (
                             <div>
                               <label className="block text-xs font-medium text-white/70 mb-2">
-                                OpenAI (LLM Chat / Image / Embeddings)
+                                OpenAI
                               </label>
                               <input
                                 type="password"
                                 value={openaiApiKey}
                                 onChange={(e) => setOpenaiApiKey(e.target.value)}
-                                placeholder="sk-..."
+                                placeholder="OpenAI API key"
                                 className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
                                 autoComplete="off"
                               />
@@ -2613,13 +2624,13 @@ export default function PremiumWorkflowRunModal({
                           {effectiveKeyProviders.has("anthropic") && (
                             <div>
                               <label className="block text-xs font-medium text-white/70 mb-2">
-                                Anthropic (Claude Chat)
+                                Anthropic (Claude)
                               </label>
                               <input
                                 type="password"
                                 value={anthropicApiKey}
                                 onChange={(e) => setAnthropicApiKey(e.target.value)}
-                                placeholder="sk-ant-..."
+                                placeholder="Anthropic API key"
                                 className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
                                 autoComplete="off"
                               />
@@ -2628,18 +2639,31 @@ export default function PremiumWorkflowRunModal({
                           {effectiveKeyProviders.has("google") && (
                             <div>
                               <label className="block text-xs font-medium text-white/70 mb-2">
-                                Google AI Studio (Gemini)
+                                Google AI (Gemini)
                               </label>
                               <input
                                 type="password"
                                 value={geminiApiKey}
                                 onChange={(e) => setGeminiApiKey(e.target.value)}
-                                placeholder="AIza..."
+                                placeholder="Gemini API key"
                                 className="w-full rounded-lg border border-white/10 bg-black/30 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
                                 autoComplete="off"
                               />
                             </div>
                           )}
+                          <div className="border-t border-white/10 pt-4 space-y-2">
+                            <div className="text-[11px] font-medium uppercase tracking-wide text-white/45">
+                              Save to your account
+                            </div>
+                            <UserApiKeysPanel
+                              showIntro={false}
+                              heading=""
+                              description=""
+                              providersOnly={vaultProvidersForRun}
+                              variant="embedded"
+                              onKeysUpdated={applyVaultMetadata}
+                            />
+                          </div>
                         </div>
                       )}
 
@@ -2857,34 +2881,6 @@ export default function PremiumWorkflowRunModal({
         onRefresh={() => {
           // Trigger a refresh of the run limit if parent provides callback
           // This will be handled by the parent component
-        }}
-      />
-
-      <UserApiKeysDialog
-        open={showVaultKeysDialog}
-        onClose={() => {
-          setShowVaultKeysDialog(false);
-          if (needsApiKey) {
-            void (async () => {
-              const res = await fetch("/api/user/api-keys", {
-                credentials: "include",
-                headers: await bearerAuthHeaders(getAccessToken),
-              });
-              return res.json();
-            })()
-              .then((data) => {
-                const next = { openai: false, anthropic: false, gemini: false };
-                if (data?.ok && Array.isArray(data.keys)) {
-                  for (const k of data.keys) {
-                    if (k.provider === "openai" && k.configured) next.openai = true;
-                    else if (k.provider === "anthropic" && k.configured) next.anthropic = true;
-                    else if (k.provider === "gemini" && k.configured) next.gemini = true;
-                  }
-                }
-                setVaultKeysConfigured(next);
-              })
-              .catch(() => {});
-          }
         }}
       />
     </div>,
