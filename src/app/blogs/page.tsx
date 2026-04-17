@@ -2,8 +2,6 @@ import Link from "next/link";
 import { getAllBlogs } from "./utils/blogs";
 import { Calendar } from "lucide-react";
 
-const SAFE_BLOG_SLUG = /^[a-z0-9-]{1,80}$/;
-
 export default function BlogsHomePage() {
   const blogs = getAllBlogs();
 
@@ -29,14 +27,10 @@ export default function BlogsHomePage() {
       {/* Blog list */}
       <section className="space-y-8 sm:space-y-10">
         {blogs.map((blog, index) => {
-          if (!SAFE_BLOG_SLUG.test(blog.slug)) {
-            return null;
-          }
-
           return (
             <Link
               key={`${blog.date ?? "undated"}-${index}`}
-              href={`/blogs/${blog.slug}`}
+              href={blog.href}
               className="block group"
             >
               <article className="rounded-2xl p-8 sm:p-10 border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-300 group-hover:shadow-[0_0_40px_-12px_rgba(34,211,238,0.08),0_0_40px_-12px_rgba(236,72,153,0.06)]">

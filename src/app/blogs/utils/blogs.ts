@@ -5,6 +5,7 @@ import { normalizeSafeSlug } from "@/lib/security/safe-values";
 
 export type BlogMeta = {
   slug: string;
+  href: string;
   title: string;
   description: string;
   date?: string;
@@ -16,7 +17,18 @@ export type Blog = BlogMeta & {
 
 const BLOGS_DIR = path.join(process.cwd(), "src", "app", "blogs", "content");
 
-const ORDER: string[] = ["ai-prompts-no-distribution", "introducing-blogs"];
+const ORDER = [
+  {
+    slug: "ai-prompts-no-distribution",
+    href: "/blogs/ai-prompts-no-distribution",
+  },
+  {
+    slug: "introducing-blogs",
+    href: "/blogs/introducing-blogs",
+  },
+] as const;
+
+const BLOG_ROUTE_BY_SLUG = new Map(ORDER.map((entry) => [entry.slug, entry.href]));
 
 function safeRead(filePath: string) {
   try {
@@ -46,31 +58,15 @@ function parseHeader(raw: string) {
 export function getAllBlogs(): BlogMeta[] {
   const metas: BlogMeta[] = [];
 
-  for (const slug of ORDER) {
-    const safeSlug = normalizeSafeSlug(slug, { maxLength: 80 });
+  for (const entry of ORDER) {
+    const safeSlug = normalizeSafeSlug(entry.slug, { maxLength: 80 });
     if (!safeSlug) continue;
     const filePath = path.join(BLOGS_DIR, `${safeSlug}.md`);
     const raw = safeRead(filePath);
     if (!raw) continue;
 
     const { title, description, date } = parseHeader(raw);
-    metas.push({ slug: safeSlug, title, description, date });
-  }
-
-  // Also include any .md in content/ not in ORDER
-  try {
-    const files = fs.readdirSync(BLOGS_DIR).filter((f) => f.endsWith(".md"));
-    for (const f of files) {
-      const safeSlug = normalizeSafeSlug(f.replace(/\.md$/, ""), { maxLength: 80 });
-      if (!safeSlug || ORDER.includes(safeSlug)) continue;
-      const filePath = path.join(BLOGS_DIR, f);
-      const raw = safeRead(filePath);
-      if (!raw) continue;
-      const { title, description, date } = parseHeader(raw);
-      metas.push({ slug: safeSlug, title, description, date });
-    }
-  } catch {
-    // dir may not exist yet
+    metas.push({ slug: safeSlug, href: entry.href, title, description, date });
   }
 
   // Sort by date descending (newest first); items without date go last
@@ -87,11 +83,13 @@ export function getAllBlogs(): BlogMeta[] {
 export function getBlog(slug: string): Blog | null {
   const safeSlug = normalizeSafeSlug(slug, { maxLength: 80 });
   if (!safeSlug) return null;
+  const href = BLOG_ROUTE_BY_SLUG.get(safeSlug);
+  if (!href) return null;
 
   const filePath = path.join(BLOGS_DIR, `${safeSlug}.md`);
   const raw = safeRead(filePath);
   if (!raw) return null;
 
   const { title, description, date, body } = parseHeader(raw);
-  return { slug: safeSlug, title, description, date, body };
+  return { slug: safeSlug, href, title, description, date, body };
 }

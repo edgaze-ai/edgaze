@@ -129,7 +129,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             {upNextBlogs.map((b) => (
               <Link
                 key={b.slug}
-                href={b.slug ? `/blogs/${b.slug}` : "/blogs"}
+                href={b.href}
                 className="group flex items-start gap-4 rounded-xl p-5 border border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-200"
               >
                 <div className="flex-1 min-w-0">
