@@ -75,7 +75,8 @@ function normaliseCode(input: string): string {
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/-+/g, "-") // collapse runs; at most one leading/trailing dash remains
+    .replace(/^-|-$/g, "");
 }
 
 async function isCodeTaken(supabase: any, code: string): Promise<boolean> {

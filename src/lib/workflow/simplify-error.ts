@@ -20,7 +20,14 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // API key
-  if (/invalid.*api.*key|incorrect API key|401|authentication|unauthorized/i.test(e)) {
+  const el = e.toLowerCase();
+  if (
+    el.includes("401") ||
+    el.includes("authentication") ||
+    el.includes("unauthorized") ||
+    el.includes("incorrect api key") ||
+    (el.includes("invalid") && el.includes("api") && el.includes("key"))
+  ) {
     if (/openai/i.test(e)) {
       return "OpenAI rejected the API key for this node. Add or update the OpenAI key in the run modal or node settings.";
     }
@@ -55,7 +62,13 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // Model / request
-  if (/invalid_request|invalid request|model.*not found|404|bad request/i.test(e)) {
+  if (
+    el.includes("invalid_request") ||
+    el.includes("invalid request") ||
+    e.includes("404") ||
+    el.includes("bad request") ||
+    (el.includes("model") && el.includes("not found"))
+  ) {
     return "The request was invalid. Check the model name and node settings.";
   }
   if (e.includes("Prompt or messages array required")) {
@@ -77,7 +90,7 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // HTTP / response
-  if (/response too large|exceeds.*bytes/i.test(e)) {
+  if (el.includes("response too large") || (el.includes("exceeds") && el.includes("bytes"))) {
     return "The response was too large. Try smaller inputs or a simpler request.";
   }
   if (/invalid json|invalid JSON/i.test(e)) {

@@ -123,8 +123,8 @@ function isProbablyMarkdown(text: string): boolean {
   if (/(^|\n)(-|\*|\+)\s+\S/.test(t)) return true;
   if (/(^|\n)\d+\.\s+\S/.test(t)) return true;
   if (/\[[^\]]+\]\([^)]+\)/.test(t)) return true;
-  if (/(^|\n)\|(.+\|)+\s*(\n\|[-:\s|]+\|)/.test(t)) return true; // GFM table with separator
-  if (/(^|\n)[^|\n]+\|[^|\n]+(\n[^|\n]+\|[^|\n]+)+/.test(t)) return true; // loose pipe rows (model output)
+  if (/(^|\n)\|([^|\n]+\|)+\s*(\n\|[-:\s|]+\|)/.test(t)) return true; // GFM table with separator
+  if (t.split("\n").filter((l) => l.includes("|")).length >= 2) return true; // loose pipe rows (model output)
   if (/`[^`\n]+`/.test(t)) return true;
   return false;
 }
