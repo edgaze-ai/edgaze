@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
-import { getAllBlogs, getBlog } from "../utils/blogs";
+import { getAllBlogs, getBlog, getBlogHrefForSlug } from "../utils/blogs";
 import BlogRenderer from "../components/BlogRenderer";
 import { extractToc } from "../../docs/utils/extractToc";
 import { Calendar, ArrowLeft, ArrowRight } from "lucide-react";
@@ -129,7 +129,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             {upNextBlogs.map((b) => (
               <Link
                 key={b.slug}
-                href={b.href}
+                href={getBlogHrefForSlug(b.slug)}
                 className="group flex items-start gap-4 rounded-xl p-5 border border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-200"
               >
                 <div className="flex-1 min-w-0">

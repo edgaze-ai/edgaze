@@ -5,7 +5,6 @@ import { normalizeSafeSlug } from "@/lib/security/safe-values";
 
 export type BlogMeta = {
   slug: string;
-  href: string;
   title: string;
   description: string;
   date?: string;
@@ -28,7 +27,13 @@ const ORDER = [
   },
 ] as const;
 
+export const BLOG_ROUTE_ORDER = ORDER.map((entry) => entry.href);
+
 const BLOG_ROUTE_BY_SLUG = new Map(ORDER.map((entry) => [entry.slug, entry.href]));
+
+export function getBlogHrefForSlug(slug: string) {
+  return BLOG_ROUTE_BY_SLUG.get(slug) ?? "/blogs";
+}
 
 function safeRead(filePath: string) {
   try {
@@ -66,16 +71,8 @@ export function getAllBlogs(): BlogMeta[] {
     if (!raw) continue;
 
     const { title, description, date } = parseHeader(raw);
-    metas.push({ slug: safeSlug, href: entry.href, title, description, date });
+    metas.push({ slug: safeSlug, title, description, date });
   }
-
-  // Sort by date descending (newest first); items without date go last
-  metas.sort((a, b) => {
-    if (!a.date && !b.date) return 0;
-    if (!a.date) return 1;
-    if (!b.date) return -1;
-    return b.date.localeCompare(a.date);
-  });
 
   return metas;
 }
@@ -83,13 +80,12 @@ export function getAllBlogs(): BlogMeta[] {
 export function getBlog(slug: string): Blog | null {
   const safeSlug = normalizeSafeSlug(slug, { maxLength: 80 });
   if (!safeSlug) return null;
-  const href = BLOG_ROUTE_BY_SLUG.get(safeSlug);
-  if (!href) return null;
+  if (!BLOG_ROUTE_BY_SLUG.has(safeSlug)) return null;
 
   const filePath = path.join(BLOGS_DIR, `${safeSlug}.md`);
   const raw = safeRead(filePath);
   if (!raw) return null;
 
   const { title, description, date, body } = parseHeader(raw);
-  return { slug: safeSlug, href, title, description, date, body };
+  return { slug: safeSlug, title, description, date, body };
 }
