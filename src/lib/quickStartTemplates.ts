@@ -1,10 +1,10 @@
 /**
  * Quick-start workflow templates for the Block Library.
  * Each template is a prefilled graph using premium nodes (llm-chat, llm-image).
- * Input nodes are empty (user fills at run time). Generous spacing so connections are visible.
+ * Input nodes are empty (user fills at run time). Spacing balances readable edges with sensible default zoom on fit-to-screen.
  */
 
-const NODE_SPACING = 840; // horizontal gap between nodes so edges are clearly visible without panning
+const NODE_SPACING = 520; // horizontal gap — wide enough for edges; avoids microscopic nodes when fitting the canvas
 
 export type QuickStartTemplate = {
   id: string;
@@ -197,11 +197,11 @@ export const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
           { x: NODE_SPACING, y: 0 },
           {
             title: "LLM Image",
-            summary: "Generate images with Nano Banana or GPT Image.",
+            summary: "Generate images with Gemini or OpenAI.",
             config: {
               prompt: "A beautiful landscape",
               model: "gemini-3.1-flash-image-preview",
-              size: "1024x1024",
+              aspectRatio: "16:9",
               quality: "medium",
               n: 1,
               timeout: 60000,

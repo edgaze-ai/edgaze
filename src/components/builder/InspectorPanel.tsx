@@ -6,7 +6,9 @@ import { Eye, TrendingUp, Users, Sliders, Code2, ChevronDown } from "lucide-reac
 import { getNodeSpec } from "src/nodes/registry";
 import {
   DEFAULT_LLM_IMAGE_MODEL,
-  OPENAI_GPT_IMAGE_SIZES,
+  isKnownLlmImageAspectRatio,
+  LLM_IMAGE_ASPECT_OPTIONS,
+  resolveLlmImageAspectRatio,
   resolveLlmImageProvider,
 } from "src/lib/workflow/llm-model-catalog";
 
@@ -322,25 +324,25 @@ function GeneralPanel({
     "maxIterations",
   ]);
 
-  // Auto-fix LLM Image OpenAI config so invalid size/quality are never sent to the API
+  // Auto-fix LLM Image config: invalid aspect ratio or OpenAI quality
   useEffect(() => {
     if (spec?.id !== "llm-image" && spec?.id !== "openai-image") return;
     if (!selection.nodeId) return;
     const imageModel =
       (typeof cfg.model === "string" && cfg.model.trim()) || DEFAULT_LLM_IMAGE_MODEL;
-    if (resolveLlmImageProvider(imageModel) !== "openai") return;
-    const size = cfg.size || "1024x1024";
-    const quality = cfg.quality || "medium";
     const updates: Record<string, string> = {};
-    if (!OPENAI_GPT_IMAGE_SIZES.includes(size as (typeof OPENAI_GPT_IMAGE_SIZES)[number])) {
-      updates.size = "1024x1024";
+    const ar = typeof cfg.aspectRatio === "string" ? cfg.aspectRatio.trim() : "";
+    if (ar && !isKnownLlmImageAspectRatio(ar)) {
+      updates.aspectRatio = "1:1";
     }
-    const q = String(quality).toLowerCase();
-    if (!["low", "medium", "high", "standard", "hd"].includes(q)) {
-      updates.quality = "medium";
+    if (resolveLlmImageProvider(imageModel) === "openai") {
+      const q = String(cfg.quality ?? "medium").toLowerCase();
+      if (!["low", "medium", "high", "standard", "hd"].includes(q)) {
+        updates.quality = "medium";
+      }
     }
     if (Object.keys(updates).length > 0) onUpdate(updates);
-  }, [spec?.id, selection.nodeId, cfg.model, cfg.size, cfg.quality, onUpdate]);
+  }, [spec?.id, selection.nodeId, cfg.model, cfg.aspectRatio, cfg.quality, onUpdate]);
 
   const fieldLabel = (label: string, helpText?: string) => (
     <label
@@ -456,37 +458,32 @@ function GeneralPanel({
           (typeof cfg.model === "string" && cfg.model.trim()) || DEFAULT_LLM_IMAGE_MODEL;
         const isGeminiImageModel =
           isLlmImageSpec && resolveLlmImageProvider(imageModel) === "google";
-        const gptSizeOptions = OPENAI_GPT_IMAGE_SIZES.map((s) => ({
-          label: s.replace("x", "×"),
-          value: s,
-        }));
-        const qualityDisabled = isLlmImageSpec && field.key === "quality" && isGeminiImageModel;
-        const sizeDisabled = isLlmImageSpec && field.key === "size" && isGeminiImageModel;
         const selectOptions =
-          isLlmImageSpec && field.key === "size" ? gptSizeOptions : (field.options ?? []);
-        let effectiveValue: string = value;
-        if (qualityDisabled) effectiveValue = "medium";
+          isLlmImageSpec && field.key === "aspectRatio"
+            ? LLM_IMAGE_ASPECT_OPTIONS
+            : (field.options ?? []);
+        let effectiveValue: string =
+          isLlmImageSpec && field.key === "aspectRatio"
+            ? String(value || resolveLlmImageAspectRatio(cfg as Record<string, unknown>))
+            : String(value);
         if (
           isLlmImageSpec &&
-          field.key === "size" &&
-          !selectOptions.some((o: any) => o.value === value)
+          field.key === "aspectRatio" &&
+          !selectOptions.some((o: any) => o.value === effectiveValue)
         ) {
-          effectiveValue = selectOptions[0]?.value ?? "1024x1024";
+          effectiveValue = selectOptions[0]?.value ?? "1:1";
         }
-        const fieldDisabled = qualityDisabled || sizeDisabled;
+        const qualityHelp =
+          isLlmImageSpec && field.key === "quality" && isGeminiImageModel
+            ? "Quality applies to OpenAI image models only."
+            : field.helpText;
         return (
           <div key={field.key}>
-            {fieldLabel(
-              field.label,
-              fieldDisabled
-                ? "Only applies when an OpenAI GPT Image model is selected."
-                : field.helpText,
-            )}
+            {fieldLabel(field.label, qualityHelp)}
             <DarkSelect
               value={effectiveValue}
               options={selectOptions}
               onChange={(v) => onUpdate({ [field.key]: v })}
-              disabled={fieldDisabled}
               className="w-full min-w-0"
             />
           </div>
@@ -977,13 +974,13 @@ export default function InspectorPanel({
           </div>
         )}
         {!selected && !multiSelected && (
-          <div className="pt-6 text-center">
+          <div className="px-1 pt-6 text-center">
             <div className="mx-auto h-12 w-12 rounded-2xl bg-black/20 border border-white/[0.10] grid place-items-center shadow-[0_16px_50px_rgba(0,0,0,0.55)]">
               <Eye size={20} className="text-white/40" />
             </div>
             <div className="mt-3 text-[12px] font-medium text-white/78">Select a block to edit</div>
-            <div className="mt-1 text-[11px] leading-6 text-white/45">
-              Drag blocks from the left, then click to configure.
+            <div className="mx-auto mt-1 max-w-[260px] text-pretty text-[11px] leading-snug text-white/45">
+              Drag blocks from the Blocks panel, then click a node on the canvas to configure it.
             </div>
             <div className="mt-4 space-y-2 text-left">
               <div className="rounded-lg border border-white/[0.08] bg-[#0c0c0c] px-3 py-2">

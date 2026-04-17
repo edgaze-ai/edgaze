@@ -6,6 +6,7 @@ import {
   DEFAULT_LLM_IMAGE_MODEL,
   LLM_CHAT_MODEL_OPTIONS,
   LLM_EMBEDDING_OPTIONS,
+  LLM_IMAGE_ASPECT_OPTIONS,
   LLM_IMAGE_MODEL_OPTIONS,
 } from "../lib/workflow/llm-model-catalog";
 
@@ -127,14 +128,14 @@ export const PREMIUM_NODES: NodeSpec[] = [
       },
     ],
   },
-  // LLM Image (Gemini Nano Banana + OpenAI GPT Image; default Nano Banana 2)
+  // LLM Image (Gemini + OpenAI image models; default Nano Banana 2)
   {
     id: "llm-image",
     label: "LLM Image",
     version: "1.0.0",
     category: "ai",
     summary:
-      "Generate images with Nano Banana (Gemini) or GPT Image (OpenAI). Default is Nano Banana 2.",
+      "Generate images with Gemini or OpenAI. Default is Nano Banana 2 (Gemini 3.1 Flash Image).",
     nodeType: "edgCard",
     icon: "Image",
     requiresUserKeys: true,
@@ -145,7 +146,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
     defaultConfig: {
       prompt: "",
       model: DEFAULT_LLM_IMAGE_MODEL,
-      size: "1024x1024",
+      aspectRatio: "1:1",
       quality: "medium",
       n: 1,
       timeout: 60000,
@@ -166,24 +167,23 @@ export const PREMIUM_NODES: NodeSpec[] = [
         options: LLM_IMAGE_MODEL_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
       },
       {
-        key: "size",
-        label: "Size (OpenAI GPT Image)",
+        key: "aspectRatio",
+        label: "Aspect ratio",
         type: "select",
-        options: [
-          { label: "1024×1024", value: "1024x1024" },
-          { label: "1536×1024", value: "1536x1024" },
-          { label: "1024×1536", value: "1024x1536" },
-        ],
+        options: LLM_IMAGE_ASPECT_OPTIONS.map((o) => ({ label: o.label, value: o.value })),
+        helpText:
+          "Gemini uses this directly. OpenAI maps each ratio to the nearest supported output shape (square, landscape, or portrait).",
       },
       {
         key: "quality",
-        label: "Quality (OpenAI GPT Image)",
+        label: "Quality",
         type: "select",
         options: [
           { label: "Low", value: "low" },
           { label: "Medium", value: "medium" },
           { label: "High", value: "high" },
         ],
+        helpText: "OpenAI image models only (low / medium / high). Ignored for Gemini.",
       },
     ],
   },

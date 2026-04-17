@@ -82,6 +82,13 @@ export async function requireWorkflowRunAccess(
         ? (run.metadata as Record<string, unknown>)
         : null;
     if (metadata && metadata.run_access_token === runAccessToken) {
+      // Enforce expiry for tokens that carry an expiry timestamp.
+      // Tokens issued before this check was added have no expiry field and are
+      // allowed through unchanged (backwards compatibility).
+      const expiresAt = metadata.run_access_token_expires_at;
+      if (expiresAt && new Date(String(expiresAt)).getTime() < Date.now()) {
+        throw new Error("Run access link has expired");
+      }
       return { runId, workflowRunRowStatus: rowStatus };
     }
   }

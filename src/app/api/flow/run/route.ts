@@ -459,6 +459,9 @@ export async function POST(req: Request) {
                 isDemo: false,
                 isBuilderTest: false,
                 run_access_token: runAccessToken,
+                run_access_token_expires_at: runAccessToken
+                  ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                  : undefined,
               },
               idempotencyKey: null,
             }),
@@ -585,7 +588,20 @@ export async function POST(req: Request) {
               edgeCount: edges.length,
             },
           });
+        } else if (!entitlement.allowClientGraph) {
+          // Server returned no graph and the caller is not an admin in debug mode.
+          // Reject rather than executing the client-supplied graph — a client graph is
+          // never authoritative for non-admin callers.
+          return traceJson(
+            {
+              ok: false,
+              error: "Workflow not found on the server. Save your draft before running.",
+            },
+            404,
+          );
         }
+        // allowClientGraph=true: admin debugging a workflow with no server-side graph —
+        // the client-supplied nodes/edges from lines 399-400 are used intentionally.
       } catch (e) {
         console.error("[flow/run] server graph load failed:", e);
         return traceJson({ ok: false, error: "Failed to load workflow for execution." }, 500);
@@ -640,8 +656,48 @@ export async function POST(req: Request) {
       const clientId = extractClientIdentifier(req);
       const ipAddress = clientId.type === "ip" ? clientId.identifier : "unknown";
 
-      // Check if demo run is allowed (strict one-time check)
       const supabase = createSupabaseAdminClient();
+
+      // Reject if this fingerprint alone has already been used for this workflow (IP-independent).
+      // This stops same-device users from bypassing the check by rotating IPs.
+      const { count: fpCount } = await supabase
+        .from("anonymous_demo_runs")
+        .select("*", { count: "exact", head: true })
+        .eq("workflow_id", workflowId)
+        .eq("device_fingerprint", deviceFingerprint);
+      if (fpCount !== null && fpCount >= 1) {
+        return traceJson(
+          {
+            ok: false,
+            error:
+              "You've already used your one-time demo run for this workflow. Each device gets one demo run.",
+          },
+          403,
+        );
+      }
+
+      // Also cap demos per IP to prevent fingerprint-cycling attacks.
+      // Limit of 3 tolerates small shared networks (home, small office) while
+      // blocking automated abuse that keeps the same egress IP.
+      if (ipAddress !== "unknown") {
+        const { count: ipCount } = await supabase
+          .from("anonymous_demo_runs")
+          .select("*", { count: "exact", head: true })
+          .eq("workflow_id", workflowId)
+          .eq("ip_address", ipAddress);
+        if (ipCount !== null && ipCount >= 3) {
+          return traceJson(
+            {
+              ok: false,
+              error:
+                "You've already used your one-time demo run for this workflow. Each device gets one demo run.",
+            },
+            403,
+          );
+        }
+      }
+
+      // Check if demo run is allowed (strict one-time check on the fingerprint+IP combo)
       const { data: checkData, error: checkError } = await supabase.rpc("can_run_anonymous_demo", {
         p_workflow_id: workflowId,
         p_device_fingerprint: deviceFingerprint,
@@ -955,6 +1011,9 @@ export async function POST(req: Request) {
               isBuilderTest: effectiveIsBuilderTest,
               workflow_version_hash: workflowVersionHash ?? undefined,
               run_access_token: runAccessToken,
+              run_access_token_expires_at: runAccessToken
+                ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+                : undefined,
             },
             idempotencyKey,
           });

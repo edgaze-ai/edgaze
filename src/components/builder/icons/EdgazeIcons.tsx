@@ -155,6 +155,19 @@ export function IconZoomOut(props: IconProps) {
   );
 }
 
+/** Fit / frame content to viewport (workflow canvas). */
+export function IconFitView(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4.2 6.3V4.2h2.1" />
+      <path d="M11.7 4.2h2.1v2.1" />
+      <path d="M4.2 11.7v2.1h2.1" />
+      <path d="M13.8 13.8v-2.1h2.1" />
+      <rect x="6.8" y="6.8" width="4.4" height="4.4" rx="0.9" fill="none" />
+    </IconBase>
+  );
+}
+
 export function IconGrid(props: IconProps) {
   return (
     <IconBase {...props}>

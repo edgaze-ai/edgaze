@@ -14,6 +14,7 @@ import {
   IconBack,
   IconDocs,
   IconExitFullscreen,
+  IconFitView,
   IconFullscreen,
   IconGrid,
   IconInspector,
@@ -424,11 +425,14 @@ export default function BuilderPage() {
       const minimapEl = minimapElRef.current;
       const minimapRect = minimapEl ? minimapEl.getBoundingClientRect() : null;
 
-      const bottomPad = 20;
-      const minimapTopY = minimapRect ? minimapRect.top - rootRect.top : rootH;
+      const bottomPad = Math.max(16, Math.min(28, Math.round(rootH * 0.022)));
+      let minimapTopY = minimapRect ? minimapRect.top - rootRect.top : rootH;
+      if (minimapRect && minimapTopY < panelTopY + 72) {
+        minimapTopY = Math.max(panelTopY + 200, rootH - 132);
+      }
 
-      const inspectorMaxH = Math.max(240, Math.floor(minimapTopY - panelTopY - bottomPad));
-      const blocksH = Math.max(240, Math.floor(rootH - panelTopY - bottomPad));
+      const inspectorMaxH = Math.max(260, Math.floor(minimapTopY - panelTopY - bottomPad));
+      const blocksH = Math.max(260, Math.floor(rootH - panelTopY - bottomPad));
 
       setWindows((prev) => {
         const next = { ...prev };
@@ -2577,6 +2581,13 @@ export default function BuilderPage() {
                 >
                   <IconZoomIn size={18} className="text-white/80" />
                 </button>
+                <button
+                  onClick={() => beRef.current?.fitViewToGraph?.()}
+                  title="Fit graph to screen"
+                  className="edg-builder-btn h-8 w-8 md:h-9 md:w-9 rounded-full grid place-items-center"
+                >
+                  <IconFitView size={18} className="text-white/80" />
+                </button>
               </div>
             </div>
           </div>
@@ -2605,7 +2616,7 @@ export default function BuilderPage() {
               <div className="min-w-0">
                 <div
                   className={cx(
-                    "flex items-center flex-wrap",
+                    "flex flex-wrap items-center leading-snug",
                     isCompactLayout ? "gap-1.5" : "gap-2",
                   )}
                 >
@@ -2624,7 +2635,7 @@ export default function BuilderPage() {
                       isCompactLayout ? "px-1.5 py-0.5 text-[8px]" : "px-2 py-0.5 text-[10px]",
                     )}
                   >
-                    v1 Alpha preview
+                    Research Preview
                   </span>
 
                   {activeDraftId && (
@@ -2645,8 +2656,8 @@ export default function BuilderPage() {
 
                 <div
                   className={cx(
-                    "flex items-end min-w-0",
-                    isCompactLayout ? "mt-0.5 gap-1.5" : "mt-1 gap-2",
+                    "flex min-w-0 flex-wrap items-end gap-x-2 gap-y-0.5",
+                    isCompactLayout ? "mt-0.5" : "mt-1",
                   )}
                 >
                   {!editingName ? (
@@ -2844,6 +2855,16 @@ export default function BuilderPage() {
                   <IconZoomIn size={isCompactLayout ? 15 : 18} className="text-white/80" />
                 </button>
                 <button
+                  onClick={() => beRef.current?.fitViewToGraph?.()}
+                  title="Fit graph to screen (0)"
+                  className={cx(
+                    "edg-builder-btn rounded-full grid place-items-center",
+                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                  )}
+                >
+                  <IconFitView size={isCompactLayout ? 15 : 18} className="text-white/80" />
+                </button>
+                <button
                   onClick={() => {
                     beRef.current?.toggleGrid?.();
                     setTimeout(() => {
@@ -2967,7 +2988,7 @@ export default function BuilderPage() {
             onResizeN={startDrag("blocks", "resize-n")}
           >
             {!windows.blocks.minimized && (
-              <div className="h-full">
+              <div className="flex h-full min-h-0 flex-col">
                 <BlockLibrary
                   compact={isCompactLayout}
                   onAdd={(specId: string) => {
@@ -2999,7 +3020,7 @@ export default function BuilderPage() {
             onResizeN={startDrag("inspector", "resize-n")}
           >
             {!windows.inspector.minimized && (
-              <div className="h-full">
+              <div className="flex h-full min-h-0 flex-col">
                 <InspectorPanel
                   compact={isCompactLayout}
                   selection={selection}
@@ -3555,12 +3576,13 @@ function FloatingWindow({
         top: state.y,
         width: state.width,
         height: state.minimized ? (compact ? 48 : 56) : state.height,
+        maxHeight: state.minimized ? undefined : "calc(100dvh - 8px)",
       }}
     >
-      <div className="h-full rounded-xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] overflow-hidden md:rounded-2xl">
+      <div className="flex h-full min-h-0 flex-col rounded-xl border border-white/10 bg-[#0c0c0c] shadow-[0_24px_120px_rgba(0,0,0,0.65)] overflow-hidden md:rounded-2xl">
         <div
           className={cx(
-            "flex items-center justify-between border-b border-white/10 bg-black/20 cursor-grab active:cursor-grabbing",
+            "shrink-0 flex items-center justify-between border-b border-white/10 bg-black/20 cursor-grab active:cursor-grabbing",
             compact ? "h-11 px-2.5" : "h-14 px-4",
           )}
           onMouseDown={onMove}
@@ -3602,9 +3624,7 @@ function FloatingWindow({
           </div>
         </div>
 
-        {!state.minimized && (
-          <div className={compact ? "h-[calc(100%-44px)]" : "h-[calc(100%-56px)]"}>{children}</div>
-        )}
+        {!state.minimized && <div className="min-h-0 flex-1 overflow-hidden">{children}</div>}
       </div>
 
       {!state.minimized && (

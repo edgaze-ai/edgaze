@@ -57,6 +57,15 @@ function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+/** Tighter padding for larger graphs so fit-to-screen keeps nodes readable. */
+export function builderFitViewOptions(nodeCount: number, compact: boolean) {
+  const n = Math.max(0, nodeCount);
+  const base = compact ? 0.085 : 0.1;
+  const taper = Math.min(n, 28) * 0.0033;
+  const padding = Math.max(0.045, base - taper);
+  return { padding, maxZoom: 1.28, duration: 280 as number | undefined };
+}
+
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
     track(event, props);
@@ -108,6 +117,8 @@ export type CanvasRef = {
   loadGraph: (graph: { nodes: Node<EdgazeNodeData>[]; edges: Edge[] } | any) => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /** Fit all nodes in view (same as pressing 0). */
+  fitViewToGraph: () => void;
   toggleGrid: () => void;
   toggleLock: () => void;
   fullscreen: () => void;
@@ -163,7 +174,15 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const rfRef = useRef<ReactFlowInstance | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
+  const [miniMapSize, setMiniMapSize] = useState({ w: 178, h: 112 });
+
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
+
+  /** Initial mount only — avoid tying to node count so adding nodes does not reset the viewport. */
+  const initialFitViewOptions = useMemo(
+    () => ({ padding: compact ? 0.09 : 0.11, maxZoom: 1.28 as number }),
+    [compact],
+  );
 
   const [bubble, setBubble] = useState<BubbleState | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -182,6 +201,21 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   useEffect(() => {
     edgesRef.current = edges;
   }, [edges]);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const cr = entries[0]?.contentRect;
+      if (!cr?.width) return;
+      const shortSide = Math.min(cr.width, cr.height);
+      const w = Math.round(Math.max(132, Math.min(220, shortSide * 0.168)));
+      const h = Math.round(w * 0.62);
+      setMiniMapSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Dynamic zoom limits: allow more zoom out for bigger workflows
   const minZoom = useMemo(() => {
@@ -228,6 +262,21 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     } catch {
       /* no-op */
     }
+    const opts = builderFitViewOptions(nodesRef.current.length, compact);
+    queueMicrotask(() => {
+      try {
+        inst.fitView({ ...opts, duration: 0 });
+      } catch {
+        /* no-op */
+      }
+      requestAnimationFrame(() => {
+        try {
+          inst.fitView(opts);
+        } catch {
+          /* no-op */
+        }
+      });
+    });
   };
 
   const getNodes = useCallback(() => nodesRef.current, []);
@@ -587,13 +636,18 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     // eslint-disable-next-line react-hooks/exhaustive-deps -- bubbleKey derives from bubble.id and bubble.kind
   }, [bubbleKey, viewport, placeBubbleForNode, placeBubbleForEdge]);
 
-  const fitSafely = useCallback(() => {
-    requestAnimationFrame(() => {
+  const fitSafely = useCallback(
+    (nodeCountForPadding?: number) => {
       requestAnimationFrame(() => {
-        rfRef.current?.fitView?.({ padding: 0.22, duration: 260 });
+        requestAnimationFrame(() => {
+          const n = nodeCountForPadding ?? nodesRef.current.length;
+          const opts = builderFitViewOptions(n, compact);
+          rfRef.current?.fitView?.({ ...opts, duration: 260 });
+        });
       });
-    });
-  }, []);
+    },
+    [compact],
+  );
 
   /* Controls (declared before useImperativeHandle so ref API can use them) */
   const zoomIn = useCallback(() => {
@@ -603,8 +657,9 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     rfRef.current?.zoomOut?.();
   }, []);
   const fit = useCallback(() => {
-    rfRef.current?.fitView?.({ padding: 0.22, duration: 300 });
-  }, []);
+    const opts = builderFitViewOptions(nodesRef.current.length, compact);
+    rfRef.current?.fitView?.({ ...opts, duration: 300 });
+  }, [compact]);
   const toggleLock = useCallback(() => {
     setLocked((v) => !v);
   }, []);
@@ -637,7 +692,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             config: node.data?.config,
           });
           requestAnimationFrame(() => {
-            rfRef.current?.fitView?.({ padding: 0.25, duration: 280 });
+            const opts = builderFitViewOptions(nodesRef.current.length, compact);
+            rfRef.current?.fitView?.({ ...opts, duration: 280 });
           });
         }, 0);
         return updated;
@@ -686,10 +742,11 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       setEdges(nextEdges);
       edgesRef.current = nextEdges;
 
-      fitSafely();
+      fitSafely(nextNodes.length);
     },
     zoomIn,
     zoomOut,
+    fitViewToGraph: () => fitSafely(),
     toggleGrid,
     toggleLock,
     fullscreen,
@@ -699,11 +756,20 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   }));
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const handler = () => {
+      const fs = Boolean(document.fullscreenElement);
+      setIsFullscreen(fs);
+      if (fs) {
+        window.setTimeout(() => {
+          const opts = builderFitViewOptions(nodesRef.current.length, compact);
+          rfRef.current?.fitView?.({ ...opts, duration: 220 });
+        }, 160);
+      }
+    };
     handler();
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
-  }, []);
+  }, [compact]);
 
   /* Keybinds */
   useEffect(() => {
@@ -1115,6 +1181,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         fitView
+        fitViewOptions={initialFitViewOptions}
         // More forgiving magnet radius for handle snapping (especially for small ports on LLM cards)
         connectionRadius={36}
         snapToGrid
@@ -1225,8 +1292,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             style={{
               bottom: 12,
               right: 12,
-              width: 178,
-              height: 116,
+              width: miniMapSize.w,
+              height: miniMapSize.h,
             }}
             nodeColor={() => "rgba(229,231,235,0.9)"}
             nodeStrokeColor={() => "rgba(255,255,255,0.85)"}

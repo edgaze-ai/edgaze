@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Prevents stale `next dev` + half-deleted `.next` (ENOENT on routes-manifest / middleware-manifest,
- * webpack pack rename races). See next.config.mjs webpack dev cache.
+ * Prevents stale `next dev` + half-deleted `.next` (ENOENT on routes-manifest / middleware-manifest).
+ * Dev uses webpack + in-memory cache (see next.config.mjs) to avoid pack/SST write races on synced folders.
  */
 import { spawn } from "child_process";
 import { execSync } from "child_process";
