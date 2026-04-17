@@ -14,8 +14,8 @@ function normalizeEdgazeCode(input: string) {
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/-+/g, "-") // collapse runs; at most one leading/trailing dash remains
+    .replace(/^-|-$/g, "")
     .slice(0, 32);
 }
 
@@ -24,8 +24,8 @@ function slugify(input: string) {
     .toLowerCase()
     .trim()
     .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^a-z0-9]+/g, "-") // each run of non-alphanum becomes exactly one dash
+    .replace(/^-|-$/g, "")
     .slice(0, 70);
   const suffix = Math.random().toString(36).slice(2, 6);
   return base ? `${base}-${suffix}` : `workflow-${suffix}`;
