@@ -78,11 +78,14 @@ export function sanitizeImageSrc(input: string | null | undefined) {
   if (!raw) return null;
   if (raw.startsWith("/")) return raw;
   if (raw.startsWith("blob:")) return raw;
-  if (raw.startsWith("data:image/")) return raw;
+  if (/^data:image\/(?:png|jpeg|jpg|webp|gif|avif);/i.test(raw)) return raw;
 
   try {
     const parsed = new URL(raw);
-    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+    if (
+      (parsed.protocol === "https:" || parsed.protocol === "http:") &&
+      !parsed.pathname.toLowerCase().endsWith(".svg")
+    ) {
       return parsed.toString();
     }
   } catch {
@@ -94,7 +97,7 @@ export function sanitizeImageSrc(input: string | null | undefined) {
 
 export function createImageObjectUrl(file: File | null | undefined) {
   if (!file) return null;
-  if (!file.type.startsWith("image/")) return null;
+  if (!/^(image\/(?:png|jpeg|jpg|webp|gif|avif))$/i.test(file.type)) return null;
   return URL.createObjectURL(file);
 }
 

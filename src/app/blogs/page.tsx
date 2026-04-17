@@ -1,14 +1,8 @@
 import Link from "next/link";
 import { getAllBlogs } from "./utils/blogs";
 import { Calendar } from "lucide-react";
-import { normalizeSafeSlug } from "@/lib/security/safe-values";
-
 export default function BlogsHomePage() {
   const blogs = getAllBlogs();
-  const blogHref = (slug: string) => {
-    const safeSlug = normalizeSafeSlug(slug, { maxLength: 80 });
-    return safeSlug ? `/blogs/${safeSlug}` : "/blogs";
-  };
 
   return (
     <div className="w-full">
@@ -31,47 +25,50 @@ export default function BlogsHomePage() {
 
       {/* Blog list */}
       <section className="space-y-8 sm:space-y-10">
-        {blogs.map((blog) => (
-          <Link key={blog.slug} href={blogHref(blog.slug)} className="block group">
-            <article className="rounded-2xl p-8 sm:p-10 border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-300 group-hover:shadow-[0_0_40px_-12px_rgba(34,211,238,0.08),0_0_40px_-12px_rgba(236,72,153,0.06)]">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                {blog.date && (
-                  <time
-                    dateTime={blog.date}
-                    className="inline-flex items-center gap-2 text-sm text-white/45"
-                  >
-                    <Calendar className="w-4 h-4" strokeWidth={2} />
-                    {new Date(blog.date).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </time>
+        {blogs.map((blog) => {
+          const encodedSlug = encodeURIComponent(blog.slug);
+          return (
+            <Link key={blog.slug} href={`/blogs/${encodedSlug}`} className="block group">
+              <article className="rounded-2xl p-8 sm:p-10 border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-300 group-hover:shadow-[0_0_40px_-12px_rgba(34,211,238,0.08),0_0_40px_-12px_rgba(236,72,153,0.06)]">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                  {blog.date && (
+                    <time
+                      dateTime={blog.date}
+                      className="inline-flex items-center gap-2 text-sm text-white/45"
+                    >
+                      <Calendar className="w-4 h-4" strokeWidth={2} />
+                      {new Date(blog.date).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </time>
+                  )}
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-semibold text-white/95 group-hover:text-white transition-colors">
+                  {blog.title}
+                </h2>
+                {blog.description && (
+                  <p className="mt-3 text-base sm:text-lg text-white/65 leading-relaxed max-w-3xl">
+                    {blog.description}
+                  </p>
                 )}
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-semibold text-white/95 group-hover:text-white transition-colors">
-                {blog.title}
-              </h2>
-              {blog.description && (
-                <p className="mt-3 text-base sm:text-lg text-white/65 leading-relaxed max-w-3xl">
-                  {blog.description}
-                </p>
-              )}
-              <span className="mt-6 inline-flex items-center gap-2 text-base font-medium text-cyan-400/90 group-hover:text-cyan-400 transition-colors">
-                Read more
-                <svg
-                  className="w-5 h-5 transition-transform group-hover:translate-x-0.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </span>
-            </article>
-          </Link>
-        ))}
+                <span className="mt-6 inline-flex items-center gap-2 text-base font-medium text-cyan-400/90 group-hover:text-cyan-400 transition-colors">
+                  Read more
+                  <svg
+                    className="w-5 h-5 transition-transform group-hover:translate-x-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </article>
+            </Link>
+          );
+        })}
       </section>
 
       {blogs.length === 0 && (

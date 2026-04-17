@@ -1647,23 +1647,32 @@ export default function PublishPromptModal({
                                 </button>
                               </div>
 
-                              <div className="mt-3 aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+                              <div className="relative mt-3 aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
                                 {safeThumbnailSrc ? (
-                                  <img
+                                  <Image
                                     src={safeThumbnailSrc}
                                     alt="Thumbnail"
+                                    fill
+                                    unoptimized
+                                    sizes="(max-width: 1024px) 100vw, 50vw"
                                     className="h-full w-full object-cover"
                                   />
                                 ) : safeUploadedThumbnailSrc ? (
-                                  <img
+                                  <Image
                                     src={safeUploadedThumbnailSrc}
                                     alt="Thumbnail upload"
+                                    fill
+                                    unoptimized
+                                    sizes="(max-width: 1024px) 100vw, 50vw"
                                     className="h-full w-full object-cover"
                                   />
                                 ) : safeAutoThumbnailSrc ? (
-                                  <img
+                                  <Image
                                     src={safeAutoThumbnailSrc}
                                     alt="Auto thumbnail"
+                                    fill
+                                    unoptimized
+                                    sizes="(max-width: 1024px) 100vw, 50vw"
                                     className="h-full w-full object-cover"
                                   />
                                 ) : (

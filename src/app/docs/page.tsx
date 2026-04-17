@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { getAllDocs } from "./utils/docs";
-import { normalizeSafeSlug } from "@/lib/security/safe-values";
 
 export const metadata = {
   title: "Documentation",
@@ -32,9 +31,13 @@ const PAYMENTS_SLUGS = [
 export default function DocsIndex() {
   const docs = getAllDocs();
   const docHref = (slug: string) => {
-    const safeSlug = normalizeSafeSlug(slug, { allowSlash: true, maxLength: 80 });
-    if (!safeSlug) return "/docs";
-    return safeSlug === "builder" ? "/docs/builder" : `/docs/${safeSlug}`;
+    const encodedSlug = slug
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    if (!encodedSlug) return "/docs";
+    return encodedSlug === "builder" ? "/docs/builder" : `/docs/${encodedSlug}`;
   };
 
   const builderDocs = docs.filter((d) => d.slug.startsWith("builder"));
