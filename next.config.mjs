@@ -67,11 +67,11 @@ const nextConfig = (() => {
         exclude: ['error', 'warn'],
       } : false,
     },
-    // Dev: disable webpack persistent filesystem cache so `.next/dev/cache/webpack/**` pack renames
-    // cannot race (ENOENT 0.pack.gz_ → 0.pack.gz) when the tree is synced, deleted, or contended.
+    // Dev: use in-memory webpack cache only. Persistent `.next/dev/cache/webpack` pack renames and
+    // Turbopack SST writes both fail on iCloud-/cloud-synced trees (Documents), leaving manifests missing.
     webpack: (config, { dev }) => {
       if (dev) {
-        config.cache = false;
+        config.cache = { type: "memory" };
       }
       return config;
     },

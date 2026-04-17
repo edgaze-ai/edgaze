@@ -38,11 +38,12 @@ import {
   DEFAULT_LLM_IMAGE_MODEL,
   LEGACY_OPENAI_CHAT_MODEL,
   LEGACY_OPENAI_IMAGE_MODEL,
-  OPENAI_GPT_IMAGE_SIZES,
   openaiChatUsesMaxCompletionTokens,
   openaiGptImageQualityParam,
+  openaiImagePixelSizeFromAspectRatio,
   resolveAnthropicApiModel,
   resolveLlmChatProvider,
+  resolveLlmImageAspectRatio,
   resolveLlmImageProvider,
 } from "../../lib/workflow/llm-model-catalog";
 import { getEdgazeGeminiApiKey } from "../../lib/workflow/edgaze-api-key";
@@ -1196,20 +1197,8 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     throw new Error("Prompt required for image generation");
   }
 
-  // Desired output size from inspector (Gemini doesn't guarantee exact pixels, but this helps).
-  const requestedSizeRaw = typeof config.size === "string" ? config.size.trim() : "";
-  const requestedSize = requestedSizeRaw || "1024x1024";
-  const [reqW, reqH] = requestedSize
-    .split("x")
-    .map((n: string) => Number(n))
-    .slice(0, 2) as [number, number];
-  const isValidSize = Number.isFinite(reqW) && Number.isFinite(reqH) && reqW > 0 && reqH > 0;
-  const sizeHint = isValidSize
-    ? `\n\nOutput requirements:\n- Dimensions: ${Math.round(reqW)}x${Math.round(reqH)} pixels\n- Aspect: ${
-        reqW === reqH ? "square" : reqW > reqH ? "landscape" : "portrait"
-      }\n`
-    : "";
-  const effectivePrompt = `${prompt}${sizeHint}`;
+  const aspectRatio = resolveLlmImageAspectRatio(config as Record<string, unknown>);
+  const effectivePrompt = prompt;
 
   const apiKey =
     getApiKey(node, ctx) ?? (imageProvider === "google" ? hostedGeminiKeyFromRunInputs(ctx) : null);
@@ -1298,6 +1287,9 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
           // Gemini "image" models often need an explicit modality request; otherwise they may return text.
           generationConfig: {
             responseModalities: ["IMAGE"],
+            imageConfig: {
+              aspectRatio,
+            },
           },
         }),
         signal: controller.signal,
@@ -1362,12 +1354,7 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     };
     model = OPENAI_IMAGE_LEGACY_MODEL[model] ?? model;
 
-    const sizeRaw = (config.size as string) || "1024x1024";
-    const validSize = OPENAI_GPT_IMAGE_SIZES.includes(
-      sizeRaw as (typeof OPENAI_GPT_IMAGE_SIZES)[number],
-    )
-      ? sizeRaw
-      : "1024x1024";
+    const validSize = openaiImagePixelSizeFromAspectRatio(aspectRatio);
     const gptQuality = openaiGptImageQualityParam(config.quality as string | undefined);
 
     const body: Record<string, unknown> = {

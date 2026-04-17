@@ -3,7 +3,6 @@
   "version": "1.2.3",
   "description": "Create, sell, and distribute AI products. A curated marketplace for prompts and workflows. [Proprietary]",
   "private": true,
-  "type": "module",
   "author": "Edge Platforms, Inc.",
   "license": "UNLICENSED",
   "keywords": [

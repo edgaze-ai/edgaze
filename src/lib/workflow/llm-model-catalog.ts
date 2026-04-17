@@ -189,14 +189,14 @@ export const LLM_IMAGE_MODEL_OPTIONS: LlmImageOption[] = [
   },
   {
     value: "gpt-image-1-mini",
-    label: "GPT Image 1 mini (OpenAI) · $",
+    label: "OpenAI · Image 1 mini · $",
     provider: "openai",
     quality: "fast",
     cost: "$",
   },
   {
     value: "gpt-image-1.5",
-    label: "GPT Image 1.5 (OpenAI) · $$",
+    label: "OpenAI · Image 1.5 · $$",
     provider: "openai",
     quality: "high",
     cost: "$$",
@@ -222,10 +222,113 @@ export function brandForLlmImageModel(modelId: string | undefined): AiKeyProvide
   return resolveLlmImageProvider(modelId || DEFAULT_LLM_IMAGE_MODEL);
 }
 
-/** Sizes supported by OpenAI GPT Image on `images/generations` (not used for Gemini image). */
+/** Sizes supported by OpenAI image generations API (`images/generations`). */
 export const OPENAI_GPT_IMAGE_SIZES = ["1024x1024", "1536x1024", "1024x1536"] as const;
 
-/** Map inspector / legacy values to OpenAI GPT Image `quality` parameter. */
+/**
+ * Aspect ratios accepted by Gemini image models via `generationConfig.imageConfig.aspectRatio`.
+ * @see https://ai.google.dev/api/generate-content
+ */
+export const LLM_IMAGE_ASPECT_RATIOS = [
+  "1:1",
+  "2:3",
+  "3:2",
+  "3:4",
+  "4:3",
+  "4:5",
+  "5:4",
+  "9:16",
+  "16:9",
+  "21:9",
+  "1:4",
+  "4:1",
+  "1:8",
+  "8:1",
+] as const;
+
+export type LlmImageAspectRatio = (typeof LLM_IMAGE_ASPECT_RATIOS)[number];
+
+const ASPECT_OPTION_LABEL: Record<LlmImageAspectRatio, string> = {
+  "1:1": "Square · 1:1",
+  "2:3": "Portrait · 2:3",
+  "3:2": "Landscape · 3:2",
+  "3:4": "Portrait · 3:4",
+  "4:3": "Landscape · 4:3",
+  "4:5": "Portrait · 4:5",
+  "5:4": "Landscape · 5:4",
+  "9:16": "Tall · 9:16",
+  "16:9": "Widescreen · 16:9",
+  "21:9": "Ultrawide · 21:9",
+  "1:4": "Vertical strip · 1:4",
+  "4:1": "Horizontal strip · 4:1",
+  "1:8": "Vertical strip · 1:8",
+  "8:1": "Horizontal strip · 8:1",
+};
+
+/** Inspector / template options (ratio only — no pixel dimensions). */
+export const LLM_IMAGE_ASPECT_OPTIONS = LLM_IMAGE_ASPECT_RATIOS.map((value) => ({
+  value,
+  label: ASPECT_OPTION_LABEL[value],
+}));
+
+export const DEFAULT_LLM_IMAGE_ASPECT_RATIO: LlmImageAspectRatio = "1:1";
+
+const LEGACY_PIXEL_SIZE_TO_ASPECT: Record<string, LlmImageAspectRatio> = {
+  "1024x1024": "1:1",
+  "1536x1024": "3:2",
+  "1024x1536": "2:3",
+};
+
+const ASPECT_RATIO_SET = new Set<string>(LLM_IMAGE_ASPECT_RATIOS);
+
+/** Whether this string is a supported aspect ratio for the image node inspector / Gemini. */
+export function isKnownLlmImageAspectRatio(value: string | undefined): boolean {
+  if (!value || typeof value !== "string") return false;
+  return ASPECT_RATIO_SET.has(value.trim());
+}
+
+/**
+ * Resolve aspect ratio from `aspectRatio`, else legacy `size` (WxH), else default.
+ * OpenAI requests still map this to one of three fixed pixel sizes via `openaiImagePixelSizeFromAspectRatio`.
+ */
+export function resolveLlmImageAspectRatio(config: Record<string, unknown>): LlmImageAspectRatio {
+  const rawAr = typeof config.aspectRatio === "string" ? config.aspectRatio.trim() : "";
+  if (rawAr && ASPECT_RATIO_SET.has(rawAr)) {
+    return rawAr as LlmImageAspectRatio;
+  }
+  const legacySize = typeof config.size === "string" ? config.size.trim().toLowerCase() : "";
+  if (legacySize && LEGACY_PIXEL_SIZE_TO_ASPECT[legacySize]) {
+    return LEGACY_PIXEL_SIZE_TO_ASPECT[legacySize];
+  }
+  const m = legacySize.match(/^(\d+)\s*x\s*(\d+)$/i);
+  if (m) {
+    const w = Number(m[1]);
+    const h = Number(m[2]);
+    if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+      if (w === h) return "1:1";
+      if (w > h) return "16:9";
+      return "9:16";
+    }
+  }
+  return DEFAULT_LLM_IMAGE_ASPECT_RATIO;
+}
+
+/** Map aspect ratio to the closest OpenAI `size` token (API only supports three geometries). */
+export function openaiImagePixelSizeFromAspectRatio(
+  aspectRatio: string,
+): (typeof OPENAI_GPT_IMAGE_SIZES)[number] {
+  const normalized = aspectRatio.trim().replace(/\s+/g, "");
+  const parts = normalized.split(":");
+  if (parts.length !== 2) return "1024x1024";
+  const w = Number(parts[0]);
+  const h = Number(parts[1]);
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return "1024x1024";
+  if (w === h) return "1024x1024";
+  if (w > h) return "1536x1024";
+  return "1024x1536";
+}
+
+/** Map inspector / legacy values to OpenAI `quality` parameter. */
 export function openaiGptImageQualityParam(quality: string | undefined): "low" | "medium" | "high" {
   const q = (quality || "medium").toLowerCase();
   if (q === "hd" || q === "high") return "high";

@@ -10,8 +10,10 @@ import {
   DEFAULT_LLM_CHAT_MODEL,
   DEFAULT_LLM_IMAGE_MODEL,
   openaiGptImageQualityParam,
+  openaiImagePixelSizeFromAspectRatio,
   resolveAnthropicApiModel,
   resolveLlmChatProvider,
+  resolveLlmImageAspectRatio,
 } from "./llm-model-catalog";
 
 /** Approximate token count for text (~4 chars per token). */
@@ -318,7 +320,8 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
       const effectivePrompt = prompt || "Generate an image";
 
       const model = (config.model ?? DEFAULT_LLM_IMAGE_MODEL) as string;
-      const size = ((config.size ?? "1024x1024") as string) || "1024x1024";
+      const aspectRatio = resolveLlmImageAspectRatio(config as Record<string, unknown>);
+      const openaiSize = openaiImagePixelSizeFromAspectRatio(aspectRatio);
       const quality = ((config.quality ?? "standard") as string) || "standard";
 
       let cost = 0.04;
@@ -331,7 +334,7 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
           IMAGE_PRICING["gpt-image-1-mini"] ?? { "1024x1024": 0.02 };
         cost =
           (modelPrices as Record<string, number>)[gptQuality] ??
-          modelPrices[size] ??
+          modelPrices[openaiSize] ??
           modelPrices["1024x1024"] ??
           0.02;
       }

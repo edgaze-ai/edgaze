@@ -536,11 +536,13 @@ function BlockLibrary({
                       compact ? "gap-2 px-2 pt-1.5" : "gap-3 px-4 pt-3",
                     )}
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 pr-1">
                       <div
                         className={cx(
-                          "truncate font-semibold tracking-[-0.01em] text-white/92",
-                          compact ? "text-[11px]" : "text-[13px]",
+                          "break-words font-semibold tracking-[-0.01em] text-white/92",
+                          compact
+                            ? "line-clamp-2 text-[11px] leading-snug"
+                            : "line-clamp-2 text-[13px] leading-snug",
                         )}
                       >
                         {spec.label}
@@ -549,27 +551,33 @@ function BlockLibrary({
                         className={cx(
                           "mt-0.5 text-white/60",
                           compact
-                            ? "line-clamp-1 text-[9px] leading-tight"
-                            : "line-clamp-2 text-[11px] leading-5",
+                            ? "line-clamp-2 text-[9px] leading-snug"
+                            : "line-clamp-2 text-[11px] leading-snug",
                         )}
                       >
                         {spec.summary}
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
+                    <div
+                      className={cx("shrink-0 text-right", compact ? "w-[3.25rem]" : "w-[4.25rem]")}
+                    >
                       <div
                         className={cx(
-                          "font-mono text-white/45",
+                          "truncate font-mono text-white/45",
                           compact ? "text-[9px]" : "text-[10px]",
                         )}
+                        title={spec.id}
                       >
                         {spec.id}
                       </div>
                       <div
                         className={cx(
-                          "mt-1 tracking-[0.16em] uppercase text-white/40",
-                          compact ? "text-[9px]" : "text-[10px]",
+                          "mt-1 truncate tracking-[0.12em] uppercase text-white/40",
+                          compact ? "text-[8px]" : "text-[10px]",
                         )}
+                        title={String(
+                          (spec as any)?.category ?? normalizeCategory(spec),
+                        ).toString()}
                       >
                         {String((spec as any)?.category ?? normalizeCategory(spec)).toString()}
                       </div>

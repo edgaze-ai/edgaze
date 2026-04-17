@@ -4,6 +4,7 @@ import React from "react";
 import type { NodeSpec } from "src/nodes/types";
 import { getNodeRegistryEntry } from "src/nodes/NODE_REGISTRY";
 import { brandIconPathForSpec, canonicalSpecId } from "@lib/workflow/spec-id-aliases";
+import { resolveLlmImageAspectRatio } from "@lib/workflow/llm-model-catalog";
 import {
   ArrowRight,
   ArrowLeft,
@@ -44,8 +45,10 @@ function getPreviewText(specId: string, spec: NodeSpec): string {
       return "Merging inputs";
     case "llm-chat":
       return (c.prompt ?? "").trim() ? String(c.prompt).slice(0, 50) + "…" : "No prompt set";
-    case "llm-image":
-      return `Size: ${c.size ?? "1024x1024"} · ${c.n ?? 1} image(s)`;
+    case "llm-image": {
+      const ratio = resolveLlmImageAspectRatio(c as Record<string, unknown>);
+      return `Aspect: ${ratio} · ${c.n ?? 1} image(s)`;
+    }
     case "llm-embeddings":
       return `Model: ${c.model ?? "text-embedding-3-small"}`;
     case "http-request":

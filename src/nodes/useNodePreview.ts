@@ -3,6 +3,7 @@
 
 import { useMemo } from "react";
 import { canonicalSpecId } from "@lib/workflow/spec-id-aliases";
+import { resolveLlmImageAspectRatio } from "@lib/workflow/llm-model-catalog";
 
 type NodeData = {
   specId?: string;
@@ -74,9 +75,9 @@ export function getPreviewForSpec(specId: string, config: Record<string, unknown
       return `Model: ${model}`;
     }
     case "llm-image": {
-      const size = String(c.size ?? "1024x1024");
+      const ratio = resolveLlmImageAspectRatio(c);
       const n = Number(c.n ?? 1);
-      return `Size: ${size} · ${n} image(s)`;
+      return `Aspect: ${ratio} · ${n} image(s)`;
     }
     case "json-parse": {
       const path = String((c as any).path ?? "").trim();

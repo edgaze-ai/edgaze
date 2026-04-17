@@ -7,6 +7,7 @@ import { getNodeSpec } from "./registry";
 import { getNodeRegistryEntry } from "./NODE_REGISTRY";
 import { NodeHandle } from "./NodeHandle";
 import { brandIconPathForSpec, canonicalSpecId } from "@lib/workflow/spec-id-aliases";
+import { resolveLlmImageAspectRatio } from "@lib/workflow/llm-model-catalog";
 
 import {
   ArrowRight,
@@ -61,8 +62,10 @@ function buildPreview(specId: string, config: any, edges: any[], nodeId: string)
       const p = String(config.prompt ?? "").trim();
       return p ? (p.length > 70 ? p.slice(0, 70) + "…" : p) : "No prompt set";
     }
-    case "llm-image":
-      return `${config.model ?? "image"} · ${config.size ?? "1024x1024"}`;
+    case "llm-image": {
+      const ar = resolveLlmImageAspectRatio((config ?? {}) as Record<string, unknown>);
+      return `${config.model ?? "image"} · ${ar}`;
+    }
     case "llm-embeddings":
       return `Model: ${config.model ?? "text-embedding-3-small"}`;
     case "http-request":

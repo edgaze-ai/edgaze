@@ -1,4 +1,4 @@
-// eslint.config.js
+// eslint.config.mjs
 import nextVitals from "eslint-config-next/core-web-vitals";
 
 const config = [
