@@ -118,14 +118,29 @@ function isProbablyMarkdown(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
   if (t.includes("```")) return true;
-  if (/(^|\n)#{1,6}\s+\S/.test(t)) return true;
-  if (/(^|\n)>\s+\S/.test(t)) return true;
-  if (/(^|\n)(-|\*|\+)\s+\S/.test(t)) return true;
-  if (/(^|\n)\d+\.\s+\S/.test(t)) return true;
-  if (/\[[^\]]+\]\([^)]+\)/.test(t)) return true;
-  if (/(^|\n)\|([^|\n]+\|)+\s*(\n\|[-:\s|]+\|)/.test(t)) return true; // GFM table with separator
-  if (t.split("\n").filter((l) => l.includes("|")).length >= 2) return true; // loose pipe rows (model output)
-  if (/`[^`\n]+`/.test(t)) return true;
+  const lines = t.split("\n");
+  let pipeRows = 0;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith("#")) return true;
+    if (line.startsWith("> ")) return true;
+    if (line.startsWith("- ") || line.startsWith("* ") || line.startsWith("+ ")) return true;
+    if (line.includes("|")) pipeRows += 1;
+
+    const dotIndex = line.indexOf(".");
+    if (dotIndex > 0) {
+      const prefix = line.slice(0, dotIndex);
+      if (prefix && Array.from(prefix).every((char) => char >= "0" && char <= "9")) {
+        return true;
+      }
+    }
+  }
+
+  if (t.includes("](") && t.includes("[")) return true;
+  if (pipeRows >= 2) return true;
+  if (t.includes("`")) return true;
   return false;
 }
 

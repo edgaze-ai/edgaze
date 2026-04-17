@@ -8,26 +8,17 @@ import { getMinimumWorkflowPrice } from "@/lib/workflow/cost-estimation";
 import { logCreatorAuditEvent } from "@/lib/creator-provisioning/audit";
 import type { WorkflowGraph } from "@/lib/workflow/cost-estimation";
 import { loadWorkflowGraphJsonForPublishing } from "@/server/flow/load-workflow-graph";
+import { createSecureId, normalizeSafeSlug } from "@/lib/security/safe-values";
 
 function normalizeEdgazeCode(input: string) {
-  return (input || "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/-+/g, "-") // collapse runs; at most one leading/trailing dash remains
-    .replace(/^-|-$/g, "")
-    .slice(0, 32);
+  return normalizeSafeSlug(input || "", { allowUnderscore: true, maxLength: 32 });
 }
 
 function slugify(input: string) {
-  const base = (input || "")
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-") // each run of non-alphanum becomes exactly one dash
-    .replace(/^-|-$/g, "")
-    .slice(0, 70);
-  const suffix = Math.random().toString(36).slice(2, 6);
+  const base = normalizeSafeSlug((input || "").replaceAll("'", "").replaceAll('"', ""), {
+    maxLength: 70,
+  });
+  const suffix = createSecureId("workflow", 2).slice(-4);
   return base ? `${base}-${suffix}` : `workflow-${suffix}`;
 }
 

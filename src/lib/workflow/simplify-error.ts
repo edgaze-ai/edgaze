@@ -1,3 +1,5 @@
+import { containsAny } from "@/lib/security/safe-values";
+
 /**
  * Human-readable error messages for workflow runs.
  * Never show technical jargon or raw API errors to users.
@@ -22,19 +24,16 @@ export function simplifyWorkflowError(error: string | unknown): string {
   // API key
   const el = e.toLowerCase();
   if (
-    el.includes("401") ||
-    el.includes("authentication") ||
-    el.includes("unauthorized") ||
-    el.includes("incorrect api key") ||
+    containsAny(el, ["401", "authentication", "unauthorized", "incorrect api key"]) ||
     (el.includes("invalid") && el.includes("api") && el.includes("key"))
   ) {
-    if (/openai/i.test(e)) {
+    if (el.includes("openai")) {
       return "OpenAI rejected the API key for this node. Add or update the OpenAI key in the run modal or node settings.";
     }
-    if (/anthropic/i.test(e)) {
+    if (el.includes("anthropic")) {
       return "Anthropic rejected the API key for this node. Add or update the Anthropic key in the run modal or node settings.";
     }
-    if (/gemini|google/i.test(e)) {
+    if (el.includes("gemini") || el.includes("google")) {
       return "Google/Gemini rejected the API key for this node. Add or update the Gemini key in the run modal or node settings.";
     }
     return "The API key for a workflow node is invalid or expired. Add or update the matching provider key in the run modal or node settings.";
@@ -44,12 +43,19 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // Rate limits
-  if (/rate limit|429|too many requests/i.test(e)) {
+  if (containsAny(el, ["rate limit", "429", "too many requests"])) {
     return "Too many requests right now. Wait a moment and try again.";
   }
 
   // Token / context limits
-  if (/token limit|context length|maximum context length|context_length_exceeded/i.test(e)) {
+  if (
+    containsAny(el, [
+      "token limit",
+      "context length",
+      "maximum context length",
+      "context_length_exceeded",
+    ])
+  ) {
     return "The input or output is too long. Try shorter text or fewer items.";
   }
   if (e.includes("Token limit exceeded")) {
@@ -57,7 +63,7 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // Content / safety
-  if (/content filter|content_policy|safety|policy/i.test(e)) {
+  if (containsAny(el, ["content filter", "content_policy", "safety", "policy"])) {
     return "The content was blocked by safety filters. Try rephrasing or using different input.";
   }
 
@@ -82,10 +88,19 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // Server / timeout / network
-  if (/timeout|timed out|ETIMEDOUT|ECONNREFUSED|ENOTFOUND|fetch failed/i.test(e)) {
+  if (
+    containsAny(el, [
+      "timeout",
+      "timed out",
+      "etimedout",
+      "econnrefused",
+      "enotfound",
+      "fetch failed",
+    ])
+  ) {
     return "The request took too long or couldn't connect. Try again in a moment.";
   }
-  if (/500|server error|internal error|502|503/i.test(e)) {
+  if (containsAny(el, ["500", "server error", "internal error", "502", "503"])) {
     return "The AI service had a temporary problem. Try again in a moment.";
   }
 
@@ -99,8 +114,9 @@ export function simplifyWorkflowError(error: string | unknown): string {
 
   // Workflow runner / claim RPC (durable v2)
   if (
-    /stayed idle for \d+ consecutive cycles|exceeded the worker iteration limit/i.test(e) ||
-    e.includes("runner_stalled")
+    (el.includes("stayed idle for") && el.includes("consecutive cycles")) ||
+    el.includes("exceeded the worker iteration limit") ||
+    el.includes("runner_stalled")
   ) {
     return "The workflow engine could not start or pick up steps. Apply pending Supabase migrations (including claim_workflow_run_node_attempt), restart the app, and try again.";
   }
@@ -123,12 +139,18 @@ export function simplifyWorkflowError(error: string | unknown): string {
   }
 
   // Execution / generic
-  if (/^(execution failed|run failed|cancelled)$/i.test(cleaned)) {
+  if (["execution failed", "run failed", "cancelled"].includes(cleaned.toLowerCase())) {
     return "The workflow run failed. Try again or check your setup.";
   }
 
   // If it still looks technical (has error codes, stack traces, etc), use generic message
-  if (/^[A-Za-z]+Error:|^\[object|:\d+:\d+|at\s+\w+\.|\.ts:\d|\.js:\d/i.test(first)) {
+  if (
+    first.startsWith("[object") ||
+    first.includes(".ts:") ||
+    first.includes(".js:") ||
+    first.includes(" at ") ||
+    first.includes("Error:")
+  ) {
     return "Something went wrong. Try again.";
   }
 

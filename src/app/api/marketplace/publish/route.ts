@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { resolveActorContext } from "@lib/auth/actor-context";
 import { logCreatorAuditEvent } from "@lib/creator-provisioning/audit";
 import { validatePromptPrice, validateWorkflowPrice } from "@/lib/marketplace/pricing";
+import { createSecureId, normalizeSafeSlug } from "@/lib/security/safe-values";
 
 type Visibility = "public" | "unlisted" | "private";
 type MonetisationMode = "free" | "paywall" | "subscription" | "paywall+subscription";
@@ -71,12 +72,7 @@ const WORDS_B = [
 ] as const;
 
 function normaliseCode(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/-+/g, "-") // collapse runs; at most one leading/trailing dash remains
-    .replace(/^-|-$/g, "");
+  return normalizeSafeSlug(input, { maxLength: 32 });
 }
 
 async function isCodeTaken(supabase: any, code: string): Promise<boolean> {
@@ -120,7 +116,7 @@ async function generateEdgazeCode(supabase: any, title: string): Promise<string>
     } else {
       const a = pickFrom(WORDS_A);
       const b = pickFrom(WORDS_B);
-      const suffix = attempt >= 8 ? Math.floor(Math.random() * 90 + 10).toString() : "";
+      const suffix = attempt >= 8 ? createSecureId("mk", 1).slice(-2) : "";
       candidate = normaliseCode(`${a}${b}${suffix}`);
     }
 
@@ -128,7 +124,7 @@ async function generateEdgazeCode(supabase: any, title: string): Promise<string>
     if (!(await isCodeTaken(supabase, candidate))) return candidate;
   }
 
-  return normaliseCode(`edge-${Math.random().toString(36).slice(2, 8)}`);
+  return normaliseCode(createSecureId("edge", 3));
 }
 
 export async function POST(req: NextRequest) {

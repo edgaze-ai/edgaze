@@ -17,6 +17,7 @@ import {
 import { useAuth } from "../../components/auth/AuthContext";
 import { SHOW_PUBLIC_LIKES_AND_RUNS } from "../../lib/constants";
 import { formatClientError } from "../../lib/format-client-error";
+import { createSecureId } from "../../lib/security/safe-values";
 import { createSupabasePublicBrowserClient } from "../../lib/supabase/public";
 import ErrorModal from "../../components/marketplace/ErrorModal";
 import FeaturedBuildCTA from "../../components/marketplace/FeaturedBuildCTA";
@@ -240,7 +241,7 @@ function getOrCreateSessionId() {
   if (typeof window === "undefined") return "server";
   const existing = window.sessionStorage.getItem(LS_SESSION_KEY);
   if (existing) return existing;
-  const id = `ms_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
+  const id = createSecureId("ms");
   window.sessionStorage.setItem(LS_SESSION_KEY, id);
   return id;
 }

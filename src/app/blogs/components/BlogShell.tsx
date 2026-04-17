@@ -6,6 +6,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import type { BlogMeta } from "../utils/blogs";
+import { normalizeSafeSlug } from "@/lib/security/safe-values";
 
 function BlogSidebar({ blogs, onItemClick }: { blogs: BlogMeta[]; onItemClick?: () => void }) {
   const pathname = usePathname();
@@ -13,7 +14,8 @@ function BlogSidebar({ blogs, onItemClick }: { blogs: BlogMeta[]; onItemClick?: 
   return (
     <nav className="space-y-0.5">
       {blogs.map((b) => {
-        const href = `/blogs/${b.slug}`;
+        const safeSlug = normalizeSafeSlug(b.slug, { maxLength: 80 });
+        const href = safeSlug ? `/blogs/${safeSlug}` : "/blogs";
         const active = pathname === href;
         return (
           <Link

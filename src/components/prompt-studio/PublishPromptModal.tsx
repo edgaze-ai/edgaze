@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { uploadListingMedia } from "../../lib/creator-provisioning/upload-listing-media";
+import { createImageObjectUrl, sanitizeImageSrc } from "../../lib/security/safe-values";
 import VerifiedCreatorBadge from "../ui/VerifiedCreatorBadge";
 import AssetPickerModalRaw from "../assets/AssetPickerModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -576,6 +577,21 @@ export default function PublishPromptModal({
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   const [parentNotified, setParentNotified] = useState(false);
+  const uploadedThumbnailPreviewUrl = useMemo(
+    () => createImageObjectUrl(thumbnailFile),
+    [thumbnailFile],
+  );
+  const safeThumbnailSrc = sanitizeImageSrc(meta?.thumbnailUrl);
+  const safeUploadedThumbnailSrc = sanitizeImageSrc(uploadedThumbnailPreviewUrl);
+  const safeAutoThumbnailSrc = sanitizeImageSrc(autoThumbDataUrl);
+
+  useEffect(() => {
+    return () => {
+      if (uploadedThumbnailPreviewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(uploadedThumbnailPreviewUrl);
+      }
+    };
+  }, [uploadedThumbnailPreviewUrl]);
 
   const canReceivePayments = Boolean((profile as any)?.can_receive_payments);
   const ownerName = (profile as any)?.full_name || "Creator";
@@ -1632,21 +1648,21 @@ export default function PublishPromptModal({
                               </div>
 
                               <div className="mt-3 aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
-                                {meta?.thumbnailUrl ? (
+                                {safeThumbnailSrc ? (
                                   <img
-                                    src={meta.thumbnailUrl}
+                                    src={safeThumbnailSrc}
                                     alt="Thumbnail"
                                     className="h-full w-full object-cover"
                                   />
-                                ) : thumbnailFile ? (
+                                ) : safeUploadedThumbnailSrc ? (
                                   <img
-                                    src={URL.createObjectURL(thumbnailFile)}
+                                    src={safeUploadedThumbnailSrc}
                                     alt="Thumbnail upload"
                                     className="h-full w-full object-cover"
                                   />
-                                ) : autoThumbDataUrl ? (
+                                ) : safeAutoThumbnailSrc ? (
                                   <img
-                                    src={autoThumbDataUrl}
+                                    src={safeAutoThumbnailSrc}
                                     alt="Auto thumbnail"
                                     className="h-full w-full object-cover"
                                   />

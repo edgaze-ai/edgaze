@@ -1,6 +1,7 @@
 // src/lib/mixpanel.ts
 // Mixpanel: intentional product analytics (not noise). Session replay + lean event payloads.
 import mixpanel from "mixpanel-browser";
+import { createSecureId } from "@/lib/security/safe-values";
 
 type Properties = Record<string, any>;
 /** Event payload; exported for safeTrack helpers in UI code. */
@@ -52,7 +53,7 @@ function canUseBrowserApis() {
  * Generate a unique session ID
  */
 function generateSessionId(): string {
-  return `session_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  return createSecureId("session");
 }
 
 /**

@@ -34,6 +34,7 @@ import {
   getRecommendedWorkflowPrice,
 } from "../../lib/workflow/cost-estimation";
 import { PayoutSystemCard } from "../publish/PayoutSystemCard";
+import { createImageObjectUrl, sanitizeImageSrc } from "../../lib/security/safe-values";
 
 type MonetisationMode = "free" | "paywall";
 type Visibility = "public" | "unlisted" | "private";
@@ -397,11 +398,23 @@ export default function WorkflowPublishModal({
     return "Free";
   }, [monetisationMode, priceUsd]);
 
+  const uploadedThumbnailPreviewUrl = useMemo(
+    () => createImageObjectUrl(thumbnailFile),
+    [thumbnailFile],
+  );
   const previewThumbSrc = useMemo(() => {
-    if (thumbnailFile) return URL.createObjectURL(thumbnailFile);
-    if (autoThumbDataUrl) return autoThumbDataUrl;
+    if (uploadedThumbnailPreviewUrl) return sanitizeImageSrc(uploadedThumbnailPreviewUrl);
+    if (autoThumbDataUrl) return sanitizeImageSrc(autoThumbDataUrl);
     return null;
-  }, [thumbnailFile, autoThumbDataUrl]);
+  }, [uploadedThumbnailPreviewUrl, autoThumbDataUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (uploadedThumbnailPreviewUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(uploadedThumbnailPreviewUrl);
+      }
+    };
+  }, [uploadedThumbnailPreviewUrl]);
 
   // Effective listing owner (creator when admin impersonates). Do not use supabase.auth.getUser()
   // for owner_id — JWT stays the admin, which fails workflows RLS on update.

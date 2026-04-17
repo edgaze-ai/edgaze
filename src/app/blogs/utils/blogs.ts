@@ -1,6 +1,7 @@
 // src/app/blogs/utils/blogs.ts
 import fs from "fs";
 import path from "path";
+import { normalizeSafeSlug } from "@/lib/security/safe-values";
 
 export type BlogMeta = {
   slug: string;
@@ -46,25 +47,27 @@ export function getAllBlogs(): BlogMeta[] {
   const metas: BlogMeta[] = [];
 
   for (const slug of ORDER) {
-    const filePath = path.join(BLOGS_DIR, `${slug}.md`);
+    const safeSlug = normalizeSafeSlug(slug, { maxLength: 80 });
+    if (!safeSlug) continue;
+    const filePath = path.join(BLOGS_DIR, `${safeSlug}.md`);
     const raw = safeRead(filePath);
     if (!raw) continue;
 
     const { title, description, date } = parseHeader(raw);
-    metas.push({ slug, title, description, date });
+    metas.push({ slug: safeSlug, title, description, date });
   }
 
   // Also include any .md in content/ not in ORDER
   try {
     const files = fs.readdirSync(BLOGS_DIR).filter((f) => f.endsWith(".md"));
     for (const f of files) {
-      const slug = f.replace(/\.md$/, "");
-      if (ORDER.includes(slug)) continue;
+      const safeSlug = normalizeSafeSlug(f.replace(/\.md$/, ""), { maxLength: 80 });
+      if (!safeSlug || ORDER.includes(safeSlug)) continue;
       const filePath = path.join(BLOGS_DIR, f);
       const raw = safeRead(filePath);
       if (!raw) continue;
       const { title, description, date } = parseHeader(raw);
-      metas.push({ slug, title, description, date });
+      metas.push({ slug: safeSlug, title, description, date });
     }
   } catch {
     // dir may not exist yet
@@ -82,10 +85,13 @@ export function getAllBlogs(): BlogMeta[] {
 }
 
 export function getBlog(slug: string): Blog | null {
-  const filePath = path.join(BLOGS_DIR, `${slug}.md`);
+  const safeSlug = normalizeSafeSlug(slug, { maxLength: 80 });
+  if (!safeSlug) return null;
+
+  const filePath = path.join(BLOGS_DIR, `${safeSlug}.md`);
   const raw = safeRead(filePath);
   if (!raw) return null;
 
   const { title, description, date, body } = parseHeader(raw);
-  return { slug, title, description, date, body };
+  return { slug: safeSlug, title, description, date, body };
 }
