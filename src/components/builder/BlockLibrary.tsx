@@ -169,7 +169,11 @@ function QuickStartItem({
             Open
           </span>
         </div>
-        {!compact && <div className={cx("truncate text-white/60", "text-[11px]")}>{caption}</div>}
+        {!compact && (
+          <div className={cx("truncate text-white/60", "text-[11px]")}>
+            {caption}
+          </div>
+        )}
       </div>
     </button>
   );
