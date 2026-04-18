@@ -17,7 +17,7 @@ const Sidebar = dynamic(() => import("../components/layout/Sidebar"), {
   ),
 });
 
-const MobileNavFab = dynamic(() => import("../components/layout/MobileNavFab"), {
+const MobileTopbar = dynamic(() => import("../components/layout/MobileTopbar"), {
   ssr: false,
 });
 
@@ -92,12 +92,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar />
       </div>
 
-      {/* Content column — no mobile topbar; use FAB + drawer for nav */}
+      {/* Content column */}
       <div className={contentClasses}>
+        <MobileTopbar />
         <main className={mainClasses}>{children}</main>
       </div>
 
-      {mounted && <MobileNavFab />}
       {/* Mobile drawer overlay */}
       {mounted && <MobileSidebarDrawer />}
     </div>
