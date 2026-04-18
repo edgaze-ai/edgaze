@@ -2,9 +2,11 @@ import { redirect, notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
 import { getAllBlogs, getBlog } from "../utils/blogs";
+import { getBlogHrefForSlug } from "../utils/routes";
 import BlogRenderer from "../components/BlogRenderer";
 import { extractToc } from "../../docs/utils/extractToc";
 import { Calendar, ArrowLeft, ArrowRight } from "lucide-react";
+import { normalizeSafeSlug } from "@/lib/security/safe-values";
 
 export function generateStaticParams() {
   return getAllBlogs().map((b) => ({ slug: b.slug }));
@@ -41,7 +43,8 @@ export async function generateMetadata({
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const blog = getBlog(slug);
+  const safeSlug = normalizeSafeSlug(slug, { maxLength: 80 });
+  const blog = getBlog(safeSlug);
 
   if (!blog) {
     const all = getAllBlogs();
@@ -53,7 +56,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   const toc = extractToc(blog.body);
   const allBlogs = getAllBlogs();
-  const upNextBlogs = allBlogs.filter((b) => b.slug !== slug);
+  const upNextBlogs = allBlogs.filter((b) => b.slug !== safeSlug);
 
   return (
     <article className="w-full max-w-4xl">
@@ -127,7 +130,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             {upNextBlogs.map((b) => (
               <Link
                 key={b.slug}
-                href={`/blogs/${b.slug}`}
+                href={getBlogHrefForSlug(b.slug)}
                 className="group flex items-start gap-4 rounded-xl p-5 border border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.1] transition-all duration-200"
               >
                 <div className="flex-1 min-w-0">

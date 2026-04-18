@@ -36,7 +36,7 @@ export async function GET(req: Request) {
       workflowId,
       isBuilderTestParam,
     );
-    if (!entitlement.ok) {
+    if (entitlement.ok === false) {
       return NextResponse.json({ ok: false, error: entitlement.message }, { status: 403 });
     }
 

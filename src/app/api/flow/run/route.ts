@@ -551,7 +551,7 @@ export async function POST(req: Request) {
           payload: { userId, workflowId, clientIsBuilderTest },
         },
       );
-      if (!entitlement.ok) {
+      if (entitlement.ok === false) {
         return traceJson({ ok: false, error: entitlement.message }, 403);
       }
       effectiveIsBuilderTest = entitlement.effectiveIsBuilderTest;

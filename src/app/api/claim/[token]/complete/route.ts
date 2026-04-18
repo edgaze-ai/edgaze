@@ -152,7 +152,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ token: str
         claimerEmail: user.email!,
       });
 
-      if (!t.ok) {
+      if (t.ok === false) {
         return NextResponse.json({ error: t.error }, { status: t.status });
       }
     }

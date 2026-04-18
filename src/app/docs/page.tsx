@@ -30,6 +30,15 @@ const PAYMENTS_SLUGS = [
 
 export default function DocsIndex() {
   const docs = getAllDocs();
+  const docHref = (slug: string) => {
+    const encodedSlug = slug
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    if (!encodedSlug) return "/docs";
+    return encodedSlug === "builder" ? "/docs/builder" : `/docs/${encodedSlug}`;
+  };
 
   const builderDocs = docs.filter((d) => d.slug.startsWith("builder"));
   const platformDocs = docs.filter((d) => PLATFORM_SLUGS.includes(d.slug));
@@ -139,7 +148,7 @@ export default function DocsIndex() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {builderDocs.map((doc) => {
-            const href = doc.slug === "builder" ? "/docs/builder" : `/docs/${doc.slug}`;
+            const href = docHref(doc.slug);
             return (
               <Link
                 key={doc.slug}
@@ -176,7 +185,7 @@ export default function DocsIndex() {
               {platformDocs.map((doc) => (
                 <Link
                   key={doc.slug}
-                  href={`/docs/${doc.slug}`}
+                  href={docHref(doc.slug)}
                   className="group flex items-start justify-between gap-4 rounded-xl px-4 py-3 hover:bg-white/[0.04] transition"
                 >
                   <div>
@@ -211,7 +220,7 @@ export default function DocsIndex() {
               {paymentsDocs.map((doc) => (
                 <Link
                   key={doc.slug}
-                  href={`/docs/${doc.slug}`}
+                  href={docHref(doc.slug)}
                   className="group flex items-start justify-between gap-4 rounded-xl px-4 py-3 hover:bg-white/[0.04] transition"
                 >
                   <div>
@@ -242,7 +251,7 @@ export default function DocsIndex() {
               {legalDocs.map((doc) => (
                 <Link
                   key={doc.slug}
-                  href={`/docs/${doc.slug}`}
+                  href={docHref(doc.slug)}
                   className="group flex items-start justify-between gap-4 rounded-xl px-4 py-3 hover:bg-white/[0.04] transition"
                 >
                   <div>
@@ -275,7 +284,7 @@ export default function DocsIndex() {
               {restDocs.map((doc) => (
                 <Link
                   key={doc.slug}
-                  href={`/docs/${doc.slug}`}
+                  href={docHref(doc.slug)}
                   className="group flex items-start justify-between gap-4 rounded-xl px-4 py-3 hover:bg-white/[0.04] transition"
                 >
                   <div>

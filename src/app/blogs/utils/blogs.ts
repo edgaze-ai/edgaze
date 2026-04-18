@@ -1,6 +1,8 @@
 // src/app/blogs/utils/blogs.ts
 import fs from "fs";
 import path from "path";
+import { normalizeSafeSlug } from "@/lib/security/safe-values";
+import { isKnownBlogSlug } from "./routes";
 
 export type BlogMeta = {
   slug: string;
@@ -15,7 +17,7 @@ export type Blog = BlogMeta & {
 
 const BLOGS_DIR = path.join(process.cwd(), "src", "app", "blogs", "content");
 
-const ORDER: string[] = ["ai-prompts-no-distribution", "introducing-blogs"];
+const ORDER = ["ai-prompts-no-distribution", "introducing-blogs"] as const;
 
 function safeRead(filePath: string) {
   try {
@@ -45,47 +47,29 @@ function parseHeader(raw: string) {
 export function getAllBlogs(): BlogMeta[] {
   const metas: BlogMeta[] = [];
 
-  for (const slug of ORDER) {
-    const filePath = path.join(BLOGS_DIR, `${slug}.md`);
+  for (const entry of ORDER) {
+    const safeSlug = normalizeSafeSlug(entry, { maxLength: 80 });
+    if (!safeSlug) continue;
+    const filePath = path.join(BLOGS_DIR, `${safeSlug}.md`);
     const raw = safeRead(filePath);
     if (!raw) continue;
 
     const { title, description, date } = parseHeader(raw);
-    metas.push({ slug, title, description, date });
+    metas.push({ slug: safeSlug, title, description, date });
   }
-
-  // Also include any .md in content/ not in ORDER
-  try {
-    const files = fs.readdirSync(BLOGS_DIR).filter((f) => f.endsWith(".md"));
-    for (const f of files) {
-      const slug = f.replace(/\.md$/, "");
-      if (ORDER.includes(slug)) continue;
-      const filePath = path.join(BLOGS_DIR, f);
-      const raw = safeRead(filePath);
-      if (!raw) continue;
-      const { title, description, date } = parseHeader(raw);
-      metas.push({ slug, title, description, date });
-    }
-  } catch {
-    // dir may not exist yet
-  }
-
-  // Sort by date descending (newest first); items without date go last
-  metas.sort((a, b) => {
-    if (!a.date && !b.date) return 0;
-    if (!a.date) return 1;
-    if (!b.date) return -1;
-    return b.date.localeCompare(a.date);
-  });
 
   return metas;
 }
 
 export function getBlog(slug: string): Blog | null {
-  const filePath = path.join(BLOGS_DIR, `${slug}.md`);
+  const safeSlug = normalizeSafeSlug(slug, { maxLength: 80 });
+  if (!safeSlug) return null;
+  if (!isKnownBlogSlug(safeSlug)) return null;
+
+  const filePath = path.join(BLOGS_DIR, `${safeSlug}.md`);
   const raw = safeRead(filePath);
   if (!raw) return null;
 
   const { title, description, date, body } = parseHeader(raw);
-  return { slug, title, description, date, body };
+  return { slug: safeSlug, title, description, date, body };
 }

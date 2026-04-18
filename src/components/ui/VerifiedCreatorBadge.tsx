@@ -3,6 +3,7 @@
 import React, { useId } from "react";
 import { RiVerifiedBadgeFill } from "react-icons/ri";
 import { cn } from "../../lib/utils";
+import { toSafeDomId } from "@/lib/security/safe-values";
 
 export const VERIFIED_CREATOR_TOOLTIP =
   "Verified creator on Edgaze\nIdentity confirmed and work quality reviewed";
@@ -23,8 +24,8 @@ type Props = {
 };
 
 function GradientVerifiedIcon({ size, className }: { size: Size; className?: string }) {
-  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const gradId = `eg-verified-grad-${uid}`;
+  const uid = useId();
+  const gradId = React.useMemo(() => toSafeDomId(uid, "eg_verified_grad"), [uid]);
 
   return (
     <>

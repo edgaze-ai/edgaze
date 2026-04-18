@@ -1,6 +1,7 @@
 // src/app/docs/utils/docs.ts
 import fs from "fs";
 import path from "path";
+import { normalizeSafeSlug } from "@/lib/security/safe-values";
 
 export type DocMeta = {
   slug: string; // canonical slug used in URL
@@ -111,6 +112,8 @@ export function getAllDocs(): DocMeta[] {
   const metas: DocMeta[] = [];
 
   for (const slug of ORDER) {
+    const safeSlug = normalizeSafeSlug(slug, { allowSlash: true, maxLength: 80 });
+    if (!safeSlug) continue;
     const filename = CANONICAL_TO_FILE[slug];
     if (!filename) continue; // TS + runtime safety
 
@@ -119,8 +122,8 @@ export function getAllDocs(): DocMeta[] {
     if (!raw) continue;
 
     const { title, description } = parseHeader(raw);
-    const category = slug.startsWith("builder") ? "builder" : undefined;
-    metas.push({ slug, title, description, category });
+    const category = safeSlug.startsWith("builder") ? "builder" : undefined;
+    metas.push({ slug: safeSlug, title, description, category });
   }
 
   // Also include any extra .md files dropped into content/ that are not in map
@@ -141,42 +144,47 @@ export function getAllDocs(): DocMeta[] {
     if (!raw) continue;
 
     const { title, description } = parseHeader(raw);
-    metas.push({ slug: f.replace(/\.md$/, ""), title, description });
+    const safeSlug = normalizeSafeSlug(f.replace(/\.md$/, ""), { allowSlash: true, maxLength: 80 });
+    if (!safeSlug) continue;
+    metas.push({ slug: safeSlug, title, description });
   }
 
   return metas;
 }
 
 export function getDoc(slug: string): Doc | null {
+  const safeSlug = normalizeSafeSlug(slug, { allowSlash: true, maxLength: 80 });
+  if (!safeSlug) return null;
+
   // Handle nested slugs like "builder/workflow-studio"
-  if (slug.includes("/")) {
-    const parts = slug.split("/");
+  if (safeSlug.includes("/")) {
+    const parts = safeSlug.split("/");
     if (parts[0] === "builder" && parts.length === 2) {
       const filename = `${parts[1]}.md`;
       const filePath = path.join(BUILDER_DIR, filename);
       const raw = safeRead(filePath);
       if (!raw) return null;
       const { title, description, body } = parseHeader(raw);
-      return { slug, title, description, body, category: "builder" };
+      return { slug: safeSlug, title, description, body, category: "builder" };
     }
   }
 
   // 1) canonical mapped doc
-  const mapped = CANONICAL_TO_FILE[slug];
+  const mapped = CANONICAL_TO_FILE[safeSlug];
   if (mapped) {
     const filePath = path.join(DOCS_DIR, mapped);
     const raw = safeRead(filePath);
     if (!raw) return null;
     const { title, description, body } = parseHeader(raw);
-    const category = slug.startsWith("builder") ? "builder" : undefined;
-    return { slug, title, description, body, category };
+    const category = safeSlug.startsWith("builder") ? "builder" : undefined;
+    return { slug: safeSlug, title, description, body, category };
   }
 
   // 2) fallback: file name equals slug
-  const filePath = path.join(DOCS_DIR, `${slug}.md`);
+  const filePath = path.join(DOCS_DIR, `${safeSlug}.md`);
   const raw = safeRead(filePath);
   if (!raw) return null;
 
   const { title, description, body } = parseHeader(raw);
-  return { slug, title, description, body };
+  return { slug: safeSlug, title, description, body };
 }
