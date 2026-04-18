@@ -1,3 +1,10 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const srcRoot = path.resolve(__dirname, "src");
+const libRoot = path.resolve(__dirname, "src/lib");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = (() => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -70,6 +77,15 @@ const nextConfig = (() => {
     // Dev: use in-memory webpack cache only. Persistent `.next/dev/cache/webpack` pack renames and
     // Turbopack SST writes both fail on iCloud-/cloud-synced trees (Documents), leaving manifests missing.
     webpack: (config, { dev }) => {
+      // Explicit aliases so client/server bundles resolve the same paths as tsconfig
+      // (`@/…`, `src/…`, `@lib/…`) even when path mapping is not picked up everywhere.
+      config.resolve = config.resolve ?? {};
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        "@": srcRoot,
+        "@lib": libRoot,
+        src: srcRoot,
+      };
       if (dev) {
         config.cache = { type: "memory" };
       }
@@ -84,6 +100,11 @@ const nextConfig = (() => {
     // Redirects for moved pages
     async redirects() {
       return [
+        {
+          source: '/edgaze/space',
+          destination: '/marcos/space',
+          permanent: true,
+        },
         {
           source: '/legal/seller-terms',
           destination: '/docs/seller-terms',
@@ -104,7 +125,6 @@ const nextConfig = (() => {
           source: '/:path*',
           headers: [
             { key: 'X-DNS-Prefetch-Control', value: 'on' },
-            { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
             { key: 'X-Content-Type-Options', value: 'nosniff' },
           ],
         },

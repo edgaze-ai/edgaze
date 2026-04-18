@@ -17,11 +17,13 @@ const config = [
   {
     ignores: [
       ".next/**",
+      ".next-dev/**",
       ".next 2/**",
       "dist/**",
       "build/**",
       "out/**",
       "node_modules/**",
+      "var/**",
       ".claude/**",
       "public/pdf.worker.min.mjs",
     ],

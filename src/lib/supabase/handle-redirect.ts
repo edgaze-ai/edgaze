@@ -1,4 +1,14 @@
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { resolvePublicPromptRowForPath } from "@lib/supabase/prompt-storefront-resolve";
+import { resolvePublishedWorkflowRowForPath } from "@lib/supabase/workflow-storefront-resolve";
+
+function canonicalWorkflowPath(canonicalHandle: string, code: string) {
+  return `/${encodeURIComponent(canonicalHandle)}/${encodeURIComponent(code)}`;
+}
+
+function canonicalPromptPath(canonicalHandle: string, code: string) {
+  return `/p/${encodeURIComponent(canonicalHandle)}/${encodeURIComponent(code)}`;
+}
 
 /**
  * If ownerHandle is an old handle (in handle_history), resolve current handle and check
@@ -39,27 +49,21 @@ export async function getWorkflowRedirectPath(
         .maybeSingle();
 
       if (workflow) {
-        return `/${encodeURIComponent(profile.handle)}/${encodeURIComponent(code)}`;
+        return canonicalWorkflowPath(profile.handle, code);
       }
     }
   }
 
-  // Ownership transfer or stale bookmarks: unique published workflow by code → canonical handle
-  const { data: byCode } = await supabase
-    .from("workflows")
-    .select("owner_handle, is_public")
-    .eq("edgaze_code", code)
-    .eq("is_published", true)
-    .is("removed_at", null)
-    .limit(2);
-
-  if (!byCode || byCode.length !== 1) return null;
-  const w = byCode[0] as { owner_handle: string | null; is_public?: boolean | null };
-  if (w.is_public === false) return null;
-  const canonical = (w.owner_handle ?? "").trim();
+  const row = await resolvePublishedWorkflowRowForPath(supabase, ownerHandle, edgazeCode);
+  if (!row) return null;
+  if (row.is_public === false) return null;
+  const canonical = String(row.owner_handle ?? "").trim();
   if (!canonical) return null;
-  if (canonical.toLowerCase() === handleLower) return null;
-  return `/${encodeURIComponent(canonical)}/${encodeURIComponent(code)}`;
+
+  const target = canonicalWorkflowPath(canonical, code);
+  const current = canonicalWorkflowPath(ownerHandle.trim(), code);
+  if (target !== current) return target;
+  return null;
 }
 
 /**
@@ -100,25 +104,20 @@ export async function getProductRedirectPath(
         .maybeSingle();
 
       if (prompt) {
-        return `/p/${encodeURIComponent(profile.handle)}/${encodeURIComponent(code)}`;
+        return canonicalPromptPath(profile.handle, code);
       }
     }
   }
 
-  // Ownership transfer or stale bookmarks: unique prompt listing by code → canonical handle
-  const { data: byCode } = await supabase
-    .from("prompts")
-    .select("owner_handle")
-    .eq("edgaze_code", code)
-    .is("removed_at", null)
-    .in("visibility", ["public", "unlisted"])
-    .limit(2);
-
-  if (!byCode || byCode.length !== 1) return null;
-  const canonical = ((byCode[0] as { owner_handle: string | null }).owner_handle ?? "").trim();
+  const row = await resolvePublicPromptRowForPath(supabase, ownerHandle, edgazeCode);
+  if (!row) return null;
+  const canonical = String((row as { owner_handle?: string | null }).owner_handle ?? "").trim();
   if (!canonical) return null;
-  if (canonical.toLowerCase() === handleLower) return null;
-  return `/p/${encodeURIComponent(canonical)}/${encodeURIComponent(code)}`;
+
+  const target = canonicalPromptPath(canonical, code);
+  const current = canonicalPromptPath(ownerHandle.trim(), code);
+  if (target !== current) return target;
+  return null;
 }
 
 /**

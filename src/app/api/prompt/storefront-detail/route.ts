@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { resolvePublicPromptRowForPath } from "@lib/supabase/prompt-storefront-resolve";
 
 export const dynamic = "force-dynamic";
 
@@ -18,39 +19,9 @@ export async function GET(req: Request) {
     }
 
     const supabase = createSupabaseAdminClient();
-    const baseQuery = () =>
-      supabase
-        .from("prompts")
-        .select("*")
-        .eq("owner_handle", owner_handle)
-        .eq("edgaze_code", edgaze_code)
-        .is("removed_at", null);
+    const data = await resolvePublicPromptRowForPath(supabase, owner_handle, edgaze_code);
 
-    let { data, error } = await baseQuery().in("visibility", ["public", "unlisted"]).maybeSingle();
-
-    if ((error || !data) && owner_handle && edgaze_code) {
-      const fb = await baseQuery().maybeSingle();
-      if (!fb.error && fb.data) {
-        data = fb.data;
-        error = null;
-      }
-    }
-
-    if (!error && !data) {
-      const { data: byCode, error: err2 } = await supabase
-        .from("prompts")
-        .select("*")
-        .eq("edgaze_code", edgaze_code)
-        .is("removed_at", null)
-        .in("visibility", ["public", "unlisted"])
-        .limit(2);
-      if (!err2 && byCode?.length === 1) {
-        data = byCode[0];
-        error = null;
-      }
-    }
-
-    if (error || !data) {
+    if (!data) {
       return NextResponse.json({ listing: null }, { status: 200 });
     }
 

@@ -5,6 +5,7 @@ pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .next
+.next-dev
 .next 2
 out
 dist

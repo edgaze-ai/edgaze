@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     if (target_type === "workflow") {
       const { data: row, error: wfErr } = await supabase
         .from("workflows")
-        .select("id, owner_id, edgaze_code")
+        .select("id, owner_id, edgaze_code, owner_handle")
         .eq("id", target_id)
         .maybeSingle();
 
@@ -73,7 +73,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
       }
 
-      const wf = row as { id: string; owner_id: string; edgaze_code: string | null };
+      const wf = row as {
+        id: string;
+        owner_id: string;
+        edgaze_code: string | null;
+        owner_handle: string | null;
+      };
 
       if (String(wf.owner_id) === String(new_owner_id)) {
         return NextResponse.json(
@@ -81,6 +86,9 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
+
+      const prevHandleNorm = (wf.owner_handle ?? "").trim().toLowerCase();
+      const newHandleNorm = newHandle.trim().toLowerCase();
 
       const now = new Date().toISOString();
       const { error: upErr } = await supabase
@@ -105,6 +113,23 @@ export async function POST(req: NextRequest) {
         .eq("id", target_id);
 
       const code = wf.edgaze_code?.trim() || "";
+      if (code && prevHandleNorm && prevHandleNorm !== newHandleNorm) {
+        const { error: redirectInsErr } = await supabase.from("listing_owner_redirects").upsert(
+          {
+            listing_id: target_id,
+            listing_type: "workflow",
+            from_owner_handle_norm: prevHandleNorm,
+            edgaze_code: code,
+          },
+          { onConflict: "from_owner_handle_norm,edgaze_code" },
+        );
+        if (redirectInsErr) {
+          console.error(
+            "[transfer-listing-ownership] listing_owner_redirects (workflow):",
+            redirectInsErr,
+          );
+        }
+      }
       return NextResponse.json({
         ok: true,
         target_type: "workflow",
@@ -121,7 +146,7 @@ export async function POST(req: NextRequest) {
     // prompts table (Prompt Studio listings; owner_id is text)
     const { data: prow, error: pErr } = await supabase
       .from("prompts")
-      .select("id, owner_id, edgaze_code")
+      .select("id, owner_id, edgaze_code, owner_handle")
       .eq("id", target_id)
       .maybeSingle();
 
@@ -129,11 +154,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Prompt listing not found" }, { status: 404 });
     }
 
-    const pr = prow as { id: string; owner_id: string | null; edgaze_code: string | null };
+    const pr = prow as {
+      id: string;
+      owner_id: string | null;
+      edgaze_code: string | null;
+      owner_handle: string | null;
+    };
 
     if (String(pr.owner_id) === String(new_owner_id)) {
       return NextResponse.json({ error: "Listing is already owned by that user" }, { status: 400 });
     }
+
+    const prevPromptHandleNorm = (pr.owner_handle ?? "").trim().toLowerCase();
+    const newPromptHandleNorm = newHandle.trim().toLowerCase();
 
     const now = new Date().toISOString();
     const { error: pUpErr } = await supabase
@@ -152,6 +185,23 @@ export async function POST(req: NextRequest) {
     }
 
     const code = pr.edgaze_code?.trim() || "";
+    if (code && prevPromptHandleNorm && prevPromptHandleNorm !== newPromptHandleNorm) {
+      const { error: redirectInsErr } = await supabase.from("listing_owner_redirects").upsert(
+        {
+          listing_id: target_id,
+          listing_type: "prompt",
+          from_owner_handle_norm: prevPromptHandleNorm,
+          edgaze_code: code,
+        },
+        { onConflict: "from_owner_handle_norm,edgaze_code" },
+      );
+      if (redirectInsErr) {
+        console.error(
+          "[transfer-listing-ownership] listing_owner_redirects (prompt):",
+          redirectInsErr,
+        );
+      }
+    }
     return NextResponse.json({
       ok: true,
       target_type: "prompt",
