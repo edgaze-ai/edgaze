@@ -6,3 +6,10 @@ out
 dist
 coverage
 var
+tmp
+private
+# iCloud Drive conflict copies — never commit/format these
+* 2.*
+* [0-9].*
+.prettierignore 2
+eslint.config 2.mjs

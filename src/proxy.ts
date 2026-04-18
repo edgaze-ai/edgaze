@@ -32,7 +32,7 @@ function isProtectedPath(pathname: string): boolean {
   return false;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const res = NextResponse.next();
   if (isProtectedPath(request.nextUrl.pathname)) {
     res.headers.set("Content-Security-Policy", "frame-ancestors 'none'");

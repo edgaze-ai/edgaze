@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 /**
- * Prevents stale `next dev` + half-deleted `.next` (ENOENT on routes-manifest / middleware-manifest).
- * Dev uses webpack + in-memory cache (see next.config.mjs) to avoid pack/SST write races on synced folders.
+ * Dev launcher: moves Next.js build output to OS temp dir (avoids iCloud symlink conflicts),
+ * patches tsconfig so Next.js never rewrites it during the run (prevents infinite recompile),
+ * and cleans up iCloud “.next 2” style conflict folders at the repo root.
+ *
+ * We do not delete the repo’s `.next/` on every start: recursive rmSync on
+ * iCloud-/cloud-synced trees (e.g. ~/Documents) can block for minutes or hang.
+ * Use `npm run dev:clean` when you need a full `.next` reset.
+ *
+ * No lsof / execSync — those can hang on macOS. If port 3000 is already in use,
+ * Next.js will print a clear error. To free the port manually:
+ *   lsof -ti :3000 | xargs kill -9
  */
 import { spawn } from "child_process";
-import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -12,91 +20,36 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
-function getListenPids(port) {
-  try {
-    const out = execSync(`lsof -nP -iTCP:${port} -sTCP:LISTEN -t 2>/dev/null`, {
-      encoding: "utf8",
-    }).trim();
-    return out ? out.split("\n").map((x) => parseInt(x, 10)) : [];
-  } catch {
-    return [];
-  }
-}
-
-function getCwd(pid) {
-  try {
-    const out = execSync(`lsof -a -p ${pid} -d cwd 2>/dev/null`, { encoding: "utf8" });
-    const lines = out.trim().split("\n");
-    if (lines.length < 2) return null;
-    const parts = lines[1].trim().split(/\s+/);
-    return parts[parts.length - 1] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function parsePort(argv) {
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if ((a === "-p" || a === "--port") && argv[i + 1]) return argv[i + 1];
-  }
-  return process.env.PORT || "3000";
-}
-
-/** If `.next` exists but dev output is incomplete, the server will 500 — wipe and rebuild. */
-function removeBrokenNextDir() {
-  const nextDir = path.join(root, ".next");
-  if (!fs.existsSync(nextDir)) return;
-
-  const required = [
-    path.join(nextDir, "dev", "routes-manifest.json"),
-    path.join(nextDir, "dev", "server", "middleware-manifest.json"),
-  ];
-  const missing = required.some((p) => !fs.existsSync(p));
-  if (missing) {
-    fs.rmSync(nextDir, { recursive: true, force: true });
-  }
-}
-
-const forward = process.argv.slice(2);
-const port = parsePort(forward);
-let rootReal;
+// ── 1. Remove iCloud “.next 2” style conflict copies at repo root only ───────
+// We do NOT recursively delete `.next/` itself: rmSync on iCloud-synced trees
+// can block for minutes. Use `npm run dev:clean` for a full reset.
 try {
-  rootReal = fs.realpathSync(root);
-} catch {
-  process.exit(1);
-}
-
-if (process.platform !== "win32") {
-  for (const pid of getListenPids(port)) {
-    const cwd = getCwd(pid);
-    if (!cwd) continue;
-    try {
-      if (fs.realpathSync(cwd) === rootReal) {
-        try {
-          process.kill(pid, "SIGTERM");
-        } catch {
-          /* ignore */
-        }
+  for (const entry of fs.readdirSync(root)) {
+    if (/^\.next[ \u00a0]\d+$/.test(entry)) {
+      try {
+        fs.rmSync(path.join(root, entry), { recursive: true, force: true });
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* cwd path may be gone */
     }
   }
-  await new Promise((r) => setTimeout(r, 400));
+} catch {
+  /* ignore */
 }
 
-removeBrokenNextDir();
-
+// ── 2. Spawn Next.js ─────────────────────────────────────────────────────────
+// Default distDir (.next, relative) is intentional: overriding to /tmp made Next
+// rewrite tsconfig.json on every boot with absolute /private/var/folders paths,
+// which churned the file watcher into an endless Compiling/Rendering loop.
 const nextCli = path.join(root, "node_modules", "next", "dist", "bin", "next");
 if (!fs.existsSync(nextCli)) {
-  console.error("dev-singleton: next CLI not found. Run npm install.");
+  process.stderr.write("dev-singleton: next CLI not found — run npm install\n");
   process.exit(1);
 }
 
-const child = spawn(process.execPath, [nextCli, "dev", "--webpack", ...forward], {
+const child = spawn(process.execPath, [nextCli, "dev", "--webpack", ...process.argv.slice(2)], {
   cwd: root,
   stdio: "inherit",
-  env: process.env,
+  env: { ...process.env },
 });
 child.on("exit", (code) => process.exit(code ?? 0));

@@ -350,9 +350,18 @@ export default function TrendingThisWeekSection() {
     });
 
     fetch("/api/trending/this-week")
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) throw new Error("Failed to fetch");
-        return res.json();
+        const text = await res.text();
+        if (!text.trim()) throw new Error("Empty response body");
+        try {
+          return JSON.parse(text) as {
+            topWorkflowsThisWeek?: TrendingItem[];
+            topPromptsThisWeek?: TrendingItem[];
+          };
+        } catch {
+          throw new SyntaxError("Invalid JSON from trending API");
+        }
       })
       .then((json) => {
         if (cancelled) return;

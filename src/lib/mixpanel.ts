@@ -106,7 +106,9 @@ function setupConsoleErrorFilter() {
       (message.includes("mixpanel error") &&
         (message.includes("mutex") || message.includes("lock"))) ||
       message.includes("failed to persist") ||
-      message.includes("quotaexceedederror");
+      message.includes("quotaexceedederror") ||
+      // Noisy in dev with analytics + concurrent hydration; not actionable via Mixpanel filter
+      (message.includes("react state update") && message.includes("hasn't mounted"));
 
     // Suppress harmless errors, pass through everything else
     if (!isHarmlessError) {
