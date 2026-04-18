@@ -1,6 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  createContext,
+  startTransition,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "src/components/auth/AuthContext";
@@ -1783,6 +1791,7 @@ export default function EdgazeLandingPage() {
   const { userId, authReady, loading } = useAuth();
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const rootMarketplaceRedirectRef = useRef(false);
   const [onTop, setOnTop] = useState(true);
 
   const sectionIds = useMemo(
@@ -1801,13 +1810,24 @@ export default function EdgazeLandingPage() {
   );
 
   useEffect(() => {
+    // Allow a fresh "/" → marketplace redirect after the user leaves "/" (e.g. /marketplace → /).
+    if (pathname !== "/") rootMarketplaceRedirectRef.current = false;
+  }, [pathname]);
+
+  useEffect(() => {
     if (!authReady || loading) return;
     if (!userId) return;
     // Only redirect from root "/" to marketplace - don't redirect from other pages
     if (pathname !== "/") return;
+    if (rootMarketplaceRedirectRef.current) return;
+    rootMarketplaceRedirectRef.current = true;
 
-    // Default: redirect logged-in users from root to marketplace
-    router.replace("/marketplace");
+    // Defer so the app router is fully initialized (avoids "Router action dispatched before initialization").
+    queueMicrotask(() => {
+      startTransition(() => {
+        router.replace("/marketplace");
+      });
+    });
   }, [authReady, loading, pathname, router, userId]);
 
   useEffect(() => {
@@ -1948,33 +1968,80 @@ export default function EdgazeLandingPage() {
     if (!openButton) console.warn("Missing Open button");
   }, [sectionIds]);
 
-  const showLoading = !authReady || loading;
+  // Only show the fullscreen overlay while we know we’re actually about to redirect a
+  // logged-in user away from `/`. Showing it for any pre-auth state caused a giant
+  // unstyled-logo flash whenever Tailwind was mid-recompile during dev HMR.
   const redirecting = authReady && !loading && !!userId && pathname !== "/marketplace";
 
-  if (showLoading || redirecting) {
+  if (redirecting) {
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#07080b]">
-        <div className="flex flex-col items-center justify-center gap-6">
-          <div className="relative">
-            <div className="absolute -inset-8 rounded-full blur-3xl opacity-60 animate-pulse [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.35),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.28),transparent_62%)]" />
-            <div className="relative h-16 w-16 sm:h-20 sm:w-20">
-              <Image
-                src="/brand/edgaze-mark.png"
-                alt="Edgaze"
-                width={80}
-                height={80}
-                className="h-full w-full"
-                priority
-              />
-            </div>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#07080b",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 24,
+          }}
+        >
+          <div style={{ position: "relative", width: 80, height: 80 }}>
+            <Image
+              src="/brand/edgaze-mark.png"
+              alt="Edgaze"
+              width={80}
+              height={80}
+              style={{ width: 80, height: 80, display: "block" }}
+              priority
+            />
           </div>
-          <div className="text-xl sm:text-2xl font-semibold tracking-tight text-white/95">
+          <div
+            style={{
+              fontSize: 20,
+              fontWeight: 600,
+              letterSpacing: "-0.01em",
+              color: "rgba(255,255,255,0.95)",
+            }}
+          >
             Edgaze
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-cyan-400 animate-[pulse_1.4s_ease-in-out_infinite]" />
-            <div className="h-2 w-2 rounded-full bg-purple-400 animate-[pulse_1.4s_ease-in-out_0.2s_infinite]" />
-            <div className="h-2 w-2 rounded-full bg-pink-400 animate-[pulse_1.4s_ease-in-out_0.4s_infinite]" />
+          <div style={{ display: "flex", gap: 8 }}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                backgroundColor: "#22d3ee",
+                animation: "pulse 1.4s ease-in-out infinite",
+              }}
+            />
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                backgroundColor: "#a78bfa",
+                animation: "pulse 1.4s ease-in-out 0.2s infinite",
+              }}
+            />
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                backgroundColor: "#ec4899",
+                animation: "pulse 1.4s ease-in-out 0.4s infinite",
+              }}
+            />
           </div>
         </div>
       </div>

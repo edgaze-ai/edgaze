@@ -28,7 +28,7 @@ export function resolveAnthropicApiModel(modelId: string): string {
 }
 export const FREE_TIER_LLM_CHAT_OPENAI_MODEL = "gpt-5.4-mini";
 /** Platform-funded chat when routing to Gemini (matches quality floor used elsewhere). */
-export const FREE_TIER_LLM_CHAT_GEMINI_MODEL = "gemini-2.5-flash";
+export const FREE_TIER_LLM_CHAT_GEMINI_MODEL = "gemini-3-flash-preview";
 
 /** Legacy "OpenAI Chat" workflow nodes (spec `openai-chat` → canonical `llm-chat`) must stay on OpenAI. */
 export const LEGACY_OPENAI_CHAT_MODEL = "gpt-4o-mini";
@@ -76,8 +76,8 @@ export const LLM_CHAT_MODEL_OPTIONS: LlmChatOption[] = [
     recommended: true,
   },
   {
-    value: "claude-3-opus-20240229",
-    label: "Claude 3 Opus · Premium · $$$",
+    value: "claude-opus-4-7",
+    label: "Claude Opus 4.7 · Premium reasoning · $$$",
     provider: "anthropic",
     quality: "high",
     cost: "$$$",
@@ -120,15 +120,22 @@ export const LLM_CHAT_MODEL_OPTIONS: LlmChatOption[] = [
   },
   // Google
   {
-    value: "gemini-2.5-pro",
-    label: "Gemini 2.5 Pro · $$$",
+    value: "gemini-3.1-pro-preview",
+    label: "Gemini 3.1 Pro Preview · Frontier multimodal · $$$",
     provider: "google",
     quality: "high",
     cost: "$$$",
   },
   {
-    value: "gemini-2.5-flash",
-    label: "Gemini 2.5 Flash · Fast · $",
+    value: "gemini-3-flash-preview",
+    label: "Gemini 3 Flash Preview · Fast multimodal · $$",
+    provider: "google",
+    quality: "balanced",
+    cost: "$$",
+  },
+  {
+    value: "gemini-3.1-flash-lite-preview",
+    label: "Gemini 3.1 Flash-Lite Preview · Cost efficient · $",
     provider: "google",
     quality: "fast",
     cost: "$",
@@ -181,11 +188,11 @@ export const LLM_IMAGE_MODEL_OPTIONS: LlmImageOption[] = [
     recommended: true,
   },
   {
-    value: "gemini-2.5-flash-image",
-    label: "Nano Banana (Gemini 2.5 Flash Image, original) · $",
+    value: "gemini-3-pro-image-preview",
+    label: "Gemini 3 Pro Image Preview · Premium image generation · $$",
     provider: "google",
-    quality: "fast",
-    cost: "$",
+    quality: "high",
+    cost: "$$",
   },
   {
     value: "gpt-image-1-mini",

@@ -3,6 +3,7 @@
 
 import React from "react";
 import Link from "next/link";
+import DocsWorkflowEmbed from "./DocsWorkflowEmbed";
 
 type Block =
   | { type: "h"; level: 1 | 2 | 3 | 4; text: string; id: string }
@@ -428,6 +429,10 @@ export default function DocRenderer({ content }: { content: string }) {
         }
 
         if (b.type === "code") {
+          if (b.lang === "docsgraph") {
+            return <DocsWorkflowEmbed key={idx} slug={b.code.trim()} />;
+          }
+
           return (
             <div
               key={idx}

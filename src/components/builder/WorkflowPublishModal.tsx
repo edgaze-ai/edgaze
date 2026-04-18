@@ -1333,12 +1333,12 @@ export default function WorkflowPublishModal({
                             </div>
                           </div>
                           <p className="text-[11px] text-white/50 leading-relaxed">
-                            This infrastructure cost is{" "}
-                            <strong className="text-white/70">
-                              separate from the Edgaze marketplace fee
-                            </strong>{" "}
-                            (20%). Set your price to cover infrastructure cost, marketplace fee, and
-                            your profit.
+                            This infrastructure cost estimate is provided as pricing guidance for
+                            creators. It is <strong className="text-white/70">not deducted</strong>{" "}
+                            from your balance or payouts. The only standard platform deduction is
+                            the Edgaze marketplace fee of{" "}
+                            <strong className="text-white/70">20%</strong>. Use this estimate to set
+                            pricing that appropriately covers operating cost and your target margin.
                           </p>
                           <Link
                             href="/docs/infrastructure-cost-estimation"

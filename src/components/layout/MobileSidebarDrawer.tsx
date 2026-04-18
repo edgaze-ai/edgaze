@@ -87,7 +87,7 @@ export default function MobileSidebarDrawer() {
   const isActiveApp = (href: string) => isAppNavActive(pathname, href);
 
   return (
-    <div className="xl:hidden">
+    <div className="md:hidden">
       {/* Backdrop */}
       <div
         className={cn(

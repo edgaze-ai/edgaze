@@ -1,13 +1,12 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Instrument_Serif, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "../styles/globals.css";
 
 import { AppProviders } from "./providers";
 import ClientLayoutGate from "./ClientLayoutGate";
 import LazyAnalyticsWrapper from "../components/layout/LazyAnalytics";
-import { MinimalLoadingFallback } from "../components/loading/GlobalLoadingScreen";
 import { WebVitals } from "./web-vitals";
 import { getSiteOrigin } from "@lib/site-origin";
 import { SITE_META_DESCRIPTION } from "@lib/constants";
@@ -16,15 +15,7 @@ import { buildPrimarySitelinksItemList, ORGANIZATION_SAME_AS } from "@lib/primar
 
 const SITE_ORIGIN = getSiteOrigin();
 
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: ["400"],
-  style: ["normal", "italic"],
-  variable: "--font-instrument-serif",
-  display: "swap",
-});
-
-const dmSans = DM_Sans({
+const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-dm-sans",
@@ -125,20 +116,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`dark ${instrumentSerif.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+      className={`dark ${inter.variable} ${jetbrainsMono.variable}`}
       suppressHydrationWarning
     >
-      <body className="h-full bg-[#0a0a0a] text-white antialiased font-dm-sans">
+      <body
+        className="h-full bg-[#0a0a0a] text-white antialiased font-dm-sans"
+        style={{ backgroundColor: "#0a0a0a", color: "#ffffff", margin: 0 }}
+      >
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationJsonLd) }}
         />
         <AppProviders>
           <WebVitals />
-          <Suspense fallback={<MinimalLoadingFallback />}>
+          {/* Analytics loads async — do not use a fullscreen fallback or it blocks the whole UI until chunks load. */}
+          <Suspense fallback={null}>
             <LazyAnalyticsWrapper />
           </Suspense>
-          <Suspense fallback={<MinimalLoadingFallback />}>
+          {/* fallback={null} so navigation suspense doesn't flash the Edgaze logo / a
+              white frame on every GET. The previous segment stays painted until the next
+              one streams in. */}
+          <Suspense fallback={null}>
             <ClientLayoutGate>{children}</ClientLayoutGate>
           </Suspense>
         </AppProviders>

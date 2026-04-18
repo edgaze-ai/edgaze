@@ -1,768 +1,813 @@
-title = "Workflow Studio Guide"
-description = "Complete guide to building AI workflows with Workflow Studio"
+title = "Workflow Studio"
+description = "A complete Workflow Studio guide covering the canvas, builder flow, and every node available in Edgaze."
 
-# Workflow Studio Guide
+# Workflow Studio
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
+Workflow Studio is the visual system you use to build editable multi-step AI products in Edgaze.
 
-Workflow Studio is a powerful visual tool for building sophisticated AI workflows. You connect different blocks (called "nodes") together to create complex AI processes that can handle multiple steps, conditions, data transformations, API calls, and much more. This comprehensive guide will teach you everything you need to know to become a master workflow builder.
+If Prompt Studio is for one strong prompt, Workflow Studio is for connected logic. It lets you collect inputs, merge data, call models, transform outputs, branch execution, and package the whole thing as a reusable product.
 
-## What is a Workflow?
+## On This Page
 
-A workflow is a series of connected steps that process information. Each step is represented by a "node" - a block that performs a specific task. You connect nodes together to create a complete workflow that can:
+- What Workflow Studio is
+- The main areas of the screen
+- How to build your first workflow
+- Complete node reference
+- Runs and testing
+- Publishing
+- Best practices
 
-- Process user input through multiple stages
-- Call AI models and APIs
-- Transform and manipulate data
-- Make intelligent decisions based on conditions
-- Handle errors and retries
-- Output beautifully formatted results
+## What Workflow Studio Is
 
-Think of it like a flowchart where each box does something specific, and arrows show how information flows from one step to the next. But unlike traditional flowcharts, Workflow Studio gives you access to powerful AI models, HTTP requests, data processing, and more - all without writing code.
+A workflow is a chain of connected blocks. Each block does one job. The lines between them define how data moves from one step to the next.
 
-## Getting Started
+Think of it like this:
 
-### Opening Workflow Studio
-
-1. Click on **"Workflow Studio"** in the sidebar (or navigate to `/builder`)
-2. If you're not signed in, you'll be prompted to sign in
-3. You'll see the Workflow Studio interface with a launcher modal
-
-### The Workflow Studio Interface
-
-When you open Workflow Studio, you'll see several main areas:
-
-**The Canvas** - This is the main workspace where you build your workflow. It's the large area in the center where you'll place and connect nodes. You can pan by holding Space and dragging, zoom with the zoom controls, and toggle a grid overlay for alignment.
-
-**The Block Library** - This panel shows all available blocks you can add to your workflow. It's usually on the left side or accessible through a button. Blocks are organized by category: Core, AI, HTTP, and Utility.
-
-**The Inspector Panel** - When you select a node, this panel appears on the right side showing all the settings and configuration options for that node. This is where you configure how each node behaves.
-
-**The Toolbar** - At the top, you'll find buttons for:
-
-- **Docs** - Access this documentation
-- **Home** - Return to the workflow launcher
-- **Run** - Test your workflow
-- **Publish** - Share your workflow with others
-- **Refresh** - Reload your workflows list
-
-**Canvas Controls** - Zoom in/out buttons, grid toggle, and lock/unlock controls for the canvas.
-
-## Creating Your First Workflow
-
-### Step 1: Start a New Workflow
-
-When you first open Workflow Studio, you'll see a launcher modal with options to:
-
-- **Create New** - Start with a blank canvas
-- **Continue** - Open a workflow you were working on (shows your drafts)
-- **Templates** - Start from a pre-built template
-
-Click "Create New" to start fresh. You'll be prompted to give your workflow a name.
-
-### Step 2: Add Your First Node
-
-Nodes are the building blocks of your workflow. To add a node:
-
-1. Look for the **Block Library** panel (usually on the left)
-2. Browse through the available blocks organized by category
-3. Click on a block to add it to your canvas
-4. The node will appear on the canvas and you can drag it to position it
-
-**Common starting blocks:**
-
-- **Workflow Input** - This is where users provide information to your workflow
-- **OpenAI Chat** - This calls an AI language model
-- **Workflow Output** - This shows the final result
-
-### Step 3: Configure Your Node
-
-After adding a node, click on it to select it. The **Inspector Panel** will appear on the right side showing all the settings for that node. Every node has different configuration options, which we'll cover in detail below.
-
-### Step 4: Connect Nodes Together
-
-To create a workflow, you need to connect nodes so information flows from one to the next:
-
-1. Look at the connection points on nodes - you'll see handles (small circles) on the sides
-2. Click and drag from an output handle (usually on the right side)
-3. Drag to an input handle on another node (usually on the left side)
-4. Release to create a connection
-
-**Understanding connections:**
-
-- Information flows from left to right (or top to bottom)
-- The output of one node becomes the input of the next
-- You can connect one node to multiple nodes
-- Some nodes have multiple inputs and outputs
-
-### Step 5: Test Your Workflow
-
-Before publishing, test your workflow:
-
-1. Click the **"Run"** button in the toolbar
-2. Fill in any input fields that appear
-3. Click "Run" to execute your workflow
-4. Review the results to make sure everything works as expected
-
-### Step 6: Save Your Workflow
-
-Your workflow is automatically saved as you work. You can also:
-
-1. Click the **"Home"** button to return to the launcher
-2. Your workflow will appear in the "Continue" section
-3. You can rename it by editing the workflow name in the top bar
-
-### Step 7: Publish Your Workflow
-
-When you're ready to share your workflow:
-
-1. Click the **"Publish"** button in the toolbar
-2. Fill in the details:
-   - **Name** - A clear, descriptive name for your workflow
-   - **Description** - Explain what your workflow does and when to use it
-   - **Thumbnail** - Add an image (optional but recommended)
-   - **Tags** - Add relevant tags to help people find it
-   - **Visibility** - Choose Public, Unlisted, or Private
-   - **Price** - Set if you want to charge for it (optional, requires premium)
-3. Click "Publish"
-
-Once published, your workflow gets a unique shareable link that others can use.
-
-## Understanding the Inspector Panel
-
-The Inspector Panel is where you configure every aspect of your nodes. When you select a node, the Inspector Panel appears on the right side of the screen. It's divided into several sections:
-
-### Basic Info Section
-
-Every node has a Basic Info section with these fields:
-
-**Display Name** - This is the name shown on the node card. It helps you identify nodes at a glance. Use clear, descriptive names like "Summarize Text" or "Check User Age" rather than generic names like "Node 1".
-
-**Description** - A longer description of what this node does. This is helpful for documentation and understanding your workflow later. Describe the purpose and expected behavior of the node.
-
-### Configuration Section
-
-This section contains node-specific settings. The fields vary depending on the node type, which we'll cover in detail below.
-
-### Advanced Section
-
-Most nodes have an Advanced section (click "Show advanced settings" to expand it) with:
-
-**Timeout (ms)** - How long to wait before timing out. Default is 8000ms (8 seconds). Increase this for slower operations like image generation or long API calls. Decrease for faster operations to fail quickly if something goes wrong.
-
-**Retry Attempts** - How many times to retry if the node fails. Default is 0 (no retries). Set to 1-3 for operations that might occasionally fail due to network issues or rate limits.
-
-## Core Nodes - Complete Field Reference
-
-### Workflow Input Node
-
-The Input node is where users provide information. Every workflow should start with at least one Input node.
-
-**Inspector Fields:**
-
-**Input Name** - What this input is called. This appears as the label when users fill out the form. Examples: "User Message", "Document Text", "Image URL", "Email Address". Use clear, descriptive names that tell users exactly what to enter.
-
-**Question** - The question or prompt shown to users when collecting this input. This is displayed as a form label above the input field. Examples: "What message would you like to send?", "Paste the document text here", "Enter the image URL". Make questions clear and specific.
-
-**Input Type** - What type of input field to show users. Options:
-
-- **Text** - Single line text input for short answers
-- **Long Paragraph** - Multi-line textarea for longer text
-- **Number** - Number input with validation
-- **URL** - URL input with validation
-- **File Upload (up to 5MB)** - File upload field
-- **JSON** - JSON input with syntax validation
-
-Choose the type that best matches the data you need. For example, use "Long Paragraph" for documents, "Number" for quantities, and "File Upload" for images or documents.
-
-**Description** - Additional help text shown below the input field. Use this to provide examples, format requirements, or additional context. Examples: "Enter a valid email address", "Paste your document here. It will be analyzed.", "Upload an image file (JPG, PNG, or GIF)".
-
-**Required** - Whether users must fill this input. If enabled, users cannot run the workflow without providing this input. Use this for critical inputs that your workflow needs to function.
-
-### Workflow Output Node
-
-The Output node determines what users see as the final result of your workflow.
-
-**Inspector Fields:**
-
-**Output Name** - What to call the output. This appears in the results. Examples: "Generated Content", "Analysis Result", "Processed Data". Use descriptive names that tell users what they're seeing.
-
-**Output Format** - How to format the output. Options:
-
-- **JSON** - Structured JSON format (default, best for complex data)
-- **Text** - Plain text format (best for simple text responses)
-- **HTML** - HTML format (best for formatted content with links, lists, etc.)
-
-Choose JSON for structured data, Text for simple responses, and HTML for formatted content with styling.
-
-### Merge Node
-
-The Merge node combines outputs from multiple nodes into one unified output.
-
-**How it works:** The Merge node automatically combines all inputs it receives. It doesn't have inspector fields - it simply merges whatever data flows into it.
-
-**Use cases:**
-
-- Combine results from multiple parallel AI calls
-- Merge user input with processed data
-- Aggregate data from different sources
-
-**Tips:** The Merge node accepts multiple inputs and combines them into a single output. The order of combination depends on the order of connections.
-
-## AI Nodes - Complete Field Reference
-
-### OpenAI Chat Node
-
-The OpenAI Chat node calls OpenAI's GPT models to generate text completions. This is one of the most powerful nodes in Workflow Studio.
-
-**Inspector Fields:**
-
-**Prompt (fallback)** - The main prompt sent to the AI model. This is used when the node input is not connected. Write clear, specific instructions. Examples: "Summarize the following text in 3 bullet points:", "Translate the following to French:", "Extract key information from this document:". Use placeholders like `{{input}}` to reference data from connected nodes.
-
-**Style / System (optional)** - Optional system message that sets the tone, style, and constraints for the AI. This helps guide the AI's behavior. Examples: "You are a helpful assistant that explains things clearly.", "Respond in a professional, formal tone.", "Always provide examples in your responses." Leave empty if you don't need special styling.
-
-**Model (Premium)** - Which OpenAI model to use. Options:
-
-- **GPT-4o mini** - Fast and cheap, good for most tasks
-- **GPT-4o** - Flagship model, best quality
-- **GPT-4o (2024-08-06)** - Specific version snapshot
-- **GPT-4 Turbo** - Fast GPT-4 variant
-- **GPT-4 Turbo (preview)** - Latest GPT-4 Turbo
-- **GPT-4** - Original GPT-4
-- **o1** - Reasoning model for complex problems
-- **o1-mini** - Lighter reasoning model
-- **GPT-3.5 Turbo** - Fast and cheap, older model
-
-With your API key, you can use any model. Free runs use gpt-4o-mini. Choose GPT-4o for best quality, GPT-4o mini for speed and cost savings, or o1 for complex reasoning tasks.
-
-**Temperature** - Controls randomness and creativity. Range: 0 to 2. Default: 0.7.
-
-- **0** - Deterministic, focused, consistent responses
-- **0.7** - Balanced creativity and consistency (recommended)
-- **1.0** - More creative and varied
-- **2.0** - Very creative, unpredictable
-
-Use lower values (0-0.5) for factual tasks, summaries, and data extraction. Use higher values (1-2) for creative writing, brainstorming, and varied responses.
-
-**Max Tokens** - Maximum number of tokens the AI can generate. Range: 1 to 16000. Default: 2000. One token is roughly 0.75 words. Set higher for longer responses, lower for shorter ones. Be aware that more tokens cost more and take longer.
-
-**Stream** - Whether to stream the response in real-time. When enabled, you'll see the response appear word-by-word as it's generated. Useful for long responses where you want to see progress. Disable for faster completion when you don't need to see intermediate results.
-
-**Safe Mode** - Whether to enable OpenAI's content filtering. When enabled, the AI will refuse to generate harmful, illegal, or inappropriate content. Keep this enabled for public workflows. Disable only if you need unfiltered responses for specific use cases.
-
-**Advanced Settings:**
-
-**Timeout (ms)** - How long to wait for the API response. Default: 30000ms (30 seconds). Increase for longer responses or slower models. Decrease to fail faster if something goes wrong.
-
-**Retry Attempts** - How many times to retry if the API call fails. Default: 2. Useful for handling temporary network issues or rate limits.
-
-### OpenAI Embeddings Node
-
-The Embeddings node converts text into vector embeddings for use in search, similarity matching, and AI applications.
-
-**Inspector Fields:**
-
-**Text (fallback)** - The text to convert to embeddings. Used when the node input is not connected. Paste text directly here or connect another node to provide text dynamically.
-
-**Model** - Which embedding model to use. Options:
-
-- **text-embedding-3-small** - Fast and efficient, 1536 dimensions
-- **text-embedding-3-large** - Higher quality, 3072 dimensions
-- **text-embedding-ada-002** - Older model, 1536 dimensions
-
-Use text-embedding-3-small for most cases (fast and cheap). Use text-embedding-3-large for better quality when needed.
-
-**Advanced Settings:**
-
-**Timeout (ms)** - How long to wait for the embedding generation. Default: 15000ms (15 seconds).
-
-**Retry Attempts** - How many times to retry if the API call fails. Default: 2.
-
-### OpenAI Image Node
-
-The Image node generates images using DALL-E.
-
-**Inspector Fields:**
-
-**Prompt (fallback)** - The image generation prompt. Describe what you want to see in detail. Examples: "A futuristic cityscape at sunset with flying cars", "A minimalist logo for a tech startup, blue and white", "A professional headshot of a business person". Be specific about style, colors, composition, and subject matter.
-
-**Model** - Which DALL-E model to use. Options:
-
-- **DALL-E 3** - Latest model, best quality, more creative
-- **DALL-E 2** - Older model, faster and cheaper
-
-Use DALL-E 3 for best results. Use DALL-E 2 if you need faster generation or lower costs.
-
-**Size** - Image dimensions. Options:
-
-- **1024x1024** - Square, standard size
-- **1792x1024** - Wide landscape
-- **1024x1792** - Tall portrait
-- **512x512** - Small square
-- **256x256** - Very small square
-
-Choose based on your use case. 1024x1024 is standard. Use wide/tall formats for specific layouts.
-
-**Quality** - Image quality. Options:
-
-- **Standard** - Good quality, faster generation
-- **HD** - Higher quality, slower generation
-
-Use HD for final outputs, Standard for testing or when speed matters.
-
-**Advanced Settings:**
-
-**Timeout (ms)** - How long to wait for image generation. Default: 60000ms (60 seconds). Image generation can take 10-30 seconds.
-
-**Retry Attempts** - How many times to retry if generation fails. Default: 2.
-
-## HTTP and Utility Nodes - Complete Field Reference
-
-### HTTP Request Node
-
-The HTTP Request node makes HTTP requests to external APIs and services.
-
-**Inspector Fields:**
-
-**URL** - The endpoint URL to call. Used when input is not connected. Must be HTTPS. Examples: "https://api.example.com/data", "https://jsonplaceholder.typicode.com/posts/1". You can use placeholders like `{{api_key}}` if you have variables.
-
-**Method** - HTTP method to use. Options:
-
-- **GET** - Retrieve data (default)
-- **POST** - Send data, create resources
-- **PUT** - Update/replace resources
-- **PATCH** - Partial update
-- **DELETE** - Delete resources
-
-Choose based on what the API expects. GET for reading, POST for creating, PUT/PATCH for updating, DELETE for removing.
-
-**Allowed Hosts (comma-separated)** - Security feature. If set, only requests to these hosts are allowed. Examples: "api.example.com,cdn.example.com". Leave empty to allow any host (less secure). Use this to restrict which APIs your workflow can call.
-
-**Denied Hosts (comma-separated)** - Security feature. These hosts will be blocked. Default includes localhost, 127.0.0.1, 0.0.0.0. Add additional hosts you want to block for security.
-
-**Follow Redirects** - Whether to automatically follow HTTP redirects. Enable for most APIs. Disable if you need to handle redirects manually.
-
-**Advanced Settings:**
-
-**Timeout (ms)** - How long to wait for the response. Default: 30000ms (30 seconds). Increase for slow APIs, decrease for faster failure.
-
-**Retry Attempts** - How many times to retry if the request fails. Default: 1. Useful for handling temporary network issues.
-
-### Condition Node
-
-The Condition node makes decisions based on input values, routing to different paths.
-
-**Inspector Fields:**
-
-**Condition (Human Language)** - Describe the condition in plain English. The AI will evaluate this. Examples: "The user's age is greater than 18", "The input contains the word 'approved'", "The status equals 'active'". Leave empty to use operator-based evaluation instead.
-
-**Condition Type (Fallback)** - How to evaluate the condition if human language is not provided. Options:
-
-- **Truthy** - Passes if value is truthy (not null, not empty, not false, not 0)
-- **Falsy** - Passes if value is falsy (null, empty, false, 0)
-- **Equals** - Passes if value equals compare value
-- **Not Equals** - Passes if value does not equal compare value
-- **Greater Than** - Passes if value is greater than compare value
-- **Less Than** - Passes if value is less than compare value
-
-Use Truthy/Falsy for boolean checks. Use Equals/Not Equals for string/number matching. Use Greater Than/Less Than for numeric comparisons.
-
-**Compare Value** - Required for Equals, Not Equals, Greater Than, and Less Than operators. The value to compare against. Examples: "18", "active", "approved". Make sure the type matches (numbers for numeric comparisons, strings for string comparisons).
-
-**Advanced Settings:**
-
-**Timeout (ms)** - How long to wait for condition evaluation. Default: 8000ms.
-
-**Retry Attempts** - How many times to retry if evaluation fails. Default: 0 (conditions are usually instant).
-
-### Delay Node
-
-The Delay node waits for a specified duration before continuing execution.
-
-**Inspector Fields:**
-
-**Duration (ms)** - How long to wait in milliseconds. Range: 0 to 600000 (10 minutes). Examples: 1000 (1 second), 5000 (5 seconds), 30000 (30 seconds). Use delays to:
-
-- Rate limit API calls
-- Add pauses between steps
-- Simulate processing time
-- Wait for external processes
-
-**Advanced Settings:**
-
-**Timeout (ms)** - Not applicable for delay nodes.
-
-**Retry Attempts** - Not applicable for delay nodes.
-
-### Loop Node
-
-The Loop node iterates over an array and executes downstream nodes for each item.
-
-**Inspector Fields:**
-
-**Max Iterations** - Maximum number of iterations to prevent infinite loops. Range: 1 to 10000. Default: 1000. Set this to the maximum number of items you expect to process. The loop will stop if it reaches this limit even if there are more items.
-
-**How it works:** The Loop node takes an array as input and outputs each item one at a time. Connect nodes after the Loop to process each item. The Loop provides two outputs:
-
-- **Current Item** - The current array item being processed
-- **Current Index** - The index (0, 1, 2, etc.) of the current item
-
-**Advanced Settings:**
-
-**Timeout (ms)** - How long to wait for each iteration. Default: 8000ms.
-
-**Retry Attempts** - How many times to retry if an iteration fails. Default: 0.
-
-### JSON Parse Node
-
-The JSON Parse node converts JSON strings into JavaScript objects.
-
-**Inspector Fields:** None - this node automatically parses JSON from its input.
-
-**How it works:** Connect a node that outputs a JSON string to the JSON Parse node. It will parse the string and output the parsed object. If the JSON is invalid, the node will fail with an error.
-
-## Canvas Controls and Navigation
-
-### Panning and Zooming
-
-**Pan** - Hold Space and drag to move around the canvas. This lets you navigate large workflows easily.
-
-**Zoom In** - Click the zoom in button or use mouse wheel to zoom in. Useful for detailed work on specific nodes.
-
-**Zoom Out** - Click the zoom out button or use mouse wheel to zoom out. Useful for seeing the big picture of your workflow.
-
-**Reset View** - Double-click the canvas or use keyboard shortcuts to reset zoom and pan to default.
-
-### Grid Toggle
-
-**Show Grid** - Toggle the grid overlay on/off. The grid helps align nodes neatly. Press 'G' to toggle quickly.
-
-### Lock/Unlock
-
-**Lock Canvas** - Lock the canvas to prevent accidental panning or zooming. Useful when you're focused on configuring nodes and don't want to accidentally move the canvas.
-
-**Unlock Canvas** - Unlock to allow normal navigation again.
-
-## Building Complex Workflows
-
-### Planning Your Workflow
-
-Before building, think about:
-
-1. **What input do you need?** - What information must users provide? List all inputs your workflow needs.
-
-2. **What processing steps?** - What needs to happen to the input? Break down the process into discrete steps.
-
-3. **What decisions?** - Are there conditions that change the flow? Identify branching points.
-
-4. **What output?** - What should users see at the end? Define the final output format and content.
-
-5. **Error handling** - What happens if something fails? Plan for error cases.
-
-### Best Practices
-
-**Keep it organized:**
-
-- Arrange nodes logically from left to right
-- Use clear, descriptive names for all nodes
-- Group related nodes together visually
-- Use consistent spacing and alignment
-
-**Test frequently:**
-
-- Test after adding each major section
-- Try different inputs to ensure it works in all cases
-- Test edge cases (empty inputs, very long inputs, etc.)
-- Fix issues before adding more complexity
-
-**Document your workflow:**
-
-- Use descriptive names for nodes
-- Add helpful descriptions in node settings
-- Write clear prompts that explain what each step does
-- Comment complex logic in node descriptions
-
-**Optimize for performance:**
-
-- Don't add unnecessary nodes
-- Use conditions to avoid unnecessary processing
-- Consider the order of operations
-- Set appropriate timeouts and retries
-- Use faster models when quality isn't critical
-
-**Security:**
-
-- Use Allowed Hosts in HTTP Request nodes
-- Never expose API keys in prompts
-- Validate user inputs
-- Set appropriate timeouts to prevent hanging
-
-### Common Patterns
-
-**Simple Linear Flow:**
-
-```
-Input → OpenAI Chat → Output
+```text
+Question asked -> Data collected -> AI or logic applied -> Result returned
 ```
 
-This is the most basic pattern: get input, process it with AI, show result.
+Workflow Studio is the place where you design that chain visually.
 
-**Conditional Processing:**
+## The Main Areas Of The Screen
 
+### Top Bar
+
+The top bar is where you move between major workflow actions.
+
+You will usually find:
+
+- workflow identity and metadata
+- Home
+- Templates
+- Run
+- Publish
+- canvas controls
+
+The top bar is for actions and navigation, not detailed node configuration.
+
+### Block Library
+
+The Block Library is where you add the actual workflow primitives that Edgaze supports.
+
+Use it to:
+
+- search nodes
+- browse categories
+- add default builder blocks
+- start from known supported primitives
+
+Templates should still instantiate from these same primitives. They should not invent a separate hidden node system.
+
+### Canvas
+
+The canvas is where the graph lives.
+
+This is where you:
+
+- place blocks
+- connect blocks
+- shape the reading order
+- inspect the overall product logic
+
+A good canvas should be understandable before someone opens the Inspector.
+
+### Inspector
+
+The Inspector opens when you select a block. It is where you configure the selected node's real behavior.
+
+Use the Inspector to:
+
+- set prompts
+- choose models
+- define input questions
+- adjust formatting
+- configure advanced behavior
+- connect API Vault-backed provider access when required
+
+## How To Build Your First Workflow
+
+### Step 1: Decide The Outcome
+
+Before touching blocks, finish this sentence:
+
+**This workflow helps a customer go from _X_ to _Y_.**
+
+If you cannot state the outcome clearly, the graph usually becomes messy.
+
+### Step 2: Define Inputs
+
+Start by deciding what the user should provide.
+
+Good workflow inputs are:
+
+- clear
+- minimal
+- easy to answer
+- directly tied to the outcome
+
+### Step 3: Add The Core Blocks
+
+A good first workflow often looks like this:
+
+```text
+Input -> Merge -> LLM -> Output
 ```
-Input → Condition → [True: OpenAI Chat A] → Merge → Output
-                    [False: OpenAI Chat B]
+
+That pattern is enough to learn the core builder ideas.
+
+### Step 4: Connect The Flow
+
+Connect blocks in the order data should move.
+
+The most important graph rule is simple:
+
+**Every connection should make the next step easier to understand.**
+
+### Step 5: Configure The Selected Block In Inspector
+
+Once a block is selected, use the Inspector to set the actual behavior.
+
+Typical configuration work includes:
+
+- choosing the model
+- writing the prompt
+- defining an input question
+- setting an output format
+- reviewing provider requirements
+
+### Step 6: Run The Workflow
+
+Use Run to test the product with realistic customer input.
+
+Customer view is often the most useful default because it shows what the actual product experience feels like.
+
+## Complete Node Reference
+
+This section covers every node currently available in Workflow Studio and explains what a creator needs to know to build with it confidently.
+
+### Workflow Input
+
+The Workflow Input node is the entry point for customer-provided data.
+
+```docsgraph
+workflow-input
 ```
 
-Process differently based on conditions, then combine results.
+**What It Does**
 
-**Multi-Step Processing:**
+It asks the user a question and turns the answer into data your workflow can use.
 
+If your workflow begins with customer input, this is usually the first node on the canvas.
+
+**Ports**
+
+- one output port: `Data`
+
+Workflow Input does not accept upstream input. It starts the flow.
+
+**Inspector Fields**
+
+The key input settings are:
+
+- `Question`
+- `Input Type`
+- `Description`
+
+If the selected input type is `Dropdown`, the Inspector also exposes dropdown options so you can define the choices the user will see.
+
+**Input Types**
+
+Workflow Input supports:
+
+- Text
+- Long Paragraph
+- Number
+- URL
+- Dropdown
+- File Upload (up to 5MB)
+- JSON
+
+Choose the type that matches the answer format you actually want. Do not ask for JSON if a short text or dropdown would be clearer.
+
+**Best Use Cases**
+
+Use Workflow Input for:
+
+- customer prompts
+- briefs
+- URLs
+- structured lists
+- file-based starting material
+- controlled choice inputs
+
+**Best Practices**
+
+- Make the question extremely clear.
+- Use the description for examples or constraints.
+- Prefer structured inputs when that reduces ambiguity.
+- Avoid asking for more than the workflow actually needs.
+
+### Merge
+
+Merge combines several upstream values into one downstream payload.
+
+```docsgraph
+merge
 ```
-Input → OpenAI Chat 1 → OpenAI Chat 2 → OpenAI Chat 3 → Output
+
+**What It Does**
+
+Merge is useful when several inputs or branches need to become one combined value before the next step runs.
+
+This is common in prompt-building workflows where multiple user answers need to feed a single LLM or generator.
+
+**Ports**
+
+- three input ports: `in 1`, `in 2`, `in 3`
+- one output port: `Data`
+
+At least one inbound connection is required for the node to be meaningful.
+
+**Inspector Fields**
+
+Merge has no Inspector fields. Its behavior is defined by what you connect into it.
+
+**What Comes Out**
+
+At runtime, Merge is treated as a combination step that produces one downstream value from the connected inputs. In practice, creators should think of it as a compact "combine these values before the next step" node.
+
+**Best Use Cases**
+
+Use Merge when:
+
+- multiple inputs should feed one prompt
+- several branches need to recombine
+- a creative workflow supports several cues or ingredients
+
+**Best Practices**
+
+- Keep the upstream inputs semantically related.
+- Avoid using Merge as a dumping ground for unrelated data.
+- If the graph becomes hard to read, split merging into stages.
+
+### Workflow Output
+
+Workflow Output is the final return point of the workflow.
+
+```docsgraph
+workflow-output
 ```
 
-Chain multiple processing steps together. Each step builds on the previous.
+**What It Does**
 
-**Parallel Processing:**
+It defines what the user ultimately receives from the workflow.
 
+This is what makes the workflow feel finished.
+
+**Ports**
+
+- one input port: `Result`
+
+Workflow Output should usually sit at the end of a clear branch or at the end of the main flow.
+
+**Inspector Fields**
+
+The main output settings are:
+
+- `Output Name`
+- `Output Format`
+
+**Output Formats**
+
+Workflow Output supports:
+
+- JSON
+- Text
+- HTML
+
+Choose JSON when the result is structured. Choose Text when the result is plain language. Choose HTML when the output needs formatting.
+
+**Best Use Cases**
+
+Use Workflow Output for:
+
+- final answers
+- generated copy
+- parsed objects
+- structured result payloads
+- rendered markup
+
+**Best Practices**
+
+- Name the output based on what the customer gets.
+- Match the format to the downstream experience.
+- Do not leak internal debugging structure into the final result unless the product explicitly needs it.
+
+### LLM Chat
+
+LLM Chat is the main text-generation and reasoning node.
+
+```docsgraph
+llm-chat
 ```
-Input → [OpenAI Chat A] → Merge → Output
-        [OpenAI Chat B]
-        [OpenAI Chat C]
+
+**What It Does**
+
+It takes input, runs it through a selected language model, and returns a model response.
+
+This is the node you use for:
+
+- rewriting
+- summarising
+- extracting
+- classifying
+- analysing
+- prompt optimisation
+- general text generation
+
+**Ports**
+
+- one input port: `Input`
+- one output port: `Response`
+
+It accepts string or JSON-like upstream data and produces a response for downstream nodes.
+
+**Inspector Fields**
+
+The main LLM Chat fields are:
+
+- `Prompt (fallback)`
+- `Style / System (optional)`
+- `Model`
+- `Temperature`
+- `Max Tokens`
+
+It also includes inline toggles for:
+
+- `Stream`
+- `Safe Mode`
+
+And the node supports advanced execution settings such as timeout and retries.
+
+**How To Use Prompt And Input Together**
+
+If the input is connected, the model can work from the incoming data. If it is not connected, the fallback prompt becomes the main source of instruction.
+
+The cleanest pattern is:
+
+- use upstream nodes for raw data
+- use the prompt for transformation instructions
+- use system/style for tone and constraints
+
+**Model Choice**
+
+The model selector is where you trade off quality, cost, and speed.
+
+Creators should choose based on the job:
+
+- use stronger models for nuanced reasoning and polished writing
+- use lighter models for faster and cheaper utility tasks
+
+**Best Use Cases**
+
+Use LLM Chat when the workflow needs language understanding or generation.
+
+**Best Practices**
+
+- Keep each LLM node focused on one job.
+- Use explicit instructions.
+- Lower temperature for extraction and structured work.
+- Higher temperature is better for creative variation.
+- Keep max tokens aligned with the expected result length.
+
+### LLM Image
+
+LLM Image is the image-generation node.
+
+```docsgraph
+llm-image
 ```
 
-Process the same input in multiple ways simultaneously, then combine. Faster than sequential processing.
+**What It Does**
 
-**Error Handling:**
+It turns a prompt into an image result.
 
+This node works best after the workflow has already clarified what the image should be.
+
+**Ports**
+
+- one input port: `Prompt`
+- one output port: `Image URL`
+
+The cleanest setup is to feed it a polished prompt from an upstream text or optimisation step.
+
+**Inspector Fields**
+
+The main image fields are:
+
+- `Prompt (fallback)`
+- `Model`
+- `Aspect Ratio`
+- `Quality`
+
+It also supports execution settings like timeout and retries.
+
+**Model And Aspect Ratio**
+
+Model determines the provider and generation behavior. Aspect ratio determines the intended frame shape.
+
+In practice:
+
+- choose a model first
+- choose the right frame shape for the product
+- only use quality settings when the selected provider honors them
+
+**Best Use Cases**
+
+Use LLM Image for:
+
+- image generation products
+- creative template outputs
+- visual concept generation
+- art workflows
+
+**Best Practices**
+
+- Feed it a refined prompt instead of raw vague input.
+- Make aspect ratio intentional.
+- Treat image generation as a final-stage node, not the thinking stage.
+
+### LLM Embeddings
+
+LLM Embeddings converts text into a vector representation.
+
+```docsgraph
+llm-embeddings
 ```
-Input → HTTP Request → [Success: Process] → Output
-                       [Error: Error Handler] → Output
+
+**What It Does**
+
+It produces embeddings for text so the output can be used in similarity, retrieval, indexing, or memory-style workflows.
+
+This node is not for visible customer copy. It is for vector data.
+
+**Ports**
+
+- one input port: `Text`
+- one output port: `Embedding`
+
+It expects string input and returns an array-like vector output.
+
+**Inspector Fields**
+
+The main embeddings fields are:
+
+- `Text (fallback)`
+- `Model`
+
+It also supports timeout and retries.
+
+**Best Use Cases**
+
+Use LLM Embeddings for:
+
+- semantic search
+- memory systems
+- retrieval pipelines
+- similarity comparison
+
+**Best Practices**
+
+- Feed it clean, meaningful text.
+- Use it as infrastructure inside a larger workflow.
+- Do not confuse embeddings with visible text output.
+
+### HTTP Request
+
+HTTP Request lets the workflow talk to an external endpoint.
+
+```docsgraph
+http-request
 ```
 
-Handle errors gracefully with conditional routing.
+**What It Does**
 
-**Loop Processing:**
+It makes a network request and returns the response payload to the workflow.
 
+This is the node you use when the workflow needs outside data or needs to call an external service.
+
+**Ports**
+
+- one input port: `Request`
+- one output port: `Response`
+
+It can work from Inspector config, from upstream input, or from a connected object payload.
+
+**Inspector Fields**
+
+The main HTTP fields are:
+
+- `URL`
+- `Method`
+- `Allowed Hosts`
+- `Denied Hosts`
+- `Require idempotency`
+- `Idempotency key`
+
+It also supports:
+
+- `Follow Redirects`
+- timeout
+- retries
+
+**Security And Host Controls**
+
+HTTP Request is safe by default. The node includes allowlist and denylist controls to keep request behavior constrained.
+
+Use:
+
+- `Allowed Hosts` when you want to restrict the node to a known set of domains
+- `Denied Hosts` to explicitly block unsafe or disallowed targets
+
+**Side Effects And Idempotency**
+
+If the request writes data using POST, PUT, or PATCH, you should think carefully about retries and side effects.
+
+The idempotency controls exist so write-style requests can be retried more safely when appropriate.
+
+**Best Use Cases**
+
+Use HTTP Request for:
+
+- calling public APIs
+- fetching external data
+- sending structured payloads to another service
+- integrating workflow logic with external systems
+
+**Best Practices**
+
+- Prefer HTTPS public endpoints.
+- Restrict hosts when possible.
+- Treat writes carefully.
+- Be explicit about whether the request should be retry-safe.
+
+### JSON Parse
+
+JSON Parse converts a JSON string into a structured object.
+
+```docsgraph
+json-parse
 ```
-Input (Array) → Loop → Process Each Item → Merge → Output
+
+**What It Does**
+
+It takes a string that contains JSON and parses it into a usable object for downstream steps.
+
+This is useful when an upstream node returns JSON-looking text that needs to become structured workflow data.
+
+**Ports**
+
+- one input port: `JSON String`
+- one output port: `Parsed Object`
+
+**Inspector Fields**
+
+JSON Parse does not expose node-specific Inspector fields. Its behavior is driven by the connected input.
+
+**Best Use Cases**
+
+Use JSON Parse when:
+
+- an LLM returns structured JSON text
+- an HTTP response includes JSON as a string
+- you need structured downstream access after a text step
+
+**Best Practices**
+
+- Only use it when the upstream content is valid JSON text.
+- Pair it with prompts that explicitly return machine-readable JSON.
+
+### Condition
+
+Condition is the branching node in Workflow Studio.
+
+```docsgraph
+condition
 ```
 
-Process each item in an array individually, then combine results.
+**What It Does**
 
-## Advanced Features
+It evaluates incoming data and sends the workflow down either the true branch or the false branch.
 
-### Using Variables and References
+Unlike a plain static comparator, this node can use a human-language condition description alongside its operator logic, making it useful for creator-friendly branching.
 
-In prompts and configurations, you can reference data from other nodes using placeholders:
+**Ports**
 
-- `{{input.field_name}}` - Reference a specific input field
-- `{{node_name.output}}` - Reference output from a specific node
-- `{{previous_node}}` - Reference the previous node's output
+- one input port: `Value`
+- one output port: `True Branch`
+- one output port: `False Branch`
 
-**Example:**
-If you have an Input node named "Document" and an OpenAI Chat node, in the Chat prompt you could write:
+Only one branch continues execution after the condition resolves.
 
+**Inspector Fields**
+
+The main condition fields are:
+
+- `Condition (Human Language)`
+- `Condition Type`
+- `Compare Value`
+
+**Condition Types**
+
+Supported condition types include:
+
+- Truthy
+- Falsy
+- Equals
+- Not Equals
+- Greater Than
+- Less Than
+
+`Compare Value` is required for comparison-based operators such as equals and greater than.
+
+**How To Think About It**
+
+Use the operator for the hard evaluation shape and use the human-language condition to add creator-friendly intent.
+
+Example:
+
+- operator: `truthy`
+- human condition: `The answer clearly confirms the user wants to proceed`
+
+**Best Use Cases**
+
+Use Condition for:
+
+- true/false workflow branches
+- gatekeeping a downstream step
+- skipping a branch when input fails a rule
+
+**Best Practices**
+
+- Keep the branch meaning obvious on the canvas.
+- Use the simplest operator that fits the job.
+- Only use human-language conditions when they improve clarity.
+
+### Delay
+
+Delay pauses the workflow before passing data onward.
+
+```docsgraph
+delay
 ```
-Summarize this document: {{Document.text}}
 
-Focus on these key points:
-- Main topic
-- Key findings
-- Recommendations
+**What It Does**
+
+It waits for a specified duration and then continues execution.
+
+The node does not transform the data. It changes timing.
+
+**Ports**
+
+- one input port: `Input`
+- one output port: `Output`
+
+Whatever goes in is passed forward after the delay finishes.
+
+**Inspector Fields**
+
+The main delay field is:
+
+- `Duration (ms)`
+
+This value is measured in milliseconds.
+
+**Best Use Cases**
+
+Use Delay for:
+
+- pacing a workflow
+- spacing steps apart
+- waiting before a follow-up request
+
+**Best Practices**
+
+- Keep delays intentional.
+- Do not use Delay to hide unclear logic.
+- Document why the pause exists if it matters to the workflow outcome.
+
+### Loop
+
+Loop iterates over an array and emits each item one by one.
+
+```docsgraph
+loop
 ```
 
-### API Keys and Authentication
+**What It Does**
 
-Some nodes require API keys (like OpenAI Chat, Embeddings, Image). You can:
+It takes an array input and exposes the current item and current index for each iteration.
 
-1. **Provide in Run Modal** - Enter your API key when running the workflow. This is stored locally and only used for your runs.
+This is useful when the workflow must repeat the same downstream logic across a list.
 
-2. **Store in Node Config** - Add your API key in the node's inspector panel. This is stored with the workflow (be careful with sharing).
+**Ports**
 
-3. **Free Runs** - First 10 runs are free using Edgaze's API key. After that, you'll need to provide your own.
+- one input port: `Array`
+- one output port: `Current Item`
+- one output port: `Current Index`
 
-**Security Best Practices:**
+The upstream input must be an array. If it is not, the loop will not behave as intended.
 
-- Never share workflows with API keys embedded
-- Use environment variables when possible
-- Rotate keys regularly
-- Use separate keys for testing and production
+**Inspector Fields**
 
-### Version History
+The main loop field is:
 
-Workflow Studio automatically saves your work as you edit. You can:
+- `Max Iterations`
 
-- **Auto-save** - Your workflow is saved automatically every few seconds
-- **View History** - See previous versions of your workflow
-- **Restore** - Go back to an older version if needed
-- **Compare** - See what changed between versions
+This protects the workflow from runaway loops.
 
-### Templates
+**Best Use Cases**
 
-Start from templates to quickly build common workflows:
+Use Loop for:
 
-- **Text Summarization** - Summarize long documents
-- **Content Generation** - Generate articles, emails, etc.
-- **Data Extraction** - Extract structured data from text
-- **Question Answering** - Answer questions about documents
-- **Translation** - Translate text between languages
-- **Image Generation** - Generate images from descriptions
+- processing lists of items
+- repeating an enrichment step
+- applying the same logic across many entries
 
-Browse templates in the Block Library or when creating a new workflow.
+**Best Practices**
 
-## Running and Testing
+- Make sure the upstream node really outputs an array.
+- Set a sane max iteration limit.
+- Keep the loop body simple and predictable.
 
-### Running Your Workflow
+## Runs And Testing
 
-1. Click the **"Run"** button in the toolbar
-2. Fill in any required inputs that appear
-3. If nodes require API keys, enter them in the run modal
-4. Click "Run" to execute
-5. View the results and any errors
+A workflow is only useful if it behaves well during a real run.
 
-### Testing Tips
+### What To Check During A Run
 
-**Test with different inputs:**
+Check whether the result is understandable, useful, and correctly structured.
 
-- Try edge cases (very short, very long, empty, etc.)
-- Test with realistic examples
-- Try inputs that might break your workflow
-- Test with various data types
+### Why Customer View Matters
 
-**Check each step:**
+Customer view is often the best test because it shows the actual product experience instead of only the builder-facing structure.
 
-- Make sure data flows correctly between nodes
-- Verify conditions work as expected
-- Ensure outputs are formatted correctly
-- Check that error cases are handled
+When you test:
 
-**Performance testing:**
+- use realistic input
+- test short and long input
+- check the customer-facing output
+- confirm that model choice matches the job
+- confirm that required API keys are available
 
-- See how long workflows take to run
-- Check if any steps are unnecessarily slow
-- Optimize prompts to be more efficient
-- Consider parallel processing for speed
+Do not publish after one lucky run. Publish after repeated, understandable success.
 
-**API testing:**
+## Publishing
 
-- Test with different API endpoints
-- Verify authentication works
-- Check rate limits and retries
-- Test error handling
+When the workflow is ready, publish it as a product.
 
-## Publishing Your Workflow
+### Naming
 
-### Before Publishing
+Choose a name that describes the outcome instead of the internal graph.
 
-**Make sure your workflow:**
+### Positioning
 
-- Works correctly with various inputs
-- Has clear names and descriptions
-- Is well-organized and easy to understand
-- Handles errors gracefully
-- Doesn't expose sensitive information
-- Has appropriate timeouts set
-- Uses secure API configurations
+Describe what the workflow helps the customer do in plain language.
 
-### Publishing Options
+### Pricing
 
-**Name** - Choose a clear, descriptive name that tells users what the workflow does. Examples: "Document Summarizer", "Email Writer", "Image Generator". Avoid vague names like "My Workflow".
+Price with product value, platform fees, and infrastructure awareness in mind.
 
-**Description** - Explain what your workflow does, when to use it, and what inputs it needs. Include examples and use cases. Make it compelling and informative.
+At publish time, focus on:
 
-**Thumbnail** - Add a relevant image that represents your workflow. This makes it more discoverable and professional. Use clear, high-quality images.
+- a clear title
+- a sharp one-sentence promise
+- sensible pricing
+- an honest description of what the product does
 
-**Tags** - Add relevant tags to help people find your workflow. Use common, descriptive tags. Examples: "summarization", "content-generation", "translation", "image-generation".
+If a workflow needs user-provided provider keys, say that clearly. If Edgaze-hosted execution is included, say that clearly too.
 
-**Visibility:**
+## Workflow Studio Best Practices
 
-- **Public** - Anyone can find and use it in the marketplace
-- **Unlisted** - Only people with the link can use it
-- **Private** - Only you can use it
+- start with the smallest graph that can prove the idea
+- use templates when you want faster starts, then edit in Workflow Studio
+- keep input questions human and plain
+- keep prompts specific
+- use merge nodes intentionally, not as a dumping ground
+- test in customer view before publishing
+- make the canvas readable from left to right
 
-**Pricing:**
+### Layout Discipline
 
-- **Free** - Anyone can use it without payment
-- **Paid** - Set a price per use (requires premium account)
+If someone cannot understand the graph shape quickly, simplify it before publishing.
 
-### After Publishing
+### Product Discipline
 
-Once published, your workflow:
+If a workflow only makes sense after a long explanation, the product abstraction still needs work.
 
-- Gets a unique shareable link
-- Appears in the Marketplace (if public)
-- Can be used by others
-- Can be updated by republishing
-- Tracks usage and analytics
+## What To Read Next
 
-## Troubleshooting
-
-### Common Issues
-
-**Workflow won't run:**
-
-- Check that all required inputs are connected
-- Verify nodes are properly configured
-- Make sure there's a path from Input to Output
-- Check that API keys are provided if needed
-- Verify timeouts are set appropriately
-
-**Unexpected results:**
-
-- Review your prompts - they might need to be more specific
-- Check that data is flowing correctly between nodes
-- Verify conditions are set up correctly
-- Test individual nodes to isolate issues
-- Check node configurations for errors
-
-**Performance issues:**
-
-- Simplify complex workflows
-- Reduce unnecessary processing
-- Optimize prompts to be more efficient
-- Use faster models when appropriate
-- Consider parallel processing
-- Check timeout settings
-
-**Connection problems:**
-
-- Make sure nodes are properly connected
-- Check that output types match input types
-- Verify you're referencing the correct node names
-- Ensure connections flow in the right direction
-
-**API errors:**
-
-- Verify API keys are correct
-- Check rate limits
-- Verify URLs and endpoints
-- Check network connectivity
-- Review API documentation
-
-**Timeout errors:**
-
-- Increase timeout values for slow operations
-- Check if APIs are responding
-- Verify network connectivity
-- Consider breaking into smaller steps
-
-### Getting Help
-
-If you're stuck:
-
-1. Review this comprehensive documentation
-2. Check the [Help Center](/help)
-3. Browse example workflows in the marketplace
-4. Contact support at support@edgaze.ai
-
-## Next Steps
-
-Now that you understand Workflow Studio:
-
-- [Learn about Prompt Studio](/docs/builder/prompt-studio) - Create reusable prompts
-- [Browse the Marketplace](/marketplace) - See what others have built
-- [Visit your Library](/library) - Manage your workflows
-
-Happy building!
+- [Templates](/docs/builder/templates)
+- [API Vault](/docs/builder/api-vault)
+- [Prompt Studio](/docs/builder/prompt-studio)

@@ -28,14 +28,15 @@ const CANONICAL_TO_FILE: Record<string, string> = {
   changelog: "changelog.md",
   "privacy-policy": "privacy-policy.md",
   "terms-of-service": "terms.md",
-  "seller-terms": "seller-terms.md",
-  "creator-terms": "seller-terms.md",
+  "seller-terms": "creator-terms.md",
+  "creator-terms": "creator-terms.md",
   "refund-policy": "refund-policy.md",
   "acceptable-use-policy": "acceptable-use-policy.md",
   dmca: "dmca-ip-takedown.md",
   "community-guidelines": "community-guidelines.md",
   // Payments & monetization
   "payments-overview": "payments-overview.md",
+  "payout-system": "payout-system.md",
   "marketplace-fees": "marketplace-fees.md",
   "creator-earnings": "creator-earnings.md",
   "workflow-run-policy": "workflow-run-policy.md",
@@ -52,6 +53,8 @@ const CANONICAL_TO_FILE: Record<string, string> = {
   builder: "builder/index.md",
   "builder/workflow-studio": "builder/workflow-studio.md",
   "builder/prompt-studio": "builder/prompt-studio.md",
+  "builder/templates": "builder/templates.md",
+  "builder/api-vault": "builder/api-vault.md",
 };
 
 /**
@@ -62,6 +65,8 @@ const ORDER: string[] = [
   "builder",
   "builder/workflow-studio",
   "builder/prompt-studio",
+  "builder/templates",
+  "builder/api-vault",
   "changelog",
   "privacy-policy",
   "terms-of-service",
@@ -70,6 +75,7 @@ const ORDER: string[] = [
   "dmca",
   "community-guidelines",
   "payments-overview",
+  "payout-system",
   "marketplace-fees",
   "creator-earnings",
   "workflow-run-policy",

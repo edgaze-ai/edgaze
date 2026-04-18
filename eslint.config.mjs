@@ -24,6 +24,10 @@ const config = [
       "out/**",
       "node_modules/**",
       "var/**",
+      // Local-only Next dev artifacts that may end up under the workspace
+      // (custom distDir history + iCloud-resolved `/private/var/folders/...`).
+      "tmp/**",
+      "private/**",
       ".claude/**",
       "public/pdf.worker.min.mjs",
     ],

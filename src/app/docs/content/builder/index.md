@@ -1,192 +1,228 @@
-title = "Builder Documentation"
-description = "Learn how to use Workflow Studio and Prompt Studio to create AI products"
+title = "Builder Overview"
+description = "A complete beginner-friendly guide to the Edgaze builder system, including Workflow Studio, Prompt Studio, Templates, and API Vault."
 
-# Builder Documentation
+# Builder Overview
 
-Welcome to the Builder documentation! This comprehensive guide will help you master Edgaze's powerful builder tools and create professional AI products without writing code.
+The Edgaze builder system is designed to help you turn an idea into a working AI product without needing to understand low-level code, orchestration, or model plumbing first.
 
-Edgaze is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation.
+If you are brand new, start here. This page explains what each builder surface does, how they fit together, and which one to open first.
 
-## What is the Builder?
+## On This Page
 
-The Builder is a collection of sophisticated visual tools that let you create AI products without writing code. There are two main builders, each designed for different use cases:
+- What the builder system is
+- The four builder surfaces
+- Which tool to use first
+- A simple publishing flow
+- Example workflow patterns
+- Recommended learning path
 
-- **Workflow Studio** - Build complex AI workflows by connecting different AI blocks together. Create multi-step processes, handle conditions, make API calls, and process data through multiple stages.
+## What The Builder System Is
 
-- **Prompt Studio** - Create reusable prompts with customizable placeholders. Write your prompt once, define what information users need to provide, and publish it as a shareable product.
+Edgaze gives you a connected set of product-building tools:
 
-Both builders are designed to be intuitive yet powerful, allowing you to create professional AI products that can be shared, sold, or used privately.
+- **Workflow Studio** for multi-step products with connected blocks
+- **Prompt Studio** for single prompt products with structured user inputs
+- **Templates** for outcome-first starting points that create an editable workflow for you
+- **API Vault** for securely connecting the provider keys your products need
 
-## Getting Started
+The important idea is simple:
 
-Choose the builder that fits your needs:
+- You are not building code.
+- You are building an outcome.
+- Edgaze handles the structure, runtime, and product packaging around that outcome.
+
+## The Four Builder Surfaces
 
 ### Workflow Studio
 
-Workflow Studio lets you create multi-step AI workflows by connecting different blocks (called "nodes") together. Each node performs a specific task, and you connect them to create a complete workflow that can handle complex processes.
+Workflow Studio is the visual graph builder. You place blocks on a canvas, connect them, configure them in the inspector, and run the workflow end to end.
 
-**Use Workflow Studio when you want to:**
+Use Workflow Studio when you need:
 
-- Create complex multi-step AI processes
-- Combine multiple AI models or services
-- Build workflows that process data through multiple stages
-- Create conditional logic in your AI applications
-- Make HTTP requests to external APIs
-- Process arrays and loops
-- Handle errors and retries
-- Create sophisticated data transformations
+- More than one step
+- Multiple model calls
+- Branching or merging logic
+- Structured inputs and outputs
+- A product that should stay editable after setup
 
-**Perfect for:**
-
-- Content generation pipelines
-- Data processing workflows
-- Multi-model AI applications
-- API integrations
-- Complex business logic
-- Automated processes
-
-[Learn more about Workflow Studio →](/docs/builder/workflow-studio)
+[Open the Workflow Studio guide](/docs/builder/workflow-studio)
 
 ### Prompt Studio
 
-Prompt Studio helps you create reusable prompts with placeholders. You write your prompt once, define what information users need to provide, and then publish it as a shareable product that others can use.
+Prompt Studio is the fastest way to package a great prompt into a reusable product. You write one prompt, define the user inputs it needs, test it, and publish it.
 
-**Use Prompt Studio when you want to:**
+Use Prompt Studio when you need:
 
-- Create reusable prompts with customizable inputs
-- Build prompt templates for specific use cases
-- Share prompts with others through a simple interface
-- Create prompts that adapt based on user input
-- Publish prompts to the marketplace
-- Create prompt libraries
+- One strong prompt instead of a graph
+- A lightweight product with fewer moving parts
+- A clean customer form instead of a block canvas
+- Fast iteration on prompt wording
 
-**Perfect for:**
+[Open the Prompt Studio guide](/docs/builder/prompt-studio)
 
-- Content writing prompts
-- Analysis templates
-- Translation prompts
-- Question-answering templates
-- Format conversion prompts
-- Specialized domain prompts
+### Templates
 
-[Learn more about Prompt Studio →](/docs/builder/prompt-studio)
+Templates are guided workflow starters. Instead of beginning with a blank graph, you choose an outcome, answer a few setup questions, and land in the builder with an editable workflow already assembled.
 
-## Key Features
+Use Templates when you want:
 
-### Visual Interface
+- Faster starts
+- Better defaults
+- Less manual graph assembly
+- A guided setup before entering the builder
 
-Both builders feature intuitive visual interfaces:
+[Open the Templates guide](/docs/builder/templates)
 
-- Drag-and-drop node placement
-- Visual connections between components
-- Real-time preview and testing
-- Clean, modern design
-- Responsive layouts
+### API Vault
 
-### No Code Required
+API Vault is where Edgaze stores your model provider keys securely and connects them to the nodes that need them.
 
-Create sophisticated AI products without writing a single line of code:
+Use API Vault when you need:
 
-- Visual workflow building
-- Point-and-click configuration
-- Pre-built AI nodes
-- Automatic error handling
-- Built-in best practices
+- Your own OpenAI, Anthropic, or Google model access
+- Vault-backed execution in Workflow Studio
+- A cleaner setup than pasting secrets into individual nodes
 
-### Powerful Capabilities
+[Open the API Vault guide](/docs/builder/api-vault)
 
-Despite being visual tools, both builders are incredibly powerful:
+## Which Tool To Use First
 
-- Access to multiple AI models
-- HTTP request capabilities
-- Data processing and transformation
-- Conditional logic
-- Loops and iterations
-- Error handling and retries
+Use this rule of thumb:
 
-### Publishing and Sharing
+- Choose **Prompt Studio** if one prompt can solve the whole job.
+- Choose **Workflow Studio** if the product needs multiple connected steps.
+- Choose **Templates** if you know the outcome you want, but do not want to build the graph from scratch.
+- Set up **API Vault** as soon as you want reliable provider-backed runs using your own keys.
 
-Share your creations with the world:
+### Start With Prompt Studio
 
-- Publish to the marketplace
-- Get shareable links
-- Set pricing (premium feature)
-- Track usage and analytics
-- Receive feedback
+Choose Prompt Studio first when the product can be expressed as one strong prompt with structured user inputs.
 
-## Quick Links
+### Start With Workflow Studio
 
-- [Workflow Studio Guide](/docs/builder/workflow-studio) - Complete guide to building workflows with detailed explanations of every field and feature
-- [Prompt Studio Guide](/docs/builder/prompt-studio) - Complete guide to creating reusable prompts with placeholders
-- [Marketplace](/marketplace) - Browse published AI products created by the community
-- [Library](/library) - View and manage your saved workflows and prompts
+Choose Workflow Studio first when the product needs connected logic, multiple steps, or richer orchestration.
 
-## Learning Path
+### Start With Templates
 
-**New to Edgaze?** Start here:
+Choose Templates first when speed and guided structure matter more than starting from a blank graph.
 
-1. **Read this page** - Understand what the builders can do
-2. **Choose your builder** - Decide whether you need Workflow Studio or Prompt Studio
-3. **Follow the guide** - Read the comprehensive guide for your chosen builder
-4. **Create your first product** - Build something simple to get started
-5. **Test and iterate** - Refine your creation
-6. **Publish** - Share it with others
+## The Core Builder Flow
 
-**Experienced user?** Jump to:
+Most creator journeys in Edgaze follow the same shape:
 
-- [Workflow Studio Advanced Features](/docs/builder/workflow-studio#advanced-features)
-- [Prompt Studio Advanced Techniques](/docs/builder/prompt-studio#advanced-techniques)
-- [Best Practices](/docs/builder/workflow-studio#best-practices)
+1. Start with a blank builder or a template.
+2. Define what the customer should provide.
+3. Configure the model or workflow logic.
+4. Test with real examples.
+5. Publish with clear positioning and pricing.
 
-## Common Use Cases
+That is the system in one sentence:
 
-### Content Creation
+**Collect input, transform it intelligently, test the result, then package it as a product.**
 
-- Blog post generation
-- Social media content
-- Email writing
-- Product descriptions
-- Marketing copy
+## Example Workflow Patterns
 
-### Data Processing
+Here are three simple patterns to keep in your head while building.
 
-- Document analysis
-- Data extraction
-- Text summarization
-- Information classification
-- Data transformation
+### Pattern 1: Single Prompt Product
 
-### Business Automation
+Best for simple writing, analysis, and transformation tasks.
 
-- Customer service automation
-- Content moderation
-- Data validation
-- Report generation
-- Workflow automation
+```text
+Customer Input -> Prompt -> Output
+```
 
-### Creative Projects
+This is usually a Prompt Studio product.
 
-- Story writing
-- Poetry generation
-- Creative brainstorming
-- Character development
-- Plot generation
+### Pattern 2: Guided AI Workflow
 
-## Need Help?
+Best for structured AI products that need multiple steps.
 
-If you have questions or need assistance:
+```text
+Input -> Merge -> Prompt Optimiser -> LLM Or Image Node -> Output
+```
 
-- Check the detailed guides for each builder above
-- Visit the [Help Center](/help) for general support
-- Browse example workflows and prompts in the marketplace
-- Contact support at support@edgaze.ai
+This is usually a Workflow Studio or Template-based product.
 
-## Next Steps
+### Pattern 3: Multi-Input Creative Workflow
 
-Ready to start building? Choose your path:
+Best for products that combine several ideas before generation.
 
-- [Start with Workflow Studio](/docs/builder/workflow-studio) - Build complex workflows
-- [Start with Prompt Studio](/docs/builder/prompt-studio) - Create reusable prompts
-- [Browse Examples](/marketplace) - See what others have built
+```text
+Input 1 ----\
+Input 2 ----- Merge A --\
+Input 3 ----/            \
+Input 4 ----------------- Merge B -> Prompt Optimiser -> Generator -> Output
+Input 5 ----------------/
+```
 
-Happy building!
+This is the pattern behind guided creative templates such as AI Art Creator.
+
+```docsgraph
+ai-art-creator
+```
+
+## A Good Beginner Workflow
+
+If you are just getting started, this is the easiest path:
+
+1. Open Templates and pick a proven starting point.
+2. Answer the setup questions.
+3. Run the workflow once with realistic input.
+4. Open the inspector and tweak only what matters.
+5. Publish after you have seen at least one good result.
+
+This approach keeps the learning curve low without trapping you in a rigid product.
+
+## Recommended Learning Path
+
+If you know nothing yet, use this order:
+
+1. Read this page.
+2. Read [Workflow Studio](/docs/builder/workflow-studio) if you want full graph control.
+3. Read [Templates](/docs/builder/templates) if you want guided workflow starts.
+4. Read [API Vault](/docs/builder/api-vault) before using your own provider accounts.
+5. Read [Prompt Studio](/docs/builder/prompt-studio) if you want smaller prompt-first products.
+
+### If You Want Full Control
+
+Go from Builder Overview into Workflow Studio first.
+
+### If You Want The Fastest Start
+
+Go from Builder Overview into Templates first.
+
+### If You Need Provider Access
+
+Read API Vault early so provider-backed runs make sense before you publish.
+
+## Publishing Mindset
+
+The best Edgaze products are not just technically correct. They are also easy for a customer to understand.
+
+### Outcome Clarity
+
+Your title and description should describe what the product achieves.
+
+### Input Clarity
+
+The customer should immediately understand what they need to provide.
+
+### Output Clarity
+
+The final result should feel intentional, complete, and productized.
+
+Before you publish, make sure you can answer:
+
+- What outcome does this product create?
+- What should the customer provide?
+- What does the customer get back?
+- Why is this easier than doing it manually?
+
+If those answers are clear, the builder usually becomes easier too.
+
+## Next Step
+
+If you want the main product-building guide, go to [Workflow Studio](/docs/builder/workflow-studio).
+
+If you want the fastest route to a working graph, go to [Templates](/docs/builder/templates).

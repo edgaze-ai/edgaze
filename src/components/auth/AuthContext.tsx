@@ -260,6 +260,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() || "";
 
+  // next/navigation's router can change identity between renders in dev; putting it in effect deps
+  // re-subscribes onAuthStateChange + refresh() repeatedly → RSC refetch spam and flaky UI.
+  const routerRef = useRef(router);
+  const pathnameRef = useRef(pathname);
+  routerRef.current = router;
+  pathnameRef.current = pathname;
+
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isVerified, setIsVerified] = useState(false);
@@ -740,10 +747,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               if (returnPath) {
                 const cleaned = cleanPath(returnPath);
 
-                if (cleaned && pathname !== cleaned) {
+                if (cleaned && pathnameRef.current !== cleaned) {
                   console.warn("[Auth State Change] Redirecting to:", cleaned);
                   clearReturnPath();
-                  router.push(cleaned);
+                  routerRef.current.push(cleaned);
                 } else {
                   console.warn(
                     "[Auth State Change] Invalid path or already on target, clearing storage",
@@ -769,8 +776,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => data.subscription.unsubscribe();
-  }, [applyUser, refresh, supabase, router, pathname]);
+    return () => {
+      data.subscription.unsubscribe();
+      // Reset inflight ref so a remount (React Strict Mode double-invoke in dev) starts a fresh refresh.
+      // Without this, the remounted instance sees inflightRef still set, skips refresh(), and
+      // setLoading/setAuthReady are never called on the live instance → permanent black screen.
+      inflightRef.current = null;
+    };
+  }, [applyUser, refresh, supabase]);
 
   const requireAuth = (opts?: OpenSignInOptions) => {
     if (userId) return true;

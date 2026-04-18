@@ -1699,7 +1699,7 @@ function LiveExecutionViewer({
   const runError = sanitizeErrorForDisplay(state.error);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-col">
       <div className="border-b border-white/10 px-6 py-5">
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -1760,8 +1760,8 @@ function LiveExecutionViewer({
         )}
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-        <div className="min-h-0 overflow-auto px-6 py-5">
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+        <div className="px-4 py-4 sm:px-6 sm:py-5">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03]">
             <div className="border-b border-white/10 px-4 py-3">
               <div className="text-sm font-semibold text-white">Execution graph</div>
@@ -1839,7 +1839,7 @@ function LiveExecutionViewer({
               <div className="text-sm font-semibold text-white">Activity timeline</div>
               <div className="text-xs text-white/45">Newest event first.</div>
             </div>
-            <div className="max-h-[360px] overflow-auto px-4 py-3">
+            <div className="px-4 py-3">
               {timeline.length === 0 ? (
                 <div className="text-sm text-white/40">No activity has been recorded yet.</div>
               ) : (
@@ -1879,8 +1879,8 @@ function LiveExecutionViewer({
           </div>
         </div>
 
-        <div className="min-h-0 border-t border-white/10 lg:border-l lg:border-t-0">
-          <div className="h-full overflow-auto px-6 py-5">
+        <div className="border-t border-white/10 lg:border-l lg:border-t-0">
+          <div className="px-4 py-4 sm:px-6 sm:py-5">
             {selectedNode ? (
               <div className="space-y-4">
                 <div>
@@ -2029,7 +2029,7 @@ export default function PremiumWorkflowRunModal({
     gemini: false,
   });
   const { getAccessToken } = useAuth();
-  const [projectionMode, setProjectionMode] = useState<"builder" | "customer">("builder");
+  const [projectionMode, setProjectionMode] = useState<"builder" | "customer">("customer");
   const [isStopping, setIsStopping] = useState(false);
   const [footerOutputDownloadBusy, setFooterOutputDownloadBusy] = useState(false);
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
@@ -2045,6 +2045,7 @@ export default function PremiumWorkflowRunModal({
 
   useEffect(() => {
     if (!open) return;
+    queueMicrotask(() => setProjectionMode("customer"));
 
     safeTrack("Workflow Run Modal Opened", {
       surface: "builder",
@@ -2385,11 +2386,13 @@ export default function PremiumWorkflowRunModal({
       />
 
       {/* Modal — portal to body + modest max size so it stays centered on the viewport */}
-      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4 md:p-6">
+      <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4 md:p-6">
         <div
           className={cx(
-            "flex w-full max-w-[min(960px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl",
-            "max-h-[min(680px,88dvh)] min-h-0 border border-white/15 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.4)]",
+            "flex w-full min-h-0 flex-col overflow-hidden border border-white/15 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.4)]",
+            showCustomerProjection
+              ? "max-w-[min(920px,calc(100vw-1rem))] rounded-[22px] max-h-[min(760px,92dvh)] sm:max-w-[min(980px,calc(100vw-2rem))] sm:max-h-[min(820px,92dvh)]"
+              : "max-w-[min(1160px,calc(100vw-1rem))] rounded-[22px] max-h-[min(820px,92dvh)] sm:max-w-[min(1260px,calc(100vw-2rem))] sm:max-h-[min(860px,92dvh)]",
           )}
         >
           {/* Instant Loading Screen - Shows immediately */}
@@ -2425,8 +2428,8 @@ export default function PremiumWorkflowRunModal({
           )}
 
           {/* Header */}
-          <div className="px-6 py-4 border-b border-white/10 shrink-0">
-            <div className="flex items-center justify-between gap-3">
+          <div className="shrink-0 border-b border-white/10 px-4 py-4 sm:px-5 md:px-6">
+            <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap sm:items-center">
               <div className="min-w-0 flex-1">
                 <div className="text-lg font-semibold text-white max-sm:line-clamp-2 sm:truncate">
                   {state?.workflowName || "Workflow"}
@@ -2462,14 +2465,14 @@ export default function PremiumWorkflowRunModal({
                   </div>
                 )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
                 {allowProjectionToggle === true && (
-                  <div className="hidden sm:inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] p-1">
+                  <div className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] p-1">
                     <button
                       type="button"
                       onClick={() => setProjectionMode("builder")}
                       className={cx(
-                        "rounded-full px-3 py-1.5 text-xs font-medium transition",
+                        "rounded-full px-3 py-1.5 text-[11px] font-medium transition sm:text-xs",
                         projectionMode === "builder"
                           ? "bg-white text-black shadow-[0_8px_24px_rgba(255,255,255,0.18)]"
                           : "text-white/60 hover:text-white/85",
@@ -2481,7 +2484,7 @@ export default function PremiumWorkflowRunModal({
                       type="button"
                       onClick={() => setProjectionMode("customer")}
                       className={cx(
-                        "rounded-full px-3 py-1.5 text-xs font-medium transition",
+                        "rounded-full px-3 py-1.5 text-[11px] font-medium transition sm:text-xs",
                         projectionMode === "customer"
                           ? "bg-[linear-gradient(135deg,rgba(88,214,255,0.9),rgba(151,112,255,0.92))] text-white shadow-[0_12px_34px_rgba(68,120,255,0.34)]"
                           : "text-white/60 hover:text-white/85",
@@ -2534,38 +2537,47 @@ export default function PremiumWorkflowRunModal({
           </div>
 
           {/* Body - Phase-based content */}
-          <div className="flex-1 overflow-hidden flex flex-col">
+          <div
+            className={cx(
+              "flex min-h-0 flex-1 flex-col",
+              !isLoading && !showCustomerProjection && isRunExperience
+                ? "overflow-y-auto overflow-x-hidden"
+                : "overflow-hidden",
+            )}
+          >
             {!isLoading && showCustomerProjection && (
               <div
                 className={cx(
-                  "flex h-full min-h-0 flex-col",
-                  isCustomerLiveRun ? "overflow-hidden" : "overflow-auto",
-                  "px-4 py-4 md:px-4 md:py-4",
+                  "flex h-full min-h-0 flex-col overflow-x-hidden",
+                  isCustomerLiveRun ? "overflow-hidden" : "overflow-y-auto",
+                  "px-2 py-2 sm:px-4 sm:py-4 md:px-5",
                 )}
               >
-                <CustomerWorkflowRuntimeSurface
-                  state={state}
-                  onCancel={onCancel}
-                  onClose={canClose ? onClose : undefined}
-                  onRerun={onRerun}
-                  onSubmitInputs={onSubmitInputs}
-                  embedded
-                  hideHeader
-                  hideActionZone
-                  showExecutionTimer={Boolean(builderRunLimit?.isAdmin)}
-                  isBuilderTest={isBuilderTest}
-                  builderRunLimit={builderRunLimit}
-                  requiresApiKeys={requiresApiKeys}
-                  onBuyWorkflow={onBuyWorkflow}
-                  showInlineExecutionCancel={false}
-                />
+                <div className="mx-auto w-full max-w-[980px]">
+                  <CustomerWorkflowRuntimeSurface
+                    state={state}
+                    onCancel={onCancel}
+                    onClose={canClose ? onClose : undefined}
+                    onRerun={onRerun}
+                    onSubmitInputs={onSubmitInputs}
+                    embedded
+                    hideHeader
+                    hideActionZone
+                    showExecutionTimer={Boolean(builderRunLimit?.isAdmin)}
+                    isBuilderTest={isBuilderTest}
+                    builderRunLimit={builderRunLimit}
+                    requiresApiKeys={requiresApiKeys}
+                    onBuyWorkflow={onBuyWorkflow}
+                    showInlineExecutionCancel={false}
+                  />
+                </div>
               </div>
             )}
             {!showCustomerProjection &&
               !isLoading &&
               state?.phase === "input" &&
               (state?.inputs?.length ? true : requiresApiKeys?.length) && (
-                <div className="h-full overflow-auto px-6 py-8">
+                <div className="h-full overflow-y-auto overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8">
                   <div className="max-w-2xl mx-auto space-y-7">
                     <div className="text-center mb-8">
                       <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl border border-white/15 bg-gradient-to-br from-cyan-500/20 to-purple-500/20 mb-5">
@@ -2759,7 +2771,7 @@ export default function PremiumWorkflowRunModal({
             {!showCustomerProjection && !isLoading && isRunExperience && state && (
               <>
                 <div
-                  className="flex-1 overflow-hidden bg-transparent"
+                  className="bg-transparent"
                   style={{
                     background:
                       "radial-gradient(ellipse 80% 50% at 50% 0%, rgba(56,189,248,0.06) 0%, rgba(99,102,241,0.05) 40%, transparent 70%)",

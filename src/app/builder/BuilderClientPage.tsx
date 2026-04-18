@@ -21,6 +21,7 @@ import {
   IconLock,
   IconPanels,
   IconRocket,
+  IconTemplates,
   IconRedo,
   IconRefresh,
   IconRun,
@@ -57,6 +58,9 @@ import {
 import { validateWorkflowGraph, type ValidationResult } from "../../lib/workflow/validation";
 import CanvasValidationBanner from "../../components/builder/CanvasValidationBanner";
 import { stripGraphSecrets } from "../../lib/workflow/stripGraphSecrets";
+import TemplateLibraryModal from "@/components/templates/TemplateLibraryModal";
+import TemplateSetupModal from "@/components/templates/TemplateSetupModal";
+import { TEMPLATE_REGISTRY, templateService, type TemplateDefinition } from "@/lib/templates";
 
 import { cx } from "../../lib/cx";
 import { emit, on } from "../../lib/bus";
@@ -202,7 +206,7 @@ function getExecutionOrder(
 /** Edit mode blocked only on phone-sized viewports; preview still works. */
 const BUILDER_MOBILE_MAX_W = 768;
 /** Below this width, use compact topbar + narrower panels (tablets / small laptops). */
-const FULL_LAYOUT_MIN_W = 1280;
+const FULL_LAYOUT_MIN_W = 1440;
 
 // If you have a left icon-rail sidebar, this keeps the launcher overlay from blocking it.
 const LEFT_RAIL_SAFE_PX = 52;
@@ -220,11 +224,16 @@ export default function BuilderPage() {
 
   const [mounted, setMounted] = useState(false);
   const [viewport, setViewport] = useState({ w: 0, h: 0 });
+  const [topbarWidth, setTopbarWidth] = useState(0);
   const isMobileBlocked = mounted && viewport.w > 0 && viewport.w < BUILDER_MOBILE_MAX_W;
   const isCompactLayout = viewport.w >= BUILDER_MOBILE_MAX_W && viewport.w < FULL_LAYOUT_MIN_W;
+  const isMediumTopbar = topbarWidth > 0 && topbarWidth < 1320;
+  const isTightTopbar = topbarWidth > 0 && topbarWidth < 1180;
+  const isVeryTightTopbar = topbarWidth > 0 && topbarWidth < 1040;
 
   const previewParam =
     searchParams?.get("preview") === "1" || searchParams?.get("mode") === "preview";
+  const draftParam = searchParams?.get("draftId");
 
   // workflow state
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
@@ -341,6 +350,17 @@ export default function BuilderPage() {
   const runAbortRef = useRef<AbortController | null>(null);
   const runSessionPollRef = useRef<AbortController | null>(null);
   const autoExecuteTriggeredRef = useRef(false);
+  const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
+  const [templateSetupTemplate, setTemplateSetupTemplate] = useState<TemplateDefinition | null>(
+    null,
+  );
+  const [templateSubmitting, setTemplateSubmitting] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const availableTemplates = useMemo(
+    () => TEMPLATE_REGISTRY.filter((template) => template.status === "published"),
+    [],
+  );
+  const openedDraftIdRef = useRef<string | null>(null);
 
   // deep-link guard (prevents repeated opening)
   const openedWorkflowIdRef = useRef<string | null>(null);
@@ -396,6 +416,7 @@ export default function BuilderPage() {
       const rootRect = rootEl.getBoundingClientRect();
       const headerRect = headerEl.getBoundingClientRect();
       const innerRect = topbarInnerEl.getBoundingClientRect();
+      setTopbarWidth(innerRect.width);
 
       // Convert viewport -> root-local coordinates
       const innerLeft = innerRect.left - rootRect.left;
@@ -407,8 +428,8 @@ export default function BuilderPage() {
       const gapBelowTopbar = compactPanels ? 4 : 5;
       const panelTopY = Math.round(headerBottom + gapBelowTopbar);
 
-      const blocksW = compactPanels ? 232 : 340;
-      const inspectorW = compactPanels ? 232 : 320;
+      const blocksW = compactPanels ? 216 : 340;
+      const inspectorW = compactPanels ? 272 : 320;
 
       const edgeInset = 0;
       const blocksX = Math.round(innerLeft + edgeInset);
@@ -1374,6 +1395,23 @@ export default function BuilderPage() {
     if (!mounted) return;
     if (!authReady) return;
 
+    const did = draftParam;
+    if (!did) return;
+    if (openedDraftIdRef.current === did) return;
+    if (!userId) return;
+    if (activeDraftIdRef.current === did) {
+      openedDraftIdRef.current = did;
+      return;
+    }
+
+    openedDraftIdRef.current = did;
+    void openDraft(did);
+  }, [mounted, authReady, draftParam, userId, openDraft]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (!authReady) return;
+
     const wid = searchParams?.get("workflowId");
     if (!wid) return;
 
@@ -1638,6 +1676,177 @@ export default function BuilderPage() {
       useDraftApi,
       getAccessToken,
     ],
+  );
+
+  const createDraftFromInstantiatedGraph = useCallback(
+    async ({
+      title,
+      graph,
+      source,
+      templateId,
+    }: {
+      title: string;
+      graph: { nodes: any[]; edges: any[]; meta?: any; viewport?: any };
+      source: "quick_start" | "template_library";
+      templateId?: string;
+    }) => {
+      setWfError(null);
+      if (!requireAuth()) return;
+      if (!userId) return;
+
+      setMode("edit");
+      setCreating(true);
+      setShowLauncher(false);
+      try {
+        const normalizedGraph = normalizeGraph(graph);
+        const strippedNormalizedGraph = stripGraphSecrets(normalizedGraph) as Record<
+          string,
+          unknown
+        >;
+        const persistedGraph = {
+          ...strippedNormalizedGraph,
+          meta: graph.meta ?? null,
+          viewport: graph.viewport ?? null,
+        };
+
+        let row: DraftRow;
+
+        if (useDraftApi) {
+          const token = await getAccessToken();
+          const res = await fetch("/api/creator/workflow-drafts", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              title,
+              graph: persistedGraph,
+            }),
+          });
+          if (!res.ok) throw new Error((await res.text()) || "Failed to create workflow");
+          const json = await res.json();
+          if (!json.draft) throw new Error("No draft returned");
+          row = json.draft as DraftRow;
+        } else {
+          const { data, error } = await supabase
+            .from("workflow_drafts")
+            .insert({
+              owner_id: userId,
+              title,
+              graph: persistedGraph as any,
+              last_opened_at: nowIso(),
+            })
+            .select("id,owner_id,title,graph,created_at,updated_at,last_opened_at")
+            .single();
+
+          if (error) throw error;
+          row = data as DraftRow;
+        }
+
+        setActiveDraftId(String(row.id));
+        setName(row.title || "Untitled Workflow");
+        setEditingName(false);
+        loadGraphAndResetHistory(normalizedGraph);
+        lastSavedHashRef.current = hashGraph(normalizedGraph);
+        setSaveUi({
+          status: "idle",
+          lastSavedAt: tryParseIsoDate(row.updated_at) ?? new Date(),
+        });
+        setTemplateLibraryOpen(false);
+        setTemplateSetupTemplate(null);
+
+        safeTrack("Workflow Created", {
+          surface: "builder",
+          source,
+          template_id: templateId,
+          workflow_id: String(row.id),
+          title,
+          node_count: normalizedGraph.nodes?.length ?? 0,
+          edge_count: normalizedGraph.edges?.length ?? 0,
+        });
+
+        await refreshWorkflows();
+      } catch (error: any) {
+        setWfError(error?.message || "Failed to create workflow.");
+      } finally {
+        setCreating(false);
+      }
+    },
+    [
+      requireAuth,
+      userId,
+      useDraftApi,
+      getAccessToken,
+      supabase,
+      loadGraphAndResetHistory,
+      refreshWorkflows,
+    ],
+  );
+
+  const handleTemplatePick = useCallback(
+    (template: TemplateDefinition) => {
+      setTemplateError(null);
+      safeTrack("Template Use Clicked", {
+        surface: "builder_modal",
+        template_id: template.id,
+        template_slug: template.slug,
+      });
+      if (template.setup.mode === "none") {
+        setTemplateSubmitting(true);
+        void templateService
+          .instantiate({
+            template,
+            answers: {},
+            context: { mode: "builder_modal", targetWorkflowId: activeDraftId ?? undefined },
+          })
+          .then((instantiated) =>
+            createDraftFromInstantiatedGraph({
+              title: instantiated.workflowName,
+              graph: instantiated.graph,
+              source: "template_library",
+              templateId: template.id,
+            }),
+          )
+          .catch((error: any) => {
+            setTemplateError(error?.message || "Failed to instantiate template.");
+          })
+          .finally(() => {
+            setTemplateSubmitting(false);
+          });
+        return;
+      }
+
+      setTemplateSetupTemplate(template);
+    },
+    [activeDraftId, createDraftFromInstantiatedGraph],
+  );
+
+  const handleTemplateSetupSubmit = useCallback(
+    async (answers: Record<string, unknown>) => {
+      if (!templateSetupTemplate) return;
+      setTemplateSubmitting(true);
+      setTemplateError(null);
+      try {
+        const instantiated = await templateService.instantiate({
+          template: templateSetupTemplate,
+          answers,
+          context: { mode: "builder_modal", targetWorkflowId: activeDraftId ?? undefined },
+        });
+        await createDraftFromInstantiatedGraph({
+          title: instantiated.workflowName,
+          graph: instantiated.graph,
+          source: "template_library",
+          templateId: templateSetupTemplate.id,
+        });
+      } catch (error: any) {
+        setTemplateError(error?.message || "Failed to build workflow from template.");
+      } finally {
+        setTemplateSubmitting(false);
+      }
+    },
+    [activeDraftId, createDraftFromInstantiatedGraph, templateSetupTemplate],
   );
 
   const ensureDraftSavedNow = useCallback(async () => {
@@ -2596,13 +2805,20 @@ export default function BuilderPage() {
           <div
             ref={topbarInnerRef}
             className={cx(
-              "w-full rounded-xl md:rounded-2xl flex items-center justify-between overflow-x-auto transition-all duration-200 edg-builder-glass relative",
-              isCompactLayout ? "gap-2 px-2 py-1.5 min-h-[40px]" : "gap-4 px-4 py-3 min-h-[56px]",
+              "w-full rounded-xl md:rounded-2xl flex items-center justify-between overflow-hidden transition-all duration-200 edg-builder-glass relative",
+              isCompactLayout ? "gap-2 px-2 py-1 min-h-[36px]" : "gap-3 px-4 py-2 min-h-[50px]",
             )}
           >
-            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-[0.55]" />
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-[0.35]" />
 
-            <div className={cx("flex items-center min-w-0", isCompactLayout ? "gap-2" : "gap-3")}>
+            <div
+              className={cx(
+                "flex min-w-0 flex-1 items-center overflow-hidden",
+                isCompactLayout ? "gap-2" : "gap-3",
+                isVeryTightTopbar && "max-w-[calc(100%-11.5rem)]",
+                isTightTopbar && !isVeryTightTopbar && "max-w-[calc(100%-18rem)]",
+              )}
+            >
               <div className="shrink-0">
                 <ProfileAvatar
                   name={profile?.full_name}
@@ -2613,11 +2829,12 @@ export default function BuilderPage() {
                 />
               </div>
 
-              <div className="min-w-0">
+              <div className="min-w-0 overflow-hidden">
                 <div
                   className={cx(
-                    "flex flex-wrap items-center leading-snug",
+                    "flex items-center overflow-hidden whitespace-nowrap leading-snug",
                     isCompactLayout ? "gap-1.5" : "gap-2",
+                    isTightTopbar && "hidden",
                   )}
                 >
                   <div
@@ -2631,17 +2848,18 @@ export default function BuilderPage() {
 
                   <span
                     className={cx(
-                      "rounded-full border border-white/10 bg-white/5 font-semibold text-white/70",
+                      "shrink-0 rounded-full border border-white/10 bg-white/5 font-semibold text-white/70",
                       isCompactLayout ? "px-1.5 py-0.5 text-[8px]" : "px-2 py-0.5 text-[10px]",
+                      isVeryTightTopbar && "hidden",
                     )}
                   >
                     Research Preview
                   </span>
 
-                  {activeDraftId && (
+                  {activeDraftId && !isTightTopbar && (
                     <span
                       className={cx(
-                        "text-white/40",
+                        "truncate text-white/40",
                         isCompactLayout ? "text-[8px]" : "text-[10px]",
                       )}
                     >
@@ -2656,15 +2874,26 @@ export default function BuilderPage() {
 
                 <div
                   className={cx(
-                    "flex min-w-0 flex-wrap items-end gap-x-2 gap-y-0.5",
+                    "flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap",
                     isCompactLayout ? "mt-0.5" : "mt-1",
+                    isVeryTightTopbar && "mt-0",
                   )}
                 >
                   {!editingName ? (
                     <button
                       className={cx(
                         "font-semibold text-white truncate hover:text-white/90 transition-colors text-left",
-                        isCompactLayout ? "text-sm max-w-[min(200px,28vw)]" : "text-[18px]",
+                        isCompactLayout
+                          ? isMediumTopbar
+                            ? "text-sm max-w-[min(140px,18vw)]"
+                            : "text-sm max-w-[min(200px,28vw)]"
+                          : isVeryTightTopbar
+                            ? "text-[15px] max-w-[min(120px,12vw)]"
+                            : isTightTopbar
+                              ? "text-[16px] max-w-[min(170px,18vw)]"
+                              : isMediumTopbar
+                                ? "text-[17px] max-w-[min(220px,22vw)]"
+                                : "text-[18px] max-w-[min(320px,28vw)]",
                       )}
                       onClick={() => setEditingName(true)}
                       title="Rename"
@@ -2690,59 +2919,81 @@ export default function BuilderPage() {
                     />
                   )}
 
-                  {activeDraftId ? (
+                  {!isMediumTopbar && activeDraftId ? (
                     <span
                       className={cx(
-                        "text-white/45",
+                        "shrink-0 text-white/45",
                         isCompactLayout ? "text-[9px]" : "text-[11px]",
                       )}
                     >
                       {stats.nodes} nodes · {stats.edges} edges
                     </span>
-                  ) : (
+                  ) : !isMediumTopbar ? (
                     <span
                       className={cx(
-                        "text-white/45",
+                        "shrink-0 text-white/45",
                         isCompactLayout ? "text-[9px]" : "text-[11px]",
                       )}
                     >
                       No workflow open
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
 
             <div
-              className={cx("flex items-center flex-shrink-0", isCompactLayout ? "gap-1" : "gap-2")}
+              className={cx(
+                "flex shrink-0 items-center overflow-hidden",
+                isCompactLayout ? "gap-1" : "gap-2",
+              )}
             >
-              <Link
-                href={getDocsLink("/docs/builder/workflow-studio")}
-                className={cx(
-                  "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
-                  isCompactLayout
-                    ? "h-7 w-[4.5rem] px-2 text-[11px]"
-                    : "h-9 w-[6rem] px-3 text-base",
-                )}
-                title="Documentation"
-              >
-                <IconDocs size={isCompactLayout ? 15 : 18} />
-                <span className="hidden truncate sm:inline">Docs</span>
-              </Link>
+              {!isCompactLayout && !isTightTopbar && (
+                <Link
+                  href={getDocsLink("/docs/builder/workflow-studio")}
+                  className={cx(
+                    "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
+                    isCompactLayout
+                      ? "h-7 min-w-[4.75rem] px-2 text-[11px]"
+                      : "h-8 min-w-[5.75rem] px-3 text-[14px]",
+                  )}
+                  title="Documentation"
+                >
+                  <IconDocs size={isCompactLayout ? 15 : 18} />
+                  <span className="truncate">Docs</span>
+                </Link>
+              )}
+
+              {!isVeryTightTopbar && (
+                <button
+                  type="button"
+                  onClick={openLauncher}
+                  className={cx(
+                    "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
+                    isCompactLayout
+                      ? "h-7 min-w-[4.75rem] px-2 text-[11px]"
+                      : "h-8 min-w-[5.75rem] px-3 text-[14px]",
+                  )}
+                  title="Home"
+                >
+                  <IconPanels size={isCompactLayout ? 15 : 18} />
+                  <span className="truncate">Home</span>
+                </button>
+              )}
 
               <button
                 type="button"
-                onClick={openLauncher}
+                onClick={() => setTemplateLibraryOpen(true)}
                 className={cx(
                   "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
                   isCompactLayout
-                    ? "h-7 w-[4.5rem] px-2 text-[11px]"
-                    : "h-9 w-[6rem] px-3 text-base",
+                    ? "h-7 min-w-[6.8rem] px-2.5 text-[11px]"
+                    : "h-8 min-w-[7.25rem] px-3 text-[14px]",
                 )}
-                title="Home"
+                title="Templates"
               >
-                <IconPanels size={isCompactLayout ? 15 : 18} />
-                <span className="hidden truncate sm:inline">Home</span>
+                <IconTemplates size={isCompactLayout ? 15 : 18} tone="brand" />
+                <span className="whitespace-nowrap">Templates</span>
               </button>
 
               <button
@@ -2751,8 +3002,8 @@ export default function BuilderPage() {
                 className={cx(
                   "edg-builder-btn-run inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none text-white/95",
                   isCompactLayout
-                    ? "h-7 w-[4.5rem] px-2 text-[11px]"
-                    : "h-9 w-[6rem] px-3 text-base",
+                    ? "h-7 min-w-[4.75rem] px-2 text-[11px]"
+                    : "h-8 min-w-[5.75rem] px-3 text-[14px]",
                   (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) &&
                     "opacity-60 cursor-not-allowed",
                 )}
@@ -2763,41 +3014,45 @@ export default function BuilderPage() {
                 }
               >
                 <IconRun size={isCompactLayout ? 16 : 20} tone="brand" className="text-white/95" />
-                <span className="hidden truncate sm:inline">Run</span>
+                <span className="truncate">Run</span>
               </button>
 
-              <button
-                onClick={publishWorkflow}
-                disabled={!activeDraftId}
-                className={cx(
-                  "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
-                  isCompactLayout
-                    ? "h-7 min-w-[5.25rem] px-2 text-[11px]"
-                    : "h-9 w-[7.25rem] px-3 text-base",
-                  !activeDraftId && "opacity-60 cursor-not-allowed",
-                )}
-                title="Publish"
-              >
-                <IconRocket size={isCompactLayout ? 15 : 18} />
-                <span className="hidden whitespace-nowrap sm:inline">Publish</span>
-              </button>
+              {!isVeryTightTopbar && (
+                <button
+                  onClick={publishWorkflow}
+                  disabled={!activeDraftId}
+                  className={cx(
+                    "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
+                    isCompactLayout
+                      ? "h-7 min-w-[5.25rem] px-2 text-[11px]"
+                      : "h-8 min-w-[6.5rem] px-3 text-[14px]",
+                    !activeDraftId && "opacity-60 cursor-not-allowed",
+                  )}
+                  title="Publish"
+                >
+                  <IconRocket size={isCompactLayout ? 15 : 18} />
+                  <span className="whitespace-nowrap">Publish</span>
+                </button>
+              )}
 
-              <button
-                onClick={refreshWorkflows}
-                className={cx(
-                  "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
-                  isCompactLayout
-                    ? "h-7 min-w-[5.25rem] px-2 text-[11px]"
-                    : "h-9 w-[7.5rem] px-3 text-base",
-                )}
-                title="Refresh"
-              >
-                <IconRefresh
-                  size={isCompactLayout ? 15 : 18}
-                  className={cx("text-white/85", wfLoading && "animate-spin")}
-                />
-                <span className="hidden whitespace-nowrap sm:inline">Refresh</span>
-              </button>
+              {!isCompactLayout && !isTightTopbar && (
+                <button
+                  onClick={refreshWorkflows}
+                  className={cx(
+                    "edg-builder-btn edg-builder-sheen inline-flex shrink-0 items-center justify-center gap-1 rounded-full leading-none",
+                    isCompactLayout
+                      ? "h-7 min-w-[5.25rem] px-2 text-[11px]"
+                      : "h-8 min-w-[6.75rem] px-3 text-[14px]",
+                  )}
+                  title="Refresh"
+                >
+                  <IconRefresh
+                    size={isCompactLayout ? 15 : 18}
+                    className={cx("text-white/85", wfLoading && "animate-spin")}
+                  />
+                  <span className="whitespace-nowrap">Refresh</span>
+                </button>
+              )}
 
               {/* Canvas controls: Undo, Redo, Zoom, Grid, Lock */}
               <div
@@ -2811,7 +3066,7 @@ export default function BuilderPage() {
                   disabled={!activeDraftId || undoStack.length === 0}
                   className={cx(
                     "edg-builder-btn rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                    isCompactLayout ? "h-7 w-7" : "h-8 w-8",
                     activeDraftId && undoStack.length > 0
                       ? "text-white/85"
                       : "text-white/40 cursor-not-allowed",
@@ -2825,7 +3080,7 @@ export default function BuilderPage() {
                   disabled={!activeDraftId || redoStack.length === 0}
                   className={cx(
                     "edg-builder-btn rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                    isCompactLayout ? "h-7 w-7" : "h-8 w-8",
                     activeDraftId && redoStack.length > 0
                       ? "text-white/85"
                       : "text-white/40 cursor-not-allowed",
@@ -2834,36 +3089,40 @@ export default function BuilderPage() {
                 >
                   <IconRedo size={isCompactLayout ? 15 : 18} className="text-white/85" />
                 </button>
-                <button
-                  onClick={() => beRef.current?.zoomOut?.()}
-                  title="Zoom out (−)"
-                  className={cx(
-                    "edg-builder-btn rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
-                  )}
-                >
-                  <IconZoomOut size={isCompactLayout ? 15 : 18} className="text-white/80" />
-                </button>
-                <button
-                  onClick={() => beRef.current?.zoomIn?.()}
-                  title="Zoom in (+)"
-                  className={cx(
-                    "edg-builder-btn rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
-                  )}
-                >
-                  <IconZoomIn size={isCompactLayout ? 15 : 18} className="text-white/80" />
-                </button>
-                <button
-                  onClick={() => beRef.current?.fitViewToGraph?.()}
-                  title="Fit graph to screen (0)"
-                  className={cx(
-                    "edg-builder-btn rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
-                  )}
-                >
-                  <IconFitView size={isCompactLayout ? 15 : 18} className="text-white/80" />
-                </button>
+                {!isVeryTightTopbar && (
+                  <>
+                    <button
+                      onClick={() => beRef.current?.zoomOut?.()}
+                      title="Zoom out (−)"
+                      className={cx(
+                        "edg-builder-btn rounded-full grid place-items-center",
+                        isCompactLayout ? "h-7 w-7" : "h-8 w-8",
+                      )}
+                    >
+                      <IconZoomOut size={isCompactLayout ? 15 : 18} className="text-white/80" />
+                    </button>
+                    <button
+                      onClick={() => beRef.current?.zoomIn?.()}
+                      title="Zoom in (+)"
+                      className={cx(
+                        "edg-builder-btn rounded-full grid place-items-center",
+                        isCompactLayout ? "h-7 w-7" : "h-8 w-8",
+                      )}
+                    >
+                      <IconZoomIn size={isCompactLayout ? 15 : 18} className="text-white/80" />
+                    </button>
+                    <button
+                      onClick={() => beRef.current?.fitViewToGraph?.()}
+                      title="Fit graph to screen (0)"
+                      className={cx(
+                        "edg-builder-btn rounded-full grid place-items-center",
+                        isCompactLayout ? "h-7 w-7" : "h-8 w-8",
+                      )}
+                    >
+                      <IconFitView size={isCompactLayout ? 15 : 18} className="text-white/80" />
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => {
                     beRef.current?.toggleGrid?.();
@@ -2874,7 +3133,7 @@ export default function BuilderPage() {
                   title={`Toggle grid (G) – ${showGrid ? "On" : "Off"}`}
                   className={cx(
                     "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                    isCompactLayout ? "h-7 w-7" : "h-8 w-8",
                     showGrid ? "text-white" : "text-white/60",
                   )}
                   data-active={showGrid ? "true" : "false"}
@@ -2894,7 +3153,7 @@ export default function BuilderPage() {
                   title={`Toggle lock (L) – ${locked ? "Locked" : "Free"}`}
                   className={cx(
                     "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                    isCompactLayout ? "h-7 w-7" : "h-8 w-8",
                     locked ? "text-white" : "text-white/70",
                   )}
                   data-active={locked ? "true" : "false"}
@@ -2915,7 +3174,7 @@ export default function BuilderPage() {
                   title="Toggle fullscreen (F)"
                   className={cx(
                     "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                    isCompactLayout ? "h-7 w-7" : "h-8 w-8",
                     isFullscreen ? "text-white" : "text-white/70",
                   )}
                   data-active={isFullscreen ? "true" : "false"}
@@ -2940,7 +3199,7 @@ export default function BuilderPage() {
                 <button
                   className={cx(
                     "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                    isCompactLayout ? "h-7 w-7" : "h-8 w-8",
                     windows.blocks.visible && "text-white",
                     !windows.blocks.visible && "text-white/70",
                   )}
@@ -2953,7 +3212,7 @@ export default function BuilderPage() {
                 <button
                   className={cx(
                     "edg-builder-btn edg-builder-accent-ring rounded-full grid place-items-center",
-                    isCompactLayout ? "h-7 w-7" : "h-9 w-9",
+                    isCompactLayout ? "h-7 w-7" : "h-8 w-8",
                     windows.inspector.visible && "text-white",
                     !windows.inspector.visible && "text-white/70",
                   )}
@@ -3163,8 +3422,36 @@ export default function BuilderPage() {
           onRefresh={() => void refreshWorkflows()}
           onOpenDraft={(id) => void openDraft(id)}
           onOpenPublished={(id) => void openPublishedAsDraft(id)}
+          onOpenTemplates={() => setTemplateLibraryOpen(true)}
         />
       )}
+
+      <TemplateLibraryModal
+        open={!isPreview && templateLibraryOpen}
+        templates={availableTemplates}
+        busy={templateSubmitting}
+        onClose={() => {
+          if (!templateSubmitting) {
+            setTemplateLibraryOpen(false);
+            setTemplateError(null);
+          }
+        }}
+        onUseTemplate={handleTemplatePick}
+      />
+
+      <TemplateSetupModal
+        open={!isPreview && Boolean(templateSetupTemplate)}
+        template={templateSetupTemplate}
+        submitting={templateSubmitting}
+        errorText={templateError}
+        onClose={() => {
+          if (!templateSubmitting) {
+            setTemplateSetupTemplate(null);
+            setTemplateError(null);
+          }
+        }}
+        onSubmit={handleTemplateSetupSubmit}
+      />
     </div>
   );
 }
@@ -3187,6 +3474,7 @@ function LauncherOverlay({
   onRefresh,
   onOpenDraft,
   onOpenPublished,
+  onOpenTemplates,
 }: {
   leftSafe: number;
   busy: boolean;
@@ -3205,6 +3493,7 @@ function LauncherOverlay({
   onRefresh: () => void;
   onOpenDraft: (id: string) => void;
   onOpenPublished: (id: string) => void;
+  onOpenTemplates: () => void;
 }) {
   const continueItems = drafts;
 
@@ -3275,10 +3564,10 @@ function LauncherOverlay({
               ) : (
                 <button
                   onClick={onToggleNew}
-                  className="w-full rounded-xl border border-gray-700/40 bg-black/40 hover:bg-black/60 hover:border-gray-600/50 px-5 py-4 text-left transition-all duration-200 group"
+                  className="w-full rounded-[22px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] px-5 py-4 text-left transition-all duration-200 group hover:border-white/[0.14] hover:bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.025))]"
                 >
                   <div className="text-sm font-semibold text-white group-hover:text-white">New</div>
-                  <div className="text-xs text-gray-400 mt-0.5 group-hover:text-gray-300">
+                  <div className="mt-0.5 text-xs text-gray-400 group-hover:text-gray-300">
                     Start a new workflow
                   </div>
                 </button>
@@ -3323,9 +3612,18 @@ function LauncherOverlay({
                 </div>
               )}
 
-              <div className="mt-4 text-[12px] text-gray-400 leading-relaxed font-medium">
+              <div className="mt-4 text-[12px] leading-relaxed font-medium text-gray-400">
                 Tip: open a draft to jump straight into the editor.
               </div>
+              {userId ? (
+                <button
+                  type="button"
+                  onClick={onOpenTemplates}
+                  className="mt-4 inline-flex w-full items-center justify-center rounded-[22px] border border-white/[0.1] bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_50px_rgba(0,0,0,0.32)] transition-[transform,border-color,box-shadow] hover:-translate-y-[1px] hover:border-white/[0.16] hover:shadow-[0_24px_60px_rgba(0,0,0,0.4)]"
+                >
+                  Browse templates
+                </button>
+              ) : null}
             </div>
 
             {/* Right content */}

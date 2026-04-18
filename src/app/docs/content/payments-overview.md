@@ -1,79 +1,133 @@
 title = "Payments Overview"
-description = "How payments and monetization work on Edgaze"
+description = "A beginner-friendly guide to how customers pay, how creators earn, and how money moves through Edgaze."
 
----
+# Payments Overview
 
-## 1. Overview
+This page explains how money moves through Edgaze from the moment a customer buys a product to the moment a creator becomes eligible for payout.
 
-_Last Updated: March 13, 2026_
+If you are new to the platform, start here before reading the more detailed payout, fee, and earnings pages.
 
-Edgaze is a two-sided marketplace for AI workflows and prompts. Payments are processed securely through Stripe, with creators receiving revenue through Stripe Connect Express accounts. Edgaze does not store sensitive financial information.
+## On This Page
 
----
+- Who is involved in a payment
+- What a customer is buying
+- How money flows through Edgaze
+- What Stripe does
+- Which pages to read next
 
-## 2. Participants
+## The Three Parties In A Transaction
 
-**Customers** — Users who purchase workflows or prompts on the marketplace.
+Every marketplace payment on Edgaze involves three parties:
 
-**Creators** — Users who publish AI workflows and prompts and receive revenue from purchases.
+- the customer
+- the creator
+- Edgaze
 
-**Edgaze** — The platform that hosts workflows, facilitates payments, and provides execution infrastructure.
+### The Customer
 
----
+The customer is paying for access to a workflow or prompt product inside the Edgaze platform.
 
-## 3. Payment Processing
+### The Creator
 
-All payments are processed using **Stripe Payments** and **Stripe Connect**. Stripe handles:
+The creator is the person who built and published that product.
 
-- Payment processing
-- Creator onboarding
-- Identity verification
-- Tax reporting
-- Payouts
+### Edgaze
 
-Edgaze does not store credit card numbers, bank details, or other sensitive financial data.
+Edgaze provides the product surface, publishing system, runtime infrastructure, and payout coordination.
 
----
+## What A Customer Is Buying
 
-## 4. Stripe Connect Model
+In Edgaze, customers are usually buying access to a hosted AI product experience, not a downloadable application.
 
-Creators are onboarded through **Stripe Connect Express** accounts. The flow:
+### Workflow Products
 
-1. **Customer purchase** — Customer pays for a workflow or prompt
-2. **Stripe processes payment** — Payment is captured by Stripe
-3. **Marketplace fee deducted** — Edgaze takes its 20% fee
-4. **Creator revenue credited** — 80% is credited to the creator's Stripe balance
-5. **Payout scheduled** — Stripe schedules payout to the creator's bank account
+For workflow products, the customer is typically buying access to a hosted workflow experience and the execution path attached to that product.
 
-Creators must complete Stripe onboarding to receive payouts. Sales may occur before onboarding is complete, but payouts remain pending until identity verification is finished.
+### Prompt Products
 
----
+For prompt products, the customer is typically buying access to a reusable prompt experience packaged inside Edgaze.
 
-## 5. What Customers Purchase
+## How Money Flows Through Edgaze
 
-### 5.1 Workflows
+At a high level, the flow is:
 
-When a customer buys a workflow, they receive:
+```text
+Customer pays -> Stripe processes payment -> Edgaze records the sale -> Creator share is attributed -> Stripe payout eligibility applies
+```
 
-- Access to the workflow product
-- Ability to execute the workflow
-- Included hosted executions (10 runs for free creators, 15 for Plus)
-- Updates published by the creator
+That is the full mental model to keep in mind.
 
-Workflows function as hosted AI products—not downloadable software.
+### Sales Attribution
 
-### 5.2 Prompts
+Edgaze records the transaction and attributes the relevant creator share inside the platform model.
 
-Prompt purchases provide access to the prompt template and execution capability within the Edgaze platform.
+## What Stripe Does
 
----
+Stripe handles the financial rails behind Edgaze.
 
-## 6. Related Policies
+### Payment Processing
 
-For detailed information, see:
+Stripe processes the customer payment.
 
-- [Marketplace Fees](/docs/marketplace-fees) — How the 20% fee is applied
-- [Creator Earnings](/docs/creator-earnings) — Revenue, payouts, and dashboard
-- [Pricing Limits](/docs/pricing-limits) — Allowed price ranges for products
-- [Workflow Run Policy](/docs/workflow-run-policy) — Hosted runs and consumption rules
-- [Refund Policy](/docs/refund-policy) — Refund eligibility and process
+### Creator Onboarding
+
+Stripe Connect is used for creator onboarding, verification, and payout setup.
+
+### Payouts
+
+Once a creator is onboarded and eligible, Stripe handles the payout process.
+
+### Verification
+
+Stripe also supports the onboarding and verification path attached to payout readiness.
+
+## The Edgaze Payout System
+
+Edgaze supports a creator-friendly model that lets someone publish before completing onboarding.
+
+The right way to think about it is:
+
+- creators can start selling
+- onboarding can happen later
+- payout release still depends on eligibility and verification
+
+For the dedicated explanation, read [Payout System](/docs/payout-system).
+
+### Why It Matters
+
+This model lowers launch friction for creators while keeping payout release structured.
+
+## Fees And Infrastructure Are Different Things
+
+Two ideas that creators often confuse are:
+
+- marketplace fees
+- infrastructure cost guidance
+
+They are not the same thing.
+
+### Marketplace Fee
+
+The marketplace fee is the platform fee charged by Edgaze.
+
+### Infrastructure Cost Guidance
+
+Infrastructure cost guidance is there to help creators price products intelligently. It is not a separate deduction from creator balance.
+
+Read [Infrastructure Cost Estimation](/docs/infrastructure-cost-estimation) for the full explanation.
+
+### Common Mistake
+
+Creators should not confuse pricing guidance with actual payout deductions.
+
+## If You Are A Creator, Read These Next
+
+### Core Monetization Set
+
+These pages together explain the full commercial and payout picture.
+
+- [Payout System](/docs/payout-system)
+- [Creator Earnings](/docs/creator-earnings)
+- [Marketplace Fees](/docs/marketplace-fees)
+- [Infrastructure Cost Estimation](/docs/infrastructure-cost-estimation)
+- [Creator Terms](/docs/creator-terms)

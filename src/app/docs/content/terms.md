@@ -1,233 +1,191 @@
 title = "Terms of Service"
-description = "Rules, limitations, and legal terms governing the use of Edgaze."
+description = "The core platform terms that govern access to Edgaze, including product usage, publishing, platform limitations, and legal responsibilities."
 
----
+# Terms of Service
 
-## 1. Acceptance of Terms
+These Terms of Service govern access to and use of Edgaze.
 
-By accessing or using Edgaze (the “Platform”), you agree to be bound by these Terms of Service (“Terms”). If you do not agree to these Terms, you must not access or use the Platform.
+They are written to explain the platform clearly, not to hide the important parts.
 
-These Terms apply to all users, including visitors, registered users, creators, publishers, and contributors.
+## On This Page
 
-The Platform is owned and operated by **Edge Platforms, Inc.**, a Delaware Corporation ("Edge Platforms", "we", "us", or "our").
+- Who these terms apply to
+- What Edgaze is
+- Account and platform responsibilities
+- Content and publishing rules
+- Marketplace and AI limitations
+- Liability, suspension, and legal framework
 
-Edge Platforms reserves the right to modify these Terms at any time. Continued use of the Platform after changes constitutes acceptance of the revised Terms.
+## Who These Terms Apply To
 
----
+These terms apply to anyone who accesses or uses Edgaze, including:
 
-## 2. Nature of the Platform
+- visitors
+- account holders
+- creators
+- customers
+- publishers
 
-Edgaze is a **technology platform and intermediary** that enables users to:
+If you use the platform, these terms apply to you.
 
-- Create, upload, publish, share, and discover AI-related content, including prompts, workflows, tools, and related materials.
-- Access content published by other users.
+### Platform Users
 
-Edgaze **does not create, verify, endorse, guarantee, or control user-generated content** unless explicitly stated otherwise.
+The platform terms cover both people building on Edgaze and people using published products.
 
-Edgaze acts solely as a **neutral intermediary** and hosting provider.
+## What Edgaze Is
 
----
+Edgaze is a platform for building, publishing, discovering, and running AI products such as workflows and prompts.
 
-## 3. Beta Disclaimer
+The platform is operated by **Edge Platforms, Inc.**
 
-Edgaze is currently operating in a **beta** phase.
+### Product Scope
 
-During this phase:
+Edgaze is a builder, publishing, discovery, and runtime platform for AI products.
 
-- Features may be incomplete, unstable, or experimental.
-- Data loss, downtime, bugs, or unexpected behavior may occur.
-- Functionality may change or be removed without notice.
+## Your Account Responsibilities
 
-You acknowledge that use of the Platform during the beta is **entirely at your own risk**.
+You are responsible for maintaining the security and integrity of your account.
 
----
+### Accurate Information
 
-## 4. Marketplace and Payments Disclaimer
+You must provide accurate information when creating and maintaining your account.
 
-During the beta:
+### Account Security
 
-- **No payments are processed** through the Platform.
-- All marketplace content is provided **free of charge for testing and evaluation purposes only**.
-- No purchase, sale, license, or commercial transaction is legally formed through the Platform.
+You are responsible for activity that occurs through your account unless the law says otherwise.
 
-Edge Platforms does **not** act as a payment processor, escrow agent, merchant, or financial intermediary during this phase.
+### No Impersonation
 
-Future monetization features may be introduced at Edgaze’s sole discretion.
+You may not impersonate another person, company, or brand in a misleading way.
 
----
+### Responsible Access
 
-## 5. User Accounts and Access
+You are expected to use your account lawfully, accurately, and in a way that does not create trust or security risk for others.
 
-You are responsible for maintaining the confidentiality of your account credentials.
+## What Creators And Users May Do
 
-You agree to:
+Edgaze allows users to:
 
-- Provide accurate and complete information.
-- Not impersonate another individual or entity.
-- Not access accounts or data without authorization.
+- create workflows and prompts
+- publish products
+- discover products
+- purchase access to products
+- run products through the platform experience
 
-Edge Platforms reserves the right to suspend or terminate accounts at any time, with or without notice, for any reason, including suspected violations of these Terms.
+These rights exist only within the rules of the platform and applicable law.
 
----
+### Permitted Use
 
-## 6. User-Generated Content
+Edgaze is intended for legitimate product creation, discovery, purchase, and execution.
 
-### 6.1 Ownership
+## Content And Publishing Rules
 
-You retain ownership of content you submit to the Platform.
+Users are responsible for the content they publish and the products they make available through Edgaze.
 
-### 6.2 License to Edge Platforms, Inc.
+### Ownership
 
-By submitting content, you grant Edge Platforms, Inc. a **non-exclusive, worldwide, royalty-free, sublicensable license** to:
+You retain ownership of content you create, subject to the platform rights you grant so Edgaze can operate the service.
 
-- Host, store, reproduce, display, distribute, and make available your content
-- Operate, improve, market, and maintain the Platform
+### Platform License
 
-This license remains in effect even if content is removed, to the extent required for legal, archival, or operational purposes.
+When you submit content, you grant Edgaze the rights reasonably required to host, display, distribute, operate, and improve the service.
 
----
+### Prohibited Content
 
-## 7. Prohibited Content and Conduct
+You may not use Edgaze to publish unlawful, infringing, malicious, deceptive, or abusive content or products.
 
-You agree **not** to upload, publish, or distribute content that:
+### Publishing Standard
 
-- Is illegal, unlawful, or violates any applicable law or regulation
-- Infringes intellectual property rights, including copyrights, trademarks, or trade secrets
-- Contains malware, exploits, or harmful code
-- Is fraudulent, deceptive, or misleading
-- Impersonates any person or organization
-- Promotes violence, terrorism, or criminal activity
-- Violates privacy, data protection, or confidentiality obligations
-- Encourages misuse of AI systems or unlawful automation
+Creators are responsible for how products are positioned and what they actually do in practice.
 
-Edge Platforms has **no obligation to monitor content**, but reserves the right to remove content at its discretion.
+## Marketplace And Payment Context
 
----
+Edgaze may enable creators to publish monetized products and receive earnings through the supported payout infrastructure.
 
-## 8. No Verification or Endorsement
+Separate pages explain the financial model in more detail:
 
-Edge Platforms does **not**:
+- [Payments Overview](/docs/payments-overview)
+- [Payout System](/docs/payout-system)
+- [Creator Terms](/docs/creator-terms)
 
-- Verify the accuracy, safety, legality, or effectiveness of user content
-- Endorse or recommend any prompt, workflow, or tool
-- Guarantee outcomes, results, or performance
+### Separate Commercial Pages
 
-You use all content **at your own risk**.
+The main platform terms work together with the creator and payment documentation rather than replacing them.
 
----
+## AI And External Service Limitations
 
-## 9. AI, Automation, and External Tools Disclaimer
+Edgaze products may depend on:
 
-Content on Edge Platforms may involve:
+- third-party models
+- external providers
+- API infrastructure
+- creator-authored prompts and workflow logic
 
-- Third-party AI models
-- External APIs
-- Automation tools
-- Experimental workflows
+### No Guarantee Of Output Quality
 
-Edge Platforms is **not responsible** for:
+Edgaze does not guarantee that AI outputs will be accurate, safe, complete, or suitable for a specific purpose.
 
-- Outputs generated by AI systems
-- Errors, hallucinations, bias, or failures
-- Consequences of deploying or executing workflows
+### Creator Responsibility
 
-You are solely responsible for evaluating suitability and compliance before use.
+Creators remain responsible for the products they publish and how those products are positioned to customers.
 
----
+### Third-Party Dependency Risk
 
-## 10. Intellectual Property and DMCA
+Some product behaviour depends on model providers and external systems outside Edgaze's direct control.
 
-Edgaze respects intellectual property rights.
+## Platform Availability And Change
 
-If you believe content infringes your rights, you may submit a takedown request. Edge Platforms may remove content without notice while investigating.
+Edgaze may evolve quickly.
 
-Repeat infringers may have accounts terminated.
+That means features can change, improve, or be removed over time as the platform develops.
 
----
+### Product Evolution
 
-## 11. No Warranties
+Fast product iteration does not remove the user's responsibility to evaluate suitability before relying on a feature.
 
-The Platform is provided **“as is” and “as available”**.
+## Suspension And Termination
 
-Edgaze expressly disclaims all warranties, including:
+Edgaze may limit, suspend, or terminate access when necessary to protect the platform, users, legal compliance, or commercial integrity.
 
-- Merchantability
-- Fitness for a particular purpose
-- Non-infringement
-- Accuracy or reliability of content
-- Availability or uptime
+Examples can include:
 
----
+- policy violations
+- fraud or abuse
+- security risk
+- payment or compliance issues
 
-## 12. Limitation of Liability
+### Enforcement Scope
 
-To the maximum extent permitted by law:
+Edgaze can act to protect users, the marketplace, and the broader platform environment.
 
-Edge Platforms, Inc., its founders, operators, affiliates, and contributors **shall not be liable** for:
+## Warranties And Liability
 
-- Any indirect, incidental, consequential, special, or punitive damages
-- Loss of data, revenue, profits, or business opportunities
-- Damages arising from user-generated content
-- Damages arising from reliance on AI outputs or workflows
-- Unauthorized access or data breaches
-- Actions taken based on content hosted on the Platform
+The platform is provided on an "as is" and "as available" basis to the extent permitted by law.
 
-Your sole remedy is to stop using the Platform.
+### No Broad Warranty Promise
 
----
+Edgaze does not promise uninterrupted availability, flawless outputs, or error-free operation.
 
-## 13. Indemnification
+### Liability Limits
 
-You agree to indemnify and hold harmless Edge Platforms, Inc. and its affiliates from any claims, damages, liabilities, losses, or expenses arising from:
+To the maximum extent permitted by law, Edgaze limits liability for losses connected to the use of the platform, user-generated products, or third-party model behaviour.
 
-- Your use of the Platform
-- Your content
-- Your violation of these Terms
-- Your violation of any law or third-party rights
+### No Performance Guarantee
 
----
+Use of the platform always carries operational and outcome risk, especially where AI behaviour is involved.
 
-## 14. Termination
+## Governing Law
 
-Edge Platforms may suspend or terminate access:
+These terms are governed by the laws of the State of Delaware, subject to applicable conflict rules and mandatory legal protections that cannot be waived.
 
-- At any time
-- With or without cause
-- With or without notice
+### Jurisdiction Context
 
-Upon termination, all licenses granted to you are revoked, except those granted by you to Edge Platforms, Inc..
+Legal disputes are handled under the governing law framework described in these terms.
 
----
+## Contact
 
-## 15. Privacy
+### Legal Questions
 
-Use of the Platform is subject to the Privacy Policy. During beta, data handling practices may evolve.
+Use the support contact for legal and platform policy questions.
 
-Edge Platforms does not guarantee permanent data retention.
-
----
-
-## 16. Governing Law and Jurisdiction
-
-These Terms are governed by the laws of the State of Delaware, without regard to conflict of law principles.
-
-You agree that any disputes shall be resolved exclusively in the competent courts of Delaware.
-
----
-
-## 17. Severability
-
-If any provision of these Terms is held unenforceable, the remaining provisions shall remain in full force and effect.
-
----
-
-## 18. Entire Agreement
-
-These Terms constitute the entire agreement between you and Edge Platforms, Inc. regarding use of the Platform and supersede all prior agreements or understandings.
-
----
-
-## 19. Contact
-
-For legal or compliance inquiries, contact:
-support@edgaze.ai
+For platform legal questions, contact `support@edgaze.ai`.

@@ -16,9 +16,19 @@ const getCachedTrending = unstable_cache(computeTrendingThisWeek, ["trending-thi
   tags: ["trending-this-week"],
 });
 
+async function getTrendingPayload(): Promise<TrendingThisWeekResponse> {
+  try {
+    return await getCachedTrending();
+  } catch (err) {
+    // Corrupt/empty cache entries (e.g. interrupted dev writes) can throw during deserialize.
+    console.error("[trending] cache read failed, computing fresh:", err);
+    return computeTrendingThisWeek();
+  }
+}
+
 export async function GET() {
   try {
-    const data = await getCachedTrending();
+    const data = await getTrendingPayload();
     const headers = {
       "Cache-Control": `public, s-maxage=${REVALIDATE_SECONDS}, stale-while-revalidate=60`,
     };

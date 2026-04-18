@@ -69,7 +69,7 @@ export default function MobileTopbar() {
   return (
     <div
       className={cn(
-        "xl:hidden flex items-center justify-between px-3 h-14 shrink-0",
+        "md:hidden flex items-center justify-between px-3 h-14 shrink-0",
         "border-b backdrop-blur-xl backdrop-saturate-150",
         isAdmin
           ? "border-white/[0.06] bg-[#070708]/92 shadow-[0_1px_0_0_rgba(255,255,255,0.04)]"

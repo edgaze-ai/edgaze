@@ -7,7 +7,12 @@ import { getDoc } from "../../utils/docs";
 import { extractToc } from "../../utils/extractToc";
 
 export function generateStaticParams() {
-  return [{ subslug: "workflow-studio" }, { subslug: "prompt-studio" }];
+  return [
+    { subslug: "workflow-studio" },
+    { subslug: "prompt-studio" },
+    { subslug: "templates" },
+    { subslug: "api-vault" },
+  ];
 }
 
 export async function generateMetadata({
@@ -27,15 +32,21 @@ export async function generateMetadata({
   }
 
   const titleMap: Record<string, string> = {
-    "workflow-studio": "Workflow Studio Guide | Complete Tutorial for Building AI Workflows",
-    "prompt-studio": "Prompt Studio Guide | Complete Tutorial for Creating AI Prompts",
+    "workflow-studio": "Workflow Studio Guide | Build AI Workflows Step by Step",
+    "prompt-studio": "Prompt Studio Guide | Create Reusable AI Prompts",
+    templates: "Templates Guide | Start From Outcomes Instead of Raw Graphs",
+    "api-vault": "API Vault Guide | Connect Provider Keys Safely in Edgaze",
   };
 
   const descMap: Record<string, string> = {
     "workflow-studio":
-      "Complete guide to building AI workflows with Workflow Studio. Learn how to create complex multi-step AI processes, configure nodes, use the inspector panel, and publish workflows.",
+      "Learn Workflow Studio from the ground up, including blocks, canvas layout, runs, publishing, and how to build reliable AI workflows without touching code.",
     "prompt-studio":
-      "Complete guide to creating reusable AI prompts with Prompt Studio. Learn how to use placeholders, configure prompts, test and publish your prompts.",
+      "Learn Prompt Studio from first principles, including placeholders, testing, publishing, and how to package great prompts for real customers.",
+    templates:
+      "Learn how Edgaze templates work, how guided setup flows turn answers into editable workflows, and when to start from a template instead of a blank builder canvas.",
+    "api-vault":
+      "Learn how the Edgaze API Vault works, how to connect provider keys, and how vault-backed execution behaves inside Workflow Studio and runtime surfaces.",
   };
 
   return {

@@ -1559,7 +1559,12 @@ export default function MarketplacePage() {
       if (filters.sort === "trending" && replace) {
         const res = await fetch("/api/trending/this-week");
         if (!res.ok) throw new Error("Trending fetch failed");
-        const json = await res.json();
+        const text = await res.text();
+        if (!text.trim()) throw new Error("Empty trending response");
+        const json = JSON.parse(text) as {
+          topWorkflowsThisWeek?: Array<Record<string, unknown>>;
+          topPromptsThisWeek?: Array<Record<string, unknown>>;
+        };
         const wf = (json.topWorkflowsThisWeek ?? []) as Array<Record<string, unknown>>;
         const pr = (json.topPromptsThisWeek ?? []) as Array<Record<string, unknown>>;
         const toMp = (
@@ -1729,13 +1734,17 @@ export default function MarketplacePage() {
 
   resetAndLoadRef.current = resetAndLoad;
 
-  const filtersKey = JSON.stringify({
-    sort: filters.sort,
-    topic: filters.topic,
-    contentType: filters.contentType,
-    priceRange: filters.priceRange,
-    topics: filters.topics,
-  });
+  const filtersKey = useMemo(
+    () =>
+      JSON.stringify({
+        sort: filters.sort,
+        topic: filters.topic,
+        contentType: filters.contentType,
+        priceRange: filters.priceRange,
+        topics: [...filters.topics].map(String).sort(),
+      }),
+    [filters.sort, filters.topic, filters.contentType, filters.priceRange, filters.topics],
+  );
 
   useEffect(() => {
     let cancelled = false;

@@ -4,6 +4,9 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Eye, TrendingUp, Users, Sliders, Code2, ChevronDown } from "lucide-react";
 import { getNodeSpec } from "src/nodes/registry";
+import { UserApiKeysPanel } from "../settings/UserApiKeysPanel";
+import { vaultProvidersForWorkflowKeys } from "src/lib/user-api-keys/constants";
+import { isPremiumAiSpec, providerForAiSpec } from "src/lib/workflow/spec-id-aliases";
 import {
   DEFAULT_LLM_IMAGE_MODEL,
   isKnownLlmImageAspectRatio,
@@ -502,6 +505,12 @@ function GeneralPanel({
 
   // Check if node requires API keys
   const requiresApiKey = spec?.requiresUserKeys === true;
+  let vaultProvidersForNode: ReturnType<typeof vaultProvidersForWorkflowKeys> | undefined;
+  if (requiresApiKey && spec?.id && isPremiumAiSpec(spec.id)) {
+    const provider = providerForAiSpec(spec.id, cfg as Record<string, unknown>);
+    const providerSet = new Set<"openai" | "anthropic" | "google">([provider]);
+    vaultProvidersForNode = vaultProvidersForWorkflowKeys(providerSet);
+  }
 
   return (
     <div className="space-y-3 pt-2 w-full min-w-0">
@@ -512,53 +521,6 @@ function GeneralPanel({
           { label: "ID", value: selection.specId ?? "—" },
         ]}
       />
-
-      {/* Editable fields */}
-      {!isInputNode && (
-        <div className="space-y-2.5">
-          <div>
-            <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">
-              Display Name
-            </label>
-            <Input
-              defaultValue={cfg.name ?? spec.label}
-              onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-                onUpdate({ name: e.currentTarget.value })
-              }
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1">
-              Description
-            </label>
-            <TextArea
-              rows={2}
-              defaultValue={cfg.description ?? spec.summary}
-              onBlur={(e: React.FocusEvent<HTMLTextAreaElement>) =>
-                onUpdate({ description: e.currentTarget.value })
-              }
-            />
-          </div>
-          {requiresApiKey && (
-            <div>
-              <label
-                className="block text-[10px] font-medium uppercase tracking-wider text-white/45 mb-1"
-                title="Stored locally, used for your runs"
-              >
-                API Key
-              </label>
-              <Input
-                type="password"
-                placeholder="sk-..."
-                defaultValue={cfg.apiKey || ""}
-                onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
-                  onUpdate({ apiKey: e.currentTarget.value })
-                }
-              />
-            </div>
-          )}
-        </div>
-      )}
 
       {isInputNode && (
         <Card title="User input">
@@ -733,6 +695,24 @@ function GeneralPanel({
               </div>
             </div>
           </details>
+        </Card>
+      )}
+
+      {!isInputNode && requiresApiKey && (
+        <Card title="API Vault" icon={<Sliders size={14} />}>
+          <div className="space-y-3">
+            <div className="text-[11px] leading-relaxed text-white/50">
+              API keys for this node are managed through your Edgaze vault. Save the required key
+              here and the node will use the vault-backed key during runs.
+            </div>
+            <UserApiKeysPanel
+              heading=""
+              description=""
+              showIntro={false}
+              variant="embedded"
+              providersOnly={vaultProvidersForNode}
+            />
+          </div>
         </Card>
       )}
     </div>
@@ -916,18 +896,9 @@ export default function InspectorPanel({
   return (
     <div className="h-full w-full min-w-0 text-white flex flex-col">
       <div className={`shrink-0 ${compact ? "px-3 pt-3 pb-1.5" : "px-4 pt-4 pb-2"}`}>
-        <div className="relative flex items-center gap-2 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
-          <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-[var(--edgaze-inner-highlight)] opacity-50" />
-          <Eye size={16} className="text-white/60" />
-          <span
-            className={`font-semibold tracking-[0.02em] text-white/92 ${compact ? "text-[11px]" : "text-[12px]"}`}
-          >
-            Inspector
-          </span>
-        </div>
         {selected && fieldHint && (
           <div
-            className="mt-2 rounded-lg px-3 py-2 text-[11px] font-medium"
+            className="rounded-lg px-3 py-2 text-[11px] font-medium"
             style={{
               background: "rgba(239,68,68,0.12)",
               border: "1px solid rgba(239,68,68,0.25)",

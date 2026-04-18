@@ -37,6 +37,10 @@ function reloadOnceForStaleDeploy(): void {
  */
 export function ChunkLoadRecovery() {
   useEffect(() => {
+    // In development, HMR and transient chunk/network blips can fire script errors on `/_next/static/*`.
+    // Reloading the tab causes a "full reload" loop and floods the server with GET / — only do this in production.
+    if (process.env.NODE_ENV !== "production") return;
+
     const onError = (event: Event) => {
       const target = event.target;
       if (!(target instanceof HTMLScriptElement)) return;
