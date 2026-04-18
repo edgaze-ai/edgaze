@@ -17,10 +17,7 @@ export type Blog = BlogMeta & {
 
 const BLOGS_DIR = path.join(process.cwd(), "src", "app", "blogs", "content");
 
-const ORDER = [
-  "ai-prompts-no-distribution",
-  "introducing-blogs",
-] as const;
+const ORDER = ["ai-prompts-no-distribution", "introducing-blogs"] as const;
 
 function safeRead(filePath: string) {
   try {

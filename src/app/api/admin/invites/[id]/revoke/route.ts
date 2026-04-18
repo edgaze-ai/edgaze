@@ -4,10 +4,7 @@ import { getUserFromRequest } from "@/lib/auth/server";
 import { isAdmin } from "@/lib/supabase/executions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
