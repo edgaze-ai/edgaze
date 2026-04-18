@@ -1,7 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import { Metadata } from "next";
 import Link from "next/link";
-import { getAllBlogs, getBlog, getBlogHrefForSlug } from "../utils/blogs";
+import { getAllBlogs, getBlog } from "../utils/blogs";
+import { getBlogHrefForSlug } from "../utils/routes";
 import BlogRenderer from "../components/BlogRenderer";
 import { extractToc } from "../../docs/utils/extractToc";
 import { Calendar, ArrowLeft, ArrowRight } from "lucide-react";

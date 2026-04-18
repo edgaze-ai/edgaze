@@ -2,6 +2,7 @@
 import fs from "fs";
 import path from "path";
 import { normalizeSafeSlug } from "@/lib/security/safe-values";
+import { isKnownBlogSlug } from "./routes";
 
 export type BlogMeta = {
   slug: string;
@@ -17,25 +18,9 @@ export type Blog = BlogMeta & {
 const BLOGS_DIR = path.join(process.cwd(), "src", "app", "blogs", "content");
 
 const ORDER = [
-  {
-    slug: "ai-prompts-no-distribution",
-    href: "/blogs/ai-prompts-no-distribution",
-  },
-  {
-    slug: "introducing-blogs",
-    href: "/blogs/introducing-blogs",
-  },
+  "ai-prompts-no-distribution",
+  "introducing-blogs",
 ] as const;
-
-export const BLOG_ROUTE_ORDER: string[] = ORDER.map((entry) => entry.href);
-
-const BLOG_ROUTE_BY_SLUG = new Map<string, string>(
-  ORDER.map((entry) => [entry.slug, entry.href] as [string, string]),
-);
-
-export function getBlogHrefForSlug(slug: string) {
-  return BLOG_ROUTE_BY_SLUG.get(slug) ?? "/blogs";
-}
 
 function safeRead(filePath: string) {
   try {
@@ -82,7 +67,7 @@ export function getAllBlogs(): BlogMeta[] {
 export function getBlog(slug: string): Blog | null {
   const safeSlug = normalizeSafeSlug(slug, { maxLength: 80 });
   if (!safeSlug) return null;
-  if (!BLOG_ROUTE_BY_SLUG.has(safeSlug)) return null;
+  if (!isKnownBlogSlug(safeSlug)) return null;
 
   const filePath = path.join(BLOGS_DIR, `${safeSlug}.md`);
   const raw = safeRead(filePath);

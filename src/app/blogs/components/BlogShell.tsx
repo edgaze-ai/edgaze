@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { getBlogHrefForSlug, type BlogMeta } from "../utils/blogs";
+import type { BlogMeta } from "../utils/blogs";
+import { getBlogHrefForSlug } from "../utils/routes";
 
 function BlogSidebar({ blogs, onItemClick }: { blogs: BlogMeta[]; onItemClick?: () => void }) {
   const pathname = usePathname();
