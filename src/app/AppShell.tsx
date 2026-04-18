@@ -49,6 +49,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isCreatorsOnboarding = pathname === "/creators/onboarding";
   const isDashboardEarnings = pathname === "/dashboard/earnings";
   const isHelpPage = pathname === "/help";
+  const isTemplatesRoute = pathname === "/templates" || pathname.startsWith("/templates/");
   const isAdminPage = pathname.startsWith("/admin");
   const [mounted, setMounted] = useState(false);
 
@@ -70,7 +71,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isBuilderPage = pathname.startsWith("/builder");
   const mainClasses = isBuilderPage
     ? "app-shell-main flex-1 min-h-0 h-0 overflow-hidden"
-    : isCreatorsOnboarding || isDashboardEarnings || isAdminPage || isHelpPage || isLibraryAnalytics
+    : isCreatorsOnboarding ||
+        isDashboardEarnings ||
+        isAdminPage ||
+        isHelpPage ||
+        isLibraryAnalytics ||
+        isTemplatesRoute
       ? "app-shell-main flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
       : isLibraryPage
         ? "app-shell-main flex-1 overflow-hidden library-page-main"
@@ -87,7 +93,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       className={containerClasses}
       style={{ opacity: mounted ? 1 : 0, transition: "opacity 0.2s ease-in" }}
     >
-      {/* Desktop sidebar only */}
+      {/* Desktop sidebar only. Mobile topbar/drawer are md:hidden, so these never coexist. */}
       <div className="relative z-[90] hidden md:block">
         <Sidebar />
       </div>

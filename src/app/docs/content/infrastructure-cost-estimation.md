@@ -1,68 +1,137 @@
 title = "Infrastructure Cost Estimation"
-description = "How Edgaze estimates workflow execution costs during publishing"
+description = "Learn how infrastructure cost guidance works in Edgaze publishing and why it is there to help creators price responsibly."
 
 # Infrastructure Cost Estimation
 
-_Last Updated: March 15, 2026_
+Infrastructure cost estimation is shown in Edgaze to help creators price workflows responsibly.
 
-During workflow publishing, Edgaze estimates the cost of executing the workflow. This estimate is shown to creators **before** they publish, so they can price products appropriately.
+It is guidance. It is not a hidden deduction from your creator balance.
 
-## Separate from Marketplace Fee
+## On This Page
 
-**Important:** The infrastructure cost estimate is **separate from** and **not the same as** the Edgaze marketplace fee (20%). They are distinct:
+- What the estimate means
+- What it does not mean
+- How it relates to the 20% platform fee
+- How creators should use it
+- A simple example
 
-| Cost Type               | What it is                                                                                              |
-| ----------------------- | ------------------------------------------------------------------------------------------------------- |
-| **Infrastructure cost** | What it costs to run the workflow (API calls, model tokens, compute). Estimated at publish for 10 runs. |
-| **Marketplace fee**     | 20% of the sale price paid to Edgaze. Deducted from creator revenue on every sale.                      |
+## What The Estimate Is
 
-Creators must cover **both** to earn profit. The infrastructure cost is our estimate of what it costs us to deliver your workflow; the marketplace fee is our platform fee. See [Marketplace Fees](/docs/marketplace-fees) for details on the 20% fee.
+The infrastructure estimate is Edgaze's best pricing guidance for what it may cost to serve a workflow through hosted execution.
 
-## What Creators See at Publish
+It helps answer a practical creator question:
 
-When you set a paid price for a workflow, the publish modal shows:
+**If this product runs often, am I pricing it high enough to make sense?**
 
-- **Estimated cost for 10 runs** — The expected infrastructure cost to deliver 10 workflow runs
-- **Minimum price** — $5.00 + infrastructure cost for 10 runs. You cannot price below this.
-- **Recommended price** — 2–3× the minimum. Covers infrastructure cost, marketplace fee, and a healthy profit margin.
+### Pricing Guidance
 
-### Example
+This estimate exists to help creators make more informed pricing decisions before publishing.
 
-| Item                     | Amount                    |
-| ------------------------ | ------------------------- |
-| Estimated cost (10 runs) | $2.40                     |
-| Minimum price            | $5.00 + $2.40 = **$7.40** |
-| Recommended price        | **$18.99** (2.5× minimum) |
+## What The Estimate Is Not
 
-## Pricing Breakdown
+This estimate is not:
 
-To earn profit, your price must cover:
+- a separate fee charged to the creator after a sale
+- a deduction taken directly from your payout
+- a second platform commission
 
-1. **Infrastructure cost** — Estimated at publish (for 10 runs)
-2. **Marketplace fee** — 20% of your price goes to Edgaze
-3. **Desired margin** — Your profit
+That distinction matters.
 
-The recommended price (2–3× minimum) accounts for all three. Set your price below the minimum and you will lose money. Set it at or above the recommended price for sustainable profit.
+### Not A Balance Deduction
 
-## What the Estimate Includes
+The estimate should never be read as money automatically removed from creator proceeds.
 
-The estimate accounts for:
+## The Correct Financial Model
 
-- **API calls** — Model API usage (OpenAI, etc.)
-- **Model usage** — Token consumption and model pricing
-- **Orchestration cost** — Edgaze infrastructure for running the workflow
-- **Compute** — Execution overhead
+The clean corporate explanation is:
 
-## Estimates Are Approximate
+**Infrastructure cost is not actually deducted from your balance. It is shown to guide appropriate creator pricing. The only standard platform deduction is the 20% Edgaze marketplace fee.**
 
-Cost estimates are based on typical usage patterns and current API pricing. Actual costs may vary due to:
+That is the model creators should understand.
 
-- Variable token usage per run
-- API pricing changes
-- Different execution paths in the workflow
+### The Real Decision
 
-The estimate is a helpful guide, not a guarantee of exact cost.
+The real creator decision is whether the current price leaves enough room for a healthy product business.
 
-## Plus Creators
+## Why Edgaze Shows It
 
-For Edgaze Plus creators, the estimate may be shown for 15 runs (the Plus inclusion) in addition to or instead of 10 runs, depending on the creator's subscription tier.
+Without cost guidance, creators tend to underprice AI products that rely on paid model calls or heavier execution paths.
+
+The estimate exists so creators can:
+
+- avoid pricing blindly
+- understand likely delivery cost
+- choose healthier margins
+- publish more sustainable products
+
+### Why This Helps Beginners
+
+New creators often need a pricing anchor before they learn what good AI product economics look like.
+
+## How To Use The Estimate
+
+Treat the estimate as a pricing input, not a bill.
+
+When publishing, ask:
+
+- Is my product price high enough for the outcome I provide?
+- Does the price leave room after the 20% marketplace fee?
+- Is the workflow expensive enough that I should avoid underpricing it?
+
+### Pricing Discipline
+
+Use the estimate as a sanity check, not as an automatic pricing formula.
+
+## Example
+
+If Edgaze shows a workflow as relatively expensive to run, that does not mean the same amount will be deducted from your payout.
+
+It means:
+
+- Edgaze is warning you that the workflow has meaningful serving cost
+- your current price should account for that reality
+- you should price like a creator selling a durable product, not like someone guessing
+
+### Practical Reading
+
+If the estimate feels high, that is usually a sign to review pricing, complexity, or both.
+
+## The Two Numbers Creators Should Separate
+
+### Platform Fee
+
+The Edgaze platform fee is the commercial fee model.
+
+### Infrastructure Estimate
+
+The infrastructure estimate is the pricing guidance model.
+
+They support different decisions and should never be confused with each other.
+
+### Why Confusion Happens
+
+Both numbers appear near publishing and monetization, so creators need the distinction stated clearly.
+
+## Best Practice
+
+If you are unsure how to price a workflow, use the estimate as a floor-sanity signal and then price based on:
+
+- product value
+- expected demand
+- product quality
+- support burden
+- margin comfort
+
+### Mature Pricing
+
+Strong pricing balances value, sustainability, and product confidence.
+
+## Related Pages
+
+### Continue Reading
+
+These pages explain the full monetization model around fees, earnings, and payout release.
+
+- [Payout System](/docs/payout-system)
+- [Marketplace Fees](/docs/marketplace-fees)
+- [Creator Earnings](/docs/creator-earnings)

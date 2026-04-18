@@ -79,7 +79,7 @@ export default function Sidebar() {
   const sidebarRootRef = React.useRef<HTMLElement | null>(null);
 
   const isActive = (href: string) => pathname.startsWith(href);
-  const widthClass = collapsed ? "w-[52px]" : "w-[220px]";
+  const widthClass = collapsed ? "w-[52px]" : "w-[204px] xl:w-[220px]";
 
   const expandSidebar = () => setCollapsed(false);
   const collapseSidebar = () => setCollapsed(true);
@@ -122,7 +122,7 @@ export default function Sidebar() {
             <div className="min-w-0 overflow-hidden">
               <span
                 className={cn(
-                  "block whitespace-nowrap pl-2 text-[17px] font-semibold tracking-tight text-white",
+                  "block whitespace-nowrap pl-2 text-[16px] font-semibold tracking-tight text-white",
                   `transition-[opacity,transform] ${SIDEBAR_FADE}`,
                   collapsed
                     ? "pointer-events-none -translate-x-2 opacity-0"
@@ -137,7 +137,7 @@ export default function Sidebar() {
 
         {/* ACCOUNT CHIP (expanded only) */}
         {!collapsed ? (
-          <div className="min-h-[52px] rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] px-2.5 py-2 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset]">
+          <div className="h-[52px] rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.08] to-white/[0.02] px-2.5 py-2 shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset] overflow-hidden">
             {loading ? (
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-white/10" />
@@ -337,7 +337,7 @@ function NavButton({ item, collapsed, active }: NavButtonProps) {
       ) : (
         <div
           className={cn(
-            "grid grid-cols-[18px_minmax(0,1fr)] items-center gap-2 rounded-xl px-2.5 py-2",
+            "grid h-9 grid-cols-[18px_minmax(0,1fr)] items-center gap-2 rounded-xl px-2.5",
             pillStyles,
           )}
         >

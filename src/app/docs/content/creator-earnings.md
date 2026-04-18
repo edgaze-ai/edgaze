@@ -1,75 +1,128 @@
 title = "Creator Earnings"
-description = "How creators earn, view, and receive payouts on Edgaze"
+description = "Learn how creator earnings are attributed, what 80/20 means in practice, and how to think about sales, balances, refunds, and payout readiness."
 
 # Creator Earnings
 
-_Last Updated: March 13, 2026_
+Creator earnings explain what portion of a sale belongs to the creator and how that value is tracked inside the Edgaze ecosystem.
 
-Creators receive **80% of the product price** for every sale. This is your gross earnings before any platform or processing fees—those are handled separately by Edgaze and Stripe.
+This page is about attribution and understanding, not just payout mechanics.
 
-## What You Earn From
+## On This Page
 
-### Revenue Sources
+- What creators earn
+- How the 80/20 split works
+- Where earnings appear
+- How refunds and disputes affect earnings
+- How this connects to payout readiness
 
-- **Workflow sales** — 80% of each workflow purchase
-- **Prompt sales** — 80% of each prompt purchase
+## What Creators Earn
 
-## Revenue Accumulation
+Edgaze uses a creator-first marketplace split:
 
-### Stripe Connect Balance
+- creators receive 80%
+- Edgaze takes a 20% platform fee
 
-Earnings accumulate in your **Stripe Connect balance**. Stripe manages your balance, payouts, and tax reporting.
+That is the core commercial structure creators should remember.
 
-## What You Can View
+### Platform Share
 
-### Dashboard Sections
+The remaining 20% is the standard Edgaze platform fee under the marketplace model.
 
-Inside the creator dashboard you can view:
+## What The 80 Percent Means
 
-- **Sales** — Transaction history and purchase details
-- **Revenue** — Earnings by product and time period
-- **Refunds** — Refunded transactions and adjusted amounts
-- **Payout schedule** — When payouts are processed and expected arrival dates
+The creator share represents the creator's portion of the product sale under the Edgaze marketplace model.
 
-## Payouts
+It is the amount used to understand what belongs to the creator before downstream payment operations and eligibility rules are applied through the payout system.
 
-### Schedule and Onboarding
+### Attribution Before Release
 
-Payouts are managed by Stripe and follow Stripe's standard schedule (typically weekly). You must complete Stripe onboarding and identity verification before payouts are enabled.
+Earnings attribution is not the same thing as immediate payout release.
 
-- Sales may occur before onboarding is complete
-- Revenue will accumulate in your Stripe balance
-- Payouts remain pending until verification is finished
+## Where Creator Earnings Show Up
 
-## Refunds and Adjustments
+Creator earnings should be understandable through the product and payout surfaces attached to monetization.
 
-### How Refunds Affect Your Earnings
+Creators should be able to see:
 
-If a customer receives a refund:
+- sales activity
+- earnings attribution
+- payout readiness
+- refunds or reversals
 
-- Your revenue for that transaction is reversed
-- The refund amount is deducted from your balance
-- If the refund occurs after you've been paid out, it may be deducted from future earnings
+The goal is clarity, not financial mystery.
 
-## Taxes
+### What Creators Should Be Able To See
 
-### Tax Forms and Reporting
+A good creator surface should make earnings feel visible, legible, and easy to reason about.
 
-Creators are responsible for paying taxes in their jurisdiction. Stripe may collect tax forms:
+## Earnings Vs Payout
 
-- **US creators** — W-9
-- **Non-US creators** — W-8BEN
+These two ideas are related but different.
 
-Edgaze does not provide tax advice. Consult a tax professional for guidance on your obligations.
+### Earnings
 
-## Chargebacks
+Earnings tell you what sale value has been attributed to you as the creator.
 
-### How Chargebacks Work
+### Payout
 
-If a customer disputes a payment (chargeback):
+Payout tells you when eligible funds can actually move to you through the supported payout rail.
 
-- Stripe manages the dispute process
-- The payment may be reversed
-- Your revenue for that sale may be deducted
+You can have earnings before payout onboarding is complete.
 
-See our [Chargeback Policy](/docs/chargeback-policy) for details.
+## Refunds And Disputes
+
+If a sale is refunded or reversed, creator earnings tied to that transaction may also be adjusted.
+
+### Refunds
+
+Refunds can reverse the creator share associated with a sale.
+
+### Chargebacks
+
+Chargebacks or payment disputes can also affect the creator's recorded earnings position depending on the transaction outcome.
+
+### Why Adjustments Matter
+
+Creators should understand that post-sale corrections can affect recorded earnings.
+
+## What Creators Should Pay Attention To
+
+Creators should learn to monitor:
+
+- total sales
+- net creator share
+- refund behaviour
+- pricing health
+- onboarding status for payout release
+
+If you ignore these, you can publish successfully but still misunderstand the business side of your products.
+
+### Sales Discipline
+
+A creator business becomes much easier to run when sales, pricing, and reversals are monitored consistently.
+
+## Best Practice
+
+Price like a business, not like an experiment.
+
+That means combining:
+
+- a fair product price
+- the 20% platform fee
+- infrastructure awareness
+- realistic expectations about refunds and support
+
+### Healthy Pricing Mindset
+
+Creators should price for sustainability, not just for short-term conversion.
+
+## Related Pages
+
+### Read These Next
+
+These pages complete the monetization picture around earnings, payouts, and pricing.
+
+- [Payments Overview](/docs/payments-overview)
+- [Payout System](/docs/payout-system)
+- [Infrastructure Cost Estimation](/docs/infrastructure-cost-estimation)
+- [Marketplace Fees](/docs/marketplace-fees)

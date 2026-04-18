@@ -17,6 +17,7 @@ const LEGAL_SLUGS = [
 ];
 const PAYMENTS_SLUGS = [
   "payments-overview",
+  "payout-system",
   "marketplace-fees",
   "creator-earnings",
   "workflow-run-policy",
@@ -54,25 +55,25 @@ export default function DocsIndex() {
 
   return (
     <div className="space-y-16">
-      {/* Hero — with colour */}
-      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-cyan-500/10 via-sky-500/5 to-indigo-500/10 px-6 py-10 sm:px-12 sm:py-14 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_24px_80px_-24px_rgba(0,0,0,0.5)]">
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(56,189,248,0.12),transparent_70%),radial-gradient(ellipse_60%_50%_at_80%_50%,rgba(129,140,248,0.08),transparent)]" />
+      <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] px-6 py-10 sm:px-12 sm:py-14 shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_24px_80px_-24px_rgba(0,0,0,0.7)]">
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_80%_70%_at_0%_0%,rgba(53,156,255,0.08),transparent_55%),radial-gradient(ellipse_70%_65%_at_100%_100%,rgba(236,72,153,0.06),transparent_50%)]" />
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
-            <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-cyan-300/80">
+            <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-white/45">
               Documentation
             </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-[2.75rem] md:leading-[1.15]">
-              Everything you need to ship with Edgaze
+              Learn Edgaze like you are starting from zero
             </h1>
             <p className="mt-5 text-[15px] leading-[1.65] text-white/70 sm:text-base">
-              Learn how to build with Workflow Studio and Prompt Studio, understand our policies,
-              and track product changes—all in one place.
+              Builder guides, templates, API Vault, payouts, creator terms, and platform policies,
+              all written to be understandable for first-time users without losing professional
+              depth.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/docs/builder"
-                className="inline-flex items-center gap-2 rounded-xl bg-white text-black px-4 py-2.5 text-sm font-medium shadow-lg shadow-cyan-500/20 hover:bg-white/95 transition"
+                className="inline-flex items-center gap-2 rounded-xl bg-white/92 text-black px-4 py-2.5 text-sm font-medium hover:bg-white transition"
               >
                 Get started with Builder
                 <ArrowUpRight className="h-4 w-4 opacity-70" />
@@ -98,7 +99,7 @@ export default function DocsIndex() {
               <div className="mt-5 space-y-2.5">
                 <Link
                   href="/docs/builder/workflow-studio"
-                  className="group flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 hover:border-cyan-400/60 hover:bg-cyan-500/10 transition"
+                  className="group flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 hover:border-white/20 hover:bg-white/[0.08] transition"
                 >
                   <div>
                     <p className="text-[13px] font-medium text-white/95">Workflow Studio</p>
@@ -106,31 +107,29 @@ export default function DocsIndex() {
                       Build multi-step AI workflows.
                     </p>
                   </div>
-                  <ArrowUpRight className="h-4 w-4 text-white/60 group-hover:text-cyan-300" />
+                  <ArrowUpRight className="h-4 w-4 text-white/60 group-hover:text-white/90" />
                 </Link>
                 <Link
-                  href="/docs/builder/prompt-studio"
-                  className="group flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 hover:border-violet-400/60 hover:bg-violet-500/10 transition"
+                  href="/docs/builder/templates"
+                  className="group flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 hover:border-white/20 hover:bg-white/[0.08] transition"
                 >
                   <div>
-                    <p className="text-[13px] font-medium text-white/95">Prompt Studio</p>
-                    <p className="mt-0.5 text-[11px] text-white/60">
-                      Create reusable prompt templates.
-                    </p>
+                    <p className="text-[13px] font-medium text-white/95">Templates</p>
+                    <p className="mt-0.5 text-[11px] text-white/60">Start from guided outcomes.</p>
                   </div>
-                  <ArrowUpRight className="h-4 w-4 text-white/60 group-hover:text-violet-300" />
+                  <ArrowUpRight className="h-4 w-4 text-white/60 group-hover:text-white/90" />
                 </Link>
                 <Link
-                  href="/docs/changelog"
-                  className="group flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 hover:border-emerald-400/60 hover:bg-emerald-500/10 transition"
+                  href="/docs/builder/api-vault"
+                  className="group flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 hover:border-white/20 hover:bg-white/[0.08] transition"
                 >
                   <div>
-                    <p className="text-[13px] font-medium text-white/95">Changelog</p>
+                    <p className="text-[13px] font-medium text-white/95">API Vault</p>
                     <p className="mt-0.5 text-[11px] text-white/60">
-                      See what&apos;s new in Edgaze.
+                      Connect provider keys securely.
                     </p>
                   </div>
-                  <ArrowUpRight className="h-4 w-4 text-white/60 group-hover:text-emerald-300" />
+                  <ArrowUpRight className="h-4 w-4 text-white/60 group-hover:text-white/90" />
                 </Link>
               </div>
             </div>

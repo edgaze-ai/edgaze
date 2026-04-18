@@ -105,6 +105,18 @@ export function IconRocket(props: IconProps) {
   );
 }
 
+export function IconTemplates(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 5.2h10c.8 0 1.4.6 1.4 1.4v6.2c0 .8-.6 1.4-1.4 1.4H4c-.8 0-1.4-.6-1.4-1.4V6.6c0-.8.6-1.4 1.4-1.4Z" />
+      <path d="M6.1 8.1h5.8" />
+      <path d="M6.1 10.9h3.9" />
+      <path d="M12.8 3.3v3.1" />
+      <path d="M11.2 4.9h3.1" />
+    </IconBase>
+  );
+}
+
 export function IconRefresh(props: IconProps) {
   return (
     <IconBase {...props}>

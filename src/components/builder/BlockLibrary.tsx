@@ -169,9 +169,11 @@ function QuickStartItem({
             Open
           </span>
         </div>
-        <div className={cx("truncate text-white/60", compact ? "text-[9px]" : "text-[11px]")}>
-          {caption}
-        </div>
+        {!compact && (
+          <div className={cx("truncate text-white/60", compact ? "text-[9px]" : "text-[11px]")}>
+            {caption}
+          </div>
+        )}
       </div>
     </button>
   );
@@ -188,7 +190,7 @@ function BlockLibrary({
   onLoadQuickStart?: (templateId: string) => void;
 }) {
   const [q, setQ] = useState("");
-  const [showQS, setShowQS] = useState(true);
+  const [showQS, setShowQS] = useState(!compact);
   const [activeCategory, setActiveCategory] = useState<LibraryCategoryId>("all");
   const [hoveredCategory, setHoveredCategory] = useState<LibraryCategoryId | null>(null);
   const [aiSearchOpen, setAiSearchOpen] = useState(false);
@@ -240,7 +242,7 @@ function BlockLibrary({
   return (
     <div className={cx("relative flex h-full flex-col", compact && "library-compact")}>
       {/* Search + AI button */}
-      <div className={cx(compact ? "px-1.5 pt-1.5" : "px-3 pt-3")}>
+      <div className={cx(compact ? "px-1 pt-1" : "px-3 pt-3")}>
         <div className="relative">
           <div
             className={cx(
@@ -257,7 +259,7 @@ function BlockLibrary({
             className={cx(
               "w-full border border-white/10 bg-black/25 text-white/92 placeholder:text-white/35",
               compact
-                ? "rounded-xl py-1 pl-8 pr-8 text-[10px]"
+                ? "rounded-xl py-1.5 pl-8 pr-8 text-[11px]"
                 : "rounded-2xl py-2.5 pl-10 pr-10 text-[12px]",
               "outline-none transition-[border-color,background] duration-200 focus:border-white/18 focus:bg-black/30",
             )}
@@ -291,7 +293,7 @@ function BlockLibrary({
               className={cx(
                 "relative flex w-full items-center justify-center bg-[#0f0f10] font-medium text-white/90",
                 compact
-                  ? "gap-1.5 rounded-[11px] px-2 py-1 text-[9px] leading-tight"
+                  ? "gap-1.5 rounded-[11px] px-2 py-1.5 text-[10px] leading-tight"
                   : "gap-2 rounded-[14px] px-3 py-2.5 text-[12px]",
               )}
             >
@@ -410,7 +412,7 @@ function BlockLibrary({
         <div
           className={cx(
             "shrink-0 border-r border-white/8 bg-black/15",
-            compact ? "w-[38px] px-1 py-1.5" : "w-[52px] px-2 py-3",
+            compact ? "w-[34px] px-0.5 py-1.5" : "w-[52px] px-2 py-3",
           )}
         >
           <div className={cx("flex flex-col items-center", compact ? "gap-1" : "gap-2")}>
@@ -429,7 +431,7 @@ function BlockLibrary({
                     onClick={() => setActiveCategory(cat.id)}
                     className={cx(
                       "edg-builder-btn edg-builder-accent-ring grid place-items-center",
-                      compact ? "h-7 w-7 rounded-xl" : "h-9 w-9 rounded-2xl",
+                      compact ? "h-6.5 w-6.5 rounded-xl" : "h-9 w-9 rounded-2xl",
                       active ? "text-white" : "text-white/70",
                     )}
                     data-active={active ? "true" : "false"}
@@ -503,7 +505,7 @@ function BlockLibrary({
           </div>
 
           {/* Node list */}
-          <div className={cx(compact ? "mt-2 space-y-1.5 px-1.5" : "mt-5 space-y-3 px-3")}>
+          <div className={cx(compact ? "mt-2 space-y-1.5 px-1" : "mt-5 space-y-3 px-3")}>
             {items.map((spec) => {
               const onDragStart = (e: React.DragEvent) => {
                 e.dataTransfer.setData(
@@ -533,55 +535,62 @@ function BlockLibrary({
                   <div
                     className={cx(
                       "flex items-start justify-between",
-                      compact ? "gap-2 px-2 pt-1.5" : "gap-3 px-4 pt-3",
+                      compact ? "gap-2 px-2 pt-2" : "gap-3 px-4 pt-3",
                     )}
                   >
-                    <div className="min-w-0 pr-1">
+                    <div className="min-w-0 flex-1 pr-1">
                       <div
                         className={cx(
                           "break-words font-semibold tracking-[-0.01em] text-white/92",
                           compact
-                            ? "line-clamp-2 text-[11px] leading-snug"
+                            ? "line-clamp-2 text-[12px] leading-snug"
                             : "line-clamp-2 text-[13px] leading-snug",
                         )}
                       >
                         {spec.label}
                       </div>
-                      <div
-                        className={cx(
-                          "mt-0.5 text-white/60",
-                          compact
-                            ? "line-clamp-2 text-[9px] leading-snug"
-                            : "line-clamp-2 text-[11px] leading-snug",
-                        )}
-                      >
-                        {spec.summary}
-                      </div>
+                      {!compact && (
+                        <div
+                          className={cx(
+                            "mt-0.5 text-white/60",
+                            compact
+                              ? "line-clamp-2 text-[9px] leading-snug"
+                              : "line-clamp-2 text-[11px] leading-snug",
+                          )}
+                        >
+                          {spec.summary}
+                        </div>
+                      )}
                     </div>
-                    <div
-                      className={cx("shrink-0 text-right", compact ? "w-[3.25rem]" : "w-[4.25rem]")}
-                    >
+                    {!compact && (
                       <div
                         className={cx(
-                          "truncate font-mono text-white/45",
-                          compact ? "text-[9px]" : "text-[10px]",
+                          "shrink-0 text-right",
+                          compact ? "w-[3.25rem]" : "w-[4.25rem]",
                         )}
-                        title={spec.id}
                       >
-                        {spec.id}
+                        <div
+                          className={cx(
+                            "truncate font-mono text-white/45",
+                            compact ? "text-[9px]" : "text-[10px]",
+                          )}
+                          title={spec.id}
+                        >
+                          {spec.id}
+                        </div>
+                        <div
+                          className={cx(
+                            "mt-1 truncate tracking-[0.12em] uppercase text-white/40",
+                            compact ? "text-[8px]" : "text-[10px]",
+                          )}
+                          title={String(
+                            (spec as any)?.category ?? normalizeCategory(spec),
+                          ).toString()}
+                        >
+                          {String((spec as any)?.category ?? normalizeCategory(spec)).toString()}
+                        </div>
                       </div>
-                      <div
-                        className={cx(
-                          "mt-1 truncate tracking-[0.12em] uppercase text-white/40",
-                          compact ? "text-[8px]" : "text-[10px]",
-                        )}
-                        title={String(
-                          (spec as any)?.category ?? normalizeCategory(spec),
-                        ).toString()}
-                      >
-                        {String((spec as any)?.category ?? normalizeCategory(spec)).toString()}
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className={cx(compact ? "mt-1.5 px-2" : "mt-3 px-4")}>
@@ -598,7 +607,7 @@ function BlockLibrary({
                   <div
                     className={cx(
                       "flex items-center justify-between gap-2",
-                      compact ? "mt-1.5 px-2 pb-2 text-[9px]" : "mt-3 px-4 pb-4 text-[11px]",
+                      compact ? "mt-1.5 px-2 pb-2 text-[10px]" : "mt-3 px-4 pb-4 text-[11px]",
                     )}
                   >
                     <div className="text-white/55">
@@ -609,7 +618,7 @@ function BlockLibrary({
                       onClick={() => handleAdd(spec.id)}
                       className={cx(
                         "edg-builder-btn-add inline-flex items-center rounded-full font-semibold text-white/92",
-                        compact ? "gap-1 px-2 py-1 text-[9px]" : "gap-2 px-3 py-2 text-[11px]",
+                        compact ? "gap-1 px-2.5 py-1 text-[10px]" : "gap-2 px-3 py-2 text-[11px]",
                       )}
                       aria-label="Add to canvas"
                     >
@@ -647,7 +656,7 @@ function BlockLibrary({
         }
 
         .library-compact .preview-stage {
-          min-height: 48px;
+          min-height: 42px;
           border-radius: 10px;
           background-size: 10px 10px;
         }

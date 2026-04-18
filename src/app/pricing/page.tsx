@@ -15,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import Footer from "src/components/layout/Footer";
+import { PayoutSystemCard } from "src/components/publish/PayoutSystemCard";
 
 /* ─────────────────────────────────────────────────────────────────────────
  * DATA
@@ -639,46 +640,28 @@ export default function PricingPage() {
               <div className="mt-12 rounded-3xl border border-white/[0.08] bg-white/[0.02] p-6 sm:p-8 shadow-[0_0_0_1px_rgba(255,255,255,0.04)_inset] overflow-hidden">
                 <div className="relative -m-2 sm:-m-4 p-2 sm:p-4">
                   <div className="absolute inset-0 opacity-40 [background-image:radial-gradient(ellipse_at_30%_0%,rgba(34,211,238,0.08),transparent_50%),radial-gradient(ellipse_at_70%_100%,rgba(236,72,153,0.06),transparent_50%)]" />
-                  <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <motion.div
-                      className="flex flex-col rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-6 min-h-[180px]"
-                      whileHover={{
-                        borderColor: "rgba(255,255,255,0.12)",
-                        boxShadow: "0 0 0 1px rgba(34,211,238,0.06)",
-                      }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="text-xs font-semibold tracking-widest text-cyan-400/90 uppercase">
-                        Edgaze handles
-                      </div>
-                      <ul className="mt-4 space-y-2 text-sm text-white/70 flex-1">
-                        <li>Payments</li>
-                        <li>Hosting</li>
-                        <li>Execution infrastructure</li>
-                        <li>Distribution</li>
-                      </ul>
-                      <p className="mt-4 pt-4 border-t border-white/[0.06] text-sm text-cyan-300/90 font-medium">
-                        Creators focus on building.
-                      </p>
-                    </motion.div>
-                    {MONETIZATION_CARDS.map((card, i) => (
-                      <motion.div
-                        key={card.label}
-                        className="flex flex-col rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-6 min-h-[180px]"
-                        whileHover={{
-                          borderColor: "rgba(255,255,255,0.12)",
-                          boxShadow: "0 0 0 1px rgba(34,211,238,0.06)",
-                        }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <div className="text-xs font-semibold tracking-widest text-cyan-400/90 uppercase">
-                          {card.label}
-                        </div>
-                        <p className="mt-4 text-sm text-white/65 leading-relaxed flex-1">
-                          {card.desc}
-                        </p>
-                      </motion.div>
-                    ))}
+                  <div className="relative space-y-4">
+                    <PayoutSystemCard variant="workflow" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {MONETIZATION_CARDS.map((card, i) => (
+                        <motion.div
+                          key={card.label}
+                          className="flex flex-col rounded-2xl border border-white/[0.08] bg-white/[0.04] backdrop-blur-xl p-6 min-h-[180px]"
+                          whileHover={{
+                            borderColor: "rgba(255,255,255,0.12)",
+                            boxShadow: "0 0 0 1px rgba(34,211,238,0.06)",
+                          }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <div className="text-xs font-semibold tracking-widest text-cyan-400/90 uppercase">
+                            {card.label}
+                          </div>
+                          <p className="mt-4 text-sm text-white/65 leading-relaxed flex-1">
+                            {card.desc}
+                          </p>
+                        </motion.div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
