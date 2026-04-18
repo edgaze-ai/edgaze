@@ -91,7 +91,7 @@ const aiArtCreatorGraph = {
       {
         system: "Take these inputs and optimize this prompt and give the final prompt.",
         prompt:
-          "Take the merged creative inputs, optimize them into one final image prompt, and focus on {{optimizerFocus}}. Return only the final prompt.",
+          "Take the merged creative inputs together with this requested image prompt: {{imagePrompt}}. Optimize everything into one final image prompt and return only the final prompt.",
         model: "claude-sonnet-4-5",
         temperature: 0.7,
         maxTokens: 1200,
@@ -611,12 +611,13 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
           },
         },
         {
-          id: "optimizerFocus",
+          id: "imagePrompt",
           type: "textarea",
-          label: "What should the prompt optimizer focus on?",
-          defaultValue: "style consistency, mood, lighting, and clean composition",
+          label: "Enter the image prompt",
+          placeholder: "Describe the image you want this workflow to generate.",
+          defaultValue: "",
           required: true,
-          ui: { section: "Prompt optimization", width: "full" },
+          ui: { section: "Image prompt", width: "full" },
         },
         {
           id: "imageModel",
@@ -652,7 +653,7 @@ export const TEMPLATE_REGISTRY: TemplateDefinition[] = [
     instantiation: {
       variableBindings: [
         {
-          fieldId: "optimizerFocus",
+          fieldId: "imagePrompt",
           target: { target: "node.config", nodeId: "prompt-optimizer", path: "prompt" },
         },
         {
