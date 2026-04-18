@@ -51,7 +51,7 @@ export function getAllBlogs(): BlogMeta[] {
   const metas: BlogMeta[] = [];
 
   for (const entry of ORDER) {
-    const safeSlug = normalizeSafeSlug(entry.slug, { maxLength: 80 });
+    const safeSlug = normalizeSafeSlug(entry, { maxLength: 80 });
     if (!safeSlug) continue;
     const filePath = path.join(BLOGS_DIR, `${safeSlug}.md`);
     const raw = safeRead(filePath);

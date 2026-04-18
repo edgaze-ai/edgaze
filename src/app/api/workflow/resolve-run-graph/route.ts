@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     const { user } = await getUserFromRequest(req);
     if (user) {
       const entitlement = await getAuthenticatedRunEntitlement(user.id, workflowId, false);
-      if (!entitlement.ok) {
+      if (entitlement.ok === false) {
         return NextResponse.json({ ok: false, error: entitlement.message }, { status: 403 });
       }
       if (entitlement.useServerMarketplaceGraph) {

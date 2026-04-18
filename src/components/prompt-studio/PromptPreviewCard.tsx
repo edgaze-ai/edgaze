@@ -39,7 +39,7 @@ function buildBlurredPromptImage(promptText: string): string {
   ctx.textBaseline = "middle";
 
   const text = (promptText || "EDGAZE PROMPT").slice(0, 320);
-  const chunks = text.match(/.{1,24}/g) ?? [];
+  const chunks: string[] = text.match(/.{1,24}/g) ?? [];
   const totalHeight = chunks.length * 130;
   const startY = canvas.height / 2 - totalHeight / 2;
 

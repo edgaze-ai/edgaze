@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   }
 
   const result = await upsertUserApiKeySecret(user.id, provider, rec.secret);
-  if (!result.ok) {
+  if (result.ok === false) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 
@@ -102,7 +102,7 @@ export async function DELETE(req: Request) {
   }
 
   const result = await deleteUserApiKeySecret(user.id, provider);
-  if (!result.ok) {
+  if (result.ok === false) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   }
 

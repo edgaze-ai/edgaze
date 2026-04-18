@@ -689,8 +689,14 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
             .eq("handle", normalized)
             .maybeSingle();
 
-          if (!error && data && typeof data === "object" && "id" in data) {
-            row = data as unknown as PublicProfileRow;
+          const candidate = data;
+          const hasId =
+            candidate !== null &&
+            typeof candidate === "object" &&
+            "id" in (candidate as Record<string, unknown>);
+          if (!error && hasId) {
+            const matchedRow = candidate as unknown as PublicProfileRow;
+            row = matchedRow;
             lastError = null;
             break;
           }

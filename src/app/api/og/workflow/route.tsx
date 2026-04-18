@@ -12,9 +12,6 @@ import {
 } from "@lib/og/og-image-response";
 
 export const runtime = "nodejs";
-export const alt = "Edgaze workflow";
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
 
 async function buildResponse(request: NextRequest) {
   const { searchParams } = new URL(request.url);

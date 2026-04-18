@@ -4,7 +4,10 @@ import { getUserFromRequest } from "@/lib/auth/server";
 import { isAdmin } from "@/lib/supabase/executions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   try {
     const { user, error: authError } = await getUserFromRequest(req);
     if (!user) {
@@ -17,7 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     const supabase = createSupabaseAdminClient();
-    const { id } = params;
+    const { id } = await params;
 
     // Update invite status
     const { error: updateError } = await supabase

@@ -378,7 +378,7 @@ export default function FeedbackPage() {
   async function submit() {
     setErrorTop("");
     const v = validate();
-    if (!v.ok) {
+    if (v.ok === false) {
       setErrorTop(v.message);
       topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;

@@ -159,7 +159,7 @@ export async function ensureWorkflowRunPrepared(runId: string): Promise<void> {
         await updateWorkflowRun(runId, { user_id: userId });
 
         const entitlement = await getAuthenticatedRunEntitlement(userId, pending.workflowId, false);
-        if (!entitlement.ok) {
+        if (entitlement.ok === false) {
           throw new Error(entitlement.message);
         }
 
