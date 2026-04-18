@@ -27,9 +27,11 @@ const ORDER = [
   },
 ] as const;
 
-export const BLOG_ROUTE_ORDER = ORDER.map((entry) => entry.href);
+export const BLOG_ROUTE_ORDER: string[] = ORDER.map((entry) => entry.href);
 
-const BLOG_ROUTE_BY_SLUG = new Map(ORDER.map((entry) => [entry.slug, entry.href]));
+const BLOG_ROUTE_BY_SLUG = new Map<string, string>(
+  ORDER.map((entry) => [entry.slug, entry.href] as [string, string]),
+);
 
 export function getBlogHrefForSlug(slug: string) {
   return BLOG_ROUTE_BY_SLUG.get(slug) ?? "/blogs";
