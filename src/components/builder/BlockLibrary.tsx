@@ -169,11 +169,7 @@ function QuickStartItem({
             Open
           </span>
         </div>
-        {!compact && (
-          <div className={cx("truncate text-white/60", compact ? "text-[9px]" : "text-[11px]")}>
-            {caption}
-          </div>
-        )}
+        {!compact && <div className={cx("truncate text-white/60", "text-[11px]")}>{caption}</div>}
       </div>
     </button>
   );
@@ -553,9 +549,7 @@ function BlockLibrary({
                         <div
                           className={cx(
                             "mt-0.5 text-white/60",
-                            compact
-                              ? "line-clamp-2 text-[9px] leading-snug"
-                              : "line-clamp-2 text-[11px] leading-snug",
+                            "line-clamp-2 text-[11px] leading-snug",
                           )}
                         >
                           {spec.summary}
@@ -563,17 +557,9 @@ function BlockLibrary({
                       )}
                     </div>
                     {!compact && (
-                      <div
-                        className={cx(
-                          "shrink-0 text-right",
-                          compact ? "w-[3.25rem]" : "w-[4.25rem]",
-                        )}
-                      >
+                      <div className={cx("shrink-0 text-right", "w-[4.25rem]")}>
                         <div
-                          className={cx(
-                            "truncate font-mono text-white/45",
-                            compact ? "text-[9px]" : "text-[10px]",
-                          )}
+                          className={cx("truncate font-mono text-white/45", "text-[10px]")}
                           title={spec.id}
                         >
                           {spec.id}
@@ -581,7 +567,7 @@ function BlockLibrary({
                         <div
                           className={cx(
                             "mt-1 truncate tracking-[0.12em] uppercase text-white/40",
-                            compact ? "text-[8px]" : "text-[10px]",
+                            "text-[10px]",
                           )}
                           title={String(
                             (spec as any)?.category ?? normalizeCategory(spec),
