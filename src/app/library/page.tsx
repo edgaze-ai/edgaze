@@ -416,7 +416,7 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
               </div>
 
               {context === "created" && (
-                <div className="flex flex-wrap items-stretch justify-end gap-1.5 w-full min-[560px]:w-auto min-[560px]:justify-end">
+                <div className="grid w-full grid-cols-3 gap-2 min-[560px]:flex min-[560px]:w-auto min-[560px]:flex-wrap min-[560px]:items-stretch min-[560px]:justify-end min-[560px]:gap-1.5">
                   {!isRemoved && (
                     <button
                       type="button"
@@ -425,10 +425,10 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
                         setRemoveConfirmOpen(true);
                       }}
                       disabled={removing}
-                      className="inline-flex items-center justify-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1 text-[10px] font-medium text-amber-200/90 hover:bg-amber-500/10 disabled:opacity-50 min-h-[28px]"
+                      className="inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-2.5 py-2 text-[10px] font-medium text-amber-200/90 hover:bg-amber-500/10 disabled:opacity-50 sm:min-h-[28px] sm:rounded-md sm:px-2 sm:py-1"
                       title="Remove from marketplace"
                     >
-                      <EyeOff className="h-3 w-3 shrink-0" />
+                      <EyeOff className="h-3.5 w-3.5 shrink-0" />
                       Remove
                     </button>
                   )}
@@ -440,10 +440,10 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
                         `/library/analytics?kind=${encodeURIComponent(item.kind)}&id=${encodeURIComponent(item.id)}`,
                       );
                     }}
-                    className="inline-flex items-center justify-center gap-1 rounded-md border border-cyan-400/25 bg-gradient-to-r from-cyan-500/10 to-pink-500/10 px-2 py-1 text-[10px] font-medium text-cyan-100/95 transition-all duration-200 hover:border-cyan-400/50 min-h-[28px]"
+                    className="inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-cyan-400/25 bg-gradient-to-r from-cyan-500/10 to-pink-500/10 px-2.5 py-2 text-[10px] font-medium text-cyan-100/95 transition-all duration-200 hover:border-cyan-400/50 sm:min-h-[28px] sm:rounded-md sm:px-2 sm:py-1"
                     title="Listing analytics"
                   >
-                    <LineChart className="h-3 w-3 shrink-0" />
+                    <LineChart className="h-3.5 w-3.5 shrink-0" />
                     Analytics
                   </button>
                   <button
@@ -452,10 +452,10 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
                       e.stopPropagation();
                       onEdit?.(item.kind, item.id);
                     }}
-                    className="inline-flex items-center justify-center gap-1 rounded-md bg-white/5 hover:bg-white/10 px-2 py-1 text-[10px] font-medium text-white/80 transition-all duration-200 border border-white/5 hover:border-white/10 min-h-[28px]"
+                    className="inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-xl border border-cyan-300/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04))] px-2.5 py-2 text-[10px] font-semibold text-white transition-all duration-200 hover:border-cyan-300/35 hover:bg-[linear-gradient(180deg,rgba(34,211,238,0.18),rgba(255,255,255,0.05))] hover:shadow-[0_12px_24px_rgba(34,211,238,0.16)] sm:min-h-[28px] sm:rounded-md sm:px-2 sm:py-1 sm:font-medium"
                     title="Edit & republish"
                   >
-                    <Edit3 className="h-3 w-3 shrink-0" />
+                    <Edit3 className="h-3.5 w-3.5 shrink-0" />
                     Edit
                   </button>
                 </div>

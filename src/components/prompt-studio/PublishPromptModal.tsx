@@ -18,6 +18,10 @@ import {
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  BadgeDollarSign,
+  Eye,
+  FileText,
+  Images,
   Lock,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
@@ -453,12 +457,22 @@ function makePromptPreviewForUI(text: string) {
 
 type StepKey = "details" | "pricing" | "media" | "visibility" | "review";
 
-const STEPS: Array<{ key: StepKey; title: string; desc: string }> = [
-  { key: "details", title: "Basics", desc: "Title, description, tags, code." },
-  { key: "pricing", title: "Pricing", desc: "Free or set a price ($3–$50)." },
-  { key: "media", title: "Media", desc: "Thumbnail + optional demos." },
-  { key: "visibility", title: "Visibility", desc: "Public." },
-  { key: "review", title: "Review", desc: "Confirm and publish." },
+const STEPS: Array<{
+  key: StepKey;
+  title: string;
+  desc: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { key: "details", title: "Basics", desc: "Title, description, tags, code.", icon: FileText },
+  {
+    key: "pricing",
+    title: "Pricing",
+    desc: "Free or set a price ($3-$50).",
+    icon: BadgeDollarSign,
+  },
+  { key: "media", title: "Media", desc: "Thumbnail + optional demos.", icon: Images },
+  { key: "visibility", title: "Visibility", desc: "Public.", icon: Lock },
+  { key: "review", title: "Review", desc: "Confirm and publish.", icon: Eye },
 ];
 
 function StepDot({
@@ -468,6 +482,7 @@ function StepDot({
   active,
   done,
   canClick,
+  icon: Icon,
   onClick,
 }: {
   index: number;
@@ -476,6 +491,7 @@ function StepDot({
   active: boolean;
   done: boolean;
   canClick: boolean;
+  icon: React.ComponentType<{ className?: string }>;
   onClick: () => void;
 }) {
   return (
@@ -483,28 +499,79 @@ function StepDot({
       type="button"
       onClick={canClick ? onClick : undefined}
       className={cx(
-        "group flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-left transition-colors",
+        "group flex items-center gap-3 rounded-2xl px-3 py-2 text-left transition-all duration-200",
         canClick ? "hover:bg-white/[0.04]" : "opacity-80",
-        active && "bg-white/[0.05]",
+        active &&
+          "bg-[linear-gradient(180deg,rgba(34,211,238,0.14),rgba(255,255,255,0.04))] shadow-[0_12px_32px_rgba(6,182,212,0.12)]",
       )}
     >
       <div
         className={cx(
-          "grid h-7 w-7 place-items-center rounded-full border text-[11px] font-semibold",
+          "grid h-10 w-10 place-items-center rounded-full border text-[11px] font-semibold",
           done
             ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
             : active
-              ? "border-white/20 bg-white/[0.06] text-white"
+              ? "border-cyan-300/35 bg-cyan-300/15 text-white"
               : "border-white/12 bg-white/[0.03] text-white/80",
         )}
       >
-        {done ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+        {done ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
       </div>
       <div className="min-w-0">
         <div className={cx("text-[11px] font-semibold", active ? "text-white" : "text-white/85")}>
           {title}
         </div>
-        <div className="text-[10px] text-white/45 truncate">{desc}</div>
+        <div className="text-[10px] text-white/45 truncate">
+          {done ? `Step ${index + 1}` : desc}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function MobileStepPill({
+  active,
+  done,
+  title,
+  icon: Icon,
+  canClick,
+  onClick,
+}: {
+  active: boolean;
+  done: boolean;
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  canClick: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={canClick ? onClick : undefined}
+      className={cx(
+        "group flex min-w-[84px] flex-col items-center gap-2 text-center",
+        !canClick && "opacity-70",
+      )}
+    >
+      <div
+        className={cx(
+          "grid h-14 w-14 place-items-center rounded-full border transition-all duration-200",
+          done
+            ? "border-cyan-300/35 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.38),rgba(9,14,24,0.96)_72%)] text-cyan-50 shadow-[0_16px_34px_rgba(34,211,238,0.2)]"
+            : active
+              ? "border-white/18 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),rgba(9,14,24,0.96)_72%)] text-white shadow-[0_16px_34px_rgba(255,255,255,0.1)]"
+              : "border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),rgba(9,14,24,0.96)_72%)] text-white/70 group-hover:border-white/20 group-hover:text-white/90",
+        )}
+      >
+        {done ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+      </div>
+      <div
+        className={cx(
+          "text-[10px] font-medium tracking-[0.02em]",
+          active ? "text-white" : "text-white/58",
+        )}
+      >
+        {title}
       </div>
     </button>
   );
@@ -577,10 +644,20 @@ export default function PublishPromptModal({
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   const [parentNotified, setParentNotified] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [mobileActiveStep, setMobileActiveStep] = useState<StepKey>("details");
   const uploadedThumbnailPreviewUrl = useMemo(
     () => createImageObjectUrl(thumbnailFile),
     [thumbnailFile],
   );
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const sectionRefs = useRef<Record<StepKey, HTMLDivElement | null>>({
+    details: null,
+    pricing: null,
+    media: null,
+    visibility: null,
+    review: null,
+  });
   const safeThumbnailSrc = sanitizeImageSrc(meta?.thumbnailUrl);
   const safeUploadedThumbnailSrc = sanitizeImageSrc(uploadedThumbnailPreviewUrl);
   const safeAutoThumbnailSrc = sanitizeImageSrc(autoThumbDataUrl);
@@ -634,6 +711,15 @@ export default function PublishPromptModal({
     (!needsTermsAcceptance || acceptedCreatorTerms);
 
   const canPublish = !busy && !!listingOwnerId && codeStatus === "available" && isReviewValid;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobileViewport(mediaQuery.matches);
+    sync();
+    mediaQuery.addEventListener("change", sync);
+    return () => mediaQuery.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -1206,19 +1292,76 @@ export default function PublishPromptModal({
     onClose();
   }
 
-  if (!open) return null;
-
   const stepKey = STEPS[step]?.key;
+  const showAllMobileSections = isMobileViewport && !published;
+  const activeVisibleStep = showAllMobileSections ? mobileActiveStep : stepKey;
+
+  function scrollToPromptSection(nextStep: StepKey) {
+    setMobileActiveStep(nextStep);
+    const index = STEPS.findIndex((item) => item.key === nextStep);
+    if (index >= 0) setStep(index);
+    const node = sectionRefs.current[nextStep];
+    if (!node) return;
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  useEffect(() => {
+    if (!showAllMobileSections) return;
+    const root = contentScrollRef.current;
+    if (!root) return;
+
+    const entries = Object.entries(sectionRefs.current).filter(([, node]) => !!node) as Array<
+      [StepKey, HTMLDivElement]
+    >;
+    if (!entries.length) return;
+
+    const observer = new IntersectionObserver(
+      (items) => {
+        const visible = items
+          .filter((item) => item.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visible) return;
+        const next = (visible.target as HTMLElement).dataset.section as StepKey | undefined;
+        if (!next) return;
+        setMobileActiveStep(next);
+        const index = STEPS.findIndex((item) => item.key === next);
+        if (index >= 0) setStep(index);
+      },
+      {
+        root,
+        threshold: [0.25, 0.45, 0.7],
+        rootMargin: "-8% 0px -55% 0px",
+      },
+    );
+
+    for (const [, node] of entries) observer.observe(node);
+    return () => observer.disconnect();
+  }, [showAllMobileSections]);
+
+  if (!open) return null;
 
   const headerCta = !published ? (
     <button
-      onClick={stepKey === "review" ? handlePublish : goNext}
-      disabled={published ? true : stepKey === "review" ? !canPublish : !stepCanAdvance(step)}
+      onClick={
+        showAllMobileSections ? handlePublish : stepKey === "review" ? handlePublish : goNext
+      }
+      disabled={
+        published
+          ? true
+          : showAllMobileSections
+            ? !canPublish
+            : stepKey === "review"
+              ? !canPublish
+              : !stepCanAdvance(step)
+      }
       className={cx(
         "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold",
         "bg-white text-black hover:bg-white/90 transition-colors",
-        (stepKey === "review" ? !canPublish : !stepCanAdvance(step)) &&
-          "opacity-60 cursor-not-allowed",
+        (showAllMobileSections
+          ? !canPublish
+          : stepKey === "review"
+            ? !canPublish
+            : !stepCanAdvance(step)) && "opacity-60 cursor-not-allowed",
       )}
     >
       {busy ? (
@@ -1226,7 +1369,7 @@ export default function PublishPromptModal({
           <Loader2 className="h-4 w-4 animate-spin" />
           {editId ? "Updating…" : "Publishing…"}
         </>
-      ) : stepKey === "review" ? (
+      ) : showAllMobileSections || stepKey === "review" ? (
         <>
           <Sparkles className="h-4 w-4" />
           {editId ? "Update" : "Publish"}
@@ -1251,12 +1394,18 @@ export default function PublishPromptModal({
     <div className="fixed inset-0 z-[200]">
       <div className="absolute inset-0 bg-black/80" onClick={published ? undefined : closeNow} />
 
-      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
-        <div className="relative w-[min(900px,96vw)] h-[min(620px,88vh)] max-h-[92vh] rounded-2xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] overflow-hidden">
+      <div className="absolute inset-0 flex items-center justify-center p-0 sm:p-4">
+        <div
+          className="relative h-[100dvh] w-full overflow-hidden border-y border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] sm:h-[min(620px,88vh)] sm:max-h-[92vh] sm:w-[min(900px,96vw)] sm:rounded-2xl sm:border"
+          style={{
+            paddingTop: "max(env(safe-area-inset-top), 12px)",
+            paddingBottom: "max(env(safe-area-inset-bottom), 16px)",
+          }}
+        >
           <ConfettiSides active={confetti} />
 
           {/* Header */}
-          <div className="h-[56px] px-4 sm:px-5 flex items-center justify-between border-b border-white/10">
+          <div className="border-b border-white/10 px-4 py-2.5 sm:flex sm:h-[56px] sm:items-center sm:justify-between sm:px-5 sm:py-0">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <Image
                 src="/brand/edgaze-mark.png"
@@ -1282,7 +1431,7 @@ export default function PublishPromptModal({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="mt-2.5 flex items-center gap-2 sm:mt-0">
               {headerCta}
               <button
                 onClick={published ? undefined : closeNow}
@@ -1298,9 +1447,9 @@ export default function PublishPromptModal({
           </div>
 
           {/* Body */}
-          <div className="grid grid-cols-12 gap-0 h-[calc(100%-56px)]">
+          <div className="grid h-[calc(100%-72px)] grid-cols-12 gap-0 sm:h-[calc(100%-56px)]">
             {/* Left: Stepper */}
-            <div className="col-span-12 md:col-span-4 border-b md:border-b-0 md:border-r border-white/10 p-4 sm:p-5">
+            <div className="col-span-12 border-b border-white/10 p-3 sm:p-5 md:col-span-4 md:border-b-0 md:border-r">
               <div className="flex items-center justify-between">
                 <div className="text-[11px] font-semibold text-white/80">Progress</div>
                 <div className="text-[10px] text-white/45">
@@ -1308,7 +1457,34 @@ export default function PublishPromptModal({
                 </div>
               </div>
 
-              <div className="mt-3 space-y-1.5">
+              <div className="mt-3 -mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 md:hidden">
+                {STEPS.map((s, i) => {
+                  const canClick =
+                    i <= step ||
+                    (() => {
+                      for (let k = 0; k < i; k++) {
+                        if (!stepCanAdvance(k)) return false;
+                      }
+                      return true;
+                    })();
+
+                  return (
+                    <MobileStepPill
+                      key={s.key}
+                      title={s.title}
+                      active={activeVisibleStep === s.key}
+                      done={!!completed[s.key]}
+                      icon={s.icon}
+                      canClick={(showAllMobileSections || canClick) && !busy && !published}
+                      onClick={() =>
+                        showAllMobileSections ? scrollToPromptSection(s.key) : goToStep(i)
+                      }
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 hidden space-y-1.5 md:block">
                 {STEPS.map((s, i) => {
                   const canClick =
                     i <= step ||
@@ -1327,6 +1503,7 @@ export default function PublishPromptModal({
                       desc={s.desc}
                       active={i === step}
                       done={!!completed[s.key]}
+                      icon={s.icon}
                       canClick={canClick && !busy && !published}
                       onClick={() => goToStep(i)}
                     />
@@ -1344,7 +1521,7 @@ export default function PublishPromptModal({
               ) : null}
 
               {!published ? (
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 hidden gap-2 md:flex">
                   <button
                     type="button"
                     onClick={goPrev}
@@ -1386,12 +1563,34 @@ export default function PublishPromptModal({
             </div>
 
             {/* Right: Content */}
-            <div className="col-span-12 md:col-span-8 p-4 sm:p-5 overflow-auto">
+            <div
+              ref={contentScrollRef}
+              className="col-span-12 overflow-auto p-4 sm:p-5 md:col-span-8"
+            >
               {!published ? (
                 <>
-                  {stepKey === "details" ? (
-                    <div className="space-y-4">
+                  {showAllMobileSections || stepKey === "details" ? (
+                    <div
+                      ref={(node) => {
+                        sectionRefs.current.details = node;
+                      }}
+                      data-section="details"
+                      className="space-y-4"
+                    >
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                        {showAllMobileSections ? (
+                          <div className="mb-4 flex items-center gap-3 md:hidden">
+                            <div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                              <FileText className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="text-[12px] font-semibold text-white">Basics</div>
+                              <div className="text-[11px] text-white/45">
+                                Core listing details and code.
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="text-[12px] font-semibold text-white/85">Basic details</div>
                         <div className="text-[11px] text-white/50 mt-1">
                           Make it clear and searchable.
@@ -1510,8 +1709,14 @@ export default function PublishPromptModal({
                     </div>
                   ) : null}
 
-                  {stepKey === "pricing" ? (
-                    <div className="space-y-4">
+                  {showAllMobileSections || stepKey === "pricing" ? (
+                    <div
+                      ref={(node) => {
+                        sectionRefs.current.pricing = node;
+                      }}
+                      data-section="pricing"
+                      className="space-y-4"
+                    >
                       {!canReceivePayments && (
                         <PayoutSystemCard
                           variant="prompt"
@@ -1521,6 +1726,19 @@ export default function PublishPromptModal({
                         />
                       )}
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                        {showAllMobileSections ? (
+                          <div className="mb-4 flex items-center gap-3 md:hidden">
+                            <div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                              <BadgeDollarSign className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="text-[12px] font-semibold text-white">Pricing</div>
+                              <div className="text-[11px] text-white/45">
+                                Set free or paid access.
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="text-[12px] font-semibold text-white/85">Pricing</div>
                         <div className="text-[11px] text-white/50 mt-1">
                           Choose Free or set a price ($3–$50 for prompts).
@@ -1599,9 +1817,28 @@ export default function PublishPromptModal({
                     </div>
                   ) : null}
 
-                  {stepKey === "media" ? (
-                    <div className="space-y-4">
+                  {showAllMobileSections || stepKey === "media" ? (
+                    <div
+                      ref={(node) => {
+                        sectionRefs.current.media = node;
+                      }}
+                      data-section="media"
+                      className="space-y-4"
+                    >
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                        {showAllMobileSections ? (
+                          <div className="mb-4 flex items-center gap-3 md:hidden">
+                            <div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                              <Images className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="text-[12px] font-semibold text-white">Media</div>
+                              <div className="text-[11px] text-white/45">
+                                Thumbnail and demo assets.
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <div className="text-[12px] font-semibold text-white/85">Thumbnail</div>
@@ -1795,9 +2032,28 @@ export default function PublishPromptModal({
                     </div>
                   ) : null}
 
-                  {stepKey === "visibility" ? (
-                    <div className="space-y-4">
+                  {showAllMobileSections || stepKey === "visibility" ? (
+                    <div
+                      ref={(node) => {
+                        sectionRefs.current.visibility = node;
+                      }}
+                      data-section="visibility"
+                      className="space-y-4"
+                    >
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                        {showAllMobileSections ? (
+                          <div className="mb-4 flex items-center gap-3 md:hidden">
+                            <div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                              <Lock className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="text-[12px] font-semibold text-white">Visibility</div>
+                              <div className="text-[11px] text-white/45">
+                                Control how it appears publicly.
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="text-[12px] font-semibold text-white/85">Visibility</div>
                         <div className="text-[11px] text-white/50 mt-1">
                           Choose who can see your prompt.
@@ -1846,9 +2102,28 @@ export default function PublishPromptModal({
                     </div>
                   ) : null}
 
-                  {stepKey === "review" ? (
-                    <div className="space-y-4">
+                  {showAllMobileSections || stepKey === "review" ? (
+                    <div
+                      ref={(node) => {
+                        sectionRefs.current.review = node;
+                      }}
+                      data-section="review"
+                      className="space-y-4"
+                    >
                       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                        {showAllMobileSections ? (
+                          <div className="mb-4 flex items-center gap-3 md:hidden">
+                            <div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                              <Eye className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <div className="text-[12px] font-semibold text-white">Review</div>
+                              <div className="text-[11px] text-white/45">
+                                Final pass before you publish.
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="text-[12px] font-semibold text-white/85">Review</div>
                         <div className="text-[11px] text-white/50 mt-1">
                           Confirm everything before publishing.

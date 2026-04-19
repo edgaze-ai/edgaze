@@ -15,6 +15,10 @@ import {
   Download,
   CheckCircle2,
   RotateCcw,
+  BadgeDollarSign,
+  FileText,
+  Globe2,
+  Images,
 } from "lucide-react";
 import { cx } from "../../lib/cx";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -66,6 +70,28 @@ type Props = {
 };
 
 type PublishTab = "details" | "pricing" | "media" | "visibility";
+
+const WORKFLOW_TABS: Array<{
+  key: PublishTab;
+  title: string;
+  desc: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  {
+    key: "details",
+    title: "Details",
+    desc: "Title, description, tags, Edgaze code.",
+    icon: FileText,
+  },
+  {
+    key: "pricing",
+    title: "Pricing",
+    desc: "Free or set a price ($5-$150).",
+    icon: BadgeDollarSign,
+  },
+  { key: "media", title: "Media", desc: "Thumbnail + output demo images.", icon: Images },
+  { key: "visibility", title: "Visibility", desc: "Public, unlisted, private.", icon: Globe2 },
+];
 
 function clamp(n: number, a: number, b: number) {
   return Math.max(a, Math.min(b, n));
@@ -275,25 +301,80 @@ function RailButton({
   active,
   title,
   desc,
+  icon: Icon,
   onClick,
 }: {
   active: boolean;
   title: string;
   desc: string;
+  icon: React.ComponentType<{ className?: string }>;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       className={cx(
-        "w-full text-left rounded-xl border p-3 transition-colors",
+        "w-full text-left rounded-2xl border p-3 transition-all duration-200",
         active
-          ? "border-white/14 bg-white/[0.06]"
+          ? "border-cyan-400/25 bg-[linear-gradient(180deg,rgba(34,211,238,0.16),rgba(255,255,255,0.04))] shadow-[0_14px_34px_rgba(6,182,212,0.12)]"
           : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]",
       )}
     >
-      <div className="text-[11px] font-semibold text-white/90">{title}</div>
-      <div className="mt-0.5 text-[10px] text-white/45">{desc}</div>
+      <div className="flex items-start gap-3">
+        <div
+          className={cx(
+            "grid h-10 w-10 shrink-0 place-items-center rounded-full border transition-colors",
+            active
+              ? "border-cyan-300/35 bg-cyan-300/15 text-cyan-100"
+              : "border-white/10 bg-white/[0.04] text-white/75",
+          )}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold text-white/90">{title}</div>
+          <div className="mt-0.5 text-[10px] text-white/45">{desc}</div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function MobileTabPill({
+  active,
+  title,
+  icon: Icon,
+  onClick,
+}: {
+  active: boolean;
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex min-w-[84px] flex-col items-center gap-2 text-center"
+    >
+      <div
+        className={cx(
+          "grid h-14 w-14 place-items-center rounded-full border transition-all duration-200",
+          active
+            ? "border-cyan-300/35 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.36),rgba(12,14,20,0.92)_72%)] text-white shadow-[0_16px_36px_rgba(34,211,238,0.2)]"
+            : "border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),rgba(12,14,20,0.96)_70%)] text-white/70 group-hover:border-white/20 group-hover:text-white/90",
+        )}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <div
+        className={cx(
+          "text-[10px] font-medium tracking-[0.02em]",
+          active ? "text-white" : "text-white/58",
+        )}
+      >
+        {title}
+      </div>
     </button>
   );
 }
@@ -353,9 +434,18 @@ export default function WorkflowPublishModal({
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [qrBusy, setQrBusy] = useState(false);
   const [confetti, setConfetti] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [mobileActiveTab, setMobileActiveTab] = useState<PublishTab>("details");
 
   const thumbInputRef = useRef<HTMLInputElement | null>(null);
   const demoInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const sectionRefs = useRef<Record<PublishTab, HTMLDivElement | null>>({
+    details: null,
+    pricing: null,
+    media: null,
+    visibility: null,
+  });
 
   const draftGraph = useMemo(() => draft?.graph_json ?? draft?.graph ?? null, [draft]);
 
@@ -501,6 +591,15 @@ export default function WorkflowPublishModal({
     setCodeMsg("Checking availability…");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when open/draft id changes; draft body not needed for reset
   }, [open, draft?.id, editId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobileViewport(mediaQuery.matches);
+    sync();
+    mediaQuery.addEventListener("change", sync);
+    return () => mediaQuery.removeEventListener("change", sync);
+  }, []);
 
   // Code availability check (debounced)
   useEffect(() => {
@@ -829,8 +928,6 @@ export default function WorkflowPublishModal({
     }
   }
 
-  if (!open) return null;
-
   const needsTermsAcceptance = monetisationMode === "paywall" && !postingAs?.canReceivePayments;
   const canPublish =
     !!draft?.id &&
@@ -839,18 +936,68 @@ export default function WorkflowPublishModal({
     (!needsTermsAcceptance || acceptedCreatorTerms);
   const handle = postingAs?.handle || owner?.handle || "you";
   const shownCode = normalizeEdgazeCode(edgazeCode);
+  const showAllMobileSections = isMobileViewport && !published;
+  const activeMobileTab = showAllMobileSections ? mobileActiveTab : tab;
+
+  function scrollToWorkflowSection(nextTab: PublishTab) {
+    setTab(nextTab);
+    setMobileActiveTab(nextTab);
+    const node = sectionRefs.current[nextTab];
+    if (!node) return;
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  useEffect(() => {
+    if (!showAllMobileSections) return;
+    const root = contentScrollRef.current;
+    if (!root) return;
+
+    const entries = Object.entries(sectionRefs.current).filter(([, node]) => !!node) as Array<
+      [PublishTab, HTMLDivElement]
+    >;
+    if (!entries.length) return;
+
+    const observer = new IntersectionObserver(
+      (items) => {
+        const visible = items
+          .filter((item) => item.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!visible) return;
+        const next = (visible.target as HTMLElement).dataset.section as PublishTab | undefined;
+        if (!next) return;
+        setMobileActiveTab(next);
+        setTab(next);
+      },
+      {
+        root,
+        threshold: [0.25, 0.45, 0.7],
+        rootMargin: "-8% 0px -55% 0px",
+      },
+    );
+
+    for (const [, node] of entries) observer.observe(node);
+    return () => observer.disconnect();
+  }, [showAllMobileSections]);
+
+  if (!open) return null;
 
   const shell = (
     <div className="fixed inset-0 z-[200]">
       <div className="absolute inset-0 bg-black/80" onClick={published ? undefined : closeNow} />
 
-      <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-4">
-        <div className="relative w-[min(900px,96vw)] h-[min(620px,88vh)] max-h-[92vh] rounded-2xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] overflow-hidden">
+      <div className="absolute inset-0 flex items-center justify-center p-0 sm:p-4">
+        <div
+          className="relative h-[100dvh] w-full overflow-hidden border-y border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] sm:h-[min(620px,88vh)] sm:max-h-[92vh] sm:w-[min(900px,96vw)] sm:rounded-2xl sm:border"
+          style={{
+            paddingTop: "max(env(safe-area-inset-top), 12px)",
+            paddingBottom: "max(env(safe-area-inset-bottom), 16px)",
+          }}
+        >
           <ConfettiSides active={confetti} />
 
           {/* Header */}
-          <div className="h-[56px] px-4 sm:px-5 flex items-center justify-between border-b border-white/10">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="border-b border-white/10 px-4 py-2.5 sm:flex sm:h-[56px] sm:items-center sm:justify-between sm:px-5 sm:py-0">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <Image
                 src="/brand/edgaze-mark.png"
                 alt="Edgaze"
@@ -869,13 +1016,13 @@ export default function WorkflowPublishModal({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="mt-2.5 flex items-center gap-2 sm:mt-0">
               {!published ? (
                 <button
                   onClick={handlePublish}
                   disabled={!canPublish}
                   className={cx(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold",
+                    "inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-[11px] font-semibold sm:h-auto sm:flex-none sm:px-3",
                     "bg-white text-black hover:bg-white/90 transition-colors",
                     !canPublish && "opacity-60 cursor-not-allowed",
                   )}
@@ -911,7 +1058,7 @@ export default function WorkflowPublishModal({
                       onClose();
                     }
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold bg-white text-black hover:bg-white/90"
+                  className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-[11px] font-semibold bg-white text-black hover:bg-white/90 sm:h-auto sm:flex-none sm:px-3"
                 >
                   Done
                 </button>
@@ -934,7 +1081,7 @@ export default function WorkflowPublishModal({
 
           {/* Body */}
           {published ? (
-            <div className="h-[calc(100%-56px)] p-6">
+            <div className="h-[calc(100%-56px)] overflow-auto p-4 md:p-6">
               <div className="h-full rounded-3xl border border-white/10 bg-[radial-gradient(1200px_600px_at_50%_-20%,rgba(34,211,238,0.14),transparent_55%),radial-gradient(900px_500px_at_90%_0%,rgba(232,121,249,0.12),transparent_55%),linear-gradient(180deg,rgba(0,0,0,0.25),rgba(0,0,0,0.55))] p-8 flex flex-col">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-6 w-6 text-white" />
@@ -1039,68 +1186,47 @@ export default function WorkflowPublishModal({
               </div>
             </div>
           ) : (
-            <div className="h-[calc(100%-56px)] grid grid-cols-12 overflow-hidden">
+            <div className="grid h-[calc(100%-72px)] grid-cols-12 overflow-hidden sm:h-[calc(100%-56px)]">
               {/* Left rail */}
-              <div className="col-span-12 md:col-span-3 border-r border-white/10 p-6 overflow-auto">
+              <div className="col-span-12 overflow-auto border-b border-white/10 p-3 md:col-span-3 md:border-b-0 md:border-r md:p-6">
                 <div className="text-[12px] font-semibold text-white/85">Publish</div>
-                <div className="mt-1 text-[11px] text-white/45">
+                <div className="mt-0.5 text-[11px] text-white/45">
                   Set listing details, pricing and media.
                 </div>
 
-                <div className="mt-6 space-y-3">
-                  <RailButton
-                    active={tab === "details"}
-                    title="Details"
-                    desc="Title, description, tags, Edgaze code."
-                    onClick={() => setTab("details")}
-                  />
-                  <RailButton
-                    active={tab === "pricing"}
-                    title="Pricing"
-                    desc="Free or set a price ($5–$150)."
-                    onClick={() => setTab("pricing")}
-                  />
-                  <RailButton
-                    active={tab === "media"}
-                    title="Media"
-                    desc="Thumbnail + output demo images."
-                    onClick={() => setTab("media")}
-                  />
-                  <RailButton
-                    active={tab === "visibility"}
-                    title="Visibility"
-                    desc="Public, unlisted, private."
-                    onClick={() => setTab("visibility")}
-                  />
+                <div className="mt-3 -mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 md:hidden">
+                  {WORKFLOW_TABS.map((item) => (
+                    <MobileTabPill
+                      key={item.key}
+                      active={activeMobileTab === item.key}
+                      title={item.title}
+                      icon={item.icon}
+                      onClick={() =>
+                        showAllMobileSections ? scrollToWorkflowSection(item.key) : setTab(item.key)
+                      }
+                    />
+                  ))}
                 </div>
 
-                <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex items-center gap-3">
-                  <ProfileAvatar
-                    name={postingAs?.name || owner?.name || "You"}
-                    avatarUrl={postingAs?.avatarUrl || null}
-                    size={40}
-                    handle={handle}
-                  />
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 min-w-0">
-                      <ProfileLink
-                        name={postingAs?.name || owner?.name || "You"}
-                        handle={handle}
-                        verified={Boolean(postingAs?.isVerifiedCreator)}
-                        className="min-w-0 truncate text-[12px] text-white/90 font-semibold"
-                      />
-                    </div>
-                    <ProfileLink
-                      name={`@${handle}`}
-                      handle={handle}
-                      className="truncate text-[11px] text-white/45"
+                <div className="mt-6 hidden space-y-3 md:block">
+                  {WORKFLOW_TABS.map((item) => (
+                    <RailButton
+                      key={item.key}
+                      active={tab === item.key}
+                      title={item.title}
+                      desc={item.desc}
+                      icon={item.icon}
+                      onClick={() => setTab(item.key)}
                     />
-                  </div>
+                  ))}
                 </div>
               </div>
 
               {/* Right content */}
-              <div className="col-span-12 md:col-span-9 p-6 overflow-auto">
+              <div
+                ref={contentScrollRef}
+                className="col-span-12 overflow-auto p-4 md:col-span-9 md:p-6"
+              >
                 {err ? (
                   <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-amber-100 text-[12px] flex items-start gap-3">
                     <AlertTriangle className="h-4 w-4 mt-[1px]" />
@@ -1108,10 +1234,436 @@ export default function WorkflowPublishModal({
                   </div>
                 ) : null}
 
-                {/* Preview card */}
-                <div className="rounded-3xl border border-white/10 bg-white/[0.03] overflow-hidden">
+                {/* Section content */}
+                <div className="space-y-4">
+                  {showAllMobileSections || tab === "details" ? (
+                    <div
+                      ref={(node) => {
+                        sectionRefs.current.details = node;
+                      }}
+                      data-section="details"
+                      className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6"
+                    >
+                      <div className="mb-4 flex items-center gap-3 md:hidden">
+                        <div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                          <FileText className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-[12px] font-semibold text-white">Details</div>
+                          <div className="text-[11px] text-white/45">
+                            Title, description, tags, Edgaze code.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-5">
+                        <div>
+                          <div className="text-[12px] font-semibold text-white/85">Title</div>
+                          <input
+                            value={title}
+                            onChange={(e) => {
+                              setTitle(e.target.value);
+                              // If user hasn't manually changed code, keep it derived from title
+                              if (
+                                !edgazeCode ||
+                                edgazeCode === baseCodeFromTitle(draft?.title || "")
+                              ) {
+                                setEdgazeCode(baseCodeFromTitle(e.target.value));
+                              }
+                            }}
+                            className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-[13px] text-white outline-none focus:border-white/20"
+                            placeholder="Give your workflow a clear title"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="text-[12px] font-semibold text-white/85">Description</div>
+                          <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="mt-2 w-full min-h-[110px] rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-[13px] text-white/90 outline-none focus:border-white/20"
+                            placeholder="What does this workflow do? Who is it for?"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="text-[12px] font-semibold text-white/85">Tags</div>
+                          <div className="mt-1 text-[11px] text-white/45">
+                            Comma-separated (max 10)
+                          </div>
+                          <input
+                            value={tagsInput}
+                            onChange={(e) => setTagsInput(e.target.value)}
+                            className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-[13px] text-white outline-none focus:border-white/20"
+                            placeholder="e.g. study, automation, youtube"
+                          />
+                        </div>
+
+                        <div>
+                          <div className="flex items-end justify-between">
+                            <div>
+                              <div className="text-[12px] font-semibold text-white/85">
+                                Edgaze code
+                              </div>
+                              <div className="text-[11px] text-white/45">
+                                This becomes: edgaze.ai/&lt;handle&gt;/&lt;code&gt;
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const base = baseCodeFromTitle(safeTitle);
+                                setEdgazeCode(base);
+                                setCodeStatus("checking");
+                                setCodeMsg("Checking availability…");
+                              }}
+                              className="text-[11px] text-white/70 hover:text-white/90"
+                            >
+                              Reset to title
+                            </button>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2">
+                            <input
+                              value={edgazeCode}
+                              onChange={(e) => setEdgazeCode(e.target.value)}
+                              className="flex-1 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-[13px] text-white outline-none focus:border-white/20"
+                              placeholder="my-workflow"
+                            />
+                            <button
+                              onClick={async () => {
+                                const fixed = await ensureAvailableCodeOrAutofix();
+                                if (!fixed) setErr("Could not find an available code. Try again.");
+                              }}
+                              className="h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 text-[12px] font-semibold"
+                            >
+                              Auto-fix
+                            </button>
+                          </div>
+
+                          <div className="mt-2 text-[11px]">
+                            <span
+                              className={cx(
+                                "inline-flex items-center gap-2",
+                                codeStatus === "available" && "text-emerald-200",
+                                (codeStatus === "taken" || codeStatus === "invalid") &&
+                                  "text-amber-200",
+                                codeStatus === "checking" && "text-white/60",
+                                codeStatus === "idle" && "text-white/50",
+                              )}
+                            >
+                              {codeStatus === "checking" ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : null}
+                              {codeMsg || (codeStatus === "available" ? "Available." : "")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {showAllMobileSections || tab === "pricing" ? (
+                    <div
+                      ref={(node) => {
+                        sectionRefs.current.pricing = node;
+                      }}
+                      data-section="pricing"
+                      className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6"
+                    >
+                      <div className="mb-4 flex items-center gap-3 md:hidden">
+                        <div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                          <BadgeDollarSign className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-[12px] font-semibold text-white">Pricing</div>
+                          <div className="text-[11px] text-white/45">
+                            Free or set a premium price.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-5">
+                        {!postingAs?.canReceivePayments && (
+                          <PayoutSystemCard
+                            variant="workflow"
+                            showCheckbox={monetisationMode === "paywall"}
+                            acceptedCreatorTerms={acceptedCreatorTerms}
+                            onAcceptedChange={setAcceptedCreatorTerms}
+                          />
+                        )}
+                        {costEstimate && monetisationMode === "paywall" && (
+                          <div className="rounded-2xl border border-white/10 bg-black/35 p-4 space-y-3">
+                            <div className="text-[12px] font-semibold text-white/90">
+                              Infrastructure cost estimate
+                            </div>
+                            <div className="grid gap-2 text-[11px]">
+                              <div className="flex justify-between">
+                                <span className="text-white/60">Estimated cost for 10 runs</span>
+                                <span className="text-white font-medium">
+                                  ${costEstimate.cost10.toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-white/60">Minimum price</span>
+                                <span className="text-white font-medium">
+                                  ${costEstimate.min.toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-white/60">Recommended price</span>
+                                <span className="text-emerald-300 font-medium">
+                                  ${costEstimate.recommended.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-white/50 leading-relaxed">
+                              This infrastructure cost estimate is provided as pricing guidance for
+                              creators. It is{" "}
+                              <strong className="text-white/70">not deducted</strong> from your
+                              balance or payouts. The only standard platform deduction is the Edgaze
+                              marketplace fee of <strong className="text-white/70">20%</strong>. Use
+                              this estimate to set pricing that appropriately covers operating cost
+                              and your target margin.
+                            </p>
+                            <Link
+                              href="/docs/infrastructure-cost-estimation"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                            >
+                              Learn more about cost estimation
+                            </Link>
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-[12px] font-semibold text-white/85">
+                            Monetisation
+                          </div>
+                          <div className="text-[11px] text-white/50 mt-1">
+                            Choose Free or set a price (${effectiveMinPrice.toFixed(2)}–$
+                            {WORKFLOW_MAX_USD} for workflows).
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(["free", "paywall"] as MonetisationMode[]).map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setMonetisationMode(m)}
+                                className={cx(
+                                  "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
+                                  monetisationMode === m
+                                    ? "border-cyan-400/25 bg-cyan-400/10 text-white"
+                                    : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]",
+                                )}
+                              >
+                                {m === "free" ? "Free" : "Paywall"}
+                              </button>
+                            ))}
+                          </div>
+                          {monetisationMode === "paywall" && (
+                            <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-[12px] font-semibold text-white/90">
+                                  Price (USD)
+                                </div>
+                                {costEstimate && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPriceUsd(costEstimate.recommended.toFixed(2))}
+                                    className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium"
+                                  >
+                                    Use recommended (${costEstimate.recommended.toFixed(2)})
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="number"
+                                min={effectiveMinPrice}
+                                max={WORKFLOW_MAX_USD}
+                                step="0.99"
+                                value={priceUsd}
+                                onChange={(e) => setPriceUsd(e.target.value)}
+                                className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-[14px] text-white placeholder-white/40 focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/30 focus:outline-none"
+                                placeholder={costEstimate?.recommended.toFixed(2) ?? "5.99"}
+                              />
+                              {validateWorkflowPrice(Number(priceUsd) || 0, effectiveMinPrice)
+                                .error && (
+                                <p className="mt-2 text-[11px] text-amber-400">
+                                  {
+                                    validateWorkflowPrice(Number(priceUsd) || 0, effectiveMinPrice)
+                                      .error
+                                  }
+                                </p>
+                              )}
+                              <p className="mt-2 text-[11px] text-white/45">
+                                Minimum ${effectiveMinPrice.toFixed(2)}, maximum ${WORKFLOW_MAX_USD}{" "}
+                                for workflows.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {showAllMobileSections || tab === "media" ? (
+                    <div
+                      ref={(node) => {
+                        sectionRefs.current.media = node;
+                      }}
+                      data-section="media"
+                      className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6"
+                    >
+                      <div className="mb-4 flex items-center gap-3 md:hidden">
+                        <div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                          <Images className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-[12px] font-semibold text-white">Media</div>
+                          <div className="text-[11px] text-white/45">
+                            Thumbnail and demo outputs.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-6">
+                        <div>
+                          <div className="text-[12px] font-semibold text-white/85">Thumbnail</div>
+                          <div className="mt-2 flex flex-wrap gap-2 items-center">
+                            <button
+                              onClick={() => thumbInputRef.current?.click()}
+                              className="h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 inline-flex items-center gap-2 text-[12px] font-semibold"
+                            >
+                              <Upload className="h-4 w-4" />
+                              Upload thumbnail
+                            </button>
+                            <button
+                              onClick={() => {
+                                // force regenerate
+                                setThumbnailFile(null);
+                                setAutoThumbFile(null);
+                                setAutoThumbDataUrl(null);
+                                setAutoThumbBusy(false);
+                                setErr(null);
+                              }}
+                              className="h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 inline-flex items-center gap-2 text-[12px] font-semibold"
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                              Reset to auto
+                            </button>
+
+                            <input
+                              ref={thumbInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handlePickThumbnail(e.target.files?.[0] ?? null)}
+                            />
+                            <div className="text-[11px] text-white/45">
+                              Auto preview is generated from your graph.
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[12px] font-semibold text-white/85">
+                            Output demo images
+                          </div>
+                          <div className="mt-1 text-[11px] text-white/45">Up to 6 images.</div>
+
+                          <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {demoFiles.map((f, i) => (
+                              <button
+                                key={i}
+                                onClick={() => demoInputRefs.current[i]?.click()}
+                                className="aspect-[4/3] rounded-2xl border border-white/10 bg-black/35 hover:bg-black/45 transition-colors overflow-hidden grid place-items-center"
+                              >
+                                {f ? (
+                                  <img
+                                    src={URL.createObjectURL(f)}
+                                    alt={`demo ${i + 1}`}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="text-[11px] text-white/55">Add demo</div>
+                                )}
+                                <input
+                                  ref={(el) => {
+                                    demoInputRefs.current[i] = el;
+                                  }}
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => handlePickDemo(i, e.target.files?.[0] ?? null)}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {showAllMobileSections || tab === "visibility" ? (
+                    <div
+                      ref={(node) => {
+                        sectionRefs.current.visibility = node;
+                      }}
+                      data-section="visibility"
+                      className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-6"
+                    >
+                      <div className="mb-4 flex items-center gap-3 md:hidden">
+                        <div className="grid h-10 w-10 place-items-center rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100">
+                          <Globe2 className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="text-[12px] font-semibold text-white">Visibility</div>
+                          <div className="text-[11px] text-white/45">
+                            Choose how the listing appears.
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="text-[12px] font-semibold text-white/85">Visibility</div>
+                        <div className="text-[11px] text-white/50 mt-1">
+                          Choose who can see your workflow.
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {(["public", "unlisted", "private"] as Visibility[]).map((v) => {
+                            const disabled = v !== "public";
+                            return (
+                              <button
+                                key={v}
+                                type="button"
+                                disabled={disabled}
+                                onClick={() => !disabled && setVisibility(v)}
+                                className={cx(
+                                  "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
+                                  disabled
+                                    ? "border-white/10 bg-white/[0.02] text-white/50 opacity-70 cursor-not-allowed"
+                                    : visibility === v
+                                      ? "border-white/18 bg-white/[0.08] text-white"
+                                      : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]",
+                                )}
+                              >
+                                {v === "public"
+                                  ? "Public"
+                                  : v === "unlisted"
+                                    ? "Unlisted"
+                                    : "Private"}
+                                {disabled ? " (unavailable)" : ""}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="text-[11px] text-white/45 leading-relaxed">
+                          Public = discoverable in the marketplace.
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 rounded-3xl border border-white/10 bg-white/[0.03] overflow-hidden">
                   <div className="grid grid-cols-12">
-                    <div className="col-span-12 md:col-span-6 p-5">
+                    <div className="col-span-12 p-4 md:col-span-6 md:p-5">
                       <div className="text-[11px] text-white/45">Preview</div>
                       <div className="mt-1 text-white text-[16px] font-semibold">{safeTitle}</div>
                       <div className="mt-2 text-[12px] text-white/60 leading-relaxed">
@@ -1162,7 +1714,7 @@ export default function WorkflowPublishModal({
                       </div>
                     </div>
 
-                    <div className="col-span-12 md:col-span-6 border-t md:border-t-0 md:border-l border-white/10 p-5">
+                    <div className="col-span-12 border-t border-white/10 p-4 md:col-span-6 md:border-l md:border-t-0 md:p-5">
                       <div className="text-[11px] text-white/45">Thumbnail</div>
 
                       <div className="mt-2 rounded-2xl border border-white/10 bg-black/40 overflow-hidden aspect-[1200/630]">
@@ -1187,354 +1739,6 @@ export default function WorkflowPublishModal({
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Section content */}
-                <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-6">
-                  {tab === "details" ? (
-                    <div className="space-y-5">
-                      <div>
-                        <div className="text-[12px] font-semibold text-white/85">Title</div>
-                        <input
-                          value={title}
-                          onChange={(e) => {
-                            setTitle(e.target.value);
-                            // If user hasn't manually changed code, keep it derived from title
-                            if (
-                              !edgazeCode ||
-                              edgazeCode === baseCodeFromTitle(draft?.title || "")
-                            ) {
-                              setEdgazeCode(baseCodeFromTitle(e.target.value));
-                            }
-                          }}
-                          className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-[13px] text-white outline-none focus:border-white/20"
-                          placeholder="Give your workflow a clear title"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="text-[12px] font-semibold text-white/85">Description</div>
-                        <textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          className="mt-2 w-full min-h-[110px] rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-[13px] text-white/90 outline-none focus:border-white/20"
-                          placeholder="What does this workflow do? Who is it for?"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="text-[12px] font-semibold text-white/85">Tags</div>
-                        <div className="mt-1 text-[11px] text-white/45">
-                          Comma-separated (max 10)
-                        </div>
-                        <input
-                          value={tagsInput}
-                          onChange={(e) => setTagsInput(e.target.value)}
-                          className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-[13px] text-white outline-none focus:border-white/20"
-                          placeholder="e.g. study, automation, youtube"
-                        />
-                      </div>
-
-                      <div>
-                        <div className="flex items-end justify-between">
-                          <div>
-                            <div className="text-[12px] font-semibold text-white/85">
-                              Edgaze code
-                            </div>
-                            <div className="text-[11px] text-white/45">
-                              This becomes: edgaze.ai/&lt;handle&gt;/&lt;code&gt;
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => {
-                              const base = baseCodeFromTitle(safeTitle);
-                              setEdgazeCode(base);
-                              setCodeStatus("checking");
-                              setCodeMsg("Checking availability…");
-                            }}
-                            className="text-[11px] text-white/70 hover:text-white/90"
-                          >
-                            Reset to title
-                          </button>
-                        </div>
-
-                        <div className="mt-2 flex items-center gap-2">
-                          <input
-                            value={edgazeCode}
-                            onChange={(e) => setEdgazeCode(e.target.value)}
-                            className="flex-1 rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-[13px] text-white outline-none focus:border-white/20"
-                            placeholder="my-workflow"
-                          />
-                          <button
-                            onClick={async () => {
-                              const fixed = await ensureAvailableCodeOrAutofix();
-                              if (!fixed) setErr("Could not find an available code. Try again.");
-                            }}
-                            className="h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 text-[12px] font-semibold"
-                          >
-                            Auto-fix
-                          </button>
-                        </div>
-
-                        <div className="mt-2 text-[11px]">
-                          <span
-                            className={cx(
-                              "inline-flex items-center gap-2",
-                              codeStatus === "available" && "text-emerald-200",
-                              (codeStatus === "taken" || codeStatus === "invalid") &&
-                                "text-amber-200",
-                              codeStatus === "checking" && "text-white/60",
-                              codeStatus === "idle" && "text-white/50",
-                            )}
-                          >
-                            {codeStatus === "checking" ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : null}
-                            {codeMsg || (codeStatus === "available" ? "Available." : "")}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {tab === "pricing" ? (
-                    <div className="space-y-5">
-                      {!postingAs?.canReceivePayments && (
-                        <PayoutSystemCard
-                          variant="workflow"
-                          showCheckbox={monetisationMode === "paywall"}
-                          acceptedCreatorTerms={acceptedCreatorTerms}
-                          onAcceptedChange={setAcceptedCreatorTerms}
-                        />
-                      )}
-                      {costEstimate && monetisationMode === "paywall" && (
-                        <div className="rounded-2xl border border-white/10 bg-black/35 p-4 space-y-3">
-                          <div className="text-[12px] font-semibold text-white/90">
-                            Infrastructure cost estimate
-                          </div>
-                          <div className="grid gap-2 text-[11px]">
-                            <div className="flex justify-between">
-                              <span className="text-white/60">Estimated cost for 10 runs</span>
-                              <span className="text-white font-medium">
-                                ${costEstimate.cost10.toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-white/60">Minimum price</span>
-                              <span className="text-white font-medium">
-                                ${costEstimate.min.toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-white/60">Recommended price</span>
-                              <span className="text-emerald-300 font-medium">
-                                ${costEstimate.recommended.toFixed(2)}
-                              </span>
-                            </div>
-                          </div>
-                          <p className="text-[11px] text-white/50 leading-relaxed">
-                            This infrastructure cost estimate is provided as pricing guidance for
-                            creators. It is <strong className="text-white/70">not deducted</strong>{" "}
-                            from your balance or payouts. The only standard platform deduction is
-                            the Edgaze marketplace fee of{" "}
-                            <strong className="text-white/70">20%</strong>. Use this estimate to set
-                            pricing that appropriately covers operating cost and your target margin.
-                          </p>
-                          <Link
-                            href="/docs/infrastructure-cost-estimation"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[11px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
-                          >
-                            Learn more about cost estimation
-                          </Link>
-                        </div>
-                      )}
-                      <div>
-                        <div className="text-[12px] font-semibold text-white/85">Monetisation</div>
-                        <div className="text-[11px] text-white/50 mt-1">
-                          Choose Free or set a price (${effectiveMinPrice.toFixed(2)}–$
-                          {WORKFLOW_MAX_USD} for workflows).
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {(["free", "paywall"] as MonetisationMode[]).map((m) => (
-                            <button
-                              key={m}
-                              type="button"
-                              onClick={() => setMonetisationMode(m)}
-                              className={cx(
-                                "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
-                                monetisationMode === m
-                                  ? "border-cyan-400/25 bg-cyan-400/10 text-white"
-                                  : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]",
-                              )}
-                            >
-                              {m === "free" ? "Free" : "Paywall"}
-                            </button>
-                          ))}
-                        </div>
-                        {monetisationMode === "paywall" && (
-                          <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-[12px] font-semibold text-white/90">
-                                Price (USD)
-                              </div>
-                              {costEstimate && (
-                                <button
-                                  type="button"
-                                  onClick={() => setPriceUsd(costEstimate.recommended.toFixed(2))}
-                                  className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium"
-                                >
-                                  Use recommended (${costEstimate.recommended.toFixed(2)})
-                                </button>
-                              )}
-                            </div>
-                            <input
-                              type="number"
-                              min={effectiveMinPrice}
-                              max={WORKFLOW_MAX_USD}
-                              step="0.99"
-                              value={priceUsd}
-                              onChange={(e) => setPriceUsd(e.target.value)}
-                              className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-[14px] text-white placeholder-white/40 focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/30 focus:outline-none"
-                              placeholder={costEstimate?.recommended.toFixed(2) ?? "5.99"}
-                            />
-                            {validateWorkflowPrice(Number(priceUsd) || 0, effectiveMinPrice)
-                              .error && (
-                              <p className="mt-2 text-[11px] text-amber-400">
-                                {
-                                  validateWorkflowPrice(Number(priceUsd) || 0, effectiveMinPrice)
-                                    .error
-                                }
-                              </p>
-                            )}
-                            <p className="mt-2 text-[11px] text-white/45">
-                              Minimum ${effectiveMinPrice.toFixed(2)}, maximum ${WORKFLOW_MAX_USD}{" "}
-                              for workflows.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {tab === "media" ? (
-                    <div className="space-y-6">
-                      <div>
-                        <div className="text-[12px] font-semibold text-white/85">Thumbnail</div>
-                        <div className="mt-2 flex flex-wrap gap-2 items-center">
-                          <button
-                            onClick={() => thumbInputRef.current?.click()}
-                            className="h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 inline-flex items-center gap-2 text-[12px] font-semibold"
-                          >
-                            <Upload className="h-4 w-4" />
-                            Upload thumbnail
-                          </button>
-                          <button
-                            onClick={() => {
-                              // force regenerate
-                              setThumbnailFile(null);
-                              setAutoThumbFile(null);
-                              setAutoThumbDataUrl(null);
-                              setAutoThumbBusy(false);
-                              setErr(null);
-                            }}
-                            className="h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 inline-flex items-center gap-2 text-[12px] font-semibold"
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                            Reset to auto
-                          </button>
-
-                          <input
-                            ref={thumbInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handlePickThumbnail(e.target.files?.[0] ?? null)}
-                          />
-                          <div className="text-[11px] text-white/45">
-                            Auto preview is generated from your graph.
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="text-[12px] font-semibold text-white/85">
-                          Output demo images
-                        </div>
-                        <div className="mt-1 text-[11px] text-white/45">Up to 6 images.</div>
-
-                        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {demoFiles.map((f, i) => (
-                            <button
-                              key={i}
-                              onClick={() => demoInputRefs.current[i]?.click()}
-                              className="aspect-[4/3] rounded-2xl border border-white/10 bg-black/35 hover:bg-black/45 transition-colors overflow-hidden grid place-items-center"
-                            >
-                              {f ? (
-                                <img
-                                  src={URL.createObjectURL(f)}
-                                  alt={`demo ${i + 1}`}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="text-[11px] text-white/55">Add demo</div>
-                              )}
-                              <input
-                                ref={(el) => {
-                                  demoInputRefs.current[i] = el;
-                                }}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => handlePickDemo(i, e.target.files?.[0] ?? null)}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {tab === "visibility" ? (
-                    <div className="space-y-4">
-                      <div className="text-[12px] font-semibold text-white/85">Visibility</div>
-                      <div className="text-[11px] text-white/50 mt-1">
-                        Choose who can see your workflow.
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {(["public", "unlisted", "private"] as Visibility[]).map((v) => {
-                          const disabled = v !== "public";
-                          return (
-                            <button
-                              key={v}
-                              type="button"
-                              disabled={disabled}
-                              onClick={() => !disabled && setVisibility(v)}
-                              className={cx(
-                                "rounded-2xl border px-4 py-3 text-[12px] font-semibold transition-colors",
-                                disabled
-                                  ? "border-white/10 bg-white/[0.02] text-white/50 opacity-70 cursor-not-allowed"
-                                  : visibility === v
-                                    ? "border-white/18 bg-white/[0.08] text-white"
-                                    : "border-white/10 bg-white/[0.02] text-white/75 hover:bg-white/[0.04]",
-                              )}
-                            >
-                              {v === "public"
-                                ? "Public"
-                                : v === "unlisted"
-                                  ? "Unlisted"
-                                  : "Private"}
-                              {disabled ? " (unavailable)" : ""}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="text-[11px] text-white/45 leading-relaxed">
-                        Public = discoverable in the marketplace.
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
 
                 <div className="mt-4 text-[11px] text-white/40">
