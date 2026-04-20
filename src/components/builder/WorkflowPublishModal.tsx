@@ -1010,7 +1010,7 @@ export default function WorkflowPublishModal({
 
       <div className="absolute inset-0 flex items-center justify-center p-0 sm:p-4">
         <div
-          className="relative h-[100dvh] w-full overflow-hidden border-y border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] sm:h-[min(620px,88vh)] sm:max-h-[92vh] sm:w-[min(900px,96vw)] sm:rounded-2xl sm:border"
+          className="relative flex h-[100dvh] w-full flex-col overflow-hidden border-y border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] sm:h-[min(620px,88vh)] sm:max-h-[92vh] sm:w-[min(900px,96vw)] sm:rounded-2xl sm:border"
           style={{
             paddingTop: "max(env(safe-area-inset-top), 12px)",
             paddingBottom: "max(env(safe-area-inset-bottom), 16px)",
@@ -1019,7 +1019,7 @@ export default function WorkflowPublishModal({
           <ConfettiSides active={confetti} />
 
           {/* Header */}
-          <div className="border-b border-white/10 px-4 py-2.5 sm:flex sm:h-[56px] sm:items-center sm:justify-between sm:px-5 sm:py-0">
+          <div className="shrink-0 border-b border-white/10 px-4 py-2.5 sm:flex sm:h-[56px] sm:items-center sm:justify-between sm:px-5 sm:py-0">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <Image
                 src="/brand/edgaze-mark.png"
@@ -1104,8 +1104,8 @@ export default function WorkflowPublishModal({
 
           {/* Body */}
           {published ? (
-            <div className="h-[calc(100%-56px)] overflow-auto p-4 md:p-6">
-              <div className="h-full rounded-3xl border border-white/10 bg-[radial-gradient(1200px_600px_at_50%_-20%,rgba(34,211,238,0.14),transparent_55%),radial-gradient(900px_500px_at_90%_0%,rgba(232,121,249,0.12),transparent_55%),linear-gradient(180deg,rgba(0,0,0,0.25),rgba(0,0,0,0.55))] p-8 flex flex-col">
+            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
+              <div className="flex min-h-full flex-col rounded-3xl border border-white/10 bg-[radial-gradient(1200px_600px_at_50%_-20%,rgba(34,211,238,0.14),transparent_55%),radial-gradient(900px_500px_at_90%_0%,rgba(232,121,249,0.12),transparent_55%),linear-gradient(180deg,rgba(0,0,0,0.25),rgba(0,0,0,0.55))] p-4 sm:p-8">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-6 w-6 text-white" />
                   <div className="text-white text-xl font-semibold">Published</div>
@@ -1114,24 +1114,24 @@ export default function WorkflowPublishModal({
                 <div className="mt-2 text-sm text-white/60">Your workflow is live. Share it.</div>
 
                 <div className="mt-7 grid grid-cols-12 gap-6 flex-1 min-h-0">
-                  <div className="col-span-12 md:col-span-7 rounded-3xl border border-white/10 bg-black/35 p-6 min-h-0">
+                  <div className="col-span-12 min-h-0 rounded-3xl border border-white/10 bg-black/35 p-4 sm:p-6 md:col-span-7">
                     <div className="text-[12px] font-semibold text-white/80">Edgaze code</div>
-                    <div className="mt-2 text-[44px] leading-none font-semibold text-white tracking-tight">
+                    <div className="mt-2 break-words text-[30px] font-semibold leading-none tracking-tight text-white sm:text-[44px]">
                       {shownCode || "—"}
                     </div>
 
                     <div className="mt-6">
                       <div className="text-[12px] font-semibold text-white/80">Share link</div>
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] text-white/85 overflow-hidden">
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[12px] text-white/85 overflow-hidden">
                           <span className="inline-flex items-center gap-2">
-                            <LinkIcon className="h-4 w-4 text-white/60" />
-                            <span className="truncate">{publishedUrl}</span>
+                            <LinkIcon className="h-4 w-4 shrink-0 text-white/60" />
+                            <span className="min-w-0 truncate">{publishedUrl}</span>
                           </span>
                         </div>
                         <button
                           onClick={() => copyToClipboard(publishedUrl)}
-                          className="h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 inline-flex items-center gap-2 text-[12px] font-semibold"
+                          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 text-[12px] font-semibold text-white/90 hover:bg-white/10 sm:w-auto"
                         >
                           <Copy className="h-4 w-4" />
                           Copy
@@ -1139,7 +1139,7 @@ export default function WorkflowPublishModal({
                       </div>
                     </div>
 
-                    <div className="mt-6 flex items-center gap-2">
+                    <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center">
                       <button
                         onClick={() => {
                           // Allow regenerating QR if it failed
@@ -1149,7 +1149,7 @@ export default function WorkflowPublishModal({
                             workflowId: draft.id,
                           }).catch(() => {});
                         }}
-                        className="h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 inline-flex items-center gap-2 text-[12px] font-semibold"
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 text-[12px] font-semibold text-white/90 hover:bg-white/10 sm:w-auto"
                       >
                         <RotateCcw className="h-4 w-4" />
                         Regenerate QR
@@ -1157,9 +1157,9 @@ export default function WorkflowPublishModal({
                     </div>
                   </div>
 
-                  <div className="col-span-12 md:col-span-5 rounded-3xl border border-white/10 bg-black/35 p-6 flex flex-col items-center justify-center">
+                  <div className="col-span-12 flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-black/35 p-4 sm:p-6 md:col-span-5">
                     <div className="text-[12px] font-semibold text-white/80">QR code</div>
-                    <div className="mt-4 w-[240px] h-[240px] rounded-3xl border border-white/10 bg-white/[0.03] grid place-items-center overflow-hidden">
+                    <div className="mt-4 grid aspect-square w-full max-w-[240px] place-items-center overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
                       {qrBusy ? (
                         <div className="text-[12px] text-white/60 inline-flex items-center gap-2">
                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -1176,7 +1176,7 @@ export default function WorkflowPublishModal({
                       )}
                     </div>
 
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-4 flex w-full flex-col gap-2 sm:flex-row">
                       <button
                         onClick={() =>
                           qrDataUrl
@@ -1185,7 +1185,7 @@ export default function WorkflowPublishModal({
                         }
                         disabled={!qrDataUrl}
                         className={cx(
-                          "h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 inline-flex items-center gap-2 text-[12px] font-semibold",
+                          "inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 text-[12px] font-semibold text-white/90 hover:bg-white/10",
                           !qrDataUrl && "opacity-60 cursor-not-allowed",
                         )}
                       >
@@ -1194,7 +1194,7 @@ export default function WorkflowPublishModal({
                       </button>
                       <button
                         onClick={() => copyToClipboard(publishedUrl)}
-                        className="h-11 px-4 rounded-2xl bg-white text-black hover:bg-white/90 inline-flex items-center gap-2 text-[12px] font-semibold"
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-[12px] font-semibold text-black hover:bg-white/90"
                       >
                         <Copy className="h-4 w-4" />
                         Copy link
@@ -1209,7 +1209,7 @@ export default function WorkflowPublishModal({
               </div>
             </div>
           ) : (
-            <div className="flex h-[calc(100%-72px)] min-h-0 flex-col overflow-hidden sm:h-[calc(100%-56px)] md:grid md:grid-cols-12">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:grid md:grid-cols-12">
               {/* Left rail */}
               <div className="shrink-0 border-b border-white/10 px-3 py-2.5 md:col-span-3 md:overflow-auto md:border-b-0 md:border-r md:p-6">
                 <div className="text-[12px] font-semibold text-white/85">Publish</div>

@@ -1421,7 +1421,7 @@ export default function PublishPromptModal({
 
       <div className="absolute inset-0 flex items-center justify-center p-0 sm:p-4">
         <div
-          className="relative h-[100dvh] w-full overflow-hidden border-y border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] sm:h-[min(620px,88vh)] sm:max-h-[92vh] sm:w-[min(900px,96vw)] sm:rounded-2xl sm:border"
+          className="relative flex h-[100dvh] w-full flex-col overflow-hidden border-y border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.75)] sm:h-[min(620px,88vh)] sm:max-h-[92vh] sm:w-[min(900px,96vw)] sm:rounded-2xl sm:border"
           style={{
             paddingTop: "max(env(safe-area-inset-top), 12px)",
             paddingBottom: "max(env(safe-area-inset-bottom), 16px)",
@@ -1430,7 +1430,7 @@ export default function PublishPromptModal({
           <ConfettiSides active={confetti} />
 
           {/* Header */}
-          <div className="border-b border-white/10 px-4 py-2.5 sm:flex sm:h-[56px] sm:items-center sm:justify-between sm:px-5 sm:py-0">
+          <div className="shrink-0 border-b border-white/10 px-4 py-2.5 sm:flex sm:h-[56px] sm:items-center sm:justify-between sm:px-5 sm:py-0">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <Image
                 src="/brand/edgaze-mark.png"
@@ -1472,7 +1472,7 @@ export default function PublishPromptModal({
           </div>
 
           {/* Body */}
-          <div className="flex h-[calc(100%-72px)] min-h-0 flex-col gap-0 sm:h-[calc(100%-56px)] md:grid md:grid-cols-12">
+          <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden md:grid md:grid-cols-12">
             {/* Left: Stepper */}
             <div className="shrink-0 border-b border-white/10 px-3 py-2.5 sm:px-5 sm:py-4 md:col-span-4 md:border-b-0 md:border-r md:p-5">
               <div className="flex items-center justify-between">
@@ -1590,7 +1590,7 @@ export default function PublishPromptModal({
             {/* Right: Content */}
             <div
               ref={contentScrollRef}
-              className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5 md:col-span-8"
+              className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-5 md:col-span-8"
             >
               {!published ? (
                 <>
@@ -2305,34 +2305,34 @@ export default function PublishPromptModal({
               ) : (
                 // Published view (keeps old functionality)
                 <div className="grid grid-cols-12 gap-4">
-                  <div className="col-span-12 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="col-span-12 rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
                     <div className="flex items-center gap-2 text-white">
                       <CheckCircle2 className="h-5 w-5 text-cyan-300" />
                       <div className="text-[14px] font-semibold">Published</div>
                     </div>
 
                     <div className="mt-4 grid grid-cols-12 gap-4">
-                      <div className="col-span-12 lg:col-span-7 rounded-3xl border border-white/10 bg-black/35 p-4">
+                      <div className="col-span-12 lg:col-span-7 rounded-3xl border border-white/10 bg-black/35 p-4 sm:p-5">
                         <div className="text-[11px] font-semibold text-white/70">Edgaze code</div>
-                        <div className="mt-2 text-[34px] font-semibold tracking-tight text-white leading-none">
+                        <div className="mt-2 break-words text-[28px] font-semibold leading-none tracking-tight text-white sm:text-[34px]">
                           {publishedCode}
                         </div>
 
                         <div className="mt-4 text-[11px] font-semibold text-white/70">
                           Share link
                         </div>
-                        <div className="mt-2 flex items-center gap-2">
-                          <div className="flex-1 rounded-2xl border border-white/10 bg-black/40 px-3 py-2 text-[12px] text-white/80 overflow-hidden">
+                        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <div className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-black/40 px-3 py-2 text-[12px] text-white/80 overflow-hidden">
                             <span className="inline-flex items-center gap-2">
-                              <LinkIcon className="h-4 w-4 text-white/55" />
-                              <span className="truncate">{publishedUrl}</span>
+                              <LinkIcon className="h-4 w-4 shrink-0 text-white/55" />
+                              <span className="min-w-0 truncate">{publishedUrl}</span>
                             </span>
                           </div>
                           <button
                             onClick={async () => {
                               await copyToClipboard(publishedUrl);
                             }}
-                            className="h-10 rounded-2xl border border-white/10 bg-white/5 px-3 text-[12px] font-semibold text-white/90 hover:bg-white/10"
+                            className="inline-flex h-10 w-full items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 text-[12px] font-semibold text-white/90 hover:bg-white/10 sm:w-auto"
                           >
                             <span className="inline-flex items-center gap-2">
                               <Copy className="h-4 w-4" />
@@ -2353,7 +2353,7 @@ export default function PublishPromptModal({
                         </div>
                       </div>
 
-                      <div className="col-span-12 lg:col-span-5 rounded-3xl border border-white/10 bg-black/35 p-4">
+                      <div className="col-span-12 lg:col-span-5 rounded-3xl border border-white/10 bg-black/35 p-4 sm:p-5">
                         <div className="flex items-center justify-between">
                           <div className="text-[11px] font-semibold text-white/70">QR</div>
                           <button
@@ -2379,7 +2379,7 @@ export default function PublishPromptModal({
                         </div>
 
                         <div className="mt-3 grid place-items-center rounded-3xl border border-white/10 bg-black/40 p-3">
-                          <div className="h-[220px] w-[220px] overflow-hidden rounded-2xl bg-white/[0.03] grid place-items-center">
+                          <div className="grid aspect-square w-full max-w-[220px] place-items-center overflow-hidden rounded-2xl bg-white/[0.03]">
                             {qrBusy ? (
                               <div className="inline-flex items-center gap-2 text-[12px] text-white/60">
                                 <Loader2 className="h-4 w-4 animate-spin" />
