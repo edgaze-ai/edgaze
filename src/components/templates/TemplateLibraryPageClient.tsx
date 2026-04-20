@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Image as ImageIcon, Search, Sparkles, Wrench } from "lucide-react";
-import { useAuth } from "@/components/auth/AuthContext";
-import { templateService, type TemplateCategory, type TemplateDefinition } from "@/lib/templates";
+import { useAuth } from "../auth/AuthContext";
+import {
+  templateService,
+  type TemplateCategory,
+  type TemplateDefinition,
+} from "../../lib/templates";
 import TemplateCard from "./TemplateCard";
 import TemplateSetupModal from "./TemplateSetupModal";
 
@@ -167,6 +171,7 @@ export default function TemplateLibraryPageClient({
   };
 
   const openTemplate = (template: TemplateDefinition) => {
+    if (!requireAuth()) return;
     if (template.setup.mode === "none") {
       void handleStart(template);
       return;
@@ -275,6 +280,28 @@ export default function TemplateLibraryPageClient({
               Use a template
               <ArrowRight className="h-4 w-4" />
             </button>
+          </div>
+        </section>
+
+        <section className="mt-10 rounded-[20px] border border-white/[0.08] bg-white/[0.03] px-6 py-6">
+          <h2 className="text-xl font-semibold text-white">Keep moving from template to launch</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-white/60">
+            Templates work best when paired with the public builder guides, marketplace examples,
+            and creator resources that explain how workflows get published and monetized on Edgaze.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-4 text-sm text-white/75">
+            <a href="/builder" className="hover:text-white">
+              Open Workflow Builder
+            </a>
+            <a href="/docs/builder/templates" className="hover:text-white">
+              Read template documentation
+            </a>
+            <a href="/marketplace" className="hover:text-white">
+              Browse marketplace examples
+            </a>
+            <a href="/creators" className="hover:text-white">
+              Learn about creator publishing
+            </a>
           </div>
         </section>
       </div>

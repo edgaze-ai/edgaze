@@ -116,7 +116,7 @@ type DraftRow = {
   last_opened_at: string | null;
 };
 
-type BuilderMode = "edit" | "preview";
+type BuilderMode = "edit" | "preview" | "template-mobile-preview";
 
 function normalizeGraph(raw: any): { nodes: any[]; edges: any[] } {
   if (!raw) return { nodes: [], edges: [] };
@@ -172,6 +172,11 @@ function formatLastSaved(d: Date): string {
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
+}
+
+function isPhoneSizedViewport() {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth > 0 && window.innerWidth < BUILDER_MOBILE_MAX_W;
 }
 
 /** Kahn's topological sort - matches server execution order */
@@ -234,6 +239,10 @@ export default function BuilderPage() {
   const previewParam =
     searchParams?.get("preview") === "1" || searchParams?.get("mode") === "preview";
   const draftParam = searchParams?.get("draftId");
+  const templateSlugParam = searchParams?.get("templateSlug");
+  const [activeTemplateSlug, setActiveTemplateSlug] = useState<string | null>(
+    templateSlugParam ?? null,
+  );
 
   // workflow state
   const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
@@ -247,9 +256,14 @@ export default function BuilderPage() {
   // builder mode - initialize from URL param
   const [mode, setMode] = useState<BuilderMode>(previewParam ? "preview" : "edit");
   const isPreview = mode === "preview";
+  const isTemplateMobilePreview = mode === "template-mobile-preview";
+  const hasTemplateEntry = Boolean(activeTemplateSlug ?? templateSlugParam);
+  const shouldUseTemplateMobilePreview =
+    mounted && isMobileBlocked && !previewParam && hasTemplateEntry;
 
   // selection/stats
   const [selection, setSelection] = useState<Selection>({ nodeId: null });
+  const showMobileTemplateInspector = isTemplateMobilePreview && Boolean(selection.nodeId);
   const [stats, setStats] = useState({ nodes: 0, edges: 0 });
 
   // Canvas control states
@@ -373,6 +387,34 @@ export default function BuilderPage() {
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
+    setActiveTemplateSlug(templateSlugParam ?? null);
+  }, [templateSlugParam]);
+
+  const syncBuilderRoute = useCallback(
+    ({ draftId, templateSlug }: { draftId?: string | null; templateSlug?: string | null }) => {
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      params.delete("workflowId");
+      params.delete("preview");
+      params.delete("mode");
+
+      if (draftId) params.set("draftId", draftId);
+      else params.delete("draftId");
+
+      if (templateSlug) params.set("templateSlug", templateSlug);
+      else params.delete("templateSlug");
+
+      const nextUrl = `/builder${params.toString() ? `?${params.toString()}` : ""}`;
+      const currentUrl = `/builder${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`;
+      if (nextUrl !== currentUrl) {
+        router.replace(nextUrl as any, {
+          scroll: false,
+        });
+      }
+    },
+    [router, searchParams],
+  );
+
+  useEffect(() => {
     if (!mounted) return;
     safeTrack("Builder Viewed", {
       surface: "builder",
@@ -403,6 +445,16 @@ export default function BuilderPage() {
     let raf2 = 0;
 
     const applyDefaultLayout = () => {
+      if (isPreview || isTemplateMobilePreview) {
+        setWindows((prev) => ({
+          ...prev,
+          blocks: { ...prev.blocks, visible: false, minimized: false },
+          inspector: { ...prev.inspector, visible: false, minimized: false },
+        }));
+        setWindowsInitialized(true);
+        return;
+      }
+
       const rootEl = rootRef.current;
       const headerEl = headerRef.current;
       const topbarInnerEl = topbarInnerRef.current;
@@ -529,7 +581,7 @@ export default function BuilderPage() {
       window.removeEventListener("resize", onWinResize);
       ro.disconnect();
     };
-  }, [mounted, viewport.w]);
+  }, [mounted, viewport.w, isPreview, isTemplateMobilePreview]);
 
   // stats polling (safe + cheap)
   useEffect(() => {
@@ -585,7 +637,7 @@ export default function BuilderPage() {
   // When entering preview: force-hide blocks/inspector and stop rename edit state
   useEffect(() => {
     if (!mounted) return;
-    if (!isPreview) {
+    if (!isPreview && !isTemplateMobilePreview) {
       // Clear preview state when leaving preview mode
       setPreviewOwnerHandle(null);
       setPreviewEdgazeCode(null);
@@ -599,16 +651,20 @@ export default function BuilderPage() {
       blocks: { ...p.blocks, visible: false, minimized: false },
       inspector: { ...p.inspector, visible: false, minimized: false },
     }));
-  }, [mounted, isPreview]);
+  }, [mounted, isPreview, isTemplateMobilePreview]);
 
   // Sync mode with URL param changes
   useEffect(() => {
     if (!mounted) return;
-    const urlMode = previewParam ? "preview" : "edit";
+    const urlMode = previewParam
+      ? "preview"
+      : shouldUseTemplateMobilePreview
+        ? "template-mobile-preview"
+        : "edit";
     if (mode !== urlMode) {
       setMode(urlMode);
     }
-  }, [mounted, previewParam, mode]);
+  }, [mounted, previewParam, shouldUseTemplateMobilePreview, mode]);
 
   // listen to publish intent (bus) — ignore in preview
   useEffect(() => {
@@ -779,7 +835,7 @@ export default function BuilderPage() {
 
   // Edit mode: Ctrl+Z undo, Ctrl+Shift+Z / Ctrl+Y redo
   useEffect(() => {
-    if (!mounted || isPreview) return;
+    if (!mounted || isPreview || isTemplateMobilePreview) return;
 
     const handler = (e: KeyboardEvent) => {
       if (!e.key) return;
@@ -803,7 +859,7 @@ export default function BuilderPage() {
 
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
-  }, [mounted, isPreview, undo, redo]);
+  }, [mounted, isPreview, isTemplateMobilePreview, undo, redo]);
 
   const doAutosave = useCallback(async () => {
     if (isPreview) return;
@@ -931,12 +987,14 @@ export default function BuilderPage() {
       if (isPreview) return;
       beRef.current?.selectAndFocusNode?.(nodeId);
       setInspectorFieldHint(fieldHint ?? null);
-      setWindows((prev) => ({
-        ...prev,
-        inspector: { ...prev.inspector, visible: true, minimized: false },
-      }));
+      if (!isTemplateMobilePreview) {
+        setWindows((prev) => ({
+          ...prev,
+          inspector: { ...prev.inspector, visible: true, minimized: false },
+        }));
+      }
     },
-    [isPreview],
+    [isPreview, isTemplateMobilePreview],
   );
 
   const onSelectionChange = useCallback(
@@ -977,7 +1035,9 @@ export default function BuilderPage() {
       if (!requireAuth()) return;
       if (!userId) return;
 
-      setMode("edit");
+      const shouldOpenTemplateMobile =
+        Boolean(templateSlugParam) && !previewParam && isPhoneSizedViewport();
+      setMode(shouldOpenTemplateMobile ? "template-mobile-preview" : "edit");
       setShowLauncher(false);
       // Clear preview state when switching to edit mode
       setPreviewOwnerHandle(null);
@@ -1012,6 +1072,8 @@ export default function BuilderPage() {
         setActiveDraftId(String(row.id));
         setName(row.title || "Untitled Workflow");
         setEditingName(false);
+        setActiveTemplateSlug(templateSlugParam ?? null);
+        setMode(shouldOpenTemplateMobile ? "template-mobile-preview" : "edit");
 
         const g = normalizeGraph(row.graph);
         loadGraphAndResetHistory(g);
@@ -1078,6 +1140,8 @@ export default function BuilderPage() {
       hashPersistedGraph,
       useDraftApi,
       getAccessToken,
+      templateSlugParam,
+      previewParam,
     ],
   );
 
@@ -1141,6 +1205,7 @@ export default function BuilderPage() {
         setActiveDraftId(String(row.id));
         setName(row.title || "Untitled Workflow");
         setEditingName(false);
+        setActiveTemplateSlug(null);
 
         const ng = normalizeGraph(row.graph);
         loadGraphAndResetHistory(ng);
@@ -1280,10 +1345,16 @@ export default function BuilderPage() {
         setActiveDraftId(String(row.id));
         setName(row.title || "Untitled Workflow");
         setEditingName(false);
+        setActiveTemplateSlug(null);
 
         const loaded = normalizeGraph(row.graph);
         loadGraphAndResetHistory(loaded);
         lastSavedHashRef.current = hashGraph(loaded);
+        latestGraphRef.current = loaded;
+        setSaveUi({
+          status: "idle",
+          lastSavedAt: tryParseIsoDate(row.updated_at) ?? new Date(),
+        });
 
         await refreshWorkflows();
       } catch (e: any) {
@@ -1362,6 +1433,7 @@ export default function BuilderPage() {
         setActiveDraftId(String(workflowId)); // run uses this id
         setName(wfRow?.title || "Untitled Workflow");
         setEditingName(false);
+        setActiveTemplateSlug(null);
 
         // Store product page info for back button
         setPreviewOwnerHandle(wfRow?.owner_handle ?? null);
@@ -1543,6 +1615,7 @@ export default function BuilderPage() {
       setActiveDraftId(String(row.id));
       setName(row.title || "Untitled Workflow");
       setEditingName(false);
+      setActiveTemplateSlug(null);
 
       const g = normalizeGraph(row.graph);
       loadGraphAndResetHistory(g);
@@ -1638,6 +1711,7 @@ export default function BuilderPage() {
         setActiveDraftId(String(row.id));
         setName(row.title || "Untitled Workflow");
         setEditingName(false);
+        setActiveTemplateSlug(null);
 
         loadGraphAndResetHistory(g);
         lastSavedHashRef.current = hashGraph(g);
@@ -1684,17 +1758,21 @@ export default function BuilderPage() {
       graph,
       source,
       templateId,
+      templateSlug,
     }: {
       title: string;
       graph: { nodes: any[]; edges: any[]; meta?: any; viewport?: any };
       source: "quick_start" | "template_library";
       templateId?: string;
+      templateSlug?: string;
     }) => {
       setWfError(null);
       if (!requireAuth()) return;
       if (!userId) return;
 
-      setMode("edit");
+      const shouldOpenTemplateMobile =
+        Boolean(templateSlug) && !previewParam && isPhoneSizedViewport();
+      setMode(shouldOpenTemplateMobile ? "template-mobile-preview" : "edit");
       setCreating(true);
       setShowLauncher(false);
       try {
@@ -1748,12 +1826,15 @@ export default function BuilderPage() {
         setActiveDraftId(String(row.id));
         setName(row.title || "Untitled Workflow");
         setEditingName(false);
+        setActiveTemplateSlug(templateSlug ?? null);
+        setMode(shouldOpenTemplateMobile ? "template-mobile-preview" : "edit");
         loadGraphAndResetHistory(normalizedGraph);
         lastSavedHashRef.current = hashGraph(normalizedGraph);
         setSaveUi({
           status: "idle",
           lastSavedAt: tryParseIsoDate(row.updated_at) ?? new Date(),
         });
+        syncBuilderRoute({ draftId: String(row.id), templateSlug: templateSlug ?? null });
         setTemplateLibraryOpen(false);
         setTemplateSetupTemplate(null);
 
@@ -1782,6 +1863,8 @@ export default function BuilderPage() {
       supabase,
       loadGraphAndResetHistory,
       refreshWorkflows,
+      syncBuilderRoute,
+      previewParam,
     ],
   );
 
@@ -1807,6 +1890,7 @@ export default function BuilderPage() {
               graph: instantiated.graph,
               source: "template_library",
               templateId: template.id,
+              templateSlug: template.slug,
             }),
           )
           .catch((error: any) => {
@@ -1839,6 +1923,7 @@ export default function BuilderPage() {
           graph: instantiated.graph,
           source: "template_library",
           templateId: templateSetupTemplate.id,
+          templateSlug: templateSetupTemplate.slug,
         });
       } catch (error: any) {
         setTemplateError(error?.message || "Failed to build workflow from template.");
@@ -1982,7 +2067,7 @@ export default function BuilderPage() {
   };
 
   const toggleWindow = (id: WindowKind) => {
-    if (isPreview) return;
+    if (isPreview || isTemplateMobilePreview) return;
     setWindows((prev) => ({
       ...prev,
       [id]: { ...prev[id], visible: !prev[id].visible, minimized: false },
@@ -1990,13 +2075,13 @@ export default function BuilderPage() {
   };
 
   const minimizeWindow = (id: WindowKind) => {
-    if (isPreview) return;
+    if (isPreview || isTemplateMobilePreview) return;
     setWindows((prev) => ({ ...prev, [id]: { ...prev[id], minimized: !prev[id].minimized } }));
   };
 
   // topbar actions
   const openLauncher = () => {
-    if (isPreview) {
+    if (isPreview || isTemplateMobilePreview) {
       router.push("/marketplace");
       return;
     }
@@ -2627,11 +2712,10 @@ export default function BuilderPage() {
   // Phones: don’t keep run/launcher state when edit isn’t usable.
   useEffect(() => {
     if (!mounted) return;
-    if (isMobileBlocked && !isPreview) {
+    if (isMobileBlocked && !isPreview && !isTemplateMobilePreview) {
       setRunning(false);
-      setShowLauncher(false);
     }
-  }, [mounted, isMobileBlocked, isPreview]);
+  }, [mounted, isMobileBlocked, isPreview, isTemplateMobilePreview]);
 
   const publishDraftForModal =
     !isPreview &&
@@ -2711,7 +2795,59 @@ export default function BuilderPage() {
         `,
           }}
         />
-        {isPreview ? (
+        {isTemplateMobilePreview ? (
+          <div
+            ref={topbarInnerRef}
+            className="relative w-full overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(7,9,13,0.96),rgba(7,9,13,0.88))] px-4 py-4 shadow-[0_28px_80px_rgba(0,0,0,0.46)] backdrop-blur-2xl sm:px-5 sm:py-[18px]"
+          >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(97,218,251,0.12),transparent_30%),radial-gradient(circle_at_80%_20%,rgba(111,91,255,0.12),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.04),transparent_38%)]" />
+            <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-white/16" />
+            <div className="relative flex items-center justify-between gap-4">
+              <div className="min-w-0 flex-1 pr-2">
+                <div className="truncate text-[17px] font-semibold tracking-[-0.02em] text-white/96">
+                  {name || "Untitled Workflow"}
+                </div>
+                <div className="mt-1 max-w-[28rem] text-[12px] leading-[1.45] text-white/50">
+                  Edit blocks, reconnect steps, and recenter the canvas whenever the workflow
+                  drifts.
+                </div>
+              </div>
+
+              <div className="flex shrink-0 flex-col items-stretch gap-2">
+                <button
+                  type="button"
+                  onClick={() => beRef.current?.fitViewToGraph?.()}
+                  className="edg-builder-btn inline-flex h-10 min-w-[7.5rem] items-center justify-center gap-2 rounded-full px-4 text-[13px] font-semibold text-white/88 shadow-[0_12px_30px_rgba(0,0,0,0.24)]"
+                  title="Recenter workflow"
+                >
+                  <IconFitView size={16} className="text-white/78" />
+                  <span>Recenter</span>
+                </button>
+                <button
+                  onClick={runWorkflow}
+                  disabled={!activeDraftId || (canvasValidation != null && !canvasValidation.valid)}
+                  className={cx(
+                    "edg-builder-btn-run relative inline-flex h-10 min-w-[7.5rem] items-center justify-center rounded-full px-5 text-[14px] font-semibold text-white/96",
+                    (!activeDraftId || (canvasValidation != null && !canvasValidation.valid)) &&
+                      "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  Run
+                </button>
+                <button
+                  onClick={publishWorkflow}
+                  disabled={!activeDraftId}
+                  className={cx(
+                    "edg-builder-btn inline-flex h-10 min-w-[7.5rem] items-center justify-center rounded-full px-5 text-[14px] font-semibold text-white/92 shadow-[0_16px_40px_rgba(0,0,0,0.28)]",
+                    !activeDraftId && "cursor-not-allowed opacity-50",
+                  )}
+                >
+                  Publish
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : isPreview ? (
           /* Premium Preview Mode Topbar - Mobile Optimized */
           <div
             ref={topbarInnerRef}
@@ -3231,7 +3367,7 @@ export default function BuilderPage() {
       {/* Floating windows container - positioned relative to viewport */}
       <div className="absolute inset-0 z-30 pointer-events-none">
         {/* Floating window: Blocks (hidden in preview) */}
-        {!isPreview && windows.blocks.visible && (
+        {!isPreview && !isTemplateMobilePreview && windows.blocks.visible && (
           <FloatingWindow
             title="Blocks"
             compact={isCompactLayout}
@@ -3261,7 +3397,7 @@ export default function BuilderPage() {
         )}
 
         {/* Floating window: Inspector (hidden in preview) */}
-        {!isPreview && windows.inspector.visible && (
+        {!isPreview && !isTemplateMobilePreview && windows.inspector.visible && (
           <FloatingWindow
             title="Inspector"
             compact={isCompactLayout}
@@ -3303,8 +3439,58 @@ export default function BuilderPage() {
         )}
       </div>
 
+      {showMobileTemplateInspector && (
+        <div className="absolute inset-x-3 bottom-3 z-40">
+          <div className="overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(8,10,14,0.96),rgba(8,10,14,0.88))] shadow-[0_34px_90px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.28em] text-white/42">
+                  Inspector
+                </div>
+                <div className="mt-1 truncate text-[12px] font-medium text-white/88">
+                  Fine-tune this template block
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSelection({
+                    nodeId: null,
+                    nodeIds: undefined,
+                    specId: undefined,
+                    config: undefined,
+                  })
+                }
+                className="inline-flex h-8 min-w-[4.5rem] items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/70"
+              >
+                Close
+              </button>
+            </div>
+            <div className="h-[min(58dvh,32rem)] overflow-hidden">
+              <InspectorPanel
+                compact
+                selection={selection}
+                fieldHint={inspectorFieldHint}
+                workflowId={activeDraftId ?? undefined}
+                getLatestGraph={() => beRef.current?.getGraph?.() ?? null}
+                onUpdate={(nodeId, patch) => {
+                  try {
+                    beRef.current?.updateNodeConfig?.(nodeId, patch);
+                    const graph = beRef.current?.getGraph?.();
+                    if (graph) {
+                      onGraphChange(graph);
+                    }
+                  } catch {}
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Validation banner - bottom, compact and expandable (hidden in preview mode) */}
       {!isPreview &&
+        !isTemplateMobilePreview &&
         canvasValidation &&
         (canvasValidation.errors.length > 0 || canvasValidation.warnings.length > 0) && (
           <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pb-4 flex justify-center">
@@ -3369,65 +3555,73 @@ export default function BuilderPage() {
       )}
 
       {/* Phone-only gating for edit (preview still works) */}
-      {isMobileBlocked && !isPreview && !previewParam && mounted && (
-        <div className="absolute inset-0 z-[80]">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
-          <div className="absolute inset-0 flex items-center justify-center p-6">
-            <div className="w-[min(560px,92vw)] rounded-3xl border border-white/12 bg-[#0c0c0c] shadow-[0_30px_140px_rgba(0,0,0,0.75)] p-6">
-              <div className="text-white text-lg font-semibold">Builder needs a wider screen</div>
-              <div className="mt-2 text-sm text-white/60 leading-relaxed">
-                Editing workflows needs at least {BUILDER_MOBILE_MAX_W}px width. Preview still works
-                on this device.
-              </div>
+      {isMobileBlocked &&
+        !isPreview &&
+        !isTemplateMobilePreview &&
+        !previewParam &&
+        !hasTemplateEntry &&
+        mounted && (
+          <div className="absolute inset-0 z-[80]">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+            <div className="absolute inset-0 flex items-center justify-center p-6">
+              <div className="w-[min(560px,92vw)] rounded-3xl border border-white/12 bg-[#0c0c0c] shadow-[0_30px_140px_rgba(0,0,0,0.75)] p-6">
+                <div className="text-white text-lg font-semibold">Builder needs a wider screen</div>
+                <div className="mt-2 text-sm text-white/60 leading-relaxed">
+                  Editing workflows needs at least {BUILDER_MOBILE_MAX_W}px width. Preview still
+                  works on this device.
+                </div>
 
-              <div className="mt-5 flex gap-2">
-                <button
-                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-white text-black hover:bg-white/90 transition-colors"
-                  onClick={() => router.push("/marketplace")}
-                >
-                  Go to Marketplace <ArrowRight className="h-4 w-4" />
-                </button>
-                <button
-                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm border border-white/12 bg-white/5 text-white/85 hover:bg-white/10 transition-colors"
-                  onClick={() => refreshWorkflows()}
-                >
-                  Refresh
-                </button>
+                <div className="mt-5 flex gap-2">
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-white text-black hover:bg-white/90 transition-colors"
+                    onClick={() => router.push("/marketplace")}
+                  >
+                    Go to Marketplace <ArrowRight className="h-4 w-4" />
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm border border-white/12 bg-white/5 text-white/85 hover:bg-white/10 transition-colors"
+                    onClick={() => refreshWorkflows()}
+                  >
+                    Refresh
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Confined Workflows launcher overlay (disabled in preview) */}
-      {!isPreview && showLauncher && !isMobileBlocked && (
-        <LauncherOverlay
-          leftSafe={LEFT_RAIL_SAFE_PX}
-          busy={wfLoading || creating}
-          errorText={wfError}
-          drafts={drafts}
-          published={published}
-          newOpen={newOpen}
-          newTitle={newTitle}
-          creating={creating}
-          userId={userId}
-          onSignIn={openSignIn}
-          onToggleNew={() => setNewOpen((v) => !v)}
-          onNewTitle={(v) => setNewTitle(v)}
-          onCreate={() => void createDraft()}
-          onCancelNew={() => {
-            setNewOpen(false);
-            setNewTitle("");
-          }}
-          onRefresh={() => void refreshWorkflows()}
-          onOpenDraft={(id) => void openDraft(id)}
-          onOpenPublished={(id) => void openPublishedAsDraft(id)}
-          onOpenTemplates={() => setTemplateLibraryOpen(true)}
-        />
-      )}
+      {!isPreview &&
+        !isTemplateMobilePreview &&
+        showLauncher &&
+        (!isMobileBlocked || !hasTemplateEntry) && (
+          <LauncherOverlay
+            leftSafe={LEFT_RAIL_SAFE_PX}
+            busy={wfLoading || creating}
+            errorText={wfError}
+            drafts={drafts}
+            published={published}
+            newOpen={newOpen}
+            newTitle={newTitle}
+            creating={creating}
+            userId={userId}
+            onSignIn={openSignIn}
+            onToggleNew={() => setNewOpen((v) => !v)}
+            onNewTitle={(v) => setNewTitle(v)}
+            onCreate={() => void createDraft()}
+            onCancelNew={() => {
+              setNewOpen(false);
+              setNewTitle("");
+            }}
+            onRefresh={() => void refreshWorkflows()}
+            onOpenDraft={(id) => void openDraft(id)}
+            onOpenPublished={(id) => void openPublishedAsDraft(id)}
+            onOpenTemplates={() => setTemplateLibraryOpen(true)}
+          />
+        )}
 
       <TemplateLibraryModal
-        open={!isPreview && templateLibraryOpen}
+        open={!isPreview && !isTemplateMobilePreview && templateLibraryOpen}
         templates={availableTemplates}
         busy={templateSubmitting}
         onClose={() => {
@@ -3440,7 +3634,7 @@ export default function BuilderPage() {
       />
 
       <TemplateSetupModal
-        open={!isPreview && Boolean(templateSetupTemplate)}
+        open={!isPreview && !isTemplateMobilePreview && Boolean(templateSetupTemplate)}
         template={templateSetupTemplate}
         submitting={templateSubmitting}
         errorText={templateError}

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { getSiteOrigin } from "@lib/site-origin";
+import { buildCanonicalUrl } from "../lib/seo";
+import { getSiteOrigin } from "../lib/site-origin";
 
 export default function robots(): MetadataRoute.Robots {
   const base = getSiteOrigin();
@@ -10,13 +11,24 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         disallow: [
-          // Only block stuff that should never be indexed
           "/api/",
           "/admin/",
+          "/dashboard/",
+          "/settings/",
+          "/auth/",
+          "/checkout/",
+          "/claim/",
+          "/onboarding/",
+          "/library",
+          "/profile",
+          "/feedback",
+          "/bugs",
+          "/apply",
+          "/store/",
         ],
       },
     ],
-    sitemap: `${base}/sitemap.xml`,
-    host: base,
+    sitemap: buildCanonicalUrl("/sitemap.xml"),
+    host: new URL(base).host,
   };
 }

@@ -1,25 +1,12 @@
 import type { Metadata } from "next";
-import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
+import { buildMetadata, NOINDEX_ROBOTS } from "../../lib/seo";
 
-export const metadata: Metadata = {
-  title: "Feedback",
-  description:
-    "Share feedback on Edgaze. Help us improve the AI prompts and workflows marketplace.",
-  openGraph: {
-    title: "Feedback",
-    description:
-      "Share feedback on Edgaze. Help us improve the AI prompts and workflows marketplace.",
-    url: "https://edgaze.ai/feedback",
-    images: [DEFAULT_SOCIAL_IMAGE],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Feedback",
-    description:
-      "Share feedback on Edgaze. Help us improve the AI prompts and workflows marketplace.",
-    images: [DEFAULT_SOCIAL_IMAGE],
-  },
-};
+export const metadata: Metadata = buildMetadata({
+  title: "Feedback | Edgaze",
+  description: "Share product feedback with the Edgaze team.",
+  path: "/feedback",
+  robots: NOINDEX_ROBOTS,
+});
 
 export default function FeedbackLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

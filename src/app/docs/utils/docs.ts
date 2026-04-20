@@ -26,6 +26,7 @@ const BUILDER_DIR = path.join(DOCS_DIR, "builder");
  */
 const CANONICAL_TO_FILE: Record<string, string> = {
   changelog: "changelog.md",
+  "edgaze-code": "edgaze-code.md",
   "privacy-policy": "privacy-policy.md",
   "terms-of-service": "terms.md",
   "seller-terms": "creator-terms.md",
@@ -68,6 +69,7 @@ const ORDER: string[] = [
   "builder/templates",
   "builder/api-vault",
   "changelog",
+  "edgaze-code",
   "privacy-policy",
   "terms-of-service",
   "creator-terms",

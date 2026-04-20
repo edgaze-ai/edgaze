@@ -2,6 +2,7 @@ node_modules
 .next
 .next-dev
 .next 2
+.next-stuck-*
 out
 dist
 coverage

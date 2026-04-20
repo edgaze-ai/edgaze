@@ -127,7 +127,7 @@ export type CanvasRef = {
   getIsFullscreen: () => boolean;
 };
 
-type BuilderMode = "edit" | "preview";
+type BuilderMode = "edit" | "preview" | "template-mobile-preview";
 
 type Props = {
   mode?: BuilderMode; // "preview" enables read-only mode
@@ -153,6 +153,9 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   ref,
 ) {
   const isPreview = mode === "preview";
+  const isTemplateMobilePreview = mode === "template-mobile-preview";
+  const isGraphReadOnlyMode = isPreview;
+  const isConfigReadOnlyMode = isPreview;
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 1023px), (pointer: coarse)");
@@ -233,7 +236,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   useEffect(() => {
     const off = on<{ nodeId: string; patch: any }>("builder:updateNodeConfig", (payload) => {
       if (!payload?.nodeId || !payload?.patch) return;
-      if (isPreview) return;
+      if (isConfigReadOnlyMode) return;
       setNodes((nds) =>
         nds.map((n) =>
           n.id === payload.nodeId
@@ -247,7 +250,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         off();
       } catch {}
     };
-  }, [setNodes, isPreview]);
+  }, [setNodes, isConfigReadOnlyMode]);
 
   // Emit graph changes (parent should debounce persistence)
   useEffect(() => {
@@ -307,7 +310,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
   const onConnect: OnConnect = useCallback(
     (params: Edge | Connection) => {
-      if (locked || isPreview) return;
+      if (locked || isGraphReadOnlyMode) return;
 
       const sourceId = (params as any)?.source as string | undefined;
       const targetId = (params as any)?.target as string | undefined;
@@ -367,7 +370,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         target_spec_id: targetSpecId,
       });
     },
-    [setEdges, locked, isPreview, isValidConnection, getConnectionError],
+    [setEdges, locked, isGraphReadOnlyMode, isValidConnection, getConnectionError],
   );
 
   /* Maintain "Connected to" names (GUARDED: only updates if names actually change) */
@@ -432,7 +435,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
   const addNodeAtCenter = useCallback(
     (specId: string) => {
-      if (isPreview) return;
+      if (isGraphReadOnlyMode) return;
       const spec = getNodeSpec(specId);
       if (!spec || !rfRef.current || !wrapperRef.current) return;
       const rect = wrapperRef.current.getBoundingClientRect();
@@ -442,14 +445,14 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       });
       createNodeFromSpec(spec, center);
     },
-    [createNodeFromSpec, isPreview],
+    [createNodeFromSpec, isGraphReadOnlyMode],
   );
 
   // Listen for add node events from block library
   useEffect(() => {
     const handler = (payload: any) => {
       const specId = payload?.specId;
-      if (!specId || isPreview) return;
+      if (!specId || isGraphReadOnlyMode) return;
       addNodeAtCenter(specId);
     };
 
@@ -466,12 +469,12 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       } catch {}
       window.removeEventListener("edgaze:add-node", domHandler);
     };
-  }, [addNodeAtCenter, isPreview]);
+  }, [addNodeAtCenter, isGraphReadOnlyMode]);
 
   const onDrop = useCallback(
     (evt: React.DragEvent) => {
       evt.preventDefault();
-      if (locked || isPreview) return;
+      if (locked || isGraphReadOnlyMode) return;
 
       const payload = evt.dataTransfer.getData("application/edgaze-node");
       if (!payload || !rfRef.current || !wrapperRef.current) return;
@@ -497,7 +500,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       createNodeFromSpec(spec, pos);
     },
-    [createNodeFromSpec, locked, isPreview],
+    [createNodeFromSpec, locked, isGraphReadOnlyMode],
   );
 
   const onDragOver = (evt: React.DragEvent) => {
@@ -604,7 +607,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
 
       lastSelectionKeyRef.current = `n:${node.id}`;
 
-      if (!isPreview) {
+      if (!isGraphReadOnlyMode) {
         placeBubbleForNode(node);
       } else {
         setBubble(null);
@@ -616,7 +619,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         config: node.data?.config,
       });
     },
-    [onSelectionChange, placeBubbleForNode, isPreview],
+    [onSelectionChange, placeBubbleForNode, isGraphReadOnlyMode],
   );
 
   // Reposition bubble when viewport changes (GUARDED). Defer setState to avoid sync setState-in-effect.
@@ -680,7 +683,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   useImperativeHandle(ref, () => ({
     addNodeAtCenter,
     selectAndFocusNode: (nodeId: string) => {
-      if (isPreview) return;
       setNodes((nds) => {
         const node = nds.find((n) => n.id === nodeId);
         if (!node) return nds;
@@ -700,7 +702,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
       });
     },
     updateNodeConfig: (nodeId: string, patch: any) => {
-      if (isPreview) return;
+      if (isConfigReadOnlyMode) return;
       setNodes((nds) => {
         const updated = nds.map((n) =>
           n.id === nodeId
@@ -1059,7 +1061,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   // disconnect sees up-to-date state (avoids "can't reconnect" bug).
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
-      if (!isPreview) {
+      if (!isGraphReadOnlyMode) {
         setEdges((eds) => {
           const next = applyEdgeChanges(changes, eds);
           edgesRef.current = next;
@@ -1077,7 +1079,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         });
       }
     },
-    [setEdges, isPreview],
+    [setEdges, isGraphReadOnlyMode],
   );
 
   return (
@@ -1099,7 +1101,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         </div>
       )}
 
-      {/* Selection toolbar — hidden in preview */}
+      {/* Selection toolbar — hidden only in true preview mode */}
       {!isPreview && bubble && (
         <div className="absolute z-40" style={{ left: bubble.x, top: bubble.y }}>
           <div className={selectionShellClass}>
@@ -1177,7 +1179,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onConnect={locked || isPreview ? undefined : onConnect}
+        onConnect={locked || isGraphReadOnlyMode ? undefined : onConnect}
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
         fitView
@@ -1187,7 +1189,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         snapToGrid
         snapGrid={[16, 16]}
         onInit={onInit}
-        onNodeClick={isPreview ? undefined : (_, n) => showSelectionFor(n as Node<EdgazeNodeData>)}
+        onNodeClick={(_, n) => showSelectionFor(n as Node<EdgazeNodeData>)}
         onPaneClick={(e) => {
           // Clear selection immediately on canvas click
           paneClickJustHappenedRef.current = true;
@@ -1205,15 +1207,15 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         proOptions={{ hideAttribution: true }}
         onMove={(_, vp) => setViewport(vp)}
         nodeDragThreshold={1}
-        nodesDraggable={!locked && !isPreview}
-        nodesConnectable={!locked && !isPreview}
-        edgesUpdatable={!locked && !isPreview}
+        nodesDraggable={!locked && !isGraphReadOnlyMode}
+        nodesConnectable={!locked && !isGraphReadOnlyMode}
+        edgesUpdatable={!locked && !isGraphReadOnlyMode}
         panOnDrag
         panOnScroll
         zoomOnScroll
         zoomOnPinch
         zoomOnDoubleClick
-        selectionOnDrag
+        selectionOnDrag={!isGraphReadOnlyMode}
         minZoom={minZoom}
         maxZoom={2}
         onSelectionChange={(sel) => {
@@ -1282,8 +1284,8 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
           />
         )}
 
-        {/* Minimap: hidden in mobile preview mode */}
-        {!(isPreview && isMobileViewport) && (
+        {/* Minimap */}
+        {!(isPreview && isMobileViewport) && !isTemplateMobilePreview ? (
           <MiniMap
             position="bottom-right"
             pannable
@@ -1299,7 +1301,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
             nodeStrokeColor={() => "rgba(255,255,255,0.85)"}
             maskColor="rgba(5,6,10,0.78)"
           />
-        )}
+        ) : null}
       </ReactFlow>
     </div>
   );

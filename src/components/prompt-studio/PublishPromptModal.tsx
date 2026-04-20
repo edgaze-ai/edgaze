@@ -549,25 +549,25 @@ function MobileStepPill({
       type="button"
       onClick={canClick ? onClick : undefined}
       className={cx(
-        "group flex min-w-[84px] flex-col items-center gap-2 text-center",
+        "group flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center",
         !canClick && "opacity-70",
       )}
     >
       <div
         className={cx(
-          "grid h-14 w-14 place-items-center rounded-full border transition-all duration-200",
+          "grid h-11 w-11 place-items-center rounded-full border transition-all duration-200",
           done
-            ? "border-cyan-300/35 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.38),rgba(9,14,24,0.96)_72%)] text-cyan-50 shadow-[0_16px_34px_rgba(34,211,238,0.2)]"
+            ? "border-cyan-300/35 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.38),rgba(9,14,24,0.96)_72%)] text-cyan-50 shadow-[0_10px_24px_rgba(34,211,238,0.18)]"
             : active
-              ? "border-white/18 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),rgba(9,14,24,0.96)_72%)] text-white shadow-[0_16px_34px_rgba(255,255,255,0.1)]"
+              ? "border-white/18 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.18),rgba(9,14,24,0.96)_72%)] text-white shadow-[0_10px_24px_rgba(255,255,255,0.08)]"
               : "border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),rgba(9,14,24,0.96)_72%)] text-white/70 group-hover:border-white/20 group-hover:text-white/90",
         )}
       >
-        {done ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+        {done ? <CheckCircle2 className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
       </div>
       <div
         className={cx(
-          "text-[10px] font-medium tracking-[0.02em]",
+          "text-[9px] font-medium tracking-[0.02em]",
           active ? "text-white" : "text-white/58",
         )}
       >
@@ -727,6 +727,7 @@ export default function PublishPromptModal({
     setPublished(false);
     setPublishedCode("");
     setPublishedUrl("");
+    setMobileActiveStep("details");
     setParentNotified(false);
     setAcceptedCreatorTerms(false);
     setErr(null);
@@ -757,6 +758,7 @@ export default function PublishPromptModal({
     setAutoThumbDataUrl(null);
     setDemoFiles(new Array(6).fill(null));
     setDemoUrlsPicked(safeArr(meta?.demoImageUrls));
+    if (contentScrollRef.current) contentScrollRef.current.scrollTop = 0;
 
     // step
     setStep(0);
@@ -1295,17 +1297,21 @@ export default function PublishPromptModal({
   const stepKey = STEPS[step]?.key;
   const showAllMobileSections = isMobileViewport && !published;
   const activeVisibleStep = showAllMobileSections ? mobileActiveStep : stepKey;
+  const mobileSpyOffset = 28;
 
   function scrollToPromptSection(nextStep: StepKey) {
     setMobileActiveStep(nextStep);
     const index = STEPS.findIndex((item) => item.key === nextStep);
     if (index >= 0) setStep(index);
+    const root = contentScrollRef.current;
     const node = sectionRefs.current[nextStep];
-    if (!node) return;
-    node.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!node || !root) return;
+    const nextTop = Math.max(0, node.offsetTop - mobileSpyOffset);
+    root.scrollTo({ top: nextTop, behavior: "smooth" });
   }
 
   useEffect(() => {
+    if (!open) return;
     if (!showAllMobileSections) return;
     const root = contentScrollRef.current;
     if (!root) return;
@@ -1315,28 +1321,47 @@ export default function PublishPromptModal({
     >;
     if (!entries.length) return;
 
-    const observer = new IntersectionObserver(
-      (items) => {
-        const visible = items
-          .filter((item) => item.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (!visible) return;
-        const next = (visible.target as HTMLElement).dataset.section as StepKey | undefined;
-        if (!next) return;
-        setMobileActiveStep(next);
-        const index = STEPS.findIndex((item) => item.key === next);
-        if (index >= 0) setStep(index);
-      },
-      {
-        root,
-        threshold: [0.25, 0.45, 0.7],
-        rootMargin: "-8% 0px -55% 0px",
-      },
-    );
+    let rafId = 0;
 
-    for (const [, node] of entries) observer.observe(node);
-    return () => observer.disconnect();
-  }, [showAllMobileSections]);
+    const syncActiveStep = () => {
+      const scrollTop = root.scrollTop + mobileSpyOffset + 8;
+      const isNearBottom = root.scrollTop + root.clientHeight >= root.scrollHeight - 24;
+      let nextStep = entries[0][0];
+
+      if (isNearBottom) {
+        nextStep = entries[entries.length - 1][0];
+      } else {
+        for (const [key, node] of entries) {
+          if (node.offsetTop <= scrollTop) {
+            nextStep = key;
+          } else {
+            break;
+          }
+        }
+      }
+
+      setMobileActiveStep((prev) => (prev === nextStep ? prev : nextStep));
+      const index = STEPS.findIndex((item) => item.key === nextStep);
+      if (index >= 0) {
+        setStep((prev) => (prev === index ? prev : index));
+      }
+    };
+
+    const handleScroll = () => {
+      cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(syncActiveStep);
+    };
+
+    syncActiveStep();
+    root.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      root.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [open, showAllMobileSections]);
 
   if (!open) return null;
 
@@ -1447,9 +1472,9 @@ export default function PublishPromptModal({
           </div>
 
           {/* Body */}
-          <div className="grid h-[calc(100%-72px)] grid-cols-12 gap-0 sm:h-[calc(100%-56px)]">
+          <div className="flex h-[calc(100%-72px)] min-h-0 flex-col gap-0 sm:h-[calc(100%-56px)] md:grid md:grid-cols-12">
             {/* Left: Stepper */}
-            <div className="col-span-12 border-b border-white/10 p-3 sm:p-5 md:col-span-4 md:border-b-0 md:border-r">
+            <div className="shrink-0 border-b border-white/10 px-3 py-2.5 sm:px-5 sm:py-4 md:col-span-4 md:border-b-0 md:border-r md:p-5">
               <div className="flex items-center justify-between">
                 <div className="text-[11px] font-semibold text-white/80">Progress</div>
                 <div className="text-[10px] text-white/45">
@@ -1457,7 +1482,7 @@ export default function PublishPromptModal({
                 </div>
               </div>
 
-              <div className="mt-3 -mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 md:hidden">
+              <div className="mt-3 grid grid-cols-5 gap-2 md:hidden">
                 {STEPS.map((s, i) => {
                   const canClick =
                     i <= step ||
@@ -1565,7 +1590,7 @@ export default function PublishPromptModal({
             {/* Right: Content */}
             <div
               ref={contentScrollRef}
-              className="col-span-12 overflow-auto p-4 sm:p-5 md:col-span-8"
+              className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5 md:col-span-8"
             >
               {!published ? (
                 <>

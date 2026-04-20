@@ -106,7 +106,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       type: "website",
       url: pageUrl,
-      siteName: "Edgaze",
+      siteName: "Marketplace",
       title,
       description,
       images: [primaryOg],
@@ -137,7 +137,7 @@ function buildWorkflowProductJsonLd(
   const name = listing.title?.trim() || "Workflow";
   const description =
     listing.description?.trim()?.slice(0, 500) ||
-    "Discover and use this AI workflow on Edgaze. Build powerful automation with AI.";
+    "Discover and use this AI workflow on Marketplace. Build powerful automation with AI.";
   const imageUrl = workflowPreviewImageUrl(listing);
   const price =
     listing.is_paid && listing.price_usd != null && listing.price_usd > 0
@@ -152,7 +152,7 @@ function buildWorkflowProductJsonLd(
     description,
     ...(imageUrl && { image: imageUrl }),
     url: pageUrl,
-    brand: { "@type": "Brand", name: "Edgaze" },
+    brand: { "@type": "Brand", name: "Marketplace" },
     offers: {
       "@type": "Offer",
       price,

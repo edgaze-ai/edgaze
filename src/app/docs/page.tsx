@@ -1,13 +1,22 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ArrowUpRight } from "lucide-react";
 import { getAllDocs } from "./utils/docs";
+import { buildMetadata } from "../../lib/seo";
 
-export const metadata = {
-  title: "Documentation",
-  description: "Explore all Edgaze documentation, from builder guides to policies and changelogs.",
-};
+export const metadata: Metadata = buildMetadata({
+  title: "Documentation | Edgaze",
+  description:
+    "Browse Edgaze documentation for builder guides, templates, payouts, creator policies, and platform reference material.",
+  path: "/docs",
+});
 
-const PLATFORM_SLUGS = ["changelog", "platform-status-beta-disclaimer", "content-disclaimer"];
+const PLATFORM_SLUGS = [
+  "changelog",
+  "edgaze-code",
+  "platform-status-beta-disclaimer",
+  "content-disclaimer",
+];
 const LEGAL_SLUGS = [
   "privacy-policy",
   "terms-of-service",
@@ -134,6 +143,56 @@ export default function DocsIndex() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="space-y-6">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight text-white/95">
+            Platform fundamentals
+          </h2>
+          <p className="mt-1.5 text-[13px] text-white/50 max-w-2xl">
+            These public guides explain what Edgaze is, how the marketplace works, and why the
+            platform focuses on runnable workflows instead of isolated prompt fragments.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {[
+            {
+              href: "/what-is-edgaze",
+              title: "What is Edgaze?",
+              description: "Start with the platform definition and authority overview.",
+            },
+            {
+              href: "/how-edgaze-works",
+              title: "How Edgaze works",
+              description: "Understand the path from building to publishing and monetization.",
+            },
+            {
+              href: "/docs/edgaze-code",
+              title: "Edgaze Code",
+              description:
+                "Understand the link-free retrieval keyword creators can share anywhere.",
+            },
+            {
+              href: "/why-workflows-not-prompts",
+              title: "Why workflows, not prompts?",
+              description: "See why Edgaze treats runnable systems as the unit of value.",
+            },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="group flex flex-col rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-5 hover:border-white/10 hover:bg-white/[0.04] transition"
+            >
+              <p className="text-[15px] font-medium text-white/95">{item.title}</p>
+              <p className="mt-2 text-[13px] text-white/55 leading-relaxed">{item.description}</p>
+              <span className="mt-3 inline-flex items-center gap-1 text-[12px] text-white/40 group-hover:text-white/60 transition">
+                Read page
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </span>
+            </Link>
+          ))}
         </div>
       </section>
 

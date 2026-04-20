@@ -2371,6 +2371,43 @@ export default function EdgazeLandingPage() {
             </div>
           </Section>
 
+          <section className="px-5 py-4">
+            <Container wide>
+              <div className="rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-3 text-[11px] text-white/38">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="uppercase tracking-[0.18em] text-white/26">Explore more</span>
+                  <a href="/what-is-edgaze" className="transition-colors hover:text-white/62">
+                    What is Edgaze
+                  </a>
+                  <a href="/how-edgaze-works" className="transition-colors hover:text-white/62">
+                    How Edgaze works
+                  </a>
+                  <a
+                    href="/ai-workflow-marketplace"
+                    className="transition-colors hover:text-white/62"
+                  >
+                    AI workflow marketplace
+                  </a>
+                  <a href="/run-ai-workflows" className="transition-colors hover:text-white/62">
+                    Run AI workflows
+                  </a>
+                  <a href="/for-creators" className="transition-colors hover:text-white/62">
+                    For creators
+                  </a>
+                  <a href="/for-buyers" className="transition-colors hover:text-white/62">
+                    For buyers
+                  </a>
+                  <a
+                    href="/monetize-ai-workflows"
+                    className="transition-colors hover:text-white/62"
+                  >
+                    Monetize AI workflows
+                  </a>
+                </div>
+              </div>
+            </Container>
+          </section>
+
           {/* ✅ FIX: snap-start only on md+; extra bottom padding so footer is reachable on iOS */}
           <footer className="px-5 pb-16 md:snap-start">
             <Container wide>

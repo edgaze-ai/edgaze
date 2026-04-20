@@ -1,25 +1,12 @@
 import type { Metadata } from "next";
-import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
+import { buildMetadata } from "../../lib/seo";
 
-export const metadata: Metadata = {
-  title: "Marketplace",
+export const metadata: Metadata = buildMetadata({
+  title: "AI Prompts and Workflows Marketplace | Edgaze",
   description:
-    "Discover AI prompts and workflows on Edgaze. Browse, run, and buy prompts and automation built by creators. One link to share, one tap to run.",
-  openGraph: {
-    title: "Marketplace",
-    description:
-      "Discover AI prompts and workflows on Edgaze. Browse, run, and buy prompts and automation built by creators.",
-    url: "https://edgaze.ai/marketplace",
-    images: [DEFAULT_SOCIAL_IMAGE],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Marketplace",
-    description:
-      "Discover AI prompts and workflows on Edgaze. Browse, run, and buy prompts and automation built by creators.",
-    images: [DEFAULT_SOCIAL_IMAGE],
-  },
-};
+    "Explore public AI prompts, workflows, and creator built tools in the Edgaze marketplace. Compare listings, discover creators, and open useful runnable products from one place.",
+  path: "/marketplace",
+});
 
 export default function MarketplaceLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

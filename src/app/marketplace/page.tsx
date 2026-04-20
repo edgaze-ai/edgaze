@@ -25,6 +25,7 @@ import MarketplaceFiltersBar, {
   type MarketplaceFilters,
   type MarketplaceSort,
 } from "../../components/marketplace/MarketplaceFiltersBar";
+import EdgazeCodeInfoPopover from "../../components/ui/EdgazeCodeInfoPopover";
 import ProfileAvatar from "../../components/ui/ProfileAvatar";
 import ProfileLink from "../../components/ui/ProfileLink";
 import VerifiedCreatorBadge from "../../components/ui/VerifiedCreatorBadge";
@@ -1053,6 +1054,24 @@ function MarketplaceSearchBar({
   predictBlurTimerRef,
   inputRef,
 }: SearchBarProps) {
+  const [isMobile, setIsMobile] = useState(true);
+  const [shortcutLabel, setShortcutLabel] = useState("Ctrl K");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => {
+      setIsMobile(mq.matches);
+      const ua = navigator.userAgent || "";
+      const platform = navigator.platform || "";
+      const isApple = /Mac|iPhone|iPad|iPod/.test(platform) || /Mac OS/.test(ua);
+      setShortcutLabel(isApple ? "⌘ K" : "Ctrl K");
+    };
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
+
   const showPredict =
     searchFocused &&
     predictOpen &&
@@ -1067,8 +1086,8 @@ function MarketplaceSearchBar({
     <div ref={predictBoxRef} className="relative z-[30]">
       <div
         className={cn(
-          "flex items-center rounded-full border border-white/15 bg-white/5 text-sm focus-within:border-white/35 focus-within:bg-white/[0.07]",
-          compact ? "gap-2 px-2 py-1.5" : "gap-3 px-4 py-2",
+          "group flex items-center rounded-[16px] border border-white/10 bg-black text-sm shadow-[0_14px_36px_rgba(0,0,0,0.22)] focus-within:border-white/18",
+          compact ? "gap-2 px-3 py-1.5" : "gap-2.5 px-3.5 py-2",
         )}
         onMouseDown={(e) => {
           // Focus input even when user clicks padding/icon. Do NOT steal focus when they click the actual input.
@@ -1077,12 +1096,12 @@ function MarketplaceSearchBar({
           inputRef.current?.focus();
         }}
       >
-        <Search className="relative z-10 h-4 w-4 text-white/45" />
+        <Search className="relative z-10 h-4 w-4 text-white/38" />
 
         <input
           ref={inputRef}
           type="text"
-          placeholder="Search prompts, workflows, creators…"
+          placeholder="Search workflows, prompts, or creators"
           value={query}
           onChange={(e) => {
             const v = e.target.value;
@@ -1146,8 +1165,15 @@ function MarketplaceSearchBar({
               setActivePredictIndexValue(-1);
             }
           }}
-          className="relative z-10 w-full bg-transparent text-sm text-white outline-none placeholder:text-white/40"
+          className="edge-search-input relative z-10 min-w-0 w-full appearance-none bg-transparent text-sm text-white/88 outline-none shadow-none placeholder:text-white/34"
         />
+
+        {!isMobile ? (
+          <div className="relative z-10 hidden shrink-0 items-center gap-1 rounded-[9px] border border-white/10 bg-[#111111] px-2 py-0.5 text-[10px] font-medium text-white/46 sm:flex">
+            <span>{shortcutLabel.split(" ")[0]}</span>
+            <span className="text-white/26">{shortcutLabel.split(" ")[1]}</span>
+          </div>
+        ) : null}
 
         {(searchRefreshing || (query.trim().length > 0 && debouncedQuery !== activeQuery)) && (
           <Loader2 className="h-4 w-4 animate-spin text-white/40" />
@@ -1440,6 +1466,23 @@ export default function MarketplacePage() {
       searchInputRef.current?.focus();
     }, 0);
     return () => window.clearTimeout(id);
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isApple =
+        /Mac|iPhone|iPad|iPod/.test(navigator.platform || "") ||
+        /Mac OS/.test(navigator.userAgent || "");
+      const wantsSearch =
+        event.key.toLowerCase() === "k" && (isApple ? event.metaKey : event.ctrlKey);
+      if (!wantsSearch) return;
+      if (window.matchMedia("(max-width: 767px)").matches) return;
+      event.preventDefault();
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
   const [codeQuery, setCodeQuery] = useState("");
   const [codeSubmitting, setCodeSubmitting] = useState(false);
@@ -2319,13 +2362,25 @@ export default function MarketplacePage() {
 
   return (
     <>
+      <section className="sr-only">
+        <h1>AI prompts and workflows marketplace</h1>
+        <p>
+          Discover public AI prompts, workflows, and creators on Edgaze. Explore runnable products,
+          compare listings, and open the prompts or workflows that fit your use case.
+        </p>
+        <nav aria-label="Marketplace resources">
+          <a href="/templates">Browse workflow templates</a>
+          <a href="/builder">Open Workflow Studio</a>
+          <a href="/docs">Read the docs</a>
+          <a href="/creators">Learn about creators</a>
+        </nav>
+      </section>
       <div className="flex h-screen flex-col bg-[#050505] text-white min-h-[100dvh]">
         <header className="sticky top-0 z-[70] flex flex-col gap-3 bg-[#050505]/90 backdrop-blur-md px-5 py-3 sm:px-6 sm:py-4 border-b border-white/[0.04] lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-          {/* Below lg: stack like mobile (MobileTopbar already has Sign in / avatar). */}
-          <div className="flex w-full min-w-0 items-center justify-start gap-3 lg:w-auto lg:shrink-0">
-            <div className="hidden min-w-0 sm:block sm:leading-tight">
+          <div className="hidden w-full min-w-0 items-center justify-start gap-3 lg:w-auto lg:shrink-0 lg:flex">
+            <div className="min-w-0 leading-tight">
               <div className="flex items-center gap-2">
-                <div className="text-base font-semibold">Marketplace</div>
+                <h1 className="text-base font-semibold">Marketplace</h1>
                 <span className="flex shrink-0 items-center gap-1 rounded-full border border-blue-400/30 bg-blue-500/15 px-2 py-0.5 text-[10px] font-semibold text-blue-200">
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
@@ -2338,13 +2393,13 @@ export default function MarketplacePage() {
                   BETA
                 </span>
               </div>
-              <div className="text-xs text-white/55">
-                Prompts, workflows, and creators — intelligently mixed.
-              </div>
+              <p className="text-xs text-white/55">
+                Discover public AI workflows, prompts, and creators.
+              </p>
             </div>
           </div>
 
-          <div className="mx-0 hidden min-w-0 max-w-2xl flex-1 lg:mx-6 lg:block">
+          <div className="mx-0 hidden min-w-0 flex-1 lg:block lg:max-w-[760px]">
             <MarketplaceSearchBar
               query={query}
               setQuery={setQuery}
@@ -2462,28 +2517,28 @@ export default function MarketplacePage() {
 
               <div className="relative">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    {}
+                  <div className="flex items-center gap-3">
                     <img
                       src="/brand/edgaze-mark.png"
                       alt="Edgaze"
-                      className="h-5 w-5 sm:h-5 sm:w-5 rounded-md"
+                      className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl"
                     />
-                    <div className="text-base sm:text-sm font-semibold text-white/95">
+                    <div className="text-lg sm:text-xl font-semibold tracking-tight text-white/95">
                       Edgaze Codes
                     </div>
                   </div>
+                  <EdgazeCodeInfoPopover className="mt-0.5" panelClassName="w-[300px]" />
                 </div>
 
                 <div className="relative mt-4 sm:mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <div className="relative flex-1 w-full">
-                    <div className="flex items-center rounded-full border border-white/30 bg-black/80 backdrop-blur-sm px-4 py-3 sm:px-4 sm:py-2.5 text-sm shadow-[0_0_20px_rgba(0,0,0,0.3)]">
+                    <div className="flex items-center rounded-full border border-white/12 bg-black px-4 py-3 sm:px-4 sm:py-2.5 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_18px_48px_rgba(0,0,0,0.34)]">
                       <input
                         type="text"
                         value={codeQuery}
                         onChange={(e) => setCodeQuery(e.target.value)}
                         placeholder="@handle/code or /code"
-                        className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/40"
+                        className="edge-search-input flex-1 appearance-none bg-transparent p-0 text-sm text-white outline-none shadow-none placeholder:text-white/38"
                       />
                     </div>
 

@@ -1,6 +1,6 @@
 /** Default meta / Open Graph description for the site (homepage + root tags). */
 export const SITE_META_DESCRIPTION =
-  "Edgaze is the runtime and distribution layer for AI workflows. Build once, deploy as executable products, and monetize through a global marketplace." as const;
+  "Marketplace is the runtime and distribution layer for AI workflows. Build once, deploy as executable products, and monetize through a global marketplace." as const;
 
 /** Short line under the Edgaze wordmark in the sitewide footer only. */
 export const SITE_FOOTER_TAGLINE = "Create, sell, and monetise AI products." as const;

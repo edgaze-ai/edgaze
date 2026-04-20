@@ -1,25 +1,12 @@
 import type { Metadata } from "next";
-import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
+import { buildMetadata } from "../../lib/seo";
 
-export const metadata: Metadata = {
-  title: "Help",
+export const metadata: Metadata = buildMetadata({
+  title: "Help Center | Edgaze",
   description:
-    "Get help with Edgaze. Contact support, find answers, and get the most out of the AI prompts and workflows marketplace.",
-  openGraph: {
-    title: "Help",
-    description:
-      "Get help with Edgaze. Contact support, find answers, and get the most out of the AI prompts and workflows marketplace.",
-    url: "https://edgaze.ai/help",
-    images: [DEFAULT_SOCIAL_IMAGE],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Help",
-    description:
-      "Get help with Edgaze. Contact support, find answers, and get the most out of the AI prompts and workflows marketplace.",
-    images: [DEFAULT_SOCIAL_IMAGE],
-  },
-};
+    "Get help with Edgaze, find support resources, browse documentation, and contact the team when you need help with creators, workflows, or marketplace activity.",
+  path: "/help",
+});
 
 export default function HelpLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

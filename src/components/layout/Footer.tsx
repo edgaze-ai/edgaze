@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { FaGithub, FaLinkedinIn, FaXTwitter } from "react-icons/fa6";
-import { SITE_FOOTER_TAGLINE } from "@lib/constants";
+import { SITE_FOOTER_TAGLINE } from "../../lib/constants";
 
 const FOOTER_SECTIONS = [
   {
     title: "Product",
     links: [
       { label: "Marketplace", href: "/marketplace" },
-      { label: "Workflow Studio", href: "/builder" },
+      { label: "Workflow Builder", href: "/builder" },
       { label: "Prompt Studio", href: "/prompt-studio" },
+      { label: "Templates", href: "/templates" },
       { label: "Creator Program", href: "/creators" },
-      { label: "Library", href: "/library" },
     ],
   },
   {
@@ -20,6 +20,8 @@ const FOOTER_SECTIONS = [
     links: [
       { label: "Documentation", href: "/docs" },
       { label: "Blog", href: "/blogs" },
+      { label: "Help Center", href: "/help" },
+      { label: "Templates", href: "/templates" },
       { label: "Changelog", href: "/docs/changelog" },
       { label: "Pricing", href: "/pricing" },
     ],
@@ -28,6 +30,7 @@ const FOOTER_SECTIONS = [
     title: "Company",
     links: [
       { label: "About", href: "/about" },
+      { label: "Mission", href: "/about/mission" },
       { label: "Contact", href: "/contact" },
       { label: "Careers", href: "/careers" },
       { label: "Press", href: "/press" },

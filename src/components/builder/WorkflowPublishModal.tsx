@@ -355,21 +355,21 @@ function MobileTabPill({
     <button
       type="button"
       onClick={onClick}
-      className="group flex min-w-[84px] flex-col items-center gap-2 text-center"
+      className="group flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center"
     >
       <div
         className={cx(
-          "grid h-14 w-14 place-items-center rounded-full border transition-all duration-200",
+          "grid h-11 w-11 place-items-center rounded-full border transition-all duration-200",
           active
-            ? "border-cyan-300/35 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.36),rgba(12,14,20,0.92)_72%)] text-white shadow-[0_16px_36px_rgba(34,211,238,0.2)]"
+            ? "border-cyan-300/35 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.36),rgba(12,14,20,0.92)_72%)] text-white shadow-[0_10px_24px_rgba(34,211,238,0.18)]"
             : "border-white/10 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),rgba(12,14,20,0.96)_70%)] text-white/70 group-hover:border-white/20 group-hover:text-white/90",
         )}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </div>
       <div
         className={cx(
-          "text-[10px] font-medium tracking-[0.02em]",
+          "text-[9px] font-medium tracking-[0.02em]",
           active ? "text-white" : "text-white/58",
         )}
       >
@@ -542,6 +542,8 @@ export default function WorkflowPublishModal({
     if (!open) return;
 
     setTab("details");
+    setMobileActiveTab("details");
+    if (contentScrollRef.current) contentScrollRef.current.scrollTop = 0;
     setErr(null);
     setBusy(false);
 
@@ -938,16 +940,20 @@ export default function WorkflowPublishModal({
   const shownCode = normalizeEdgazeCode(edgazeCode);
   const showAllMobileSections = isMobileViewport && !published;
   const activeMobileTab = showAllMobileSections ? mobileActiveTab : tab;
+  const mobileSpyOffset = 28;
 
   function scrollToWorkflowSection(nextTab: PublishTab) {
     setTab(nextTab);
     setMobileActiveTab(nextTab);
+    const root = contentScrollRef.current;
     const node = sectionRefs.current[nextTab];
-    if (!node) return;
-    node.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!node || !root) return;
+    const nextTop = Math.max(0, node.offsetTop - mobileSpyOffset);
+    root.scrollTo({ top: nextTop, behavior: "smooth" });
   }
 
   useEffect(() => {
+    if (!open) return;
     if (!showAllMobileSections) return;
     const root = contentScrollRef.current;
     if (!root) return;
@@ -957,27 +963,44 @@ export default function WorkflowPublishModal({
     >;
     if (!entries.length) return;
 
-    const observer = new IntersectionObserver(
-      (items) => {
-        const visible = items
-          .filter((item) => item.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (!visible) return;
-        const next = (visible.target as HTMLElement).dataset.section as PublishTab | undefined;
-        if (!next) return;
-        setMobileActiveTab(next);
-        setTab(next);
-      },
-      {
-        root,
-        threshold: [0.25, 0.45, 0.7],
-        rootMargin: "-8% 0px -55% 0px",
-      },
-    );
+    let rafId = 0;
 
-    for (const [, node] of entries) observer.observe(node);
-    return () => observer.disconnect();
-  }, [showAllMobileSections]);
+    const syncActiveTab = () => {
+      const scrollTop = root.scrollTop + mobileSpyOffset + 8;
+      const isNearBottom = root.scrollTop + root.clientHeight >= root.scrollHeight - 24;
+      let nextTab = entries[0][0];
+
+      if (isNearBottom) {
+        nextTab = entries[entries.length - 1][0];
+      } else {
+        for (const [key, node] of entries) {
+          if (node.offsetTop <= scrollTop) {
+            nextTab = key;
+          } else {
+            break;
+          }
+        }
+      }
+
+      setMobileActiveTab((prev) => (prev === nextTab ? prev : nextTab));
+      setTab((prev) => (prev === nextTab ? prev : nextTab));
+    };
+
+    const handleScroll = () => {
+      cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(syncActiveTab);
+    };
+
+    syncActiveTab();
+    root.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      root.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, [open, showAllMobileSections]);
 
   if (!open) return null;
 
@@ -1186,15 +1209,15 @@ export default function WorkflowPublishModal({
               </div>
             </div>
           ) : (
-            <div className="grid h-[calc(100%-72px)] grid-cols-12 overflow-hidden sm:h-[calc(100%-56px)]">
+            <div className="flex h-[calc(100%-72px)] min-h-0 flex-col overflow-hidden sm:h-[calc(100%-56px)] md:grid md:grid-cols-12">
               {/* Left rail */}
-              <div className="col-span-12 overflow-auto border-b border-white/10 p-3 md:col-span-3 md:border-b-0 md:border-r md:p-6">
+              <div className="shrink-0 border-b border-white/10 px-3 py-2.5 md:col-span-3 md:overflow-auto md:border-b-0 md:border-r md:p-6">
                 <div className="text-[12px] font-semibold text-white/85">Publish</div>
                 <div className="mt-0.5 text-[11px] text-white/45">
                   Set listing details, pricing and media.
                 </div>
 
-                <div className="mt-3 -mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 md:hidden">
+                <div className="mt-3 grid grid-cols-4 gap-2 md:hidden">
                   {WORKFLOW_TABS.map((item) => (
                     <MobileTabPill
                       key={item.key}
@@ -1225,7 +1248,7 @@ export default function WorkflowPublishModal({
               {/* Right content */}
               <div
                 ref={contentScrollRef}
-                className="col-span-12 overflow-auto p-4 md:col-span-9 md:p-6"
+                className="min-h-0 flex-1 overflow-y-auto p-4 md:col-span-9 md:p-6"
               >
                 {err ? (
                   <div className="mb-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-amber-100 text-[12px] flex items-start gap-3">

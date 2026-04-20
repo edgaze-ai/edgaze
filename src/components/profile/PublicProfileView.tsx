@@ -978,9 +978,9 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.08),transparent_50%)] pointer-events-none" />
 
               <div className="relative flex flex-col gap-5">
-                <div className="flex flex-row items-start gap-5 sm:gap-8">
+                <div className="flex flex-row items-start gap-4 sm:gap-8">
                   <div className="relative shrink-0">
-                    <div className="relative h-28 w-28 overflow-hidden rounded-full border-2 border-white/25 bg-black/50 shadow-[0_8px_32px_rgba(0,0,0,0.6)] ring-4 ring-white/5 sm:h-32 sm:w-32">
+                    <div className="relative h-24 w-24 overflow-hidden rounded-full border-2 border-white/25 bg-black/50 shadow-[0_8px_32px_rgba(0,0,0,0.6)] ring-4 ring-white/5 sm:h-32 sm:w-32">
                       <Image
                         src={avatarSrc}
                         alt="Avatar"
@@ -1068,42 +1068,43 @@ export default function PublicProfileView({ handle, debug }: { handle: string; d
                         })}
                       </div>
                     )}
-
-                    {(publicListingCounts || memberSinceLabel) && (
-                      <div className="mt-4 sm:mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3.5 sm:px-5">
-                        <div className="flex flex-col gap-2 text-[13px] leading-snug text-white/55 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1">
-                          {publicListingCounts ? (
-                            <p className="text-white/60">
-                              <span className="font-semibold text-white/85">
-                                {publicListingCounts.prompts + publicListingCounts.workflows}
-                              </span>{" "}
-                              public{" "}
-                              {publicListingCounts.prompts + publicListingCounts.workflows === 1
-                                ? "listing"
-                                : "listings"}{" "}
-                              on Edgaze
-                              <span className="text-white/35"> · </span>
-                              {publicListingCounts.prompts} prompt
-                              {publicListingCounts.prompts === 1 ? "" : "s"},{" "}
-                              {publicListingCounts.workflows} workflow
-                              {publicListingCounts.workflows === 1 ? "" : "s"}
-                            </p>
-                          ) : null}
-                          {memberSinceLabel ? (
-                            <p
-                              className={cn(
-                                publicListingCounts ? "sm:border-l sm:border-white/10 sm:pl-4" : "",
-                              )}
-                            >
-                              Member since{" "}
-                              <span className="font-medium text-white/80">{memberSinceLabel}</span>
-                            </p>
-                          ) : null}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
+
+                {(publicListingCounts || memberSinceLabel) && (
+                  <div className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-3.5 sm:px-5">
+                    <div className="flex w-full flex-col gap-2 text-[13px] leading-snug text-white/55 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-1">
+                      {publicListingCounts ? (
+                        <p className="w-full text-white/60 sm:w-auto">
+                          <span className="font-semibold text-white/85">
+                            {publicListingCounts.prompts + publicListingCounts.workflows}
+                          </span>{" "}
+                          public{" "}
+                          {publicListingCounts.prompts + publicListingCounts.workflows === 1
+                            ? "listing"
+                            : "listings"}{" "}
+                          on Edgaze
+                          <span className="text-white/35"> · </span>
+                          {publicListingCounts.prompts} prompt
+                          {publicListingCounts.prompts === 1 ? "" : "s"},{" "}
+                          {publicListingCounts.workflows} workflow
+                          {publicListingCounts.workflows === 1 ? "" : "s"}
+                        </p>
+                      ) : null}
+                      {memberSinceLabel ? (
+                        <p
+                          className={cn(
+                            "w-full sm:w-auto",
+                            publicListingCounts ? "sm:border-l sm:border-white/10 sm:pl-4" : "",
+                          )}
+                        >
+                          Member since{" "}
+                          <span className="font-medium text-white/80">{memberSinceLabel}</span>
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-3 border-t border-white/[0.08] pt-5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
                   {isOwner ? (

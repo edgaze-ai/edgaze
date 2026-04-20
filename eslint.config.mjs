@@ -17,8 +17,13 @@ const config = [
   {
     ignores: [
       ".next/**",
+      "**/.next/**",
       ".next-dev/**",
+      "**/.next-dev/**",
       ".next 2/**",
+      "**/.next 2/**",
+      ".next-stuck-*/**",
+      "**/.next-stuck-*/**",
       "dist/**",
       "build/**",
       "out/**",

@@ -540,98 +540,6 @@ export default function LibraryPage() {
   const [refreshNonce, setRefreshNonce] = useState(0);
   const triggerRefresh = () => setRefreshNonce((n) => n + 1);
 
-  // Enable scrolling on library page - override body/html height restrictions
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-
-    // Save original values
-    const originalHtmlHeight = html.style.height;
-    const originalHtmlOverflowY = html.style.overflowY;
-    const originalBodyHeight = body.style.height;
-    const originalBodyOverflowY = body.style.overflowY;
-
-    // Check if mobile - use media query for reliability
-    const checkAndSetScrolling = () => {
-      // Tablet + phone: natural page scroll (matches Tailwind below-lg, same as landing shell)
-      const isMobile = window.matchMedia("(max-width: 1023px)").matches;
-
-      if (isMobile) {
-        // Mobile: MUST allow natural scrolling - add class for CSS override
-        html.classList.add("library-mobile-scroll");
-        body.classList.add("library-mobile-scroll");
-
-        // Also set inline styles as backup
-        html.style.height = "auto";
-        html.style.minHeight = "100%";
-        html.style.overflowY = "auto";
-        html.style.overflowX = "hidden";
-
-        body.style.height = "auto";
-        body.style.minHeight = "100%";
-        body.style.overflowY = "auto";
-        body.style.overflowX = "hidden";
-      } else {
-        // Desktop ONLY: lock height for independent section scrolling
-        html.classList.remove("library-mobile-scroll");
-        body.classList.remove("library-mobile-scroll");
-
-        html.style.height = "100%";
-        html.style.overflowY = "hidden";
-        html.style.overflowX = "hidden";
-
-        body.style.height = "100%";
-        body.style.overflowY = "hidden";
-        body.style.overflowX = "hidden";
-      }
-    };
-
-    // Set immediately - run sync first, then async to ensure it applies
-    checkAndSetScrolling();
-
-    // Also run after a tiny delay to ensure it sticks
-    setTimeout(() => {
-      checkAndSetScrolling();
-    }, 10);
-
-    // Handle resize with media query listener for better reliability
-    const mediaQuery = window.matchMedia("(max-width: 1023px)");
-    const handleMediaChange = () => {
-      checkAndSetScrolling();
-    };
-
-    // Also listen to resize as fallback
-    const handleResize = () => {
-      checkAndSetScrolling();
-    };
-
-    // Use both media query listener and resize
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", handleMediaChange);
-    } else {
-      // Fallback for older browsers
-      mediaQuery.addListener(handleMediaChange);
-    }
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener("change", handleMediaChange);
-      } else {
-        mediaQuery.removeListener(handleMediaChange);
-      }
-      window.removeEventListener("resize", handleResize);
-      // Remove classes
-      html.classList.remove("library-mobile-scroll");
-      body.classList.remove("library-mobile-scroll");
-      // Restore
-      html.style.height = originalHtmlHeight;
-      html.style.overflowY = originalHtmlOverflowY;
-      body.style.height = originalBodyHeight;
-      body.style.overflowY = originalBodyOverflowY;
-    };
-  }, []);
-
   // Load CREATED
   useEffect(() => {
     let cancelled = false;
@@ -1019,7 +927,10 @@ export default function LibraryPage() {
   }, [libraryOwnerId, profile]);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white relative" data-library-page>
+    <div
+      className="relative min-h-[100dvh] bg-[#050505] text-white sm:h-screen sm:overflow-hidden"
+      data-library-page
+    >
       {/* Premium background gradient */}
       <div className="fixed inset-0 -z-10 pointer-events-none">
         <div className="absolute inset-0 bg-[#050505]" />

@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
-import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
-import { templateService } from "@/lib/templates";
-import TemplateLibraryPageClient from "@/components/templates/TemplateLibraryPageClient";
+import { templateService } from "../../lib/templates";
+import TemplateLibraryPageClient from "../../components/templates/TemplateLibraryPageClient";
+import { buildMetadata } from "../../lib/seo";
 
-export const metadata: Metadata = {
-  title: "Workflow Templates",
+export const metadata: Metadata = buildMetadata({
+  title: "AI Workflow Templates | Edgaze",
   description:
-    "Browse Edgaze workflow templates, preview the graph structure, and start from guided outcomes instead of raw nodes.",
-  openGraph: {
-    title: "Workflow Templates",
-    description:
-      "Browse Edgaze workflow templates, preview the graph structure, and start from guided outcomes instead of raw nodes.",
-    url: "https://edgaze.ai/templates",
-    images: [DEFAULT_SOCIAL_IMAGE],
-  },
-};
+    "Browse outcome-driven workflow templates on Edgaze, preview graph structure, and open editable workflow starters inside Workflow Studio.",
+  path: "/templates",
+});
 
 export default async function TemplatesPage() {
   const templates = await templateService.listTemplates();

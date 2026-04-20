@@ -1,56 +1,41 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import "../styles/globals.css";
 
 import { AppProviders } from "./providers";
 import ClientLayoutGate from "./ClientLayoutGate";
 import LazyAnalyticsWrapper from "../components/layout/LazyAnalytics";
 import { WebVitals } from "./web-vitals";
-import { getSiteOrigin } from "@lib/site-origin";
-import { SITE_META_DESCRIPTION } from "@lib/constants";
-import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
-import { buildPrimarySitelinksItemList, ORGANIZATION_SAME_AS } from "@lib/primary-sitelinks";
+import { getSiteOrigin } from "../lib/site-origin";
+import { DEFAULT_DESCRIPTION, DEFAULT_ROBOTS, DEFAULT_TITLE, SITE_NAME } from "../lib/seo";
 
 const SITE_ORIGIN = getSiteOrigin();
-
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-dm-sans",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-jetbrains-mono",
-  display: "swap",
-});
 
 /** Meta Sharing Debugger / OG: numeric App ID (same as Facebook Login app id). */
 const fbAppId = process.env.FACEBOOK_APP_ID?.trim() || process.env.FACEBOOK_CLIENT_ID?.trim() || "";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
-  title: "Edgaze",
-  description: SITE_META_DESCRIPTION,
-  applicationName: "Edgaze",
+  title: {
+    default: DEFAULT_TITLE,
+    template: "%s | Marketplace",
+  },
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
   referrer: "origin-when-cross-origin",
+  robots: DEFAULT_ROBOTS,
   openGraph: {
     type: "website",
     url: SITE_ORIGIN,
-    siteName: "Edgaze",
-    title: "Edgaze",
-    description: SITE_META_DESCRIPTION,
-    images: [DEFAULT_SOCIAL_IMAGE],
+    siteName: SITE_NAME,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Edgaze",
-    description: SITE_META_DESCRIPTION,
-    images: [DEFAULT_SOCIAL_IMAGE],
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
   },
   ...(fbAppId ? { other: { "fb:app_id": fbAppId } } : {}),
   // Tab + PWA icons are optimized rasters from /brand/edgaze-mark.png — run `npm run favicon:generate` after updating the mark.
@@ -76,57 +61,13 @@ export const viewport: Viewport = {
   themeColor: "#07080b",
 };
 
-const siteNavigationJsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "@id": `${SITE_ORIGIN}/#organization`,
-      name: "Edgaze",
-      url: SITE_ORIGIN,
-      logo: {
-        "@type": "ImageObject",
-        url: `${SITE_ORIGIN}/brand/edgaze-mark.png`,
-      },
-      sameAs: [...ORGANIZATION_SAME_AS],
-    },
-    {
-      "@type": "WebSite",
-      "@id": `${SITE_ORIGIN}/#website`,
-      url: SITE_ORIGIN,
-      name: "Edgaze",
-      description: SITE_META_DESCRIPTION,
-      publisher: {
-        "@id": `${SITE_ORIGIN}/#organization`,
-      },
-      potentialAction: {
-        "@type": "SearchAction",
-        target: {
-          "@type": "EntryPoint",
-          urlTemplate: `${SITE_ORIGIN}/marketplace?q={search_term_string}`,
-        },
-        "query-input": "required name=search_term_string",
-      },
-    },
-    buildPrimarySitelinksItemList(SITE_ORIGIN),
-  ],
-};
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`dark ${inter.variable} ${jetbrainsMono.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
         className="h-full bg-[#0a0a0a] text-white antialiased font-dm-sans"
         style={{ backgroundColor: "#0a0a0a", color: "#ffffff", margin: 0 }}
       >
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteNavigationJsonLd) }}
-        />
         <AppProviders>
           <WebVitals />
           {/* Analytics loads async — do not use a fullscreen fallback or it blocks the whole UI until chunks load. */}

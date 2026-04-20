@@ -61,7 +61,7 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
   {
     id: "product",
     label: "Product",
-    href: "#features",
+    href: "/marketplace",
     featured: {
       title: "Everything in one product",
       description:
@@ -96,7 +96,7 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
           {
             title: "Prompt Studio",
             description:
-              "Structure prompts, versions, and inputs—publish prompt packs and single prompts.",
+              "Structure prompts, versions, and inputs. Publish prompt packs and single prompts.",
             href: "/prompt-studio",
             icon: Sparkles,
           },
@@ -142,7 +142,7 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
           {
             title: "Prompt Studio",
             description:
-              "Templates, inputs, and versions so prompts ship like products—not screenshots.",
+              "Templates, inputs, and versions so prompts ship like products, not screenshots.",
             href: "/prompt-studio",
             icon: Sparkles,
           },
@@ -184,6 +184,12 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
             icon: Tags,
           },
           {
+            title: "Templates",
+            description: "Start from ready-made workflow blueprints and launch faster.",
+            href: "/templates",
+            icon: FileText,
+          },
+          {
             title: "Changelog",
             description: "What shipped recently and what is next.",
             href: "/docs/changelog",
@@ -202,11 +208,11 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
   {
     id: "company",
     label: "Company",
-    href: "/about#about",
+    href: "/about",
     featured: {
       title: "Built for clarity",
       description: "Edgaze exists to make AI work legible, trustworthy, and easy to distribute.",
-      href: "/about#about",
+      href: "/about",
       ctaLabel: "About Edgaze",
     },
     columns: [
@@ -216,7 +222,7 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
           {
             title: "About",
             description: "What we are building and why it matters.",
-            href: "/about#about",
+            href: "/about",
             icon: Building2,
           },
           {
@@ -228,7 +234,7 @@ export const LANDING_MEGA_NAV: MegaNavGroup[] = [
           {
             title: "Mission",
             description: "Principles that guide product and partnerships.",
-            href: "/about#mission",
+            href: "/about/mission",
             icon: Target,
           },
         ],

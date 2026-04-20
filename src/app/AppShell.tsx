@@ -35,15 +35,26 @@ const HIDE_SIDEBAR_ROUTES = new Set([
   "/press", // press page - full-width, scrollable
   "/invest", // investor funnel — full-width, no sidebar
   "/auth/sign-in-to-buy", // full-screen sign-in for purchase — no sidebar/topbar, scrollable
+  "/what-is-edgaze",
+  "/how-edgaze-works",
+  "/for-creators",
+  "/for-buyers",
+  "/ai-workflow-marketplace",
+  "/workflow-studio",
+  "/why-workflows-not-prompts",
+  "/run-ai-workflows",
+  "/monetize-ai-workflows",
+  "/about/mission",
 ]);
+
+const HIDE_SIDEBAR_PREFIXES = ["/blogs", "/auth/sign-in-to-buy"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const pathKey = (pathname || "/").replace(/\/+$/, "") || "/";
   const hideSidebar =
     HIDE_SIDEBAR_ROUTES.has(pathKey) ||
-    pathname.startsWith("/blogs") ||
-    pathname.startsWith("/auth/sign-in-to-buy");
+    HIDE_SIDEBAR_PREFIXES.some((prefix) => pathname.startsWith(prefix));
   const isLibraryPage = pathname === "/library";
   const isLibraryAnalytics = pathname.startsWith("/library/analytics");
   const isCreatorsOnboarding = pathname === "/creators/onboarding";

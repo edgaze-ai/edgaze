@@ -3,8 +3,9 @@ import { Metadata } from "next";
 import DocRenderer from "../../components/DocRenderer";
 import DocTOC from "../../components/DocTOC";
 import { CopyMarkdownButton } from "../../components/CopyMarkdownButton";
-import { getDoc } from "../../utils/docs";
+import { getAllDocs, getDoc } from "../../utils/docs";
 import { extractToc } from "../../utils/extractToc";
+import { buildBreadcrumbJsonLd, buildMetadata } from "../../../../lib/seo";
 
 export function generateStaticParams() {
   return [
@@ -25,10 +26,12 @@ export async function generateMetadata({
   const doc = getDoc(slug);
 
   if (!doc) {
-    return {
-      title: "Builder Documentation",
-      description: "Learn how to use Edgaze builders",
-    };
+    return buildMetadata({
+      title: "Builder Documentation | Edgaze Docs",
+      description: "Learn how to use Edgaze builder tools.",
+      path: "/docs/builder",
+      robots: { index: false, follow: false },
+    });
   }
 
   const titleMap: Record<string, string> = {
@@ -49,20 +52,12 @@ export async function generateMetadata({
       "Learn how the Edgaze API Vault works, how to connect provider keys, and how vault-backed execution behaves inside Workflow Studio and runtime surfaces.",
   };
 
-  return {
-    title: titleMap[subslug] || doc.title,
-    description: descMap[subslug] || doc.description || `Learn about ${doc.title}`,
-    openGraph: {
-      title: titleMap[subslug] || doc.title,
-      description: descMap[subslug] || doc.description || `Learn about ${doc.title}`,
-      type: "article",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: titleMap[subslug] || doc.title,
-      description: descMap[subslug] || doc.description || `Learn about ${doc.title}`,
-    },
-  };
+  return buildMetadata({
+    title: titleMap[subslug] || `${doc.title} | Edgaze Docs`,
+    description: descMap[subslug] || doc.description || `Learn about ${doc.title}.`,
+    path: `/docs/builder/${subslug}`,
+    openGraphType: "article",
+  });
 }
 
 export default async function BuilderSubDocPage({
@@ -80,30 +75,74 @@ export default async function BuilderSubDocPage({
   }
 
   const toc = extractToc(doc.body);
+  const relatedDocs = getAllDocs()
+    .filter((item) => item.slug !== slug)
+    .filter((item) => item.category === "builder")
+    .slice(0, 3);
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Docs", path: "/docs" },
+    { name: "Builder", path: "/docs/builder" },
+    { name: doc.title, path: `/docs/builder/${subslug}` },
+  ]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] gap-10">
-      <article className="min-w-0">
-        <header className="pb-6 border-b border-white/10 flex flex-col gap-3 sm:gap-4">
-          <h1 className="text-3xl sm:text-5xl font-semibold tracking-tight text-white/95">
-            {doc.title}
-          </h1>
-          {doc.description ? (
-            <p className="text-sm sm:text-base text-white/55 leading-6 max-w-2xl">
-              {doc.description}
-            </p>
-          ) : null}
-          <div className="pt-1">
-            <CopyMarkdownButton title={doc.title} body={doc.body} />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_260px] gap-10">
+        <article className="min-w-0">
+          <header className="pb-6 border-b border-white/10 flex flex-col gap-3 sm:gap-4">
+            <h1 className="text-3xl sm:text-5xl font-semibold tracking-tight text-white/95">
+              {doc.title}
+            </h1>
+            {doc.description ? (
+              <p className="text-sm sm:text-base text-white/55 leading-6 max-w-2xl">
+                {doc.description}
+              </p>
+            ) : null}
+            <div className="pt-1">
+              <CopyMarkdownButton title={doc.title} body={doc.body} />
+            </div>
+          </header>
+
+          <div className="pt-6">
+            <DocRenderer content={doc.body} />
           </div>
-        </header>
 
-        <div className="pt-6">
-          <DocRenderer content={doc.body} />
-        </div>
-      </article>
+          <section className="mt-12 border-t border-white/10 pt-10">
+            <h2 className="text-2xl font-semibold text-white">Related builder documentation</h2>
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              {relatedDocs.map((item) => (
+                <a
+                  key={item.slug}
+                  href={`/docs/${item.slug}`}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-colors hover:bg-white/[0.05]"
+                >
+                  <div className="text-base font-semibold text-white">{item.title}</div>
+                  <p className="mt-2 text-sm leading-6 text-white/60">{item.description}</p>
+                </a>
+              ))}
+            </div>
 
-      <DocTOC items={toc} />
-    </div>
+            <div className="mt-8 flex flex-wrap gap-4 text-sm text-white/72">
+              <a href="/builder" className="hover:text-white">
+                Open Workflow Builder
+              </a>
+              <a href="/templates" className="hover:text-white">
+                Browse templates
+              </a>
+              <a href="/marketplace" className="hover:text-white">
+                Explore marketplace workflows
+              </a>
+            </div>
+          </section>
+        </article>
+
+        <DocTOC items={toc} />
+      </div>
+    </>
   );
 }

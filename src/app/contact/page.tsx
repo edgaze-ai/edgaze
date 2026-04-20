@@ -1,9 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+import { buildMetadata } from "../../lib/seo";
 
-export const metadata = {
-  title: "Contact",
-  description: "Get in touch with the Edgaze team.",
-};
+export const metadata: Metadata = buildMetadata({
+  title: "Contact | Edgaze",
+  description:
+    "Contact the Edgaze team for support, creator questions, partnerships, or press inquiries.",
+  path: "/contact",
+});
 
 export default function ContactPage() {
   return (

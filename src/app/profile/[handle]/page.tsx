@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import PublicProfileView from "../../../components/profile/PublicProfileView";
 import { createSupabaseAdminClient } from "../../../lib/supabase/admin";
@@ -7,6 +8,13 @@ import {
   getProfileRedirectHandle,
   getProfileRedirectByOwnerHandle,
 } from "../../../lib/supabase/handle-redirect";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 function normalizeHandle(raw: string) {
   const decoded = decodeURIComponent(raw || "").trim();

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
+import { buildMetadata } from "../../lib/seo";
 
-export const metadata: Metadata = {
-  title: "Pricing",
+export const metadata: Metadata = buildMetadata({
+  title: "Pricing | Edgaze",
   description:
-    "Simple pricing for creators monetizing AI workflows. Start free, upgrade when you get serious. Built for AI creators building real products.",
-};
+    "Review Edgaze pricing for creators building, publishing, and monetizing AI workflows. Compare plans, hosted run limits, and marketplace fee details.",
+  path: "/pricing",
+});
 
 export default function PricingLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

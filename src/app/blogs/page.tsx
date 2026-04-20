@@ -61,9 +61,39 @@ export default function BlogsHomePage() {
           from the AI workflow economy
         </h1>
         <p className="mt-8 text-xl sm:text-2xl text-white/65 max-w-3xl leading-relaxed">
-          What we&apos;re building, how creators use Edgaze, and where the platform is headed.
+          What we&apos;re building, how creators use Edgaze, and how the platform thinks about
+          runnable AI workflows, creator software, and marketplace distribution.
         </p>
       </header>
+
+      <section className="mb-16 grid gap-4 md:grid-cols-3">
+        {[
+          {
+            href: "/what-is-edgaze",
+            title: "What Edgaze is",
+            text: "Start with the platform definition and authority overview.",
+          },
+          {
+            href: "/workflow-studio",
+            title: "Workflow Studio",
+            text: "See how creators build the systems discussed across posts and docs.",
+          },
+          {
+            href: "/marketplace",
+            title: "Marketplace",
+            text: "Explore the public workflow products and creator listings behind the stories.",
+          },
+        ].map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 transition-all hover:bg-white/[0.04] hover:border-white/[0.1]"
+          >
+            <h2 className="text-xl font-semibold text-white/95">{item.title}</h2>
+            <p className="mt-2 text-sm leading-6 text-white/60">{item.text}</p>
+          </Link>
+        ))}
+      </section>
 
       {/* Gradient accent line */}
       <div className="h-px w-32 mb-16 bg-gradient-to-r from-cyan-400/80 via-pink-500/80 to-transparent rounded-full" />
@@ -79,6 +109,29 @@ export default function BlogsHomePage() {
       {blogs.length === 0 && (
         <p className="text-white/50 text-center py-16">No posts yet. Check back soon.</p>
       )}
+
+      <section className="mt-16 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8">
+        <h2 className="text-2xl font-semibold text-white/95">
+          Explore the product pillars behind the blog
+        </h2>
+        <div className="mt-5 flex flex-wrap gap-4 text-sm text-white/72">
+          <Link href="/builder" className="hover:text-white">
+            Workflow Builder
+          </Link>
+          <Link href="/prompt-studio" className="hover:text-white">
+            Prompt Studio
+          </Link>
+          <Link href="/templates" className="hover:text-white">
+            Templates
+          </Link>
+          <Link href="/docs" className="hover:text-white">
+            Documentation
+          </Link>
+          <Link href="/creators" className="hover:text-white">
+            Creator Program
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

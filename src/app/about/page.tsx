@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight, Blocks, FileEdit, Globe, Linkedin, Play, Zap } from "lucide-react";
 import Footer from "src/components/layout/Footer";
+import { buildOrganizationJsonLd } from "../../lib/seo";
 
 const NODE_TX = {
   fill: "#101014",
@@ -297,6 +298,8 @@ function WorkflowBuilderDiagram() {
 }
 
 export default function AboutPage() {
+  const organizationJsonLd = buildOrganizationJsonLd();
+
   useEffect(() => {
     const id = window.location.hash.replace(/^#/, "");
     if (!id) return;
@@ -308,6 +311,10 @@ export default function AboutPage() {
 
   return (
     <div className="min-h-screen w-full bg-black text-white font-dm-sans">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/[0.07] bg-black/95 pt-[max(0.75rem,env(safe-area-inset-top))] md:border-transparent md:bg-transparent md:pt-5">
         <div className="mx-auto max-w-[1440px] px-4 sm:px-5 md:px-8">
           <div className="flex min-w-0 items-center rounded-full py-2 pl-3 pr-3 sm:pl-4 sm:pr-4 md:bg-gradient-to-r md:from-cyan-500/25 md:via-white/10 md:to-pink-500/25 md:p-px md:shadow-[0_0_48px_-16px_rgba(34,211,238,0.22),0_0_48px_-16px_rgba(236,72,153,0.15)]">

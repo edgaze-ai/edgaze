@@ -1,8 +1,32 @@
+import { buildCanonicalUrl } from "../../../../lib/seo";
+
 export const dynamic = "force-static";
 
+const DISALLOWED_PATHS = [
+  "/api/",
+  "/admin/",
+  "/dashboard/",
+  "/settings/",
+  "/auth/",
+  "/checkout/",
+  "/claim/",
+  "/onboarding/",
+  "/library",
+  "/profile",
+  "/feedback",
+  "/bugs",
+  "/apply",
+  "/store/",
+];
+
 export function GET() {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://edgaze.ai";
-  return new Response(`User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`, {
+  const rules = [
+    "User-agent: *",
+    "Allow: /",
+    ...DISALLOWED_PATHS.map((path) => `Disallow: ${path}`),
+  ];
+
+  return new Response(`${rules.join("\n")}\nSitemap: ${buildCanonicalUrl("/sitemap.xml")}\n`, {
     headers: { "Content-Type": "text/plain" },
   });
 }

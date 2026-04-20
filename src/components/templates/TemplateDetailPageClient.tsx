@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { useAuth } from "@/components/auth/AuthContext";
-import { templateService, type TemplateDefinition } from "@/lib/templates";
+import { useAuth } from "../auth/AuthContext";
+import { templateService, type TemplateDefinition } from "../../lib/templates";
 import TemplateGraphPreview from "./TemplateGraphPreview";
 import TemplateSetupModal from "./TemplateSetupModal";
 
@@ -37,7 +38,20 @@ async function createDraftFromTemplate(
   return String(json?.draft?.id ?? "");
 }
 
-export default function TemplateDetailPageClient({ template }: { template: TemplateDefinition }) {
+function titleCase(input: string) {
+  return input
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export default function TemplateDetailPageClient({
+  template,
+  relatedTemplates,
+}: {
+  template: TemplateDefinition;
+  relatedTemplates: TemplateDefinition[];
+}) {
   const router = useRouter();
   const { requireAuth, getAccessToken } = useAuth();
   const [setupOpen, setSetupOpen] = useState(false);
@@ -110,6 +124,7 @@ export default function TemplateDetailPageClient({ template }: { template: Templ
   };
 
   const handlePrimary = () => {
+    if (!requireAuth()) return;
     if (template.setup.mode === "none") {
       void launchTemplate();
       return;
@@ -196,6 +211,100 @@ export default function TemplateDetailPageClient({ template }: { template: Templ
             </div>
           </div>
         </section>
+
+        <section className="mt-10 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-[16px] border border-white/10 bg-[#0c0c0c] p-6">
+            <h2 className="text-lg font-semibold text-white">Who this template is for</h2>
+            <p className="mt-3 text-[15px] leading-7 text-white/54">
+              This template is designed for creators who want a {titleCase(template.meta.category)}{" "}
+              workflow they can adapt quickly without building every node from scratch. It works
+              well for {template.meta.difficulty ?? "beginner"} creators who want a structured
+              starting point and enough flexibility to keep editing inside Workflow Studio.
+            </p>
+          </div>
+
+          <div className="rounded-[16px] border border-white/10 bg-[#0c0c0c] p-6">
+            <h2 className="text-lg font-semibold text-white">How to use it</h2>
+            <ol className="mt-3 space-y-2 text-[15px] leading-7 text-white/54">
+              <li>
+                Review the graph preview and setup fields to understand the workflow structure.
+              </li>
+              <li>Use the template to create an editable workflow draft in Builder.</li>
+              <li>
+                Customize prompts, tools, inputs, and publishing details for your own use case.
+              </li>
+              <li>Publish the final workflow with a clear public page when it is ready.</li>
+            </ol>
+          </div>
+        </section>
+
+        <section className="mt-10 grid gap-6 lg:grid-cols-2">
+          <div className="rounded-[16px] border border-white/10 bg-[#0c0c0c] p-6">
+            <h2 className="text-lg font-semibold text-white">Example use cases</h2>
+            <ul className="mt-3 space-y-2 text-[15px] leading-7 text-white/54">
+              {(template.meta.outcomes?.length ? template.meta.outcomes : template.meta.tags).map(
+                (item) => (
+                  <li key={item}>
+                    Use this template to launch a {item.toLowerCase()} workflow with a clearer
+                    starting structure and faster path to publishing.
+                  </li>
+                ),
+              )}
+            </ul>
+          </div>
+
+          <div className="rounded-[16px] border border-white/10 bg-[#0c0c0c] p-6">
+            <h2 className="text-lg font-semibold text-white">Why this template exists</h2>
+            <p className="mt-3 text-[15px] leading-7 text-white/54">
+              Templates on Edgaze help creators move from idea to runnable workflow product faster.
+              Instead of reconstructing a graph manually, you start from a proven structure and
+              adapt the workflow to your audience, niche, and publishing goals.
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-10 rounded-[16px] border border-white/10 bg-[#0c0c0c] p-6">
+          <h2 className="text-lg font-semibold text-white">Related Edgaze resources</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-white/56">
+            Use this template as a starting point, then refine the workflow in Builder, review the
+            matching docs, explore live marketplace listings, and learn how creators publish useful
+            workflow products.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-4 text-sm text-white/75">
+            <a href="/builder" className="hover:text-white">
+              Open Workflow Builder
+            </a>
+            <a href="/docs/builder/templates" className="hover:text-white">
+              Read template docs
+            </a>
+            <a href="/marketplace" className="hover:text-white">
+              Explore marketplace workflows
+            </a>
+            <a href="/creators" className="hover:text-white">
+              Visit the creator program
+            </a>
+          </div>
+        </section>
+
+        {relatedTemplates.length > 0 ? (
+          <section className="mt-10 rounded-[16px] border border-white/10 bg-[#0c0c0c] p-6">
+            <h2 className="text-lg font-semibold text-white">Related templates</h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              {relatedTemplates.map((item) => (
+                <Link
+                  key={item.slug}
+                  href={`/templates/${item.slug}`}
+                  className="rounded-[14px] border border-white/10 bg-[#101010] p-4 transition-colors hover:bg-white/[0.05]"
+                >
+                  <div className="text-sm font-semibold text-white">{item.meta.name}</div>
+                  <p className="mt-2 text-sm leading-6 text-white/54">
+                    {item.meta.shortDescription}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <TemplateSetupModal

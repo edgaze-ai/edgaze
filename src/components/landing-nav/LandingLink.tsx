@@ -5,7 +5,18 @@ import { LANDING_SCROLL_OFFSET_PX, scrollToHashId } from "./hash-navigate";
 
 export type LandingLinkProps = Pick<
   React.ComponentProps<"a">,
-  "href" | "className" | "children" | "aria-label" | "rel" | "target" | "onClick"
+  | "href"
+  | "className"
+  | "children"
+  | "aria-label"
+  | "rel"
+  | "target"
+  | "onClick"
+  | "onMouseEnter"
+  | "onFocus"
+  | "aria-expanded"
+  | "aria-haspopup"
+  | "aria-controls"
 > & {
   scrollerRef: React.RefObject<HTMLDivElement | null>;
   afterNavigate?: () => void;
