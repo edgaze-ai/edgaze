@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readFileSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, extname, resolve } from "node:path";
 
 const inputPath = process.argv[2];
 
@@ -10,7 +10,21 @@ if (!inputPath) {
   process.exit(1);
 }
 
-const raw = readFileSync(inputPath, "utf8");
+function resolveLocalInputPath(input) {
+  const resolved = resolve(process.cwd(), input);
+  const cwdPrefix = `${process.cwd()}/`;
+  if (resolved !== process.cwd() && !resolved.startsWith(cwdPrefix)) {
+    throw new Error("Input path must stay within the repository.");
+  }
+  const ext = extname(resolved).toLowerCase();
+  if (ext && ![".log", ".txt", ".ndjson", ".jsonl"].includes(ext)) {
+    throw new Error("Unsupported perf log file type.");
+  }
+  return resolved;
+}
+
+const resolvedInputPath = resolveLocalInputPath(inputPath);
+const raw = readFileSync(resolvedInputPath, "utf8");
 const lines = raw.split(/\r?\n/).filter(Boolean);
 
 const spanRows = [];
@@ -30,7 +44,7 @@ for (const line of lines) {
 }
 
 if (spanRows.length === 0 && totalRows.length === 0) {
-  console.error(`No workflow engine perf rows found in ${basename(inputPath)}.`);
+  console.error(`No workflow engine perf rows found in ${basename(resolvedInputPath)}.`);
   process.exit(1);
 }
 
@@ -142,7 +156,7 @@ function formatPct(value) {
 const output = [];
 output.push("# Workflow Engine Perf Report");
 output.push("");
-output.push(`Source: \`${inputPath}\``);
+output.push(`Source: \`${basename(resolvedInputPath)}\``);
 output.push("");
 output.push("## Run Summary");
 output.push("");

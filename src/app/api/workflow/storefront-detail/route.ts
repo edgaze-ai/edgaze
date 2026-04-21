@@ -9,8 +9,8 @@ function isListingFree(row: { is_paid?: boolean | null; monetisation_mode?: stri
 }
 
 /**
- * Public workflow product metadata. Masks graph_json/graph for paid listings (fetch via
- * /api/workflow/resolve-run-graph or Supabase when RLS allows).
+ * Public workflow product metadata. Workflow graph data is never exposed from the public
+ * storefront detail endpoint; preview/demo graph fetches must go through server authz.
  */
 export async function GET(req: Request) {
   try {
@@ -39,11 +39,11 @@ export async function GET(req: Request) {
       is_paid: row.is_paid as boolean | null,
       monetisation_mode: row.monetisation_mode as string | null,
     });
-
-    if (!free) {
-      row.graph_json = null;
-      row.graph = null;
-    }
+    void free;
+    row.graph_json = null;
+    row.graph = null;
+    row.demo_mode_enabled = null;
+    row.demo_token = null;
 
     return NextResponse.json({ listing: row });
   } catch (e) {

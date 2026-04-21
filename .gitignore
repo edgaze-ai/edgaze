@@ -8,6 +8,9 @@ yarn-error.log*
 .next-dev
 .next-stuck-*
 .next 2
+tsconfig.next-dev.json
+tmp/edgaze-next-dev*
+Users/
 out
 dist
 var/

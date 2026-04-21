@@ -1,3 +1,4 @@
+import { createNullPrototypeRecord, setOwnRecordValue } from "@lib/security/url-policy";
 import type { ExecutionSnapshot, NodeStatus, WorkflowStatus } from "./types";
 
 type TransitionHook<T> = (
@@ -71,9 +72,9 @@ export function initializeSnapshot(params: {
   metadata?: Record<string, unknown>;
 }): ExecutionSnapshot {
   const now = Date.now();
-  const nodeStatus: Record<string, NodeStatus> = {};
+  const nodeStatus = createNullPrototypeRecord<NodeStatus>();
   params.nodeIds.forEach((id) => {
-    nodeStatus[id] = "idle";
+    setOwnRecordValue(nodeStatus, id, "idle");
   });
   return {
     workflowId: params.workflowId,

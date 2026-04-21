@@ -1263,52 +1263,56 @@ export default function BuilderPage() {
       setWfLoading(true);
 
       try {
+        const token = await getAccessToken();
+        const accessRes = await fetch("/api/workflow/access", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ workflowId, requestedMode: "edit" }),
+        });
+        const accessJson = await accessRes.json().catch(() => ({}));
+        if (!accessRes.ok || !accessJson.ok) {
+          throw new Error(accessJson.error || "You don’t have access to edit this workflow.");
+        }
+        if (!accessJson.canEdit) {
+          router.replace(
+            `/builder?workflowId=${encodeURIComponent(workflowId)}&mode=preview` as any,
+          );
+          return;
+        }
+
+        const graphRes = await fetch("/api/workflow/resolve-run-graph", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ workflowId }),
+        });
+        const graphJson = await graphRes.json().catch(() => ({}));
+        if (!graphRes.ok || !graphJson.ok) {
+          throw new Error(graphJson.error || "Failed to load workflow.");
+        }
+
         const { data: wf, error: wfErr } = await supabase
           .from("workflows")
-          .select("id,owner_id,title,graph,is_paid,monetisation_mode,is_public,is_published")
+          .select("title")
           .eq("id", workflowId)
-          .eq("is_published", true)
           .maybeSingle();
 
         if (wfErr) throw wfErr;
-        if (!wf) throw new Error("Workflow not found.");
 
-        const wfRow = wf as any;
-
-        if (wfRow.is_public === false) throw new Error("This workflow is private.");
-
-        const isOwner = String(wfRow.owner_id ?? "") === String(effectiveWorkspaceId ?? userId);
-        const isFree = wfRow.monetisation_mode === "free" || wfRow.is_paid === false;
-
-        if (useDraftApi && !isOwner && !isFree) {
-          throw new Error(
-            "Paid marketplace workflows can’t be opened as drafts while impersonating. End impersonation or use the buyer account.",
-          );
-        }
-
-        let hasPurchase = false;
-        if (!isOwner && !isFree) {
-          const { data: pr, error: prErr } = await supabase
-            .from("workflow_purchases")
-            .select("id,status")
-            .eq("workflow_id", workflowId)
-            .eq("buyer_id", userId)
-            .maybeSingle();
-
-          if (prErr) throw prErr;
-          hasPurchase = Boolean(pr && (pr as any).status && (pr as any).status !== "refunded");
-        }
-
-        if (!isOwner && !isFree && !hasPurchase) {
-          throw new Error("You don’t have access to this workflow.");
-        }
-
-        const g = normalizeGraph(wfRow?.graph);
+        const workflowTitle =
+          (wf as { title?: string | null } | null)?.title || "Untitled Workflow";
+        const g = normalizeGraph({ nodes: graphJson.nodes, edges: graphJson.edges });
 
         let row: DraftRow;
 
         if (useDraftApi) {
-          const token = await getAccessToken();
           const res = await fetch("/api/creator/workflow-drafts", {
             method: "POST",
             credentials: "include",
@@ -1317,7 +1321,7 @@ export default function BuilderPage() {
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
-              title: wfRow?.title || "Untitled Workflow",
+              title: workflowTitle,
               graph: stripGraphSecrets(g) as any,
             }),
           });
@@ -1330,7 +1334,7 @@ export default function BuilderPage() {
             .from("workflow_drafts")
             .insert({
               owner_id: userId,
-              title: wfRow?.title || "Untitled Workflow",
+              title: workflowTitle,
               graph: stripGraphSecrets(g) as any,
               last_opened_at: nowIso(),
             })
@@ -1372,7 +1376,7 @@ export default function BuilderPage() {
       loadGraphAndResetHistory,
       useDraftApi,
       getAccessToken,
-      effectiveWorkspaceId,
+      router,
     ],
   );
 
@@ -1387,49 +1391,43 @@ export default function BuilderPage() {
       setWfLoading(true);
 
       try {
+        const token = await getAccessToken();
+        const accessRes = await fetch("/api/workflow/access", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ workflowId, requestedMode: "preview" }),
+        });
+        const accessJson = await accessRes.json().catch(() => ({}));
+        if (!accessRes.ok || !accessJson.ok || !accessJson.canPreview) {
+          throw new Error(accessJson.error || "You don’t have access to this workflow.");
+        }
+
+        const graphRes = await fetch("/api/workflow/resolve-run-graph", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ workflowId }),
+        });
+        const graphJson = await graphRes.json().catch(() => ({}));
+        if (!graphRes.ok || !graphJson.ok) {
+          throw new Error(graphJson.error || "Failed to load workflow.");
+        }
+
         const { data: wf, error: wfErr } = await supabase
           .from("workflows")
-          .select(
-            "id,owner_id,owner_handle,edgaze_code,title,graph,is_paid,monetisation_mode,is_public,is_published",
-          )
+          .select("owner_handle,edgaze_code,title")
           .eq("id", workflowId)
-          .eq("is_published", true)
           .maybeSingle();
-
         if (wfErr) throw wfErr;
-        if (!wf) throw new Error("Workflow not found.");
-
-        const wfRow = wf as any;
-
-        if (wfRow.is_public === false) throw new Error("This workflow is private.");
-
-        const isOwner = String(wfRow.owner_id ?? "") === String(effectiveWorkspaceId ?? userId);
-        const isFree = wfRow.monetisation_mode === "free" || wfRow.is_paid === false;
-
-        if (useDraftApi && !isOwner && !isFree) {
-          throw new Error(
-            "Paid marketplace previews aren’t available while impersonating. End impersonation or sign in as the buyer.",
-          );
-        }
-
-        let hasPurchase = false;
-        if (!isOwner && !isFree) {
-          const { data: pr, error: prErr } = await supabase
-            .from("workflow_purchases")
-            .select("id,status")
-            .eq("workflow_id", workflowId)
-            .eq("buyer_id", userId)
-            .maybeSingle();
-
-          if (prErr) throw prErr;
-          hasPurchase = Boolean(pr && (pr as any).status && (pr as any).status !== "refunded");
-        }
-
-        if (!isOwner && !isFree && !hasPurchase) {
-          throw new Error("You don’t have access to this workflow.");
-        }
-
-        const g = normalizeGraph(wfRow?.graph);
+        const wfRow = (wf as any) ?? {};
+        const g = normalizeGraph({ nodes: graphJson.nodes, edges: graphJson.edges });
         setActiveDraftId(String(workflowId)); // run uses this id
         setName(wfRow?.title || "Untitled Workflow");
         setEditingName(false);
@@ -1458,7 +1456,7 @@ export default function BuilderPage() {
         setWfLoading(false);
       }
     },
-    [requireAuth, userId, supabase, loadGraphAndResetHistory, useDraftApi, effectiveWorkspaceId],
+    [requireAuth, userId, supabase, loadGraphAndResetHistory, getAccessToken],
   );
 
   // Auto-open from URL param once auth is ready (preview works on phones; edit skips phones).
@@ -1497,32 +1495,8 @@ export default function BuilderPage() {
         return;
       }
 
-      if (!previewParam && userId) {
-        const { data: wf, error: wfOwnerErr } = await supabase
-          .from("workflows")
-          .select("owner_id")
-          .eq("id", wid)
-          .eq("is_published", true)
-          .maybeSingle();
-
-        if (cancelled) return;
-
-        if (wfOwnerErr || !wf) {
-          // Invalid / unavailable id — let openMarketplaceWorkflowAsDraft surface an error.
-        } else if (
-          String((wf as { owner_id?: string }).owner_id ?? "") !==
-          String(effectiveWorkspaceId ?? userId)
-        ) {
-          router.replace(`/builder?workflowId=${encodeURIComponent(wid)}&mode=preview` as any);
-          return;
-        }
-      }
-
       if (cancelled) return;
 
-      // Preview loads purchases/enforcement via the authenticated Supabase client; without a
-      // session, openMarketplaceWorkflowPreview returns early — but we must not set
-      // openedWorkflowIdRef first or the workflow never opens after sign-in.
       if (previewParam && !userId) {
         if (!previewDeepLinkAuthPromptedRef.current) {
           previewDeepLinkAuthPromptedRef.current = true;
@@ -1554,17 +1528,7 @@ export default function BuilderPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    mounted,
-    isMobileBlocked,
-    authReady,
-    previewParam,
-    userId,
-    effectiveWorkspaceId,
-    searchParams,
-    supabase,
-    router,
-  ]);
+  }, [mounted, isMobileBlocked, authReady, previewParam, userId, searchParams, router]);
 
   const createDraft = useCallback(async () => {
     setWfError(null);

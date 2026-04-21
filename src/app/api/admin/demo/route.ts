@@ -115,10 +115,16 @@ export async function POST(req: NextRequest) {
     const supabase = createSupabaseAdminClient();
     const table = target_type === "prompt" ? "prompts" : "workflows";
 
-    const update: Record<string, unknown> = {
-      demo_mode_enabled: enabled,
-      ...(enabled ? { demo_token: generateDemoToken() } : { demo_token: null }),
-    };
+    const update: Record<string, unknown> =
+      target_type === "workflow"
+        ? {
+            demo_mode_enabled: enabled,
+            demo_token: null,
+          }
+        : {
+            demo_mode_enabled: enabled,
+            ...(enabled ? { demo_token: generateDemoToken() } : { demo_token: null }),
+          };
 
     const { data, error } = await supabase
       .from(table)
@@ -137,9 +143,12 @@ export async function POST(req: NextRequest) {
       target_type === "prompt"
         ? `/p/${data.owner_handle}/${data.edgaze_code}`
         : `/${data.owner_handle}/${data.edgaze_code}`;
-    const demoUrl = data.demo_token
-      ? `${base}${path}?demo=${encodeURIComponent(data.demo_token)}`
-      : null;
+    const demoUrl =
+      target_type === "workflow"
+        ? null
+        : data.demo_token
+          ? `${base}${path}?demo=${encodeURIComponent(data.demo_token)}`
+          : null;
 
     return NextResponse.json({
       ok: true,

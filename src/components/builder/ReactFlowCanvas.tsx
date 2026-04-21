@@ -133,6 +133,8 @@ type Props = {
   mode?: BuilderMode; // "preview" enables read-only mode
   /** Narrow viewports: slightly smaller node cards via CSS (.builder-compact). */
   compact?: boolean;
+  /** In preview mode, require explicit opt-in before the canvas can pan/zoom. */
+  previewPanEnabled?: boolean;
   onSelectionChange?: (s: {
     nodeId: string | null;
     nodeIds?: string[];
@@ -149,21 +151,14 @@ type BubbleState =
   | { kind: "edge"; id: string; x: number; y: number };
 
 const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
-  { mode = "edit", compact = false, onSelectionChange, onGraphChange },
+  { mode = "edit", compact = false, previewPanEnabled = false, onSelectionChange, onGraphChange },
   ref,
 ) {
   const isPreview = mode === "preview";
   const isTemplateMobilePreview = mode === "template-mobile-preview";
   const isGraphReadOnlyMode = isPreview;
   const isConfigReadOnlyMode = isPreview;
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1023px), (pointer: coarse)");
-    const apply = () => setIsMobileViewport(Boolean(mq.matches));
-    apply();
-    mq.addEventListener?.("change", apply);
-    return () => mq.removeEventListener?.("change", apply);
-  }, []);
+  const previewInteractionEnabled = isPreview && previewPanEnabled;
 
   // nodeTypes is defined outside component and frozen — pass it directly to avoid "new nodeTypes" warning
   const [nodes, setNodes, baseOnNodesChange] = useNodesState<EdgazeNodeData>([]);
@@ -180,6 +175,15 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
   const [miniMapSize, setMiniMapSize] = useState({ w: 178, h: 112 });
 
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 1 });
+
+  const updateViewport = useCallback((next: Viewport) => {
+    setViewport((prev) => {
+      const dx = Math.abs(prev.x - next.x);
+      const dy = Math.abs(prev.y - next.y);
+      const dz = Math.abs(prev.zoom - next.zoom);
+      return dx < 0.01 && dy < 0.01 && dz < 0.0001 ? prev : next;
+    });
+  }, []);
 
   /** Initial mount only — avoid tying to node count so adding nodes does not reset the viewport. */
   const initialFitViewOptions = useMemo(
@@ -261,7 +265,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
     rfRef.current = inst;
     try {
       const vp = (inst as any)?.toObject?.().viewport as Viewport | undefined;
-      if (vp) setViewport(vp);
+      if (vp) updateViewport(vp);
     } catch {
       /* no-op */
     }
@@ -1182,7 +1186,6 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         onConnect={locked || isGraphReadOnlyMode ? undefined : onConnect}
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
-        fitView
         fitViewOptions={initialFitViewOptions}
         // More forgiving magnet radius for handle snapping (especially for small ports on LLM cards)
         connectionRadius={36}
@@ -1205,16 +1208,17 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         edgeTypes={edgeTypes}
         className="!bg-[#0c0c0c]"
         proOptions={{ hideAttribution: true }}
-        onMove={(_, vp) => setViewport(vp)}
+        onMove={(_, vp) => updateViewport(vp)}
         nodeDragThreshold={1}
         nodesDraggable={!locked && !isGraphReadOnlyMode}
         nodesConnectable={!locked && !isGraphReadOnlyMode}
         edgesUpdatable={!locked && !isGraphReadOnlyMode}
-        panOnDrag
-        panOnScroll
-        zoomOnScroll
-        zoomOnPinch
-        zoomOnDoubleClick
+        panOnDrag={isPreview ? previewInteractionEnabled : true}
+        panOnScroll={isPreview ? false : true}
+        zoomOnScroll={isPreview ? false : true}
+        zoomOnPinch={isPreview ? previewInteractionEnabled : true}
+        zoomOnDoubleClick={isPreview ? false : true}
+        preventScrolling={!(isPreview && !previewInteractionEnabled)}
         selectionOnDrag={!isGraphReadOnlyMode}
         minZoom={minZoom}
         maxZoom={2}
@@ -1285,7 +1289,7 @@ const ReactFlowCanvas = forwardRef<CanvasRef, Props>(function ReactFlowCanvas(
         )}
 
         {/* Minimap */}
-        {!(isPreview && isMobileViewport) && !isTemplateMobilePreview ? (
+        {!isPreview && !isTemplateMobilePreview ? (
           <MiniMap
             position="bottom-right"
             pannable

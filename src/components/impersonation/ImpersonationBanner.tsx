@@ -4,6 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { useImpersonation } from "./ImpersonationContext";
 
+const SHARED_LINK_PREFETCH = process.env.NODE_ENV === "development" ? false : null;
+
 export default function ImpersonationBanner() {
   const { state, endImpersonation } = useImpersonation();
 
@@ -37,6 +39,7 @@ export default function ImpersonationBanner() {
           </button>
           <Link
             href={state.returnToAdminPath}
+            prefetch={SHARED_LINK_PREFETCH}
             className="rounded-lg border border-amber-400/50 bg-amber-950/40 px-3 py-2 text-[12px] font-semibold text-amber-50 transition hover:bg-amber-950/60 sm:px-4 sm:text-[13px]"
           >
             Return to admin panel

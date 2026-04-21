@@ -5,6 +5,8 @@ import Link from "next/link";
 import { cn } from "../../lib/utils";
 import VerifiedCreatorBadge from "./VerifiedCreatorBadge";
 
+const SHARED_LINK_PREFETCH = process.env.NODE_ENV === "development" ? false : null;
+
 type ProfileLinkProps = {
   name: string | null | undefined;
   handle?: string | null;
@@ -62,7 +64,7 @@ export default function ProfileLink({
 
   if (profileHref) {
     return (
-      <Link href={profileHref} className={linkClasses}>
+      <Link href={profileHref} prefetch={SHARED_LINK_PREFETCH} className={linkClasses}>
         {content}
       </Link>
     );

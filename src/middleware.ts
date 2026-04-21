@@ -32,7 +32,16 @@ function isProtectedPath(pathname: string): boolean {
   return false;
 }
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
+  const hostname = request.nextUrl.hostname.toLowerCase();
+
+  if (hostname === "edgaze.ai") {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.hostname = "www.edgaze.ai";
+    redirectUrl.protocol = "https:";
+    return NextResponse.redirect(redirectUrl, 301);
+  }
+
   const res = NextResponse.next();
   if (isProtectedPath(request.nextUrl.pathname)) {
     res.headers.set("Content-Security-Policy", "frame-ancestors 'none'");

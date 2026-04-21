@@ -1,34 +1,16 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
-import { getAuthenticatedRunEntitlement } from "src/server/flow/marketplace-entitlement";
 import { loadPublishedWorkflowGraphForExecution } from "src/server/flow/load-workflow-graph";
-import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
+import {
+  isAnonymousWorkflowDemoEligibleMode,
+  resolveWorkflowAccessDecision,
+  sanitizeWorkflowGraphForClient,
+} from "src/server/flow/workflow-security";
+import { extractTrustedClientIpOrUnknown } from "@lib/request-client-ip";
+import { checkWorkflowDemoRateLimit } from "@lib/rate-limiting/workflow-demo";
 
 export const maxDuration = 30;
-
-/**
- * Strip node config before sending graph to non-owner callers.
- * The config field holds creator IP (system prompts, API configs, etc.) that
- * must never be exposed to buyers, demo users, or anonymous visitors.
- * The UI only needs specId + title to render the input form; actual config is
- * consumed server-side during execution.
- */
-function stripNodeConfig(nodes: unknown[]): unknown[] {
-  return nodes.map((n) => {
-    const node = n as {
-      data?: { specId?: unknown; title?: unknown; [k: string]: unknown };
-      [k: string]: unknown;
-    };
-    return {
-      ...node,
-      data: {
-        specId: node.data?.specId,
-        title: node.data?.title,
-      },
-    };
-  });
-}
 
 /**
  * Returns canonical workflow graph for UI (demo inputs / validation) after the same checks
@@ -39,7 +21,6 @@ export async function POST(req: Request) {
     let body: {
       workflowId?: string;
       deviceFingerprint?: string;
-      adminDemoToken?: string;
     };
     try {
       body = await req.json();
@@ -52,63 +33,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "workflowId is required" }, { status: 400 });
     }
 
-    const supabaseAdmin = createSupabaseAdminClient();
-
     if (
-      body.adminDemoToken &&
-      typeof body.adminDemoToken === "string" &&
-      body.adminDemoToken.length >= 16
+      !checkWorkflowDemoRateLimit({
+        req,
+        workflowId,
+        deviceFingerprint: body.deviceFingerprint,
+        kind: "resolve",
+      })
     ) {
-      const { data: wf, error: wfError } = await supabaseAdmin
-        .from("workflows")
-        .select("id")
-        .eq("id", workflowId)
-        .eq("demo_mode_enabled", true)
-        .eq("demo_token", body.adminDemoToken.trim())
-        .maybeSingle();
-      if (wfError || !wf) {
-        return NextResponse.json({ ok: false, error: "Invalid demo link." }, { status: 403 });
-      }
-      const g = await loadPublishedWorkflowGraphForExecution(workflowId);
-      // Admin demo users are not the owner — strip config to protect creator IP
-      return NextResponse.json({ ok: true, nodes: stripNodeConfig(g.nodes), edges: g.edges });
+      return NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429 });
     }
+
+    const supabaseAdmin = createSupabaseAdminClient();
 
     const { user } = await getUserFromRequest(req);
     if (user) {
-      const entitlement = await getAuthenticatedRunEntitlement(user.id, workflowId, false);
-      if (entitlement.ok === false) {
-        return NextResponse.json({ ok: false, error: entitlement.message }, { status: 403 });
-      }
-      if (entitlement.useServerMarketplaceGraph) {
-        const g = await loadPublishedWorkflowGraphForExecution(workflowId);
-        // Non-owners (buyers, free users) must not receive node configs — that's creator IP.
-        const nodes = entitlement.isOwner ? g.nodes : stripNodeConfig(g.nodes);
-        return NextResponse.json({ ok: true, nodes, edges: g.edges });
-      }
-      // Draft / owner builder: graph may differ from published — return published snapshot only when useServerMarketplaceGraph; otherwise load draft graph for builder.
-      const draftId = entitlement.draftIdForCount;
-      if (draftId) {
-        const { data: draft, error: dErr } = await supabaseAdmin
-          .from("workflow_drafts")
-          .select("graph")
-          .eq("id", draftId)
-          .eq("owner_id", user.id)
-          .maybeSingle();
-        if (dErr || !draft) {
-          return NextResponse.json({ ok: false, error: "Draft not found." }, { status: 404 });
-        }
-        const raw = draft.graph as { nodes?: unknown[]; edges?: unknown[] } | null;
-        // Draft graph — caller is the owner (ownership enforced by eq("owner_id", user.id) above)
-        return NextResponse.json({
-          ok: true,
-          nodes: raw?.nodes ?? [],
-          edges: raw?.edges ?? [],
-        });
+      const decision = await resolveWorkflowAccessDecision({
+        workflowId,
+        userId: user.id,
+        requestedMode: "preview",
+      });
+      if (!decision.ok) {
+        return NextResponse.json({ ok: false, error: decision.message }, { status: 403 });
       }
       const g = await loadPublishedWorkflowGraphForExecution(workflowId);
-      const nodes = entitlement.isOwner ? g.nodes : stripNodeConfig(g.nodes);
-      return NextResponse.json({ ok: true, nodes, edges: g.edges });
+      if (decision.mode === "owner_edit" || decision.mode === "owner_preview") {
+        return NextResponse.json({ ok: true, nodes: g.nodes, edges: g.edges, mode: decision.mode });
+      }
+      const sanitized = sanitizeWorkflowGraphForClient(g, "preview");
+      return NextResponse.json({
+        ok: true,
+        nodes: sanitized.nodes,
+        edges: sanitized.edges,
+        mode: decision.mode,
+      });
     }
 
     const fp = body.deviceFingerprint?.trim();
@@ -119,44 +77,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const clientId = extractClientIdentifier(req);
-    const ipAddress = clientId.type === "ip" ? clientId.identifier : "unknown";
-
-    // Reject if this fingerprint alone has already been used (IP-independent check)
-    const { count: fpCount } = await supabaseAdmin
-      .from("anonymous_demo_runs")
-      .select("*", { count: "exact", head: true })
-      .eq("workflow_id", workflowId)
-      .eq("device_fingerprint", fp);
-    if (fpCount !== null && fpCount >= 1) {
+    const accessDecision = await resolveWorkflowAccessDecision({
+      workflowId,
+      userId: null,
+      requestedMode: "preview",
+    });
+    if (!accessDecision.ok || !isAnonymousWorkflowDemoEligibleMode(accessDecision.mode)) {
       return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "You've already used your one-time demo for this workflow on this device and network.",
-        },
+        { ok: false, error: accessDecision.message ?? "This workflow demo is not available." },
         { status: 403 },
       );
     }
 
-    // Also cap by IP to prevent fingerprint-cycling attacks
-    if (ipAddress !== "unknown") {
-      const { count: ipCount } = await supabaseAdmin
-        .from("anonymous_demo_runs")
-        .select("*", { count: "exact", head: true })
-        .eq("workflow_id", workflowId)
-        .eq("ip_address", ipAddress);
-      if (ipCount !== null && ipCount >= 3) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error:
-              "You've already used your one-time demo for this workflow on this device and network.",
-          },
-          { status: 403 },
-        );
-      }
-    }
+    const ipAddress = extractTrustedClientIpOrUnknown(req);
 
     const { data: canRun, error: rpcErr } = await supabaseAdmin.rpc("can_run_anonymous_demo", {
       p_workflow_id: workflowId,
@@ -181,8 +114,8 @@ export async function POST(req: Request) {
     }
 
     const g = await loadPublishedWorkflowGraphForExecution(workflowId);
-    // Anonymous users are never the owner — strip config to protect creator IP
-    return NextResponse.json({ ok: true, nodes: stripNodeConfig(g.nodes), edges: g.edges });
+    const sanitized = sanitizeWorkflowGraphForClient(g, "demo_input_collection");
+    return NextResponse.json({ ok: true, nodes: sanitized.nodes, edges: sanitized.edges });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     console.error("[resolve-run-graph]", e);

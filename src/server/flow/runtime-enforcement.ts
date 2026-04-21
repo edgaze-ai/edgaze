@@ -18,6 +18,11 @@ import {
   resolvePremiumKeyProvider,
 } from "../../lib/workflow/spec-id-aliases";
 import type { GraphNode } from "./types";
+import {
+  createNullPrototypeRecord,
+  getOwnRecordValue,
+  sanitizeLogText,
+} from "../../lib/security/url-policy";
 
 function hasLlmChat(nodes: GraphNode[]): boolean {
   return nodes.some((n) => canonicalSpecId(n.data?.specId ?? "") === "llm-chat");
@@ -141,7 +146,11 @@ export async function enforceRuntimeLimits(params: {
 
   try {
     // Anonymous one-time demo and admin demo link only
-    if (userId === "anonymous_demo_user" || userId === "admin_demo_user") {
+    if (
+      userId === "anonymous_demo_user" ||
+      userId === "admin_demo_user" ||
+      userId === "homepage_demo_user"
+    ) {
       const hasAnyAi = nodes.some((n) => isAiPremiumNode(n.data?.specId));
       const demoUnderFree = true;
       return {
@@ -256,7 +265,7 @@ export async function enforceRuntimeLimits(params: {
 
     const missingKeys: string[] = [];
     for (const node of aiNodes) {
-      const nodeKeys = userApiKeys[node.id];
+      const nodeKeys = getOwnRecordValue(userApiKeys, node.id);
       const configKey = node.data?.config?.apiKey;
       if (
         (!nodeKeys || !nodeKeys.apiKey || nodeKeys.apiKey.trim() === "") &&
@@ -290,7 +299,10 @@ export async function enforceRuntimeLimits(params: {
     };
   } catch (err: any) {
     const msg = err?.message ?? String(err) ?? "Unknown error";
-    console.error("[RuntimeEnforcement] Check failed:", msg, { userId, workflowId });
+    console.error("[RuntimeEnforcement] Check failed:", sanitizeLogText(msg), {
+      userId: sanitizeLogText(userId),
+      workflowId: sanitizeLogText(workflowId),
+    });
     return {
       allowed: false,
       requiresApiKeys: [],
@@ -412,7 +424,7 @@ export function redactSecrets(
   }
   if (value && typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    const redacted: Record<string, unknown> = {};
+    const redacted = createNullPrototypeRecord<unknown>();
     for (const [k, v] of Object.entries(obj)) {
       if (preserveExecutionSecrets && shouldPreserveRunInputInjectionField(k)) {
         redacted[k] = v;

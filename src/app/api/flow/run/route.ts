@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { randomUUID } from "node:crypto";
 import { getUserFromRequest } from "@lib/auth/server";
 import { runFlow } from "src/server/flow/engine";
@@ -42,7 +43,6 @@ import {
 import { simplifyWorkflowError } from "@lib/workflow/simplify-error";
 import { loadDecryptedUserApiKeysForRun } from "@lib/user-api-keys/vault";
 import type { GraphPayload } from "src/server/flow/types";
-import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getAuthenticatedRunEntitlement } from "src/server/flow/marketplace-entitlement";
 import {
@@ -72,6 +72,14 @@ import type {
   RunEvent,
   SerializableValue,
 } from "src/server/flow-v2/types";
+import { extractTrustedClientIpOrUnknown } from "@lib/request-client-ip";
+import { checkWorkflowDemoRateLimit } from "@lib/rate-limiting/workflow-demo";
+import { consumeTurnstileProof, getTurnstileCookieName } from "src/server/security/turnstile-proof";
+import {
+  isAnonymousWorkflowDemoEligibleMode,
+  resolveWorkflowAccessDecision,
+} from "src/server/flow/workflow-security";
+import { getOwnRecordValue, sanitizeLogText } from "@/lib/security/url-policy";
 
 /** Node runtime so workflow code reads deployment `process.env` (platform API keys). */
 export const runtime = "nodejs";
@@ -103,6 +111,42 @@ type PendingAuthenticatedV2StreamRequest = {
   modalGeminiKey?: string;
   forceDemoModelTier: boolean;
 };
+
+async function consumeAnonymousWorkflowDemoRecord(params: {
+  workflowId: string;
+  deviceFingerprint: string;
+  ipAddress: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+  const rpcArgs = {
+    p_workflow_id: params.workflowId,
+    p_device_fingerprint: params.deviceFingerprint,
+    p_ip_address: params.ipAddress,
+  };
+
+  const consumeResult = await supabase.rpc("consume_anonymous_workflow_demo", rpcArgs);
+  if (!consumeResult.error) {
+    return consumeResult;
+  }
+
+  const errorCode = String(consumeResult.error.code ?? "");
+  const errorMessage = String(consumeResult.error.message ?? "");
+  const functionMissing =
+    errorCode === "PGRST202" ||
+    errorMessage.includes("Could not find the function public.consume_anonymous_workflow_demo") ||
+    errorMessage.includes("function public.consume_anonymous_workflow_demo");
+
+  if (!functionMissing) {
+    return consumeResult;
+  }
+
+  console.warn(
+    "[Demo Runs] consume_anonymous_workflow_demo unavailable, falling back to record_anonymous_demo_run",
+    consumeResult.error,
+  );
+
+  return supabase.rpc("record_anonymous_demo_run", rpcArgs);
+}
 
 function mapV2NodeStatusToLegacy(
   status: string,
@@ -315,7 +359,6 @@ export async function POST(req: Request) {
       geminiApiKey?: string;
       deviceFingerprint?: string;
       stream?: boolean;
-      adminDemoToken?: string;
       idempotencyKey?: string;
       /** Authenticated marketplace “Try demo” — align platform model tier with anonymous demo when still on free runs. */
       forceDemoModelTier?: boolean;
@@ -332,7 +375,6 @@ export async function POST(req: Request) {
       geminiApiKey: modalGeminiKey,
       deviceFingerprint,
       stream: useStream = false,
-      adminDemoToken,
       idempotencyKey,
       forceDemoModelTier = false,
     } = body;
@@ -407,14 +449,16 @@ export async function POST(req: Request) {
       return traceJson({ ok: false, error: "workflowId is required" }, 400);
     }
 
+    const isHomepageDemo =
+      isDemo && typeof workflowId === "string" && workflowId.startsWith("home-demo:");
+
     const shouldUltraFastAuthenticatedStreamConnection =
       Boolean(bearerToken) &&
       useStream &&
       workflowExecutionV2CompileEnabled &&
       workflowExecutionV2RunnerEnabled &&
       clientIsBuilderTest !== true &&
-      !isDemo &&
-      !(adminDemoToken && typeof adminDemoToken === "string" && adminDemoToken.length >= 16);
+      !isDemo;
 
     if (shouldUltraFastAuthenticatedStreamConnection) {
       const runAccessToken = randomUUID();
@@ -537,7 +581,7 @@ export async function POST(req: Request) {
       "auth.resolve_user",
       () => getUserFromRequest(req),
       {
-        payload: { workflowId, isDemo, hasAdminDemoToken: Boolean(adminDemoToken) },
+        payload: { workflowId, isDemo, hasAdminDemoToken: false },
       },
     );
     let userId: string;
@@ -606,42 +650,43 @@ export async function POST(req: Request) {
         console.error("[flow/run] server graph load failed:", e);
         return traceJson({ ok: false, error: "Failed to load workflow for execution." }, 500);
       }
-    } else if (
-      adminDemoToken &&
-      typeof adminDemoToken === "string" &&
-      adminDemoToken.length >= 16
-    ) {
-      // Admin demo link: verify token matches workflow, bypass device limit
-      const supabase = createSupabaseAdminClient();
-      const { data: wf, error: wfError } = await supabase
-        .from("workflows")
-        .select("id")
-        .eq("id", workflowId)
-        .eq("demo_mode_enabled", true)
-        .eq("demo_token", adminDemoToken.trim())
-        .maybeSingle();
-      if (wfError || !wf) {
+    } else if (isHomepageDemo) {
+      if (!Array.isArray(body.nodes) || body.nodes.length === 0) {
+        return traceJson({ ok: false, error: "Homepage demo graph is missing" }, 400);
+      }
+      const homepageCaptchaProof = (await cookies()).get("edgaze_apply_captcha")?.value ?? "";
+      if (!homepageCaptchaProof || homepageCaptchaProof.length < 12) {
         return traceJson(
           {
             ok: false,
-            error: "Invalid or expired demo link. Please use the link from the admin panel.",
+            error: "Verification required before running homepage demos.",
           },
           403,
         );
       }
-      userId = "admin_demo_user";
+      if (!deviceFingerprint || deviceFingerprint.length < 10) {
+        return traceJson(
+          {
+            ok: false,
+            error: "Device verification is required for homepage demos.",
+          },
+          400,
+        );
+      }
+      userId = "homepage_demo_user";
       isRuntimeDemo = true;
       effectiveIsBuilderTest = false;
-      try {
-        const g = await loadPublishedWorkflowGraphForExecution(workflowId);
-        nodes = g.nodes;
-        edges = g.edges;
-      } catch (e) {
-        console.error("[flow/run] admin demo graph load failed:", e);
-        return traceJson({ ok: false, error: "Failed to load workflow for demo execution." }, 500);
-      }
+      nodes = (body.nodes ?? []) as GraphNode[];
+      edges = (body.edges ?? []) as GraphEdge[];
+      await trace.record({
+        eventName: "graph.resolved_homepage_demo",
+        payload: {
+          workflowId,
+          nodeCount: nodes.length,
+          edgeCount: edges.length,
+        },
+      });
     } else if (isDemo) {
-      // For anonymous demo runs, check server-side tracking (device fingerprint + IP)
       if (!deviceFingerprint || deviceFingerprint.length < 10) {
         return traceJson(
           {
@@ -652,90 +697,51 @@ export async function POST(req: Request) {
         );
       }
 
-      // Extract IP address
-      const clientId = extractClientIdentifier(req);
-      const ipAddress = clientId.type === "ip" ? clientId.identifier : "unknown";
-
-      const supabase = createSupabaseAdminClient();
-
-      // Reject if this fingerprint alone has already been used for this workflow (IP-independent).
-      // This stops same-device users from bypassing the check by rotating IPs.
-      const { count: fpCount } = await supabase
-        .from("anonymous_demo_runs")
-        .select("*", { count: "exact", head: true })
-        .eq("workflow_id", workflowId)
-        .eq("device_fingerprint", deviceFingerprint);
-      if (fpCount !== null && fpCount >= 1) {
-        return traceJson(
-          {
-            ok: false,
-            error:
-              "You've already used your one-time demo run for this workflow. Each device gets one demo run.",
-          },
-          403,
-        );
-      }
-
-      // Also cap demos per IP to prevent fingerprint-cycling attacks.
-      // Limit of 3 tolerates small shared networks (home, small office) while
-      // blocking automated abuse that keeps the same egress IP.
-      if (ipAddress !== "unknown") {
-        const { count: ipCount } = await supabase
-          .from("anonymous_demo_runs")
-          .select("*", { count: "exact", head: true })
-          .eq("workflow_id", workflowId)
-          .eq("ip_address", ipAddress);
-        if (ipCount !== null && ipCount >= 3) {
-          return traceJson(
-            {
-              ok: false,
-              error:
-                "You've already used your one-time demo run for this workflow. Each device gets one demo run.",
-            },
-            403,
-          );
-        }
-      }
-
-      // Check if demo run is allowed (strict one-time check on the fingerprint+IP combo)
-      const { data: checkData, error: checkError } = await supabase.rpc("can_run_anonymous_demo", {
-        p_workflow_id: workflowId,
-        p_device_fingerprint: deviceFingerprint,
-        p_ip_address: ipAddress,
+      const accessDecision = await resolveWorkflowAccessDecision({
+        workflowId,
+        userId: null,
+        requestedMode: "preview",
       });
-
-      if (checkError) {
-        console.error("[Demo Runs] Error checking demo run eligibility:", checkError);
+      if (!accessDecision.ok || !isAnonymousWorkflowDemoEligibleMode(accessDecision.mode)) {
         return traceJson(
           {
             ok: false,
-            error: "Failed to verify demo run eligibility. Please try again.",
-          },
-          500,
-        );
-      }
-
-      if (checkData !== true) {
-        // Demo run already used for this device + IP combination
-        return traceJson(
-          {
-            ok: false,
-            error:
-              "You've already used your one-time demo run for this workflow. Each device and IP address combination gets one demo run.",
+            error: accessDecision.message ?? "This workflow demo is not available.",
           },
           403,
         );
       }
 
-      // Record the demo run (atomic operation with duplicate check)
-      const { data: recordData, error: recordError } = await supabase.rpc(
-        "record_anonymous_demo_run",
-        {
-          p_workflow_id: workflowId,
-          p_device_fingerprint: deviceFingerprint,
-          p_ip_address: ipAddress,
-        },
-      );
+      if (
+        !checkWorkflowDemoRateLimit({
+          req,
+          workflowId,
+          deviceFingerprint,
+          kind: "consume",
+        })
+      ) {
+        return traceJson({ ok: false, error: "Too many requests. Please try again shortly." }, 429);
+      }
+
+      const workflowDemoProof =
+        (await cookies()).get(getTurnstileCookieName("workflow_demo"))?.value ?? "";
+      if (!consumeTurnstileProof("workflow_demo", workflowDemoProof)) {
+        return traceJson(
+          {
+            ok: false,
+            error: "Verification required before running this demo.",
+          },
+          403,
+        );
+      }
+
+      const ipAddress = extractTrustedClientIpOrUnknown(req);
+
+      const { data: recordData, error: recordError } = await consumeAnonymousWorkflowDemoRecord({
+        workflowId,
+        deviceFingerprint,
+        ipAddress,
+      });
 
       if (recordError) {
         console.error("[Demo Runs] Error recording demo run:", recordError);
@@ -755,11 +761,11 @@ export async function POST(req: Request) {
       };
 
       if (!recordResult.success || !recordResult.allowed) {
-        // Race condition: another request already recorded this demo run
         return traceJson(
           {
             ok: false,
-            error: recordResult.error || "Demo run already used for this device and IP address.",
+            error:
+              recordResult.error || "You've already used your one-time demo run for this workflow.",
           },
           403,
         );
@@ -807,7 +813,7 @@ export async function POST(req: Request) {
     for (const n of nodes) {
       const specId = n.data?.specId ?? "";
       if (!isPremiumAiSpec(specId)) continue;
-      const existing = mergedUserApiKeys[n.id]?.apiKey?.trim();
+      const existing = getOwnRecordValue(mergedUserApiKeys, n.id)?.apiKey?.trim();
       if (existing) continue;
       const provider = providerForAiSpec(
         specId,
@@ -948,7 +954,7 @@ export async function POST(req: Request) {
           }
         }
       } else {
-        const nodeKeys = mergedUserApiKeys[node.id];
+        const nodeKeys = getOwnRecordValue(mergedUserApiKeys, node.id);
         if (nodeKeys?.apiKey) {
           enrichedInputs[`__api_key_${node.id}`] = nodeKeys.apiKey;
         } else {
@@ -968,8 +974,8 @@ export async function POST(req: Request) {
     let workflowVersionId: string | null = null;
     let workflowVersionHash: string | null = null;
     let compiledWorkflow: CompiledWorkflowDefinition | null = null;
-    const isTrackedUser = userId !== "anonymous_demo_user";
     const isValidRunnerUuid = /^[0-9a-f-]{36}$/i.test(userId ?? "");
+    const isTrackedUser = isValidRunnerUuid;
     const shouldUseV2RunSessionHandoff =
       workflowExecutionV2CompileEnabled && workflowExecutionV2RunnerEnabled && useStream;
     const runAccessToken = isDemo || (useStream && isTrackedUser) ? randomUUID() : undefined;
@@ -1051,7 +1057,10 @@ export async function POST(req: Request) {
           });
           if (pendingV2StreamInitialization) {
             void ensureWorkflowRunPrepared(runId).catch((err) => {
-              console.error("[flow/run] Background workflow preparation failed:", err);
+              console.error(
+                "[flow/run] Background workflow preparation failed:",
+                sanitizeLogText(err instanceof Error ? err.message : err),
+              );
             });
           }
           // Unified runs table (analytics)
@@ -1088,17 +1097,21 @@ export async function POST(req: Request) {
             console.warn("[Runs] Failed to create unified run record:", runErr);
           }
           console.warn(
-            `[Run Tracking] Created run ${runId} for user ${userId}, ${draftId ? `draft ${draftId}` : `workflow ${workflowId}`}, status: running`,
+            `[Run Tracking] Created run ${sanitizeLogText(runId)} for user ${sanitizeLogText(userId)}, ${
+              draftId
+                ? `draft ${sanitizeLogText(draftId)}`
+                : `workflow ${sanitizeLogText(workflowId)}`
+            }, status: running`,
           );
         }
       } catch (err: any) {
         console.error("[Run Tracking] CRITICAL: Failed to create run record:", {
-          error: err?.message,
+          error: sanitizeLogText(err?.message),
           code: err?.code,
           details: err?.details,
           hint: err?.hint,
-          userId,
-          workflowId,
+          userId: sanitizeLogText(userId),
+          workflowId: sanitizeLogText(workflowId),
           stack: err?.stack,
         });
         // Continue execution; usage count will not increment for this run
@@ -1118,9 +1131,9 @@ export async function POST(req: Request) {
         console.error(
           "[flow/run] Workflow compile failed:",
           err instanceof WorkflowCompileError
-            ? { message: err.message, details: err.details }
+            ? { message: sanitizeLogText(err.message), details: err.details }
             : err instanceof Error
-              ? { message: err.message, stack: err.stack }
+              ? { message: sanitizeLogText(err.message), stack: err.stack }
               : err,
         );
         const compileError =
@@ -1244,7 +1257,7 @@ export async function POST(req: Request) {
 
     if (workflowExecutionV2RunnerEnabled && runId && compiledWorkflow) {
       const repository = new SupabaseWorkflowExecutionRepository();
-      const clientId = extractClientIdentifier(req);
+      const clientId = { identifier: extractTrustedClientIpOrUnknown(req), type: "ip" as const };
       const runnerDependencies = {
         repository,
         executor: new LegacyNodeExecutorAdapter(),
@@ -1367,7 +1380,7 @@ export async function POST(req: Request) {
         );
       }
     }
-    const clientId = extractClientIdentifier(req);
+    const clientId = { identifier: extractTrustedClientIpOrUnknown(req), type: "ip" as const };
     const flowPayload = {
       nodes,
       edges,
@@ -1680,7 +1693,7 @@ export async function POST(req: Request) {
             : FREE_MARKETPLACE_KEY_RUNS;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
           console.warn(
-            `[Run Tracking] Atomic complete: run ${runId} → ${finalStatus}, count=${countResult.newCount}/${freeRunLimit}`,
+            `[Run Tracking] Atomic complete: run ${sanitizeLogText(runId)} -> ${sanitizeLogText(finalStatus)}, count=${countResult.newCount}/${freeRunLimit}`,
           );
         }
       }
@@ -1702,7 +1715,7 @@ export async function POST(req: Request) {
           } catch (updateErr: any) {
             console.error(
               `[Run Tracking] Fallback update attempt ${attempt} failed:`,
-              updateErr?.message,
+              sanitizeLogText(updateErr?.message),
             );
             if (attempt < 3) await new Promise((r) => setTimeout(r, 100 * attempt));
           }
@@ -1737,7 +1750,7 @@ export async function POST(req: Request) {
       }
       if (!runId) {
         console.warn(
-          `[Run Tracking] No runId - run was not tracked. User: ${userId}, Workflow: ${workflowId}`,
+          `[Run Tracking] No runId - run was not tracked. User: ${sanitizeLogText(userId)}, Workflow: ${sanitizeLogText(workflowId)}`,
         );
       }
       await finishUnifiedRun(
@@ -1798,7 +1811,7 @@ export async function POST(req: Request) {
             : FREE_MARKETPLACE_KEY_RUNS;
           updatedFreeRunsRemaining = Math.max(0, freeRunLimit - countResult.newCount);
           console.warn(
-            `[Run Tracking] Atomic complete (error): run ${runId} → failed, count=${countResult.newCount}/${freeRunLimit}`,
+            `[Run Tracking] Atomic complete (error): run ${sanitizeLogText(runId)} -> failed, count=${countResult.newCount}/${freeRunLimit}`,
           );
         }
       }
@@ -1826,7 +1839,7 @@ export async function POST(req: Request) {
           } catch (updateErr: any) {
             console.error(
               `[Run Tracking] Fallback update (error) attempt ${attempt} failed:`,
-              updateErr?.message,
+              sanitizeLogText(updateErr?.message),
             );
             if (attempt < 3) await new Promise((r) => setTimeout(r, 100 * attempt));
           }
@@ -1834,7 +1847,7 @@ export async function POST(req: Request) {
       }
       if (!runId) {
         console.warn(
-          `[Run Tracking] No runId on error - run was not tracked. User: ${userId}, Workflow: ${workflowId}`,
+          `[Run Tracking] No runId on error - run was not tracked. User: ${sanitizeLogText(userId)}, Workflow: ${sanitizeLogText(workflowId)}`,
         );
       }
       await finishUnifiedRun(unifiedRunId, "error", duration, errorMessage);

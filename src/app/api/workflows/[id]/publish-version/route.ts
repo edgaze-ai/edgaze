@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
 import { createWorkflowVersion, setWorkflowActiveVersion } from "@lib/supabase/workflow-versions";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { validateWorkflowGraph } from "@lib/workflow/validation";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -16,6 +17,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (!graph?.nodes || !Array.isArray(graph.nodes)) {
       return NextResponse.json({ error: "Invalid graph" }, { status: 400 });
+    }
+
+    const nodes = graph.nodes as Array<{
+      id: string;
+      data?: { specId?: string; title?: string; config?: unknown };
+    }>;
+    const edges = (Array.isArray(graph.edges) ? graph.edges : []) as Array<{
+      source: string;
+      target: string;
+    }>;
+    const validation = validateWorkflowGraph(nodes, edges);
+    if (!validation.valid) {
+      return NextResponse.json(
+        {
+          error: "Workflow graph failed validation",
+          details: validation.errors.map((issue) => issue.message),
+        },
+        { status: 400 },
+      );
     }
 
     const supabase = createSupabaseAdminClient();
@@ -37,8 +57,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const version = await createWorkflowVersion(workflowId, {
-      nodes: graph.nodes,
-      edges: Array.isArray(graph.edges) ? graph.edges : [],
+      nodes,
+      edges,
     });
     await setWorkflowActiveVersion(workflowId, version.id);
 

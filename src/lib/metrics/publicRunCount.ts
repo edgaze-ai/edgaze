@@ -3,6 +3,7 @@
  * Server-only; uses service role.
  */
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { sanitizeLogText } from "@lib/security/url-policy";
 
 export type ListingTypeForMetrics = "prompt" | "workflow";
 
@@ -42,6 +43,11 @@ export async function incrementMarketplaceListingRunCount(params: {
     .update({ runs_count: cur + 1 })
     .eq("id", listingId);
   if (upErr) {
-    console.error("[incrementMarketplaceListingRunCount]", listingType, listingId, upErr);
+    console.error(
+      "[incrementMarketplaceListingRunCount]",
+      sanitizeLogText(listingType),
+      sanitizeLogText(listingId),
+      upErr,
+    );
   }
 }

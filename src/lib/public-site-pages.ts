@@ -26,6 +26,7 @@ export type PublicSitePage = {
   path: string;
   title: string;
   description: string;
+  indexable?: boolean;
   eyebrow: string;
   h1: string;
   intro: string;
@@ -460,6 +461,7 @@ export const PUBLIC_CONTEXT_PAGES: PublicSitePage[] = [
     title: "AI Prompts and Workflows Marketplace | What the Edgaze Marketplace Is For",
     description:
       "Understand the Edgaze marketplace for AI prompts and workflows, how discovery works, and why clear public listing pages matter for creators and buyers.",
+    indexable: false,
     eyebrow: "Marketplace guide",
     h1: "The Edgaze marketplace is the public discovery layer for prompt and workflow products",
     intro:
@@ -760,6 +762,7 @@ export const PUBLIC_CONTEXT_PAGES: PublicSitePage[] = [
     title: "Run AI Workflows | How People Use Edgaze Workflows",
     description:
       "Learn how people run AI workflows on Edgaze, from discovery and public workflow pages to direct execution and repeat use.",
+    indexable: false,
     eyebrow: "Runtime guide",
     h1: "Edgaze is built so people can run useful AI workflows without rebuilding them from scratch",
     intro:
@@ -1059,4 +1062,8 @@ export const PUBLIC_CONTEXT_PAGES: PublicSitePage[] = [
 
 export function getPublicContextPage(path: string) {
   return PUBLIC_CONTEXT_PAGES.find((page) => page.path === path) ?? null;
+}
+
+export function getIndexablePublicContextPages() {
+  return PUBLIC_CONTEXT_PAGES.filter((page) => page.indexable !== false);
 }

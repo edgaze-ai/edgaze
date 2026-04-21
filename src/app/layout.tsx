@@ -70,13 +70,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <AppProviders>
           <WebVitals />
-          {/* Analytics loads async — do not use a fullscreen fallback or it blocks the whole UI until chunks load. */}
           <Suspense fallback={null}>
             <LazyAnalyticsWrapper />
           </Suspense>
-          {/* fallback={null} so navigation suspense doesn't flash the Edgaze logo / a
-              white frame on every GET. The previous segment stays painted until the next
-              one streams in. */}
           <Suspense fallback={null}>
             <ClientLayoutGate>{children}</ClientLayoutGate>
           </Suspense>

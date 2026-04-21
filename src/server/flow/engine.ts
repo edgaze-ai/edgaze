@@ -23,6 +23,7 @@ import { CONDITION_RESULT_KEY } from "../nodes/handlers";
 import { getResourceClass, createResourcePoolManager } from "@lib/workflow/resource-pools";
 import { shouldRetry, RunCircuitBreaker } from "@lib/workflow/retry-classification";
 import { canonicalSpecId } from "@lib/workflow/spec-id-aliases";
+import { sanitizeLogText } from "@lib/security/url-policy";
 
 /** Kahn’s topological sort (simple) */
 function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
@@ -92,7 +93,7 @@ export async function runFlow(
     const targetExists = nodeIds.has(e.target);
     if (!sourceExists || !targetExists) {
       console.warn(
-        `Invalid edge detected: ${e.source} -> ${e.target}. ` +
+        `Invalid edge detected: ${sanitizeLogText(e.source)} -> ${sanitizeLogText(e.target)}. ` +
           `Source exists: ${sourceExists}, Target exists: ${targetExists}. ` +
           `This edge will be ignored.`,
       );

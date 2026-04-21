@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
 import type { ReactElement } from "react";
+import { resolveTrustedUrl } from "@/lib/security/url-policy";
 import { ListingOgCard, type ListingOgCardProps } from "./listing-og-card";
 
 export const OG_WIDTH = 1200;
@@ -34,7 +35,14 @@ export async function loadBrandMarkDataUrl(): Promise<string | undefined> {
 
 export async function remoteImageLikelyRenderable(url: string): Promise<boolean> {
   try {
-    const r = await fetch(url, {
+    const trustedUrl = resolveTrustedUrl(url, {
+      allowedProtocols: ["https:", "http:"],
+      allowLocalhost: false,
+      allowPrivateIpv4: false,
+    });
+    if (!trustedUrl) return false;
+
+    const r = await fetch(trustedUrl, {
       redirect: "follow",
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),

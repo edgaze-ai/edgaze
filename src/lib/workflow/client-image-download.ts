@@ -1,3 +1,5 @@
+import { sanitizeNavigationHref } from "@/lib/security/url-policy";
+
 /**
  * Client-only helpers for saving workflow image outputs on mobile (iOS/Android)
  * where <a download> on cross-origin URLs often fails or stalls.
@@ -33,11 +35,13 @@ function extensionFromMime(mime: string): string {
  * save from the browser (required on many iOS cross-origin cases).
  */
 export async function downloadWorkflowImageFromUrl(src: string): Promise<void> {
+  const safeSrc = sanitizeNavigationHref(src);
+  if (!safeSrc) return;
   const stamp = Date.now();
 
-  if (/^data:image\//i.test(src)) {
+  if (/^data:image\//i.test(safeSrc)) {
     const a = document.createElement("a");
-    a.href = src;
+    a.href = safeSrc;
     a.download = `image-${stamp}.png`;
     a.rel = "noreferrer";
     document.body.appendChild(a);
@@ -50,7 +54,7 @@ export async function downloadWorkflowImageFromUrl(src: string): Promise<void> {
   const tid = window.setTimeout(() => controller.abort(), 18_000);
 
   try {
-    const res = await fetch(src, {
+    const res = await fetch(safeSrc, {
       mode: "cors",
       credentials: "omit",
       signal: controller.signal,
@@ -77,10 +81,10 @@ export async function downloadWorkflowImageFromUrl(src: string): Promise<void> {
     window.clearTimeout(tid);
   }
 
-  const opened = window.open(src, "_blank", "noopener,noreferrer");
+  const opened = window.open(safeSrc, "_blank", "noopener,noreferrer");
   if (!opened) {
     const a = document.createElement("a");
-    a.href = src;
+    a.href = safeSrc;
     a.target = "_blank";
     a.rel = "noopener noreferrer";
     document.body.appendChild(a);

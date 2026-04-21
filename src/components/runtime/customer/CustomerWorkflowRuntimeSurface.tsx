@@ -8,7 +8,9 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRight,
   Check,
@@ -46,6 +48,10 @@ import {
   downloadWorkflowImageFromUrl,
   isWorkflowImageOutputUrl,
 } from "../../../lib/workflow/client-image-download";
+import {
+  createDemoWatermarkedImageBlobUrl,
+  formatDemoWatermarkHandle,
+} from "../../../lib/workflow/demo-watermark";
 
 type BuilderRunLimit = {
   used: number;
@@ -68,6 +74,8 @@ type CustomerWorkflowRuntimeSurfaceProps = {
   builderRunLimit?: BuilderRunLimit;
   requiresApiKeys?: string[];
   onBuyWorkflow?: () => void;
+  demoImageWatermarkEnabled?: boolean;
+  demoImageWatermarkOwnerHandle?: string | null;
   /** When false, parent (e.g. modal header) owns the Cancel control during execution. Default true. */
   showInlineExecutionCancel?: boolean;
   /** When false, no ExecutionChrome rows are rendered (parent supplies header). Default true. */
@@ -84,6 +92,14 @@ function useNarrowViewport() {
     return () => mq.removeEventListener("change", apply);
   }, []);
   return narrow;
+}
+
+function useDocumentBody(): HTMLElement | null {
+  return useSyncExternalStore(
+    () => () => {},
+    () => (typeof document !== "undefined" ? document.body : null),
+    () => null,
+  );
 }
 
 function isImageLike(value: unknown): boolean {
@@ -142,6 +158,261 @@ function isProbablyMarkdown(text: string): boolean {
   if (pipeRows >= 2) return true;
   if (t.includes("`")) return true;
   return false;
+}
+
+function isHtmlDocumentLike(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return false;
+  return (
+    t.startsWith("<!doctype html") ||
+    t.startsWith("<html") ||
+    (t.includes("<body") && t.includes("</html>")) ||
+    (t.includes("<section") && t.includes("</section>") && t.includes("<style"))
+  );
+}
+
+function stripMarkdownCodeFence(source: string): string {
+  const trimmed = source.trim();
+  const fenced = trimmed.match(/^```(?:html)?\s*([\s\S]*?)\s*```$/i);
+  return fenced?.[1]?.trim() ?? trimmed;
+}
+
+function ensureClosedHtmlDocument(source: string): string {
+  let html = stripMarkdownCodeFence(source);
+  if (!html) return html;
+
+  if (!/^<!doctype html>/i.test(html)) {
+    if (/^<html[\s>]/i.test(html)) {
+      html = `<!DOCTYPE html>\n${html}`;
+    } else {
+      html = `<!DOCTYPE html><html><head></head><body>${html}</body></html>`;
+    }
+  }
+
+  if (/<head[\s>]/i.test(html) && !/<\/head>/i.test(html)) {
+    html += "</head>";
+  }
+
+  if (/<style[\s>]/i.test(html) && !/<\/style>/i.test(html)) {
+    html += "</style>";
+  }
+
+  if (/<body[\s>]/i.test(html) && !/<\/body>/i.test(html)) {
+    html += "</body>";
+  }
+
+  if (/<html[\s>]/i.test(html) && !/<\/html>/i.test(html)) {
+    html += "</html>";
+  }
+
+  if (!/<body[\s>]/i.test(html)) {
+    if (/<\/head>/i.test(html)) {
+      html = html.replace(/<\/head>/i, "</head><body>");
+      if (!/<\/body>/i.test(html)) html += "</body>";
+      if (!/<\/html>/i.test(html)) html += "</html>";
+    } else if (/<html[\s>]/i.test(html)) {
+      html = html.replace(/<html([^>]*)>/i, "<html$1><head></head><body>");
+      if (!/<\/body>/i.test(html)) html += "</body>";
+      if (!/<\/html>/i.test(html)) html += "</html>";
+    }
+  }
+
+  return html;
+}
+
+function buildStandalonePreviewHtml(html: string): string {
+  const trimmed = ensureClosedHtmlDocument(html).trim();
+  if (!trimmed) {
+    return `<!DOCTYPE html><html><head><style>html,body{margin:0;min-height:100%;background:#06080d;color:#f8fafc;font-family:Inter,system-ui,sans-serif;}body{display:grid;place-items:center;padding:24px;}div{opacity:.72}</style></head><body><div>No preview available.</div></body></html>`;
+  }
+
+  const previewHead = `
+    <base target="_blank" />
+    <style data-edgaze-preview>
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        background: #06080d;
+        color: #f8fafc;
+      }
+      body {
+        min-height: 100vh;
+      }
+      * {
+        box-sizing: border-box;
+      }
+    </style>
+  `;
+
+  if (/<head[\s>]/i.test(trimmed)) {
+    return trimmed.replace(/<head([^>]*)>/i, `<head$1>${previewHead}`);
+  }
+
+  if (/<html[\s>]/i.test(trimmed)) {
+    return trimmed.replace(/<html([^>]*)>/i, `<html$1><head>${previewHead}</head>`);
+  }
+
+  return `<!DOCTYPE html><html><head>${previewHead}</head><body>${trimmed}</body></html>`;
+}
+
+function extractTagContent(source: string, tagName: string): string {
+  const match = source.match(new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i"));
+  return match?.[1]?.trim() ?? "";
+}
+
+function extractMetaContent(
+  source: string,
+  attributeName: "name" | "property",
+  value: string,
+): string {
+  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = source.match(
+    new RegExp(
+      `<meta[^>]*${attributeName}=["']${escaped}["'][^>]*content=["']([^"']+)["'][^>]*>`,
+      "i",
+    ),
+  );
+  return match?.[1]?.trim() ?? "";
+}
+
+function stripHtmlTags(source: string): string {
+  return source
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasMeaningfulPreviewBody(html: string): boolean {
+  const body = extractTagContent(html, "body");
+  const source = body || html;
+  const text = stripHtmlTags(source);
+  return text.length > 80 || /<(section|main|article|div|h1|h2|p|button|a)\b/i.test(source);
+}
+
+function buildPreviewFallbackDocument(sourceHtml: string): string {
+  const title =
+    extractTagContent(sourceHtml, "title") ||
+    extractMetaContent(sourceHtml, "property", "og:title") ||
+    "Generated workflow result";
+  const description =
+    extractMetaContent(sourceHtml, "name", "description") ||
+    extractMetaContent(sourceHtml, "property", "og:description") ||
+    "Preview unavailable for this HTML output. The raw HTML is still available below.";
+  const rawText = stripHtmlTags(extractTagContent(sourceHtml, "body") || sourceHtml);
+  const excerpt = rawText.slice(0, 360).trim();
+
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${title}</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #06080d;
+        --panel: rgba(255,255,255,0.06);
+        --border: rgba(255,255,255,0.12);
+        --text: #f8fafc;
+        --muted: rgba(248,250,252,0.72);
+        --accent-a: #58d8ff;
+        --accent-b: #f472b6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        background:
+          radial-gradient(circle at 18% 18%, rgba(18, 61, 70, 0.9), transparent 34%),
+          radial-gradient(circle at 84% 20%, rgba(90, 28, 58, 0.72), transparent 36%),
+          linear-gradient(180deg, #06080d, #0a0d13 58%, #05070c);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 42px 24px 64px;
+      }
+      .panel {
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+        border-radius: 28px;
+        box-shadow: 0 24px 80px rgba(0,0,0,0.42);
+        padding: 32px;
+      }
+      .eyebrow {
+        display: inline-flex;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.04);
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.66);
+      }
+      h1 {
+        margin: 18px 0 0;
+        font-size: clamp(2rem, 3.6vw, 3.6rem);
+        line-height: 1.02;
+      }
+      p {
+        margin: 16px 0 0;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.75;
+      }
+      .notice {
+        margin-top: 22px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.04);
+        border-radius: 20px;
+        padding: 16px 18px;
+      }
+      .chip {
+        margin-top: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        border-radius: 999px;
+        padding: 12px 16px;
+        background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+        color: #081018;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <section class="panel">
+        <span class="eyebrow">Preview fallback</span>
+        <h1>${title}</h1>
+        <p>${description}</p>
+        ${
+          excerpt
+            ? `<div class="notice">${excerpt}</div>`
+            : `<div class="notice">The generated HTML did not include enough visible body content to render a full preview, so the raw HTML is shown below the preview panel.</div>`
+        }
+        <div class="chip">Raw HTML available below</div>
+      </section>
+    </div>
+  </body>
+</html>`;
+}
+
+function ExpandToggleButton({ expanded, onClick }: { expanded: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
+    >
+      {expanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Expand className="h-3.5 w-3.5" />}
+      {expanded ? "Minimize" : "Expand"}
+    </button>
+  );
 }
 
 const LazyMarkdown = React.lazy(async () => {
@@ -333,27 +604,136 @@ function ProsePanel({
   );
 }
 
+function HtmlPreviewPanel({
+  html,
+  expanded = false,
+  onToggleExpand,
+}: {
+  html: string;
+  expanded?: boolean;
+  onToggleExpand?: () => void;
+}) {
+  const canExpand = Boolean(onToggleExpand);
+  const previewDocument = useMemo(
+    () =>
+      hasMeaningfulPreviewBody(html)
+        ? buildStandalonePreviewHtml(html)
+        : buildPreviewFallbackDocument(html),
+    [html],
+  );
+
+  return (
+    <div
+      className={cx(
+        "overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.03))] shadow-[0_20px_80px_rgba(0,0,0,0.34)]",
+        expanded && "rounded-[32px]",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3 px-5 py-4 text-[11px] uppercase tracking-[0.18em] text-white/42">
+        <span>Preview</span>
+        {canExpand ? <ExpandToggleButton expanded={expanded} onClick={onToggleExpand} /> : null}
+      </div>
+      <div
+        className={cx(
+          "relative overflow-hidden border-t border-white/10 bg-black/30",
+          expanded ? "h-[72vh] min-h-[480px]" : "h-[320px] md:h-[380px]",
+        )}
+      >
+        <HtmlPreviewFrame key={previewDocument} previewDocument={previewDocument} />
+      </div>
+    </div>
+  );
+}
+
+function HtmlPreviewFrame({ previewDocument }: { previewDocument: string }) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <>
+      {!loaded && (
+        <div className="absolute inset-0 z-[1] flex items-center justify-center bg-[linear-gradient(180deg,rgba(8,10,14,0.86),rgba(5,7,11,0.92))]">
+          <div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-[11px] uppercase tracking-[0.18em] text-white/48">
+            Loading preview
+          </div>
+        </div>
+      )}
+      <iframe
+        title="Generated landing page preview"
+        srcDoc={previewDocument}
+        sandbox="allow-same-origin allow-popups allow-forms"
+        className="h-full w-full bg-[#06080d]"
+        referrerPolicy="no-referrer"
+        onLoad={() => setLoaded(true)}
+      />
+    </>
+  );
+}
+
 function ResultPanel({
   label,
   value,
   expanded = false,
   onToggleExpand,
   onRerun,
+  demoImageWatermarkEnabled = false,
+  demoImageWatermarkOwnerHandle,
 }: {
   label: string;
   value: unknown;
   expanded?: boolean;
   onToggleExpand?: () => void;
   onRerun?: () => void;
+  demoImageWatermarkEnabled?: boolean;
+  demoImageWatermarkOwnerHandle?: string | null;
 }) {
   const canExpand = Boolean(onToggleExpand);
   const [copied, setCopied] = useState(false);
   const [imageDownloadBusy, setImageDownloadBusy] = useState(false);
   const [imageDownloadError, setImageDownloadError] = useState(false);
   const [auxFileDownloadBusy, setAuxFileDownloadBusy] = useState(false);
+  const [demoPreparedImageSrc, setDemoPreparedImageSrc] = useState<string | null>(null);
+  const [demoPreparingImage, setDemoPreparingImage] = useState(false);
+  const [demoPrepareFailed, setDemoPrepareFailed] = useState(false);
+  const imageSrc = isImageLike(value) && typeof value === "string" ? value.trim() : "";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!demoImageWatermarkEnabled || !imageSrc) {
+      setDemoPreparedImageSrc(null);
+      setDemoPreparingImage(false);
+      setDemoPrepareFailed(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setDemoPreparingImage(true);
+    setDemoPrepareFailed(false);
+    void createDemoWatermarkedImageBlobUrl(imageSrc, demoImageWatermarkOwnerHandle)
+      .then((preparedSrc) => {
+        if (cancelled) return;
+        setDemoPreparedImageSrc(preparedSrc);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDemoPreparedImageSrc(null);
+        setDemoPrepareFailed(true);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setDemoPreparingImage(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [demoImageWatermarkEnabled, demoImageWatermarkOwnerHandle, imageSrc]);
 
   if (isImageLike(value)) {
-    const imgSrc = typeof value === "string" ? value.trim() : "";
+    const displaySrc = demoImageWatermarkEnabled ? demoPreparedImageSrc : imageSrc;
+    const watermarkHandle = formatDemoWatermarkHandle(demoImageWatermarkOwnerHandle);
+
     return (
       <div
         className={cx(
@@ -363,22 +743,18 @@ function ResultPanel({
       >
         <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-white/42">
           <span>{label}</span>
-          {canExpand && (
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
-            >
-              {expanded ? (
-                <Minimize2 className="h-3.5 w-3.5" />
-              ) : (
-                <Expand className="h-3.5 w-3.5" />
-              )}
-              {expanded ? "Minimize" : "Expand"}
-            </button>
-          )}
+          {canExpand && <ExpandToggleButton expanded={expanded} onClick={onToggleExpand} />}
         </div>
         <div className="mt-3 text-[16px] font-medium text-white/92">Your image is ready</div>
+        {demoImageWatermarkEnabled && (
+          <div className="mt-2 text-[12px] leading-5 text-white/52">
+            {demoPreparingImage
+              ? `Preparing protected preview for ${watermarkHandle}...`
+              : demoPrepareFailed
+                ? `Protected preview could not be generated for ${watermarkHandle}. Raw image blocked.`
+                : `Demo watermark applied for ${watermarkHandle}. Downloads include the same preview.`}
+          </div>
+        )}
         <div
           className={cx(
             "mt-4 flex min-h-0 justify-center rounded-2xl border border-white/10 bg-black/30 p-3",
@@ -391,24 +767,41 @@ function ResultPanel({
               expanded && "flex max-h-[min(80dvh,900px)] items-center justify-center",
             )}
           >
-            <img
-              src={imgSrc}
-              alt="Generated image"
-              className={cx(
-                "mx-auto block object-contain",
-                expanded
-                  ? "h-auto max-h-[min(80dvh,860px)] w-auto max-w-full"
-                  : "max-h-[392px] w-full",
-              )}
-              style={{ height: "auto" }}
-              onError={(e) => {
-                const el = e.currentTarget;
-                el.style.display = "none";
-              }}
-            />
+            {displaySrc ? (
+              <img
+                src={displaySrc}
+                alt="Generated image"
+                className={cx(
+                  "mx-auto block object-contain",
+                  expanded
+                    ? "h-auto max-h-[min(80dvh,860px)] w-auto max-w-full"
+                    : "max-h-[392px] w-full",
+                )}
+                style={{ height: "auto" }}
+                onError={(e) => {
+                  const el = e.currentTarget;
+                  el.style.display = "none";
+                  setDemoPreparedImageSrc(null);
+                  setDemoPrepareFailed(true);
+                }}
+              />
+            ) : (
+              <div className="flex min-h-[280px] w-full items-center justify-center rounded-[18px] border border-white/8 bg-white/[0.02] text-sm text-white/45">
+                {demoPreparingImage
+                  ? "Watermarking image..."
+                  : demoImageWatermarkEnabled
+                    ? "Protected image unavailable"
+                    : "Image preview unavailable"}
+              </div>
+            )}
           </div>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2">
+          {demoPrepareFailed && (
+            <span className="text-xs text-amber-200/80">
+              Watermark generation failed for this preview.
+            </span>
+          )}
           {imageDownloadError && (
             <span className="text-xs text-rose-300/90">
               Couldn&apos;t download. Try expanding and saving from your browser.
@@ -416,15 +809,15 @@ function ResultPanel({
           )}
           <button
             type="button"
-            disabled={!imgSrc || imageDownloadBusy}
+            disabled={!displaySrc || imageDownloadBusy || demoPreparingImage}
             onClick={() => {
-              if (!imgSrc || imageDownloadBusy) return;
+              if (!displaySrc || imageDownloadBusy || demoPreparingImage) return;
               setImageDownloadError(false);
               setImageDownloadBusy(true);
               void (async () => {
                 await new Promise<void>((r) => requestAnimationFrame(() => r()));
                 try {
-                  await downloadWorkflowImageFromUrl(imgSrc);
+                  await downloadWorkflowImageFromUrl(displaySrc);
                 } catch {
                   setImageDownloadError(true);
                 } finally {
@@ -447,30 +840,75 @@ function ResultPanel({
   }
 
   if (typeof value === "string") {
-    if (isProbablyFileUrl(value) && !isImageLike(value)) {
+    if (isHtmlDocumentLike(value)) {
       return (
-        <div
-          className={cx(
-            "rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.34)]",
-            expanded && "fixed inset-[8vh] z-[10010] overflow-auto rounded-[32px] bg-[#07080b]/98",
-          )}
-        >
-          <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-white/42">
-            <span>{label}</span>
-            {canExpand && (
+        <div className={cx("space-y-4", expanded && "flex min-h-0 flex-1 flex-col")}>
+          <HtmlPreviewPanel html={value} expanded={expanded} onToggleExpand={onToggleExpand} />
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-white/42">{label}</div>
+          </div>
+          <div className={cx(expanded && "min-h-0 flex-1")}>
+            <ProsePanel text={`\`\`\`html\n${value}\n\`\`\``} />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                void copyText(value).then(() => {
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1800);
+                });
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09]"
+            >
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? "Copied" : "Copy HTML"}
+            </button>
+            <button
+              type="button"
+              disabled={auxFileDownloadBusy}
+              onClick={() => {
+                if (auxFileDownloadBusy) return;
+                setAuxFileDownloadBusy(true);
+                void (async () => {
+                  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+                  try {
+                    downloadValue(`workflow-output-${Date.now()}.html`, value);
+                  } finally {
+                    setAuxFileDownloadBusy(false);
+                  }
+                })();
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2 text-sm text-white/85 transition hover:bg-white/[0.09] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {auxFileDownloadBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {auxFileDownloadBusy ? "Downloading…" : "Download HTML"}
+            </button>
+            {onRerun && (
               <button
                 type="button"
-                onClick={onToggleExpand}
-                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
+                onClick={onRerun}
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(67,201,255,0.20),rgba(129,101,255,0.14))] px-4 py-2 text-sm text-white transition hover:brightness-110"
               >
-                {expanded ? (
-                  <Minimize2 className="h-3.5 w-3.5" />
-                ) : (
-                  <Expand className="h-3.5 w-3.5" />
-                )}
-                {expanded ? "Minimize" : "Expand"}
+                <RefreshCcw className="h-4 w-4" />
+                Run again
               </button>
             )}
+          </div>
+        </div>
+      );
+    }
+
+    if (isProbablyFileUrl(value) && !isImageLike(value)) {
+      return (
+        <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-6 shadow-[0_18px_70px_rgba(0,0,0,0.34)]">
+          <div className="flex items-center justify-between gap-3 text-[11px] uppercase tracking-[0.18em] text-white/42">
+            <span>{label}</span>
+            {canExpand && <ExpandToggleButton expanded={expanded} onClick={onToggleExpand} />}
           </div>
           <div className="mt-3 text-[16px] font-medium text-white/92">Your file is ready</div>
           <a
@@ -486,27 +924,10 @@ function ResultPanel({
       );
     }
     return (
-      <div
-        className={cx(
-          expanded && "fixed inset-[8vh] z-[10010] overflow-auto rounded-[32px] bg-[#07080b]/98",
-        )}
-      >
+      <div>
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="text-[11px] uppercase tracking-[0.18em] text-white/42">{label}</div>
-          {canExpand && (
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
-            >
-              {expanded ? (
-                <Minimize2 className="h-3.5 w-3.5" />
-              ) : (
-                <Expand className="h-3.5 w-3.5" />
-              )}
-              {expanded ? "Minimize" : "Expand"}
-            </button>
-          )}
+          {canExpand && <ExpandToggleButton expanded={expanded} onClick={onToggleExpand} />}
         </div>
         <ProsePanel text={value} />
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -566,7 +987,7 @@ function ResultPanel({
     <div
       className={cx(
         "overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_18px_70px_rgba(0,0,0,0.34)]",
-        expanded && "fixed inset-[8vh] z-[10010] overflow-auto rounded-[32px] bg-[#07080b]/98",
+        expanded && "min-h-0 flex-1 rounded-[32px]",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-[11px] uppercase tracking-[0.18em] text-white/42">
@@ -596,20 +1017,7 @@ function ResultPanel({
             )}
             {auxFileDownloadBusy ? "Saving…" : "Download"}
           </button>
-          {canExpand && (
-            <button
-              type="button"
-              onClick={onToggleExpand}
-              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-[10px] tracking-[0.12em] text-white/62 transition hover:bg-white/[0.09] hover:text-white/86"
-            >
-              {expanded ? (
-                <Minimize2 className="h-3.5 w-3.5" />
-              ) : (
-                <Expand className="h-3.5 w-3.5" />
-              )}
-              {expanded ? "Minimize" : "Expand"}
-            </button>
-          )}
+          {canExpand && <ExpandToggleButton expanded={expanded} onClick={onToggleExpand} />}
         </div>
       </div>
       <pre
@@ -803,6 +1211,7 @@ function ReadyStateSurface({
   embedded?: boolean;
 }) {
   const [values, setValues] = useState<Record<string, unknown>>(() => state.inputValues ?? {});
+  const [customInputsEnabled, setCustomInputsEnabled] = useState(false);
   const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [anthropicApiKey, setAnthropicApiKey] = useState("");
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -813,8 +1222,14 @@ function ReadyStateSurface({
   });
   const { getAccessToken } = useAuth();
 
-  const inputs = state.inputs ?? [];
+  const inputs = useMemo(() => state.inputs ?? [], [state.inputs]);
   const showFields = inputs.length > 0;
+  const matchesPrefilledInputs = useMemo(() => {
+    if (!showFields) return false;
+    return inputs.every(
+      (input) => String(values[input.nodeId] ?? "") === String(input.defaultValue ?? ""),
+    );
+  }, [inputs, showFields, values]);
   const needsApiKey =
     (isBuilderTest &&
       !builderRunLimit?.isAdmin &&
@@ -929,6 +1344,27 @@ function ReadyStateSurface({
             ? "Add the required inputs and start the workflow when you are ready."
             : "This workflow does not need any additional input. Start it whenever you want."}
         </div>
+        {showFields && (
+          <div
+            className={cx(
+              "text-white/48",
+              embedded ? "mt-2 text-[11px] leading-5" : "mt-3 text-[12px] leading-6",
+            )}
+          >
+            {customInputsEnabled ? (
+              <>
+                Custom input mode is on. Anything you write here will run live through the actual
+                workflow.
+              </>
+            ) : (
+              <>
+                The prefilled inputs give you the fast path. Click{" "}
+                <span className="font-medium text-white/72">Set it yourself</span> to clear them and
+                write your own run from scratch.
+              </>
+            )}
+          </div>
+        )}
 
         {isBuilderTest && builderRunLimit && (
           <div
@@ -1058,11 +1494,35 @@ function ReadyStateSurface({
               if (geminiApiKey.trim()) payload.__geminiApiKey = geminiApiKey.trim();
               onSubmitInputs(payload);
             }}
-            className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-[linear-gradient(135deg,rgba(67,201,255,0.22),rgba(126,101,255,0.18))] px-5 py-3 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Start workflow
-            <ArrowRight className="h-4 w-4" />
+            <span className="absolute inset-0 bg-[linear-gradient(135deg,rgba(34,211,238,0.96),rgba(236,72,153,0.9))] shadow-[0_0_22px_rgba(34,211,238,0.22)]" />
+            <span className="absolute inset-0 bg-[radial-gradient(circle_at_22%_30%,rgba(255,255,255,0.22),transparent_52%)]" />
+            <span className="relative inline-flex items-center gap-2">
+              {showFields && !customInputsEnabled && matchesPrefilledInputs
+                ? "Run with prefilled inputs"
+                : "Run"}
+              <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+            </span>
           </button>
+
+          {showFields && (
+            <button
+              type="button"
+              disabled={inputs.length === 0}
+              onClick={() => {
+                const clearedValues = inputs.reduce<Record<string, unknown>>((acc, input) => {
+                  acc[input.nodeId] = "";
+                  return acc;
+                }, {});
+                setValues(clearedValues);
+                setCustomInputsEnabled(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white/82 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Set it yourself
+            </button>
+          )}
 
           {onBuyWorkflow && (
             <button
@@ -1079,10 +1539,21 @@ function ReadyStateSurface({
   );
 }
 
-function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?: () => void }) {
+function ResultsSurface({
+  state,
+  onRerun,
+  demoImageWatermarkEnabled = false,
+  demoImageWatermarkOwnerHandle,
+}: {
+  state: WorkflowRunState;
+  onRerun?: () => void;
+  demoImageWatermarkEnabled?: boolean;
+  demoImageWatermarkOwnerHandle?: string | null;
+}) {
   const model = deriveCustomerRuntimeModel(state);
   const [activeIndex, setActiveIndex] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const portalEl = useDocumentBody();
   if (!model) return null;
 
   const outputs = model.outputs;
@@ -1204,6 +1675,8 @@ function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?:
               expanded={expanded}
               onToggleExpand={() => setExpanded((value) => !value)}
               onRerun={onRerun}
+              demoImageWatermarkEnabled={demoImageWatermarkEnabled}
+              demoImageWatermarkOwnerHandle={demoImageWatermarkOwnerHandle}
             />
           ) : model.hasUsefulPartialOutput && model.primaryLiveText?.text ? (
             <ProsePanel text={model.primaryLiveText.text} />
@@ -1229,24 +1702,27 @@ function ResultsSurface({ state, onRerun }: { state: WorkflowRunState; onRerun?:
     </div>
   );
 
-  return (
+  if (!expanded) {
+    return chrome;
+  }
+
+  if (!portalEl) {
+    return chrome;
+  }
+
+  return createPortal(
     <>
-      {!expanded ? (
-        chrome
-      ) : (
-        <>
-          <button
-            type="button"
-            onClick={() => setExpanded(false)}
-            className="fixed inset-0 z-[10005] bg-black/75 backdrop-blur-sm"
-            aria-label="Close expanded output"
-          />
-          <div className="fixed inset-0 z-[10010] overflow-auto px-3 py-5 sm:px-5 sm:py-7 md:px-10 md:py-10">
-            <div className="mx-auto w-full max-w-[min(96vw,1420px)]">{chrome}</div>
-          </div>
-        </>
-      )}
-    </>
+      <button
+        type="button"
+        onClick={() => setExpanded(false)}
+        className="fixed inset-0 z-[10005] bg-black/75 backdrop-blur-sm"
+        aria-label="Close expanded output"
+      />
+      <div className="fixed inset-0 z-[10010] overflow-auto px-3 py-5 sm:px-5 sm:py-7 md:px-10 md:py-10">
+        <div className="mx-auto w-full max-w-[min(96vw,1420px)]">{chrome}</div>
+      </div>
+    </>,
+    portalEl,
   );
 }
 
@@ -1306,6 +1782,8 @@ export default function CustomerWorkflowRuntimeSurface({
   builderRunLimit,
   requiresApiKeys,
   onBuyWorkflow,
+  demoImageWatermarkEnabled = false,
+  demoImageWatermarkOwnerHandle,
   showInlineExecutionCancel = true,
   renderExecutionChrome = true,
 }: CustomerWorkflowRuntimeSurfaceProps) {
@@ -1375,6 +1853,11 @@ export default function CustomerWorkflowRuntimeSurface({
 
       {state.phase === "input" && state.status === "idle" ? (
         <ReadyStateSurface
+          key={JSON.stringify({
+            workflowId: state.workflowId,
+            phase: state.phase,
+            inputValues: state.inputValues ?? {},
+          })}
           state={state}
           onSubmitInputs={onSubmitInputs}
           isBuilderTest={isBuilderTest}
@@ -1394,7 +1877,13 @@ export default function CustomerWorkflowRuntimeSurface({
               showCancel={showInlineExecutionCancel}
             />
           )}
-          <ResultsSurface key={state.runId} state={state} onRerun={onRerun} />
+          <ResultsSurface
+            key={state.runId}
+            state={state}
+            onRerun={onRerun}
+            demoImageWatermarkEnabled={demoImageWatermarkEnabled}
+            demoImageWatermarkOwnerHandle={demoImageWatermarkOwnerHandle}
+          />
           {!hideActionZone && (
             <ActionZone
               state={state}
@@ -1402,7 +1891,7 @@ export default function CustomerWorkflowRuntimeSurface({
               onClose={onClose}
               onRerun={onRerun}
               embedded={embedded}
-              showClose={hideHeader}
+              showClose={false}
               showCancel={showInlineExecutionCancel}
             />
           )}

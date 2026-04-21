@@ -167,6 +167,7 @@ export function buildCompiledBindings(params: {
         edgeId: binding.edgeId,
       })),
       inputRequirement: resolvedSpec.inputRequirement,
+      config: node.config,
     });
     errors.push(...validationErrors);
 

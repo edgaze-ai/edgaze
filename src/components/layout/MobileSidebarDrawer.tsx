@@ -225,7 +225,13 @@ function AdminDrawerBody({ pathname, onNavigate }: { pathname: string; onNavigat
           const Icon = item.icon;
           const active = isAdminNavActive(pathname, item.href);
           return (
-            <Link key={item.href} href={item.href} onClick={onNavigate} className="block">
+            <Link
+              key={item.href}
+              href={item.href}
+              prefetch={false}
+              onClick={onNavigate}
+              className="block"
+            >
               <div
                 className={cn(
                   "group flex items-center gap-3 rounded-2xl px-3.5 py-3 transition-all duration-200",
@@ -254,7 +260,7 @@ function AdminDrawerBody({ pathname, onNavigate }: { pathname: string; onNavigat
       </nav>
 
       <div className="border-t border-white/[0.06] px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-black/35 to-transparent">
-        <Link href="/marketplace" onClick={onNavigate} className="block">
+        <Link href="/marketplace" prefetch={false} onClick={onNavigate} className="block">
           <div className="flex items-center gap-3 rounded-2xl px-3.5 py-3.5 border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-white/[0.12] transition-all active:scale-[0.99]">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-black/25">
               <ArrowLeft className="h-5 w-5 text-white/75" />
@@ -290,7 +296,13 @@ function NavSection({
         const active = isActive(item.href);
 
         return (
-          <Link key={item.href} href={item.href} onClick={onNavigate} className="block">
+          <Link
+            key={item.href}
+            href={item.href}
+            prefetch={false}
+            onClick={onNavigate}
+            className="block"
+          >
             <div
               className={cn(
                 "flex items-center gap-3 rounded-2xl px-3.5 py-3",

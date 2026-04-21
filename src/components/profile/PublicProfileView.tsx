@@ -16,6 +16,7 @@ import ErrorModal from "../marketplace/ErrorModal";
 import { DEFAULT_AVATAR_SRC } from "../../config/branding";
 import { SHOW_PUBLIC_LIKES_AND_RUNS } from "../../lib/constants";
 import { formatClientError } from "../../lib/format-client-error";
+import { normalizeImageSrc } from "../../lib/normalize-image-src";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
 import VerifiedCreatorBadge from "../ui/VerifiedCreatorBadge";
@@ -69,6 +70,7 @@ function Avatar({
   className?: string;
 }) {
   const px = `${size}px`;
+  const normalizedUrl = normalizeImageSrc(url);
   return (
     <div
       className={cn(
@@ -77,8 +79,8 @@ function Avatar({
       )}
       style={{ width: px, height: px }}
     >
-      {url ? (
-        <img src={url} alt={name} className="h-full w-full object-cover" loading="lazy" />
+      {normalizedUrl ? (
+        <img src={normalizedUrl} alt={name} className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/10 to-white/0 text-[11px] font-semibold text-white/80">
           {initialsFromName(name)}

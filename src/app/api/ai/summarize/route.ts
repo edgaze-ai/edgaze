@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
+import { resolveTrustedUrl } from "@/lib/security/url-policy";
 
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.1";
@@ -22,6 +23,17 @@ function withTimeout<T>(p: Promise<T>, ms = 2500): Promise<T> {
   });
 }
 
+function getTrustedOllamaGenerateUrl() {
+  const baseUrl = resolveTrustedUrl(OLLAMA_URL, {
+    allowedProtocols: ["http:", "https:"],
+    allowLocalhost: true,
+    allowPrivateIpv4: false,
+  });
+  if (!baseUrl) return null;
+
+  return new URL("/api/generate", baseUrl);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { user, error: authError } = await getUserFromRequest(req);
@@ -39,8 +51,12 @@ export async function POST(req: NextRequest) {
 
     // Try Ollama first (best-effort)
     try {
+      const ollamaGenerateUrl = getTrustedOllamaGenerateUrl();
+      if (!ollamaGenerateUrl) {
+        throw new Error("Invalid Ollama URL");
+      }
       const r = await withTimeout(
-        fetch(`${OLLAMA_URL}/api/generate`, {
+        fetch(ollamaGenerateUrl, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({

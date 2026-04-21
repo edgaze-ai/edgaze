@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAllBlogs, getBlog } from "../../blogs/utils/blogs";
 import { getAllDocs, getDoc } from "../../docs/utils/docs";
 import { buildCanonicalUrl, hasMeaningfulTextContent } from "../../../lib/seo";
-import { PUBLIC_CONTEXT_PAGES } from "../../../lib/public-site-pages";
+import { getIndexablePublicContextPages } from "../../../lib/public-site-pages";
 import { templateService } from "../../../lib/templates/templateService";
 
 export const runtime = "nodejs";
@@ -27,7 +27,7 @@ export async function GET() {
     "/contact",
     "/pricing",
     "/careers",
-    ...PUBLIC_CONTEXT_PAGES.map((page) => page.path),
+    ...getIndexablePublicContextPages().map((page) => page.path),
   ];
 
   const docs = getAllDocs()

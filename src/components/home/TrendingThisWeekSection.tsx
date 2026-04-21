@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Zap } from "lucide-react";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
+import { normalizeImageSrc } from "../../lib/normalize-image-src";
 import type { TrendingItem } from "../../app/api/trending/this-week/route";
 
 function cn(...args: Array<string | false | null | undefined>) {
@@ -85,6 +86,7 @@ function TrendCard({ item }: TrendCardProps) {
   const badgeLabel = item.type === "workflow" ? "Workflow" : "Prompt";
   const desc = clampText(item.description, 140);
   const publishedLabel = formatRelativeTime(item.published_at ?? item.created_at ?? null);
+  const thumbnailSrc = normalizeImageSrc(item.thumbnail_url);
 
   const displayHandle = (item.owner_handle || "").replace(/^@/, "");
   const creatorName = item.owner_name ?? (displayHandle ? `@${displayHandle}` : "Creator");
@@ -109,9 +111,9 @@ function TrendCard({ item }: TrendCardProps) {
   const content = (
     <div className="group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20 hover:bg-white/[0.04]">
       <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-2xl">
-        {item.thumbnail_url ? (
+        {thumbnailSrc ? (
           <img
-            src={item.thumbnail_url}
+            src={thumbnailSrc}
             alt={item.title || "Listing thumbnail"}
             className="aspect-video w-full object-cover"
             loading="lazy"
@@ -157,14 +159,14 @@ function TrendCard({ item }: TrendCardProps) {
 
         <div className="min-w-0 flex-1 overflow-hidden">
           <h3
-            className="truncate text-sm font-semibold leading-snug text-white/95"
+            className="truncate text-[15px] font-semibold leading-snug text-white/95"
             title={item.title || undefined}
           >
             {item.title || "Untitled listing"}
           </h3>
 
           <div
-            className="mt-1 flex items-center gap-2 text-xs text-white/60 min-w-0"
+            className="mt-1 flex items-center gap-2 text-xs text-white/68 min-w-0"
             onClick={(e) => e.stopPropagation()}
           >
             <ProfileLink
@@ -177,7 +179,7 @@ function TrendCard({ item }: TrendCardProps) {
 
           {desc ? (
             <div
-              className="mt-1.5 truncate text-[12px] leading-snug text-white/55"
+              className="mt-1.5 line-clamp-2 text-[12px] leading-[1.45] text-white/58"
               title={item.description || undefined}
             >
               {desc}
@@ -186,7 +188,7 @@ function TrendCard({ item }: TrendCardProps) {
             <div className="mt-1.5 h-4" />
           )}
 
-          <div className="mt-auto flex shrink-0 items-center gap-2 text-[11px] text-white/55">
+          <div className="mt-auto flex shrink-0 items-center gap-2 text-[11px] text-white/58">
             {item.edgaze_code ? (
               <span className="shrink-0 rounded-md bg-white/10 px-2 py-[3px] text-[10px] font-semibold text-white/85">
                 /{item.edgaze_code}
@@ -395,21 +397,21 @@ export default function TrendingThisWeekSection() {
             Trending on Edgaze
           </h2>
           <p className="mt-2 text-sm text-white/60">
-            Top 8 workflows and prompts by run count in the last 7 days
+            What people are actually using on Edgaze this week.
           </p>
         </div>
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 backdrop-blur-sm sm:p-8">
           <div className="space-y-10">
             <TrendingRow
-              label="Top workflows this week"
+              label="Most used workflows this week"
               items={data?.topWorkflowsThisWeek ?? []}
               loading={loading}
               exploreHref="/marketplace"
               direction="right"
             />
             <TrendingRow
-              label="Top prompts this week"
+              label="Most used prompts this week"
               items={data?.topPromptsThisWeek ?? []}
               loading={loading}
               exploreHref="/marketplace"

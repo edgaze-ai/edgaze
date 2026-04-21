@@ -127,8 +127,10 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
   }
 
   return (
-    <div className="space-y-2">
-      <div ref={mountRef} className="min-h-[65px]" />
+    <div className="space-y-2 text-center">
+      <div className="flex justify-center">
+        <div ref={mountRef} className="min-h-[65px]" />
+      </div>
       {status === "loading" || status === "ready" ? (
         <div className="text-xs text-white/45">Loading captcha…</div>
       ) : null}

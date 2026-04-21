@@ -6,6 +6,19 @@ if (args.length === 0) {
   process.exit(2);
 }
 
+const ALLOWED_NPM_COMMANDS = new Set(["ci", "install", "run"]);
+const SAFE_ARG_PATTERN = /^[a-zA-Z0-9:_./@=-]+$/;
+
+if (!ALLOWED_NPM_COMMANDS.has(args[0])) {
+  console.error("Unsupported npm command.");
+  process.exit(2);
+}
+
+if (args.some((arg) => !SAFE_ARG_PATTERN.test(arg))) {
+  console.error("Refusing to pass unsafe npm arguments.");
+  process.exit(2);
+}
+
 const env = { ...process.env };
 // These can point node-gyp at an ephemeral temp dir and cause flaky native installs.
 delete env.npm_config_devdir;
@@ -20,4 +33,3 @@ child.on("exit", (code, signal) => {
   if (signal) process.kill(process.pid, signal);
   process.exit(code ?? 1);
 });
-

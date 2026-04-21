@@ -28,7 +28,18 @@ if (!file) {
   process.exit(1);
 }
 
-const raw = fs.readFileSync(path.resolve(file), "utf8");
+const resolvedFile = path.resolve(process.cwd(), file);
+const repoPrefix = `${process.cwd()}${path.sep}`;
+if (resolvedFile !== process.cwd() && !resolvedFile.startsWith(repoPrefix)) {
+  console.error("Input file must stay within the repository.");
+  process.exit(1);
+}
+if (path.extname(resolvedFile).toLowerCase() !== ".json") {
+  console.error("Input file must be a .json file.");
+  process.exit(1);
+}
+
+const raw = fs.readFileSync(resolvedFile, "utf8");
 const rows = JSON.parse(raw);
 if (!Array.isArray(rows) || rows.length === 0) {
   console.error("JSON must be a non-empty array");

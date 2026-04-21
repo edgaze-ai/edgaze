@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
-import { extractClientIdentifier } from "@lib/rate-limiting/image-generation";
+import { extractTrustedClientIpOrUnknown } from "@lib/request-client-ip";
+import { checkWorkflowDemoRateLimit } from "@lib/rate-limiting/workflow-demo";
+import {
+  isAnonymousWorkflowDemoEligibleMode,
+  resolveWorkflowAccessDecision,
+} from "src/server/flow/workflow-security";
 
 /**
  * Check if an anonymous demo run is allowed for a workflow
@@ -23,13 +28,37 @@ export async function POST(req: NextRequest) {
 
     const { workflowId, deviceFingerprint } = body;
 
-    // Extract IP address from request
-    const clientId = extractClientIdentifier(req);
-    const ipAddress = clientId.type === "ip" ? clientId.identifier : "unknown";
+    const ipAddress = extractTrustedClientIpOrUnknown(req);
+
+    if (
+      !checkWorkflowDemoRateLimit({
+        req,
+        workflowId,
+        deviceFingerprint,
+        kind: "preflight",
+      })
+    ) {
+      return NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429 });
+    }
 
     // Validate fingerprint format (should be a hash string)
     if (!deviceFingerprint || deviceFingerprint.length < 10) {
       return NextResponse.json({ ok: false, error: "Invalid device fingerprint" }, { status: 400 });
+    }
+
+    const accessDecision = await resolveWorkflowAccessDecision({
+      workflowId,
+      userId: null,
+      requestedMode: "preview",
+    });
+    if (!accessDecision.ok || !isAnonymousWorkflowDemoEligibleMode(accessDecision.mode)) {
+      return NextResponse.json({
+        ok: true,
+        allowed: false,
+        workflowId,
+        deviceFingerprint,
+        ipAddress: null,
+      });
     }
 
     const supabase = createSupabaseAdminClient();
@@ -56,7 +85,7 @@ export async function POST(req: NextRequest) {
       allowed,
       workflowId,
       deviceFingerprint,
-      ipAddress: ipAddress === "unknown" ? null : ipAddress, // Don't expose IP to client
+      ipAddress: null,
     });
   } catch (err: any) {
     console.error("[Demo Runs] Exception in check:", err);

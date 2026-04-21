@@ -3,7 +3,7 @@ import { getAllBlogs, getBlog } from "./blogs/utils/blogs";
 import { getAllDocs, getDoc } from "./docs/utils/docs";
 import { templateService } from "../lib/templates/templateService";
 import { buildCanonicalUrl, hasMeaningfulTextContent } from "../lib/seo";
-import { PUBLIC_CONTEXT_PAGES } from "../lib/public-site-pages";
+import { getIndexablePublicContextPages } from "../lib/public-site-pages";
 
 function docPathFromSlug(slug: string) {
   return slug === "builder" ? "/docs/builder" : `/docs/${slug}`;
@@ -26,7 +26,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/contact",
     "/pricing",
     "/careers",
-    ...PUBLIC_CONTEXT_PAGES.map((page) => page.path),
+    ...getIndexablePublicContextPages().map((page) => page.path),
   ];
 
   const docsEntries = getAllDocs()

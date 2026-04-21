@@ -40,7 +40,8 @@ function parseDotenv(src) {
 
 function firstSetEnvValue(env, keys) {
   for (const k of keys) {
-    const v = typeof env[k] === "string" ? env[k].trim() : "";
+    const v =
+      Object.prototype.hasOwnProperty.call(env, k) && typeof env[k] === "string" ? env[k].trim() : "";
     if (v) return v;
   }
   return "";
@@ -134,4 +135,3 @@ for (const r of rows) {
 const supportsGenerateContent = rows.filter((r) => r.methods.split(",").includes("generateContent"));
 console.warn("\nModels supporting generateContent:");
 for (const r of supportsGenerateContent) console.warn(`- ${r.name}`);
-

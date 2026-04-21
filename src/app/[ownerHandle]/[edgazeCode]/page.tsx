@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   ArrowLeft,
@@ -26,12 +26,7 @@ import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
 import WorkflowCommentsSection from "../../../components/marketplace/WorkflowCommentsSection";
 import CustomerWorkflowRunModal from "../../../components/runtime/customer/CustomerWorkflowRunModal";
-import {
-  canRunDemo,
-  canRunDemoSync,
-  getDeviceFingerprintHash,
-  getRemainingDemoRunsSync,
-} from "../../../lib/workflow/device-tracking";
+import { canRunDemo, getDeviceFingerprintHash } from "../../../lib/workflow/device-tracking";
 import { extractWorkflowInputs } from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
 import { track, type TrackProperties } from "../../../lib/mixpanel";
@@ -41,12 +36,12 @@ import ProfileAvatar from "../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../components/ui/ProfileLink";
 import ReportModal from "../../../components/marketplace/ReportModal";
 import ListingImageLightbox from "../../../components/marketplace/ListingImageLightbox";
+import EdgazeNotFoundScreen from "../../../components/errors/EdgazeNotFoundScreen";
 import { toRuntimeGraph } from "../../../lib/workflow/customer-runtime";
 import { finalizeClientWorkflowRunFromExecutionResult } from "../../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../../lib/workflow/run-stream-client";
 import { startClientTraceSession } from "../../../lib/workflow/client-trace";
 import type { WorkflowRunState } from "../../../lib/workflow/run-types";
-import { demoTokensEqual } from "../../../lib/demo-token";
 
 function safeTrack(event: string, props?: TrackProperties) {
   try {
@@ -857,7 +852,6 @@ function PurchaseSuccessModal({
 export default function WorkflowProductPage() {
   const params = useParams<{ ownerHandle: string; edgazeCode: string }>();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { requireAuth, userId, profile, getAccessToken, refreshAuthSession, isAdmin } = useAuth();
@@ -887,19 +881,12 @@ export default function WorkflowProductPage() {
   const [demoRunning, setDemoRunning] = useState(false);
 
   // Turnstile verification for demo
-  const [turnstileModalOpen, setTurnstileModalOpen] = useState(false);
   const [turnstileVerifying, setTurnstileVerifying] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [demoVerificationError, setDemoVerificationError] = useState<string | null>(null);
   const [demoVerificationPhase, setDemoVerificationPhase] = useState<
     "idle" | "checking" | "turnstile"
   >("idle");
-
-  // Reset verification phase when Turnstile modal closes
-  useEffect(() => {
-    if (!turnstileModalOpen) {
-      setDemoVerificationPhase("idle");
-    }
-  }, [turnstileModalOpen]);
 
   const [upNext, setUpNext] = useState<WorkflowListing[]>([]);
   const [upNextLoading, setUpNextLoading] = useState(false);
@@ -910,6 +897,8 @@ export default function WorkflowProductPage() {
   const demoRunAbortRef = useRef<AbortController | null>(null);
   const demoRunSessionPollRef = useRef<AbortController | null>(null);
   const demoRunAutoExecuteRef = useRef(false);
+  const pendingDemoInputValuesRef = useRef<Record<string, any> | null>(null);
+  const [demoAvailable, setDemoAvailable] = useState<boolean | null>(null);
 
   const [demoExecutionGraph, setDemoExecutionGraph] = useState<{
     nodes: any[];
@@ -922,22 +911,38 @@ export default function WorkflowProductPage() {
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
 
-  // Demo mode: when visiting with ?demo=TOKEN and it matches, skip sign-in and Turnstile for Run
-  const demoTokenFromUrl = searchParams?.get("demo") ?? null;
-  const isDemoModeActive = Boolean(
-    listing?.demo_mode_enabled &&
-    listing?.demo_token &&
-    demoTokenFromUrl &&
-    demoTokensEqual(demoTokenFromUrl, listing.demo_token),
-  );
+  const demoModalState =
+    demoRunState ??
+    (listing
+      ? {
+          workflowId: listing.id,
+          workflowName: listing.title || "Untitled Workflow",
+          phase: "input",
+          status: "idle",
+          steps: [],
+          logs: [],
+        }
+      : null);
 
-  // When demo mode is off but URL has ?demo=, redirect to clean URL
   useEffect(() => {
-    if (!listing || !demoTokenFromUrl) return;
-    if (isDemoModeActive) return;
-    const cleanPath = `/${ownerHandle}/${edgazeCode}`;
-    router.replace(cleanPath);
-  }, [listing, demoTokenFromUrl, isDemoModeActive, ownerHandle, edgazeCode, router]);
+    if (!listing?.id) {
+      setDemoAvailable(null);
+      return;
+    }
+
+    let cancelled = false;
+    void canRunDemo(listing.id, true)
+      .then((allowed) => {
+        if (!cancelled) setDemoAvailable(allowed);
+      })
+      .catch(() => {
+        if (!cancelled) setDemoAvailable(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [listing?.id]);
 
   useEffect(() => {
     if (!ownerHandle || !edgazeCode) return;
@@ -1110,6 +1115,14 @@ export default function WorkflowProductPage() {
     return listing.price_usd != null ? `$${Number(listing.price_usd).toFixed(2)}` : "Paid";
   }, [listing, isNaturallyFree]);
 
+  const demoButtonEnabled = demoAvailable === true;
+  const demoButtonBusy = demoRunning || turnstileVerifying;
+  const demoButtonLabel = demoAvailable === false ? "Used on this device" : "Try a one-time demo";
+  const demoButtonTitle =
+    demoAvailable === false
+      ? "You've already used your one-time demo. Purchase for unlimited runs."
+      : "Try a one-time demo";
+
   const isOwner = useMemo(() => {
     if (!listing || !currentUserId) return false;
     return String(listing.owner_id ?? "") === String(currentUserId);
@@ -1125,9 +1138,14 @@ export default function WorkflowProductPage() {
 
   const primaryCtaLabel = useMemo(() => {
     if (isNaturallyFree) return "Open in Workflow Studio";
-    if (isDemoModeActive && !isOwned) return "Try demo";
     return "Buy access";
-  }, [isNaturallyFree, isDemoModeActive, isOwned]);
+  }, [isNaturallyFree]);
+
+  const ownershipBadgeLabel = useMemo(() => {
+    if (isOwner) return "Yours";
+    if (isOwned) return "Owned";
+    return null;
+  }, [isOwner, isOwned]);
 
   function openWorkflowStudio() {
     if (!listing) return;
@@ -1245,12 +1263,7 @@ export default function WorkflowProductPage() {
     } catch {}
 
     // For paid items when not logged in: full-screen sign-in-to-buy page (conversion-optimized)
-    // Exception: in demo mode (admin demo link), skip sign-in and run demo directly
     if (!userId && !isNaturallyFree) {
-      if (isDemoModeActive) {
-        await handleDemoButtonClick();
-        return;
-      }
       const returnPath =
         window.location.pathname + (window.location.search ? window.location.search : "");
       window.location.href = `/auth/sign-in-to-buy?return=${encodeURIComponent(returnPath)}&type=workflow`;
@@ -1393,6 +1406,7 @@ export default function WorkflowProductPage() {
 
     setTurnstileToken(token);
     setTurnstileVerifying(true);
+    setDemoVerificationError(null);
 
     try {
       // Verify token with server
@@ -1400,44 +1414,50 @@ export default function WorkflowProductPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ token }),
+        body: JSON.stringify({ token, purpose: "workflow_demo" }),
       });
 
       const result = await response.json();
 
       if (result.ok) {
-        // Verification successful, proceed with demo
-        setTurnstileModalOpen(false);
         setTurnstileVerifying(false);
         setTurnstileToken(null);
+        setDemoVerificationPhase("idle");
+
+        const pendingInputs = pendingDemoInputValuesRef.current;
+        pendingDemoInputValuesRef.current = null;
+
+        if (pendingInputs) {
+          await handleDemoSubmitInputs(pendingInputs);
+          return;
+        }
+
         await startDemoRun();
       } else {
-        setPurchaseError("Captcha verification failed. Please try again.");
-        setTurnstileModalOpen(false);
+        setDemoVerificationError("Captcha verification failed. Please try again.");
         setTurnstileVerifying(false);
         setTurnstileToken(null);
       }
     } catch (error: any) {
-      setPurchaseError("Failed to verify captcha. Please try again.");
-      setTurnstileModalOpen(false);
+      setDemoVerificationError("Failed to verify captcha. Please try again.");
       setTurnstileVerifying(false);
       setTurnstileToken(null);
     }
   }
 
-  // Start demo run (after Turnstile verification, or directly when admin demo link)
+  // Start demo run after Turnstile verification
   async function startDemoRun() {
     if (!listing) return;
 
-    // Skip one-time check when using admin demo link
-    if (!isDemoModeActive) {
-      const canRun = await canRunDemo(listing.id, true);
-      if (!canRun) {
-        setPurchaseError(
-          "You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.",
-        );
-        return;
-      }
+    const canRun = await canRunDemo(listing.id, true);
+    setDemoAvailable(canRun);
+    if (!canRun) {
+      setPurchaseError(
+        "You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.",
+      );
+      setDemoRunModalOpen(false);
+      setDemoVerificationPhase("idle");
+      return;
     }
 
     try {
@@ -1447,43 +1467,32 @@ export default function WorkflowProductPage() {
         edgaze_code: listing.edgaze_code,
       });
 
-      let graph: { nodes: any[]; edges: any[] };
-      if (listing.graph_json || listing.graph) {
-        const raw = (listing.graph_json || listing.graph) as {
-          nodes?: any[];
-          edges?: any[];
-        };
-        graph = { nodes: raw.nodes || [], edges: raw.edges || [] };
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const payload: Record<string, unknown> = { workflowId: listing.id };
+      if (!userId) {
+        payload.deviceFingerprint = getDeviceFingerprintHash();
       } else {
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        const payload: Record<string, unknown> = { workflowId: listing.id };
-        if (isDemoModeActive && listing.demo_token) {
-          payload.adminDemoToken = listing.demo_token;
-        } else if (!userId) {
-          payload.deviceFingerprint = getDeviceFingerprintHash();
-        } else {
-          let token = await getAccessToken();
-          if (!token) {
-            await refreshAuthSession();
-            token = await getAccessToken();
-          }
-          if (token) headers["Authorization"] = `Bearer ${token}`;
+        let token = await getAccessToken();
+        if (!token) {
+          await refreshAuthSession();
+          token = await getAccessToken();
         }
-        const res = await fetch("/api/workflow/resolve-run-graph", {
-          method: "POST",
-          headers,
-          credentials: "include",
-          body: JSON.stringify(payload),
-        });
-        const payloadJson = await res.json().catch(() => ({}));
-        if (!res.ok || !payloadJson.ok) {
-          throw new Error(payloadJson.error || "Failed to load workflow");
-        }
-        graph = {
-          nodes: payloadJson.nodes || [],
-          edges: payloadJson.edges || [],
-        };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
       }
+      const res = await fetch("/api/workflow/resolve-run-graph", {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const payloadJson = await res.json().catch(() => ({}));
+      if (!res.ok || !payloadJson.ok) {
+        throw new Error(payloadJson.error || "Failed to load workflow");
+      }
+      const graph: { nodes: any[]; edges: any[] } = {
+        nodes: payloadJson.nodes || [],
+        edges: payloadJson.edges || [],
+      };
 
       setDemoExecutionGraph(graph);
 
@@ -1510,41 +1519,42 @@ export default function WorkflowProductPage() {
 
       setDemoRunState(initialState);
       setDemoRunModalOpen(true);
+      setDemoVerificationPhase("idle");
+      setDemoVerificationError(null);
     } catch (error: any) {
       setPurchaseError(error.message || "Failed to start demo");
+      setDemoRunModalOpen(false);
+      setDemoVerificationPhase("idle");
     }
   }
 
-  // Handle demo button click - show checking screen first, then Turnstile
+  // Handle demo button click - verification stays inside the run modal.
   async function handleDemoButtonClick() {
     if (!listing) return;
     setPurchaseError(null);
+    setDemoVerificationError(null);
+    setTurnstileToken(null);
+    pendingDemoInputValuesRef.current = null;
+    setDemoRunModalOpen(true);
 
-    // Admin demo link: skip checking + Turnstile, go straight to run
-    if (isDemoModeActive) {
-      await startDemoRun();
-      return;
-    }
-
-    // Phase 1: Show checking screen and verify demo eligibility
     setDemoVerificationPhase("checking");
 
     try {
       const canRun = await canRunDemo(listing.id, true);
+      setDemoAvailable(canRun);
       if (!canRun) {
         setPurchaseError(
           "You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.",
         );
+        setDemoRunModalOpen(false);
         setDemoVerificationPhase("idle");
         return;
       }
 
-      // Phase 2: Checks passed - show Turnstile modal
       setDemoVerificationPhase("turnstile");
-      setTurnstileModalOpen(true);
-      setTurnstileToken(null);
     } catch (err) {
       setPurchaseError("Failed to verify demo eligibility. Please try again.");
+      setDemoRunModalOpen(false);
       setDemoVerificationPhase("idle");
     }
   }
@@ -1618,9 +1628,7 @@ export default function WorkflowProductPage() {
           hasUserId: Boolean(userId),
         },
       });
-      // Admin demo link: pass token to bypass auth and device limit. Otherwise use device fingerprint for anonymous demo.
-      const deviceFingerprint =
-        !userId && !isDemoModeActive ? getDeviceFingerprintHash() : undefined;
+      const deviceFingerprint = !userId ? getDeviceFingerprintHash() : undefined;
 
       // Signed-in users must send Bearer token - API uses getUserFromRequest (Bearer only)
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -1656,9 +1664,8 @@ export default function WorkflowProductPage() {
           workflowId: listing.id,
           inputs: processedInputs,
           userApiKeys: {},
-          isDemo: !userId && !isDemoModeActive,
+          isDemo: !userId,
           deviceFingerprint,
-          adminDemoToken: isDemoModeActive && listing?.demo_token ? listing.demo_token : undefined,
           stream: true,
           forceDemoModelTier: true,
         }),
@@ -1682,6 +1689,32 @@ export default function WorkflowProductPage() {
           status: "failed",
           errorMessage: error.error || `HTTP ${response.status}`,
         });
+        if (!userId) {
+          const allowed = await canRunDemo(listing.id, true).catch(() => null);
+          if (typeof allowed === "boolean") setDemoAvailable(allowed);
+        }
+        if (
+          typeof error?.error === "string" &&
+          error.error.includes("Verification required before running this demo")
+        ) {
+          pendingDemoInputValuesRef.current = processedInputs;
+          setTurnstileToken(null);
+          setTurnstileVerifying(false);
+          setDemoVerificationError(null);
+          setDemoVerificationPhase("turnstile");
+          setDemoRunState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: "idle",
+                  error: undefined,
+                  finishedAt: undefined,
+                  connectionState: "idle",
+                  connectionLabel: "Complete verification to continue this demo run.",
+                }
+              : prev,
+          );
+        }
         throw new Error(error.error || `HTTP ${response.status}`);
       }
 
@@ -1721,6 +1754,17 @@ export default function WorkflowProductPage() {
       }
       await clientTrace.finish({ status: "completed" });
     } catch (error: any) {
+      if (
+        typeof error?.message === "string" &&
+        error.message.includes("Verification required before running this demo")
+      ) {
+        setDemoRunning(false);
+        return;
+      }
+      if (!userId) {
+        const allowed = await canRunDemo(listing.id, true).catch(() => null);
+        if (typeof allowed === "boolean") setDemoAvailable(allowed);
+      }
       setDemoRunState({
         ...demoRunState,
         phase: "output",
@@ -1814,12 +1858,20 @@ export default function WorkflowProductPage() {
   }, [demoRunState?.status]);
 
   useEffect(() => {
-    if (!demoRunModalOpen) demoRunAutoExecuteRef.current = false;
+    if (!demoRunModalOpen) {
+      demoRunAutoExecuteRef.current = false;
+      pendingDemoInputValuesRef.current = null;
+      setDemoVerificationPhase("idle");
+      setDemoVerificationError(null);
+      setTurnstileToken(null);
+      setTurnstileVerifying(false);
+    }
   }, [demoRunModalOpen]);
 
   useEffect(() => {
     if (
       !demoRunModalOpen ||
+      demoVerificationPhase !== "idle" ||
       !demoRunState ||
       demoRunState.phase !== "executing" ||
       demoRunState.status !== "idle" ||
@@ -1831,7 +1883,13 @@ export default function WorkflowProductPage() {
     demoRunAutoExecuteRef.current = true;
     void handleDemoSubmitInputs({});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mirrors builder: auto-start run when modal opens with no inputs
-  }, [demoRunModalOpen, demoRunState?.phase, demoRunState?.status, demoRunState?.inputs?.length]);
+  }, [
+    demoRunModalOpen,
+    demoVerificationPhase,
+    demoRunState?.phase,
+    demoRunState?.status,
+    demoRunState?.inputs?.length,
+  ]);
 
   useEffect(() => {
     if (!upNextSentinelRef.current) return;
@@ -1864,19 +1922,14 @@ export default function WorkflowProductPage() {
 
   if (!listing) {
     return (
-      <div className="flex h-full flex-col bg-[#050505] text-white">
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
-          <p className="text-lg font-semibold">Workflow not found</p>
-          <button
-            type="button"
-            onClick={goBack}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm text-white hover:border-cyan-400 hover:text-cyan-200"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to marketplace
-          </button>
-        </div>
-      </div>
+      <EdgazeNotFoundScreen
+        code="WF-404"
+        eyebrow="Workflow unavailable"
+        title="This workflow is not on the marketplace right now."
+        description="It may have been unpublished, moved to a new Edgaze code, or the link was typed incorrectly. Head back to discovery and find another premium workflow to run."
+        primaryHref="/marketplace"
+        primaryLabel="Browse workflows"
+      />
     );
   }
 
@@ -1934,110 +1987,100 @@ export default function WorkflowProductPage() {
         targetOwnerName={listing.owner_name}
       />
 
-      {/* Checking screen - enforcement/preflight before Turnstile */}
-      {demoVerificationPhase === "checking" && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80">
-          <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-[#0b0c10] px-8 py-8">
-            <Loader2 className="h-10 w-10 animate-spin text-amber-400" />
-            <div className="text-[15px] font-medium text-white">Checking demo eligibility…</div>
-            <div className="text-[12px] text-white/55">Verifying device and usage limits</div>
-          </div>
-        </div>
-      )}
-
-      {/* Turnstile Verification Modal - key forces fresh mount each open for reliability */}
-      {turnstileModalOpen && (
-        <div className="fixed inset-0 z-[130]">
-          <div
-            className="absolute inset-0 bg-black/80"
-            onClick={() => {
-              if (!turnstileVerifying) {
-                setTurnstileModalOpen(false);
-                setTurnstileToken(null);
-              }
-            }}
-          />
-          <div className="absolute inset-0 flex items-center justify-center p-4">
-            <div className="relative w-[min(480px,94vw)] overflow-hidden rounded-3xl border border-white/10 bg-[#0b0c10] shadow-[0_40px_160px_rgba(0,0,0,0.85)]">
-              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-10 w-10 place-items-center rounded-2xl bg-amber-500/15 border border-amber-400/20">
-                    <Lock className="h-5 w-5 text-amber-200" />
-                  </div>
-                  <div>
-                    <div className="text-[14px] font-semibold text-white">Verify to Try Demo</div>
-                    <div className="text-[11px] text-white/55">
-                      Complete verification to run this workflow
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!turnstileVerifying) {
-                      setTurnstileModalOpen(false);
-                      setTurnstileToken(null);
-                    }
-                  }}
-                  disabled={turnstileVerifying}
-                  className="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                  aria-label="Close"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="p-5">
-                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
-                  <div className="text-[12px] text-white/70 mb-4">
-                    Complete the security verification below to access a one-time demo run of this
-                    workflow.
-                  </div>
-
-                  <div className="flex min-h-[120px] justify-center" key="turnstile-container">
-                    <TurnstileWidget onToken={handleTurnstileToken} />
-                  </div>
-
-                  {turnstileVerifying && (
-                    <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/70">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Verifying...
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
-                  <div className="flex items-start gap-2">
-                    <Lock className="h-4 w-4 mt-[1px] text-white/45" />
-                    <div className="min-w-0">
-                      <div className="text-white/80 font-semibold">Secure Demo Access</div>
-                      <div className="mt-0.5 leading-snug">
-                        This verification protects our API keys and ensures fair usage. Each device
-                        gets one demo run.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Demo Run Modal */}
       <CustomerWorkflowRunModal
         open={demoRunModalOpen}
         showExecutionTimer={isAdmin}
+        demoImageWatermarkEnabled
+        demoImageWatermarkOwnerHandle={listing?.owner_handle || ownerHandle || ""}
         onClose={() => {
-          if (demoRunState?.status !== "running" && demoRunState?.status !== "cancelling") {
+          const activelyRunning =
+            demoRunState?.status === "running" || demoRunState?.status === "cancelling";
+          if (!activelyRunning && !turnstileVerifying) {
             demoRunAbortRef.current?.abort();
             demoRunSessionPollRef.current?.abort();
             setDemoRunModalOpen(false);
             setDemoRunState(null);
             setDemoExecutionGraph(null);
+            setDemoVerificationPhase("idle");
+            setDemoVerificationError(null);
+            setTurnstileToken(null);
           }
         }}
-        state={demoRunState}
+        state={demoModalState}
+        customBody={
+          demoVerificationPhase === "idle" ? null : (
+            <div className="mx-auto flex w-full max-w-[560px] flex-col gap-5 px-1 py-2 text-white">
+              {demoVerificationPhase === "checking" ? (
+                <div className="flex flex-col items-center gap-4 rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-12 text-center">
+                  <Loader2 className="h-10 w-10 animate-spin text-amber-300" />
+                  <div className="space-y-2">
+                    <div className="text-xl font-semibold text-white">
+                      Checking demo eligibility...
+                    </div>
+                    <div className="text-sm leading-6 text-white/60">
+                      Verifying device and usage limits before we start the run.
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-[28px] border border-amber-300/15 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(255,255,255,0.02))] p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-amber-300/20 bg-amber-400/10">
+                        <Lock className="h-5 w-5 text-amber-100" />
+                      </div>
+                      <div>
+                        <div className="text-[13px] font-semibold uppercase tracking-[0.18em] text-amber-100/70">
+                          Demo Verification
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold tracking-tight text-white">
+                          Verify here to continue the run
+                        </div>
+                        <div className="mt-2 text-sm leading-6 text-white/62">
+                          Complete the security check below and we will continue this demo in the
+                          same run modal. No separate verification popup needed.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
+                    <div className="mb-4 text-sm leading-6 text-white/68">
+                      This protects the demo from abuse while keeping the run flow in one place.
+                      Each device gets one demo run.
+                    </div>
+
+                    <div
+                      className="flex min-h-[120px] justify-center rounded-[22px] border border-white/8 bg-black/20 p-4"
+                      key="turnstile-inline-verification"
+                    >
+                      <TurnstileWidget onToken={handleTurnstileToken} />
+                    </div>
+
+                    {turnstileVerifying ? (
+                      <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/72">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Verifying...
+                      </div>
+                    ) : null}
+
+                    {demoVerificationError ? (
+                      <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+                        {demoVerificationError}
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              )}
+            </div>
+          )
+        }
+        canCloseOverride={
+          demoVerificationPhase === "idle"
+            ? undefined
+            : demoVerificationPhase !== "checking" && !turnstileVerifying
+        }
         onCancel={async () => {
           let runId: string | undefined;
           let runAccessToken: string | undefined;
@@ -2216,11 +2259,6 @@ export default function WorkflowProductPage() {
             <div className="mb-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-[12px] text-rose-100">
               <div className="font-semibold">Access error</div>
               <div className="mt-1 text-rose-100/80">{purchaseError}</div>
-              <div className="mt-2 text-rose-100/70">
-                Fix: <span className="font-semibold">workflow_purchases</span> RLS must allow{" "}
-                <span className="font-semibold">INSERT</span> and{" "}
-                <span className="font-semibold">SELECT</span> for the buyer_id.
-              </div>
             </div>
           )}
 
@@ -2336,10 +2374,10 @@ export default function WorkflowProductPage() {
                     </span>
                   )}
 
-                  {isOwned && !isNaturallyFree && (
+                  {ownershipBadgeLabel && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-[3px] text-[11px] font-semibold text-emerald-200">
                       <CheckCircle2 className="h-3.5 w-3.5" />
-                      Purchased
+                      {ownershipBadgeLabel}
                     </span>
                   )}
 
@@ -2470,6 +2508,36 @@ export default function WorkflowProductPage() {
                 </button>
               </div>
 
+              {/* Mobile: Try demo - placed directly below creator info */}
+              <div className="sm:hidden mt-4 flex flex-col gap-2">
+                {listing && (
+                  <button
+                    type="button"
+                    onClick={handleDemoButtonClick}
+                    disabled={demoButtonBusy || !demoButtonEnabled}
+                    className={cn(
+                      "w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold border transition-all",
+                      demoButtonEnabled
+                        ? "border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.3)] hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30"
+                        : "cursor-not-allowed border-white/10 bg-[#111317] text-white/38 shadow-none",
+                    )}
+                    title={demoButtonTitle}
+                  >
+                    {demoButtonBusy ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                    {demoButtonLabel}
+                  </button>
+                )}
+                {listing && demoAvailable === false && (
+                  <div className="rounded-2xl border border-white/10 bg-[#111317] px-3 py-2 text-[11px] text-white/60">
+                    Demo already used on this device. Buy access for unlimited runs.
+                  </div>
+                )}
+              </div>
+
               <div className="mt-4 border-t border-white/10 pt-4">
                 <p className="text-sm leading-relaxed text-white/75">
                   {listing.description || "No description provided yet."}
@@ -2497,57 +2565,6 @@ export default function WorkflowProductPage() {
                   <div>• Use your own API key after hosted runs are finished</div>
                   <div>• Workflow Studio in preview mode (no edit access)</div>
                 </div>
-              </div>
-
-              {/* Mobile: Try demo - available to anyone (anonymous + logged in) */}
-              <div className="sm:hidden mt-4 flex flex-col gap-2">
-                {listing && (
-                  <button
-                    type="button"
-                    onClick={handleDemoButtonClick}
-                    disabled={
-                      demoRunning ||
-                      turnstileVerifying ||
-                      (!isDemoModeActive && !canRunDemoSync(listing.id, true))
-                    }
-                    className={cn(
-                      "w-full inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 text-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.3)] transition-all",
-                      (demoRunning ||
-                        turnstileVerifying ||
-                        (!isDemoModeActive && !canRunDemoSync(listing.id, true))) &&
-                        "opacity-50 cursor-not-allowed",
-                    )}
-                    title={
-                      !isDemoModeActive && !canRunDemoSync(listing.id, true)
-                        ? "You've already used your one-time demo. Purchase for unlimited runs."
-                        : isDemoModeActive
-                          ? "Run demo (no sign-in required)"
-                          : "Try a one-time demo"
-                    }
-                  >
-                    {demoRunning || turnstileVerifying ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Play className="h-4 w-4" />
-                    )}
-                    Try a one-time demo
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    safeTrack("Report Button Clicked", {
-                      surface: "product_page",
-                      location: "mobile_near_description",
-                      listing_id: listing?.id,
-                      edgaze_code: listing?.edgaze_code,
-                    });
-                    setReportOpen(true);
-                  }}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/60 hover:bg-white/10 hover:text-white/80"
-                >
-                  <Flag className="h-3 w-3" /> Report
-                </button>
               </div>
 
               <div className="hidden sm:block mt-6 border-t border-white/10 pt-6">
@@ -2718,28 +2735,34 @@ export default function WorkflowProductPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-sm font-semibold">
-                        {isOwned ? "You have access" : "Unlock this workflow"}
+                        {isOwner
+                          ? "This workflow is yours"
+                          : isOwned
+                            ? "You own this workflow"
+                            : "Unlock this workflow"}
                       </h2>
                       <p className="mt-1 text-[12px] text-white/55">
-                        {isOwned
-                          ? isOwner
-                            ? "Open it in Workflow Studio."
-                            : "Open it in Workflow Studio (read-only)."
-                          : "Access attaches to your Edgaze account."}
+                        {isOwner
+                          ? "Open it in Workflow Studio with full edit access."
+                          : isOwned
+                            ? "Open it in Workflow Studio (read-only)."
+                            : "Access attaches to your Edgaze account."}
                       </p>
                     </div>
 
-                    {isOwned && (
+                    {ownershipBadgeLabel && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold text-emerald-200">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Owned
+                        {ownershipBadgeLabel}
                       </span>
                     )}
                   </div>
 
                   <div className="mt-4">
                     <div className="flex flex-wrap items-baseline gap-2">
-                      <div className="text-[11px] text-white/45">Price</div>
+                      <div className="text-[11px] text-white/45">
+                        {isOwner ? "Listing price" : "Price"}
+                      </div>
                       <div
                         className={cn(
                           "text-2xl font-semibold tabular-nums",
@@ -2822,33 +2845,27 @@ export default function WorkflowProductPage() {
                       <button
                         type="button"
                         onClick={handleDemoButtonClick}
-                        disabled={
-                          demoRunning ||
-                          turnstileVerifying ||
-                          (!isDemoModeActive && !canRunDemoSync(listing.id, true))
-                        }
+                        disabled={demoButtonBusy || !demoButtonEnabled}
                         className={cn(
-                          "flex w-full items-center justify-center gap-2 rounded-full border border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 px-4 py-2.5 text-sm font-semibold text-amber-200 shadow-[0_4px_20px_rgba(251,191,36,0.3)] transition-all hover:shadow-[0_6px_24px_rgba(251,191,36,0.4)]",
-                          (demoRunning ||
-                            turnstileVerifying ||
-                            (!isDemoModeActive && !canRunDemoSync(listing.id, true))) &&
-                            "opacity-50 cursor-not-allowed",
+                          "flex w-full items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold transition-all",
+                          demoButtonEnabled
+                            ? "border-amber-500/40 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 text-amber-200 shadow-[0_4px_20px_rgba(251,191,36,0.3)] hover:from-amber-500/30 hover:via-yellow-500/30 hover:to-amber-500/30 hover:shadow-[0_6px_24px_rgba(251,191,36,0.4)]"
+                            : "cursor-not-allowed border-white/10 bg-[#111317] text-white/38 shadow-none",
                         )}
-                        title={
-                          !isDemoModeActive && !canRunDemoSync(listing.id, true)
-                            ? "You've already used your one-time demo. Purchase for unlimited runs."
-                            : isDemoModeActive
-                              ? "Run demo (no sign-in required)"
-                              : "Try a one-time demo"
-                        }
+                        title={demoButtonTitle}
                       >
-                        {demoRunning || turnstileVerifying ? (
+                        {demoButtonBusy ? (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Play className="h-4 w-4" />
                         )}
-                        Try a one-time demo
+                        {demoButtonLabel}
                       </button>
+                    )}
+                    {listing && demoAvailable === false && (
+                      <p className="text-[11px] text-white/52">
+                        Demo already used on this device. Buy access for unlimited runs.
+                      </p>
                     )}
 
                     <button

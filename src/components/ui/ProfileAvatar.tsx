@@ -3,6 +3,9 @@
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { cn } from "../../lib/utils";
+import { normalizeImageSrc } from "../../lib/normalize-image-src";
+
+const SHARED_LINK_PREFETCH = process.env.NODE_ENV === "development" ? false : null;
 
 function initialsFromName(name: string | null | undefined): string {
   if (!name) return "U";
@@ -26,8 +29,9 @@ function AvatarImageOrFallback({
 }) {
   const [imageError, setImageError] = useState(false);
   const initials = useMemo(() => initialsFromName(name), [name]);
+  const normalizedAvatarUrl = useMemo(() => normalizeImageSrc(avatarUrl), [avatarUrl]);
 
-  if (imageError || !avatarUrl) {
+  if (imageError || !normalizedAvatarUrl) {
     return showFallback ? (
       <div className="flex h-full w-full items-center justify-center bg-gray-600 text-white/80">
         <span className={cn("font-semibold", fontSize)}>{initials}</span>
@@ -37,7 +41,7 @@ function AvatarImageOrFallback({
 
   return (
     <img
-      src={avatarUrl}
+      src={normalizedAvatarUrl}
       alt={name || "Profile"}
       className="h-full w-full object-cover"
       onError={() => setImageError(true)}
@@ -69,6 +73,7 @@ export default function ProfileAvatar({
   href,
 }: ProfileAvatarProps) {
   const initials = useMemo(() => initialsFromName(name), [name]);
+  const normalizedAvatarUrl = useMemo(() => normalizeImageSrc(avatarUrl), [avatarUrl]);
 
   const profileHref = useMemo(() => {
     if (href) return href;
@@ -88,10 +93,10 @@ export default function ProfileAvatar({
       )}
       style={{ width: px, height: px }}
     >
-      {avatarUrl ? (
+      {normalizedAvatarUrl ? (
         <AvatarImageOrFallback
-          key={avatarUrl}
-          avatarUrl={avatarUrl}
+          key={normalizedAvatarUrl}
+          avatarUrl={normalizedAvatarUrl}
           name={name}
           showFallback={showFallback}
           fontSize={fontSize}
@@ -119,7 +124,12 @@ export default function ProfileAvatar({
 
   if (profileHref) {
     return (
-      <Link href={profileHref} className="cursor-pointer" aria-label={`View ${name || "profile"}`}>
+      <Link
+        href={profileHref}
+        prefetch={SHARED_LINK_PREFETCH}
+        className="cursor-pointer"
+        aria-label={`View ${name || "profile"}`}
+      >
         {avatarContent}
       </Link>
     );

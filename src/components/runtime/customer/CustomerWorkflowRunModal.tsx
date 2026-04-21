@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useSyncExternalStore } from "react";
+import React, { type ReactNode, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Clock3, Loader2, StopCircle, X } from "lucide-react";
 
@@ -39,6 +39,10 @@ type CustomerWorkflowRunModalProps = {
   builderRunLimit?: BuilderRunLimit;
   requiresApiKeys?: string[];
   onBuyWorkflow?: () => void;
+  demoImageWatermarkEnabled?: boolean;
+  demoImageWatermarkOwnerHandle?: string | null;
+  customBody?: ReactNode;
+  canCloseOverride?: boolean;
 };
 
 export default function CustomerWorkflowRunModal({
@@ -53,13 +57,18 @@ export default function CustomerWorkflowRunModal({
   builderRunLimit,
   requiresApiKeys,
   onBuyWorkflow,
+  demoImageWatermarkEnabled,
+  demoImageWatermarkOwnerHandle,
+  customBody,
+  canCloseOverride,
 }: CustomerWorkflowRunModalProps) {
   const portalEl = useDocumentBody();
 
   if (!open) return null;
   if (!portalEl) return null;
 
-  const canClose = state?.status !== "running" && state?.status !== "cancelling";
+  const canClose =
+    canCloseOverride ?? (state?.status !== "running" && state?.status !== "cancelling");
   const runtimeModel = state ? deriveCustomerRuntimeModel(state) : null;
   const isLiveExecution =
     Boolean(state) &&
@@ -90,9 +99,8 @@ export default function CustomerWorkflowRunModal({
         <div
           className={cx(
             "mx-auto flex w-full justify-center",
-            isLiveExecution
-              ? "max-w-[min(1024px,calc(100vw-1.5rem))] h-[100dvh] max-md:h-[100dvh] md:min-h-full"
-              : "max-w-[min(560px,calc(100vw-1.5rem))] min-h-full",
+            "max-w-[min(920px,calc(100vw-1.25rem))]",
+            isLiveExecution ? "h-[100dvh] max-md:h-[100dvh] md:min-h-full" : "min-h-full",
             "items-end p-0 md:items-center md:p-5",
           )}
         >
@@ -158,21 +166,27 @@ export default function CustomerWorkflowRunModal({
                     : "overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 md:p-5",
                 )}
               >
-                <CustomerWorkflowRuntimeSurface
-                  state={state}
-                  onCancel={onCancel}
-                  onClose={canClose ? onClose : undefined}
-                  onRerun={onRerun}
-                  onSubmitInputs={onSubmitInputs}
-                  showExecutionTimer={showExecutionTimer}
-                  isBuilderTest={isBuilderTest}
-                  builderRunLimit={builderRunLimit}
-                  requiresApiKeys={requiresApiKeys}
-                  onBuyWorkflow={onBuyWorkflow}
-                  hideHeader
-                  showInlineExecutionCancel={false}
-                  renderExecutionChrome={false}
-                />
+                {customBody ? (
+                  customBody
+                ) : (
+                  <CustomerWorkflowRuntimeSurface
+                    state={state}
+                    onCancel={onCancel}
+                    onClose={canClose ? onClose : undefined}
+                    onRerun={onRerun}
+                    onSubmitInputs={onSubmitInputs}
+                    showExecutionTimer={showExecutionTimer}
+                    isBuilderTest={isBuilderTest}
+                    builderRunLimit={builderRunLimit}
+                    requiresApiKeys={requiresApiKeys}
+                    onBuyWorkflow={onBuyWorkflow}
+                    demoImageWatermarkEnabled={demoImageWatermarkEnabled}
+                    demoImageWatermarkOwnerHandle={demoImageWatermarkOwnerHandle}
+                    hideHeader
+                    showInlineExecutionCancel={false}
+                    renderExecutionChrome={false}
+                  />
+                )}
               </div>
             </div>
           </div>

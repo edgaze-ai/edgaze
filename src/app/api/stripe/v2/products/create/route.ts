@@ -7,6 +7,8 @@
 
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
+import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { stripe } from "@/lib/stripe/client";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,16 @@ export async function POST(req: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const actor = await resolveActorContext(req, user);
+      assertNotImpersonating(actor.actorMode);
+    } catch (error) {
+      if (error instanceof ImpersonationForbiddenError) {
+        return NextResponse.json({ error: error.message }, { status: 403 });
+      }
+      throw error;
     }
 
     const body = await req.json();

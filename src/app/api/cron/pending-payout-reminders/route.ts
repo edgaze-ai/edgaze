@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { resolveTrustedUrl } from "@/lib/security/url-policy";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -15,7 +16,19 @@ export async function GET(req: Request) {
   const supabase = createSupabaseAdminClient();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-  const edgeFunctionUrl = `${supabaseUrl.replace(/\/$/, "")}/functions/v1/send-pending-payout-email`;
+  const trustedSupabaseUrl = resolveTrustedUrl(supabaseUrl, {
+    allowedProtocols: ["https:"],
+    allowedHostnameSuffixes: [".supabase.co", ".supabase.in"],
+    allowLocalhost: false,
+    allowPrivateIpv4: false,
+  });
+  if (!trustedSupabaseUrl) {
+    return NextResponse.json({ error: "Invalid Supabase URL" }, { status: 500 });
+  }
+  const edgeFunctionUrl = new URL(
+    "/functions/v1/send-pending-payout-email",
+    trustedSupabaseUrl,
+  ).toString();
 
   const now = new Date();
   const reminders = [

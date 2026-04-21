@@ -10,6 +10,8 @@ import { DEFAULT_AVATAR_SRC } from "../../config/branding";
 import ProfileAvatar from "../ui/ProfileAvatar";
 import ProfileLink from "../ui/ProfileLink";
 
+const SHARED_LINK_PREFETCH = process.env.NODE_ENV === "development" ? false : null;
+
 function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
@@ -117,6 +119,7 @@ export default function ProfileMenu() {
         <div className="absolute right-0 mt-2 w-52 rounded-xl border border-neutral-600 bg-[#050505] shadow-xl z-30 overflow-hidden">
           <Link
             href={readyHandle ? `/profile/${encodeURIComponent(readyHandle)}` : "/profile"}
+            prefetch={SHARED_LINK_PREFETCH}
             className={cn(
               "block px-3 py-2 text-sm text-white/90 hover:bg-white/10",
               !readyHandle && "opacity-80",

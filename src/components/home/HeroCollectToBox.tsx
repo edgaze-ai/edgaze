@@ -255,13 +255,13 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
     const boxY = cy - boxH / 2;
 
     const nodes = [
-      { label: "Input", x: pad + 30, y: pad + 30 },
-      { label: "Prompt", x: W - pad - 210, y: pad + 44 },
-      { label: "Tool", x: W - pad - 220, y: H - pad - 150 },
+      { label: "Prompt", x: pad + 30, y: pad + 30 },
+      { label: "Marketplace", x: W - pad - 210, y: pad + 44 },
+      { label: "Run / buy", x: W - pad - 220, y: H - pad - 150 },
     ];
 
     const prompt = {
-      text: "Write a scholarship essay about {{topic}} with a clear structure and strong voice.",
+      text: "Write a scholarship essay about {{topic}} with a clear structure and a credible voice.",
       x: pad + 26,
       y: H - pad - 160,
     };
@@ -335,10 +335,26 @@ export function HeroCollectToBox({ noBox = false }: { noBox?: boolean }) {
                   <div className="absolute -inset-5 rounded-full blur-2xl opacity-70 [background-image:radial-gradient(circle_at_30%_30%,rgba(34,211,238,0.26),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(236,72,153,0.22),transparent_62%)]" />
                   <img src="/brand/edgaze-mark.png" alt="Edgaze" className="relative h-12 w-12" />
                 </div>
-                <div className="mt-3 text-lg font-semibold tracking-tight text-white/95">
-                  Edgaze
+                <div className="text-[10px] font-semibold tracking-[0.28em] text-white/42">
+                  PRODUCT PAGE
                 </div>
-                <div className="mt-1 text-xs text-white/60">Collect → publish → share</div>
+                <div className="mt-2 text-lg font-semibold tracking-tight text-white/95">
+                  Scholarship essay helper
+                </div>
+                <div className="mt-1 text-xs text-white/60">
+                  Clean page, one link, ready to run.
+                </div>
+                <div className="mt-4 flex items-center gap-2">
+                  <span className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-[11px] font-semibold text-white">
+                    $9
+                  </span>
+                  <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-200">
+                    Run
+                  </span>
+                  <span className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-[11px] font-semibold text-white/72">
+                    Share
+                  </span>
+                </div>
               </div>
             </div>
             <AnimatePresence>

@@ -41,6 +41,7 @@ import ProfileAvatar from "../../../../components/ui/ProfileAvatar";
 import ProfileLink from "../../../../components/ui/ProfileLink";
 import ReportModal from "../../../../components/marketplace/ReportModal";
 import ListingImageLightbox from "../../../../components/marketplace/ListingImageLightbox";
+import EdgazeNotFoundScreen from "../../../../components/errors/EdgazeNotFoundScreen";
 import { toRuntimeGraph } from "../../../../lib/workflow/customer-runtime";
 import { finalizeClientWorkflowRunFromExecutionResult } from "../../../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../../../lib/workflow/run-stream-client";
@@ -2428,18 +2429,14 @@ export default function PromptProductPage() {
 
   if (!listing) {
     return (
-      <div className="flex h-full flex-col bg-[#050505] text-white">
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
-          <p className="text-lg font-semibold">Listing not found</p>
-          <button
-            type="button"
-            onClick={goBack}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm text-white hover:border-cyan-400 hover:text-cyan-200"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to marketplace
-          </button>
-        </div>
-      </div>
+      <EdgazeNotFoundScreen
+        code="PR-404"
+        eyebrow="Prompt unavailable"
+        title="This prompt is no longer available here."
+        description="The creator may have moved it, unpublished it, or replaced the listing with a fresh Edgaze release. Jump back into the marketplace to discover other polished prompt products."
+        primaryHref="/marketplace"
+        primaryLabel="Explore prompts"
+      />
     );
   }
 
@@ -2481,6 +2478,8 @@ export default function PromptProductPage() {
         <CustomerWorkflowRunModal
           open={workflowRunModalOpen}
           showExecutionTimer={isAdmin}
+          demoImageWatermarkEnabled={workflowRunIsDemoRef.current}
+          demoImageWatermarkOwnerHandle={creatorHandle || listing.owner_handle || ownerHandle || ""}
           onClose={() => {
             if (
               workflowRunState?.status !== "running" &&

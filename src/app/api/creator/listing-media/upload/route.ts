@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth/server";
 import { resolveActorContext } from "@/lib/auth/actor-context";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { validateAssetFile } from "@/lib/asset-upload-validation";
+import {
+  canonicalizeAssetMime,
+  resolveAssetMime,
+  validateAssetFile,
+} from "@/lib/asset-upload-validation";
 
 const BUCKET = "workflow-media";
 
@@ -13,6 +17,13 @@ function safeExt(originalName: string): string {
   const raw = (originalName.split(".").pop() || "png").toLowerCase();
   const clean = raw.replace(/[^a-z0-9]/g, "").slice(0, 6);
   return clean || "png";
+}
+
+function extensionForMime(mime: string): string {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  if (mime === "image/gif") return "gif";
+  return "jpg";
 }
 
 export async function POST(req: NextRequest) {
@@ -79,7 +90,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
-    const ext = safeExt(file.name);
+    const resolvedMime =
+      canonicalizeAssetMime(resolveAssetMime(file, buf)) ||
+      canonicalizeAssetMime(file.type) ||
+      "application/octet-stream";
+    const ext = resolvedMime.startsWith("image/")
+      ? extensionForMime(resolvedMime)
+      : safeExt(file.name);
     const filename =
       kind === "thumbnail"
         ? `thumbnail.${ext}`
@@ -95,7 +112,7 @@ export async function POST(req: NextRequest) {
     const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, buf, {
       upsert: true,
       cacheControl: "3600",
-      contentType: file.type || "application/octet-stream",
+      contentType: resolvedMime,
     });
 
     if (uploadError) {

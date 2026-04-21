@@ -4,6 +4,8 @@ import Link from "next/link";
 import { FaGithub, FaLinkedinIn, FaXTwitter } from "react-icons/fa6";
 import { SITE_FOOTER_TAGLINE } from "../../lib/constants";
 
+const SHARED_LINK_PREFETCH = process.env.NODE_ENV === "development" ? false : null;
+
 const FOOTER_SECTIONS = [
   {
     title: "Product",
@@ -116,6 +118,7 @@ export default function Footer() {
                         ) : (
                           <Link
                             href={link.href}
+                            prefetch={SHARED_LINK_PREFETCH}
                             className="text-sm text-white/70 hover:text-white transition-colors"
                           >
                             {link.label}

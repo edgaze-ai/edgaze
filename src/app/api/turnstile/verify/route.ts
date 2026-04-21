@@ -1,5 +1,7 @@
 // src/app/api/turnstile/verify/route.ts
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import { getTurnstileCookieName, issueTurnstileProof } from "src/server/security/turnstile-proof";
 
 export const runtime = "nodejs";
 
@@ -19,7 +21,7 @@ export async function POST(req: Request) {
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     "";
 
-  const { token } = await req.json().catch(() => ({ token: "" }));
+  const { token, purpose } = await req.json().catch(() => ({ token: "", purpose: "" }));
   if (!token || typeof token !== "string")
     return json(400, { ok: false, error: "Captcha required" });
 
@@ -38,18 +40,19 @@ export async function POST(req: Request) {
     return json(400, { ok: false, error: "Captcha invalid", codes: data?.["error-codes"] || [] });
   }
 
-  // Server-issued proof. Short TTL, but longer than the raw token.
-  const proof = crypto.randomUUID();
-
   const res = json(200, { ok: true });
+  const isWorkflowDemo = purpose === "workflow_demo";
+  const proof = isWorkflowDemo ? issueTurnstileProof("workflow_demo") : randomUUID();
+  const cookieName = isWorkflowDemo
+    ? getTurnstileCookieName("workflow_demo")
+    : "edgaze_apply_captcha";
   res.headers.append(
     "set-cookie",
     [
-      `edgaze_apply_captcha=${proof}`,
+      `${cookieName}=${proof}`,
       "Path=/",
       "HttpOnly",
       "SameSite=Lax",
-      // 20 minutes is more than enough for sign-in + 10s animation
       "Max-Age=1200",
       process.env.NODE_ENV === "production" ? "Secure" : "",
     ]

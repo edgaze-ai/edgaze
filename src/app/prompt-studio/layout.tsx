@@ -13,15 +13,31 @@ export default function PromptStudioLayout({ children }: { children: React.React
   return (
     <>
       <section className="sr-only">
-        <h1>Prompt Studio for reusable AI prompts</h1>
+        <h1>Create reusable AI prompts with inputs, versions, and publish-ready structure</h1>
         <p>
-          Prompt Studio helps creators structure prompts, collect inputs, version prompt logic, and
-          publish reusable AI prompt products people can run instantly on Edgaze.
+          Prompt Studio is the Edgaze workspace for turning raw prompt text into repeatable prompt
+          products with placeholders, testing, versions, and publishing support.
+        </p>
+        <h2>Add reusable inputs</h2>
+        <p>
+          Placeholders make prompts configurable, easier to reuse, and easier to package as a
+          product instead of a one-off block of text.
+        </p>
+        <h2>Version and test prompt logic</h2>
+        <p>
+          Prompt Studio gives creators a controlled way to iterate on wording, inputs, and output
+          quality before publishing prompt products for real users.
+        </p>
+        <h2>Publish prompts with context</h2>
+        <p>
+          The studio connects directly to Edgaze publishing so prompts can be presented, discovered,
+          and monetized with a clearer buyer-facing surface.
         </p>
         <nav aria-label="Prompt Studio resources">
-          <Link href="/templates">Browse workflow templates</Link>
           <Link href="/docs/builder/prompt-studio">Read Prompt Studio docs</Link>
-          <Link href="/marketplace">Explore the marketplace</Link>
+          <Link href="/templates">Browse workflow templates</Link>
+          <Link href="/why-workflows-not-prompts">See how prompts fit into Edgaze</Link>
+          <Link href="/marketplace">Explore prompt products</Link>
         </nav>
       </section>
       {children}

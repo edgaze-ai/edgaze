@@ -220,6 +220,7 @@ function buildAccountLabel(
   if (
     userId === "anonymous_demo_user" ||
     userId === "admin_demo_user" ||
+    userId === "homepage_demo_user" ||
     userId.startsWith("pending_authenticated_stream:")
   ) {
     return "demo";

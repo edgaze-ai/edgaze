@@ -1,7 +1,11 @@
-import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowDraftId, isAdmin, workflowExists } from "@lib/supabase/executions";
+import { resolveWorkflowAccessDecision } from "./workflow-security";
 
-export const DEMO_RUNNER_IDS = new Set(["anonymous_demo_user", "admin_demo_user"]);
+export const DEMO_RUNNER_IDS = new Set([
+  "anonymous_demo_user",
+  "admin_demo_user",
+  "homepage_demo_user",
+]);
 
 export type WorkflowEntitlementRow = {
   id: string;
@@ -12,10 +16,6 @@ export type WorkflowEntitlementRow = {
   monetisation_mode: string | null;
   removed_at: string | null;
 };
-
-function isNaturallyFree(row: Pick<WorkflowEntitlementRow, "is_paid" | "monetisation_mode">) {
-  return row.monetisation_mode === "free" || row.is_paid === false;
-}
 
 export type AuthenticatedRunEntitlement =
   | {
@@ -69,22 +69,19 @@ export async function getAuthenticatedRunEntitlement(
     };
   }
 
-  const supabase = createSupabaseAdminClient();
-  const { data: wf, error } = await supabase
-    .from("workflows")
-    .select("id, owner_id, is_public, is_published, is_paid, monetisation_mode, removed_at")
-    .eq("id", workflowId)
-    .maybeSingle();
+  const decision = await resolveWorkflowAccessDecision({
+    workflowId,
+    userId,
+    requestedMode: clientRequestedBuilderTest ? "edit" : "preview",
+  });
 
-  if (error) {
-    console.error("[entitlement] workflow fetch", error);
-    return { ok: false, message: "Unable to verify workflow access." };
-  }
-
-  if (!wf) {
+  if (decision.workflow == null) {
     const draftId = await getWorkflowDraftId(workflowId, userId);
     if (!draftId) {
-      return { ok: false, message: "Workflow not found or you don't have access." };
+      return {
+        ok: false,
+        message: decision.message ?? "Workflow not found or you don't have access.",
+      };
     }
     return {
       ok: true,
@@ -96,24 +93,11 @@ export async function getAuthenticatedRunEntitlement(
     };
   }
 
-  const row = wf as WorkflowEntitlementRow;
-
-  if (row.removed_at != null) {
-    return { ok: false, message: "This workflow is no longer available." };
-  }
-  if (row.is_public === false) {
-    return { ok: false, message: "This workflow is private." };
-  }
-  if (row.is_published === false) {
-    if (String(row.owner_id ?? "") !== String(userId)) {
-      return { ok: false, message: "This workflow is not published." };
-    }
+  if (!decision.ok) {
+    return { ok: false, message: decision.message ?? "Unable to verify workflow access." };
   }
 
-  const isOwner = String(row.owner_id ?? "") === String(userId);
-  const free = isNaturallyFree(row);
-
-  if (isOwner) {
+  if (decision.mode === "owner_edit" || decision.mode === "owner_preview") {
     return {
       ok: true,
       effectiveIsBuilderTest: clientRequestedBuilderTest,
@@ -121,36 +105,6 @@ export async function getAuthenticatedRunEntitlement(
       useServerMarketplaceGraph: !clientRequestedBuilderTest,
       isOwner: true,
       allowClientGraph: false,
-    };
-  }
-
-  if (free) {
-    return {
-      ok: true,
-      effectiveIsBuilderTest: false,
-      draftIdForCount: null,
-      useServerMarketplaceGraph: true,
-      isOwner: false,
-      allowClientGraph: false,
-    };
-  }
-
-  const { data: purchase } = await supabase
-    .from("workflow_purchases")
-    .select("id, status, refunded_at")
-    .eq("workflow_id", workflowId)
-    .eq("buyer_id", userId)
-    .maybeSingle();
-
-  const paid =
-    purchase &&
-    (purchase as { status?: string }).status === "paid" &&
-    (purchase as { refunded_at?: string | null }).refunded_at == null;
-
-  if (!paid) {
-    return {
-      ok: false,
-      message: "Purchase this workflow to run it, or try the one-time demo.",
     };
   }
 

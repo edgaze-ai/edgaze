@@ -67,13 +67,10 @@ export function LandingNav({ onTop, scrollerRef }: LandingNavProps) {
 
   return (
     <header
-      className={cn(
-        "fixed left-0 right-0 top-0 z-50 pt-3 sm:pt-4 md:pt-5",
-        "transition-all duration-300",
-      )}
+      className={cn("fixed left-0 right-0 top-0 z-50", "transition-all duration-300")}
       role="banner"
     >
-      <div className="mx-auto w-full min-w-0 max-w-[1400px] px-3 sm:px-4 md:px-5 md:max-w-[1500px]">
+      <div className="mx-auto w-full min-w-0 max-w-[1400px] px-3 pt-3 sm:px-4 sm:pt-4 md:px-5 md:pt-5 md:max-w-[1500px]">
         <div
           className={cn(
             "flex lg:grid lg:grid-cols-[1fr_auto_1fr] items-center justify-between lg:justify-normal min-w-0",

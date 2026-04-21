@@ -7,6 +7,7 @@ import BlogRenderer from "../components/BlogRenderer";
 import { extractToc } from "../../docs/utils/extractToc";
 import { Calendar, ArrowLeft, ArrowRight } from "lucide-react";
 import { normalizeSafeSlug } from "../../../lib/security/safe-values";
+import { sanitizeJsonScriptContent } from "../../../lib/security/url-policy";
 import { buildBreadcrumbJsonLd, buildMetadata } from "../../../lib/seo";
 
 export function generateStaticParams() {
@@ -85,11 +86,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeJsonScriptContent(breadcrumbJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeJsonScriptContent(articleJsonLd) }}
       />
       <article className="w-full max-w-4xl">
         <Link
@@ -140,7 +141,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   {toc.map((item) => (
                     <li key={item.id}>
                       <a
-                        href={`#${item.id}`}
+                        href={`#${encodeURIComponent(item.id)}`}
                         className={`block text-[15px] text-white/60 hover:text-cyan-400/90 transition ${
                           item.level === 3 ? "pl-3" : item.level === 4 ? "pl-5" : ""
                         }`}

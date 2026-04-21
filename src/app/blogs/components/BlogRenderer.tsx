@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { sanitizeNavigationHref } from "@/lib/security/url-policy";
 
 type Block =
   | { type: "h"; level: 1 | 2 | 3 | 4; text: string; id: string }
@@ -237,8 +238,8 @@ export default function BlogRenderer({ content }: { content: string }) {
           for (const m of filtered) {
             if (m.start > lastIndex) parts.push(text.slice(lastIndex, m.start));
             if (m.type === "link") {
-              const href = m.url ?? "#";
-              const isExt = href.startsWith("http");
+              const href = sanitizeNavigationHref(m.url) ?? "#";
+              const isExt = href.startsWith("http://") || href.startsWith("https://");
               if (isExt) {
                 parts.push(
                   <a

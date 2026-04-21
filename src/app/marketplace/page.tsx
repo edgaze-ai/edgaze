@@ -17,6 +17,7 @@ import {
 import { useAuth } from "../../components/auth/AuthContext";
 import { SHOW_PUBLIC_LIKES_AND_RUNS } from "../../lib/constants";
 import { formatClientError } from "../../lib/format-client-error";
+import { normalizeImageSrc } from "../../lib/normalize-image-src";
 import { createSecureId } from "../../lib/security/safe-values";
 import { createSupabasePublicBrowserClient } from "../../lib/supabase/public";
 import ErrorModal from "../../components/marketplace/ErrorModal";
@@ -159,13 +160,14 @@ function Avatar({
   className?: string;
 }) {
   const px = `${size}px`;
+  const normalizedUrl = normalizeImageSrc(url);
   return (
     <div
       className={cn("shrink-0 overflow-hidden rounded-full border-0 bg-white/[0.06]", className)}
       style={{ width: px, height: px }}
     >
-      {url ? (
-        <img src={url} alt={name} className="h-full w-full object-cover" loading="lazy" />
+      {normalizedUrl ? (
+        <img src={normalizedUrl} alt={name} className="h-full w-full object-cover" loading="lazy" />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-white/10 to-white/0 text-[11px] font-semibold text-white/80">
           {initialsFromName(name)}
@@ -798,9 +800,9 @@ function PromptCard({
       className="group w-full cursor-pointer rounded-xl border border-white/10 bg-white/[0.02] p-2 transition hover:border-white/20 hover:bg-white/[0.04]"
     >
       <div className="relative overflow-hidden rounded-xl">
-        {prompt.thumbnail_url ? (
+        {normalizeImageSrc(prompt.thumbnail_url) ? (
           <img
-            src={prompt.thumbnail_url}
+            src={normalizeImageSrc(prompt.thumbnail_url)!}
             alt={prompt.title || "Listing thumbnail"}
             className="aspect-video w-full object-cover object-center"
             loading="lazy"
@@ -1276,9 +1278,9 @@ function MarketplaceSearchBar({
                           )}
                         >
                           <div className="h-10 w-10 overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                            {w.thumbnail_url ? (
+                            {normalizeImageSrc(w.thumbnail_url) ? (
                               <img
-                                src={w.thumbnail_url}
+                                src={normalizeImageSrc(w.thumbnail_url)!}
                                 alt={w.title || "Workflow"}
                                 className="h-full w-full object-cover"
                               />
@@ -1331,9 +1333,9 @@ function MarketplaceSearchBar({
                         )}
                       >
                         <div className="h-10 w-10 overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                          {p.thumbnail_url ? (
+                          {normalizeImageSrc(p.thumbnail_url) ? (
                             <img
-                              src={p.thumbnail_url}
+                              src={normalizeImageSrc(p.thumbnail_url)!}
                               alt={p.title || "Prompt"}
                               className="h-full w-full object-cover"
                             />
@@ -1622,10 +1624,12 @@ export default function MarketplacePage() {
           title: (r.title as string) ?? null,
           description: (r.description as string) ?? null,
           prompt_text: (r.prompt_text as string) ?? null,
-          thumbnail_url: (r.thumbnail_url as string) ?? null,
+          thumbnail_url: normalizeImageSrc((r.thumbnail_url as string | null | undefined) ?? null),
           owner_name: (r.owner_name as string) ?? null,
           owner_handle: (r.owner_handle as string) ?? null,
-          owner_avatar_url: (r.owner_avatar_url as string | null | undefined) ?? null,
+          owner_avatar_url: normalizeImageSrc(
+            (r.owner_avatar_url as string | null | undefined) ?? null,
+          ),
           owner_is_verified_creator:
             r["owner_is_verified_creator"] !== undefined && r["owner_is_verified_creator"] !== null
               ? Boolean(r["owner_is_verified_creator"])
@@ -1965,7 +1969,7 @@ export default function MarketplacePage() {
             title: p.title ?? null,
             type: (p.type as any) ?? "prompt",
             created_at: p.created_at ?? null,
-            thumbnail_url: p.thumbnail_url ?? null,
+            thumbnail_url: normalizeImageSrc(p.thumbnail_url ?? null),
           },
           score: 0,
         });
@@ -1981,7 +1985,7 @@ export default function MarketplacePage() {
             title: w.title ?? null,
             type: (w.type as any) ?? "workflow",
             created_at: w.published_at ?? w.created_at ?? null,
-            thumbnail_url: w.thumbnail_url ?? null,
+            thumbnail_url: normalizeImageSrc(w.thumbnail_url ?? null),
           },
           score: 0,
         });
@@ -1993,7 +1997,7 @@ export default function MarketplacePage() {
           item: {
             handle: String(pr.handle || ""),
             full_name: pr.full_name ?? null,
-            avatar_url: pr.avatar_url ?? null,
+            avatar_url: normalizeImageSrc(pr.avatar_url ?? null),
             bio: pr.bio ?? null,
             runs_count: pr.runs_count != null ? Number(pr.runs_count) : null,
             remixes_count: pr.remixes_count != null ? Number(pr.remixes_count) : null,

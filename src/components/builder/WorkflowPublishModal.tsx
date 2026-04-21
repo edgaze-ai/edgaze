@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Cropper, { type Area } from "react-easy-crop";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -39,9 +40,18 @@ import {
 } from "../../lib/workflow/cost-estimation";
 import { PayoutSystemCard } from "../publish/PayoutSystemCard";
 import { createImageObjectUrl, sanitizeImageSrc } from "../../lib/security/safe-values";
+import {
+  cropListingImageToFile,
+  listingImageRequirementsText,
+  needsThumbnailCrop,
+  THUMBNAIL_ASPECT_RATIO,
+  validateListingImageSelection,
+} from "../../lib/creator-provisioning/listing-image-client";
 
 type MonetisationMode = "free" | "paywall";
 type Visibility = "public" | "unlisted" | "private";
+
+const EMPTY_DEMO_UPLOADS = () => new Array<string | null>(6).fill(null);
 
 type DraftRow = {
   id: string;
@@ -419,11 +429,22 @@ export default function WorkflowPublishModal({
   const lastCheckedCodeRef = useRef<string>("");
 
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailUploadedUrl, setThumbnailUploadedUrl] = useState<string | null>(null);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [autoThumbFile, setAutoThumbFile] = useState<File | null>(null);
   const [autoThumbDataUrl, setAutoThumbDataUrl] = useState<string | null>(null);
   const [autoThumbBusy, setAutoThumbBusy] = useState(false);
+  const [thumbCropOpen, setThumbCropOpen] = useState(false);
+  const [thumbCropSourceUrl, setThumbCropSourceUrl] = useState<string | null>(null);
+  const [thumbCropFile, setThumbCropFile] = useState<File | null>(null);
+  const [thumbCrop, setThumbCrop] = useState({ x: 0, y: 0 });
+  const [thumbZoom, setThumbZoom] = useState(1);
+  const [thumbCropPixels, setThumbCropPixels] = useState<Area | null>(null);
+  const [thumbCropNotice, setThumbCropNotice] = useState<string | null>(null);
 
   const [demoFiles, setDemoFiles] = useState<(File | null)[]>(new Array(6).fill(null));
+  const [demoUploadedUrls, setDemoUploadedUrls] = useState<(string | null)[]>(EMPTY_DEMO_UPLOADS);
+  const [demoUploading, setDemoUploading] = useState<boolean[]>(new Array(6).fill(false));
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -439,6 +460,8 @@ export default function WorkflowPublishModal({
 
   const thumbInputRef = useRef<HTMLInputElement | null>(null);
   const demoInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const thumbnailUploadAttemptRef = useRef(0);
+  const demoUploadAttemptRef = useRef<number[]>(new Array(6).fill(0));
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const sectionRefs = useRef<Record<PublishTab, HTMLDivElement | null>>({
     details: null,
@@ -495,8 +518,11 @@ export default function WorkflowPublishModal({
   const previewThumbSrc = useMemo(() => {
     if (uploadedThumbnailPreviewUrl) return sanitizeImageSrc(uploadedThumbnailPreviewUrl);
     if (autoThumbDataUrl) return sanitizeImageSrc(autoThumbDataUrl);
+    if (typeof (draft as any)?.thumbnail_url === "string") {
+      return sanitizeImageSrc((draft as any).thumbnail_url);
+    }
     return null;
-  }, [uploadedThumbnailPreviewUrl, autoThumbDataUrl]);
+  }, [uploadedThumbnailPreviewUrl, autoThumbDataUrl, draft]);
 
   useEffect(() => {
     return () => {
@@ -505,6 +531,14 @@ export default function WorkflowPublishModal({
       }
     };
   }, [uploadedThumbnailPreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (thumbCropSourceUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(thumbCropSourceUrl);
+      }
+    };
+  }, [thumbCropSourceUrl]);
 
   // Effective listing owner (creator when admin impersonates). Do not use supabase.auth.getUser()
   // for owner_id — JWT stays the admin, which fails workflows RLS on update.
@@ -567,11 +601,19 @@ export default function WorkflowPublishModal({
       // Load existing demo images if available
       const existingDemos = (draft as any).demo_images || (draft as any).output_demo_urls;
       if (Array.isArray(existingDemos) && existingDemos.length > 0) {
-        // We'll keep these as URLs, not files - they're already uploaded
         setDemoFiles(new Array(6).fill(null));
+        setDemoUploadedUrls(
+          new Array(6)
+            .fill(null)
+            .map((_, index) =>
+              typeof existingDemos[index] === "string" ? existingDemos[index] : null,
+            ),
+        );
       } else {
         setDemoFiles(new Array(6).fill(null));
+        setDemoUploadedUrls(EMPTY_DEMO_UPLOADS());
       }
+      setDemoUploading(new Array(6).fill(false));
     } else {
       setTitle(draft?.title || "");
       setDescription("");
@@ -580,14 +622,28 @@ export default function WorkflowPublishModal({
       setMonetisationMode("free");
       setPriceUsd("2.99");
       setDemoFiles(new Array(6).fill(null));
+      setDemoUploadedUrls(EMPTY_DEMO_UPLOADS());
+      setDemoUploading(new Array(6).fill(false));
       const seeded = baseCodeFromTitle(draft?.title || "");
       setEdgazeCode(seeded);
     }
 
     setThumbnailFile(null);
+    setThumbnailUploadedUrl(null);
+    setThumbnailUploading(false);
     setAutoThumbFile(null);
     setAutoThumbDataUrl(null);
     setAutoThumbBusy(false);
+    setThumbCropOpen(false);
+    setThumbCrop({ x: 0, y: 0 });
+    setThumbZoom(1);
+    setThumbCropPixels(null);
+    setThumbCropNotice(null);
+    setThumbCropFile(null);
+    setThumbCropSourceUrl((prev) => {
+      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return null;
+    });
 
     setCodeStatus("checking");
     setCodeMsg("Checking availability…");
@@ -690,19 +746,190 @@ export default function WorkflowPublishModal({
     onClose();
   }
 
+  function closeThumbnailCropper() {
+    setThumbCropOpen(false);
+    setThumbCrop({ x: 0, y: 0 });
+    setThumbZoom(1);
+    setThumbCropPixels(null);
+    setThumbCropNotice(null);
+    setThumbCropFile(null);
+    setThumbCropSourceUrl((prev) => {
+      if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }
+
+  async function uploadThumbnailNow(file: File): Promise<string | null> {
+    if (!draft?.id) throw new Error("Open a draft first.");
+    const attempt = ++thumbnailUploadAttemptRef.current;
+    setThumbnailUploading(true);
+    try {
+      const up = await uploadListingMedia({
+        getAccessToken,
+        listingType: "workflow",
+        resourceId: draft.id,
+        kind: "thumbnail",
+        file,
+      });
+      const url = up.publicUrl || null;
+      if (attempt === thumbnailUploadAttemptRef.current) {
+        setThumbnailUploadedUrl(url);
+      }
+      return url;
+    } finally {
+      if (attempt === thumbnailUploadAttemptRef.current) {
+        setThumbnailUploading(false);
+      }
+    }
+  }
+
+  async function uploadDemoNow(index: number, file: File): Promise<string | null> {
+    if (!draft?.id) throw new Error("Open a draft first.");
+    const attempt = (demoUploadAttemptRef.current[index] || 0) + 1;
+    demoUploadAttemptRef.current[index] = attempt;
+    setDemoUploading((prev) => {
+      const next = [...prev];
+      next[index] = true;
+      return next;
+    });
+    try {
+      const up = await uploadListingMedia({
+        getAccessToken,
+        listingType: "workflow",
+        resourceId: draft.id,
+        kind: "demo",
+        index,
+        file,
+      });
+      const url = up.publicUrl || null;
+      if (demoUploadAttemptRef.current[index] === attempt) {
+        setDemoUploadedUrls((prev) => {
+          const next = [...prev];
+          next[index] = url;
+          return next;
+        });
+      }
+      return url;
+    } finally {
+      if (demoUploadAttemptRef.current[index] === attempt) {
+        setDemoUploading((prev) => {
+          const next = [...prev];
+          next[index] = false;
+          return next;
+        });
+      }
+    }
+  }
+
   async function handlePickThumbnail(file: File | null) {
     setErr(null);
-    if (!file) return;
-    setThumbnailFile(file);
+    if (!file) {
+      setThumbnailFile(null);
+      setThumbnailUploadedUrl(null);
+      return;
+    }
+
+    try {
+      const meta = await validateListingImageSelection(file);
+      setThumbnailUploadedUrl(null);
+
+      if (needsThumbnailCrop(meta.width, meta.height)) {
+        setThumbCrop({ x: 0, y: 0 });
+        setThumbZoom(1);
+        setThumbCropPixels(null);
+        setThumbCropFile(file);
+        setThumbCropNotice(
+          `This image is ${meta.width} x ${meta.height}. Thumbnails need a ${Math.round(THUMBNAIL_ASPECT_RATIO * 100) / 100}:1 crop, so adjust the framing below.`,
+        );
+        setThumbCropSourceUrl((prev) => {
+          if (prev?.startsWith("blob:")) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(file);
+        });
+        setThumbCropOpen(true);
+        return;
+      }
+
+      setThumbnailFile(file);
+      setAutoThumbFile(null);
+      setAutoThumbDataUrl(null);
+      await uploadThumbnailNow(file);
+    } catch (e: any) {
+      setThumbnailFile(null);
+      setThumbnailUploadedUrl(null);
+      setErr(e?.message || "Could not use that thumbnail.");
+    }
   }
 
   async function handlePickDemo(index: number, file: File | null) {
     setErr(null);
-    setDemoFiles((prev) => {
-      const next = [...prev];
-      next[index] = file;
-      return next;
-    });
+    if (!file) {
+      demoUploadAttemptRef.current[index] = (demoUploadAttemptRef.current[index] || 0) + 1;
+      setDemoFiles((prev) => {
+        const next = [...prev];
+        next[index] = null;
+        return next;
+      });
+      setDemoUploadedUrls((prev) => {
+        const next = [...prev];
+        next[index] = null;
+        return next;
+      });
+      setDemoUploading((prev) => {
+        const next = [...prev];
+        next[index] = false;
+        return next;
+      });
+      return;
+    }
+
+    try {
+      await validateListingImageSelection(file);
+      setDemoFiles((prev) => {
+        const next = [...prev];
+        next[index] = file;
+        return next;
+      });
+      await uploadDemoNow(index, file);
+    } catch (e: any) {
+      setDemoFiles((prev) => {
+        const next = [...prev];
+        next[index] = null;
+        return next;
+      });
+      setDemoUploadedUrls((prev) => {
+        const next = [...prev];
+        next[index] = null;
+        return next;
+      });
+      setErr(e?.message || "Could not use that demo image.");
+    }
+  }
+
+  async function applyThumbnailCrop() {
+    if (!thumbCropFile || !thumbCropPixels) {
+      setErr("Adjust the crop before continuing.");
+      return;
+    }
+
+    try {
+      setErr(null);
+      setThumbnailUploading(true);
+      const cropped = await cropListingImageToFile({
+        file: thumbCropFile,
+        cropArea: thumbCropPixels,
+        width: 1200,
+        height: 630,
+        preferredName: "workflow-thumbnail",
+      });
+      setThumbnailFile(cropped);
+      setAutoThumbFile(null);
+      setAutoThumbDataUrl(null);
+      closeThumbnailCropper();
+      await uploadThumbnailNow(cropped);
+    } catch (e: any) {
+      setErr(e?.message || "Failed to crop thumbnail.");
+      setThumbnailUploading(false);
+    }
   }
 
   async function copyToClipboard(text: string) {
@@ -819,10 +1046,18 @@ export default function WorkflowPublishModal({
         finalCode = fixed;
       }
 
+      if (thumbnailUploading || demoUploading.some(Boolean)) {
+        throw new Error("Wait for image uploads to finish.");
+      }
+
       // Upload thumbnail (only if new file provided, otherwise preserve existing)
       let thumbnailUrl: string | null = null;
       const thumbToUpload = thumbnailFile ?? autoThumbFile;
-      if (thumbToUpload) {
+      if (thumbnailUploadedUrl) {
+        thumbnailUrl = thumbnailUploadedUrl;
+      } else if (thumbnailFile) {
+        thumbnailUrl = await uploadThumbnailNow(thumbnailFile);
+      } else if (thumbToUpload) {
         const up = await uploadListingMedia({
           getAccessToken,
           listingType: "workflow",
@@ -843,30 +1078,12 @@ export default function WorkflowPublishModal({
           : Boolean((draft as any)?.thumbnail_auto_generated);
 
       // Upload demo images (optional)
-      const demoUrls: string[] = [];
-
-      // Preserve existing demo URLs when editing
-      if (editId) {
-        const existingDemos = (draft as any)?.demo_images || (draft as any)?.output_demo_urls;
-        if (Array.isArray(existingDemos)) {
-          demoUrls.push(...existingDemos.filter(Boolean));
-        }
-      }
-
-      // Add new demo files
+      const resolvedDemoUrls = [...demoUploadedUrls];
       for (let i = 0; i < demoFiles.length; i++) {
-        const f = demoFiles[i];
-        if (!f) continue;
-        const up = await uploadListingMedia({
-          getAccessToken,
-          listingType: "workflow",
-          resourceId: workflowId,
-          kind: "demo",
-          index: i,
-          file: f,
-        });
-        if (up.publicUrl) demoUrls.push(up.publicUrl);
+        if (!demoFiles[i] || resolvedDemoUrls[i]) continue;
+        resolvedDemoUrls[i] = await uploadDemoNow(i, demoFiles[i] as File);
       }
+      const demoUrls = resolvedDemoUrls.filter((url): url is string => !!url);
 
       const effectiveMonetisation: MonetisationMode =
         monetisationMode === "paywall" ? "paywall" : "free";
@@ -931,9 +1148,11 @@ export default function WorkflowPublishModal({
   }
 
   const needsTermsAcceptance = monetisationMode === "paywall" && !postingAs?.canReceivePayments;
+  const mediaUploadBusy = thumbnailUploading || demoUploading.some(Boolean);
   const canPublish =
     !!draft?.id &&
     !busy &&
+    !mediaUploadBusy &&
     codeStatus === "available" &&
     (!needsTermsAcceptance || acceptedCreatorTerms);
   const handle = postingAs?.handle || owner?.handle || "you";
@@ -1561,9 +1780,11 @@ export default function WorkflowPublishModal({
                               onClick={() => {
                                 // force regenerate
                                 setThumbnailFile(null);
+                                setThumbnailUploadedUrl(null);
                                 setAutoThumbFile(null);
                                 setAutoThumbDataUrl(null);
                                 setAutoThumbBusy(false);
+                                closeThumbnailCropper();
                                 setErr(null);
                               }}
                               className="h-11 px-4 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/90 inline-flex items-center gap-2 text-[12px] font-semibold"
@@ -1575,12 +1796,36 @@ export default function WorkflowPublishModal({
                             <input
                               ref={thumbInputRef}
                               type="file"
-                              accept="image/*"
+                              accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
                               className="hidden"
                               onChange={(e) => handlePickThumbnail(e.target.files?.[0] ?? null)}
                             />
                             <div className="text-[11px] text-white/45">
-                              Auto preview is generated from your graph.
+                              {listingImageRequirementsText()}
+                            </div>
+                            {(thumbnailUploading || thumbnailUploadedUrl) && (
+                              <div className="text-[11px] text-cyan-300">
+                                {thumbnailUploading
+                                  ? "Uploading thumbnail…"
+                                  : "Thumbnail uploaded and ready."}
+                              </div>
+                            )}
+                            {thumbnailFile && !thumbnailUploadedUrl && !thumbnailUploading && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  uploadThumbnailNow(thumbnailFile).catch((e: any) => {
+                                    setErr(e?.message || "Thumbnail upload failed.");
+                                  })
+                                }
+                                className="text-[11px] text-amber-300 underline underline-offset-2 hover:text-amber-200"
+                              >
+                                Retry thumbnail upload
+                              </button>
+                            )}
+                            <div className="text-[11px] text-white/45">
+                              Auto preview is generated from your graph when you do not upload a
+                              custom thumbnail.
                             </div>
                           </div>
                         </div>
@@ -1612,12 +1857,17 @@ export default function WorkflowPublishModal({
                                     demoInputRefs.current[i] = el;
                                   }}
                                   type="file"
-                                  accept="image/*"
+                                  accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
                                   className="hidden"
                                   onChange={(e) => handlePickDemo(i, e.target.files?.[0] ?? null)}
                                 />
                               </button>
                             ))}
+                          </div>
+                          <div className="mt-2 text-[11px] text-white/45">
+                            {demoUploading.some(Boolean)
+                              ? "Uploading demo image…"
+                              : "Demo images upload as soon as you pick them so errors show before publish."}
                           </div>
                         </div>
                       </div>
@@ -1807,6 +2057,88 @@ export default function WorkflowPublishModal({
             </div>
           )}
         </div>
+        {thumbCropOpen ? (
+          <div className="absolute inset-0 z-20 grid place-items-center bg-black/78 p-4">
+            <div className="w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/10 bg-[#0b0d12] shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <div>
+                  <div className="text-[15px] font-semibold text-white">Crop thumbnail</div>
+                  <div className="mt-1 text-[11px] text-white/50">
+                    Fit your image into the marketplace thumbnail frame before upload.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeThumbnailCropper}
+                  className="grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/5 text-white/80 hover:bg-white/10"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <div>
+                  <div className="relative aspect-[1200/630] overflow-hidden rounded-3xl border border-white/10 bg-black/50">
+                    {thumbCropSourceUrl ? (
+                      <Cropper
+                        image={thumbCropSourceUrl}
+                        crop={thumbCrop}
+                        zoom={thumbZoom}
+                        aspect={THUMBNAIL_ASPECT_RATIO}
+                        objectFit="cover"
+                        showGrid={false}
+                        onCropChange={setThumbCrop}
+                        onZoomChange={setThumbZoom}
+                        onCropComplete={(_, areaPixels) => setThumbCropPixels(areaPixels)}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="text-[12px] font-semibold text-white/85">Thumbnail rules</div>
+                  <div className="mt-2 text-[11px] leading-relaxed text-white/55">
+                    {thumbCropNotice ||
+                      "Choose the framing that should stay visible in the 1200 x 630 thumbnail."}
+                  </div>
+
+                  <div className="mt-5">
+                    <div className="flex items-center justify-between text-[11px] text-white/65">
+                      <span>Zoom</span>
+                      <span>{thumbZoom.toFixed(2)}x</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={4}
+                      step={0.01}
+                      value={thumbZoom}
+                      onChange={(e) => setThumbZoom(Number(e.target.value))}
+                      className="mt-2 w-full accent-cyan-300"
+                    />
+                  </div>
+
+                  <div className="mt-6 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={closeThumbnailCropper}
+                      className="flex-1 rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-[12px] font-semibold text-white/85 hover:bg-white/10"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={applyThumbnailCrop}
+                      className="flex-1 rounded-2xl bg-white px-4 py-3 text-[12px] font-semibold text-black hover:bg-white/90"
+                    >
+                      Apply crop
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

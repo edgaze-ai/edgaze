@@ -322,6 +322,7 @@ function NavButton({ item, collapsed, active }: NavButtonProps) {
   return (
     <Link
       href={item.href}
+      prefetch={false}
       className={cn(
         "group rounded-2xl transition-transform duration-150",
         collapsed ? "flex justify-center" : "block",

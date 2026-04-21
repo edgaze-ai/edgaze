@@ -86,6 +86,7 @@ export type WorkflowRunState = {
   runAccessToken?: string;
   workflowId: string;
   workflowName: string;
+  homepageRunMode?: "cached" | "live";
   phase: RunPhase;
   status: "idle" | "running" | "cancelling" | "success" | "error" | "cancelled";
   startedAt?: number;

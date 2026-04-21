@@ -22,6 +22,27 @@ import { stripeConfig } from "@/lib/stripe/config";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
+function normalizeCheckoutRedirectUrl(
+  input: unknown,
+  fallbackPath: string,
+  appUrl: string,
+): string {
+  if (typeof input !== "string" || input.trim().length === 0) {
+    return new URL(fallbackPath, appUrl).toString();
+  }
+
+  try {
+    const appOrigin = new URL(appUrl).origin;
+    const candidate = new URL(input, appOrigin);
+    if (candidate.origin !== appOrigin) {
+      return new URL(fallbackPath, appUrl).toString();
+    }
+    return candidate.toString();
+  } catch {
+    return new URL(fallbackPath, appUrl).toString();
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const bearerAuth = await getUserAndClient(req);
@@ -63,8 +84,12 @@ export async function POST(req: Request) {
     }
 
     const appUrl = stripeConfig.appUrl;
-    const success = successUrl || `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
-    const cancel = cancelUrl || `${appUrl}/store`;
+    const success = normalizeCheckoutRedirectUrl(
+      successUrl,
+      "/checkout/success?session_id={CHECKOUT_SESSION_ID}",
+      appUrl,
+    );
+    const cancel = normalizeCheckoutRedirectUrl(cancelUrl, "/store", appUrl);
     const embeddedReturnUrl = `${appUrl}/store/${connectedAccountId}/checkout/return?session_id={CHECKOUT_SESSION_ID}`;
 
     let lineItem: Stripe.Checkout.SessionCreateParams.LineItem;

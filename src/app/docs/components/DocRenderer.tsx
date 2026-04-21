@@ -4,6 +4,7 @@
 import React from "react";
 import Link from "next/link";
 import DocsWorkflowEmbed from "./DocsWorkflowEmbed";
+import { sanitizeNavigationHref } from "@/lib/security/url-policy";
 
 type Block =
   | { type: "h"; level: 1 | 2 | 3 | 4; text: string; id: string }
@@ -280,8 +281,8 @@ function renderInlineMarkdown(text: string) {
     }
 
     if (match.type === "link") {
-      const href = match.url || "#";
-      const isExternal = href.startsWith("http");
+      const href = sanitizeNavigationHref(match.url) ?? "#";
+      const isExternal = href.startsWith("http://") || href.startsWith("https://");
       parts.push(
         isExternal ? (
           <a
