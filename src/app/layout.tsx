@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "../styles/globals.css";
 
 import { AppProviders } from "./providers";
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <AppProviders>
           <WebVitals />
+          <SpeedInsights />
           <Suspense fallback={null}>
             <LazyAnalyticsWrapper />
           </Suspense>

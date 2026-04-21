@@ -182,6 +182,10 @@ export async function createConnectAccountSessionForOnboarding(stripeAccountId: 
     components: {
       account_onboarding: {
         enabled: true,
+        features: {
+          // Be explicit so onboarding collects the payout destination and required payout fields.
+          external_account_collection: true,
+        },
       },
     },
   });
@@ -234,6 +238,8 @@ export async function createExpressAccountLink(params: {
     refresh_url: params.refreshUrl,
     return_url: params.returnUrl,
     type: "account_onboarding",
-    collect: "eventually_due",
+    collection_options: {
+      fields: "eventually_due",
+    },
   });
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { syncPlatformPendingClaimReserve } from "@/lib/stripe/platform-pending-claim-reserve";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
 
   const count = Array.isArray(expired) ? expired.length : 0;
   if (count > 0) {
+    await syncPlatformPendingClaimReserve(supabase, "cron.expire-pending-claims");
     console.warn(`[CRON] Expired ${count} pending claim earnings (eligibility_expired)`);
   }
 

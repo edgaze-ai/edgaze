@@ -10,6 +10,7 @@ import {
 } from "@/lib/stripe/connect-marketplace";
 import { stripeConfig } from "@/lib/stripe/config";
 import { replaceConnectAccountIfCountryMismatch } from "@/lib/stripe/replace-connect-account-for-country";
+import { reconcileCreatorPayoutAccount } from "@/lib/stripe/reconcile-payout-account";
 import { isAllowedPayoutCountry } from "@lib/creators/allowed-countries";
 
 export const dynamic = "force-dynamic";
@@ -78,7 +79,13 @@ export async function POST(req: Request) {
       });
       stripeAccountId = resolved;
 
-      const live = await getExpressConnectAccountPayoutStatus(stripeAccountId);
+      const reconciled = await reconcileCreatorPayoutAccount({
+        supabase,
+        creatorId: user.id,
+        source: "connect.onboard",
+      });
+      const live =
+        reconciled?.status ?? (await getExpressConnectAccountPayoutStatus(stripeAccountId));
 
       if (live.readyForPayouts) {
         return NextResponse.json({

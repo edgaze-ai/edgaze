@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getUserAndClient } from "@/lib/auth/server";
 import { resolveActorContext } from "@/lib/auth/actor-context";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { reconcileCreatorPayoutAccount } from "@/lib/stripe/reconcile-payout-account";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,16 @@ export async function GET(req: Request) {
     const actor = await resolveActorContext(req, user);
     const creatorId = actor.effectiveProfileId;
     const supabase = createSupabaseAdminClient();
+
+    try {
+      await reconcileCreatorPayoutAccount({
+        supabase,
+        creatorId,
+        source: "creator.earnings",
+      });
+    } catch (reconcileError) {
+      console.error("[CREATOR EARNINGS] Failed to reconcile payout account:", reconcileError);
+    }
 
     const { data: profile } = await supabase
       .from("profiles")

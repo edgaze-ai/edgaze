@@ -5,6 +5,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/reconcile-pending-claims",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/cron/expire-pending-claims",
       "schedule": "0 0 * * *"
     },

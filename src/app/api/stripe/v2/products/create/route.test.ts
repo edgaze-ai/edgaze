@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockCreateServerClient = vi.hoisted(() => vi.fn());
 const mockResolveActorContext = vi.hoisted(() => vi.fn());
 const mockProductsCreate = vi.hoisted(() => vi.fn());
+const mockReconcileCreatorPayoutAccount = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerClient: mockCreateServerClient,
@@ -16,6 +17,14 @@ vi.mock("@/lib/stripe/client", () => ({
   stripe: {
     products: { create: mockProductsCreate },
   },
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createSupabaseAdminClient: vi.fn(() => ({ admin: true })),
+}));
+
+vi.mock("@/lib/stripe/reconcile-payout-account", () => ({
+  reconcileCreatorPayoutAccount: mockReconcileCreatorPayoutAccount,
 }));
 
 import { ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
@@ -44,6 +53,10 @@ describe("POST /api/stripe/v2/products/create", () => {
     });
 
     mockResolveActorContext.mockResolvedValue({ actorMode: "creator_self" });
+    mockReconcileCreatorPayoutAccount.mockResolvedValue({
+      stripeAccountId: "acct_123",
+      status: { readyForPayouts: true },
+    });
     mockProductsCreate.mockResolvedValue({
       id: "prod_123",
       name: "Workflow Pack",
@@ -79,6 +92,11 @@ describe("POST /api/stripe/v2/products/create", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mockReconcileCreatorPayoutAccount).toHaveBeenCalledWith({
+      supabase: { admin: true },
+      creatorId: "creator_1",
+      source: "v2.products.create",
+    });
     expect(mockProductsCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "Workflow Pack",

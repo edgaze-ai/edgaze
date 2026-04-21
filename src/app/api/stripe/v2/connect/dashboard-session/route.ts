@@ -13,6 +13,7 @@ import { resolveActorContext } from "@/lib/auth/actor-context";
 import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createConnectDashboardAccountSession } from "@/lib/stripe/connect-marketplace";
+import { reconcileCreatorPayoutAccount } from "@/lib/stripe/reconcile-payout-account";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -29,23 +30,21 @@ export async function POST(req: Request) {
     assertNotImpersonating(actor.actorMode);
 
     const admin = createSupabaseAdminClient();
-    const { data: connectAccount, error: dbError } = await admin
-      .from("stripe_connect_accounts")
-      .select("stripe_account_id, account_status")
-      .eq("user_id", user.id)
-      .single();
+    const reconciled = await reconcileCreatorPayoutAccount({
+      supabase: admin,
+      creatorId: user.id,
+      source: "v2.dashboard-session",
+    });
 
-    if (dbError || !connectAccount) {
+    if (!reconciled) {
       return NextResponse.json({ error: "Connect account not found" }, { status: 404 });
     }
 
-    if (connectAccount.account_status !== "active") {
+    if (!reconciled.status.readyForPayouts) {
       return NextResponse.json({ error: "Connect account not active yet" }, { status: 400 });
     }
 
-    const { clientSecret } = await createConnectDashboardAccountSession(
-      connectAccount.stripe_account_id,
-    );
+    const { clientSecret } = await createConnectDashboardAccountSession(reconciled.stripeAccountId);
 
     return NextResponse.json({ clientSecret });
   } catch (error: unknown) {

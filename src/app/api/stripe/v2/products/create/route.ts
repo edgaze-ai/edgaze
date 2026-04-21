@@ -10,6 +10,8 @@ import { createServerClient } from "@/lib/supabase/server";
 import { resolveActorContext } from "@/lib/auth/actor-context";
 import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { stripe } from "@/lib/stripe/client";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { reconcileCreatorPayoutAccount } from "@/lib/stripe/reconcile-payout-account";
 
 export const dynamic = "force-dynamic";
 
@@ -46,13 +48,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data: connectAccount } = await supabase
-      .from("stripe_connect_accounts")
-      .select("stripe_account_id, account_status")
-      .eq("user_id", user.id)
-      .single();
+    const admin = createSupabaseAdminClient();
+    const reconciled = await reconcileCreatorPayoutAccount({
+      supabase: admin,
+      creatorId: user.id,
+      source: "v2.products.create",
+    });
 
-    if (!connectAccount || connectAccount.account_status !== "active") {
+    if (!reconciled || !reconciled.status.readyForPayouts) {
       return NextResponse.json(
         { error: "Connect account not active. Complete onboarding first." },
         { status: 400 },
@@ -72,7 +75,7 @@ export async function POST(req: Request) {
         },
       },
       {
-        stripeAccount: connectAccount.stripe_account_id,
+        stripeAccount: reconciled.stripeAccountId,
       },
     );
 

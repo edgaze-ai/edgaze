@@ -4,6 +4,7 @@ import { resolveActorContext } from "@/lib/auth/actor-context";
 import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/client";
+import { reconcileCreatorPayoutAccount } from "@/lib/stripe/reconcile-payout-account";
 
 export const dynamic = "force-dynamic";
 
@@ -20,21 +21,21 @@ export async function POST(req: Request) {
     assertNotImpersonating(actor.actorMode);
 
     const admin = createSupabaseAdminClient();
-    const { data: connectAccount } = await admin
-      .from("stripe_connect_accounts")
-      .select("stripe_account_id, account_status")
-      .eq("user_id", user.id)
-      .single();
+    const reconciled = await reconcileCreatorPayoutAccount({
+      supabase: admin,
+      creatorId: user.id,
+      source: "connect.dashboard",
+    });
 
-    if (!connectAccount) {
+    if (!reconciled) {
       return NextResponse.json({ error: "Connect account not found" }, { status: 404 });
     }
 
-    if (connectAccount.account_status !== "active") {
+    if (!reconciled.status.readyForPayouts) {
       return NextResponse.json({ error: "Account not active yet" }, { status: 400 });
     }
 
-    const loginLink = await stripe.accounts.createLoginLink(connectAccount.stripe_account_id);
+    const loginLink = await stripe.accounts.createLoginLink(reconciled.stripeAccountId);
 
     return NextResponse.json({
       success: true,

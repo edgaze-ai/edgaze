@@ -14,6 +14,7 @@ import { stripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/stripe/config";
 import { computeExpressPayoutReadiness } from "@/lib/stripe/connect-marketplace";
 import { calculatePaymentSplitForPercentage } from "@/lib/stripe/fee-policy";
+import { syncPlatformPendingClaimReserve } from "@/lib/stripe/platform-pending-claim-reserve";
 
 type AdminSupabaseClient = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -267,6 +268,8 @@ export async function transferPendingClaimEarnings(
       .in("id", earningIds);
 
     throw error;
+  } finally {
+    await syncPlatformPendingClaimReserve(supabase, `${source}.reserve`);
   }
 }
 
@@ -480,6 +483,8 @@ async function handleCheckoutCompleted(
       creator_id: resource.owner_id,
       amount_cents: creatorNetCents,
     });
+  } else {
+    await syncPlatformPendingClaimReserve(supabase, "checkout.completed");
   }
 
   await supabase.from("audit_logs").insert({
@@ -592,6 +597,8 @@ async function handleChargeRefunded(charge: Stripe.Charge, supabase: AdminSupaba
         creator_id: earning.creator_id,
         amount_cents: -(earning.net_amount_cents || 0),
       });
+    } else if (earning?.status === "pending_claim") {
+      await syncPlatformPendingClaimReserve(supabase, "charge.refunded.full");
     }
   } else {
     const fallbackFeePercentage =
@@ -646,6 +653,8 @@ async function handleChargeRefunded(charge: Stripe.Charge, supabase: AdminSupaba
           .update({ status: "cancelled", refunded_at: new Date().toISOString() })
           .eq("stripe_payment_intent_id", paymentIntentId);
       }
+
+      await syncPlatformPendingClaimReserve(supabase, "charge.refunded.partial");
     }
   }
 }
@@ -745,6 +754,8 @@ async function handleChargeDisputeClosed(dispute: Stripe.Dispute, supabase: Admi
           creator_id: earning.creator_id,
           amount_cents: -(earning.net_amount_cents || 0),
         });
+      } else if (earning?.status === "pending_claim") {
+        await syncPlatformPendingClaimReserve(supabase, "charge.dispute.closed");
       }
     }
   }

@@ -11,6 +11,8 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/stripe/config";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { reconcileCreatorPayoutAccount } from "@/lib/stripe/reconcile-payout-account";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -40,13 +42,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: connectAccount } = await supabase
-      .from("stripe_connect_accounts")
-      .select("stripe_account_id, account_status")
-      .eq("user_id", user.id)
-      .single();
+    const admin = createSupabaseAdminClient();
+    const reconciled = await reconcileCreatorPayoutAccount({
+      supabase: admin,
+      creatorId: user.id,
+      source: "v2.subscription.checkout",
+    });
 
-    if (!connectAccount || connectAccount.account_status !== "active") {
+    if (!reconciled || !reconciled.status.readyForPayouts) {
       return NextResponse.json(
         { error: "Connect account must be active. Complete onboarding first." },
         { status: 400 },
@@ -56,7 +59,7 @@ export async function POST(req: Request) {
     const appUrl = stripeConfig.appUrl;
 
     const session = await stripe.checkout.sessions.create({
-      customer_account: connectAccount.stripe_account_id,
+      customer_account: reconciled.stripeAccountId,
       mode: "subscription",
       line_items: [
         {
