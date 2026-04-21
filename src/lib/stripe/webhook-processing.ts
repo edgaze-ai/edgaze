@@ -182,7 +182,16 @@ export async function syncCreatorPayoutAccount({
     .eq("id", creatorId);
 
   if (isActive) {
-    await transferPendingClaimEarnings(creatorId, stripeAccountId, supabase, source);
+    try {
+      await transferPendingClaimEarnings(creatorId, stripeAccountId, supabase, source);
+    } catch (error) {
+      // Backlog transfer reconciliation should not block an already-onboarded creator from
+      // opening onboarding/dashboard surfaces. Keep the account active and retry funds later.
+      console.error(
+        `[STRIPE] Pending-claim transfer reconciliation failed for ${creatorId} via ${source}`,
+        error,
+      );
+    }
   }
 }
 

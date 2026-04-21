@@ -19,7 +19,7 @@ vi.mock("@/lib/stripe/platform-pending-claim-reserve", () => ({
   syncPlatformPendingClaimReserve: mockSyncPlatformPendingClaimReserve,
 }));
 
-import { transferPendingClaimEarnings } from "./webhook-processing";
+import { syncCreatorPayoutAccount, transferPendingClaimEarnings } from "./webhook-processing";
 
 describe("transferPendingClaimEarnings", () => {
   beforeEach(() => {
@@ -276,5 +276,176 @@ describe("transferPendingClaimEarnings", () => {
       supabase,
       "test.direct-settled.reserve",
     );
+  });
+
+  it("keeps payout access working even when pending-claim transfer reconciliation fails", async () => {
+    mockStripePaymentIntentsRetrieve.mockRejectedValue(new Error("No such payment_intent"));
+    mockStripeTransfersCreate.mockRejectedValue(
+      new Error(
+        "You have insufficient funds in your Stripe account. One likely reason you have insufficient funds is that your funds are automatically being paid out; try enabling manual payouts by going to https://dashboard.stripe.com/account/payouts.",
+      ),
+    );
+
+    const claimedRows = [
+      {
+        id: "earn_platform_1",
+        net_amount_cents: 479,
+        stripe_payment_intent_id: "pi_platform_1",
+      },
+    ];
+
+    const pendingClaimUpdateBuilder = {
+      eq(field: string, value: string) {
+        if (field === "creator_id") {
+          expect(value).toBe("creator_123");
+          return pendingStatusBuilder;
+        }
+        throw new Error(`Unexpected eq on pendingClaimUpdateBuilder: ${field}`);
+      },
+    };
+
+    const pendingStatusBuilder = {
+      eq(field: string, value: string) {
+        expect(field).toBe("status");
+        expect(value).toBe("pending_claim");
+        return pendingSelectBuilder;
+      },
+    };
+
+    const pendingSelectBuilder = {
+      select(selection: string) {
+        expect(selection).toBe("id, net_amount_cents, stripe_payment_intent_id");
+        return Promise.resolve({
+          data: claimedRows,
+          error: null,
+        });
+      },
+    };
+
+    const revertPendingBuilder = {
+      eq(field: string, value: string) {
+        if (field === "creator_id") {
+          expect(value).toBe("creator_123");
+          return revertStatusBuilder;
+        }
+        throw new Error(`Unexpected eq on revertPendingBuilder: ${field}`);
+      },
+    };
+
+    const revertStatusBuilder = {
+      eq(field: string, value: string) {
+        expect(field).toBe("status");
+        expect(value).toBe("pending");
+        return revertIdsBuilder;
+      },
+    };
+
+    const revertIdsBuilder = {
+      in(field: string, values: string[]) {
+        expect(field).toBe("id");
+        expect(values).toEqual(["earn_platform_1"]);
+        return Promise.resolve({ error: null });
+      },
+    };
+
+    const connectAccountBuilder = {
+      select(selection: string) {
+        expect(selection).toBe("user_id");
+        return {
+          eq(field: string, value: string) {
+            expect(field).toBe("stripe_account_id");
+            expect(value).toBe("acct_123");
+            return {
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { user_id: "creator_123" },
+                }),
+            };
+          },
+        };
+      },
+    };
+
+    const stripeConnectUpdateBuilder = {
+      eq(field: string, value: string) {
+        expect(field).toBe("stripe_account_id");
+        expect(value).toBe("acct_123");
+        return Promise.resolve({ error: null });
+      },
+    };
+
+    const profilesUpdateBuilder = {
+      eq(field: string, value: string) {
+        expect(field).toBe("id");
+        expect(value).toBe("creator_123");
+        return Promise.resolve({ error: null });
+      },
+    };
+
+    const supabase = {
+      from(table: string) {
+        if (table === "stripe_connect_accounts") {
+          return {
+            select(selection: string) {
+              return connectAccountBuilder.select(selection);
+            },
+            update(payload: Record<string, unknown>) {
+              expect(payload).toMatchObject({
+                account_status: "active",
+                payouts_enabled: true,
+                details_submitted: true,
+              });
+              return stripeConnectUpdateBuilder;
+            },
+          };
+        }
+
+        if (table === "profiles") {
+          return {
+            update(payload: Record<string, unknown>) {
+              expect(payload).toMatchObject({
+                stripe_onboarding_status: "completed",
+                can_receive_payments: true,
+              });
+              return profilesUpdateBuilder;
+            },
+          };
+        }
+
+        if (table === "creator_earnings") {
+          return {
+            update(payload: Record<string, unknown>) {
+              if (payload.status === "pending") {
+                return pendingClaimUpdateBuilder;
+              }
+
+              if (payload.status === "pending_claim") {
+                return revertPendingBuilder;
+              }
+
+              throw new Error(
+                `Unexpected creator_earnings update payload: ${JSON.stringify(payload)}`,
+              );
+            },
+          };
+        }
+
+        throw new Error(`Unexpected table ${table}`);
+      },
+      rpc: vi.fn().mockResolvedValue({ error: null }),
+    };
+
+    await expect(
+      syncCreatorPayoutAccount({
+        supabase: supabase as never,
+        creatorId: "creator_123",
+        stripeAccountId: "acct_123",
+        chargesEnabled: false,
+        payoutsEnabled: true,
+        detailsSubmitted: true,
+        payoutSetupComplete: true,
+        source: "test.sync",
+      }),
+    ).resolves.toBeUndefined();
   });
 });
