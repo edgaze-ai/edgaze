@@ -39,7 +39,12 @@ type ConnectStatus = {
   readyForPayouts?: boolean;
   readyToProcessPayments?: boolean;
   onboardingComplete?: boolean;
+  detailsSubmitted?: boolean;
   requirementsStatus?: string;
+  requirementsCurrentlyDue?: string[];
+  requirementsPastDue?: string[];
+  requirementsEventuallyDue?: string[];
+  requirementsDisabledReason?: string | null;
 };
 
 type EarningsPayload = {
@@ -142,6 +147,22 @@ export function CreatorProgramSettingsPanel({
     connectStatus?.readyForPayouts ?? connectStatus?.readyToProcessPayments,
   );
   const financialsLive = canReceivePayments && stripeReady;
+  const liveRequirementsCount =
+    (connectStatus?.requirementsCurrentlyDue?.length ?? 0) +
+    (connectStatus?.requirementsPastDue?.length ?? 0);
+  const onboardingComplete = hasStripeAccount
+    ? stripeReady ||
+      (Boolean(connectStatus?.detailsSubmitted) &&
+        liveRequirementsCount === 0 &&
+        !connectStatus?.requirementsDisabledReason)
+    : false;
+  const requirementsLabel = connectStatus?.requirementsDisabledReason
+    ? connectStatus.requirementsDisabledReason
+    : liveRequirementsCount > 0
+      ? `${liveRequirementsCount} pending`
+      : hasStripeAccount
+        ? "Clear"
+        : "—";
 
   useEffect(() => {
     if (!shouldAutoRedirect) return;
@@ -309,13 +330,13 @@ export function CreatorProgramSettingsPanel({
           <div>
             <dt className="text-[12px] uppercase tracking-wide text-white/40">Onboarding</dt>
             <dd className="mt-1.5 text-[15px] text-white/85">
-              {connectStatus?.onboardingComplete ? "Complete" : "Incomplete"}
+              {onboardingComplete ? "Complete" : "Incomplete"}
             </dd>
           </div>
           <div>
             <dt className="text-[12px] uppercase tracking-wide text-white/40">Requirements</dt>
             <dd className="mt-1.5 text-[15px] text-white/85 capitalize">
-              {(connectStatus?.requirementsStatus ?? "—").replace(/_/g, " ")}
+              {requirementsLabel.replace(/_/g, " ")}
             </dd>
           </div>
         </dl>
