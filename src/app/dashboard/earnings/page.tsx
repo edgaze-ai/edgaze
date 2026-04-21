@@ -294,7 +294,9 @@ export default function EarningsDashboardPage() {
                     ${(pendingClaim.pendingClaimCents / 100).toFixed(2)}
                   </div>
                   <p className="text-white/70 text-sm mb-2">
-                    Complete Creator Program onboarding to withdraw to your bank.
+                    Complete Creator Program onboarding to withdraw to your bank. We email you after
+                    the first held sale, and this balance releases automatically once Stripe marks
+                    payouts ready.
                   </p>
                   <p className="text-white/50 text-xs">
                     Deadline:{" "}

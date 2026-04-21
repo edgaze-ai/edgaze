@@ -3,9 +3,16 @@ import type Stripe from "stripe";
 import { getUserAndClient } from "@/lib/auth/server";
 import { resolveActorContext } from "@/lib/auth/actor-context";
 import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/client";
-import { stripeConfig, calculatePaymentSplit } from "@/lib/stripe/config";
+import { getExpressConnectAccountPayoutStatus } from "@/lib/stripe/connect-marketplace";
+import { stripeConfig } from "@/lib/stripe/config";
+import {
+  calculatePaymentSplitForPercentage,
+  resolvePlatformFeePercentageForCreator,
+} from "@/lib/stripe/fee-policy";
 import { MIN_TRANSACTION_USD, WORKFLOW_MIN_USD } from "@/lib/marketplace/pricing";
+import { syncCreatorPayoutAccount } from "@/lib/stripe/webhook-processing";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -105,10 +112,32 @@ export async function POST(req: Request) {
       .eq("user_id", resource.owner_id)
       .single();
 
-    const creatorHasConnect =
+    let creatorHasConnect =
       connectAccount &&
       connectAccount.account_status === "active" &&
       connectAccount.payouts_enabled === true;
+
+    if (connectAccount?.stripe_account_id) {
+      try {
+        const liveStatus = await getExpressConnectAccountPayoutStatus(
+          connectAccount.stripe_account_id,
+        );
+        creatorHasConnect = liveStatus.readyForPayouts;
+
+        await syncCreatorPayoutAccount({
+          supabase: createSupabaseAdminClient(),
+          creatorId: resource.owner_id,
+          stripeAccountId: connectAccount.stripe_account_id,
+          chargesEnabled: liveStatus.chargesEnabled,
+          payoutsEnabled: liveStatus.payoutsEnabled,
+          detailsSubmitted: liveStatus.detailsSubmitted,
+          payoutSetupComplete: liveStatus.readyForPayouts,
+          source: "checkout.create",
+        });
+      } catch (liveStatusError) {
+        console.error("[STRIPE CHECKOUT] Live connect status check failed:", liveStatusError);
+      }
+    }
 
     const { data: buyer } = await supabase
       .from("profiles")
@@ -116,8 +145,17 @@ export async function POST(req: Request) {
       .eq("id", user.id)
       .single();
 
+    const admin = createSupabaseAdminClient();
     const amountCents = Math.round(resource.price_usd * 100);
-    const { platformFeeCents, creatorNetCents } = calculatePaymentSplit(amountCents);
+    const { activeOverride, platformFeePercentage } = await resolvePlatformFeePercentageForCreator(
+      admin,
+      resource.owner_id,
+      stripeConfig.platformFeePercentage,
+    );
+    const { platformFeeCents, creatorNetCents } = calculatePaymentSplitForPercentage(
+      amountCents,
+      platformFeePercentage,
+    );
 
     // Stripe enforces 2048 char limit on URLs (images, success_url, cancel_url)
     const imageUrls =
@@ -154,6 +192,10 @@ export async function POST(req: Request) {
       purchase_type: type,
       source_table: sourceTable || (type === "workflow" ? "workflows" : "prompts"),
       edgaze_code: resource.edgaze_code || "",
+      platform_fee_percentage: String(platformFeePercentage),
+      platform_fee_override_id: activeOverride?.id || "",
+      creator_net_cents: String(creatorNetCents),
+      platform_fee_cents: String(platformFeeCents),
     };
 
     const sessionParams: Stripe.Checkout.SessionCreateParams = {

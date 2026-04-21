@@ -51,11 +51,76 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ profileId: 
       .order("started_at", { ascending: false })
       .limit(20);
 
+    const { data: connectAccount } = await admin
+      .from("stripe_connect_accounts")
+      .select(
+        "stripe_account_id, account_status, payouts_enabled, charges_enabled, details_submitted, onboarding_completed_at, updated_at",
+      )
+      .eq("user_id", profileId)
+      .maybeSingle();
+
+    const { data: pendingClaimRows } = await admin
+      .from("creator_earnings")
+      .select("id, net_amount_cents, claim_deadline_at")
+      .eq("creator_id", profileId)
+      .eq("status", "pending_claim")
+      .order("claim_deadline_at", { ascending: true });
+
+    const now = new Date();
+    const pendingClaimCents = (pendingClaimRows ?? []).reduce(
+      (sum, row) => sum + Math.max(0, row.net_amount_cents || 0),
+      0,
+    );
+    const claimDeadline =
+      pendingClaimRows?.find((row) => row.claim_deadline_at)?.claim_deadline_at ?? null;
+    const daysRemaining = claimDeadline
+      ? Math.max(
+          0,
+          Math.ceil((new Date(claimDeadline).getTime() - now.getTime()) / (24 * 60 * 60 * 1000)),
+        )
+      : 0;
+
+    const { data: firstSaleEmail } = await admin
+      .from("creator_pending_claim_email_log")
+      .select("sent_at")
+      .eq("creator_id", profileId)
+      .eq("email_type", "first_sale")
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const { data: feeOverrides } = await admin
+      .from("creator_platform_fee_overrides")
+      .select(
+        "id, platform_fee_percentage, starts_at, ends_at, reason, created_at, revoked_at, revoked_by_admin_id",
+      )
+      .eq("creator_id", profileId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    const activeFeeOverride =
+      feeOverrides?.find(
+        (row) =>
+          !row.revoked_at &&
+          new Date(row.starts_at).getTime() <= now.getTime() &&
+          new Date(row.ends_at).getTime() > now.getTime(),
+      ) ?? null;
+
     return NextResponse.json({
       profile,
       claim_links: links ?? [],
       audit_events: auditEvents ?? [],
       impersonation_sessions: impersonationSessions ?? [],
+      connect_account: connectAccount ?? null,
+      pending_claim_summary: {
+        pendingClaimCents,
+        claimCount: pendingClaimRows?.length ?? 0,
+        claimDeadline,
+        daysRemaining,
+        firstSaleEmailSentAt: firstSaleEmail?.sent_at ?? null,
+      },
+      active_fee_override: activeFeeOverride,
+      fee_override_history: feeOverrides ?? [],
     });
   } catch (e: any) {
     console.error("[admin/creators/[id] GET]", e);

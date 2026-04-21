@@ -13,6 +13,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/stripe/config";
 import { computeExpressPayoutReadiness } from "@/lib/stripe/connect-marketplace";
+import { calculatePaymentSplitForPercentage } from "@/lib/stripe/fee-policy";
 
 type AdminSupabaseClient = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -37,6 +38,13 @@ type AccountSyncInput = {
    */
   payoutSetupComplete?: boolean;
   source: string;
+};
+
+type StoredPurchaseAccounting = {
+  amount_cents: number;
+  platform_fee_cents: number;
+  creator_net_cents: number;
+  purchase_type: "workflow" | "prompt" | null;
 };
 
 function buildPendingClaimTransferKey(creatorId: string, earningIds: string[]) {
@@ -65,6 +73,50 @@ export function buildReplayStripeEvent(row: StoredWebhookEventRow): Stripe.Event
     },
     type: row.event_type,
   } as Stripe.Event;
+}
+
+function parseMetadataInteger(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function getStoredPurchaseAccounting(
+  supabase: AdminSupabaseClient,
+  paymentIntentId: string,
+): Promise<StoredPurchaseAccounting | null> {
+  const [{ data: workflowPurchase }, { data: promptPurchase }] = await Promise.all([
+    supabase
+      .from("workflow_purchases")
+      .select("amount_cents, platform_fee_cents, creator_net_cents")
+      .eq("stripe_payment_intent_id", paymentIntentId)
+      .maybeSingle(),
+    supabase
+      .from("prompt_purchases")
+      .select("amount_cents, platform_fee_cents, creator_net_cents")
+      .eq("stripe_payment_intent_id", paymentIntentId)
+      .maybeSingle(),
+  ]);
+
+  if (workflowPurchase) {
+    return {
+      amount_cents: workflowPurchase.amount_cents || 0,
+      platform_fee_cents: workflowPurchase.platform_fee_cents || 0,
+      creator_net_cents: workflowPurchase.creator_net_cents || 0,
+      purchase_type: "workflow",
+    };
+  }
+
+  if (promptPurchase) {
+    return {
+      amount_cents: promptPurchase.amount_cents || 0,
+      platform_fee_cents: promptPurchase.platform_fee_cents || 0,
+      creator_net_cents: promptPurchase.creator_net_cents || 0,
+      purchase_type: "prompt",
+    };
+  }
+
+  return null;
 }
 
 export async function syncCreatorPayoutAccount({
@@ -289,6 +341,13 @@ export async function processStripeWebhookEvent(
   }
 }
 
+export async function grantPaidCheckoutSessionAccess(
+  session: Stripe.Checkout.Session,
+  supabase: AdminSupabaseClient,
+) {
+  await handleCheckoutCompleted(session, supabase);
+}
+
 async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   supabase: AdminSupabaseClient,
@@ -337,14 +396,16 @@ async function handleCheckoutCompleted(
   const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
   const isPlatformHeld = !paymentIntent.transfer_data?.destination;
 
-  // Use actual application_fee from Stripe when set (destination/direct charge); else derive from config
+  const metadataFeePercentage =
+    parseMetadataInteger(session.metadata?.platform_fee_percentage) ??
+    parseMetadataInteger(paymentIntent.metadata?.platform_fee_percentage) ??
+    stripeConfig.platformFeePercentage;
   const amountTotal = session.amount_total ?? 0;
-  const platformFeePercent = stripeConfig.platformFeePercentage / 100;
   let platformFeeCents =
     typeof paymentIntent.application_fee_amount === "number" &&
     paymentIntent.application_fee_amount >= 0
       ? paymentIntent.application_fee_amount
-      : Math.round(amountTotal * platformFeePercent);
+      : calculatePaymentSplitForPercentage(amountTotal, metadataFeePercentage).platformFeeCents;
   platformFeeCents = Math.min(platformFeeCents, amountTotal);
   const creatorNetCents = Math.max(0, amountTotal - platformFeeCents);
 
@@ -494,6 +555,7 @@ async function handleChargeRefunded(charge: Stripe.Charge, supabase: AdminSupaba
     .select("id, status, creator_id, net_amount_cents")
     .eq("stripe_payment_intent_id", paymentIntentId)
     .single();
+  const storedPurchase = await getStoredPurchaseAccounting(supabase, paymentIntentId);
 
   const isFullRefund = refund.amount === charge.amount;
 
@@ -532,9 +594,25 @@ async function handleChargeRefunded(charge: Stripe.Charge, supabase: AdminSupaba
       });
     }
   } else {
-    const platformFeePercent = stripeConfig.platformFeePercentage / 100;
-    const platformFeeRefund = Math.round(refund.amount * platformFeePercent);
-    const creatorRefund = refund.amount - platformFeeRefund;
+    const fallbackFeePercentage =
+      parseMetadataInteger(charge.metadata?.platform_fee_percentage) ??
+      stripeConfig.platformFeePercentage;
+    const fallbackPlatformFeeCents = calculatePaymentSplitForPercentage(
+      charge.amount || refund.amount,
+      fallbackFeePercentage,
+    ).platformFeeCents;
+    const originalAmount = Math.max(
+      1,
+      storedPurchase?.amount_cents || charge.amount || refund.amount,
+    );
+    const platformFeeRefund = Math.min(
+      refund.amount,
+      Math.round(
+        (refund.amount * (storedPurchase?.platform_fee_cents ?? fallbackPlatformFeeCents)) /
+          originalAmount,
+      ),
+    );
+    const creatorRefund = Math.max(0, refund.amount - platformFeeRefund);
 
     await supabase.rpc("apply_partial_refund", {
       payment_intent_id: paymentIntentId,
@@ -613,27 +691,62 @@ async function handleChargeDisputed(dispute: Stripe.Dispute, supabase: AdminSupa
 
 async function handleChargeDisputeClosed(dispute: Stripe.Dispute, supabase: AdminSupabaseClient) {
   const charge = await stripe.charges.retrieve(dispute.charge as string);
+  const paymentIntentId =
+    typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+
+  if (!paymentIntentId) {
+    return;
+  }
 
   if (dispute.status === "won") {
     await supabase
       .from("workflow_purchases")
       .update({ status: "paid" })
-      .eq("stripe_payment_intent_id", charge.payment_intent);
+      .eq("stripe_payment_intent_id", paymentIntentId);
 
     await supabase
       .from("prompt_purchases")
       .update({ status: "paid" })
-      .eq("stripe_payment_intent_id", charge.payment_intent);
+      .eq("stripe_payment_intent_id", paymentIntentId);
   } else if (dispute.status === "lost") {
     await supabase
       .from("workflow_purchases")
       .update({ status: "refunded" })
-      .eq("stripe_payment_intent_id", charge.payment_intent);
+      .eq("stripe_payment_intent_id", paymentIntentId);
 
     await supabase
       .from("prompt_purchases")
       .update({ status: "refunded" })
-      .eq("stripe_payment_intent_id", charge.payment_intent);
+      .eq("stripe_payment_intent_id", paymentIntentId);
+
+    if (paymentIntentId) {
+      const { data: earning } = await supabase
+        .from("creator_earnings")
+        .select("creator_id, status, net_amount_cents")
+        .eq("stripe_payment_intent_id", paymentIntentId)
+        .maybeSingle();
+
+      await supabase
+        .from("creator_earnings")
+        .update({
+          status: earning?.status === "pending_claim" ? "cancelled" : "refunded",
+          refunded_at: new Date().toISOString(),
+        })
+        .eq("stripe_payment_intent_id", paymentIntentId);
+
+      if (
+        earning &&
+        earning.status !== "pending_claim" &&
+        earning.status !== "cancelled" &&
+        earning.status !== "refunded" &&
+        (earning.net_amount_cents || 0) > 0
+      ) {
+        await supabase.rpc("adjust_creator_balance", {
+          creator_id: earning.creator_id,
+          amount_cents: -(earning.net_amount_cents || 0),
+        });
+      }
+    }
   }
 
   await supabase

@@ -78,12 +78,14 @@ export async function GET(req: NextRequest) {
     const url = new URL(req.url);
     const source = url.searchParams.get("source");
     const claimStatus = url.searchParams.get("claim_status");
+    const payoutStatus = url.searchParams.get("payout_status");
+    const query = url.searchParams.get("q")?.trim();
 
     const admin = createSupabaseAdminClient();
     let q = admin
       .from("profiles")
       .select(
-        "id, handle, full_name, avatar_url, banner_url, email, source, claim_status, claimed_at, provisioned_at, provisioned_by_admin_id, created_at",
+        "id, handle, full_name, avatar_url, banner_url, email, source, claim_status, claimed_at, provisioned_at, provisioned_by_admin_id, created_at, can_receive_payments, stripe_onboarding_status",
       )
       .order("created_at", { ascending: false })
       .limit(200);
@@ -94,6 +96,15 @@ export async function GET(req: NextRequest) {
     if (claimStatus === "unclaimed" || claimStatus === "claimed") {
       q = q.eq("claim_status", claimStatus);
     }
+    if (payoutStatus === "ready") {
+      q = q.eq("can_receive_payments", true);
+    } else if (payoutStatus === "pending") {
+      q = q.neq("can_receive_payments", true);
+    }
+    if (query) {
+      const escaped = query.replace(/[%_]/g, "\\$&");
+      q = q.or(`handle.ilike.%${escaped}%,full_name.ilike.%${escaped}%,email.ilike.%${escaped}%`);
+    }
 
     const { data, error } = await q;
 
@@ -101,7 +112,42 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ creators: data ?? [] });
+    const creators = data ?? [];
+    const creatorIds = creators.map((creator) => creator.id);
+    const now = new Date().toISOString();
+    const { data: activeOverrides } =
+      creatorIds.length > 0
+        ? await admin
+            .from("creator_platform_fee_overrides")
+            .select("creator_id, platform_fee_percentage, ends_at")
+            .in("creator_id", creatorIds)
+            .is("revoked_at", null)
+            .lte("starts_at", now)
+            .gt("ends_at", now)
+        : {
+            data: [] as Array<{
+              creator_id: string;
+              platform_fee_percentage: number;
+              ends_at: string;
+            }>,
+          };
+
+    const overrideByCreator = new Map(
+      (activeOverrides ?? []).map((row) => [
+        row.creator_id,
+        {
+          platform_fee_percentage: row.platform_fee_percentage,
+          ends_at: row.ends_at,
+        },
+      ]),
+    );
+
+    return NextResponse.json({
+      creators: creators.map((creator) => ({
+        ...creator,
+        active_fee_override: overrideByCreator.get(creator.id) ?? null,
+      })),
+    });
   } catch (e: any) {
     console.error("[admin/creators GET]", e);
     return NextResponse.json({ error: e.message ?? "Error" }, { status: 500 });

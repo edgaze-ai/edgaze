@@ -4,7 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Loader2, Send, UserCircle, Ban, Copy, ExternalLink, Eye } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Send,
+  UserCircle,
+  Ban,
+  Copy,
+  ExternalLink,
+  Eye,
+  Wallet,
+  BadgePercent,
+} from "lucide-react";
 import { useAuth } from "@/components/auth/AuthContext";
 import { DEFAULT_AVATAR_SRC } from "@/config/branding";
 
@@ -42,6 +53,34 @@ type ImpRow = {
   expires_at: string;
 };
 
+type ConnectAccountSummary = {
+  stripe_account_id: string;
+  account_status: string | null;
+  payouts_enabled: boolean | null;
+  charges_enabled: boolean | null;
+  details_submitted: boolean | null;
+  onboarding_completed_at: string | null;
+  updated_at: string | null;
+} | null;
+
+type PendingClaimSummary = {
+  pendingClaimCents: number;
+  claimCount: number;
+  claimDeadline: string | null;
+  daysRemaining: number;
+  firstSaleEmailSentAt: string | null;
+} | null;
+
+type FeeOverrideRow = {
+  id: string;
+  platform_fee_percentage: number;
+  starts_at: string;
+  ends_at: string;
+  reason: string | null;
+  created_at?: string;
+  revoked_at?: string | null;
+};
+
 function linkRecipientLabel(email: string | null) {
   if (!email?.trim()) return "Open link (first sign-in wins)";
   const [u, d] = email.split("@");
@@ -61,6 +100,10 @@ export default function AdminCreatorDetailPage() {
   const [claimLinks, setClaimLinks] = useState<ClaimLink[]>([]);
   const [audits, setAudits] = useState<AuditEv[]>([]);
   const [impSessions, setImpSessions] = useState<ImpRow[]>([]);
+  const [connectAccount, setConnectAccount] = useState<ConnectAccountSummary>(null);
+  const [pendingClaimSummary, setPendingClaimSummary] = useState<PendingClaimSummary>(null);
+  const [activeFeeOverride, setActiveFeeOverride] = useState<FeeOverrideRow | null>(null);
+  const [feeOverrideHistory, setFeeOverrideHistory] = useState<FeeOverrideRow[]>([]);
 
   const [saveBusy, setSaveBusy] = useState(false);
   const [draft, setDraft] = useState({
@@ -79,6 +122,7 @@ export default function AdminCreatorDetailPage() {
   const [impOpen, setImpOpen] = useState(false);
   const [impReason, setImpReason] = useState("Support / onboarding");
   const [impBusy, setImpBusy] = useState(false);
+  const [feeOverrideBusy, setFeeOverrideBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!profileId) return;
@@ -97,6 +141,10 @@ export default function AdminCreatorDetailPage() {
       setClaimLinks(data.claim_links || []);
       setAudits(data.audit_events || []);
       setImpSessions(data.impersonation_sessions || []);
+      setConnectAccount(data.connect_account || null);
+      setPendingClaimSummary(data.pending_claim_summary || null);
+      setActiveFeeOverride(data.active_fee_override || null);
+      setFeeOverrideHistory(data.fee_override_history || []);
       if (p) {
         setDraft({
           full_name: p.full_name || "",
@@ -211,6 +259,51 @@ export default function AdminCreatorDetailPage() {
       setError(e?.message || "Impersonation failed");
     } finally {
       setImpBusy(false);
+    }
+  };
+
+  const grantFeeHoliday = async () => {
+    setFeeOverrideBusy(true);
+    setError(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(`/api/admin/creators/${profileId}/fee-override`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          durationDays: 90,
+          reason: "Admin launch fee holiday",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to grant fee holiday");
+    } finally {
+      setFeeOverrideBusy(false);
+    }
+  };
+
+  const revokeFeeHoliday = async () => {
+    setFeeOverrideBusy(true);
+    setError(null);
+    try {
+      const token = await getAccessToken();
+      const res = await fetch(`/api/admin/creators/${profileId}/fee-override`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to revoke fee holiday");
+    } finally {
+      setFeeOverrideBusy(false);
     }
   };
 
@@ -340,6 +433,140 @@ export default function AdminCreatorDetailPage() {
               </a>
             </>
           ) : null}
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className={`${cardClass} p-4 sm:p-6 space-y-4`}>
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-cyan-300" />
+            Payout status
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-white/45">Program</div>
+              <div className={profile.can_receive_payments ? "text-emerald-200" : "text-amber-100"}>
+                {profile.can_receive_payments ? "Active and payout-ready" : "Needs onboarding"}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-white/45">Stripe</div>
+              <div className="text-white/75">
+                {connectAccount?.account_status || "Not connected"}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-white/45">Pending claim</div>
+              <div className="text-white">
+                ${((pendingClaimSummary?.pendingClaimCents || 0) / 100).toFixed(2)}
+                {" · "}
+                {pendingClaimSummary?.claimCount || 0} item
+                {(pendingClaimSummary?.claimCount || 0) === 1 ? "" : "s"}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-white/45">
+                Reminder email
+              </div>
+              <div className="text-white/75">
+                {pendingClaimSummary?.firstSaleEmailSentAt
+                  ? new Date(pendingClaimSummary.firstSaleEmailSentAt).toLocaleString()
+                  : "Not sent yet"}
+              </div>
+            </div>
+          </div>
+          {pendingClaimSummary && pendingClaimSummary.pendingClaimCents > 0 ? (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-500/8 px-4 py-3 text-sm text-amber-50">
+              <div className="font-medium">
+                Pending claim is being held safely for this creator.
+              </div>
+              <div className="mt-1 text-amber-100/70">
+                They are emailed after the first sale and through reminder cron runs, and the funds
+                transfer automatically once Stripe onboarding is completed.
+                {pendingClaimSummary.claimDeadline
+                  ? ` Claim deadline: ${new Date(
+                      pendingClaimSummary.claimDeadline,
+                    ).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })} (${pendingClaimSummary.daysRemaining} days left).`
+                  : ""}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className={`${cardClass} p-4 sm:p-6 space-y-4`}>
+          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+            <BadgePercent className="h-4 w-4 text-cyan-300" />
+            Fee holiday
+          </h2>
+          {activeFeeOverride ? (
+            <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4">
+              <div className="text-sm font-semibold text-cyan-100">
+                Creator keeps 100% until{" "}
+                {new Date(activeFeeOverride.ends_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </div>
+              <p className="mt-2 text-sm text-cyan-50/75">
+                Marketplace fee is currently 0% for new purchases routed to this creator.
+              </p>
+              <button
+                type="button"
+                disabled={feeOverrideBusy}
+                onClick={() => void revokeFeeHoliday()}
+                className="mt-4 rounded-xl border border-white/12 bg-white/[0.08] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {feeOverrideBusy ? "Updating…" : "End fee holiday"}
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/[0.08] bg-black/20 px-4 py-4">
+              <div className="text-sm font-semibold text-white">
+                Default marketplace fee applies
+              </div>
+              <p className="mt-2 text-sm text-white/55">
+                Grant a 90-day 0% fee window so this creator keeps 100% of paid sales while the
+                override is active.
+              </p>
+              <button
+                type="button"
+                disabled={feeOverrideBusy}
+                onClick={() => void grantFeeHoliday()}
+                className="mt-4 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+              >
+                {feeOverrideBusy ? "Applying…" : "Grant 0% fee for 90 days"}
+              </button>
+            </div>
+          )}
+          <div className="space-y-2 text-xs text-white/55">
+            {feeOverrideHistory.length === 0 ? (
+              <p className="text-white/40">No fee override history.</p>
+            ) : (
+              feeOverrideHistory.map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2"
+                >
+                  <div className="text-white/75">
+                    {row.platform_fee_percentage}% from{" "}
+                    {new Date(row.starts_at).toLocaleDateString("en-US")} to{" "}
+                    {new Date(row.ends_at).toLocaleDateString("en-US")}
+                  </div>
+                  <div className="text-white/40">
+                    {row.revoked_at
+                      ? `Revoked ${new Date(row.revoked_at).toLocaleString()}`
+                      : "Active"}
+                    {row.reason ? ` · ${row.reason}` : ""}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 

@@ -18,6 +18,12 @@ type CreatorRow = {
   claimed_at: string | null;
   provisioned_at: string | null;
   created_at: string | null;
+  can_receive_payments?: boolean | null;
+  stripe_onboarding_status?: string | null;
+  active_fee_override?: {
+    platform_fee_percentage: number;
+    ends_at: string;
+  } | null;
 };
 
 const cardClass =
@@ -37,6 +43,8 @@ export default function AdminCreatorsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "unclaimed" | "claimed" | "provisioned">("all");
+  const [payoutFilter, setPayoutFilter] = useState<"all" | "ready" | "pending">("all");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const main = document.querySelector("main");
@@ -58,6 +66,8 @@ export default function AdminCreatorsPage() {
       if (filter === "unclaimed") sp.set("claim_status", "unclaimed");
       if (filter === "claimed") sp.set("claim_status", "claimed");
       if (filter === "provisioned") sp.set("source", "admin_provisioned");
+      if (payoutFilter !== "all") sp.set("payout_status", payoutFilter);
+      if (search.trim()) sp.set("q", search.trim());
       const q = sp.toString();
       const res = await fetch(`/api/admin/creators${q ? `?${q}` : ""}`, {
         credentials: "include",
@@ -72,7 +82,7 @@ export default function AdminCreatorsPage() {
     } finally {
       setLoading(false);
     }
-  }, [getAccessToken, filter]);
+  }, [getAccessToken, filter, payoutFilter, search]);
 
   useEffect(() => {
     if (!authReady) return;
@@ -124,6 +134,37 @@ export default function AdminCreatorsPage() {
             {label}
           </button>
         ))}
+      </div>
+
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              ["all", "All payouts"],
+              ["ready", "Payout-ready"],
+              ["pending", "Needs onboarding"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setPayoutFilter(key)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                payoutFilter === key
+                  ? "bg-cyan-300 text-black"
+                  : "border border-white/10 bg-white/[0.04] text-white/75 hover:bg-white/[0.08]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search handle, name, or email"
+          className="w-full md:w-[320px] rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-white/35 outline-none transition-colors focus:border-cyan-400/40"
+        />
       </div>
 
       {error && (
@@ -181,6 +222,22 @@ export default function AdminCreatorsPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/45">
                       <span>{r.source || "—"}</span>
                       <span className="font-mono text-white/40">{maskEmail(r.email)}</span>
+                      <span
+                        className={
+                          r.can_receive_payments ? "text-emerald-300/90" : "text-amber-200/90"
+                        }
+                      >
+                        {r.can_receive_payments ? "Payout-ready" : "Needs onboarding"}
+                      </span>
+                      {r.active_fee_override ? (
+                        <span className="text-cyan-200/90">
+                          0% fee until{" "}
+                          {new Date(r.active_fee_override.ends_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </Link>
@@ -192,7 +249,9 @@ export default function AdminCreatorsPage() {
                   <tr className="border-b border-white/[0.06] text-[11px] font-semibold uppercase tracking-wider text-white/40">
                     <th className="px-4 py-3">Creator</th>
                     <th className="px-4 py-3">Claim</th>
+                    <th className="px-4 py-3">Payouts</th>
                     <th className="px-4 py-3">Source</th>
+                    <th className="px-4 py-3">Fee policy</th>
                     <th className="px-4 py-3">Email</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
@@ -233,7 +292,32 @@ export default function AdminCreatorsPage() {
                           {r.claim_status || "—"}
                         </span>
                       </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            r.can_receive_payments
+                              ? "bg-emerald-500/15 text-emerald-200"
+                              : "bg-amber-500/15 text-amber-100"
+                          }`}
+                        >
+                          {r.can_receive_payments ? "Payout-ready" : "Needs onboarding"}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-white/60">{r.source || "—"}</td>
+                      <td className="px-4 py-3 text-xs text-white/55">
+                        {r.active_fee_override ? (
+                          <span className="text-cyan-200">
+                            0% until{" "}
+                            {new Date(r.active_fee_override.ends_at).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </span>
+                        ) : (
+                          "Default fee"
+                        )}
+                      </td>
                       <td className="px-4 py-3 font-mono text-xs text-white/50">
                         {maskEmail(r.email)}
                       </td>

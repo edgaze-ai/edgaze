@@ -1,3 +1,5 @@
+import { calculatePaymentSplitForPercentage } from "@/lib/stripe/fee-policy";
+
 /** ISO country of the platform Stripe account (Connect “home” country). Used for cross-border payout routing. */
 export function getStripeConnectPlatformCountry(): string {
   const c = (process.env.STRIPE_CONNECT_PLATFORM_COUNTRY || "US").trim().toUpperCase();
@@ -48,14 +50,7 @@ export function validateStripeConfig() {
 }
 
 export function calculatePaymentSplit(amountCents: number) {
-  const platformFeeCents = Math.round(amountCents * (stripeConfig.platformFeePercentage / 100));
-  const creatorNetCents = amountCents - platformFeeCents;
-
-  return {
-    grossAmountCents: amountCents,
-    platformFeeCents,
-    creatorNetCents,
-  };
+  return calculatePaymentSplitForPercentage(amountCents, stripeConfig.platformFeePercentage);
 }
 
 export function isPaymentsEnabled(): boolean {
