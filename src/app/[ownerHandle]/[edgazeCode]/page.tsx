@@ -954,6 +954,9 @@ export default function WorkflowProductPage() {
 
     async function load() {
       setLoading(true);
+      setDemoAvailable(null);
+      setPurchaseError(null);
+      setDemoVerificationError(null);
 
       let record: WorkflowListing | null = null;
       try {
@@ -1120,11 +1123,12 @@ export default function WorkflowProductPage() {
   }, [listing, isNaturallyFree]);
 
   const demoButtonEnabled = demoAvailable === true;
-  const demoButtonBusy = demoRunning || turnstileVerifying;
-  const demoButtonLabel = demoAvailable === false ? "Used on this device" : "Try a one-time demo";
+  const demoButtonBusy = demoRunning || turnstileVerifying || loading;
+  const demoButtonLabel =
+    demoAvailable === false ? "Demo used for this workflow" : "Try a one-time demo";
   const demoButtonTitle =
     demoAvailable === false
-      ? "You've already used your one-time demo. Purchase for unlimited runs."
+      ? "You've already used the one-time demo for this workflow on this device."
       : "Try a one-time demo";
   const effectiveViewerId = currentUserId || userId || null;
 
@@ -1470,7 +1474,7 @@ export default function WorkflowProductPage() {
     setDemoAvailable(canRun);
     if (!canRun) {
       setPurchaseError(
-        "You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.",
+        "You've already used the one-time demo for this workflow on this device. Buy access to run this workflow again.",
       );
       setDemoRunModalOpen(false);
       setDemoVerificationPhase("idle");
@@ -1561,7 +1565,7 @@ export default function WorkflowProductPage() {
       setDemoAvailable(canRun);
       if (!canRun) {
         setPurchaseError(
-          "You've already tried this workflow demo. Each device gets one demo run. Purchase this workflow for unlimited runs.",
+          "You've already used the one-time demo for this workflow on this device. Buy access to run this workflow again.",
         );
         setDemoRunModalOpen(false);
         setDemoVerificationPhase("idle");
@@ -2556,7 +2560,8 @@ export default function WorkflowProductPage() {
                 )}
                 {listing && demoAvailable === false && (
                   <div className="rounded-2xl border border-white/10 bg-[#111317] px-3 py-2 text-[11px] text-white/60">
-                    Demo already used on this device. Buy access for unlimited runs.
+                    Demo already used for this workflow on this device. Buy access to run it
+                    again.
                   </div>
                 )}
               </div>
@@ -2887,7 +2892,8 @@ export default function WorkflowProductPage() {
                     )}
                     {listing && demoAvailable === false && (
                       <p className="text-[11px] text-white/52">
-                        Demo already used on this device. Buy access for unlimited runs.
+                        Demo already used for this workflow on this device. Buy access to run it
+                        again.
                       </p>
                     )}
 
