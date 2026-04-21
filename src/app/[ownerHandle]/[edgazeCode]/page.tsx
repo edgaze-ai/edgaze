@@ -918,7 +918,7 @@ export default function WorkflowProductPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [demoVerificationError, setDemoVerificationError] = useState<string | null>(null);
   const [demoVerificationPhase, setDemoVerificationPhase] = useState<
-    "idle" | "checking" | "turnstile"
+    "idle" | "checking" | "turnstile" | "loading"
   >("idle");
 
   const [upNext, setUpNext] = useState<WorkflowListing[]>([]);
@@ -944,18 +944,7 @@ export default function WorkflowProductPage() {
   const ownerHandle = params?.ownerHandle;
   const edgazeCode = params?.edgazeCode;
 
-  const demoModalState =
-    demoRunState ??
-    (listing
-      ? {
-          workflowId: listing.id,
-          workflowName: listing.title || "Untitled Workflow",
-          phase: "input",
-          status: "idle",
-          steps: [],
-          logs: [],
-        }
-      : null);
+  const demoModalState = demoRunState;
 
   useEffect(() => {
     if (!listing?.id) {
@@ -1475,7 +1464,7 @@ export default function WorkflowProductPage() {
       if (result.ok) {
         setTurnstileVerifying(false);
         setTurnstileToken(null);
-        setDemoVerificationPhase("idle");
+        setDemoVerificationPhase("loading");
         demoRunAutoExecuteRef.current = false;
 
         const pendingInputs = pendingDemoInputValuesRef.current;
@@ -1502,6 +1491,7 @@ export default function WorkflowProductPage() {
   // Start demo run after Turnstile verification
   async function startDemoRun() {
     if (!listing) return;
+    setDemoVerificationPhase("loading");
 
     const canRun = await canRunDemo(listing.id, true);
     setDemoAvailable(canRun);
@@ -2069,7 +2059,7 @@ export default function WorkflowProductPage() {
         }}
         state={demoModalState}
         customBody={
-          demoVerificationPhase === "idle" ? null : (
+          demoVerificationPhase !== "idle" || !demoRunState ? (
             <div className="mx-auto flex h-full w-full max-w-[420px] flex-col justify-center gap-2.5 px-0 py-0.5 text-white md:max-w-[500px] md:gap-5 md:px-1 md:py-2">
               {demoVerificationPhase === "checking" ? (
                 <div className="flex flex-col items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-6 text-center md:gap-4 md:rounded-[28px] md:px-6 md:py-12">
@@ -2080,6 +2070,19 @@ export default function WorkflowProductPage() {
                     </div>
                     <div className="text-[12px] leading-[1.1rem] text-white/60 md:text-sm md:leading-6">
                       Verifying device and usage limits before we start the run.
+                    </div>
+                  </div>
+                </div>
+              ) : demoVerificationPhase === "loading" || !demoRunState ? (
+                <div className="flex flex-col items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-6 text-center md:gap-4 md:rounded-[28px] md:px-6 md:py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-cyan-300 md:h-10 md:w-10" />
+                  <div className="space-y-2">
+                    <div className="text-[16px] font-semibold text-white md:text-xl">
+                      Loading run setup...
+                    </div>
+                    <div className="text-[12px] leading-[1.1rem] text-white/60 md:text-sm md:leading-6">
+                      Fetching the real workflow inputs and preparing the run modal. No placeholder
+                      form will be shown.
                     </div>
                   </div>
                 </div>
@@ -2134,7 +2137,7 @@ export default function WorkflowProductPage() {
                 </>
               )}
             </div>
-          )
+          ) : null
         }
         canCloseOverride={
           demoVerificationPhase === "idle"

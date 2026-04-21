@@ -272,6 +272,7 @@ export default function BuilderPage() {
   const [showGrid, setShowGrid] = useState(true);
   const [locked, setLocked] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [previewCanvasTopInset, setPreviewCanvasTopInset] = useState(0);
 
   // launcher overlay (confined: does NOT block sidebar)
   const [showLauncher, setShowLauncher] = useState(true);
@@ -448,6 +449,14 @@ export default function BuilderPage() {
 
     const applyDefaultLayout = () => {
       if (isPreview || isTemplateMobilePreview) {
+        const rootEl = rootRef.current;
+        const headerEl = headerRef.current;
+        if (rootEl && headerEl) {
+          const rootRect = rootEl.getBoundingClientRect();
+          const headerRect = headerEl.getBoundingClientRect();
+          const headerBottom = headerRect.bottom - rootRect.top;
+          setPreviewCanvasTopInset(Math.max(0, Math.ceil(headerBottom + 8)));
+        }
         setWindows((prev) => ({
           ...prev,
           blocks: { ...prev.blocks, visible: false, minimized: false },
@@ -476,6 +485,7 @@ export default function BuilderPage() {
       const innerLeft = innerRect.left - rootRect.left;
       const innerRight = innerRect.right - rootRect.left;
       const headerBottom = headerRect.bottom - rootRect.top;
+      setPreviewCanvasTopInset(0);
 
       const rootW = rootRect.width;
       const compactPanels = rootW >= BUILDER_MOBILE_MAX_W && rootW < FULL_LAYOUT_MIN_W;
@@ -2715,11 +2725,15 @@ export default function BuilderPage() {
       <div className="absolute inset-0 bg-[#0a0a0a]" />
 
       {/* Canvas - Full height, extends to top */}
-      <div className="absolute inset-0 z-0">
+      <div
+        className="absolute inset-x-0 bottom-0 z-0"
+        style={{ top: isPreview ? previewCanvasTopInset : 0 }}
+      >
         <ReactFlowCanvas
           ref={beRef}
           mode={mode}
           compact={isCompactLayout}
+          previewPanEnabled={isPreview}
           onGraphChange={onGraphChange}
           onSelectionChange={onSelectionChange}
         />
