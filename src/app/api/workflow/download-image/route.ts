@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
   try {
     const upstream = await fetch(targetUrl, {
       method: "GET",
-      redirect: "follow",
+      redirect: "error",
       headers: {
         Accept: "image/*",
       },

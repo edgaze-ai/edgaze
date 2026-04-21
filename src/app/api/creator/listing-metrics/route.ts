@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserAndClient } from "@lib/auth/server";
+import { resolveActorContext } from "@lib/auth/actor-context";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { isMarketplaceUnifiedRunMetadata } from "@lib/metrics/publicRunCount";
 
@@ -33,6 +34,8 @@ export async function GET(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const actor = await resolveActorContext(req, user);
+  const creatorId = actor.effectiveProfileId;
 
   const u = req.nextUrl.searchParams;
   const listingId = u.get("listingId")?.trim();
@@ -68,7 +71,7 @@ export async function GET(req: NextRequest) {
   }
 
   const ownerId = (listingRow as { owner_id?: string }).owner_id;
-  if (String(ownerId ?? "") !== String(user.id)) {
+  if (String(ownerId ?? "") !== String(creatorId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -112,10 +115,11 @@ export async function GET(req: NextRequest) {
 
   const { data: earnRows } = await admin
     .from("creator_earnings")
-    .select("created_at, gross_amount_cents")
-    .eq("creator_id", user.id)
+    .select("created_at, gross_amount_cents, status")
+    .eq("creator_id", creatorId)
     .eq("purchase_type", listingType)
     .eq("purchase_id", listingId)
+    .in("status", ["pending_claim", "pending", "available", "paid"])
     .gte("created_at", startIso);
 
   const dayList = eachDay(start, end);

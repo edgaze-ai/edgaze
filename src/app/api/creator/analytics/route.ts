@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,8 @@ export async function GET(req: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const actor = await resolveActorContext(req, user);
+    const creatorId = actor.effectiveProfileId;
 
     let daysBack = 30;
     if (period === "7d") daysBack = 7;
@@ -28,8 +31,9 @@ export async function GET(req: Request) {
 
     const { data: earnings } = await supabase
       .from("creator_earnings")
-      .select("net_amount_cents, created_at")
-      .eq("creator_id", user.id)
+      .select("net_amount_cents, created_at, status")
+      .eq("creator_id", creatorId)
+      .in("status", ["pending_claim", "pending", "available", "paid"])
       .gte("created_at", startDate.toISOString())
       .order("created_at", { ascending: true });
 
@@ -57,8 +61,9 @@ export async function GET(req: Request) {
 
     const { data: topProducts } = await supabase
       .from("creator_earnings")
-      .select("purchase_id, purchase_type, net_amount_cents")
-      .eq("creator_id", user.id);
+      .select("purchase_id, purchase_type, net_amount_cents, status")
+      .eq("creator_id", creatorId)
+      .in("status", ["pending_claim", "pending", "available", "paid"]);
 
     const productMap = new Map<string, { type: string; total: number; count: number }>();
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { basename, extname, resolve } from "node:path";
 
 const inputPath = process.argv[2];
@@ -11,9 +11,10 @@ if (!inputPath) {
 }
 
 function resolveLocalInputPath(input) {
-  const resolved = resolve(process.cwd(), input);
-  const cwdPrefix = `${process.cwd()}/`;
-  if (resolved !== process.cwd() && !resolved.startsWith(cwdPrefix)) {
+  const repoRoot = realpathSync(process.cwd());
+  const resolved = realpathSync(resolve(repoRoot, input));
+  const relative = resolved.slice(repoRoot.length).replace(/^[/\\]+/, "");
+  if (!relative || relative.startsWith("..")) {
     throw new Error("Input path must stay within the repository.");
   }
   const ext = extname(resolved).toLowerCase();

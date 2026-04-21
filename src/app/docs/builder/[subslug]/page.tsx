@@ -7,7 +7,7 @@ import { CopyMarkdownButton } from "../../components/CopyMarkdownButton";
 import { getAllDocs, getDoc } from "../../utils/docs";
 import { extractToc } from "../../utils/extractToc";
 import { normalizeSafeSlug } from "../../../../lib/security/safe-values";
-import { sanitizeJsonScriptContent } from "../../../../lib/security/url-policy";
+import { sanitizeDocPath, sanitizeJsonScriptContent } from "../../../../lib/security/url-policy";
 import { buildBreadcrumbJsonLd, buildMetadata } from "../../../../lib/seo";
 
 function docPathFromSlug(slug: string) {
@@ -18,7 +18,7 @@ function docPathFromSlug(slug: string) {
     .join("/");
 
   if (!encodedSlug) return "/docs";
-  return encodedSlug === "builder" ? "/docs/builder" : `/docs/${encodedSlug}`;
+  return sanitizeDocPath(encodedSlug === "builder" ? "/docs/builder" : `/docs/${encodedSlug}`);
 }
 
 export function generateStaticParams() {
@@ -69,7 +69,7 @@ export async function generateMetadata({
   return buildMetadata({
     title: titleMap[subslug] || `${doc.title} | Edgaze Docs`,
     description: descMap[subslug] || doc.description || `Learn about ${doc.title}.`,
-    path: `/docs/builder/${subslug}`,
+    path: sanitizeDocPath(`/docs/builder/${encodeURIComponent(subslug)}`),
     openGraphType: "article",
   });
 }
@@ -97,7 +97,7 @@ export default async function BuilderSubDocPage({
     { name: "Home", path: "/" },
     { name: "Docs", path: "/docs" },
     { name: "Builder", path: "/docs/builder" },
-    { name: doc.title, path: `/docs/builder/${subslug}` },
+    { name: doc.title, path: sanitizeDocPath(`/docs/builder/${encodeURIComponent(subslug)}`) },
   ]);
 
   return (

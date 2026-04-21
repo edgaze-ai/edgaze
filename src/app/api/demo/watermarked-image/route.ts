@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { NextRequest } from "next/server";
+import { resolveTrustedUrl } from "@/lib/security/url-policy";
 
 export const runtime = "nodejs";
 
@@ -134,8 +135,17 @@ async function fetchSourceBuffer(src: string): Promise<{ buffer: Buffer; content
     return { buffer, contentType: mime };
   }
 
-  const response = await fetch(src, {
-    redirect: "follow",
+  const trustedUrl = resolveTrustedUrl(src, {
+    allowedProtocols: ["https:", "http:"],
+    allowLocalhost: false,
+    allowPrivateIpv4: false,
+  });
+  if (!trustedUrl) {
+    throw new Error("Invalid image URL");
+  }
+
+  const response = await fetch(trustedUrl, {
+    redirect: "error",
     cache: "force-cache",
     signal: AbortSignal.timeout(15_000),
     headers: {

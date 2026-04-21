@@ -48,13 +48,28 @@ type StoredPurchaseAccounting = {
   purchase_type: "workflow" | "prompt" | null;
 };
 
-function buildPendingClaimTransferKey(creatorId: string, earningIds: string[]) {
+function buildPendingClaimTransferKey(params: {
+  creatorId: string;
+  earningIds: string[];
+  stripeAccountId: string;
+  totalCents: number;
+}) {
+  const keyVersion = "v2";
+  const { creatorId, earningIds, stripeAccountId, totalCents } = params;
   const digest = createHash("sha256")
-    .update(JSON.stringify([creatorId, [...earningIds].sort()]))
+    .update(
+      JSON.stringify({
+        keyVersion,
+        creatorId,
+        earningIds: [...earningIds].sort(),
+        stripeAccountId,
+        totalCents,
+      }),
+    )
     .digest("hex")
     .slice(0, 40);
 
-  return `pending_claim_${digest}`;
+  return `pending_claim_${keyVersion}_${digest}`;
 }
 
 export function buildReplayStripeEvent(row: StoredWebhookEventRow): Stripe.Event {
@@ -182,8 +197,7 @@ export async function transferPendingClaimEarnings(
     .update({ status: "pending" })
     .eq("creator_id", creatorId)
     .eq("status", "pending_claim")
-    .gt("claim_deadline_at", new Date().toISOString())
-    .select("id, net_amount_cents");
+    .select("id, net_amount_cents, stripe_payment_intent_id");
 
   if (claimError) {
     throw claimError;
@@ -193,11 +207,66 @@ export async function transferPendingClaimEarnings(
     return;
   }
 
-  const earningIds = claimedRows.map((row) => row.id).sort();
-  const totalCents = claimedRows.reduce(
+  const directlySettledRows: typeof claimedRows = [];
+  const platformHeldRows: typeof claimedRows = [];
+
+  for (const row of claimedRows) {
+    if (row.stripe_payment_intent_id) {
+      try {
+        await stripe.paymentIntents.retrieve(
+          row.stripe_payment_intent_id,
+          {},
+          { stripeAccount: stripeAccountId },
+        );
+        directlySettledRows.push(row);
+        continue;
+      } catch {
+        // If the PaymentIntent is not found on the connected account, treat it as platform-held.
+      }
+    }
+
+    platformHeldRows.push(row);
+  }
+
+  if (directlySettledRows.length > 0) {
+    const directEarningIds = directlySettledRows.map((row) => row.id).sort();
+    const directTotalCents = directlySettledRows.reduce(
+      (sum, row) => sum + Math.max(0, row.net_amount_cents || 0),
+      0,
+    );
+
+    const { error: directActivateError } = await supabase
+      .from("creator_earnings")
+      .update({
+        status: "available",
+        stripe_account_id: stripeAccountId,
+      })
+      .eq("creator_id", creatorId)
+      .eq("status", "pending")
+      .in("id", directEarningIds);
+
+    if (directActivateError) {
+      throw directActivateError;
+    }
+
+    if (directTotalCents > 0) {
+      await supabase.rpc("increment_creator_balance", {
+        creator_id: creatorId,
+        amount_cents: directTotalCents,
+      });
+    }
+  }
+
+  const earningIds = platformHeldRows.map((row) => row.id).sort();
+  const totalCents = platformHeldRows.reduce(
     (sum, row) => sum + Math.max(0, row.net_amount_cents || 0),
     0,
   );
+
+  if (earningIds.length === 0) {
+    await syncPlatformPendingClaimReserve(supabase, `${source}.reserve`);
+    return;
+  }
 
   if (totalCents <= 0) {
     await supabase
@@ -209,7 +278,12 @@ export async function transferPendingClaimEarnings(
     return;
   }
 
-  const idempotencyKey = buildPendingClaimTransferKey(creatorId, earningIds);
+  const idempotencyKey = buildPendingClaimTransferKey({
+    creatorId,
+    earningIds,
+    stripeAccountId,
+    totalCents,
+  });
 
   try {
     const transfer = await stripe.transfers.create(
@@ -219,8 +293,8 @@ export async function transferPendingClaimEarnings(
         destination: stripeAccountId,
         metadata: {
           edgaze_creator_id: creatorId,
-          source,
           earning_count: String(earningIds.length),
+          reconciliation_type: "pending_claim",
         },
       },
       {
@@ -396,13 +470,45 @@ async function handleCheckoutCompleted(
     throw new Error("Missing payment_intent");
   }
 
-  const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-  const isPlatformHeld = !paymentIntent.transfer_data?.destination;
-
   const metadataFeePercentage =
     parseMetadataInteger(session.metadata?.platform_fee_percentage) ??
-    parseMetadataInteger(paymentIntent.metadata?.platform_fee_percentage) ??
     stripeConfig.platformFeePercentage;
+
+  const { data: connectAccount } = await supabase
+    .from("stripe_connect_accounts")
+    .select("stripe_account_id")
+    .eq("user_id", resource.owner_id)
+    .single();
+
+  const connectedAccountId =
+    typeof session.metadata?.connected_account_id === "string" &&
+    session.metadata.connected_account_id.trim().length > 0
+      ? session.metadata.connected_account_id.trim()
+      : null;
+
+  let paymentIntent: Stripe.PaymentIntent | null = null;
+  let paymentSettledOnConnectedAccount = false;
+
+  if (connectedAccountId) {
+    try {
+      paymentIntent = await stripe.paymentIntents.retrieve(
+        paymentIntentId,
+        {},
+        { stripeAccount: connectedAccountId },
+      );
+      paymentSettledOnConnectedAccount = true;
+    } catch {
+      paymentSettledOnConnectedAccount = false;
+    }
+  }
+
+  if (!paymentIntent) {
+    paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  }
+
+  const isPlatformHeld =
+    !paymentSettledOnConnectedAccount && !paymentIntent.transfer_data?.destination;
+
   const amountTotal = session.amount_total ?? 0;
   let platformFeeCents =
     typeof paymentIntent.application_fee_amount === "number" &&
@@ -412,11 +518,12 @@ async function handleCheckoutCompleted(
   platformFeeCents = Math.min(platformFeeCents, amountTotal);
   const creatorNetCents = Math.max(0, amountTotal - platformFeeCents);
 
-  const { data: connectAccount } = await supabase
-    .from("stripe_connect_accounts")
-    .select("stripe_account_id")
-    .eq("user_id", resource.owner_id)
-    .single();
+  const creatorStripeAccountId = paymentSettledOnConnectedAccount
+    ? connectedAccountId
+    : connectAccount?.stripe_account_id;
+
+  const liveStripeAccountId =
+    creatorStripeAccountId && creatorStripeAccountId.length > 0 ? creatorStripeAccountId : null;
 
   const purchaseTable =
     sourceTable === "prompts"
@@ -435,7 +542,7 @@ async function handleCheckoutCompleted(
         stripe_checkout_session_id: session.id,
         stripe_payment_intent_id: paymentIntentId,
         status: "paid",
-        amount_cents: session.amount_total,
+        amount_cents: amountTotal,
         platform_fee_cents: platformFeeCents,
         creator_net_cents: creatorNetCents,
         currency: session.currency,
@@ -461,10 +568,10 @@ async function handleCheckoutCompleted(
   await supabase.from("creator_earnings").upsert(
     {
       creator_id: resource.owner_id,
-      stripe_account_id: isPlatformHeld ? null : connectAccount?.stripe_account_id,
+      stripe_account_id: isPlatformHeld ? null : liveStripeAccountId,
       purchase_id: purchase?.id || resourceId,
       purchase_type: purchaseType,
-      gross_amount_cents: session.amount_total,
+      gross_amount_cents: amountTotal,
       platform_fee_cents: platformFeeCents,
       net_amount_cents: creatorNetCents,
       currency: session.currency,
@@ -494,7 +601,7 @@ async function handleCheckoutCompleted(
     resource_id: resourceId,
     metadata: {
       session_id: session.id,
-      amount_cents: session.amount_total,
+      amount_cents: amountTotal,
       platform_held: isPlatformHeld,
     },
     created_at: new Date().toISOString(),

@@ -7,6 +7,9 @@
 
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { getUserAndClient } from "@/lib/auth/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
+import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { createExpressAccountLink } from "@/lib/stripe/connect-marketplace";
 import { stripeConfig } from "@/lib/stripe/config";
 
@@ -15,21 +18,19 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createServerClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const { user } = await getUserAndClient(req);
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const actor = await resolveActorContext(req, user);
+    assertNotImpersonating(actor.actorMode);
+
+    const supabase = await createServerClient();
 
     const { data: connectAccount } = await supabase
       .from("stripe_connect_accounts")
       .select("stripe_account_id")
-      .eq("user_id", user.id)
+      .eq("user_id", actor.effectiveProfileId)
       .single();
 
     if (!connectAccount) {
@@ -50,6 +51,9 @@ export async function POST(req: Request) {
       url: accountLink.url,
     });
   } catch (error: any) {
+    if (error instanceof ImpersonationForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
     console.error("[STRIPE V2 CONNECT] Refresh error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to create account link" },

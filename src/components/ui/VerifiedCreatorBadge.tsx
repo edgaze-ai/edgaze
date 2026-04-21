@@ -26,6 +26,7 @@ type Props = {
 function GradientVerifiedIcon({ size, className }: { size: Size; className?: string }) {
   const uid = useId();
   const gradId = React.useMemo(() => toSafeDomId(uid, "eg_verified_grad"), [uid]);
+  const gradientFill = React.useMemo(() => `url(#${gradId})`, [gradId]);
 
   return (
     <>
@@ -46,7 +47,7 @@ function GradientVerifiedIcon({ size, className }: { size: Size; className?: str
           iconBox[size],
           className,
         )}
-        fill={`url(#${gradId})`}
+        fill={gradientFill}
         aria-hidden
       />
     </>

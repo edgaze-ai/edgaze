@@ -25,12 +25,13 @@ export function ConnectDashboardShell({
   title,
   description,
 }: ConnectDashboardShellProps) {
-  const { authReady, userId, getAccessToken } = useAuth();
+  const { authReady, userId, workspaceUserId, getAccessToken } = useAuth();
   const [connectInstance, setConnectInstance] = useState<StripeConnectInstance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const publishableKey = stripeConfig.publishableKey;
+  const activeWorkspaceId = workspaceUserId || userId;
 
   const fetchClientSecret = useCallback(async (): Promise<string> => {
     const token = await getAccessToken({ eagerRefresh: true });
@@ -53,7 +54,7 @@ export function ConnectDashboardShell({
   }, [getAccessToken]);
 
   useEffect(() => {
-    if (!authReady || !userId || !publishableKey || !fetchClientSecret) {
+    if (!authReady || !activeWorkspaceId || !publishableKey || !fetchClientSecret) {
       return;
     }
 
@@ -75,7 +76,7 @@ export function ConnectDashboardShell({
         setLoading(false);
       }
     })();
-  }, [authReady, userId, publishableKey, fetchClientSecret]);
+  }, [authReady, activeWorkspaceId, publishableKey, fetchClientSecret]);
 
   if (!authReady || loading) {
     return (

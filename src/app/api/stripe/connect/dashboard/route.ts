@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     const admin = createSupabaseAdminClient();
     const reconciled = await reconcileCreatorPayoutAccount({
       supabase: admin,
-      creatorId: user.id,
+      creatorId: actor.effectiveProfileId,
       source: "connect.dashboard",
     });
 

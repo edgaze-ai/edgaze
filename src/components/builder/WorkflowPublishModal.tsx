@@ -39,7 +39,11 @@ import {
   getRecommendedWorkflowPrice,
 } from "../../lib/workflow/cost-estimation";
 import { PayoutSystemCard } from "../publish/PayoutSystemCard";
-import { createImageObjectUrl, sanitizeImageSrc } from "../../lib/security/safe-values";
+import {
+  createImageObjectUrl,
+  createSecureId,
+  sanitizeImageSrc,
+} from "../../lib/security/safe-values";
 import {
   cropListingImageToFile,
   listingImageRequirementsText,
@@ -141,9 +145,7 @@ function baseCodeFromTitle(title: string) {
 }
 
 function randomSuffix(len = 4) {
-  return Math.random()
-    .toString(36)
-    .slice(2, 2 + len);
+  return createSecureId("workflow", len).slice(-len).toLowerCase();
 }
 
 async function codeExistsInTables(supabase: any, code: string, excludeWorkflowId?: string | null) {

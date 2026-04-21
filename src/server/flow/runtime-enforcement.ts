@@ -22,6 +22,7 @@ import {
   createNullPrototypeRecord,
   getOwnRecordValue,
   sanitizeLogText,
+  setOwnRecordValue,
 } from "../../lib/security/url-policy";
 
 function hasLlmChat(nodes: GraphNode[]): boolean {
@@ -427,13 +428,13 @@ export function redactSecrets(
     const redacted = createNullPrototypeRecord<unknown>();
     for (const [k, v] of Object.entries(obj)) {
       if (preserveExecutionSecrets && shouldPreserveRunInputInjectionField(k)) {
-        redacted[k] = v;
+        setOwnRecordValue(redacted, k, v);
         continue;
       }
       if (isSensitiveFieldName(k)) {
-        redacted[k] = "***REDACTED***";
+        setOwnRecordValue(redacted, k, "***REDACTED***");
       } else {
-        redacted[k] = redactSecrets(v, options);
+        setOwnRecordValue(redacted, k, redactSecrets(v, options));
       }
     }
     return redacted;

@@ -33,12 +33,13 @@ export async function POST(req: Request) {
 
     const actor = await resolveActorContext(req, user);
     assertNotImpersonating(actor.actorMode);
+    const creatorId = actor.effectiveProfileId;
 
     const admin = createSupabaseAdminClient();
     const { data: profileRow } = await admin
       .from("profiles")
       .select("handle, full_name, email, country")
-      .eq("id", user.id)
+      .eq("id", creatorId)
       .single();
 
     const rawCountry = (profileRow?.country as string)?.trim()?.toUpperCase();
@@ -73,7 +74,7 @@ export async function POST(req: Request) {
     const { data: existingAccount } = await admin
       .from("stripe_connect_accounts")
       .select("stripe_account_id, account_status")
-      .eq("user_id", user.id)
+      .eq("user_id", creatorId)
       .single();
 
     let stripeAccountId: string;
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
     if (existingAccount) {
       const { stripeAccountId: resolvedId, replaced } =
         await replaceConnectAccountIfCountryMismatch(admin, {
-          userId: user.id,
+          userId: creatorId,
           payoutCountry,
           email: profile.email,
           handle: profile.handle,
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
 
       await syncCreatorPayoutAccount({
         supabase: admin,
-        creatorId: user.id,
+        creatorId,
         stripeAccountId,
         chargesEnabled: status.chargesEnabled,
         payoutsEnabled: status.payoutsEnabled,
@@ -114,12 +115,12 @@ export async function POST(req: Request) {
       const account = await createExpressMarketplaceConnectedAccount({
         email: profile.email,
         handle: profile.handle,
-        userId: user.id,
+        userId: creatorId,
         country: payoutCountry,
       });
 
       const insertPayload = {
-        user_id: user.id,
+        user_id: creatorId,
         stripe_account_id: account.id,
         account_status: "pending" as const,
         charges_enabled: account.charges_enabled ?? false,
@@ -138,7 +139,7 @@ export async function POST(req: Request) {
           const { data: winner } = await admin
             .from("stripe_connect_accounts")
             .select("stripe_account_id")
-            .eq("user_id", user.id)
+            .eq("user_id", creatorId)
             .maybeSingle();
           if (!winner?.stripe_account_id) {
             throw new Error(insErr.message);
@@ -153,7 +154,7 @@ export async function POST(req: Request) {
         await admin
           .from("profiles")
           .update({ stripe_onboarding_status: "pending" })
-          .eq("id", user.id);
+          .eq("id", creatorId);
       }
     }
 

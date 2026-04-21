@@ -238,9 +238,10 @@ export default function BlogRenderer({ content }: { content: string }) {
           for (const m of filtered) {
             if (m.start > lastIndex) parts.push(text.slice(lastIndex, m.start));
             if (m.type === "link") {
-              const href = sanitizeNavigationHref(m.url) ?? "#";
-              const isExt = href.startsWith("http://") || href.startsWith("https://");
-              if (isExt) {
+              const href = sanitizeNavigationHref(m.url);
+              if (!href) {
+                parts.push(m.text);
+              } else if (href.startsWith("http://") || href.startsWith("https://")) {
                 parts.push(
                   <a
                     key={m.start}
@@ -341,8 +342,10 @@ export default function BlogRenderer({ content }: { content: string }) {
                 for (const x of ms) {
                   if (x.start > last) parts.push(it.slice(last, x.start));
                   if (x.type === "link") {
-                    const h = x.url ?? "#";
-                    if (h.startsWith("http")) {
+                    const h = sanitizeNavigationHref(x.url);
+                    if (!h) {
+                      parts.push(x.text);
+                    } else if (h.startsWith("http://") || h.startsWith("https://")) {
                       parts.push(
                         <a
                           key={x.start}

@@ -163,17 +163,31 @@ function isImageUrl(s: string): boolean {
 
   // Check for common image file extensions
   if (/^https?:\/\//i.test(t)) {
-    // Check for image extensions
-    if (/\.(png|jpe?g|gif|webp|avif|svg|bmp|ico)(\?|$)/i.test(t)) return true;
-
-    // Check for DALL-E blob URLs (oaidalleapiprodscus.blob.core.windows.net)
-    if (/oaidalleapiprodscus\.blob\.core\.windows\.net/i.test(t)) return true;
-
-    // Check for other common image hosting patterns
-    if (/imgur\.com|unsplash\.com|pexels\.com|pixabay\.com/i.test(t)) return true;
-
-    // Check if URL contains image-related paths
-    if (/\/images?\/|\/img\/|image|photo|picture/i.test(t)) return true;
+    try {
+      const url = new URL(t);
+      const host = url.hostname.toLowerCase();
+      const path = `${url.pathname}${url.search}`.toLowerCase();
+      if (/\.(png|jpe?g|gif|webp|avif|svg|bmp|ico)(?:$|\?)/i.test(path)) return true;
+      if (host === "oaidalleapiprodscus.blob.core.windows.net") return true;
+      if (
+        ["imgur.com", "unsplash.com", "pexels.com", "pixabay.com"].some(
+          (allowedHost) => host === allowedHost || host.endsWith(`.${allowedHost}`),
+        )
+      ) {
+        return true;
+      }
+      if (
+        path.includes("/image/") ||
+        path.includes("/images/") ||
+        path.includes("/img/") ||
+        path.includes("photo") ||
+        path.includes("picture")
+      ) {
+        return true;
+      }
+    } catch {
+      return false;
+    }
   }
 
   return false;

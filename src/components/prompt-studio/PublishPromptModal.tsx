@@ -26,7 +26,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { uploadListingMedia } from "../../lib/creator-provisioning/upload-listing-media";
-import { createImageObjectUrl, sanitizeImageSrc } from "../../lib/security/safe-values";
+import {
+  createImageObjectUrl,
+  createSecureId,
+  sanitizeImageSrc,
+} from "../../lib/security/safe-values";
 import VerifiedCreatorBadge from "../ui/VerifiedCreatorBadge";
 import AssetPickerModalRaw from "../assets/AssetPickerModal";
 import { createSupabaseBrowserClient } from "../../lib/supabase/browser";
@@ -282,9 +286,7 @@ function baseCodeFromTitle(title: string) {
 }
 
 function randomSuffix(len = 4) {
-  return Math.random()
-    .toString(36)
-    .slice(2, 2 + len);
+  return createSecureId("prompt", len).slice(-len).toLowerCase();
 }
 
 function safeArr(v: any): string[] {

@@ -32,7 +32,10 @@ describe("POST /api/stripe/v2/connect/dashboard-session", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetUserAndClient.mockResolvedValue({ user: { id: "creator_1" } });
-    mockResolveActorContext.mockResolvedValue({ actorMode: "creator_self" });
+    mockResolveActorContext.mockResolvedValue({
+      actorMode: "creator_self",
+      effectiveProfileId: "workspace_creator_1",
+    });
     mockCreateConnectDashboardAccountSession.mockResolvedValue({
       clientSecret: "dash_secret_123",
     });
@@ -55,7 +58,7 @@ describe("POST /api/stripe/v2/connect/dashboard-session", () => {
     expect(response.status).toBe(200);
     expect(mockReconcileCreatorPayoutAccount).toHaveBeenCalledWith({
       supabase: { admin: true },
-      creatorId: "creator_1",
+      creatorId: "workspace_creator_1",
       source: "v2.dashboard-session",
     });
     expect(mockCreateConnectDashboardAccountSession).toHaveBeenCalledWith("acct_live_ready");

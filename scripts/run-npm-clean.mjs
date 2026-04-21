@@ -8,10 +8,18 @@ if (args.length === 0) {
 
 const ALLOWED_NPM_COMMANDS = new Set(["ci", "install", "run"]);
 const SAFE_ARG_PATTERN = /^[a-zA-Z0-9:_./@=-]+$/;
+const ALLOWED_RUN_SCRIPTS = new Set(["build", "lint", "typecheck", "test"]);
 
 if (!ALLOWED_NPM_COMMANDS.has(args[0])) {
   console.error("Unsupported npm command.");
   process.exit(2);
+}
+
+if (args[0] === "run") {
+  if (args.length < 2 || !ALLOWED_RUN_SCRIPTS.has(args[1])) {
+    console.error("Unsupported npm run target.");
+    process.exit(2);
+  }
 }
 
 if (args.some((arg) => !SAFE_ARG_PATTERN.test(arg))) {

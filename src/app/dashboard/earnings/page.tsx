@@ -41,7 +41,7 @@ type PendingClaim = {
 };
 
 export default function EarningsDashboardPage() {
-  const { authReady, userId, getAccessToken } = useAuth();
+  const { authReady, userId, workspaceUserId, getAccessToken } = useAuth();
   const [connectInstance, setConnectInstance] = useState<StripeConnectInstance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +49,32 @@ export default function EarningsDashboardPage() {
   const [pendingClaim, setPendingClaim] = useState<PendingClaim | null>(null);
 
   const publishableKey = stripeConfig.publishableKey;
+  const activeWorkspaceId = workspaceUserId || userId;
+
+  const refreshPendingClaim = useCallback(async () => {
+    if (!authReady || !activeWorkspaceId) return;
+
+    try {
+      const token = await getAccessToken({ eagerRefresh: true });
+      const res = await fetch("/api/creator/earnings", {
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.pendingClaimCents > 0) {
+        setPendingClaim({
+          pendingClaimCents: data.pendingClaimCents,
+          claimDeadline: data.claimDeadline ?? null,
+          daysRemaining: data.daysRemaining ?? 0,
+        });
+      } else {
+        setPendingClaim(null);
+      }
+    } catch {
+      // ignore
+    }
+  }, [authReady, activeWorkspaceId, getAccessToken]);
 
   const fetchClientSecret = useCallback(async (): Promise<string> => {
     const token = await getAccessToken({ eagerRefresh: true });
@@ -71,33 +97,11 @@ export default function EarningsDashboardPage() {
   }, [getAccessToken]);
 
   useEffect(() => {
-    if (!authReady || !userId) return;
-
-    (async () => {
-      try {
-        const token = await getAccessToken({ eagerRefresh: true });
-        const res = await fetch("/api/creator/earnings", {
-          credentials: "include",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.pendingClaimCents > 0) {
-            setPendingClaim({
-              pendingClaimCents: data.pendingClaimCents,
-              claimDeadline: data.claimDeadline ?? null,
-              daysRemaining: data.daysRemaining ?? 0,
-            });
-          }
-        }
-      } catch {
-        // ignore
-      }
-    })();
-  }, [authReady, userId, getAccessToken]);
+    void refreshPendingClaim();
+  }, [refreshPendingClaim]);
 
   useEffect(() => {
-    if (!authReady || !userId || !publishableKey || !fetchClientSecret) {
+    if (!authReady || !activeWorkspaceId || !publishableKey || !fetchClientSecret) {
       return;
     }
 
@@ -113,13 +117,14 @@ export default function EarningsDashboardPage() {
           fonts: connectEmbeddedFonts,
         });
         setConnectInstance(instance);
+        await refreshPendingClaim();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       } finally {
         setLoading(false);
       }
     })();
-  }, [authReady, userId, publishableKey, fetchClientSecret]);
+  }, [authReady, activeWorkspaceId, publishableKey, fetchClientSecret, refreshPendingClaim]);
 
   const openExpressDashboard = useCallback(async () => {
     setExpressLoading(true);

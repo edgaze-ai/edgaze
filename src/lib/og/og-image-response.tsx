@@ -43,7 +43,7 @@ export async function remoteImageLikelyRenderable(url: string): Promise<boolean>
     if (!trustedUrl) return false;
 
     const r = await fetch(trustedUrl, {
-      redirect: "follow",
+      redirect: "error",
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
       headers: { Accept: "image/*,*/*;q=0.8" },

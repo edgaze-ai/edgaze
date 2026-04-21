@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { resolveActorContext } from "@/lib/auth/actor-context";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +21,13 @@ export async function GET(req: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const actor = await resolveActorContext(req, user);
+    const creatorId = actor.effectiveProfileId;
 
     const { data: earnings, count } = await supabase
       .from("creator_earnings")
       .select("*", { count: "exact" })
-      .eq("creator_id", user.id)
+      .eq("creator_id", creatorId)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 

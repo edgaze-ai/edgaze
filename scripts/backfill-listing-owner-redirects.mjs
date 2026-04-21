@@ -28,9 +28,10 @@ if (!file) {
   process.exit(1);
 }
 
-const resolvedFile = path.resolve(process.cwd(), file);
-const repoPrefix = `${process.cwd()}${path.sep}`;
-if (resolvedFile !== process.cwd() && !resolvedFile.startsWith(repoPrefix)) {
+const repoRoot = fs.realpathSync(process.cwd());
+const resolvedFile = fs.realpathSync(path.resolve(repoRoot, file));
+const relativeFile = path.relative(repoRoot, resolvedFile);
+if (relativeFile.startsWith("..") || path.isAbsolute(relativeFile)) {
   console.error("Input file must stay within the repository.");
   process.exit(1);
 }

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowUpRight } from "lucide-react";
 import { getAllDocs } from "./utils/docs";
 import { buildMetadata } from "../../lib/seo";
+import { sanitizeDocPath } from "../../lib/security/url-policy";
 
 export const metadata: Metadata = buildMetadata({
   title: "Documentation | Edgaze",
@@ -47,7 +48,7 @@ export default function DocsIndex() {
       .map((segment) => encodeURIComponent(segment))
       .join("/");
     if (!encodedSlug) return "/docs";
-    return encodedSlug === "builder" ? "/docs/builder" : `/docs/${encodedSlug}`;
+    return sanitizeDocPath(encodedSlug === "builder" ? "/docs/builder" : `/docs/${encodedSlug}`);
   };
 
   const builderDocs = docs.filter((d) => d.slug.startsWith("builder"));

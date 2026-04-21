@@ -8,6 +8,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { track } from "../../lib/mixpanel";
+import { createSecureId } from "../../lib/security/safe-values";
 
 type Mode = "signin" | "signup" | "verify";
 
@@ -38,9 +39,7 @@ function normalizeHandle(input: string) {
 }
 
 function randomSuffix(len = 4) {
-  return Math.random()
-    .toString(36)
-    .slice(2, 2 + len);
+  return createSecureId("apply", len).slice(-len).toLowerCase();
 }
 
 function persistApplyDraft(patch: Record<string, any>) {

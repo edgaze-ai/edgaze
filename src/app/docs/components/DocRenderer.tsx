@@ -281,10 +281,11 @@ function renderInlineMarkdown(text: string) {
     }
 
     if (match.type === "link") {
-      const href = sanitizeNavigationHref(match.url) ?? "#";
-      const isExternal = href.startsWith("http://") || href.startsWith("https://");
-      parts.push(
-        isExternal ? (
+      const href = sanitizeNavigationHref(match.url);
+      if (!href) {
+        parts.push(match.text);
+      } else if (href.startsWith("http://") || href.startsWith("https://")) {
+        parts.push(
           <a
             key={match.start}
             href={href}
@@ -293,17 +294,19 @@ function renderInlineMarkdown(text: string) {
             className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
           >
             {match.text}
-          </a>
-        ) : (
+          </a>,
+        );
+      } else {
+        parts.push(
           <Link
             key={match.start}
             href={href}
             className="text-cyan-400 hover:text-cyan-300 underline transition-colors"
           >
             {match.text}
-          </Link>
-        ),
-      );
+          </Link>,
+        );
+      }
     } else if (match.type === "bold") {
       parts.push(
         <strong key={match.start} className="font-semibold text-white/90">

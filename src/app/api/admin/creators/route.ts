@@ -36,6 +36,14 @@ function normalizeHandle(input: string): string {
     .slice(0, 24);
 }
 
+function sanitizeCreatorSearchQuery(input: string | null | undefined): string {
+  return String(input ?? "")
+    .trim()
+    .replace(/[,%()]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+}
+
 /**
  * One RPC mirrors DB reality (trim+lower, full table visible, no ILIKE wildcards).
  */
@@ -79,7 +87,7 @@ export async function GET(req: NextRequest) {
     const source = url.searchParams.get("source");
     const claimStatus = url.searchParams.get("claim_status");
     const payoutStatus = url.searchParams.get("payout_status");
-    const query = url.searchParams.get("q")?.trim();
+    const query = sanitizeCreatorSearchQuery(url.searchParams.get("q"));
 
     const admin = createSupabaseAdminClient();
     let q = admin

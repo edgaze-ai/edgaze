@@ -48,6 +48,13 @@ export function sanitizeNavigationHref(input: string | null | undefined): string
   }
 }
 
+export function sanitizeDocPath(input: string | null | undefined): string {
+  const raw = String(input ?? "").trim();
+  const safe = sanitizeNavigationHref(raw);
+  if (!safe || !safe.startsWith("/")) return "/docs";
+  return safe;
+}
+
 export function sanitizeJsonScriptContent(value: unknown): string {
   return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (char) => {
     switch (char) {
@@ -89,12 +96,17 @@ export function createNullPrototypeRecord<T>(): Record<string, T> {
 
 export function getOwnRecordValue<T>(record: Record<string, T> | null | undefined, key: string) {
   if (!record || !hasOwn(record, key)) return undefined;
-  return record[key];
+  return Object.getOwnPropertyDescriptor(record, key)?.value as T | undefined;
 }
 
 export function setOwnRecordValue<T>(record: Record<string, T>, key: string, value: T) {
   if (key === "__proto__" || key === "constructor" || key === "prototype") return;
-  record[key] = value;
+  Object.defineProperty(record, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
 }
 
 export function resolveTrustedUrl(

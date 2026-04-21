@@ -79,7 +79,7 @@ import {
   isAnonymousWorkflowDemoEligibleMode,
   resolveWorkflowAccessDecision,
 } from "src/server/flow/workflow-security";
-import { getOwnRecordValue, sanitizeLogText } from "@/lib/security/url-policy";
+import { getOwnRecordValue, sanitizeLogText, setOwnRecordValue } from "@/lib/security/url-policy";
 import {
   getWorkflowDemoUserAgent,
   normalizeWorkflowDemoFingerprint,
@@ -832,11 +832,11 @@ export async function POST(req: Request) {
         n.data?.config as Record<string, unknown> | undefined,
       );
       if (provider === "openai" && effectiveOpenaiKey) {
-        mergedUserApiKeys[n.id] = { apiKey: effectiveOpenaiKey };
+        setOwnRecordValue(mergedUserApiKeys, n.id, { apiKey: effectiveOpenaiKey });
       } else if (provider === "anthropic" && effectiveAnthropicKey) {
-        mergedUserApiKeys[n.id] = { apiKey: effectiveAnthropicKey };
+        setOwnRecordValue(mergedUserApiKeys, n.id, { apiKey: effectiveAnthropicKey });
       } else if (provider === "google" && effectiveGeminiKey) {
-        mergedUserApiKeys[n.id] = { apiKey: effectiveGeminiKey };
+        setOwnRecordValue(mergedUserApiKeys, n.id, { apiKey: effectiveGeminiKey });
       }
     }
 
@@ -1003,7 +1003,7 @@ export async function POST(req: Request) {
           draftId = draftLookup;
           if (!workflowExistsInDb && !draftId) {
             console.warn(
-              `[Run Tracking] Skipping run tracking: workflow ${workflowId} not found in workflows or drafts`,
+              `[Run Tracking] Skipping run tracking: workflow ${sanitizeLogText(workflowId)} not found in workflows or drafts`,
             );
           }
         }

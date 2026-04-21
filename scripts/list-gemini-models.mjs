@@ -19,13 +19,14 @@ const { names: geminiPlatformEnvNames } = JSON.parse(
 );
 
 function parseDotenv(src) {
-  const out = {};
+  const out = Object.create(null);
   for (const rawLine of String(src || "").split("\n")) {
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
     const eq = line.indexOf("=");
     if (eq < 1) continue;
     const key = line.slice(0, eq).trim();
+    if (!/^[A-Z][A-Z0-9_]*$/.test(key)) continue;
     let val = line.slice(eq + 1).trim();
     if (
       (val.startsWith('"') && val.endsWith('"')) ||
@@ -33,6 +34,7 @@ function parseDotenv(src) {
     ) {
       val = val.slice(1, -1);
     }
+    if (key === "__proto__" || key === "constructor" || key === "prototype") continue;
     out[key] = val;
   }
   return out;
@@ -81,7 +83,7 @@ async function listAllModels() {
     url.searchParams.set("pageSize", "100");
     if (pageToken) url.searchParams.set("pageToken", pageToken);
 
-    const res = await fetch(url, { method: "GET" });
+    const res = await fetch(url, { method: "GET", redirect: "error" });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       throw new Error(`ListModels failed: ${res.status} ${body}`);

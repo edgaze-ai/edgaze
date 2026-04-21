@@ -47,7 +47,7 @@ export async function incrementMarketplaceListingRunCount(params: {
       "[incrementMarketplaceListingRunCount]",
       sanitizeLogText(listingType),
       sanitizeLogText(listingId),
-      upErr,
+      sanitizeLogText(upErr.message),
     );
   }
 }
