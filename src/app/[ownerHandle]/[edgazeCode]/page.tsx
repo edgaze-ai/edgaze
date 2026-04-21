@@ -1122,12 +1122,17 @@ export default function WorkflowProductPage() {
     return listing.price_usd != null ? `$${Number(listing.price_usd).toFixed(2)}` : "Paid";
   }, [listing, isNaturallyFree]);
 
-  const demoButtonEnabled = demoAvailable === true;
+  const demoStatusKnown = !loading && demoAvailable !== null;
+  const demoButtonEnabled = demoStatusKnown && demoAvailable === true;
   const demoButtonBusy = demoRunning || turnstileVerifying || loading;
-  const demoButtonLabel =
-    demoAvailable === false ? "Demo used for this workflow" : "Try a one-time demo";
-  const demoButtonTitle =
-    demoAvailable === false
+  const demoButtonLabel = loading
+    ? "Checking demo..."
+    : demoAvailable === false
+      ? "Demo used for this workflow"
+      : "Try a one-time demo";
+  const demoButtonTitle = loading
+    ? "Checking demo availability for this workflow."
+    : demoAvailable === false
       ? "You've already used the one-time demo for this workflow on this device."
       : "Try a one-time demo";
   const effectiveViewerId = currentUserId || userId || null;
@@ -2560,8 +2565,7 @@ export default function WorkflowProductPage() {
                 )}
                 {listing && demoAvailable === false && (
                   <div className="rounded-2xl border border-white/10 bg-[#111317] px-3 py-2 text-[11px] text-white/60">
-                    Demo already used for this workflow on this device. Buy access to run it
-                    again.
+                    Demo already used for this workflow on this device. Buy access to run it again.
                   </div>
                 )}
               </div>
