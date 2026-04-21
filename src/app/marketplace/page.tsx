@@ -58,6 +58,7 @@ type MarketplacePrompt = {
   price_usd: number | null;
   view_count: number | null;
   like_count: number | null;
+  purchase_count?: number | null;
   runs_count?: number | null;
   created_at?: string | null;
   published_at?: string | null;
@@ -388,6 +389,12 @@ function log1pSafe(n: number) {
   return Math.log(1 + x);
 }
 
+function stableUnitFloat(seed: string) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  return ((h >>> 0) % 10000) / 10000;
+}
+
 function scoreItemForUser(
   item: MarketplacePrompt,
   profile: MarketplaceUserProfile,
@@ -397,12 +404,17 @@ function scoreItemForUser(
   const owner = (item.owner_handle || "").toLowerCase();
   const isWorkflow = item.type === "workflow";
   const isFree = item.monetisation_mode === "free" || item.is_paid === false;
+  const isPaid = !isFree && (item.price_usd ?? 0) > 0;
+  const hasThumbnail = Boolean(normalizeImageSrc(item.thumbnail_url));
 
   const ageDays = Math.max(0, (nowMs() - safeDateMs(item.created_at)) / (1000 * 60 * 60 * 24));
-  const recency = 1 / (1 + ageDays / 2.5);
+  const recency = 1 / (1 + ageDays / 3.2);
 
   const popularity =
-    0.12 * log1pSafe(item.view_count ?? 0) + 0.22 * log1pSafe(item.like_count ?? 0);
+    0.14 * log1pSafe(item.view_count ?? 0) +
+    0.2 * log1pSafe(item.like_count ?? 0) +
+    0.26 * log1pSafe(item.runs_count ?? 0) +
+    0.28 * log1pSafe(item.purchase_count ?? 0);
 
   let affinity = 0;
   for (const t of tags) affinity += (profile.tag_w[t] || 0) * 0.035;
@@ -410,18 +422,27 @@ function scoreItemForUser(
   affinity += (isWorkflow ? profile.type_w.workflow : profile.type_w.prompt) * 0.18;
 
   const freePref = profile.prefers_free * (isFree ? 0.12 : -0.08);
+  const paidLift = isPaid ? 0.035 : 0;
+  const thumbnailPenalty = hasThumbnail ? 0 : -0.4;
 
   const stable = `${sessionSalt}|${item.id}|${item.type ?? ""}|${owner}|${
     item.edgaze_code ?? ""
   }`.toLowerCase();
-  let h = 2166136261;
-  for (let i = 0; i < stable.length; i++) h = (h ^ stable.charCodeAt(i)) * 16777619;
-  const noise = ((h >>> 0) % 1000) / 1000;
-  const explore = (noise - 0.5) * 0.06;
+  const noise = stableUnitFloat(stable);
+  const explore = (noise - 0.5) * 0.11;
 
   const qualityPenalty = item.title ? 0 : -0.12;
 
-  return 0.52 * recency + popularity + affinity + freePref + explore + qualityPenalty;
+  return (
+    0.44 * recency +
+    popularity +
+    affinity +
+    freePref +
+    paidLift +
+    thumbnailPenalty +
+    explore +
+    qualityPenalty
+  );
 }
 
 function pickDiversifiedPage(
@@ -1492,7 +1513,7 @@ export default function MarketplacePage() {
   const [codeSugLoading, setCodeSugLoading] = useState(false);
 
   const [filters, setFilters] = useState<MarketplaceFilters>({
-    sort: "popular",
+    sort: "curated",
     topic: null,
     contentType: "all",
     priceRange: { min: null, max: null },
@@ -1726,8 +1747,9 @@ export default function MarketplacePage() {
       emitEvent({ name: "load_page", meta: { replace, q } });
 
       const sessionSalt = replace ? `${sessionId}_r${refreshSaltRef.current}` : sessionId;
+      const fetchWindowSize = filters.sort === "curated" ? 24 : PAGE_SIZE;
 
-      // For "newest", preserve strict chronological order; otherwise use diversification
+      // Preserve strict chronology only for explicit "newest"; otherwise use curated diversification.
       const { page: nextPage, rest: nextPending } =
         filters.sort === "newest"
           ? { page: mergedPool.slice(0, PAGE_SIZE), rest: mergedPool.slice(PAGE_SIZE) }
@@ -1736,8 +1758,8 @@ export default function MarketplacePage() {
       setItems((prev) => (replace ? nextPage : [...prev, ...nextPage]));
       setPending(nextPending);
 
-      const promptsMore = prompts.length === PAGE_SIZE;
-      const workflowsMore = workflows.length === PAGE_SIZE;
+      const promptsMore = prompts.length === fetchWindowSize;
+      const workflowsMore = workflows.length === fetchWindowSize;
 
       setCursor({
         promptsOffset: cursorState.promptsOffset + prompts.length,

@@ -239,6 +239,7 @@ export default function BuilderPage() {
   const previewParam =
     searchParams?.get("preview") === "1" || searchParams?.get("mode") === "preview";
   const draftParam = searchParams?.get("draftId");
+  const workflowParam = searchParams?.get("workflowId");
   const templateSlugParam = searchParams?.get("templateSlug");
   const [activeTemplateSlug, setActiveTemplateSlug] = useState<string | null>(
     templateSlugParam ?? null,
@@ -253,8 +254,9 @@ export default function BuilderPage() {
   const [previewOwnerHandle, setPreviewOwnerHandle] = useState<string | null>(null);
   const [previewEdgazeCode, setPreviewEdgazeCode] = useState<string | null>(null);
 
-  // builder mode - initialize from URL param
-  const [mode, setMode] = useState<BuilderMode>(previewParam ? "preview" : "edit");
+  // Keep workflow deep-links in preview chrome until access is resolved so customers who
+  // bought a workflow never see editable builder UI flash before the read-only route loads.
+  const [mode, setMode] = useState<BuilderMode>(previewParam || workflowParam ? "preview" : "edit");
   const isPreview = mode === "preview";
   const isTemplateMobilePreview = mode === "template-mobile-preview";
   const hasTemplateEntry = Boolean(activeTemplateSlug ?? templateSlugParam);
@@ -656,15 +658,18 @@ export default function BuilderPage() {
   // Sync mode with URL param changes
   useEffect(() => {
     if (!mounted) return;
-    const urlMode = previewParam
-      ? "preview"
-      : shouldUseTemplateMobilePreview
-        ? "template-mobile-preview"
-        : "edit";
+    const shouldHoldWorkflowPreviewShell =
+      Boolean(workflowParam) && !previewParam && activeDraftIdRef.current !== workflowParam;
+    const urlMode =
+      previewParam || shouldHoldWorkflowPreviewShell
+        ? "preview"
+        : shouldUseTemplateMobilePreview
+          ? "template-mobile-preview"
+          : "edit";
     if (mode !== urlMode) {
       setMode(urlMode);
     }
-  }, [mounted, previewParam, shouldUseTemplateMobilePreview, mode]);
+  }, [mounted, previewParam, shouldUseTemplateMobilePreview, workflowParam, mode]);
 
   // listen to publish intent (bus) — ignore in preview
   useEffect(() => {
@@ -1258,7 +1263,6 @@ export default function BuilderPage() {
       if (!requireAuth()) return;
       if (!userId) return;
 
-      setMode("edit");
       setShowLauncher(false);
       setWfLoading(true);
 
@@ -1350,6 +1354,7 @@ export default function BuilderPage() {
         setName(row.title || "Untitled Workflow");
         setEditingName(false);
         setActiveTemplateSlug(null);
+        setMode("edit");
 
         const loaded = normalizeGraph(row.graph);
         loadGraphAndResetHistory(loaded);

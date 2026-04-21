@@ -108,6 +108,35 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+function isExplicitlyFreeWorkflow(
+  listing: {
+    monetisation_mode?: string | null;
+    is_paid?: boolean | null;
+    price_usd?: number | null;
+  } | null,
+): boolean {
+  if (!listing) return false;
+  if (listing.monetisation_mode === "free") return true;
+  if (listing.is_paid === false) {
+    const price = typeof listing.price_usd === "number" ? listing.price_usd : null;
+    return price == null || price <= 0;
+  }
+  return false;
+}
+
+function purchaseGrantsWorkflowAccess(
+  purchase: PurchaseRow | null,
+  listing: {
+    monetisation_mode?: string | null;
+    is_paid?: boolean | null;
+    price_usd?: number | null;
+  } | null,
+): boolean {
+  if (!purchase) return false;
+  if (purchase.status === "paid") return true;
+  return purchase.status === "beta" && isExplicitlyFreeWorkflow(listing);
+}
+
 function initialsFromName(name: string | null | undefined): string {
   if (!name) return "U";
   const parts = name.trim().split(/\s+/);
@@ -1112,8 +1141,7 @@ export default function WorkflowProductPage() {
 
   // Only treat as free when listing is loaded and explicitly free (source of truth: DB).
   const isNaturallyFree = useMemo(() => {
-    if (!listing) return false;
-    return listing.monetisation_mode === "free" || listing.is_paid === false;
+    return isExplicitlyFreeWorkflow(listing);
   }, [listing]);
 
   const paidLabel = useMemo(() => {
@@ -1146,8 +1174,8 @@ export default function WorkflowProductPage() {
   const isOwned = useMemo(() => {
     if (!listing) return false;
     if (isOwner) return true;
-    // Require purchase row for everyone else (even free items need to be "purchased" to show in library)
-    return Boolean(purchase && (purchase.status === "paid" || purchase.status === "beta"));
+    // Paid workflows require a real paid purchase. Beta/free grants only count for explicitly free listings.
+    return purchaseGrantsWorkflowAccess(purchase, listing);
   }, [listing, isOwner, purchase]);
 
   const primaryCtaLabel = useMemo(() => {
@@ -1301,7 +1329,7 @@ export default function WorkflowProductPage() {
       const uid = userId;
       const row = await loadPurchaseRow(listing.id, uid);
       setPurchase(row);
-      isOwnedNow = Boolean(row && (row.status === "paid" || row.status === "beta"));
+      isOwnedNow = purchaseGrantsWorkflowAccess(row, listing);
     }
 
     if (isOwnedNow) {

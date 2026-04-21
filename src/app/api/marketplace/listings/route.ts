@@ -7,6 +7,7 @@ import { attachOwnerProfileFields } from "../../../../lib/marketplace/attachOwne
 import { createSupabaseAdminClient } from "../../../../lib/supabase/admin";
 
 const PAGE_SIZE = 9;
+const CURATED_FETCH_SIZE = 24;
 
 export type MarketplaceListingItem = {
   id: string;
@@ -26,6 +27,7 @@ export type MarketplaceListingItem = {
   price_usd: number | null;
   view_count: number | null;
   like_count: number | null;
+  purchase_count: number | null;
   runs_count: number | null;
   created_at: string | null;
   published_at: string | null;
@@ -67,6 +69,7 @@ function mapPrompt(row: Record<string, unknown>): MarketplaceListingItem {
         : row.like_count != null
           ? Number(row.like_count)
           : null,
+    purchase_count: row.purchase_count != null ? Number(row.purchase_count) : null,
     runs_count: row.runs_count != null ? Number(row.runs_count) : null,
     created_at: (row.created_at as string) ?? null,
     published_at: null,
@@ -94,6 +97,7 @@ function mapWorkflow(row: Record<string, unknown>): MarketplaceListingItem {
     price_usd: row.price_usd != null ? Number(row.price_usd) : null,
     view_count: row.views_count != null ? Number(row.views_count) : null,
     like_count: row.likes_count != null ? Number(row.likes_count) : null,
+    purchase_count: row.purchase_count != null ? Number(row.purchase_count) : null,
     runs_count: row.runs_count != null ? Number(row.runs_count) : null,
     created_at: (row.published_at as string) ?? (row.created_at as string) ?? null,
     published_at: (row.published_at as string) ?? null,
@@ -106,7 +110,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get("q") ?? "").trim();
-    const sort = (searchParams.get("sort") ?? "newest") as "newest" | "popular";
+    const sort = (searchParams.get("sort") ?? "curated") as "curated" | "newest" | "popular";
     const contentType = (searchParams.get("contentType") ?? "all") as "all" | "prompt" | "workflow";
     const topic = searchParams.get("topic");
     const topicsRaw = searchParams.get("topics");
@@ -118,6 +122,7 @@ export async function GET(request: NextRequest) {
 
     const priceMinNum = priceMin ? parseFloat(priceMin) : null;
     const priceMaxNum = priceMax ? parseFloat(priceMax) : null;
+    const fetchSize = sort === "curated" ? CURATED_FETCH_SIZE : PAGE_SIZE;
 
     const supabase = createSupabaseAdminClient();
 
@@ -178,11 +183,12 @@ export async function GET(request: NextRequest) {
         .in("type", contentType === "prompt" ? ["prompt"] : ["prompt", "workflow"])
         .in("visibility", ["public", "unlisted"])
         .is("removed_at", null)
-        .range(promptsOffset, promptsOffset + PAGE_SIZE - 1);
+        .range(promptsOffset, promptsOffset + fetchSize - 1);
 
       if (sort === "popular") {
         builder = builder
           .order("views_count", { ascending: false, nullsFirst: false })
+          .order("runs_count", { ascending: false, nullsFirst: false })
           .order("likes_count", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false });
       } else {
@@ -225,7 +231,7 @@ export async function GET(request: NextRequest) {
           .select(workflowsSelect)
           .eq("is_published", true)
           .is("removed_at", null)
-          .range(workflowsOffset, workflowsOffset + PAGE_SIZE - 1);
+          .range(workflowsOffset, workflowsOffset + fetchSize - 1);
 
         if (useVisibility) {
           builder = builder.in("visibility", ["public", "unlisted"]);
@@ -236,6 +242,7 @@ export async function GET(request: NextRequest) {
         if (sort === "popular") {
           builder = builder
             .order("views_count", { ascending: false, nullsFirst: false })
+            .order("runs_count", { ascending: false, nullsFirst: false })
             .order("likes_count", { ascending: false, nullsFirst: false })
             .order("published_at", { ascending: false, nullsFirst: false })
             .order("created_at", { ascending: false });
@@ -281,6 +288,46 @@ export async function GET(request: NextRequest) {
           mapWorkflow(w as unknown as Record<string, unknown>),
         );
       }
+    }
+
+    const promptIds = prompts.map((p) => p.id).filter(Boolean);
+    if (promptIds.length > 0) {
+      const { data } = await supabase
+        .from("prompt_purchases")
+        .select("prompt_id")
+        .in("prompt_id", promptIds)
+        .eq("status", "paid")
+        .is("refunded_at", null);
+      const counts = new Map<string, number>();
+      for (const row of data ?? []) {
+        const id = String((row as { prompt_id?: unknown }).prompt_id ?? "");
+        if (!id) continue;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+      prompts = prompts.map((prompt) => ({
+        ...prompt,
+        purchase_count: counts.get(prompt.id) ?? 0,
+      }));
+    }
+
+    const workflowIds = workflows.map((w) => w.id).filter(Boolean);
+    if (workflowIds.length > 0) {
+      const { data } = await supabase
+        .from("workflow_purchases")
+        .select("workflow_id")
+        .in("workflow_id", workflowIds)
+        .eq("status", "paid")
+        .is("refunded_at", null);
+      const counts = new Map<string, number>();
+      for (const row of data ?? []) {
+        const id = String((row as { workflow_id?: unknown }).workflow_id ?? "");
+        if (!id) continue;
+        counts.set(id, (counts.get(id) ?? 0) + 1);
+      }
+      workflows = workflows.map((workflow) => ({
+        ...workflow,
+        purchase_count: counts.get(workflow.id) ?? 0,
+      }));
     }
 
     await attachOwnerProfileFields(supabase, [...prompts, ...workflows]);

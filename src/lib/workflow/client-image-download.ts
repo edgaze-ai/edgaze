@@ -53,6 +53,18 @@ export async function downloadWorkflowImageFromUrl(src: string): Promise<void> {
   const safeSrc = sanitizeNavigationHref(rawSrc);
   if (!safeSrc) return;
 
+  if (/^https?:\/\//i.test(safeSrc)) {
+    const proxyUrl = `/api/workflow/download-image?src=${encodeURIComponent(safeSrc)}`;
+    const a = document.createElement("a");
+    a.href = proxyUrl;
+    a.download = `image-${stamp}.png`;
+    a.rel = "noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return;
+  }
+
   const controller = new AbortController();
   const tid = window.setTimeout(() => controller.abort(), 18_000);
 

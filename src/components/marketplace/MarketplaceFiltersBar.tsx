@@ -44,7 +44,7 @@ function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-export type MarketplaceSort = "trending" | "popular" | "newest";
+export type MarketplaceSort = "curated" | "trending" | "popular" | "newest";
 export type ContentType = "all" | "prompt" | "workflow";
 
 export type PriceRange = {
@@ -61,6 +61,7 @@ export type MarketplaceFilters = {
 };
 
 const SORT_OPTIONS: { value: MarketplaceSort; label: string; icon: React.ElementType }[] = [
+  { value: "curated", label: "Curated", icon: Sparkles },
   { value: "trending", label: "Trending", icon: TrendingUp },
   { value: "popular", label: "Popular", icon: Flame },
   { value: "newest", label: "Newest", icon: Clock },
