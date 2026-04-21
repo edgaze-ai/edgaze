@@ -75,6 +75,12 @@ export default function CustomerWorkflowRunModal({
     state!.phase === "executing" &&
     (state!.status === "running" || state!.status === "cancelling");
   const showHeaderCancel = Boolean(onCancel && runtimeModel?.canCancel && isLiveExecution);
+  const usesCustomBody = Boolean(customBody);
+  const desktopShellClass = usesCustomBody
+    ? "md:w-[min(560px,calc(100vw-2.5rem))]"
+    : isLiveExecution
+      ? "md:w-[min(780px,calc(100vw-2.5rem),calc(100dvh-3rem))] md:max-h-[calc(100dvh-3rem)]"
+      : "md:w-[min(780px,calc(100vw-2.5rem))]";
 
   return createPortal(
     <div className="fixed inset-0 z-[9999]">
@@ -93,33 +99,33 @@ export default function CustomerWorkflowRunModal({
       <div
         className={cx(
           "absolute inset-0",
-          isLiveExecution ? "max-md:overflow-hidden md:overflow-y-auto" : "overflow-y-auto",
+          "overflow-y-auto",
+          isLiveExecution ? "md:overflow-y-auto" : "",
         )}
       >
         <div
           className={cx(
             "mx-auto flex w-full justify-center",
-            "max-w-[min(920px,calc(100vw-1.25rem))]",
-            isLiveExecution ? "h-[100dvh] max-md:h-[100dvh] md:min-h-full" : "min-h-full",
-            "items-end p-0 md:items-center md:p-5",
+            "max-w-[min(920px,calc(100vw-1rem))] md:max-w-[calc(100vw-2.5rem)]",
+            "min-h-full",
+            "items-center px-2 py-4 md:p-5",
           )}
         >
-          <div className="w-full max-md:max-w-none md:mx-auto">
+          <div className="w-full md:mx-auto max-md:flex max-md:justify-center">
             <div
               className={cx(
                 "flex flex-col rounded-[34px] border border-white/10 bg-[#090a0e]/90 shadow-[0_40px_180px_rgba(0,0,0,0.72)] transition-all duration-500",
                 "md:p-5",
-                isLiveExecution
-                  ? "max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:overflow-hidden p-0"
-                  : "p-4",
-                "max-md:rounded-b-none max-md:rounded-t-[28px] max-md:border-x-0 max-md:border-b-0 max-md:border-t max-md:border-white/12",
-                "max-md:shadow-[0_-32px_120px_rgba(0,0,0,0.45)]",
+                isLiveExecution ? "p-0" : "p-3",
+                "max-md:w-[min(92vw,420px)] max-md:max-w-[420px] max-md:h-[min(78dvh,640px)] max-md:min-h-[520px] max-md:overflow-hidden max-md:rounded-[24px] max-md:border max-md:border-white/12",
+                desktopShellClass,
+                "max-md:shadow-[0_28px_100px_rgba(0,0,0,0.5)]",
                 open ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",
               )}
             >
-              <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:pt-3.5">
+              <div className="flex shrink-0 items-center gap-2 border-b border-white/10 px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] md:px-4 md:py-3 md:pt-3.5">
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[15px] font-semibold text-white">
+                  <div className="truncate text-[14px] font-semibold text-white md:text-[15px]">
                     {state?.workflowName ?? "Workflow"}
                   </div>
                   {showExecutionTimer &&
@@ -136,7 +142,7 @@ export default function CustomerWorkflowRunModal({
                   <button
                     type="button"
                     onClick={onCancel}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-3 py-2 text-[13px] font-medium text-white/88"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-2.5 py-1.5 text-[12px] font-medium text-white/88 md:px-3 md:py-2 md:text-[13px]"
                   >
                     {state?.status === "cancelling" ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -150,7 +156,7 @@ export default function CustomerWorkflowRunModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/75"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/75 md:h-10 md:w-10"
                     aria-label="Close"
                   >
                     <X className="h-4 w-4" />
@@ -162,8 +168,8 @@ export default function CustomerWorkflowRunModal({
                 className={cx(
                   "min-h-0 flex-1",
                   isLiveExecution
-                    ? "overflow-hidden px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 md:overflow-auto md:p-4"
-                    : "overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 md:p-5",
+                    ? "overflow-hidden px-2.5 pb-2.5 pt-2 md:overflow-auto md:p-4"
+                    : "overflow-y-auto px-3 pb-3 pt-3 md:p-5",
                 )}
               >
                 {customBody ? (

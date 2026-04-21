@@ -1735,31 +1735,31 @@ function RuntimePhaseAnimation({ variant }: { variant: "connecting" | "finalizin
   const eyebrow = variant === "connecting" ? "Connecting" : "Finalizing";
 
   return (
-    <div className="relative w-full max-w-[940px] py-2 md:py-4">
+    <div className="relative w-full max-w-[940px] py-1 md:py-4">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(109,233,255,0.12),transparent_42%),radial-gradient(circle_at_72%_30%,rgba(255,101,194,0.11),transparent_28%)] runtime-ambient-flow" />
-      <div className="relative flex flex-col items-center gap-4 md:gap-8">
-        <div className="relative flex h-[130px] w-full items-center justify-center overflow-hidden md:h-[220px]">
+      <div className="relative flex flex-col items-center gap-3 md:gap-8">
+        <div className="relative flex h-[96px] w-full items-center justify-center overflow-hidden md:h-[220px]">
           <div className="absolute inset-x-[16%] top-1/2 h-px -translate-y-1/2 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.10),rgba(255,255,255,0.32),rgba(255,255,255,0.10),transparent)]" />
-          <div className="absolute inset-x-[22%] top-1/2 h-[72px] -translate-y-1/2 rounded-full border border-white/6 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_70%)] backdrop-blur-[2px]" />
-          <div className="absolute h-[100px] w-[100px] rounded-full border border-cyan-300/12 runtime-signal-rotate md:h-[176px] md:w-[176px]" />
-          <div className="absolute h-[72px] w-[72px] rounded-full border border-fuchsia-300/12 [animation-direction:reverse] runtime-signal-rotate md:h-[122px] md:w-[122px]" />
-          <div className="absolute h-[44px] w-[44px] rounded-full border border-white/12 bg-white/[0.035] runtime-signal-core md:h-[74px] md:w-[74px]" />
-          <div className="absolute h-[150px] w-[150px] rounded-full border border-cyan-200/8 runtime-signal-wave md:h-[240px] md:w-[240px]" />
-          <div className="absolute h-[150px] w-[150px] rounded-full border border-fuchsia-200/8 [animation-delay:1.05s] runtime-signal-wave md:h-[240px] md:w-[240px]" />
-          <div className="absolute h-2.5 w-2.5 rounded-full bg-cyan-300/95 shadow-[0_0_24px_rgba(103,232,249,0.7)] runtime-signal-orb" />
+          <div className="absolute inset-x-[22%] top-1/2 h-[50px] -translate-y-1/2 rounded-full border border-white/6 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_70%)] backdrop-blur-[2px] md:h-[72px]" />
+          <div className="absolute h-[72px] w-[72px] rounded-full border border-cyan-300/12 runtime-signal-rotate md:h-[176px] md:w-[176px]" />
+          <div className="absolute h-[52px] w-[52px] rounded-full border border-fuchsia-300/12 [animation-direction:reverse] runtime-signal-rotate md:h-[122px] md:w-[122px]" />
+          <div className="absolute h-[32px] w-[32px] rounded-full border border-white/12 bg-white/[0.035] runtime-signal-core md:h-[74px] md:w-[74px]" />
+          <div className="absolute h-[104px] w-[104px] rounded-full border border-cyan-200/8 runtime-signal-wave md:h-[240px] md:w-[240px]" />
+          <div className="absolute h-[104px] w-[104px] rounded-full border border-fuchsia-200/8 [animation-delay:1.05s] runtime-signal-wave md:h-[240px] md:w-[240px]" />
+          <div className="absolute h-2 w-2 rounded-full bg-cyan-300/95 shadow-[0_0_24px_rgba(103,232,249,0.7)] runtime-signal-orb md:h-2.5 md:w-2.5" />
           <div className="absolute top-[28%] h-10 w-px bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.18),rgba(255,255,255,0))] runtime-signal-steam-1" />
           <div className="absolute top-[24%] h-14 w-px bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.12),rgba(255,255,255,0))] runtime-signal-steam-2" />
           <div className="absolute top-[30%] h-8 w-px bg-[linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,0.14),rgba(255,255,255,0))] runtime-signal-steam-3" />
-          <div className="absolute bottom-[26%] flex items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-white/34">
+          <div className="absolute bottom-[26%] flex items-center gap-2.5 text-[10px] uppercase tracking-[0.18em] text-white/34 md:gap-3 md:text-[11px] md:tracking-[0.22em]">
             <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 runtime-pulse-dot" />
             {eyebrow}
           </div>
         </div>
-        <div className="max-w-[48ch] space-y-1.5 text-center md:space-y-2">
-          <div className="text-[17px] font-medium tracking-[-0.03em] text-white/92 md:text-[28px]">
+        <div className="max-w-[32ch] space-y-1 text-center md:max-w-[48ch] md:space-y-2">
+          <div className="text-[14px] font-medium tracking-[-0.03em] text-white/92 md:text-[28px]">
             {title}
           </div>
-          <div className="text-[12px] leading-6 text-white/56 md:text-[15px] md:leading-7">
+          <div className="text-[10px] leading-[1.125rem] text-white/56 md:text-[15px] md:leading-7">
             {subtitle}
           </div>
         </div>
@@ -1801,7 +1801,7 @@ export default function CustomerWorkflowRuntimeSurface({
       className={cx(
         "min-h-0",
         state.phase === "executing" && (state.status === "running" || state.status === "cancelling")
-          ? "flex h-full min-h-0 flex-col space-y-3 md:space-y-4"
+          ? "flex h-full min-h-0 flex-col space-y-2.5 md:space-y-4"
           : "space-y-4 md:space-y-5",
       )}
     >
@@ -1907,16 +1907,16 @@ export default function CustomerWorkflowRuntimeSurface({
               showCancel={showInlineExecutionCancel}
             />
           )}
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(72,214,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,76,198,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-[20px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(72,214,255,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,76,198,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.012))] shadow-[0_22px_64px_rgba(0,0,0,0.34)] md:rounded-[30px] md:shadow-[0_28px_90px_rgba(0,0,0,0.38)]">
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(0,190,255,0.10),transparent_35%,rgba(255,0,153,0.10))] runtime-ambient-flow" />
-            <div className="relative flex h-full min-h-0 flex-1 flex-col justify-center px-4 py-4 md:min-h-[560px] md:px-10 md:py-8">
-              <div className="mx-auto flex w-full min-h-0 max-w-[980px] flex-col items-center justify-center gap-4 text-center md:gap-8">
+            <div className="relative flex h-full min-h-0 flex-1 flex-col justify-center px-3 py-2.5 md:min-h-[560px] md:px-10 md:py-8">
+              <div className="mx-auto flex w-full min-h-0 max-w-[980px] flex-col items-center justify-center gap-2.5 text-center md:gap-8">
                 <div className="max-w-[720px] max-md:shrink-0">
-                  <div className="text-[22px] font-medium tracking-[-0.04em] text-white md:text-[52px]">
+                  <div className="text-[16px] font-medium tracking-[-0.04em] text-white md:text-[52px]">
                     {model.headline}
                   </div>
                   {model.subline && (
-                    <div className="mx-auto mt-2 max-w-[58ch] text-[13px] leading-6 text-white/62 md:mt-5 md:text-[16px] md:leading-7">
+                    <div className="mx-auto mt-1 max-w-[32ch] text-[11px] leading-[1.125rem] text-white/62 md:mt-5 md:max-w-[58ch] md:text-[16px] md:leading-7">
                       {model.subline}
                     </div>
                   )}
@@ -1936,24 +1936,24 @@ export default function CustomerWorkflowRuntimeSurface({
                   <RuntimePhaseAnimation variant="finalizing" />
                 ) : (model.mode === "node" || model.mode === "queueing") &&
                   model.activeNodeIds.length > 0 ? (
-                  <div className="w-full max-w-[900px] max-md:shrink-0">
+                  <div className="w-full max-w-[900px] max-md:max-w-[310px] max-md:shrink-0">
                     <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
                   </div>
                 ) : model.mode === "stopping" ? (
-                  <div className="flex h-[120px] items-center justify-center md:h-[220px]">
-                    <div className="inline-flex items-center gap-3 rounded-full border border-white/12 bg-white/[0.05] px-5 py-3 text-sm text-white/82">
+                  <div className="flex h-[96px] items-center justify-center md:h-[220px]">
+                    <div className="inline-flex items-center gap-2.5 rounded-full border border-white/12 bg-white/[0.05] px-4 py-2.5 text-[12px] text-white/82 md:gap-3 md:px-5 md:py-3 md:text-sm">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Stopping current execution...
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full max-w-[900px] max-md:shrink-0">
+                  <div className="w-full max-w-[900px] max-md:max-w-[310px] max-md:shrink-0">
                     <CustomerRunNodeStage graph={state.graph} activeNodeIds={model.activeNodeIds} />
                   </div>
                 )}
 
                 {model.mode === "node" && model.activeNodeIds.length > 1 && (
-                  <div className="text-xs text-white/52 md:text-sm">
+                  <div className="text-[11px] text-white/52 md:text-sm">
                     {model.activeNodeIds.length > 3
                       ? `Showing 3 active nodes. +${model.activeNodeIds.length - 3} more running.`
                       : `${model.activeNodeIds.length} nodes are running.`}
@@ -1961,7 +1961,7 @@ export default function CustomerWorkflowRuntimeSurface({
                 )}
 
                 {state.connectionState === "reconnecting" && (
-                  <div className="text-xs text-white/48 md:text-sm">
+                  <div className="text-[11px] text-white/48 md:text-sm">
                     Reconnecting to live updates...
                   </div>
                 )}

@@ -219,6 +219,20 @@ export async function trackDemoRun(workflowId: string): Promise<boolean> {
   return trackDemoRunServer(workflowId);
 }
 
+export function markDemoRunConsumedLocally(workflowId: string): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    const cache = JSON.parse(localStorage.getItem(DEMO_CHECK_CACHE_KEY) || "{}");
+    cache[workflowId] = { allowed: false, timestamp: Date.now() };
+    localStorage.setItem(DEMO_CHECK_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore cache errors
+  }
+
+  trackDemoRunLocal(workflowId);
+}
+
 /**
  * Legacy local tracking (for backwards compatibility with builder)
  */

@@ -80,6 +80,10 @@ import {
   resolveWorkflowAccessDecision,
 } from "src/server/flow/workflow-security";
 import { getOwnRecordValue, sanitizeLogText } from "@/lib/security/url-policy";
+import {
+  getWorkflowDemoUserAgent,
+  normalizeWorkflowDemoFingerprint,
+} from "src/server/security/workflow-demo-identity";
 
 /** Node runtime so workflow code reads deployment `process.env` (platform API keys). */
 export const runtime = "nodejs";
@@ -664,7 +668,8 @@ export async function POST(req: Request) {
           403,
         );
       }
-      if (!deviceFingerprint || deviceFingerprint.length < 10) {
+      const normalizedDeviceFingerprint = normalizeWorkflowDemoFingerprint(deviceFingerprint);
+      if (!normalizedDeviceFingerprint) {
         return traceJson(
           {
             ok: false,
@@ -687,7 +692,8 @@ export async function POST(req: Request) {
         },
       });
     } else if (isDemo) {
-      if (!deviceFingerprint || deviceFingerprint.length < 10) {
+      const normalizedDeviceFingerprint = normalizeWorkflowDemoFingerprint(deviceFingerprint);
+      if (!normalizedDeviceFingerprint) {
         return traceJson(
           {
             ok: false,
@@ -716,16 +722,24 @@ export async function POST(req: Request) {
         !checkWorkflowDemoRateLimit({
           req,
           workflowId,
-          deviceFingerprint,
+          deviceFingerprint: normalizedDeviceFingerprint,
           kind: "consume",
         })
       ) {
         return traceJson({ ok: false, error: "Too many requests. Please try again shortly." }, 429);
       }
 
+      const ipAddress = extractTrustedClientIpOrUnknown(req);
       const workflowDemoProof =
         (await cookies()).get(getTurnstileCookieName("workflow_demo"))?.value ?? "";
-      if (!consumeTurnstileProof("workflow_demo", workflowDemoProof)) {
+      if (
+        !consumeTurnstileProof("workflow_demo", workflowDemoProof, {
+          workflowId,
+          deviceFingerprint: normalizedDeviceFingerprint,
+          ipAddress,
+          userAgent: getWorkflowDemoUserAgent(req),
+        })
+      ) {
         return traceJson(
           {
             ok: false,
@@ -735,11 +749,9 @@ export async function POST(req: Request) {
         );
       }
 
-      const ipAddress = extractTrustedClientIpOrUnknown(req);
-
       const { data: recordData, error: recordError } = await consumeAnonymousWorkflowDemoRecord({
         workflowId,
-        deviceFingerprint,
+        deviceFingerprint: normalizedDeviceFingerprint,
         ipAddress,
       });
 

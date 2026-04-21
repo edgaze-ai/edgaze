@@ -9,6 +9,7 @@ import {
 } from "src/server/flow/workflow-security";
 import { extractTrustedClientIpOrUnknown } from "@lib/request-client-ip";
 import { checkWorkflowDemoRateLimit } from "@lib/rate-limiting/workflow-demo";
+import { normalizeWorkflowDemoFingerprint } from "src/server/security/workflow-demo-identity";
 
 export const maxDuration = 30;
 
@@ -69,8 +70,8 @@ export async function POST(req: Request) {
       });
     }
 
-    const fp = body.deviceFingerprint?.trim();
-    if (!fp || fp.length < 10) {
+    const fp = normalizeWorkflowDemoFingerprint(body.deviceFingerprint);
+    if (!fp) {
       return NextResponse.json(
         { ok: false, error: "Device fingerprint required for anonymous demo." },
         { status: 400 },

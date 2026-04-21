@@ -6,6 +6,7 @@ import {
   isAnonymousWorkflowDemoEligibleMode,
   resolveWorkflowAccessDecision,
 } from "src/server/flow/workflow-security";
+import { normalizeWorkflowDemoFingerprint } from "src/server/security/workflow-demo-identity";
 
 /**
  * Check if an anonymous demo run is allowed for a workflow
@@ -26,7 +27,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { workflowId, deviceFingerprint } = body;
+    const workflowId = body.workflowId.trim();
+    const deviceFingerprint = normalizeWorkflowDemoFingerprint(body.deviceFingerprint);
+    if (!workflowId || !deviceFingerprint) {
+      return NextResponse.json(
+        { ok: false, error: "workflowId and a valid deviceFingerprint are required" },
+        { status: 400 },
+      );
+    }
 
     const ipAddress = extractTrustedClientIpOrUnknown(req);
 
@@ -42,10 +50,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate fingerprint format (should be a hash string)
-    if (!deviceFingerprint || deviceFingerprint.length < 10) {
-      return NextResponse.json({ ok: false, error: "Invalid device fingerprint" }, { status: 400 });
-    }
-
     const accessDecision = await resolveWorkflowAccessDecision({
       workflowId,
       userId: null,

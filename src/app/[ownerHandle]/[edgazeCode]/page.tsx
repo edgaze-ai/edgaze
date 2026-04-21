@@ -26,7 +26,11 @@ import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
 import WorkflowCommentsSection from "../../../components/marketplace/WorkflowCommentsSection";
 import CustomerWorkflowRunModal from "../../../components/runtime/customer/CustomerWorkflowRunModal";
-import { canRunDemo, getDeviceFingerprintHash } from "../../../lib/workflow/device-tracking";
+import {
+  canRunDemo,
+  getDeviceFingerprintHash,
+  markDemoRunConsumedLocally,
+} from "../../../lib/workflow/device-tracking";
 import { extractWorkflowInputs } from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
 import { track, type TrackProperties } from "../../../lib/mixpanel";
@@ -1122,11 +1126,12 @@ export default function WorkflowProductPage() {
     demoAvailable === false
       ? "You've already used your one-time demo. Purchase for unlimited runs."
       : "Try a one-time demo";
+  const effectiveViewerId = currentUserId || userId || null;
 
   const isOwner = useMemo(() => {
-    if (!listing || !currentUserId) return false;
-    return String(listing.owner_id ?? "") === String(currentUserId);
-  }, [listing, currentUserId]);
+    if (!listing || !effectiveViewerId) return false;
+    return String(listing.owner_id ?? "") === String(effectiveViewerId);
+  }, [listing, effectiveViewerId]);
 
   // Access ONLY: owner OR has a row in workflow_purchases (paid/beta). No free access without purchase.
   const isOwned = useMemo(() => {
@@ -1146,6 +1151,12 @@ export default function WorkflowProductPage() {
     if (isOwned) return "Owned";
     return null;
   }, [isOwner, isOwned]);
+
+  useEffect(() => {
+    if (isOwned && purchaseError) {
+      setPurchaseError(null);
+    }
+  }, [isOwned, purchaseError]);
 
   function openWorkflowStudio() {
     if (!listing) return;
@@ -1414,7 +1425,12 @@ export default function WorkflowProductPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ token, purpose: "workflow_demo" }),
+        body: JSON.stringify({
+          token,
+          purpose: "workflow_demo",
+          workflowId: listing.id,
+          deviceFingerprint: getDeviceFingerprintHash(),
+        }),
       });
 
       const result = await response.json();
@@ -1423,6 +1439,7 @@ export default function WorkflowProductPage() {
         setTurnstileVerifying(false);
         setTurnstileToken(null);
         setDemoVerificationPhase("idle");
+        demoRunAutoExecuteRef.current = false;
 
         const pendingInputs = pendingDemoInputValuesRef.current;
         pendingDemoInputValuesRef.current = null;
@@ -1697,6 +1714,7 @@ export default function WorkflowProductPage() {
           typeof error?.error === "string" &&
           error.error.includes("Verification required before running this demo")
         ) {
+          demoRunAutoExecuteRef.current = false;
           pendingDemoInputValuesRef.current = processedInputs;
           setTurnstileToken(null);
           setTurnstileVerifying(false);
@@ -1716,6 +1734,11 @@ export default function WorkflowProductPage() {
           );
         }
         throw new Error(error.error || `HTTP ${response.status}`);
+      }
+
+      if (!userId) {
+        markDemoRunConsumedLocally(listing.id);
+        setDemoAvailable(false);
       }
 
       const streamResult = await handleWorkflowRunStream({
@@ -2010,34 +2033,34 @@ export default function WorkflowProductPage() {
         state={demoModalState}
         customBody={
           demoVerificationPhase === "idle" ? null : (
-            <div className="mx-auto flex w-full max-w-[560px] flex-col gap-5 px-1 py-2 text-white">
+            <div className="mx-auto flex h-full w-full max-w-[420px] flex-col justify-center gap-2.5 px-0 py-0.5 text-white md:max-w-[500px] md:gap-5 md:px-1 md:py-2">
               {demoVerificationPhase === "checking" ? (
-                <div className="flex flex-col items-center gap-4 rounded-[28px] border border-white/10 bg-white/[0.03] px-6 py-12 text-center">
-                  <Loader2 className="h-10 w-10 animate-spin text-amber-300" />
+                <div className="flex flex-col items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-6 text-center md:gap-4 md:rounded-[28px] md:px-6 md:py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-amber-300 md:h-10 md:w-10" />
                   <div className="space-y-2">
-                    <div className="text-xl font-semibold text-white">
+                    <div className="text-[16px] font-semibold text-white md:text-xl">
                       Checking demo eligibility...
                     </div>
-                    <div className="text-sm leading-6 text-white/60">
+                    <div className="text-[12px] leading-[1.1rem] text-white/60 md:text-sm md:leading-6">
                       Verifying device and usage limits before we start the run.
                     </div>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className="rounded-[28px] border border-amber-300/15 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(255,255,255,0.02))] p-5">
+                  <div className="rounded-[20px] border border-amber-300/15 bg-[linear-gradient(180deg,rgba(251,191,36,0.08),rgba(255,255,255,0.02))] p-3.5 md:rounded-[28px] md:p-5">
                     <div className="flex items-start gap-3">
-                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-amber-300/20 bg-amber-400/10">
-                        <Lock className="h-5 w-5 text-amber-100" />
+                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[18px] border border-amber-300/20 bg-amber-400/10 md:h-11 md:w-11 md:rounded-2xl">
+                        <Lock className="h-4 w-4 text-amber-100 md:h-5 md:w-5" />
                       </div>
                       <div>
-                        <div className="text-[13px] font-semibold uppercase tracking-[0.18em] text-amber-100/70">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100/70 md:text-[13px] md:tracking-[0.18em]">
                           Demo Verification
                         </div>
-                        <div className="mt-2 text-2xl font-semibold tracking-tight text-white">
+                        <div className="mt-1 text-[20px] font-semibold tracking-[-0.04em] text-white md:mt-2 md:text-2xl md:tracking-tight">
                           Verify here to continue the run
                         </div>
-                        <div className="mt-2 text-sm leading-6 text-white/62">
+                        <div className="mt-1.5 text-[12px] leading-[1.1rem] text-white/62 md:mt-2 md:text-sm md:leading-6">
                           Complete the security check below and we will continue this demo in the
                           same run modal. No separate verification popup needed.
                         </div>
@@ -2045,14 +2068,14 @@ export default function WorkflowProductPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5">
-                    <div className="mb-4 text-sm leading-6 text-white/68">
+                  <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-3.5 md:rounded-[28px] md:p-5">
+                    <div className="mb-2.5 text-[12px] leading-[1.1rem] text-white/68 md:mb-4 md:text-sm md:leading-6">
                       This protects the demo from abuse while keeping the run flow in one place.
                       Each device gets one demo run.
                     </div>
 
                     <div
-                      className="flex min-h-[120px] justify-center rounded-[22px] border border-white/8 bg-black/20 p-4"
+                      className="flex min-h-[92px] justify-center rounded-[16px] border border-white/8 bg-black/20 p-2.5 md:min-h-[120px] md:rounded-[22px] md:p-4"
                       key="turnstile-inline-verification"
                     >
                       <TurnstileWidget onToken={handleTurnstileToken} />

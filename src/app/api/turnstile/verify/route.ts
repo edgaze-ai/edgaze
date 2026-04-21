@@ -2,6 +2,11 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { getTurnstileCookieName, issueTurnstileProof } from "src/server/security/turnstile-proof";
+import { extractTrustedClientIpOrUnknown } from "@lib/request-client-ip";
+import {
+  getWorkflowDemoUserAgent,
+  normalizeWorkflowDemoFingerprint,
+} from "src/server/security/workflow-demo-identity";
 
 export const runtime = "nodejs";
 
@@ -16,12 +21,11 @@ export async function POST(req: Request) {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) return json(500, { ok: false, error: "Missing TURNSTILE_SECRET_KEY" });
 
-  const ip =
-    req.headers.get("cf-connecting-ip") ||
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    "";
+  const ip = extractTrustedClientIpOrUnknown(req);
 
-  const { token, purpose } = await req.json().catch(() => ({ token: "", purpose: "" }));
+  const { token, purpose, workflowId, deviceFingerprint } = await req
+    .json()
+    .catch(() => ({ token: "", purpose: "" }));
   if (!token || typeof token !== "string")
     return json(400, { ok: false, error: "Captcha required" });
 
@@ -42,7 +46,20 @@ export async function POST(req: Request) {
 
   const res = json(200, { ok: true });
   const isWorkflowDemo = purpose === "workflow_demo";
-  const proof = isWorkflowDemo ? issueTurnstileProof("workflow_demo") : randomUUID();
+  let proof: string = randomUUID();
+  if (isWorkflowDemo) {
+    const normalizedWorkflowId = typeof workflowId === "string" ? workflowId.trim() : "";
+    const normalizedFingerprint = normalizeWorkflowDemoFingerprint(deviceFingerprint);
+    if (!normalizedWorkflowId || !normalizedFingerprint) {
+      return json(400, { ok: false, error: "workflowId and deviceFingerprint are required" });
+    }
+    proof = issueTurnstileProof("workflow_demo", {
+      workflowId: normalizedWorkflowId,
+      deviceFingerprint: normalizedFingerprint,
+      ipAddress: ip,
+      userAgent: getWorkflowDemoUserAgent(req),
+    });
+  }
   const cookieName = isWorkflowDemo
     ? getTurnstileCookieName("workflow_demo")
     : "edgaze_apply_captcha";

@@ -35,13 +35,13 @@ function extensionFromMime(mime: string): string {
  * save from the browser (required on many iOS cross-origin cases).
  */
 export async function downloadWorkflowImageFromUrl(src: string): Promise<void> {
-  const safeSrc = sanitizeNavigationHref(src);
-  if (!safeSrc) return;
   const stamp = Date.now();
+  const rawSrc = typeof src === "string" ? src.trim() : "";
+  if (!rawSrc) return;
 
-  if (/^data:image\//i.test(safeSrc)) {
+  if (/^data:image\//i.test(rawSrc) || /^blob:/i.test(rawSrc)) {
     const a = document.createElement("a");
-    a.href = safeSrc;
+    a.href = rawSrc;
     a.download = `image-${stamp}.png`;
     a.rel = "noreferrer";
     document.body.appendChild(a);
@@ -49,6 +49,9 @@ export async function downloadWorkflowImageFromUrl(src: string): Promise<void> {
     a.remove();
     return;
   }
+
+  const safeSrc = sanitizeNavigationHref(rawSrc);
+  if (!safeSrc) return;
 
   const controller = new AbortController();
   const tid = window.setTimeout(() => controller.abort(), 18_000);
