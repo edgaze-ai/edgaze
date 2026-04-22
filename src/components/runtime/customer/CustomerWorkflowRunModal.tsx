@@ -105,19 +105,20 @@ export default function CustomerWorkflowRunModal({
       >
         <div
           className={cx(
-            "mx-auto flex w-full justify-center",
+            "mx-auto flex w-full justify-center md:justify-center",
             "max-w-[min(920px,calc(100vw-1rem))] md:max-w-[calc(100vw-2.5rem)]",
             "min-h-full",
-            "items-center px-2 py-4 md:p-5",
+            "items-center px-2 py-4 md:px-5 md:py-5",
           )}
         >
-          <div className="w-full md:mx-auto max-md:flex max-md:justify-center">
+          <div className="flex w-full justify-center md:justify-center">
             <div
               className={cx(
                 "flex flex-col rounded-[34px] border border-white/10 bg-[#090a0e]/90 shadow-[0_40px_180px_rgba(0,0,0,0.72)] transition-all duration-500",
                 "md:p-5",
                 isLiveExecution ? "p-0" : "p-3",
                 "max-md:w-[min(92vw,420px)] max-md:max-w-[420px] max-md:h-[min(78dvh,640px)] max-md:min-h-[520px] max-md:overflow-hidden max-md:rounded-[24px] max-md:border max-md:border-white/12",
+                "md:mx-auto",
                 desktopShellClass,
                 "max-md:shadow-[0_28px_100px_rgba(0,0,0,0.5)]",
                 open ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0",

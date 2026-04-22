@@ -2403,7 +2403,7 @@ export default function PremiumWorkflowRunModal({
       <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-4 md:p-6">
         <div
           className={cx(
-            "flex w-full min-h-0 flex-col overflow-hidden border border-white/15 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.4)]",
+            "mx-auto flex w-full min-h-0 flex-col overflow-hidden border border-white/15 bg-[#0c0c0c] shadow-[0_24px_80px_rgba(0,0,0,0.4)]",
             showCustomerProjection
               ? "max-w-[min(920px,calc(100vw-1rem))] rounded-[22px] max-h-[min(760px,92dvh)] sm:max-w-[min(980px,calc(100vw-2rem))] sm:max-h-[min(820px,92dvh)]"
               : "max-w-[min(1160px,calc(100vw-1rem))] rounded-[22px] max-h-[min(820px,92dvh)] sm:max-w-[min(1260px,calc(100vw-2rem))] sm:max-h-[min(860px,92dvh)]",
