@@ -32,7 +32,7 @@ function isProtectedPath(pathname: string): boolean {
   return false;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const hostname = request.nextUrl.hostname.toLowerCase();
 
   if (hostname === "edgaze.ai") {

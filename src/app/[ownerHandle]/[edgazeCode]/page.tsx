@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Play,
   Flag,
+  AlertCircle,
 } from "lucide-react";
 import { createSupabaseBrowserClient } from "../../../lib/supabase/browser";
 import { useAuth } from "../../../components/auth/AuthContext";
@@ -919,7 +920,7 @@ export default function WorkflowProductPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [demoVerificationError, setDemoVerificationError] = useState<string | null>(null);
   const [demoVerificationPhase, setDemoVerificationPhase] = useState<
-    "idle" | "checking" | "turnstile" | "loading"
+    "idle" | "checking" | "turnstile" | "loading" | "error"
   >("idle");
 
   const [upNext, setUpNext] = useState<WorkflowListing[]>([]);
@@ -930,6 +931,7 @@ export default function WorkflowProductPage() {
   const autoActionTriggeredRef = useRef(false);
   const demoRunAbortRef = useRef<AbortController | null>(null);
   const demoRunSessionPollRef = useRef<AbortController | null>(null);
+  const demoRunSetupAbortRef = useRef<AbortController | null>(null);
   const demoRunAutoExecuteRef = useRef(false);
   const pendingDemoInputValuesRef = useRef<Record<string, any> | null>(null);
   const [demoAvailable, setDemoAvailable] = useState<boolean | null>(null);
@@ -1466,6 +1468,7 @@ export default function WorkflowProductPage() {
       if (result.ok) {
         setTurnstileVerifying(false);
         setTurnstileToken(null);
+        setDemoVerificationError(null);
         setDemoVerificationPhase("loading");
         demoRunAutoExecuteRef.current = false;
 
@@ -1493,6 +1496,10 @@ export default function WorkflowProductPage() {
   // Start demo run after Turnstile verification
   async function startDemoRun() {
     if (!listing) return;
+    demoRunSetupAbortRef.current?.abort();
+    setDemoVerificationError(null);
+    setDemoRunState(null);
+    setDemoExecutionGraph(null);
     setDemoVerificationPhase("loading");
 
     const canRun = await canRunDemo(listing.id, true);
@@ -1525,11 +1532,20 @@ export default function WorkflowProductPage() {
         }
         if (token) headers["Authorization"] = `Bearer ${token}`;
       }
+      const controller = new AbortController();
+      demoRunSetupAbortRef.current = controller;
+      const setupTimeout = window.setTimeout(() => controller.abort(), 15000);
       const res = await fetch("/api/workflow/resolve-run-graph", {
         method: "POST",
         headers,
         credentials: "include",
         body: JSON.stringify(payload),
+        signal: controller.signal,
+      }).finally(() => {
+        window.clearTimeout(setupTimeout);
+        if (demoRunSetupAbortRef.current === controller) {
+          demoRunSetupAbortRef.current = null;
+        }
       });
       const payloadJson = await res.json().catch(() => ({}));
       if (!res.ok || !payloadJson.ok) {
@@ -1568,9 +1584,12 @@ export default function WorkflowProductPage() {
       setDemoVerificationPhase("idle");
       setDemoVerificationError(null);
     } catch (error: any) {
-      setPurchaseError(error.message || "Failed to start demo");
-      setDemoRunModalOpen(false);
-      setDemoVerificationPhase("idle");
+      setDemoVerificationError(
+        error?.name === "AbortError"
+          ? "Loading the run setup took too long. Please retry."
+          : error?.message || "Failed to start demo",
+      );
+      setDemoVerificationPhase("error");
     }
   }
 
@@ -1641,16 +1660,23 @@ export default function WorkflowProductPage() {
     }
 
     // Update state to executing
-    setDemoRunState({
-      ...demoRunState,
-      phase: "executing",
-      status: "running",
-      inputValues: processedInputs,
-      startedAt: Date.now(),
-      connectionState: "connecting",
-      connectionLabel: "Connecting to execution...",
-      lastEventAt: Date.now(),
-    });
+    const executionStartedAt = Date.now();
+    setDemoVerificationPhase("idle");
+    setDemoVerificationError(null);
+    setDemoRunState((prev) =>
+      prev
+        ? {
+            ...prev,
+            phase: "executing",
+            status: "running",
+            inputValues: processedInputs,
+            startedAt: executionStartedAt,
+            connectionState: "connecting",
+            connectionLabel: "Connecting to execution...",
+            lastEventAt: executionStartedAt,
+          }
+        : prev,
+    );
     setDemoRunning(true);
 
     try {
@@ -1799,10 +1825,7 @@ export default function WorkflowProductPage() {
           graphNodes: graph.nodes || [],
           processedInputs,
         });
-        setDemoRunState({
-          ...demoRunState,
-          ...completion,
-        });
+        setDemoRunState((prev) => (prev ? { ...prev, ...completion } : prev));
       }
       await clientTrace.finish({ status: "completed" });
     } catch (error: any) {
@@ -1817,13 +1840,17 @@ export default function WorkflowProductPage() {
         const allowed = await canRunDemo(listing.id, true).catch(() => null);
         if (typeof allowed === "boolean") setDemoAvailable(allowed);
       }
-      setDemoRunState({
-        ...demoRunState,
-        phase: "output",
-        status: "error",
-        error: error.message || "Execution failed",
-        finishedAt: Date.now(),
-      });
+      setDemoRunState((prev) =>
+        prev
+          ? {
+              ...prev,
+              phase: "output",
+              status: "error",
+              error: error.message || "Execution failed",
+              finishedAt: Date.now(),
+            }
+          : prev,
+      );
     } finally {
       setDemoRunning(false);
     }
@@ -1894,6 +1921,7 @@ export default function WorkflowProductPage() {
 
   useEffect(() => {
     return () => {
+      demoRunSetupAbortRef.current?.abort();
       demoRunAbortRef.current?.abort();
       demoRunSessionPollRef.current?.abort();
     };
@@ -1913,6 +1941,7 @@ export default function WorkflowProductPage() {
     if (!demoRunModalOpen) {
       demoRunAutoExecuteRef.current = false;
       pendingDemoInputValuesRef.current = null;
+      demoRunSetupAbortRef.current?.abort();
       setDemoVerificationPhase("idle");
       setDemoVerificationError(null);
       setTurnstileToken(null);
@@ -2049,6 +2078,7 @@ export default function WorkflowProductPage() {
           const activelyRunning =
             demoRunState?.status === "running" || demoRunState?.status === "cancelling";
           if (!activelyRunning && !turnstileVerifying) {
+            demoRunSetupAbortRef.current?.abort();
             demoRunAbortRef.current?.abort();
             demoRunSessionPollRef.current?.abort();
             setDemoRunModalOpen(false);
@@ -2071,11 +2101,11 @@ export default function WorkflowProductPage() {
                       Checking demo eligibility...
                     </div>
                     <div className="text-[12px] leading-[1.1rem] text-white/60 md:text-sm md:leading-6">
-                      Verifying device and usage limits before we start the run.
+                      Confirming demo access before your run starts.
                     </div>
                   </div>
                 </div>
-              ) : demoVerificationPhase === "loading" || !demoRunState ? (
+              ) : demoVerificationPhase === "loading" ? (
                 <div className="flex flex-col items-center gap-3 rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-6 text-center md:gap-4 md:rounded-[28px] md:px-6 md:py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-cyan-300 md:h-10 md:w-10" />
                   <div className="space-y-2">
@@ -2083,10 +2113,34 @@ export default function WorkflowProductPage() {
                       Loading run setup...
                     </div>
                     <div className="text-[12px] leading-[1.1rem] text-white/60 md:text-sm md:leading-6">
-                      Fetching the real workflow inputs and preparing the run modal. No placeholder
-                      form will be shown.
+                      Preparing your workflow run.
                     </div>
                   </div>
+                </div>
+              ) : demoVerificationPhase === "error" ? (
+                <div className="flex flex-col items-center gap-4 rounded-[20px] border border-rose-400/20 bg-rose-400/10 px-4 py-6 text-center md:gap-5 md:rounded-[28px] md:px-6 md:py-12">
+                  <div className="grid h-12 w-12 place-items-center rounded-full border border-rose-300/20 bg-rose-300/10">
+                    <AlertCircle className="h-6 w-6 text-rose-100" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-[16px] font-semibold text-white md:text-xl">
+                      Run setup failed
+                    </div>
+                    <div className="text-[12px] leading-[1.1rem] text-white/70 md:text-sm md:leading-6">
+                      {demoVerificationError || "We could not prepare this run. Please try again."}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDemoVerificationError(null);
+                      void startDemoRun();
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-4 py-2 text-sm font-medium text-white hover:border-cyan-300/40 hover:bg-white/[0.09]"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Retry setup
+                  </button>
                 </div>
               ) : (
                 <>
@@ -2103,8 +2157,7 @@ export default function WorkflowProductPage() {
                           Verify here to continue the run
                         </div>
                         <div className="mt-1.5 text-[12px] leading-[1.1rem] text-white/62 md:mt-2 md:text-sm md:leading-6">
-                          Complete the security check below and we will continue this demo in the
-                          same run modal. No separate verification popup needed.
+                          Complete the quick security check below to continue.
                         </div>
                       </div>
                     </div>
@@ -2112,8 +2165,7 @@ export default function WorkflowProductPage() {
 
                   <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-3.5 md:rounded-[28px] md:p-5">
                     <div className="mb-2.5 text-[12px] leading-[1.1rem] text-white/68 md:mb-4 md:text-sm md:leading-6">
-                      This protects the demo from abuse while keeping the run flow in one place.
-                      Each device gets one demo run.
+                      This helps keep demo runs secure. Each device gets one demo run.
                     </div>
 
                     <div
