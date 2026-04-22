@@ -52,6 +52,55 @@ function extensionFromMime(mime: string): string {
   return "png";
 }
 
+function filenameFromDisposition(
+  disposition: string | null,
+  fallbackStamp: number,
+  mime: string,
+): string {
+  const fallback = `image-${fallbackStamp}.${extensionFromMime(mime)}`;
+  if (!disposition) return fallback;
+
+  const utf8Match = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]).replace(/[/\\]+/g, "-");
+    } catch {
+      return utf8Match[1].replace(/[/\\]+/g, "-");
+    }
+  }
+
+  const simpleMatch =
+    disposition.match(/filename\s*=\s*"([^"]+)"/i) ?? disposition.match(/filename\s*=\s*([^;]+)/i);
+  if (simpleMatch?.[1]) {
+    return simpleMatch[1]
+      .trim()
+      .replace(/^"|"$/g, "")
+      .replace(/[/\\]+/g, "-");
+  }
+
+  return fallback;
+}
+
+function triggerAnchorDownload(href: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  a.rel = "noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function downloadBlob(blob: Blob, filename: string): Promise<void> {
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    triggerAnchorDownload(objectUrl, filename);
+    await new Promise((resolve) => window.setTimeout(resolve, 120));
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  }
+}
+
 /**
  * Downloads image bytes when CORS allows; otherwise opens the URL so the user can
  * save from the browser (required on many iOS cross-origin cases).
@@ -62,13 +111,7 @@ export async function downloadWorkflowImageFromUrl(src: string): Promise<void> {
   if (!rawSrc) return;
 
   if (/^data:image\//i.test(rawSrc) || /^blob:/i.test(rawSrc)) {
-    const a = document.createElement("a");
-    a.href = rawSrc;
-    a.download = `image-${stamp}.png`;
-    a.rel = "noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    triggerAnchorDownload(rawSrc, `image-${stamp}.png`);
     return;
   }
 
@@ -77,14 +120,35 @@ export async function downloadWorkflowImageFromUrl(src: string): Promise<void> {
 
   if (/^https?:\/\//i.test(safeSrc)) {
     const proxyUrl = `/api/workflow/download-image?src=${encodeURIComponent(safeSrc)}`;
-    const a = document.createElement("a");
-    a.href = proxyUrl;
-    a.download = `image-${stamp}.png`;
-    a.rel = "noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    return;
+    const controller = new AbortController();
+    const tid = window.setTimeout(() => controller.abort(), 18_000);
+    try {
+      const res = await fetch(proxyUrl, {
+        method: "GET",
+        credentials: "same-origin",
+        signal: controller.signal,
+        cache: "no-store",
+      });
+      window.clearTimeout(tid);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      if (blob.size > 0) {
+        const filename = filenameFromDisposition(
+          res.headers.get("content-disposition"),
+          stamp,
+          blob.type || "",
+        );
+        await downloadBlob(blob, filename);
+        return;
+      }
+      throw new Error("Empty image download");
+    } catch {
+      window.clearTimeout(tid);
+      window.location.assign(proxyUrl);
+      return;
+    }
   }
 
   const controller = new AbortController();
@@ -99,33 +163,22 @@ export async function downloadWorkflowImageFromUrl(src: string): Promise<void> {
     });
     window.clearTimeout(tid);
 
-    if (res.ok) {
-      const blob = await res.blob();
-      if (blob.size > 0) {
-        const objectUrl = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = objectUrl;
-        a.download = `image-${stamp}.${extensionFromMime(blob.type || "")}`;
-        a.rel = "noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(objectUrl);
-        return;
-      }
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
     }
+
+    const blob = await res.blob();
+    if (blob.size <= 0) {
+      throw new Error("Empty image download");
+    }
+
+    await downloadBlob(blob, `image-${stamp}.${extensionFromMime(blob.type || "")}`);
+    return;
   } catch {
     window.clearTimeout(tid);
-  }
-
-  const opened = window.open(safeSrc, "_blank", "noopener,noreferrer");
-  if (!opened) {
-    const a = document.createElement("a");
-    a.href = safeSrc;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    const opened = window.open(safeSrc, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      window.location.assign(safeSrc);
+    }
   }
 }

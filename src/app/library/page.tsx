@@ -1,7 +1,7 @@
 // src/app/library/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2,
@@ -227,6 +227,9 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
   const { getAccessToken } = useAuth();
   const [removing, setRemoving] = useState(false);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const touchMovedRef = useRef(false);
+  const suppressClickRef = useRef(false);
 
   const isFree = item.monetisation_mode === "free" || item.is_paid === false;
   const priceLabel =
@@ -239,6 +242,10 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
   const badgeLabel = item.kind === "workflow" ? "Workflow" : "Prompt";
 
   const openListing = () => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
     if (!item.owner_handle || !item.edgaze_code) return;
 
     // FIX: workflows are /<handle>/<code>
@@ -280,12 +287,43 @@ function LibraryCard({ item, context, onEdit, onRemoveSuccess }: LibraryCardProp
         ? `Removed: ${item.removed_reason}`
         : "Removed from marketplace";
 
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    touchMovedRef.current = false;
+    suppressClickRef.current = false;
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    const start = touchStartRef.current;
+    if (!touch || !start) return;
+
+    const deltaX = Math.abs(touch.clientX - start.x);
+    const deltaY = Math.abs(touch.clientY - start.y);
+    if (deltaX > 8 || deltaY > 8) {
+      touchMovedRef.current = true;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    suppressClickRef.current = touchMovedRef.current;
+    touchStartRef.current = null;
+    touchMovedRef.current = false;
+  };
+
   return (
     <div
       onClick={openListing}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       className="group relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-white/[0.01] backdrop-blur-sm transition-all duration-300 cursor-pointer hover:from-white/[0.06] hover:via-white/[0.03] hover:to-white/[0.02]"
       style={{
         boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+        touchAction: "pan-y",
       }}
     >
       {/* Subtle gradient overlay */}
@@ -539,6 +577,66 @@ export default function LibraryPage() {
 
   const [refreshNonce, setRefreshNonce] = useState(0);
   const triggerRefresh = () => setRefreshNonce((n) => n + 1);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const originalHtmlHeight = html.style.height;
+    const originalHtmlMinHeight = html.style.minHeight;
+    const originalHtmlOverflowY = html.style.overflowY;
+    const originalHtmlOverflowX = html.style.overflowX;
+    const originalBodyHeight = body.style.height;
+    const originalBodyMinHeight = body.style.minHeight;
+    const originalBodyOverflowY = body.style.overflowY;
+    const originalBodyOverflowX = body.style.overflowX;
+
+    const applyScrolling = () => {
+      const isMobile = window.matchMedia("(max-width: 1023px)").matches;
+      if (isMobile) {
+        html.classList.add("library-mobile-scroll");
+        body.classList.add("library-mobile-scroll");
+        html.style.height = "auto";
+        html.style.minHeight = "100%";
+        html.style.overflowY = "auto";
+        body.style.height = "auto";
+        body.style.minHeight = "100%";
+        body.style.overflowY = "auto";
+      } else {
+        html.classList.remove("library-mobile-scroll");
+        body.classList.remove("library-mobile-scroll");
+        html.style.height = "100%";
+        html.style.minHeight = "";
+        html.style.overflowY = "hidden";
+        body.style.height = "100%";
+        body.style.minHeight = "";
+        body.style.overflowY = "hidden";
+      }
+
+      html.style.overflowX = "hidden";
+      body.style.overflowX = "hidden";
+    };
+
+    applyScrolling();
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    const onChange = () => applyScrolling();
+    mediaQuery.addEventListener?.("change", onChange);
+    window.addEventListener("resize", onChange);
+
+    return () => {
+      mediaQuery.removeEventListener?.("change", onChange);
+      window.removeEventListener("resize", onChange);
+      html.classList.remove("library-mobile-scroll");
+      body.classList.remove("library-mobile-scroll");
+      html.style.height = originalHtmlHeight;
+      html.style.minHeight = originalHtmlMinHeight;
+      html.style.overflowY = originalHtmlOverflowY;
+      html.style.overflowX = originalHtmlOverflowX;
+      body.style.height = originalBodyHeight;
+      body.style.minHeight = originalBodyMinHeight;
+      body.style.overflowY = originalBodyOverflowY;
+      body.style.overflowX = originalBodyOverflowX;
+    };
+  }, []);
 
   // Load CREATED
   useEffect(() => {
