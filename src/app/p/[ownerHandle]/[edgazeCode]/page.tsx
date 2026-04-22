@@ -27,6 +27,7 @@ import { createSupabaseBrowserClient } from "../../../../lib/supabase/browser";
 import { useAuth } from "../../../../components/auth/AuthContext";
 import { track, type TrackProperties } from "../../../../lib/mixpanel";
 import { SHOW_PUBLIC_LIKES_AND_RUNS } from "../../../../lib/constants";
+import { findPurchaseForResource } from "../../../../lib/purchases/ownership";
 import CommentsSectionRaw from "../../../../components/marketplace/CommentsSection";
 import CustomerWorkflowRunModal from "../../../../components/runtime/customer/CustomerWorkflowRunModal";
 import {
@@ -1620,18 +1621,19 @@ export default function PromptProductPage() {
   }, [listing?.id, listing?.type, isNaturallyFree, userId]);
 
   async function loadPurchaseRow(promptId: string, uid: string) {
-    const { data, error } = await supabase
-      .from("prompt_purchases")
-      .select("id,status")
-      .eq("prompt_id", promptId)
-      .eq("buyer_id", uid)
-      .maybeSingle();
+    const { purchase, error } = await findPurchaseForResource({
+      supabase,
+      resourceId: promptId,
+      buyerId: uid,
+      preferredTable: "prompt_purchases",
+      type: listing?.type || "prompt",
+    });
 
     if (error) {
       console.error("purchase load error", error);
       return null;
     }
-    return (data as PurchaseRow) ?? null;
+    return (purchase as PurchaseRow | null) ?? null;
   }
 
   useEffect(() => {

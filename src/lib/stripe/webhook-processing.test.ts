@@ -43,11 +43,6 @@ describe("transferPendingClaimEarnings", () => {
       },
     ];
 
-    const activatedRows = claimedRows.map((row) => ({
-      id: row.id,
-      net_amount_cents: row.net_amount_cents,
-    }));
-
     const initialUpdateBuilder = {
       eq(field: string, value: string) {
         expect(field).toBe("creator_id");
@@ -74,6 +69,10 @@ describe("transferPendingClaimEarnings", () => {
       },
     };
 
+    const activatedById = new Map(
+      claimedRows.map((row) => [row.id, { id: row.id, net_amount_cents: row.net_amount_cents }]),
+    );
+
     const activateUpdateBuilder = {
       eq(field: string, value: string) {
         expect(field).toBe("creator_id");
@@ -86,25 +85,23 @@ describe("transferPendingClaimEarnings", () => {
       eq(field: string, value: string) {
         expect(field).toBe("status");
         expect(value).toBe("pending");
-        return activateIdsBuilder;
-      },
-    };
-
-    const activateIdsBuilder = {
-      in(field: string, values: string[]) {
-        expect(field).toBe("id");
-        expect(values).toEqual(["earn_old", "earn_recent"]);
-        return activateSelectBuilder;
-      },
-    };
-
-    const activateSelectBuilder = {
-      select(selection: string) {
-        expect(selection).toBe("id, net_amount_cents");
-        return Promise.resolve({
-          data: activatedRows,
-          error: null,
-        });
+        return {
+          eq(nextField: string, nextValue: string) {
+            expect(nextField).toBe("id");
+            return {
+              select(selection: string) {
+                expect(selection).toBe("id, net_amount_cents");
+                return {
+                  maybeSingle: () =>
+                    Promise.resolve({
+                      data: activatedById.get(nextValue),
+                      error: null,
+                    }),
+                };
+              },
+            };
+          },
+        };
       },
     };
 
@@ -149,17 +146,39 @@ describe("transferPendingClaimEarnings", () => {
       "test.pending-claim",
     );
 
-    expect(mockStripeTransfersCreate).toHaveBeenCalledWith(
-      {
-        amount: 479,
+    expect(mockStripeTransfersCreate).toHaveBeenCalledTimes(2);
+    expect(mockStripeTransfersCreate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        amount: 319,
         currency: "usd",
         destination: "acct_123",
-        metadata: {
+        metadata: expect.objectContaining({
           edgaze_creator_id: "creator_123",
-          earning_count: "2",
+          earning_count: "1",
+          earning_id: "earn_old",
           reconciliation_type: "pending_claim",
-        },
-      },
+          stripe_payment_intent_id: "pi_platform_old",
+        }),
+      }),
+      expect.objectContaining({
+        idempotencyKey: expect.stringMatching(/^pending_claim_/),
+      }),
+    );
+    expect(mockStripeTransfersCreate).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        amount: 160,
+        currency: "usd",
+        destination: "acct_123",
+        metadata: expect.objectContaining({
+          edgaze_creator_id: "creator_123",
+          earning_count: "1",
+          earning_id: "earn_recent",
+          reconciliation_type: "pending_claim",
+          stripe_payment_intent_id: "pi_platform_recent",
+        }),
+      }),
       expect.objectContaining({
         idempotencyKey: expect.stringMatching(/^pending_claim_/),
       }),
@@ -341,9 +360,9 @@ describe("transferPendingClaimEarnings", () => {
     };
 
     const revertIdsBuilder = {
-      in(field: string, values: string[]) {
+      eq(field: string, value: string) {
         expect(field).toBe("id");
-        expect(values).toEqual(["earn_platform_1"]);
+        expect(value).toBe("earn_platform_1");
         return Promise.resolve({ error: null });
       },
     };

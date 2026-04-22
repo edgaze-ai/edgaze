@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserAndClient } from "@/lib/auth/server";
+import { findPurchaseForResource, type PurchaseTable } from "@/lib/purchases/ownership";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/client";
 import { grantPaidCheckoutSessionAccess } from "@/lib/stripe/webhook-processing";
@@ -23,16 +24,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const purchaseTable = type === "workflow" ? "workflow_purchases" : "prompt_purchases";
-    const resourceColumn = type === "workflow" ? "workflow_id" : "prompt_id";
-
-    const { data: purchase } = await supabase
-      .from(purchaseTable)
-      .select("id, status, stripe_checkout_session_id")
-      .eq(resourceColumn, resourceId)
-      .eq("buyer_id", user.id)
-      .eq("stripe_checkout_session_id", sessionId)
-      .maybeSingle();
+    const initialLookup = await findPurchaseForResource({
+      supabase,
+      resourceId,
+      buyerId: user.id,
+      type,
+    });
+    const purchase =
+      initialLookup.purchase?.stripe_checkout_session_id === sessionId
+        ? initialLookup.purchase
+        : null;
 
     if (purchase && purchase.status === "paid") {
       return NextResponse.json({
@@ -59,13 +60,19 @@ export async function GET(req: Request) {
       const admin = createSupabaseAdminClient();
       await grantPaidCheckoutSessionAccess(session, admin);
 
-      const { data: grantedPurchase } = await supabase
-        .from(purchaseTable)
-        .select("id, status, stripe_checkout_session_id")
-        .eq(resourceColumn, resourceId)
-        .eq("buyer_id", user.id)
-        .eq("stripe_checkout_session_id", sessionId)
-        .maybeSingle();
+      const preferredTable: PurchaseTable | null =
+        session.metadata?.source_table === "prompts" ? "prompt_purchases" : null;
+      const grantedLookup = await findPurchaseForResource({
+        supabase,
+        resourceId,
+        buyerId: user.id,
+        type,
+        preferredTable,
+      });
+      const grantedPurchase =
+        grantedLookup.purchase?.stripe_checkout_session_id === sessionId
+          ? grantedLookup.purchase
+          : null;
 
       if (grantedPurchase && grantedPurchase.status === "paid") {
         return NextResponse.json({

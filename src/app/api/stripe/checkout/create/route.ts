@@ -4,8 +4,12 @@ import { getUserAndClient } from "@/lib/auth/server";
 import { resolveActorContext } from "@/lib/auth/actor-context";
 import { assertNotImpersonating, ImpersonationForbiddenError } from "@/lib/auth/sensitive-action";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { findAccessiblePurchaseForResource } from "@/lib/purchases/ownership";
 import { stripe } from "@/lib/stripe/client";
-import { getExpressConnectAccountPayoutStatus } from "@/lib/stripe/connect-marketplace";
+import {
+  canRouteMarketplaceFundsToConnectedAccount,
+  getExpressConnectAccountPayoutStatus,
+} from "@/lib/stripe/connect-marketplace";
 import { stripeConfig } from "@/lib/stripe/config";
 import {
   calculatePaymentSplitForPercentage,
@@ -80,23 +84,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Cannot purchase your own content" }, { status: 400 });
     }
 
-    const purchaseTable =
-      sourceTable === "prompts"
-        ? "prompt_purchases"
-        : type === "workflow"
-          ? "workflow_purchases"
-          : "prompt_purchases";
-    const idColumn = purchaseTable === "workflow_purchases" ? "workflow_id" : "prompt_id";
-    const { data: existingPurchase } = await supabase
-      .from(purchaseTable)
-      .select("id, status")
-      .eq(idColumn, resourceId)
-      .eq("buyer_id", user.id)
-      .eq("status", "paid")
-      .is("refunded_at", null)
-      .single();
+    const existingPurchase = await findAccessiblePurchaseForResource({
+      supabase,
+      resourceId,
+      buyerId: user.id,
+      preferredTable:
+        sourceTable === "prompts"
+          ? "prompt_purchases"
+          : type === "workflow"
+            ? "workflow_purchases"
+            : "prompt_purchases",
+      type,
+      allowedStatuses: ["paid"],
+    });
 
-    if (existingPurchase) {
+    if (existingPurchase.accessible) {
       return NextResponse.json({ error: "You already own this content" }, { status: 400 });
     }
 
@@ -108,21 +110,23 @@ export async function POST(req: Request) {
 
     const { data: connectAccount } = await supabase
       .from("stripe_connect_accounts")
-      .select("stripe_account_id, account_status, payouts_enabled")
+      .select(
+        "stripe_account_id, account_status, payouts_enabled, charges_enabled, details_submitted",
+      )
       .eq("user_id", resource.owner_id)
       .single();
 
     let creatorHasConnect =
       connectAccount &&
       connectAccount.account_status === "active" &&
-      connectAccount.payouts_enabled === true;
+      (connectAccount.payouts_enabled === true || connectAccount.details_submitted === true);
 
     if (connectAccount?.stripe_account_id) {
       try {
         const liveStatus = await getExpressConnectAccountPayoutStatus(
           connectAccount.stripe_account_id,
         );
-        creatorHasConnect = liveStatus.readyForPayouts;
+        creatorHasConnect = canRouteMarketplaceFundsToConnectedAccount(liveStatus);
 
         await syncCreatorPayoutAccount({
           supabase: createSupabaseAdminClient(),
@@ -136,6 +140,9 @@ export async function POST(req: Request) {
         });
       } catch (liveStatusError) {
         console.error("[STRIPE CHECKOUT] Live connect status check failed:", liveStatusError);
+        creatorHasConnect =
+          connectAccount.account_status === "active" ||
+          (connectAccount.details_submitted === true && connectAccount.charges_enabled !== false);
       }
     }
 
@@ -189,6 +196,7 @@ export async function POST(req: Request) {
       prompt_id: type === "prompt" ? resourceId : "",
       buyer_id: user.id,
       creator_id: resource.owner_id,
+      connected_account_id: creatorHasConnect ? (connectAccount?.stripe_account_id ?? "") : "",
       purchase_type: type,
       source_table: sourceTable || (type === "workflow" ? "workflows" : "prompts"),
       edgaze_code: resource.edgaze_code || "",
@@ -242,6 +250,7 @@ export async function POST(req: Request) {
         prompt_id: type === "prompt" ? resourceId : "",
         buyer_id: user.id,
         creator_id: resource.owner_id,
+        connected_account_id: creatorHasConnect ? (connectAccount?.stripe_account_id ?? "") : "",
         purchase_type: type,
         source_table: sourceTable || (type === "workflow" ? "workflows" : "prompts"),
       },

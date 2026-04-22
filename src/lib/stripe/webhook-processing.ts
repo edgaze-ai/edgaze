@@ -267,15 +267,16 @@ export async function transferPendingClaimEarnings(
   }
 
   const earningIds = platformHeldRows.map((row) => row.id).sort();
-  const totalCents = platformHeldRows.reduce(
-    (sum, row) => sum + Math.max(0, row.net_amount_cents || 0),
-    0,
-  );
 
   if (earningIds.length === 0) {
     await syncPlatformPendingClaimReserve(supabase, `${source}.reserve`);
     return;
   }
+
+  const totalCents = platformHeldRows.reduce(
+    (sum, row) => sum + Math.max(0, row.net_amount_cents || 0),
+    0,
+  );
 
   if (totalCents <= 0) {
     await supabase
@@ -287,50 +288,89 @@ export async function transferPendingClaimEarnings(
     return;
   }
 
-  const idempotencyKey = buildPendingClaimTransferKey({
-    creatorId,
-    earningIds,
-    stripeAccountId,
-    totalCents,
-  });
-
   try {
-    const transfer = await stripe.transfers.create(
-      {
-        amount: totalCents,
-        currency: "usd",
-        destination: stripeAccountId,
-        metadata: {
-          edgaze_creator_id: creatorId,
-          earning_count: String(earningIds.length),
-          reconciliation_type: "pending_claim",
-        },
-      },
-      {
-        idempotencyKey,
-      },
-    );
+    let activatedTotal = 0;
+    const failures: Array<{ earningId: string; error: string }> = [];
 
-    const { data: activatedRows, error: activateError } = await supabase
-      .from("creator_earnings")
-      .update({
-        status: "available",
-        stripe_account_id: stripeAccountId,
-        stripe_transfer_id: transfer.id,
-      })
-      .eq("creator_id", creatorId)
-      .eq("status", "pending")
-      .in("id", earningIds)
-      .select("id, net_amount_cents");
+    for (const row of platformHeldRows) {
+      const rowAmount = Math.max(0, row.net_amount_cents || 0);
+      let latestChargeId: string | null = null;
 
-    if (activateError) {
-      throw activateError;
+      if (row.stripe_payment_intent_id) {
+        try {
+          const paymentIntent = await stripe.paymentIntents.retrieve(row.stripe_payment_intent_id);
+          latestChargeId =
+            typeof paymentIntent.latest_charge === "string"
+              ? paymentIntent.latest_charge
+              : paymentIntent.latest_charge?.id || null;
+        } catch (error) {
+          console.warn(
+            `[WEBHOOK] Could not retrieve platform payment intent ${row.stripe_payment_intent_id} for pending-claim transfer`,
+            error,
+          );
+        }
+      }
+
+      try {
+        const transfer =
+          rowAmount > 0
+            ? await stripe.transfers.create(
+                {
+                  amount: rowAmount,
+                  currency: "usd",
+                  destination: stripeAccountId,
+                  ...(latestChargeId ? { source_transaction: latestChargeId } : {}),
+                  metadata: {
+                    edgaze_creator_id: creatorId,
+                    earning_count: "1",
+                    earning_id: row.id,
+                    reconciliation_type: "pending_claim",
+                    stripe_payment_intent_id: row.stripe_payment_intent_id || "",
+                  },
+                },
+                {
+                  idempotencyKey: buildPendingClaimTransferKey({
+                    creatorId,
+                    earningIds: [row.id],
+                    stripeAccountId,
+                    totalCents: rowAmount,
+                  }),
+                },
+              )
+            : null;
+
+        const { data: activatedRow, error: activateError } = await supabase
+          .from("creator_earnings")
+          .update({
+            status: "available",
+            stripe_account_id: stripeAccountId,
+            stripe_transfer_id: transfer?.id || null,
+          })
+          .eq("creator_id", creatorId)
+          .eq("status", "pending")
+          .eq("id", row.id)
+          .select("id, net_amount_cents")
+          .maybeSingle();
+
+        if (activateError) {
+          throw activateError;
+        }
+
+        activatedTotal += Math.max(0, activatedRow?.net_amount_cents || rowAmount);
+      } catch (error) {
+        await supabase
+          .from("creator_earnings")
+          .update({ status: "pending_claim" })
+          .eq("creator_id", creatorId)
+          .eq("status", "pending")
+          .eq("id", row.id);
+
+        failures.push({
+          earningId: row.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
-
-    const activatedTotal = (activatedRows || []).reduce(
-      (sum, row) => sum + Math.max(0, row.net_amount_cents || 0),
-      0,
-    );
 
     if (activatedTotal > 0) {
       await supabase.rpc("increment_creator_balance", {
@@ -342,6 +382,14 @@ export async function transferPendingClaimEarnings(
     console.warn(
       `[WEBHOOK] Transferred ${activatedTotal} cents pending claim to creator ${creatorId} via ${source}`,
     );
+
+    if (failures.length > 0) {
+      throw new Error(
+        `Failed to transfer ${failures.length} pending claim earning(s): ${failures
+          .map((failure) => `${failure.earningId}: ${failure.error}`)
+          .join("; ")}`,
+      );
+    }
   } catch (error) {
     await supabase
       .from("creator_earnings")
@@ -574,6 +622,12 @@ async function handleCheckoutCompleted(
     ? new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
     : null;
 
+  const { data: existingEarning } = await supabase
+    .from("creator_earnings")
+    .select("id, status, net_amount_cents, stripe_account_id")
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .maybeSingle();
+
   await supabase.from("creator_earnings").upsert(
     {
       creator_id: resource.owner_id,
@@ -595,10 +649,16 @@ async function handleCheckoutCompleted(
   );
 
   if (!isPlatformHeld) {
-    await supabase.rpc("increment_creator_balance", {
-      creator_id: resource.owner_id,
-      amount_cents: creatorNetCents,
-    });
+    const shouldIncrementBalance =
+      !existingEarning ||
+      (existingEarning.status !== "available" && existingEarning.status !== "paid");
+
+    if (shouldIncrementBalance) {
+      await supabase.rpc("increment_creator_balance", {
+        creator_id: resource.owner_id,
+        amount_cents: creatorNetCents,
+      });
+    }
   } else {
     await syncPlatformPendingClaimReserve(supabase, "checkout.completed");
   }

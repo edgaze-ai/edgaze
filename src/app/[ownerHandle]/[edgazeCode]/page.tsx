@@ -34,6 +34,7 @@ import {
 import { extractWorkflowInputs } from "../../../lib/workflow/input-extraction";
 import { validateWorkflowGraph } from "../../../lib/workflow/validation";
 import { track, type TrackProperties } from "../../../lib/mixpanel";
+import { findPurchaseForResource } from "../../../lib/purchases/ownership";
 import { SHOW_PUBLIC_LIKES_AND_RUNS } from "../../../lib/constants";
 import TurnstileWidget from "../../../components/apply/TurnstileWidget";
 import ProfileAvatar from "../../../components/ui/ProfileAvatar";
@@ -1199,18 +1200,19 @@ export default function WorkflowProductPage() {
   }
 
   async function loadPurchaseRow(workflowId: string, uid: string) {
-    const { data, error } = await supabase
-      .from("workflow_purchases")
-      .select("id,status")
-      .eq("workflow_id", workflowId)
-      .eq("buyer_id", uid)
-      .maybeSingle();
+    const { purchase, error } = await findPurchaseForResource({
+      supabase,
+      resourceId: workflowId,
+      buyerId: uid,
+      preferredTable: "workflow_purchases",
+      type: "workflow",
+    });
 
     if (error) {
       console.error("workflow purchase load error", error);
       return null;
     }
-    return (data as PurchaseRow) ?? null;
+    return (purchase as PurchaseRow | null) ?? null;
   }
 
   useEffect(() => {

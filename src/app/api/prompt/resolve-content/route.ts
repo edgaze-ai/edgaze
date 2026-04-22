@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest } from "@lib/auth/server";
+import { findAccessiblePurchaseForResource } from "@lib/purchases/ownership";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -59,16 +60,16 @@ export async function GET(req: Request) {
       });
     }
 
-    const { data: purchase } = await supabase
-      .from("prompt_purchases")
-      .select("id")
-      .eq("prompt_id", promptId)
-      .eq("buyer_id", user.id)
-      .eq("status", "paid")
-      .is("refunded_at", null)
-      .maybeSingle();
+    const purchaseLookup = await findAccessiblePurchaseForResource({
+      supabase,
+      resourceId: promptId,
+      buyerId: user.id,
+      preferredTable: "prompt_purchases",
+      type: "prompt",
+      allowedStatuses: ["paid"],
+    });
 
-    if (!purchase) {
+    if (!purchaseLookup.accessible) {
       return NextResponse.json({ error: "Purchase required." }, { status: 403 });
     }
 

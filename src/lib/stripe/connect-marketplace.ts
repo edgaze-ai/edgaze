@@ -144,6 +144,25 @@ export type ConnectAccountPayoutStatus = {
 };
 
 /**
+ * Whether we should route a new marketplace sale directly to the connected account.
+ * This is intentionally a little more permissive than `readyForPayouts`: if onboarding details
+ * are submitted and transfers are not hard-disabled, funds can still settle into the connected
+ * account balance even if payout rails are still finishing activation.
+ */
+export function canRouteMarketplaceFundsToConnectedAccount(status: ConnectAccountPayoutStatus) {
+  if (status.requirementsDisabledReason) {
+    return false;
+  }
+  if (!status.detailsSubmitted) {
+    return false;
+  }
+  if (status.transfersCapabilityStatus === "inactive") {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Live status from Stripe (never trust DB alone). Uses Express Account fields relevant to payouts.
  */
 export async function getExpressConnectAccountPayoutStatus(
@@ -195,18 +214,13 @@ export async function createConnectAccountSessionForOnboarding(stripeAccountId: 
 
 /** Embedded Connect.js — earnings / payout dashboard components. */
 export async function createConnectDashboardAccountSession(stripeAccountId: string) {
-  // Stripe requires `features[standard_payouts]` (and related payout features) to match
-  // between `payouts` and `balances` when both components are enabled.
+  // Keep embedded dashboard features conservative. We saw creators receive valid account sessions
+  // while the components themselves rendered an auth error; removing the forced Stripe-auth bypass
+  // and only enabling the features each component actually needs is more reliable for Express.
   const payoutFeatures = {
-    disable_stripe_user_authentication: true,
     standard_payouts: true,
     external_account_collection: true,
     edit_payout_schedule: true,
-  };
-
-  const embeddedAuthFeatures = {
-    disable_stripe_user_authentication: true,
-    external_account_collection: true,
   };
 
   const accountSession = await stripe.accountSessions.create({
@@ -214,7 +228,6 @@ export async function createConnectDashboardAccountSession(stripeAccountId: stri
     components: {
       notification_banner: {
         enabled: true,
-        features: { ...embeddedAuthFeatures },
       },
       // No `payments` component: creators are payout recipients only (no card_payments on account).
       payouts: {
@@ -223,7 +236,9 @@ export async function createConnectDashboardAccountSession(stripeAccountId: stri
       },
       account_management: {
         enabled: true,
-        features: { ...embeddedAuthFeatures },
+        features: {
+          external_account_collection: true,
+        },
       },
       documents: { enabled: true },
       balances: {

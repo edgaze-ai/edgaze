@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
+import { findAccessiblePurchaseForResource } from "@lib/purchases/ownership";
 import { stripGraphSecrets } from "@lib/workflow/stripGraphSecrets";
 
 export type WorkflowAccessMode =
@@ -133,15 +134,17 @@ export async function resolveWorkflowAccessDecision(params: {
     };
   }
 
-  const { data: purchase, error: purchaseError } = await supabase
-    .from("workflow_purchases")
-    .select("id, status, refunded_at")
-    .eq("workflow_id", workflowId)
-    .eq("buyer_id", userId)
-    .maybeSingle();
+  const purchaseLookup = await findAccessiblePurchaseForResource({
+    supabase,
+    resourceId: workflowId,
+    buyerId: userId,
+    preferredTable: "workflow_purchases",
+    type: "workflow",
+    allowedStatuses: ["paid"],
+  });
 
-  if (purchaseError) {
-    console.error("[workflow-security] purchase fetch failed", purchaseError);
+  if (purchaseLookup.error) {
+    console.error("[workflow-security] purchase fetch failed", purchaseLookup.error);
     return {
       ok: false,
       mode: "deny",
@@ -151,12 +154,7 @@ export async function resolveWorkflowAccessDecision(params: {
     };
   }
 
-  const hasPaidPurchase =
-    Boolean(purchase) &&
-    (purchase as { status?: string }).status === "paid" &&
-    (purchase as { refunded_at?: string | null }).refunded_at == null;
-
-  if (!hasPaidPurchase) {
+  if (!purchaseLookup.accessible) {
     return {
       ok: false,
       mode: "deny",
