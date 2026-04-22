@@ -22,12 +22,12 @@ Creators set the price of their products within defined limits. These limits hel
 
 | Limit             | Amount                                              |
 | ----------------- | --------------------------------------------------- |
-| **Minimum price** | $5 (plus estimated infrastructure cost for 10 runs) |
+| **Minimum price** | $5 |
 | **Maximum price** | $150                                                |
 
 ### How Workflow Minimums Are Calculated
 
-For workflows, the minimum price includes a base of $5 plus the estimated infrastructure cost shown at publish time. This infrastructure cost is **separate from** the Edgaze marketplace fee (20%). See [Infrastructure Cost Estimation](/docs/infrastructure-cost-estimation) for details.
+For workflows, the minimum enforced price is $5. The estimated infrastructure cost shown at publish time is still displayed as pricing guidance, and it remains **separate from** the Edgaze marketplace fee (20%). See [Infrastructure Cost Estimation](/docs/infrastructure-cost-estimation) for details.
 
 ## Why Limits Exist
 

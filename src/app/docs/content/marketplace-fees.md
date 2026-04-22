@@ -16,9 +16,9 @@ Edgaze takes a **20% marketplace fee** on every sale. This fee covers platform h
 The marketplace fee (20%) is **separate from** workflow infrastructure cost:
 
 - **Marketplace fee** — 20% of the sale price. Deducted from every sale. This is the fee described in this document.
-- **Infrastructure cost** — The cost to run paid workflows (API usage, compute). Estimated at publish time for 10 runs. Creators must set their price to cover this cost **in addition to** the marketplace fee.
+- **Infrastructure cost** — The cost to run paid workflows (API usage, compute). Estimated at publish time for 10 runs. Creators can use this as pricing guidance **in addition to** the marketplace fee.
 
-For workflows, the minimum price is $5 plus the estimated infrastructure cost. See [Infrastructure Cost Estimation](/docs/infrastructure-cost-estimation) for details on how we estimate costs and how to price for profit.
+For workflows, the minimum listing price is $5. The infrastructure estimate is still shown at publish time as guidance, but it does not raise the enforced minimum. See [Infrastructure Cost Estimation](/docs/infrastructure-cost-estimation) for details on how we estimate costs and how to price for profit.
 
 ---
 

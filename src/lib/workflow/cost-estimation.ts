@@ -113,6 +113,15 @@ const IMAGE_PRICING: Record<string, Record<string, number>> = {
     medium: 0.08,
     high: 0.15,
   },
+  // Keep new OpenAI image models on a conservative pricing tier until we have a dedicated pricing table.
+  "gpt-image-2": {
+    "1024x1024": 0.08,
+    "1536x1024": 0.12,
+    "1024x1536": 0.12,
+    low: 0.05,
+    medium: 0.08,
+    high: 0.15,
+  },
   "gemini-2.5-flash-image": { "1024x1024": 0.039 },
   "gemini-3.1-flash-image-preview": { "1024x1024": 0.067 },
   "gemini-3-pro-image-preview": { "1024x1024": 0.134 },
@@ -334,6 +343,8 @@ export function estimateWorkflowRunCost(graph: WorkflowGraph | null): number {
       } else {
         const gptQuality = openaiGptImageQualityParam(quality);
         const modelPrices = IMAGE_PRICING[model] ??
+          IMAGE_PRICING["gpt-image-2"] ??
+          IMAGE_PRICING["gpt-image-1.5"] ??
           IMAGE_PRICING["gpt-image-1-mini"] ?? { "1024x1024": 0.02 };
         cost =
           (modelPrices as Record<string, number>)[gptQuality] ??
@@ -370,10 +381,10 @@ export function estimateWorkflowCostForRuns(graph: WorkflowGraph | null, runs: n
   return perRun * runs;
 }
 
-/** Get minimum price ($5 + cost for 10 runs). */
+/** Get minimum price for workflows. Infrastructure guidance is shown separately. */
 export function getMinimumWorkflowPrice(graph: WorkflowGraph | null): number {
-  const cost10 = estimateWorkflowCostForRuns(graph, 10);
-  return 5 + cost10;
+  void graph;
+  return 5;
 }
 
 /** Get recommended price (2.5x minimum, rounded to .99). */

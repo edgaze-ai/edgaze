@@ -22,7 +22,7 @@ describe("instantiateTemplate", () => {
         inputQuestion5: "Any negative constraints?",
         inputType5: "textarea",
         imagePrompt: "styling consistency and dramatic lighting",
-        imageModel: "gpt-image-1.5",
+        imageModel: "gpt-image-2",
         aspectRatio: "9:16",
       },
       context: { mode: "template_page" },
@@ -43,7 +43,7 @@ describe("instantiateTemplate", () => {
     expect(imageGenerator?.data?.config?.prompt).toContain(
       "Take the prompt and generate the image.",
     );
-    expect(imageGenerator?.data?.config?.model).toBe("gpt-image-1.5");
+    expect(imageGenerator?.data?.config?.model).toBe("gpt-image-2");
     expect(imageGenerator?.data?.config?.aspectRatio).toBe("9:16");
     expect(inputs[3]?.data?.config?.question).toBe("What composition should it use?");
     expect(inputs[4]?.data?.config?.inputType).toBe("textarea");

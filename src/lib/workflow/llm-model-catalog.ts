@@ -202,6 +202,13 @@ export const LLM_IMAGE_MODEL_OPTIONS: LlmImageOption[] = [
     cost: "$",
   },
   {
+    value: "gpt-image-2",
+    label: "OpenAI · ChatGPT Image 2 · $$",
+    provider: "openai",
+    quality: "high",
+    cost: "$$",
+  },
+  {
     value: "gpt-image-1.5",
     label: "OpenAI · Image 1.5 · $$",
     provider: "openai",
