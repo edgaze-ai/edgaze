@@ -36,6 +36,7 @@ import {
 import {
   DEFAULT_LLM_CHAT_MODEL,
   DEFAULT_LLM_IMAGE_MODEL,
+  DEFAULT_LLM_IMAGE_TIMEOUT_MS,
   LEGACY_OPENAI_CHAT_MODEL,
   LEGACY_OPENAI_IMAGE_MODEL,
   openaiChatUsesMaxCompletionTokens,
@@ -149,6 +150,13 @@ function createTimeoutAbortController(timeoutMs: number, parentSignal?: AbortSig
       }
     },
   };
+}
+
+function formatRemoteImageGenerationError(err: unknown): Error {
+  if (err instanceof Error && err.name === "AbortError") {
+    return new Error("Image generation timeout");
+  }
+  return err instanceof Error ? err : new Error(String(err));
 }
 
 async function waitWithAbort(durationMs: number, signal?: AbortSignal): Promise<void> {
@@ -1220,71 +1228,40 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
     throw new Error(tokenValidation.error || "Token limit exceeded");
   }
 
-  const timeout = config.timeout ?? 60000;
+  const configuredTimeout =
+    typeof config.timeout === "number" && Number.isFinite(config.timeout) ? config.timeout : 0;
+  const timeout = Math.max(configuredTimeout, DEFAULT_LLM_IMAGE_TIMEOUT_MS);
 
-  if (imageProvider === "openai") {
-    if (!isUserApiKey && requestMeta?.identifier && requestMeta?.identifierType) {
-      const rateLimitCheck = await checkImageGenerationAllowed(
-        requestMeta.identifier,
-        requestMeta.identifierType,
-        userId,
-        false,
-      );
-      if (!rateLimitCheck.allowed) {
-        if (rateLimitCheck.requiresApiKey) {
-          throw new Error(
-            rateLimitCheck.error ||
-              "Image generation requires your OpenAI API key in the run modal, or sign in to use the platform key.",
-          );
-        }
-        throw new Error(
-          rateLimitCheck.error ||
-            "Image generation is not allowed at this time. Please provide your OpenAI API key.",
-        );
-      }
-    } else if (!isUserApiKey && !hasApiKey) {
+  const runGeminiImageGeneration = async (
+    geminiApiKey: string,
+    requestedModel: string,
+  ): Promise<string> => {
+    const LEGACY_GEMINI_LLM_IMAGE_MODEL: Record<string, string> = {
+      // Older workflows stored non-preview IDs that 404 on v1beta for many keys.
+      "gemini-3.1-flash-image": "gemini-3.1-flash-image-preview",
+    };
+    const geminiModel = LEGACY_GEMINI_LLM_IMAGE_MODEL[requestedModel] ?? requestedModel;
+
+    const geminiRateCheck = await checkProviderRateLimit({
+      provider: "google",
+      userId: ctx.requestMetadata?.userId ?? null,
+      isPlatformKey: !isUserProvidedApiKey(node, ctx),
+    });
+    if (!geminiRateCheck.allowed) {
       throw new Error(
-        "OpenAI API key required for image generation. Please provide your API key in the run modal.",
+        `Image API rate limit exceeded. Retry after ${Math.ceil((geminiRateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
       );
     }
-  } else if (!hasApiKey) {
-    throw new Error(
-      "Google Gemini API key required for this image model. Add it in the run modal or node inspector.",
-    );
-  }
 
-  if (!apiKey) {
-    throw new Error("API key required for image generation.");
-  }
+    const { controller, dispose } = createTimeoutAbortController(timeout, ctx.abortSignal);
 
-  const rateCheck = await checkProviderRateLimit({
-    provider: imageProvider === "google" ? "google" : "openai",
-    userId: ctx.requestMetadata?.userId ?? null,
-    isPlatformKey: !isUserProvidedApiKey(node, ctx),
-  });
-  if (!rateCheck.allowed) {
-    throw new Error(
-      `Image API rate limit exceeded. Retry after ${Math.ceil((rateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
-    );
-  }
-
-  const { controller, dispose } = createTimeoutAbortController(timeout, ctx.abortSignal);
-
-  try {
-    if (imageProvider === "google") {
-      const LEGACY_GEMINI_LLM_IMAGE_MODEL: Record<string, string> = {
-        // Older workflows stored non-preview IDs that 404 on v1beta for many keys.
-        "gemini-3.1-flash-image": "gemini-3.1-flash-image-preview",
-      };
-      model = LEGACY_GEMINI_LLM_IMAGE_MODEL[model] ?? model;
-
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    try {
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent?key=${encodeURIComponent(geminiApiKey)}`;
       const gres = await fetch(geminiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: effectivePrompt }] }],
-          // Gemini "image" models often need an explicit modality request; otherwise they may return text.
           generationConfig: {
             responseModalities: ["IMAGE"],
             imageConfig: {
@@ -1294,7 +1271,6 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         }),
         signal: controller.signal,
       });
-      dispose();
 
       if (!gres.ok) {
         if (gres.status === 429) {
@@ -1343,62 +1319,144 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
         );
       }
 
-      ctx.setNodeOutput(node.id, imageUrl);
       return imageUrl;
+    } finally {
+      dispose();
     }
+  };
 
+  const runOpenAiImageGeneration = async (openAiApiKey: string, requestedModel: string) => {
     const OPENAI_IMAGE_LEGACY_MODEL: Record<string, string> = {
       "dall-e-2": "gpt-image-1-mini",
       "dall-e-3": "gpt-image-1.5",
       "gpt-image-1": "gpt-image-1.5",
     };
-    model = OPENAI_IMAGE_LEGACY_MODEL[model] ?? model;
+    const openAiModel = OPENAI_IMAGE_LEGACY_MODEL[requestedModel] ?? requestedModel;
+
+    const openAiRateCheck = await checkProviderRateLimit({
+      provider: "openai",
+      userId: ctx.requestMetadata?.userId ?? null,
+      isPlatformKey: !isUserProvidedApiKey(node, ctx),
+    });
+    if (!openAiRateCheck.allowed) {
+      throw new Error(
+        `Image API rate limit exceeded. Retry after ${Math.ceil((openAiRateCheck.retryAfterMs ?? 60000) / 1000)}s.`,
+      );
+    }
 
     const validSize = openaiImagePixelSizeFromAspectRatio(aspectRatio);
     const gptQuality = openaiGptImageQualityParam(config.quality as string | undefined);
 
     const body: Record<string, unknown> = {
-      model,
+      model: openAiModel,
       prompt,
       n: 1,
       size: validSize,
       quality: gptQuality,
     };
 
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    const { controller, dispose } = createTimeoutAbortController(timeout, ctx.abortSignal);
 
-    dispose();
+    try {
+      const response = await fetch("https://api.openai.com/v1/images/generations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openAiApiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        record429Cooldown({
-          provider: "openai",
-          userId: ctx.requestMetadata?.userId ?? null,
-          isPlatformKey: !isUserProvidedApiKey(node, ctx),
-        });
+      if (!response.ok) {
+        if (response.status === 429) {
+          record429Cooldown({
+            provider: "openai",
+            userId: ctx.requestMetadata?.userId ?? null,
+            isPlatformKey: !isUserProvidedApiKey(node, ctx),
+          });
+        }
+        const error = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} ${error}`);
       }
-      const error = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} ${error}`);
+
+      await recordProviderUsage({
+        provider: "openai",
+        userId: ctx.requestMetadata?.userId ?? null,
+        isPlatformKey: !isUserProvidedApiKey(node, ctx),
+      });
+
+      const data = await response.json();
+      let imageUrl = data.data?.[0]?.url ?? "";
+      if (!imageUrl && data.data?.[0]?.b64_json) {
+        imageUrl = `data:image/png;base64,${data.data[0].b64_json}`;
+      }
+
+      return imageUrl;
+    } finally {
+      dispose();
     }
+  };
 
-    await recordProviderUsage({
-      provider: "openai",
-      userId: ctx.requestMetadata?.userId ?? null,
-      isPlatformKey: !isUserProvidedApiKey(node, ctx),
-    });
+  if (imageProvider === "openai") {
+    if (!isUserApiKey && requestMeta?.identifier && requestMeta?.identifierType) {
+      const rateLimitCheck = await checkImageGenerationAllowed(
+        requestMeta.identifier,
+        requestMeta.identifierType,
+        userId,
+        false,
+      );
+      if (!rateLimitCheck.allowed) {
+        if (rateLimitCheck.requiresApiKey) {
+          throw new Error(
+            rateLimitCheck.error ||
+              "Image generation requires your OpenAI API key in the run modal, or sign in to use the platform key.",
+          );
+        }
+        throw new Error(
+          rateLimitCheck.error ||
+            "Image generation is not allowed at this time. Please provide your OpenAI API key.",
+        );
+      }
+    } else if (!isUserApiKey && !hasApiKey) {
+      throw new Error(
+        "OpenAI API key required for image generation. Please provide your API key in the run modal.",
+      );
+    }
+  } else if (!hasApiKey) {
+    throw new Error(
+      "Google Gemini API key required for this image model. Add it in the run modal or node inspector.",
+    );
+  }
 
-    const data = await response.json();
-    let imageUrl = data.data?.[0]?.url ?? "";
-    if (!imageUrl && data.data?.[0]?.b64_json) {
-      imageUrl = `data:image/png;base64,${data.data[0].b64_json}`;
+  if (!apiKey) {
+    throw new Error("API key required for image generation.");
+  }
+
+  try {
+    if (imageProvider === "google") {
+      const imageUrl = await runGeminiImageGeneration(apiKey, model);
+      ctx.setNodeOutput(node.id, imageUrl);
+      return imageUrl;
+    }
+    let imageUrl = "";
+    try {
+      imageUrl = await runOpenAiImageGeneration(apiKey, model);
+    } catch (primaryError: unknown) {
+      const fallbackKey = getEdgazeGeminiApiKey();
+      const canFallback = model !== DEFAULT_LLM_IMAGE_MODEL && typeof fallbackKey === "string";
+      if (!canFallback) {
+        throw primaryError;
+      }
+      try {
+        imageUrl = await runGeminiImageGeneration(fallbackKey, DEFAULT_LLM_IMAGE_MODEL);
+      } catch (fallbackError: unknown) {
+        const primaryMessage = formatRemoteImageGenerationError(primaryError).message;
+        const fallbackMessage = formatRemoteImageGenerationError(fallbackError).message;
+        throw new Error(
+          `Primary image generation failed (${primaryMessage}). Nano Banana fallback also failed (${fallbackMessage}).`,
+        );
+      }
     }
 
     const usedFreeTier = !isUserApiKey && userId !== undefined;
@@ -1417,12 +1475,8 @@ const openaiImageHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: Runt
 
     ctx.setNodeOutput(node.id, imageUrl);
     return imageUrl;
-  } catch (err: any) {
-    dispose();
-    if (err.name === "AbortError") {
-      throw new Error("Image generation timeout");
-    }
-    throw err;
+  } catch (err: unknown) {
+    throw formatRemoteImageGenerationError(err);
   }
 };
 

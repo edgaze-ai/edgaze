@@ -24,6 +24,7 @@ import { getResourceClass, createResourcePoolManager } from "@lib/workflow/resou
 import { shouldRetry, RunCircuitBreaker } from "@lib/workflow/retry-classification";
 import { canonicalSpecId } from "@lib/workflow/spec-id-aliases";
 import { sanitizeLogText } from "@lib/security/url-policy";
+import { DEFAULT_LLM_IMAGE_TIMEOUT_MS } from "@lib/workflow/llm-model-catalog";
 
 /** Kahn’s topological sort (simple) */
 function topo(nodes: GraphNode[], edges: GraphEdge[]): string[] {
@@ -383,9 +384,13 @@ export async function runFlow(
       configTimeout > 0 && !Number.isNaN(configTimeout) ? configTimeout : DEFAULT_TIMEOUT_MS;
     const canonicalForTimeout = canonicalSpecId(specId);
     const isLlmChatLike = canonicalForTimeout === "llm-chat";
+    const isLlmImageLike = canonicalForTimeout === "llm-image";
     // Legacy OpenAI Chat stored 30s; unified LLM calls routinely exceed that.
     if (isLlmChatLike && timeoutMs < DEFAULT_TIMEOUT_MS) {
       timeoutMs = DEFAULT_TIMEOUT_MS;
+    }
+    if (isLlmImageLike && timeoutMs < DEFAULT_LLM_IMAGE_TIMEOUT_MS) {
+      timeoutMs = DEFAULT_LLM_IMAGE_TIMEOUT_MS;
     }
     const hasSideEffects = nodeHasSideEffects(specId, config);
     const retries = hasSideEffects

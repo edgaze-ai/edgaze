@@ -20,10 +20,10 @@ Creators set the price of their products within defined limits. These limits hel
 
 ### Allowed Range for Workflows
 
-| Limit             | Amount                                              |
-| ----------------- | --------------------------------------------------- |
-| **Minimum price** | $5 |
-| **Maximum price** | $150                                                |
+| Limit             | Amount |
+| ----------------- | ------ |
+| **Minimum price** | $5     |
+| **Maximum price** | $150   |
 
 ### How Workflow Minimums Are Calculated
 

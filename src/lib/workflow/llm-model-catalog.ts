@@ -38,6 +38,11 @@ export const LEGACY_OPENAI_IMAGE_MODEL = "gpt-image-1-mini";
 
 /** Default LLM Image: Nano Banana 2 (Gemini 3.1 Flash Image). */
 export const DEFAULT_LLM_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
+/**
+ * OpenAI image generations can legitimately take around two minutes for complex prompts.
+ * Keep the default above one minute so production runs do not abort healthy generations.
+ */
+export const DEFAULT_LLM_IMAGE_TIMEOUT_MS = 180_000;
 
 const OPENAI_CHAT_PREFIXES = ["gpt-", "o1", "o3", "o4", "chatgpt-"];
 const ANTHROPIC_PREFIXES = ["claude-"];
