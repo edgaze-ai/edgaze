@@ -1,7 +1,7 @@
 // src/app/[ownerHandle]/[edgazeCode]/layout.tsx
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { workflowPreviewImageUrl } from "@lib/listing-preview-image";
+import { workflowOgImageUrl, workflowPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowRedirectPath } from "@lib/supabase/handle-redirect";
 import { getSiteOrigin } from "@lib/site-origin";
@@ -20,7 +20,7 @@ async function getWorkflowListing(ownerHandle: string, edgazeCode: string) {
     const { data, error } = await supabase
       .from("workflows")
       .select(
-        "title, description, thumbnail_url, banner_url, demo_images, output_demo_urls, price_usd, is_paid",
+        "title, description, thumbnail_url, banner_url, demo_images, output_demo_urls, price_usd, is_paid, updated_at",
       )
       .eq("owner_handle", ownerHandle)
       .eq("edgaze_code", edgazeCode)
@@ -38,6 +38,7 @@ async function getWorkflowListing(ownerHandle: string, edgazeCode: string) {
       output_demo_urls: unknown;
       price_usd: number | null;
       is_paid: boolean | null;
+      updated_at: string | null;
     };
     return row;
   } catch {
@@ -89,9 +90,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : "Discover and use this AI workflow on Edgaze. Build powerful automation with AI.";
 
   const pageUrl = `${siteOrigin}/${ownerHandle}/${edgazeCode}`;
-  const dynamicOgPath = `/api/og/workflow?${new URLSearchParams({ ownerHandle, edgazeCode }).toString()}`;
   const primaryOg = {
-    url: dynamicOgPath,
+    url: workflowOgImageUrl(ownerHandle, edgazeCode, listing, siteOrigin),
     width: OG_IMAGE_WIDTH,
     height: OG_IMAGE_HEIGHT,
     alt: title,
@@ -132,6 +132,7 @@ function buildWorkflowProductJsonLd(
     output_demo_urls: unknown;
     price_usd: number | null;
     is_paid: boolean | null;
+    updated_at?: string | null;
   },
 ): Record<string, unknown> {
   const name = listing.title?.trim() || "Workflow";

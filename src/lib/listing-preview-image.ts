@@ -58,3 +58,52 @@ export function workflowPreviewImageUrl(listing: {
     absoluteListingImageUrl(firstJsonbImageUrl(listing.output_demo_urls))
   );
 }
+
+function stableUrlVersion(value: string): string {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function listingSocialImageVersion(listing: {
+  thumbnail_url: string | null;
+  banner_url?: string | null;
+  demo_images: unknown;
+  output_demo_urls: unknown;
+  updated_at?: string | null;
+}): string {
+  const imageUrl =
+    absoluteListingImageUrl(listing.thumbnail_url) ??
+    absoluteListingImageUrl(listing.banner_url) ??
+    absoluteListingImageUrl(firstJsonbImageUrl(listing.demo_images)) ??
+    absoluteListingImageUrl(firstJsonbImageUrl(listing.output_demo_urls)) ??
+    "";
+  const updatedAt = listing.updated_at?.trim() || "";
+  const updatedMs = updatedAt ? Date.parse(updatedAt) : Number.NaN;
+  const updatedVersion = Number.isFinite(updatedMs)
+    ? String(updatedMs)
+    : stableUrlVersion(updatedAt);
+
+  return [updatedVersion, stableUrlVersion(imageUrl)].filter(Boolean).join("-");
+}
+
+export function workflowOgImageUrl(
+  ownerHandle: string,
+  edgazeCode: string,
+  listing: {
+    thumbnail_url: string | null;
+    banner_url: string | null;
+    demo_images: unknown;
+    output_demo_urls: unknown;
+    updated_at?: string | null;
+  },
+  baseUrl: string = getSiteOrigin(),
+): string {
+  const url = new URL("/api/og/workflow", baseUrl);
+  url.searchParams.set("ownerHandle", ownerHandle);
+  url.searchParams.set("edgazeCode", edgazeCode);
+  url.searchParams.set("v", listingSocialImageVersion(listing));
+  return url.toString();
+}

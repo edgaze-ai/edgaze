@@ -4,6 +4,7 @@ import type { NodeSpec } from "./types";
 import {
   DEFAULT_LLM_CHAT_MODEL,
   DEFAULT_LLM_IMAGE_MODEL,
+  DEFAULT_LLM_IMAGE_TIMEOUT_MS,
   LLM_CHAT_MODEL_OPTIONS,
   LLM_EMBEDDING_OPTIONS,
   LLM_IMAGE_ASPECT_OPTIONS,
@@ -149,7 +150,7 @@ export const PREMIUM_NODES: NodeSpec[] = [
       aspectRatio: "1:1",
       quality: "medium",
       n: 1,
-      timeout: 60000,
+      timeout: DEFAULT_LLM_IMAGE_TIMEOUT_MS,
       retries: 2,
     },
     inspector: [

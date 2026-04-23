@@ -30,6 +30,7 @@ const HIDE_SIDEBAR_ROUTES = new Set([
   "/apply", // legacy apply flow
   "/careers", // careers portal - full-width, no sidebar
   "/about", // about page - full-width marketing
+  "/diplomeme", // affiliate storefront - full-width, scrollable
   "/blogs", // blog portal - own sidebar, full-width
   "/pricing", // pricing page - full-width marketing
   "/press", // press page - full-width, scrollable

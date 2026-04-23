@@ -35,19 +35,31 @@ export async function loadBrandMarkDataUrl(): Promise<string | undefined> {
 
 export async function remoteImageLikelyRenderable(url: string): Promise<boolean> {
   try {
-    const trustedUrl = resolveTrustedUrl(url, {
-      allowedProtocols: ["https:", "http:"],
-      allowLocalhost: false,
-      allowPrivateIpv4: false,
-    });
-    if (!trustedUrl) return false;
+    let currentUrl = url;
+    let r: Response | null = null;
 
-    const r = await fetch(trustedUrl, {
-      redirect: "error",
-      cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-      headers: { Accept: "image/*,*/*;q=0.8" },
-    });
+    for (let i = 0; i < 4; i += 1) {
+      const trustedUrl = resolveTrustedUrl(currentUrl, {
+        allowedProtocols: ["https:", "http:"],
+        allowLocalhost: false,
+        allowPrivateIpv4: false,
+      });
+      if (!trustedUrl) return false;
+
+      r = await fetch(trustedUrl, {
+        redirect: "manual",
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+        headers: { Accept: "image/*,*/*;q=0.8" },
+      });
+
+      if (![301, 302, 303, 307, 308].includes(r.status)) break;
+      const location = r.headers.get("location");
+      if (!location) return false;
+      currentUrl = new URL(location, trustedUrl).toString();
+    }
+
+    if (!r) return false;
     if (!r.ok) return false;
     const ct = (r.headers.get("content-type") || "").toLowerCase();
     if (!ct.startsWith("image/")) return false;
