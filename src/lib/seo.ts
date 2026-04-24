@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DEFAULT_SOCIAL_IMAGE } from "./default-social-image";
+import { DEFAULT_SOCIAL_IMAGE, defaultSocialImageAbsoluteUrl } from "./default-social-image";
 import { getSiteOrigin } from "./site-origin";
 
 export const SITE_NAME = "Edgaze";
@@ -42,6 +42,19 @@ export function buildCanonicalUrl(path = "/") {
   return `${getSiteOrigin()}${normalizePath(path)}`;
 }
 
+export function buildSocialImage(imageUrl: string, alt: string = DEFAULT_SOCIAL_IMAGE.alt) {
+  return {
+    url: imageUrl,
+    width: DEFAULT_SOCIAL_IMAGE.width,
+    height: DEFAULT_SOCIAL_IMAGE.height,
+    alt,
+  };
+}
+
+export function buildDefaultSocialImage(alt: string = DEFAULT_SOCIAL_IMAGE.alt) {
+  return buildSocialImage(defaultSocialImageAbsoluteUrl(), alt);
+}
+
 type BuildMetadataInput = {
   title: string;
   description: string;
@@ -49,6 +62,14 @@ type BuildMetadataInput = {
   robots?: Metadata["robots"];
   openGraphType?: "website" | "article";
   publishedTime?: string;
+};
+
+type BuildProductMetadataInput = {
+  title: string;
+  description: string;
+  path: string;
+  imageUrl?: string | null;
+  openGraphType?: "website" | "article";
 };
 
 export function buildMetadata({
@@ -74,14 +95,47 @@ export function buildMetadata({
       siteName: SITE_NAME,
       title,
       description,
-      images: [DEFAULT_SOCIAL_IMAGE],
+      images: [buildDefaultSocialImage()],
       ...(publishedTime ? { publishedTime } : {}),
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [DEFAULT_SOCIAL_IMAGE],
+      images: [buildDefaultSocialImage()],
+    },
+  };
+}
+
+export function buildProductMetadata({
+  title,
+  description,
+  path,
+  imageUrl,
+  openGraphType = "website",
+}: BuildProductMetadataInput): Metadata {
+  const canonical = buildCanonicalUrl(path);
+  const primaryImage = buildSocialImage(imageUrl || defaultSocialImageAbsoluteUrl(), title);
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      type: openGraphType,
+      url: canonical,
+      siteName: SITE_NAME,
+      title,
+      description,
+      images: [primaryImage],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [primaryImage],
     },
   };
 }

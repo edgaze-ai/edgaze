@@ -95,6 +95,7 @@ export type WorkflowRunState = {
   currentStepId?: string | null;
   logs: WorkflowRunLogLine[];
   summary?: string;
+  inputRecovery?: import("./youtube-transcript").YoutubeTranscriptRecoveryRequest;
   inputs?: WorkflowInput[];
   inputValues?: Record<string, any>;
   outputs?: Array<{ nodeId: string; label: string; value: any; type?: string }>;

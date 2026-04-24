@@ -1,8 +1,8 @@
 /**
  * Canonical origin for metadata, Open Graph, JSON-LD, and absolute listing image URLs.
  *
- * Default production value is https://www.edgaze.ai so og:url matches typical shared links
- * and avoids apex↔www redirects that confuse Meta’s crawler (WhatsApp / Instagram / Facebook).
+ * Default production value is the apex domain so shared page URLs and og:image fetches avoid
+ * an extra canonical-host redirect before crawlers reach the final HTML or image response.
  *
  * Override with NEXT_PUBLIC_SITE_URL when needed (e.g. preview deployments).
  */
@@ -28,5 +28,5 @@ export function getSiteOrigin(): string {
     return "http://localhost:3000";
   }
 
-  return "https://www.edgaze.ai";
+  return "https://edgaze.ai";
 }

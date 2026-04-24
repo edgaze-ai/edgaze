@@ -1,15 +1,10 @@
 // src/app/p/[ownerHandle]/[edgazeCode]/layout.tsx
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { promptPreviewImageUrl } from "@lib/listing-preview-image";
+import { promptOgImageUrl, promptPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getProductRedirectPath } from "@lib/supabase/handle-redirect";
-import { getSiteOrigin } from "@lib/site-origin";
-import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
-
-/** Open Graph / Twitter hint dimensions (recommended for link previews; actual asset may differ). */
-const OG_IMAGE_WIDTH = 1200;
-const OG_IMAGE_HEIGHT = 630;
+import { buildCanonicalUrl, buildProductMetadata } from "@lib/seo";
 
 type Props = {
   params: Promise<{ ownerHandle: string; edgazeCode: string }>;
@@ -22,7 +17,7 @@ async function getListing(ownerHandle: string, edgazeCode: string) {
     const { data, error } = await supabase
       .from("prompts")
       .select(
-        "title, description, thumbnail_url, demo_images, output_demo_urls, type, price_usd, is_paid",
+        "title, description, thumbnail_url, demo_images, output_demo_urls, type, price_usd, is_paid, updated_at",
       )
       .eq("owner_handle", ownerHandle)
       .eq("edgaze_code", edgazeCode)
@@ -40,6 +35,7 @@ async function getListing(ownerHandle: string, edgazeCode: string) {
       type: string | null;
       price_usd: number | null;
       is_paid: boolean | null;
+      updated_at?: string | null;
     };
   } catch {
     return null;
@@ -49,36 +45,14 @@ async function getListing(ownerHandle: string, edgazeCode: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ownerHandle, edgazeCode } = await params;
   const listing = await getListing(ownerHandle, edgazeCode);
-  const siteOrigin = getSiteOrigin();
-
-  const fallbackOg = DEFAULT_SOCIAL_IMAGE.url;
+  const path = `/p/${ownerHandle}/${edgazeCode}`;
 
   if (!listing) {
-    return {
+    return buildProductMetadata({
       title: "Product",
       description: "View this prompt or workflow on Edgaze",
-      openGraph: {
-        title: "Product",
-        description: "View this prompt or workflow on Edgaze",
-        url: `${siteOrigin}/p/${ownerHandle}/${edgazeCode}`,
-        images: [
-          { url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: "Edgaze" },
-        ],
-      },
-      twitter: {
-        card: "summary_large_image",
-        title: "Product",
-        description: "View this prompt or workflow on Edgaze",
-        images: [
-          {
-            url: fallbackOg,
-            width: OG_IMAGE_WIDTH,
-            height: OG_IMAGE_HEIGHT,
-            alt: "Edgaze",
-          },
-        ],
-      },
-    };
+      path,
+    });
   }
 
   // Listing title only (no site suffix)
@@ -92,37 +66,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         ? "Discover and use this AI workflow on Edgaze. Build powerful automation with AI."
         : "Discover and use this AI prompt on Edgaze. Create amazing content with AI.";
 
-  const pageUrl = `${siteOrigin}/p/${ownerHandle}/${edgazeCode}`;
-  // Relative image URL resolves with root metadataBase (same host as shared links, e.g. www) so Meta gets og:image + dimensions without apex↔www redirects.
-  const dynamicOgPath = `/api/og/prompt?${new URLSearchParams({ ownerHandle, edgazeCode }).toString()}`;
-  const primaryOg = {
-    url: dynamicOgPath,
-    width: OG_IMAGE_WIDTH,
-    height: OG_IMAGE_HEIGHT,
-    alt: title,
-  };
-
-  return {
+  return buildProductMetadata({
     title,
     description,
-    alternates: {
-      canonical: pageUrl,
-    },
-    openGraph: {
-      type: "website",
-      url: pageUrl,
-      siteName: "Marketplace",
-      title,
-      description,
-      images: [primaryOg],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [primaryOg],
-    },
-  };
+    path,
+    imageUrl: promptOgImageUrl(ownerHandle, edgazeCode, listing),
+  });
 }
 
 function buildPromptProductJsonLd(
@@ -150,7 +99,7 @@ function buildPromptProductJsonLd(
     listing.is_paid && listing.price_usd != null && listing.price_usd > 0
       ? String(listing.price_usd)
       : "0";
-  const pageUrl = `${getSiteOrigin()}/p/${ownerHandle}/${edgazeCode}`;
+  const pageUrl = buildCanonicalUrl(`/p/${ownerHandle}/${edgazeCode}`);
 
   return {
     "@context": "https://schema.org",

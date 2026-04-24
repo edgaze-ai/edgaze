@@ -84,6 +84,10 @@ import {
   getWorkflowDemoUserAgent,
   normalizeWorkflowDemoFingerprint,
 } from "src/server/security/workflow-demo-identity";
+import {
+  isYoutubeTranscriptFallbackRequiredError,
+  type YoutubeTranscriptRecoveryRequest,
+} from "@lib/workflow/youtube-transcript";
 
 /** Node runtime so workflow code reads deployment `process.env` (platform API keys). */
 export const runtime = "nodejs";
@@ -320,6 +324,13 @@ function createStreamingResponseHelpers(
   };
 
   return { sendPrelude, writeEvent };
+}
+
+function getRecoverableInputRequest(error: unknown): YoutubeTranscriptRecoveryRequest | undefined {
+  if (isYoutubeTranscriptFallbackRequiredError(error)) {
+    return error.recovery;
+  }
+  return undefined;
 }
 
 async function finishUnifiedRun(
@@ -1563,6 +1574,7 @@ export async function POST(req: Request) {
             streamLogicalOk = true;
           } catch (err: any) {
             const duration = Date.now() - startTime;
+            const recoverableInputRequest = getRecoverableInputRequest(err);
             let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
             if (runId && isTrackedUser) {
               const countResult = await completeWorkflowRunAndGetCount({
@@ -1619,11 +1631,14 @@ export async function POST(req: Request) {
               }
             }
             await finishUnifiedRun(unifiedRunId, "error", duration, err?.message);
-            streamErrorMessage = simplifyWorkflowError(err?.message || "Unknown error");
+            streamErrorMessage = recoverableInputRequest
+              ? recoverableInputRequest.message
+              : simplifyWorkflowError(err?.message || "Unknown error");
             writeTracedEvent({
               type: "complete",
               ok: false,
               error: streamErrorMessage,
+              recoverableInputRequest,
               freeRunsRemaining: updatedFreeRunsRemaining,
               runId,
             });
@@ -1802,6 +1817,7 @@ export async function POST(req: Request) {
     } catch (err: any) {
       const duration = Date.now() - startTime;
       const errorMessage = err?.message || "Unknown error";
+      const recoverableInputRequest = getRecoverableInputRequest(err);
 
       // Atomic completion for failed runs
       let updatedFreeRunsRemaining = enforcement.freeRunsRemaining;
@@ -1867,12 +1883,15 @@ export async function POST(req: Request) {
       return traceJson(
         {
           ok: false,
-          error: simplifyWorkflowError(redactSecrets(errorMessage) as string),
+          error: recoverableInputRequest
+            ? recoverableInputRequest.message
+            : simplifyWorkflowError(redactSecrets(errorMessage) as string),
+          recoverableInputRequest,
           runId,
           runAccessToken,
           freeRunsRemaining: updatedFreeRunsRemaining,
         },
-        500,
+        recoverableInputRequest ? 409 : 500,
         {
           runId,
           unifiedRunId,
@@ -1881,12 +1900,16 @@ export async function POST(req: Request) {
       );
     }
   } catch (e: any) {
+    const recoverableInputRequest = getRecoverableInputRequest(e);
     return NextResponse.json(
       {
         ok: false,
-        error: simplifyWorkflowError(redactSecrets(e?.message || "Unknown error") as string),
+        error: recoverableInputRequest
+          ? recoverableInputRequest.message
+          : simplifyWorkflowError(redactSecrets(e?.message || "Unknown error") as string),
+        recoverableInputRequest,
       },
-      { status: 500 },
+      { status: recoverableInputRequest ? 409 : 500 },
     );
   }
 }

@@ -70,6 +70,8 @@ function buildPreview(specId: string, config: any, edges: any[], nodeId: string)
       return `Model: ${config.model ?? "text-embedding-3-small"}`;
     case "http-request":
       return `${config.method ?? "GET"} ${config.url ?? "Not configured"}`;
+    case "youtube-transcript":
+      return `${config.language?.trim() ? `Lang: ${config.language}` : "Auto captions"} · ${config.outputFormat === "timestamped" ? "timestamped" : "plain text"}`;
     case "json-parse":
       return `Path: ${config.path ?? "root"}`;
     case "condition":

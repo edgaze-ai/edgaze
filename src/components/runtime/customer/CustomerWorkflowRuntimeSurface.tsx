@@ -1224,6 +1224,7 @@ function ReadyStateSurface({
 
   const inputs = useMemo(() => state.inputs ?? [], [state.inputs]);
   const showFields = inputs.length > 0;
+  const recovery = state.inputRecovery;
   const matchesPrefilledInputs = useMemo(() => {
     if (!showFields) return false;
     return inputs.every(
@@ -1344,6 +1345,17 @@ function ReadyStateSurface({
             ? "Add the required inputs and start the workflow when you are ready."
             : "This workflow does not need any additional input. Start it whenever you want."}
         </div>
+        {recovery && (
+          <div
+            className={cx(
+              "rounded-[22px] border border-amber-300/25 bg-amber-300/10 text-amber-50 shadow-[0_18px_50px_rgba(0,0,0,0.18)]",
+              embedded ? "mt-4 px-4 py-3" : "mt-6 px-5 py-4",
+            )}
+          >
+            <div className="text-sm font-semibold">{recovery.title}</div>
+            <div className="mt-1 text-sm leading-6 text-amber-50/85">{recovery.message}</div>
+          </div>
+        )}
         {showFields && (
           <div
             className={cx(

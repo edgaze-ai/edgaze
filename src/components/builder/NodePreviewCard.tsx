@@ -53,6 +53,8 @@ function getPreviewText(specId: string, spec: NodeSpec): string {
       return `Model: ${c.model ?? "text-embedding-3-small"}`;
     case "http-request":
       return `${c.method ?? "GET"} ${c.url ?? "Not configured"}`;
+    case "youtube-transcript":
+      return `${c.language?.trim() ? `Lang: ${c.language}` : "Auto captions"} · ${c.outputFormat === "timestamped" ? "timestamped" : "plain text"}`;
     case "json-parse":
       return `Path: ${c.path ?? "root"}`;
     case "condition":

@@ -70,6 +70,7 @@ import { getDocsLink } from "../../lib/docs-link";
 import { toRuntimeGraph } from "../../lib/workflow/customer-runtime";
 import { finalizeClientWorkflowRunFromExecutionResult } from "../../lib/workflow/finalize-client-run-result";
 import { handleWorkflowRunStream } from "../../lib/workflow/run-stream-client";
+import { appendYoutubeTranscriptRecoveryInput } from "../../lib/workflow/youtube-transcript";
 
 function safeTrack(event: string, props?: Record<string, any>) {
   try {
@@ -2384,6 +2385,33 @@ export default function BuilderPage() {
           return;
         }
 
+        if (errorData?.recoverableInputRequest) {
+          const baseInputs = extractWorkflowInputs(graph.nodes || []);
+          setRunState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: "input",
+                  status: "idle",
+                  inputs: appendYoutubeTranscriptRecoveryInput(
+                    prev.inputs?.length ? prev.inputs : baseInputs,
+                    errorData.recoverableInputRequest,
+                  ),
+                  inputValues: {
+                    ...processedInputs,
+                    [errorData.recoverableInputRequest.inputKey]:
+                      processedInputs[errorData.recoverableInputRequest.inputKey] ?? "",
+                  },
+                  inputRecovery: errorData.recoverableInputRequest,
+                  error: undefined,
+                  finishedAt: undefined,
+                }
+              : prev,
+          );
+          setRunning(false);
+          return;
+        }
+
         throw new Error(errorMessage);
       }
 
@@ -2403,6 +2431,33 @@ export default function BuilderPage() {
 
       const result = streamResult.result;
       if (!result.ok) {
+        if (result.recoverableInputRequest) {
+          const baseInputs = extractWorkflowInputs(graph.nodes || []);
+          setRunState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: "input",
+                  status: "idle",
+                  inputs: appendYoutubeTranscriptRecoveryInput(
+                    prev.inputs?.length ? prev.inputs : baseInputs,
+                    result.recoverableInputRequest,
+                  ),
+                  inputValues: {
+                    ...processedInputs,
+                    [result.recoverableInputRequest.inputKey]:
+                      processedInputs[result.recoverableInputRequest.inputKey] ?? "",
+                  },
+                  inputRecovery: result.recoverableInputRequest,
+                  error: undefined,
+                  finishedAt: undefined,
+                }
+              : prev,
+          );
+          setRunning(false);
+          return;
+        }
+
         const errorMessage = result.error || result.message || "Execution failed";
 
         // Update run counter from error response if available (failed runs also count)

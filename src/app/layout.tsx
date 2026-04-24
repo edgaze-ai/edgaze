@@ -9,7 +9,13 @@ import ClientLayoutGate from "./ClientLayoutGate";
 import LazyAnalyticsWrapper from "../components/layout/LazyAnalytics";
 import { WebVitals } from "./web-vitals";
 import { getSiteOrigin } from "../lib/site-origin";
-import { DEFAULT_DESCRIPTION, DEFAULT_ROBOTS, DEFAULT_TITLE, SITE_NAME } from "../lib/seo";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_ROBOTS,
+  DEFAULT_TITLE,
+  SITE_NAME,
+  buildDefaultSocialImage,
+} from "../lib/seo";
 
 const SITE_ORIGIN = getSiteOrigin();
 
@@ -32,11 +38,13 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
+    images: [buildDefaultSocialImage()],
   },
   twitter: {
     card: "summary_large_image",
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
+    images: [buildDefaultSocialImage()],
   },
   ...(fbAppId ? { other: { "fb:app_id": fbAppId } } : {}),
   // Tab + PWA icons are optimized rasters from /brand/edgaze-mark.png — run `npm run favicon:generate` after updating the mark.

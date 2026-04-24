@@ -2603,6 +2603,15 @@ export default function PremiumWorkflowRunModal({
                       </p>
                     </div>
 
+                    {state.inputRecovery && (
+                      <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 p-5 text-amber-50 shadow-[0_18px_60px_rgba(0,0,0,0.24)]">
+                        <div className="text-sm font-semibold">{state.inputRecovery.title}</div>
+                        <p className="mt-2 text-sm leading-relaxed text-amber-50/85">
+                          {state.inputRecovery.message}
+                        </p>
+                      </div>
+                    )}
+
                     {((isBuilderTest && builderRunLimit != null) || requiresApiKeys?.length) &&
                       needsApiKey && (
                         <div className="rounded-xl border border-white/10 bg-[#0c0c0c] p-5 space-y-5">

@@ -48,6 +48,12 @@ import {
   resolveLlmImageProvider,
 } from "../../lib/workflow/llm-model-catalog";
 import { getEdgazeGeminiApiKey } from "../../lib/workflow/edgaze-api-key";
+import { fetchTranscript } from "youtube-transcript/dist/youtube-transcript.esm.js";
+import {
+  buildYoutubeTranscriptRecoveryRequest,
+  getYoutubeTranscriptManualInputKey,
+  YoutubeTranscriptFallbackRequiredError,
+} from "../../lib/workflow/youtube-transcript";
 
 /** Hosted run: resolve Gemini from env when per-node __api_key_* injection is missing (handoff / reload). */
 function hostedGeminiKeyFromRunInputs(ctx: RuntimeContext): string | null {
@@ -264,6 +270,131 @@ const mergeHandler: NodeRuntimeHandler = async (node: GraphNode, ctx: RuntimeCon
   );
   ctx.setNodeOutput(node.id, merged);
   return merged;
+};
+
+function extractConfiguredString(config: Record<string, unknown>, key: string): string | undefined {
+  const raw = config[key];
+  return typeof raw === "string" && raw.trim().length > 0 ? raw.trim() : undefined;
+}
+
+function extractYoutubeTranscriptUrl(node: GraphNode, ctx: RuntimeContext): string {
+  const external = ctx.inputs?.[node.id];
+  if (typeof external === "string" && external.trim()) return external.trim();
+  if (external && typeof external === "object" && !Array.isArray(external)) {
+    const record = external as Record<string, unknown>;
+    if (typeof record.url === "string" && record.url.trim()) return record.url.trim();
+    if (typeof record.value === "string" && record.value.trim()) return record.value.trim();
+  }
+
+  const config = (node.data?.config ?? {}) as Record<string, unknown>;
+  return (
+    extractConfiguredString(config, "url") ??
+    extractConfiguredString(config, "defaultValue") ??
+    extractConfiguredString(config, "value") ??
+    ""
+  );
+}
+
+function extractYoutubeManualTranscript(node: GraphNode, ctx: RuntimeContext): string {
+  const raw = ctx.inputs?.[getYoutubeTranscriptManualInputKey(node.id)];
+  if (typeof raw === "string") return raw.trim();
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    const record = raw as Record<string, unknown>;
+    if (typeof record.value === "string") return record.value.trim();
+    if (typeof record.text === "string") return record.text.trim();
+  }
+  return "";
+}
+
+function formatTranscriptTimestamp(offset: number): string {
+  const seconds = offset > 10_000 ? Math.floor(offset / 1000) : Math.floor(offset);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  if (hours > 0) {
+    return [hours, minutes, remainingSeconds]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":");
+  }
+  return [minutes, remainingSeconds].map((value) => String(value).padStart(2, "0")).join(":");
+}
+
+const youtubeTranscriptHandler: NodeRuntimeHandler = async (
+  node: GraphNode,
+  ctx: RuntimeContext,
+) => {
+  const config = (node.data?.config ?? {}) as Record<string, unknown>;
+  const manualTranscript = extractYoutubeManualTranscript(node, ctx);
+  if (manualTranscript) {
+    ctx.setNodeOutput(node.id, manualTranscript);
+    return manualTranscript;
+  }
+
+  const url = extractYoutubeTranscriptUrl(node, ctx);
+  if (!url) {
+    throw new Error("YouTube Transcript needs a YouTube URL. Enter one in the run modal.");
+  }
+
+  const language = extractConfiguredString(config, "language");
+  const outputFormat = config.outputFormat === "timestamped" ? "timestamped" : "plain_text";
+  const joinSeparator =
+    typeof config.joinSeparator === "string" && config.joinSeparator.length > 0
+      ? config.joinSeparator
+      : " ";
+  const timeoutMs =
+    typeof config.timeout === "number" && Number.isFinite(config.timeout)
+      ? Math.max(1_000, Math.min(config.timeout, 120_000))
+      : 30_000;
+
+  const { controller, dispose } = createTimeoutAbortController(timeoutMs, ctx.abortSignal);
+
+  try {
+    const transcript = await fetchTranscript(url, {
+      lang: language,
+      fetch: (input, init) => fetch(input, { ...init, signal: controller.signal }),
+    });
+
+    const segments = transcript
+      .map((item) => (typeof item.text === "string" ? item.text.trim() : ""))
+      .filter(Boolean);
+
+    if (segments.length === 0) {
+      throw new Error("No transcript text was returned for this YouTube video.");
+    }
+
+    const output =
+      outputFormat === "timestamped"
+        ? transcript
+            .map((item) => {
+              const text = typeof item.text === "string" ? item.text.trim() : "";
+              if (!text) return null;
+              return `[${formatTranscriptTimestamp(item.offset)}] ${text}`;
+            })
+            .filter((line): line is string => Boolean(line))
+            .join("\n")
+        : segments.join(joinSeparator);
+
+    ctx.setNodeOutput(node.id, output);
+    return output;
+  } catch (error: unknown) {
+    const recovery = buildYoutubeTranscriptRecoveryRequest({
+      nodeId: node.id,
+      nodeTitle: node.data?.title,
+    });
+
+    if (error instanceof YoutubeTranscriptFallbackRequiredError) {
+      throw error;
+    }
+
+    const causeMessage =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : "Could not fetch the YouTube transcript automatically.";
+
+    throw new YoutubeTranscriptFallbackRequiredError(recovery, causeMessage);
+  } finally {
+    dispose();
+  }
 };
 
 /**
@@ -1881,6 +2012,7 @@ export const runtimeRegistry: Record<string, NodeRuntimeHandler> = {
   "openai-embeddings": openaiEmbeddingsHandler,
   "openai-image": openaiImageHandler,
   "http-request": httpRequestHandler,
+  "youtube-transcript": youtubeTranscriptHandler,
   "json-parse": jsonParseHandler,
   condition: conditionHandler,
   delay: delayHandler,

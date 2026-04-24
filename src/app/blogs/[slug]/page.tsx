@@ -8,7 +8,7 @@ import { extractToc } from "../../docs/utils/extractToc";
 import { Calendar, ArrowLeft, ArrowRight } from "lucide-react";
 import { normalizeSafeSlug } from "../../../lib/security/safe-values";
 import { sanitizeJsonScriptContent } from "../../../lib/security/url-policy";
-import { buildBreadcrumbJsonLd, buildMetadata } from "../../../lib/seo";
+import { buildBreadcrumbJsonLd, buildCanonicalUrl, buildMetadata } from "../../../lib/seo";
 
 export function generateStaticParams() {
   return getAllBlogs().map((b) => ({ slug: b.slug }));
@@ -67,7 +67,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     headline: blog.title,
     description: blog.description,
     datePublished: blog.date,
-    mainEntityOfPage: `https://www.edgaze.ai/blogs/${blog.slug}`,
+    mainEntityOfPage: buildCanonicalUrl(`/blogs/${blog.slug}`),
     author: {
       "@type": "Organization",
       name: "Marketplace",
@@ -77,7 +77,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       name: "Marketplace",
       logo: {
         "@type": "ImageObject",
-        url: "https://www.edgaze.ai/brand/edgaze-mark.png",
+        url: buildCanonicalUrl("/brand/edgaze-mark.png"),
       },
     },
   };

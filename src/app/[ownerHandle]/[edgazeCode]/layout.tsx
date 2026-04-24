@@ -4,10 +4,7 @@ import { redirect } from "next/navigation";
 import { workflowOgImageUrl, workflowPreviewImageUrl } from "@lib/listing-preview-image";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowRedirectPath } from "@lib/supabase/handle-redirect";
-import { getSiteOrigin } from "@lib/site-origin";
-import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
-const OG_IMAGE_WIDTH = 1200;
-const OG_IMAGE_HEIGHT = 630;
+import { buildCanonicalUrl, buildProductMetadata } from "@lib/seo";
 
 type Props = {
   params: Promise<{ ownerHandle: string; edgazeCode: string }>;
@@ -49,35 +46,14 @@ async function getWorkflowListing(ownerHandle: string, edgazeCode: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { ownerHandle, edgazeCode } = await params;
   const listing = await getWorkflowListing(ownerHandle, edgazeCode);
-  const siteOrigin = getSiteOrigin();
-  const fallbackOg = DEFAULT_SOCIAL_IMAGE.url;
+  const path = `/${ownerHandle}/${edgazeCode}`;
 
   if (!listing) {
-    return {
+    return buildProductMetadata({
       title: "Workflow",
       description: "View this AI workflow on Edgaze. Build powerful automation with AI.",
-      openGraph: {
-        title: "Workflow",
-        description: "View this AI workflow on Edgaze. Build powerful automation with AI.",
-        url: `${siteOrigin}/${ownerHandle}/${edgazeCode}`,
-        images: [
-          { url: fallbackOg, width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT, alt: "Edgaze" },
-        ],
-      },
-      twitter: {
-        card: "summary_large_image",
-        title: "Workflow",
-        description: "View this AI workflow on Edgaze. Build powerful automation with AI.",
-        images: [
-          {
-            url: fallbackOg,
-            width: OG_IMAGE_WIDTH,
-            height: OG_IMAGE_HEIGHT,
-            alt: "Edgaze",
-          },
-        ],
-      },
-    };
+      path,
+    });
   }
 
   // Listing title only (no site suffix)
@@ -89,35 +65,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? rawDescription.slice(0, 160).replace(/\s+$/, "") // Trim trailing whitespace
       : "Discover and use this AI workflow on Edgaze. Build powerful automation with AI.";
 
-  const pageUrl = `${siteOrigin}/${ownerHandle}/${edgazeCode}`;
-  const primaryOg = {
-    url: workflowOgImageUrl(ownerHandle, edgazeCode, listing, siteOrigin),
-    width: OG_IMAGE_WIDTH,
-    height: OG_IMAGE_HEIGHT,
-    alt: title,
-  };
-
-  return {
+  return buildProductMetadata({
     title,
     description,
-    alternates: {
-      canonical: pageUrl,
-    },
-    openGraph: {
-      type: "website",
-      url: pageUrl,
-      siteName: "Marketplace",
-      title,
-      description,
-      images: [primaryOg],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [primaryOg],
-    },
-  };
+    path,
+    imageUrl: workflowOgImageUrl(ownerHandle, edgazeCode, listing),
+  });
 }
 
 function buildWorkflowProductJsonLd(
@@ -144,7 +97,7 @@ function buildWorkflowProductJsonLd(
     listing.is_paid && listing.price_usd != null && listing.price_usd > 0
       ? String(listing.price_usd)
       : "0";
-  const pageUrl = `${getSiteOrigin()}/${ownerHandle}/${edgazeCode}`;
+  const pageUrl = buildCanonicalUrl(`/${ownerHandle}/${edgazeCode}`);
 
   return {
     "@context": "https://schema.org",
