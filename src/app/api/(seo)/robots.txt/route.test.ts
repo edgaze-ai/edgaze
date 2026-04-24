@@ -9,6 +9,6 @@ describe("GET /robots.txt", () => {
     expect(response.headers.get("Content-Type")).toBe("text/plain");
     expect(body).toContain("Allow: /api/og/");
     expect(body).toContain("Disallow: /api/");
-    expect(body).toContain("Sitemap: https://edgaze.ai/sitemap.xml");
+    expect(body).toContain("Sitemap: https://www.edgaze.ai/sitemap.xml");
   });
 });

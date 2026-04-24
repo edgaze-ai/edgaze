@@ -35,9 +35,9 @@ function isProtectedPath(pathname: string): boolean {
 export function proxy(request: NextRequest) {
   const hostname = request.nextUrl.hostname.toLowerCase();
 
-  if (hostname === "www.edgaze.ai") {
+  if (hostname === "edgaze.ai") {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.hostname = "edgaze.ai";
+    redirectUrl.hostname = "www.edgaze.ai";
     redirectUrl.protocol = "https:";
     return NextResponse.redirect(redirectUrl, 301);
   }
