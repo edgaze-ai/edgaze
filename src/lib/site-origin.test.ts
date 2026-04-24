@@ -9,12 +9,12 @@ afterEach(() => {
 });
 
 describe("getSiteOrigin", () => {
-  it("defaults production metadata to the apex host", () => {
+  it("defaults production metadata to the www host", () => {
     vi.stubEnv("NODE_ENV", "production");
     delete process.env.NEXT_PUBLIC_SITE_URL;
     delete process.env.NEXT_PUBLIC_APP_URL;
 
-    expect(getSiteOrigin()).toBe("https://edgaze.ai");
+    expect(getSiteOrigin()).toBe("https://www.edgaze.ai");
   });
 
   it("prefers NEXT_PUBLIC_SITE_URL when explicitly configured", () => {

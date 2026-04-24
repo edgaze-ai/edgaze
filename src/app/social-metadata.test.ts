@@ -17,9 +17,9 @@ describe("social metadata", () => {
     const marketplaceLayout = await import("./marketplace/layout");
     const images = marketplaceLayout.metadata.openGraph?.images as Array<{ url: string }>;
 
-    expect(images[0]?.url).toBe("https://edgaze.ai/og.png?v=3");
+    expect(images[0]?.url).toBe("https://www.edgaze.ai/og.png?v=3");
     expect((marketplaceLayout.metadata.twitter?.images as Array<{ url: string }>)[0]?.url).toBe(
-      "https://edgaze.ai/og.png?v=3",
+      "https://www.edgaze.ai/og.png?v=3",
     );
   });
 
@@ -70,9 +70,9 @@ describe("social metadata", () => {
     });
     const images = metadata.openGraph?.images as Array<{ url: string }>;
 
-    expect(metadata.alternates?.canonical).toBe("https://edgaze.ai/creator/workflow-code");
+    expect(metadata.alternates?.canonical).toBe("https://www.edgaze.ai/creator/workflow-code");
     expect(images[0]?.url).toBe(
-      `https://edgaze.ai/api/og/workflow?ownerHandle=creator&edgazeCode=workflow-code&v=${listingSocialImageVersion(
+      `https://www.edgaze.ai/api/og/workflow?ownerHandle=creator&edgazeCode=workflow-code&v=${listingSocialImageVersion(
         listing,
       )}`,
     );
@@ -111,9 +111,9 @@ describe("social metadata", () => {
     });
     const images = metadata.openGraph?.images as Array<{ url: string }>;
 
-    expect(metadata.alternates?.canonical).toBe("https://edgaze.ai/p/creator/prompt-code");
+    expect(metadata.alternates?.canonical).toBe("https://www.edgaze.ai/p/creator/prompt-code");
     expect(images[0]?.url).toBe(
-      `https://edgaze.ai/api/og/prompt?ownerHandle=creator&edgazeCode=prompt-code&v=${listingSocialImageVersion(
+      `https://www.edgaze.ai/api/og/prompt?ownerHandle=creator&edgazeCode=prompt-code&v=${listingSocialImageVersion(
         listing,
       )}`,
     );
