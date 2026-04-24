@@ -21,6 +21,9 @@ const DISALLOWED_PATHS = [
 
 export function GET() {
   const rules = [
+    "User-agent: Twitterbot",
+    "Allow: /api/og/",
+    "",
     "User-agent: *",
     "Allow: /",
     "Allow: /api/og/",

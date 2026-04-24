@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import robots from "./robots";
 
 describe("app robots metadata", () => {
-  it("allows OG image routes while keeping the rest of /api blocked", () => {
+  it("gives Twitterbot an explicit OG image allow rule and keeps the rest of /api blocked for general bots", () => {
     const metadata = robots();
-    const rootRule = Array.isArray(metadata.rules) ? metadata.rules[0] : metadata.rules;
+    const rules = Array.isArray(metadata.rules) ? metadata.rules : [metadata.rules];
+    const twitterRule = rules.find((rule) => rule?.userAgent === "Twitterbot");
+    const rootRule = rules.find((rule) => rule?.userAgent === "*");
 
+    expect(twitterRule).toBeDefined();
+    expect(twitterRule?.allow).toEqual(["/api/og/"]);
     expect(rootRule).toBeDefined();
     expect(rootRule?.allow).toEqual(["/", "/api/og/"]);
     expect(rootRule?.disallow).toContain("/api/");
