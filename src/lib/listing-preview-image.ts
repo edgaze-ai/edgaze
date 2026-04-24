@@ -89,6 +89,40 @@ export function listingSocialImageVersion(listing: {
   return [updatedVersion, stableUrlVersion(imageUrl)].filter(Boolean).join("-");
 }
 
+function buildListingOgImageUrl(
+  routePath: "/api/og/prompt" | "/api/og/workflow",
+  ownerHandle: string,
+  edgazeCode: string,
+  listing: {
+    thumbnail_url: string | null;
+    banner_url?: string | null;
+    demo_images: unknown;
+    output_demo_urls: unknown;
+    updated_at?: string | null;
+  },
+  baseUrl: string = getSiteOrigin(),
+): string {
+  const url = new URL(routePath, baseUrl);
+  url.searchParams.set("ownerHandle", ownerHandle);
+  url.searchParams.set("edgazeCode", edgazeCode);
+  url.searchParams.set("v", listingSocialImageVersion(listing));
+  return url.toString();
+}
+
+export function promptOgImageUrl(
+  ownerHandle: string,
+  edgazeCode: string,
+  listing: {
+    thumbnail_url: string | null;
+    demo_images: unknown;
+    output_demo_urls: unknown;
+    updated_at?: string | null;
+  },
+  baseUrl: string = getSiteOrigin(),
+): string {
+  return buildListingOgImageUrl("/api/og/prompt", ownerHandle, edgazeCode, listing, baseUrl);
+}
+
 export function workflowOgImageUrl(
   ownerHandle: string,
   edgazeCode: string,
@@ -101,9 +135,5 @@ export function workflowOgImageUrl(
   },
   baseUrl: string = getSiteOrigin(),
 ): string {
-  const url = new URL("/api/og/workflow", baseUrl);
-  url.searchParams.set("ownerHandle", ownerHandle);
-  url.searchParams.set("edgazeCode", edgazeCode);
-  url.searchParams.set("v", listingSocialImageVersion(listing));
-  return url.toString();
+  return buildListingOgImageUrl("/api/og/workflow", ownerHandle, edgazeCode, listing, baseUrl);
 }

@@ -4,15 +4,17 @@ import { getSiteOrigin } from "./site-origin";
  * Default Open Graph / Twitter image for all non–product pages (landing, app shells, docs, etc.).
  * Product routes override with `/api/og/...`-generated artwork.
  *
- * File: `public/og2.png` (1200×630 recommended for WhatsApp, Instagram, Facebook, X).
+ * Canonical file: `public/og.png`.
+ * Legacy alias `public/og2.png` remains available so old crawler caches do not break.
  */
-export const DEFAULT_SOCIAL_IMAGE_PATH = "/og2.png" as const;
+export const DEFAULT_SOCIAL_IMAGE_PATH = "/og.png" as const;
 
 /**
- * Bump when replacing `og2.png` so crawlers that cache aggressively (especially X) fetch the new asset.
+ * Bump when replacing the default asset so crawlers that cache aggressively (especially X)
+ * fetch the new image URL.
  * WhatsApp/Meta often refresh sooner; X can keep showing an old `twitter:image` until the URL changes.
  */
-const DEFAULT_SOCIAL_IMAGE_V = "2" as const;
+const DEFAULT_SOCIAL_IMAGE_V = "3" as const;
 
 export const DEFAULT_SOCIAL_IMAGE = {
   url: `${DEFAULT_SOCIAL_IMAGE_PATH}?v=${DEFAULT_SOCIAL_IMAGE_V}`,

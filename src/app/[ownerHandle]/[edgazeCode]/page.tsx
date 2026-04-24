@@ -48,6 +48,7 @@ import { finalizeClientWorkflowRunFromExecutionResult } from "../../../lib/workf
 import { handleWorkflowRunStream } from "../../../lib/workflow/run-stream-client";
 import { startClientTraceSession } from "../../../lib/workflow/client-trace";
 import type { WorkflowRunState } from "../../../lib/workflow/run-types";
+import { appendYoutubeTranscriptRecoveryInput } from "../../../lib/workflow/youtube-transcript";
 
 function safeTrack(event: string, props?: TrackProperties) {
   try {
@@ -1788,6 +1789,32 @@ export default function WorkflowProductPage() {
               : prev,
           );
         }
+        if (error?.recoverableInputRequest) {
+          const baseInputs = extractWorkflowInputs(graph.nodes || []);
+          setDemoRunState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: "input",
+                  status: "idle",
+                  inputs: appendYoutubeTranscriptRecoveryInput(
+                    prev.inputs?.length ? prev.inputs : baseInputs,
+                    error.recoverableInputRequest,
+                  ),
+                  inputValues: {
+                    ...processedInputs,
+                    [error.recoverableInputRequest.inputKey]:
+                      processedInputs[error.recoverableInputRequest.inputKey] ?? "",
+                  },
+                  inputRecovery: error.recoverableInputRequest,
+                  error: undefined,
+                  finishedAt: undefined,
+                }
+              : prev,
+          );
+          setDemoRunning(false);
+          return;
+        }
         throw new Error(error.error || `HTTP ${response.status}`);
       }
 
@@ -1815,6 +1842,32 @@ export default function WorkflowProductPage() {
 
       const result = streamResult.result;
       if (!result.ok) {
+        if (result.recoverableInputRequest) {
+          const baseInputs = extractWorkflowInputs(graph.nodes || []);
+          setDemoRunState((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: "input",
+                  status: "idle",
+                  inputs: appendYoutubeTranscriptRecoveryInput(
+                    prev.inputs?.length ? prev.inputs : baseInputs,
+                    result.recoverableInputRequest,
+                  ),
+                  inputValues: {
+                    ...processedInputs,
+                    [result.recoverableInputRequest.inputKey]:
+                      processedInputs[result.recoverableInputRequest.inputKey] ?? "",
+                  },
+                  inputRecovery: result.recoverableInputRequest,
+                  error: undefined,
+                  finishedAt: undefined,
+                }
+              : prev,
+          );
+          setDemoRunning(false);
+          return;
+        }
         throw new Error(result.error || "Execution failed");
       }
 
@@ -1825,7 +1878,9 @@ export default function WorkflowProductPage() {
           graphNodes: graph.nodes || [],
           processedInputs,
         });
-        setDemoRunState((prev) => (prev ? { ...prev, ...completion } : prev));
+        setDemoRunState((prev) =>
+          prev ? { ...prev, ...completion, inputRecovery: undefined } : prev,
+        );
       }
       await clientTrace.finish({ status: "completed" });
     } catch (error: any) {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { listingSocialImageVersion, workflowOgImageUrl } from "./listing-preview-image";
+import {
+  listingSocialImageVersion,
+  promptOgImageUrl,
+  workflowOgImageUrl,
+} from "./listing-preview-image";
 
 describe("listing preview social images", () => {
   const listing = {
@@ -27,9 +31,34 @@ describe("listing preview social images", () => {
   });
 
   it("builds absolute workflow OG URLs so X can fetch the image directly", () => {
-    expect(workflowOgImageUrl("creator", "workflow-code", listing, "https://www.edgaze.ai")).toBe(
-      `https://www.edgaze.ai/api/og/workflow?ownerHandle=creator&edgazeCode=workflow-code&v=${listingSocialImageVersion(
+    expect(workflowOgImageUrl("creator", "workflow-code", listing, "https://edgaze.ai")).toBe(
+      `https://edgaze.ai/api/og/workflow?ownerHandle=creator&edgazeCode=workflow-code&v=${listingSocialImageVersion(
         listing,
+      )}`,
+    );
+  });
+
+  it("builds absolute prompt OG URLs so Meta-family crawlers fetch the image directly", () => {
+    expect(
+      promptOgImageUrl(
+        "creator",
+        "prompt-code",
+        {
+          thumbnail_url: listing.thumbnail_url,
+          demo_images: listing.demo_images,
+          output_demo_urls: listing.output_demo_urls,
+          updated_at: listing.updated_at,
+        },
+        "https://edgaze.ai",
+      ),
+    ).toBe(
+      `https://edgaze.ai/api/og/prompt?ownerHandle=creator&edgazeCode=prompt-code&v=${listingSocialImageVersion(
+        {
+          thumbnail_url: listing.thumbnail_url,
+          demo_images: listing.demo_images,
+          output_demo_urls: listing.output_demo_urls,
+          updated_at: listing.updated_at,
+        },
       )}`,
     );
   });

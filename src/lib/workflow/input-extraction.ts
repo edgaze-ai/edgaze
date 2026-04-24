@@ -4,6 +4,7 @@
  */
 
 import type { WorkflowInput } from "./run-types";
+import { YOUTUBE_TRANSCRIPT_SPEC_ID } from "./youtube-transcript";
 
 export type GraphNode = {
   id: string;
@@ -49,11 +50,14 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
 
   for (const node of nodes) {
     const specId = node.data?.specId;
-    if (specId !== "input") continue;
+    if (specId !== "input" && specId !== YOUTUBE_TRANSCRIPT_SPEC_ID) continue;
 
     const config = node.data?.config || {};
     const title = node.data?.title || config.name || config.nickname || "Input";
-    const question = config.question || title;
+    const question =
+      specId === YOUTUBE_TRANSCRIPT_SPEC_ID
+        ? config.question || "Enter YouTube URL"
+        : config.question || title;
 
     // Field label: prefer config.label, inputKey, then question/title, fallback to "Input N"
     const name = config.label || config.inputKey || question || `Input ${index + 1}`;
@@ -63,8 +67,8 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
       config.placeholder || config.description || config.inputKey || "Enter a value...";
 
     // Determine input type from config
-    let inputType: WorkflowInput["type"] = "text";
-    if (config.inputType) {
+    let inputType: WorkflowInput["type"] = specId === YOUTUBE_TRANSCRIPT_SPEC_ID ? "url" : "text";
+    if (specId !== YOUTUBE_TRANSCRIPT_SPEC_ID && config.inputType) {
       const typeMap: Record<string, WorkflowInput["type"]> = {
         text: "text",
         number: "number",
@@ -81,10 +85,18 @@ export function extractWorkflowInputs(nodes: GraphNode[]): WorkflowInput[] {
       nodeId: node.id,
       specId: specId,
       name,
-      description: config.description || config.helpText || undefined,
+      description:
+        config.description ||
+        config.helpText ||
+        (specId === YOUTUBE_TRANSCRIPT_SPEC_ID
+          ? "Paste a YouTube video URL. If captions are unavailable, the run modal will let you paste the transcript manually."
+          : undefined),
       type: inputType,
       required: config.required !== false,
-      placeholder,
+      placeholder:
+        specId === YOUTUBE_TRANSCRIPT_SPEC_ID
+          ? config.placeholder || "https://www.youtube.com/watch?v=..."
+          : placeholder,
       defaultValue: config.defaultValue || undefined,
       options: inputType === "dropdown" ? normalizeDropdownOptions(config) : undefined,
     });

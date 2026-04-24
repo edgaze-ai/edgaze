@@ -23,6 +23,7 @@ export function GET() {
   const rules = [
     "User-agent: *",
     "Allow: /",
+    "Allow: /api/og/",
     ...DISALLOWED_PATHS.map((path) => `Disallow: ${path}`),
   ];
 

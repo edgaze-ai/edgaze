@@ -11,26 +11,52 @@ import React, {
   useState,
 } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, BadgeCheck, Compass, Hand, Link2, Search } from "lucide-react";
+import {
+  ArrowRight,
+  Compass,
+  FileText,
+  Hand,
+  LayoutList,
+  MousePointer2,
+  Play,
+  ScrollText,
+} from "lucide-react";
 import { useAuth } from "src/components/auth/AuthContext";
-import TurnstileWidget from "src/components/apply/TurnstileWidget";
+import TrendingThisWeekSection from "src/components/home/TrendingThisWeekSection";
 import { LandingNav } from "src/components/landing-nav";
 import Footer from "src/components/layout/Footer";
 import EdgazeCodeInfoPopover from "src/components/ui/EdgazeCodeInfoPopover";
 import ProfileLink from "src/components/ui/ProfileLink";
-import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
 import { getSiteOrigin } from "src/lib/site-origin";
-import TrendingThisWeekSection from "src/components/home/TrendingThisWeekSection";
-import ReactFlowCanvas, { type CanvasRef } from "src/components/builder/ReactFlowCanvas";
-import CustomerWorkflowRunModal from "src/components/runtime/customer/CustomerWorkflowRunModal";
+import { createSupabaseBrowserClient } from "src/lib/supabase/browser";
+import type { CanvasRef } from "src/components/builder/ReactFlowCanvas";
 import { extractWorkflowInputs } from "src/lib/workflow/input-extraction";
 import { toRuntimeGraph } from "src/lib/workflow/customer-runtime";
 import { handleWorkflowRunStream } from "src/lib/workflow/run-stream-client";
 import { finalizeClientWorkflowRunFromExecutionResult } from "src/lib/workflow/finalize-client-run-result";
 import { getDeviceFingerprintHash } from "src/lib/workflow/device-tracking";
 import type { WorkflowRunState } from "src/lib/workflow/run-types";
+
+const TurnstileWidget = dynamic(() => import("src/components/apply/TurnstileWidget"), {
+  ssr: false,
+});
+
+const ReactFlowCanvas = dynamic(() => import("src/components/builder/ReactFlowCanvas"), {
+  ssr: false,
+});
+
+const CustomerWorkflowRunModal = dynamic(
+  () => import("src/components/runtime/customer/CustomerWorkflowRunModal"),
+  { ssr: false },
+);
+
+const CustomerWorkflowRuntimeSurface = dynamic(
+  () => import("src/components/runtime/customer/CustomerWorkflowRuntimeSurface"),
+  { ssr: false },
+);
 
 function cn(...args: Array<string | false | null | undefined>) {
   return args.filter(Boolean).join(" ");
@@ -56,7 +82,7 @@ function Gradients() {
   return (
     <>
       <div className="absolute inset-0 -z-10 bg-[#07080b]" />
-      <div className="absolute inset-0 -z-10 opacity-[0.52] [background-image:radial-gradient(circle_at_16%_10%,rgba(21,62,69,0.72),transparent_30%),radial-gradient(circle_at_84%_10%,rgba(82,32,58,0.64),transparent_34%),radial-gradient(circle_at_20%_58%,rgba(13,42,49,0.32),transparent_34%),radial-gradient(circle_at_82%_66%,rgba(50,22,41,0.26),transparent_38%)]" />
+      <div className="absolute inset-0 -z-10 opacity-[0.52] [background-image:radial-gradient(circle_at_16%_10%,rgba(17,82,92,0.72),transparent_30%),radial-gradient(circle_at_84%_10%,rgba(82,32,58,0.64),transparent_34%),radial-gradient(circle_at_20%_58%,rgba(10,58,68,0.32),transparent_34%),radial-gradient(circle_at_82%_66%,rgba(50,22,41,0.26),transparent_38%)]" />
       <div className="absolute inset-0 -z-10 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:92px_92px]" />
       <div className="absolute inset-0 -z-10 opacity-20 [background-image:radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.04),transparent_55%)]" />
       <div className="absolute inset-0 -z-10 [background-image:linear-gradient(180deg,rgba(4,5,8,0.94)_0%,rgba(6,8,12,0.86)_22%,rgba(7,8,11,0.72)_56%,rgba(7,8,11,0.92)_100%)]" />
@@ -177,6 +203,95 @@ function SecondaryButton({ children, href }: { children: React.ReactNode; href: 
     >
       {children}
     </SmoothLink>
+  );
+}
+
+function RotatingText({
+  phrases,
+  intervalMs = 2600,
+  transitionMs = 280,
+  className,
+}: {
+  phrases: readonly string[];
+  intervalMs?: number;
+  transitionMs?: number;
+  className?: string;
+}) {
+  const prefersReducedMotion = useReducedMotion();
+  const [displayIndex, setDisplayIndex] = useState(0);
+  const [isTransitionEnabled, setIsTransitionEnabled] = useState(true);
+  const timeoutRef = useRef<number | null>(null);
+
+  const widestPhrase = useMemo(() => {
+    return phrases.reduce(
+      (widest, phrase) => (phrase.length > widest.length ? phrase : widest),
+      "",
+    );
+  }, [phrases]);
+
+  useEffect(() => {
+    if (prefersReducedMotion || phrases.length <= 1) return;
+
+    const intervalId = window.setInterval(() => {
+      setIsTransitionEnabled(true);
+      setDisplayIndex((prev) => prev + 1);
+    }, intervalMs);
+
+    return () => {
+      window.clearInterval(intervalId);
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [intervalMs, phrases.length, prefersReducedMotion]);
+
+  if (!phrases.length) return null;
+
+  const stackedPhrases = [...phrases, phrases[0]];
+  const activeIndex = displayIndex % phrases.length;
+
+  return (
+    <span
+      className={cn("relative inline-grid overflow-hidden whitespace-nowrap align-top", className)}
+      style={{
+        height: "1.08em",
+        lineHeight: 1.08,
+      }}
+      aria-live="off"
+      aria-atomic="true"
+    >
+      <span className="invisible block">{widestPhrase}</span>
+      <span
+        className="pointer-events-none absolute inset-0 flex flex-col will-change-transform"
+        style={{
+          transform: `translate3d(0, -${displayIndex * 100}%, 0)`,
+          transition: prefersReducedMotion
+            ? "none"
+            : isTransitionEnabled
+              ? `transform ${transitionMs}ms cubic-bezier(0.22, 1, 0.36, 1)`
+              : "none",
+        }}
+        aria-hidden="true"
+        onTransitionEnd={() => {
+          if (prefersReducedMotion) return;
+          if (displayIndex !== phrases.length) return;
+          if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
+          setIsTransitionEnabled(false);
+          timeoutRef.current = window.setTimeout(() => {
+            setDisplayIndex(0);
+            timeoutRef.current = null;
+          }, 0);
+        }}
+      >
+        {stackedPhrases.map((phrase, index) => (
+          <span key={`${phrase}-${index}`} className="block flex-none">
+            {phrase}
+          </span>
+        ))}
+      </span>
+      <span className="sr-only">{phrases[activeIndex]}</span>
+    </span>
   );
 }
 
@@ -487,358 +602,1506 @@ function RuntimeDemoCard({
   );
 }
 
-function HowItWorksSticky() {
-  const reduce = useReducedMotion();
-  const labels = ["Prompt or workflow", "Becomes product page", "People run or buy"];
-  const descriptions = [
-    "Start with the thing you already share.",
-    "Edgaze turns it into a clean page people can trust.",
-    "Now it can be opened, used, and paid for.",
-  ];
-
+function EditorialCard({
+  eyebrow,
+  title,
+  children,
+}: {
+  eyebrow?: string;
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section
-      id="how-it-works"
-      className="px-5 py-16 sm:py-20 md:py-24"
-      style={{ scrollMarginTop: 92 }}
-    >
-      <Container wide>
-        <div className="rounded-[34px] bg-white/[0.035] ring-1 ring-white/10 p-6 sm:p-8 md:p-10">
-          <div className="max-w-xl">
-            <div className="text-xs font-semibold tracking-widest text-white/55">How it works</div>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              Publish once. Let people use it.
-            </h2>
-            <p className="mt-3 text-base leading-relaxed text-white/70">
-              The page should explain itself before the user has to think.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-center">
-            <div className="space-y-4">
-              {labels.map((label, index) => {
-                return (
-                  <motion.div
-                    key={label}
-                    className="rounded-3xl border border-white/10 bg-white/[0.04] px-5 py-5 transition-colors"
-                    initial={reduce ? false : { opacity: 0, y: 14 }}
-                    whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-                    viewport={{ once: true, amount: 0.3 }}
-                    transition={{ duration: 0.4, delay: index * 0.06, ease: "easeOut" }}
-                  >
-                    <div className="text-[11px] font-semibold tracking-[0.18em] text-white/42">
-                      STEP {index + 1}
-                    </div>
-                    <div className="mt-2 text-lg font-semibold text-white">{label}</div>
-                    <div className="mt-2 text-sm leading-6 text-white/66">
-                      {descriptions[index]}
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-
-            <div className="rounded-[32px] bg-[#0b0c11] ring-1 ring-white/10 p-5 sm:p-6">
-              <div className="relative h-[340px] overflow-hidden rounded-[28px] bg-white/[0.03] ring-1 ring-white/10 sm:h-[380px]">
-                <div className="absolute inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:52px_52px]" />
-                <svg
-                  className="absolute inset-0 h-full w-full"
-                  viewBox="0 0 900 380"
-                  preserveAspectRatio="none"
-                  aria-hidden
-                >
-                  <path
-                    d="M170 190 C 280 190, 315 190, 430 190"
-                    stroke="rgba(255,255,255,0.18)"
-                    strokeWidth="2"
-                    fill="none"
-                  />
-                  <path
-                    d="M470 190 C 575 190, 610 190, 730 190"
-                    stroke="rgba(255,255,255,0.18)"
-                    strokeWidth="2"
-                    fill="none"
-                  />
-                  {!reduce ? (
-                    <motion.circle
-                      cx={170}
-                      cy={190}
-                      r="6"
-                      fill="rgba(255,255,255,0.88)"
-                      animate={{ cx: [170, 430, 730], cy: [190, 190, 190] }}
-                      transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-                    />
-                  ) : null}
-                </svg>
-
-                <motion.div
-                  className="absolute left-[6%] top-1/2 w-[210px] -translate-y-1/2 rounded-3xl bg-black/65 p-4 ring-1 ring-white/12"
-                  animate={!reduce ? { scale: [1, 1.02, 1] } : undefined}
-                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <div className="text-[10px] font-semibold tracking-[0.22em] text-white/42">
-                    INPUT
-                  </div>
-                  <div className="mt-2 text-sm font-semibold text-white">Resume rewrite prompt</div>
-                  <div className="mt-2 text-xs leading-5 text-white/62">
-                    Rewrite this experience for product marketing roles.
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  className="absolute left-1/2 top-1/2 w-[230px] -translate-x-1/2 -translate-y-1/2 rounded-3xl bg-[#0f1117] p-5 ring-1 ring-white/14"
-                  animate={!reduce ? { scale: [1, 1.025, 1] } : undefined}
-                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
-                >
-                  <div className="text-[10px] font-semibold tracking-[0.22em] text-white/42">
-                    PRODUCT PAGE
-                  </div>
-                  <div className="mt-2 text-base font-semibold text-white">Resume rewrite</div>
-                  <div className="mt-1 text-xs leading-5 text-white/62">
-                    Clear inputs. Preview. One clean page.
-                  </div>
-                  <div className="mt-4 flex gap-2">
-                    <span className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-[11px] font-semibold text-white">
-                      $12
-                    </span>
-                    <span className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-[11px] font-semibold text-white/72">
-                      Share
-                    </span>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  className="absolute right-[6%] top-1/2 w-[210px] -translate-y-1/2 rounded-3xl bg-black/65 p-4 ring-1 ring-white/12"
-                  animate={!reduce ? { scale: [1, 1.02, 1] } : undefined}
-                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
-                >
-                  <div className="text-[10px] font-semibold tracking-[0.22em] text-white/42">
-                    ACTION
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="text-sm font-semibold text-white">Run or buy</div>
-                    <div className="rounded-full bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))] px-3 py-1 text-[11px] font-semibold text-white">
-                      Run
-                    </div>
-                  </div>
-                  <div className="mt-3 text-xs leading-5 text-white/62">
-                    Buyers understand it fast and can use it right away.
-                  </div>
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Container>
-    </section>
+    <div className="rounded-[28px] bg-white/[0.03] p-5 ring-1 ring-white/10 sm:p-6">
+      {eyebrow ? (
+        <div className="text-[11px] font-semibold tracking-[0.2em] text-white/40">{eyebrow}</div>
+      ) : null}
+      <div className="mt-2 text-lg font-semibold text-white">{title}</div>
+      <div className="mt-3 text-sm leading-6 text-white/68">{children}</div>
+    </div>
   );
 }
 
-function MarketplaceShowcase() {
+function NarrativeStep({ index, title, body }: { index: string; title: string; body: string }) {
+  return (
+    <div className="p-1 sm:p-2">
+      <div className="text-[11px] font-semibold tracking-[0.22em] text-white/38">{index}</div>
+      <div className="mt-3 text-base font-semibold text-white sm:text-lg">{title}</div>
+      <div className="mt-2 max-w-sm text-sm leading-6 text-white/64">{body}</div>
+    </div>
+  );
+}
+
+const HOW_IT_WORKS_STEPS = [
+  {
+    index: "01",
+    title: "Start with your prompt or workflow",
+    body: "Use what you already share today.",
+  },
+  {
+    index: "02",
+    title: "Make it runnable",
+    body: "Add inputs, pricing, and output.",
+  },
+  {
+    index: "03",
+    title: "Share one product page",
+    body: "People can try it, then buy it.",
+  },
+] as const;
+
+function HowItWorksConnectedSection() {
   const reduce = useReducedMotion();
-  const items = [
-    { title: "Resume rewrite", type: "Prompt", price: "$12", runs: "1,204 runs" },
-    { title: "YouTube script generator", type: "Workflow", price: "$19", runs: "842 runs" },
-    { title: "Study planner", type: "Prompt", price: "Free", runs: "619 runs" },
-    { title: "Client proposal flow", type: "Workflow", price: "$24", runs: "441 runs" },
+  const connectorPath = "M50 4 L50 12 L29 12 L29 26 L29 42 L71 42 L71 58 L71 74 L29 74 L29 88";
+
+  const desktopPanelStyle = {
+    filter: "brightness(1) saturate(1)",
+    transform: "translateY(0px)",
+    transition: "filter 260ms ease, transform 260ms ease",
+  } as const;
+
+  const desktopTextStyle = {
+    opacity: 1,
+    transform: "translateY(0px)",
+    transition: "opacity 240ms ease, transform 240ms ease",
+  } as const;
+
+  const renderInputMonitor = () => (
+    <div className="h-full rounded-[24px] border border-white/10 bg-[#0d1016] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex items-center justify-between text-[11px] text-white/38">
+        <span>Input</span>
+        <span>ready</span>
+      </div>
+      <div className="mt-4 space-y-3">
+        <div className="rounded-[16px] border border-cyan-300/14 bg-[linear-gradient(180deg,rgba(34,211,238,0.07),rgba(255,255,255,0.02))] px-3 py-3">
+          <div className="text-[11px] font-semibold tracking-[0.14em] text-white/36">PROMPT</div>
+          <div className="mt-2 text-sm text-white/76">YouTube viral content engine</div>
+        </div>
+        <div className="rounded-[16px] border border-cyan-300/18 bg-[#0a1117] px-3 py-3">
+          <div className="text-[11px] font-semibold text-white/40">Video URL</div>
+          <div className="mt-2 text-sm text-white/88">youtube.com/watch?v=8gMN8W1v4i4</div>
+        </div>
+        <div className="flex items-center justify-between rounded-[16px] border border-white/10 bg-white/[0.03] px-3 py-3">
+          <div>
+            <div className="text-[11px] text-white/38">Output</div>
+            <div className="mt-1 text-sm text-white/78">hooks, shorts, posts</div>
+          </div>
+          <div className="rounded-full border border-cyan-300/14 px-2.5 py-1 text-[11px] text-cyan-100/70">
+            text
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderBuilderMonitor = () => (
+    <div className="h-full rounded-[24px] border border-white/10 bg-[#0d1016] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex items-center justify-between text-[11px] text-white/38">
+        <span>Builder</span>
+        <span>configured</span>
+      </div>
+      <div className="mt-4 grid grid-cols-[1fr_1fr] gap-3">
+        <div className="rounded-[16px] border border-white/10 bg-white/[0.03] px-3 py-3">
+          <div className="text-[11px] text-white/38">Input</div>
+          <div className="mt-1 text-sm text-white/76">YouTube URL</div>
+        </div>
+        <div className="rounded-[16px] border border-pink-300/14 bg-[linear-gradient(180deg,rgba(236,72,153,0.08),rgba(255,255,255,0.02))] px-3 py-3">
+          <div className="text-[11px] text-white/38">Price</div>
+          <div className="mt-1 text-sm text-white/76">$7.99 one-time</div>
+        </div>
+      </div>
+      <div className="mt-3 rounded-[18px] border border-white/10 bg-white/[0.03] p-3">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-xl border border-cyan-300/22 bg-[linear-gradient(180deg,rgba(34,211,238,0.12),rgba(255,255,255,0.02))]" />
+          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03]" />
+          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-8 w-8 rounded-xl border border-pink-300/22 bg-[linear-gradient(180deg,rgba(236,72,153,0.12),rgba(255,255,255,0.02))]" />
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-white/48">
+          <div className="rounded-[12px] border border-cyan-300/16 bg-[#0a1117] px-2 py-2 text-center text-cyan-100/66">
+            input
+          </div>
+          <div className="rounded-[12px] border border-white/10 bg-white/[0.03] px-2 py-2 text-center">
+            logic
+          </div>
+          <div className="rounded-[12px] border border-pink-300/16 bg-white/[0.03] px-2 py-2 text-center text-pink-100/64">
+            output
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderProductMonitor = () => (
+    <div className="h-full rounded-[24px] border border-white/10 bg-[#0d1016] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="flex items-center justify-between text-[11px] text-white/38">
+        <span>Product page</span>
+        <span>live</span>
+      </div>
+      <div className="mt-4 rounded-[18px] border border-white/10 bg-white/[0.03] p-3">
+        <div className="text-sm font-semibold text-white">YouTube Viral Content Engine</div>
+        <div className="mt-2 text-sm text-white/64">Try before buying.</div>
+        <div className="mt-4 flex items-center justify-between rounded-[14px] border border-pink-300/14 bg-[linear-gradient(180deg,rgba(236,72,153,0.08),rgba(255,255,255,0.02))] px-3 py-3">
+          <div>
+            <div className="text-[11px] text-white/40">Demo run</div>
+            <div className="mt-1 text-sm text-white/86">Run once before purchase</div>
+          </div>
+          <div className="text-sm font-semibold text-white">$7.99</div>
+        </div>
+        <div className="mt-3 rounded-[14px] border border-cyan-300/14 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(255,255,255,0.02))] px-3 py-2.5 text-sm text-white/72">
+          One clean product page for trial, payment, and sharing.
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="relative hidden lg:block">
+        <div className="relative mx-auto max-w-[1180px] pt-20">
+          <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2">
+            <div className="grid h-16 w-16 place-items-center rounded-full border border-white/12 bg-[#0b0d12] shadow-[0_18px_40px_rgba(0,0,0,0.32)]">
+              <div className="grid h-12 w-12 place-items-center rounded-full border border-white/10 bg-white/[0.03]">
+                <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={24} height={24} />
+              </div>
+            </div>
+          </div>
+
+          <svg
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden
+          >
+            <path
+              d={connectorPath}
+              fill="none"
+              stroke="rgba(255,255,255,0.14)"
+              strokeWidth="1.15"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+            <g opacity={reduce ? 0.14 : 0.24}>
+              <motion.ellipse
+                cx="29"
+                cy="42"
+                rx="4.8"
+                ry="3"
+                fill="url(#howItWorksFogGradient)"
+                filter="url(#howItWorksFogBlur)"
+                animate={reduce ? undefined : { opacity: [0.14, 0.3, 0.14] }}
+                transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.ellipse
+                cx="71"
+                cy="58"
+                rx="5.2"
+                ry="3.2"
+                fill="url(#howItWorksFogGradient)"
+                filter="url(#howItWorksFogBlur)"
+                animate={reduce ? undefined : { opacity: [0.1, 0.26, 0.1] }}
+                transition={{
+                  duration: 5.8,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: 0.45,
+                }}
+              />
+            </g>
+            <path
+              d={connectorPath}
+              fill="none"
+              stroke="url(#howItWorksFlowGradient)"
+              strokeWidth="4.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              style={{
+                opacity: reduce ? 0 : 0.3,
+                filter: "url(#howItWorksFlowBlur)",
+              }}
+            />
+            <path
+              d={connectorPath}
+              fill="none"
+              stroke="url(#howItWorksFlowGradient)"
+              strokeWidth="1.95"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+              style={{
+                filter:
+                  "drop-shadow(0 0 12px rgba(34,211,238,0.24)) drop-shadow(0 0 18px rgba(236,72,153,0.16))",
+              }}
+            />
+            <defs>
+              <linearGradient
+                id="howItWorksFlowGradient"
+                x1="0"
+                y1="-40"
+                x2="0"
+                y2="140"
+                gradientUnits="userSpaceOnUse"
+              >
+                {!reduce ? (
+                  <animateTransform
+                    attributeName="gradientTransform"
+                    type="translate"
+                    values="0 -42; 0 42; 0 -42"
+                    dur="4.2s"
+                    repeatCount="indefinite"
+                  />
+                ) : null}
+                <stop offset="0%" stopColor="rgba(34,211,238,0.94)" />
+                <stop offset="10%" stopColor="rgba(115,240,252,0.98)" />
+                <stop offset="20%" stopColor="rgba(245,248,255,1)" />
+                <stop offset="30%" stopColor="rgba(236,72,153,0.96)" />
+                <stop offset="40%" stopColor="rgba(34,211,238,0.94)" />
+                <stop offset="50%" stopColor="rgba(245,248,255,1)" />
+                <stop offset="60%" stopColor="rgba(236,72,153,0.96)" />
+                <stop offset="72%" stopColor="rgba(34,211,238,0.94)" />
+                <stop offset="84%" stopColor="rgba(245,248,255,0.98)" />
+                <stop offset="100%" stopColor="rgba(236,72,153,0.94)" />
+              </linearGradient>
+              <radialGradient id="howItWorksFogGradient" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="rgba(245,248,255,0.7)" />
+                <stop offset="44%" stopColor="rgba(34,211,238,0.18)" />
+                <stop offset="100%" stopColor="rgba(236,72,153,0)" />
+              </radialGradient>
+              <filter id="howItWorksFlowBlur" x="-100%" y="-100%" width="300%" height="300%">
+                <feGaussianBlur stdDeviation="2.2" />
+              </filter>
+              <filter id="howItWorksFogBlur" x="-200%" y="-200%" width="400%" height="400%">
+                <feGaussianBlur stdDeviation="2.4" />
+              </filter>
+            </defs>
+          </svg>
+
+          <div className="space-y-16">
+            <div className="grid min-h-[230px] grid-cols-12 items-center gap-8">
+              <div className="col-span-6">
+                <div
+                  className="relative rounded-[30px] border border-white/10 bg-[#090b10] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.34)]"
+                  style={desktopPanelStyle}
+                >
+                  <div className="absolute right-[-1px] top-[18px] h-px w-8 bg-white/10" />
+                  <div className="absolute right-6 top-[17px] h-2.5 w-2.5 rounded-full border border-white/14 bg-[#10141d]" />
+                  {renderInputMonitor()}
+                </div>
+              </div>
+              <div className="col-span-4 col-start-9" style={desktopTextStyle}>
+                <div className="text-[11px] font-semibold tracking-[0.22em] text-white/46">
+                  {HOW_IT_WORKS_STEPS[0].index}
+                </div>
+                <div className="mt-4 text-[1.45rem] font-semibold tracking-[-0.03em] text-white">
+                  {HOW_IT_WORKS_STEPS[0].title}
+                </div>
+                <div className="mt-3 max-w-sm text-base leading-7 text-white/62">
+                  {HOW_IT_WORKS_STEPS[0].body}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid min-h-[230px] grid-cols-12 items-center gap-8">
+              <div className="col-span-4" style={desktopTextStyle}>
+                <div className="text-[11px] font-semibold tracking-[0.22em] text-white/46">
+                  {HOW_IT_WORKS_STEPS[1].index}
+                </div>
+                <div className="mt-4 text-[1.45rem] font-semibold tracking-[-0.03em] text-white">
+                  {HOW_IT_WORKS_STEPS[1].title}
+                </div>
+                <div className="mt-3 max-w-sm text-base leading-7 text-white/62">
+                  {HOW_IT_WORKS_STEPS[1].body}
+                </div>
+              </div>
+              <div className="col-span-6 col-start-7">
+                <div
+                  className="relative rounded-[30px] border border-white/10 bg-[#090b10] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.34)]"
+                  style={desktopPanelStyle}
+                >
+                  <div className="absolute left-[-1px] top-1/2 h-px w-8 -translate-y-1/2 bg-white/10" />
+                  <div className="absolute left-6 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-white/14 bg-[#10141d]" />
+                  <div className="absolute bottom-[-1px] left-1/2 h-8 w-px -translate-x-1/2 bg-white/10" />
+                  <div className="absolute bottom-6 left-1/2 h-2.5 w-2.5 -translate-x-1/2 rounded-full border border-white/14 bg-[#10141d]" />
+                  {renderBuilderMonitor()}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid min-h-[230px] grid-cols-12 items-center gap-8">
+              <div className="col-span-6">
+                <div
+                  className="relative rounded-[30px] border border-white/10 bg-[#090b10] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.34)]"
+                  style={desktopPanelStyle}
+                >
+                  <div className="absolute right-[-1px] top-1/2 h-px w-8 -translate-y-1/2 bg-white/10" />
+                  <div className="absolute right-6 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-white/14 bg-[#10141d]" />
+                  {renderProductMonitor()}
+                </div>
+              </div>
+              <div className="col-span-4 col-start-9" style={desktopTextStyle}>
+                <div className="text-[11px] font-semibold tracking-[0.22em] text-white/46">
+                  {HOW_IT_WORKS_STEPS[2].index}
+                </div>
+                <div className="mt-4 text-[1.45rem] font-semibold tracking-[-0.03em] text-white">
+                  {HOW_IT_WORKS_STEPS[2].title}
+                </div>
+                <div className="mt-3 max-w-sm text-base leading-7 text-white/62">
+                  {HOW_IT_WORKS_STEPS[2].body}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative space-y-8 lg:hidden">
+        <div className="absolute bottom-0 left-[11px] top-0 w-px bg-white/10" />
+        <motion.div
+          className="absolute inset-y-0 left-[5px] w-[13px] rounded-full bg-[radial-gradient(circle,rgba(245,248,255,0.12)_0%,rgba(34,211,238,0.08)_36%,rgba(236,72,153,0.05)_58%,rgba(236,72,153,0)_76%)] blur-[10px]"
+          style={{
+            backgroundSize: "100% 240px",
+          }}
+          animate={reduce ? undefined : { backgroundPositionY: ["0px", "240px"] }}
+          transition={
+            reduce
+              ? undefined
+              : {
+                  duration: 4.2,
+                  repeat: Infinity,
+                  ease: "linear",
+                }
+          }
+        />
+        <motion.div
+          className="absolute inset-y-0 left-[10px] w-[3px] rounded-full bg-[linear-gradient(180deg,rgba(34,211,238,0.96)_0%,rgba(115,240,252,0.98)_12%,rgba(245,248,255,1)_24%,rgba(236,72,153,0.96)_36%,rgba(34,211,238,0.94)_50%,rgba(245,248,255,1)_66%,rgba(236,72,153,0.94)_82%,rgba(34,211,238,0.96)_100%)]"
+          style={{
+            backgroundSize: "100% 240px",
+            boxShadow: "0 0 12px rgba(34,211,238,0.34), 0 0 22px rgba(236,72,153,0.2)",
+          }}
+          animate={reduce ? undefined : { backgroundPositionY: ["0px", "240px"] }}
+          transition={
+            reduce
+              ? undefined
+              : {
+                  duration: 4.2,
+                  repeat: Infinity,
+                  ease: "linear",
+                }
+          }
+        />
+        {HOW_IT_WORKS_STEPS.map((step, index) => (
+          <div key={step.index} className="relative pl-8">
+            <div
+              className="absolute left-0 top-2 h-[22px] w-[22px] rounded-full border border-white/12 bg-[#0b0c11]"
+              style={{ opacity: 1, transition: "opacity 240ms ease" }}
+            >
+              <div className="absolute inset-[5px] rounded-full bg-[linear-gradient(135deg,rgba(34,211,238,0.95),rgba(236,72,153,0.9))]" />
+            </div>
+            <div style={desktopTextStyle}>
+              <div className="text-[11px] font-semibold tracking-[0.22em] text-white/46">
+                {step.index}
+              </div>
+              <div className="mt-3 text-xl font-semibold tracking-[-0.03em] text-white">
+                {step.title}
+              </div>
+              <div className="mt-2 text-sm leading-6 text-white/62">{step.body}</div>
+            </div>
+            <div className="mt-5 rounded-[26px] bg-[#090b10] p-3 ring-1 ring-white/10">
+              <div style={desktopPanelStyle}>
+                {index === 0
+                  ? renderInputMonitor()
+                  : index === 1
+                    ? renderBuilderMonitor()
+                    : renderProductMonitor()}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProductTransformationSurface() {
+  const reduce = useReducedMotion();
+  const [stage, setStage] = useState(0);
+  const [typedCount, setTypedCount] = useState(0);
+  const [runtimeBeat, setRuntimeBeat] = useState<"preparing" | "llm" | "image">("preparing");
+  const typedUrl = "https://www.youtube.com/watch?v=8gMN8W1v4i4";
+  const outputSections = [
+    {
+      title: "Hook rewrites",
+      detail: "(5 variants)",
+      body: ['"Nobody tells you this about X"', '"I tried X for 7 days..."'],
+    },
+    {
+      title: "Shorts scripts",
+      detail: "(3 clips)",
+      body: ["timestamped + structured"],
+    },
+    {
+      title: "Twitter thread",
+      detail: "",
+      body: ["clean, ready to post"],
+    },
+    {
+      title: "LinkedIn post",
+      detail: "",
+      body: ["founder-style narrative"],
+    },
+    {
+      title: "Title + thumbnail ideas",
+      detail: "",
+      body: ["high CTR angles"],
+    },
+  ];
+
+  useEffect(() => {
+    if (reduce) return;
+    const sequence = [2500, 2650, 8000, 7000];
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    const schedule = (index: number) => {
+      if (cancelled) return;
+      setStage(index);
+      timeoutId = setTimeout(() => {
+        schedule((index + 1) % 4);
+      }, sequence[index] ?? 2000);
+    };
+
+    schedule(0);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [reduce]);
+
+  useEffect(() => {
+    if (reduce) return;
+    if (stage !== 2) return;
+
+    const preparingTimer = setTimeout(() => setRuntimeBeat("preparing"), 0);
+    const llmTimer = setTimeout(() => setRuntimeBeat("llm"), 1000);
+    const imageTimer = setTimeout(() => setRuntimeBeat("image"), 6000);
+
+    return () => {
+      clearTimeout(preparingTimer);
+      clearTimeout(llmTimer);
+      clearTimeout(imageTimer);
+    };
+  }, [reduce, stage]);
+
+  useEffect(() => {
+    if (reduce) return;
+    if (stage !== 1) {
+      const resetId = setTimeout(() => setTypedCount(0), 0);
+      return () => clearTimeout(resetId);
+    }
+
+    const startDelay = 220;
+    const stepMs = 38;
+    let index = 0;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    const timeoutId = setTimeout(() => {
+      setTypedCount(0);
+      intervalId = setInterval(() => {
+        index += 1;
+        setTypedCount(Math.min(index, typedUrl.length));
+        if (index >= typedUrl.length && intervalId) clearInterval(intervalId);
+      }, stepMs);
+    }, startDelay);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [reduce, stage, typedUrl]);
+
+  const runtimeGraph = useMemo<NonNullable<WorkflowRunState["graph"]>>(
+    () => ({
+      nodes: [
+        {
+          id: "llm-hooks",
+          type: "edgCard",
+          position: { x: 0, y: 0 },
+          data: {
+            specId: "llm-chat",
+            title: "Hook rewrites",
+            config: { model: "gpt-5-mini" },
+          },
+        },
+        {
+          id: "llm-shorts",
+          type: "edgCard",
+          position: { x: 280, y: 0 },
+          data: {
+            specId: "llm-chat",
+            title: "Shorts scripts",
+            config: { model: "gpt-5-mini" },
+          },
+        },
+        {
+          id: "llm-posts",
+          type: "edgCard",
+          position: { x: 560, y: 0 },
+          data: {
+            specId: "llm-chat",
+            title: "Thread + LinkedIn",
+            config: { model: "gpt-5-mini" },
+          },
+        },
+        {
+          id: "llm-image",
+          type: "edgCard",
+          position: { x: 840, y: 0 },
+          data: {
+            specId: "llm-image",
+            title: "Thumbnail concept frame",
+            config: { model: "nano-banana-2", aspectRatio: "16:9" },
+          },
+        },
+      ],
+      edges: [
+        { id: "e-hooks-shorts", source: "llm-hooks", target: "llm-shorts", type: "gradient" },
+        { id: "e-shorts-posts", source: "llm-shorts", target: "llm-posts", type: "gradient" },
+        { id: "e-posts-image", source: "llm-posts", target: "llm-image", type: "gradient" },
+      ],
+    }),
+    [],
+  );
+
+  const runtimeSurfaceState = useMemo<WorkflowRunState>(() => {
+    if (runtimeBeat === "preparing") {
+      return {
+        workflowId: "hero-youtube-viral-content-engine",
+        workflowName: "YouTube Viral Content Engine",
+        phase: "executing",
+        status: "running",
+        connectionState: "live",
+        steps: [
+          { id: "prep-1", title: "Preparing workflow", status: "done" },
+          { id: "prep-2", title: "Allocating runtime", status: "done" },
+        ],
+        logs: [],
+        graph: runtimeGraph,
+      };
+    }
+
+    if (runtimeBeat === "image") {
+      return {
+        workflowId: "hero-youtube-viral-content-engine",
+        workflowName: "YouTube Viral Content Engine",
+        phase: "executing",
+        status: "running",
+        connectionState: "live",
+        currentStepId: "llm-image",
+        steps: [
+          { id: "llm-hooks", title: "Hook rewrites", status: "done" },
+          { id: "llm-shorts", title: "Shorts scripts", status: "done" },
+          { id: "llm-posts", title: "Thread + LinkedIn", status: "done" },
+          { id: "llm-image", title: "Thumbnail concept frame", status: "running" },
+        ],
+        logs: [],
+        graph: runtimeGraph,
+      };
+    }
+
+    return {
+      workflowId: "hero-youtube-viral-content-engine",
+      workflowName: "YouTube Viral Content Engine",
+      phase: "executing",
+      status: "running",
+      connectionState: "live",
+      currentStepId: "llm-hooks",
+      steps: [
+        { id: "llm-hooks", title: "Hook rewrites", status: "running" },
+        { id: "llm-shorts", title: "Shorts scripts", status: "running" },
+        { id: "llm-posts", title: "Thread + LinkedIn", status: "running" },
+        { id: "llm-image", title: "Thumbnail concept frame", status: "queued" },
+      ],
+      logs: [],
+      graph: runtimeGraph,
+    };
+  }, [runtimeBeat, runtimeGraph]);
+
+  return (
+    <div className="relative min-h-[500px] overflow-hidden rounded-[34px] p-3 sm:min-h-[560px] sm:p-4">
+      <div className="pointer-events-none absolute inset-3 rounded-[30px] opacity-50 [background-image:radial-gradient(circle_at_14%_18%,rgba(34,211,238,0.18),transparent_24%),radial-gradient(circle_at_82%_16%,rgba(236,72,153,0.18),transparent_24%),radial-gradient(circle_at_52%_84%,rgba(255,255,255,0.06),transparent_32%)] sm:inset-4 sm:rounded-[30px]" />
+      <div className="pointer-events-none absolute inset-3 rounded-[30px] opacity-[0.05] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:72px_72px] sm:inset-4 sm:rounded-[30px]" />
+
+      <div className="relative min-h-[472px] overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.015))] shadow-[0_30px_100px_rgba(0,0,0,0.5)] sm:min-h-[528px]">
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-white/24" />
+            <span className="h-2.5 w-2.5 rounded-full bg-white/12" />
+            <span className="h-2.5 w-2.5 rounded-full bg-white/12" />
+          </div>
+          <div className="text-[11px] font-medium text-white/44">edgaze.ai/marketplace</div>
+        </div>
+
+        <div className="relative h-[420px] overflow-hidden sm:h-[472px]">
+          <motion.div
+            className="pointer-events-none absolute left-[-12%] top-[8%] h-[68%] w-[34%] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.16),transparent_68%)] blur-3xl"
+            animate={reduce ? undefined : { x: [0, 48, 0], y: [0, -18, 0] }}
+            transition={{ duration: 8.5, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            className="pointer-events-none absolute right-[-10%] top-[14%] h-[64%] w-[32%] rounded-full bg-[radial-gradient(circle,rgba(236,72,153,0.14),transparent_70%)] blur-3xl"
+            animate={reduce ? undefined : { x: [0, -42, 0], y: [0, 16, 0] }}
+            transition={{ duration: 9.2, repeat: Infinity, ease: "easeInOut" }}
+          />
+
+          {stage === 0 ? (
+            <motion.div
+              className="absolute inset-0 px-3 py-3 sm:px-4 sm:py-4"
+              initial={reduce ? false : { opacity: 0.96 }}
+              animate={reduce ? undefined : { opacity: 1 }}
+              transition={{ duration: 0.12, ease: "easeOut" }}
+            >
+              <motion.div
+                className="grid h-full gap-3 lg:grid-cols-[minmax(0,1.28fr)_284px]"
+                animate={reduce ? undefined : { opacity: 1 }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
+              >
+                <div className="overflow-hidden rounded-[26px] border border-white/10 bg-[#0b0d13] shadow-[0_22px_80px_rgba(0,0,0,0.35)]">
+                  <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
+                    <div className="flex items-center gap-3 text-[12px] text-white/40">
+                      <span>Marketplace</span>
+                      <span className="hidden text-white/24 sm:inline">
+                        edgaze.ai/raul_ia_prod/yt
+                      </span>
+                    </div>
+                    <div className="text-[12px] text-white/35">Share</div>
+                  </div>
+
+                  <div className="px-3 pb-3 pt-3 sm:px-4 sm:pb-4">
+                    <div className="overflow-hidden rounded-[24px] border border-white/8 bg-[linear-gradient(135deg,#07131b_0%,#0b0f17_48%,#11111a_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-5">
+                      <div className="flex h-full flex-col gap-5">
+                        <div className="min-w-0 space-y-3">
+                          <div className="text-[12px] font-semibold tracking-[0.22em] text-cyan-200/65">
+                            YOUTUBE WORKFLOW
+                          </div>
+                          <div className="max-w-[7.8ch] text-[2.5rem] font-semibold tracking-[-0.065em] leading-[0.9] text-white sm:text-[2.72rem]">
+                            YouTube Viral Content Engine
+                          </div>
+                          <div className="max-w-full truncate text-[11px] leading-5 text-white/50">
+                            Turn one video into hooks, shorts, threads, founder posts, and title
+                            ideas people click.
+                          </div>
+                        </div>
+
+                        <div className="relative mt-1 w-full max-w-[260px]">
+                          <div className="pointer-events-none absolute inset-0 rounded-[24px] bg-[radial-gradient(circle_at_32%_22%,rgba(34,211,238,0.18),transparent_42%),radial-gradient(circle_at_82%_28%,rgba(236,72,153,0.18),transparent_38%)] blur-2xl" />
+                          <div className="relative overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,19,0.76),rgba(10,12,18,0.44))] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                            <div className="flex items-center gap-2 text-[11px] text-white/42">
+                              <div className="rounded bg-[#ff0000] px-1.5 py-0.5 font-semibold text-white">
+                                YouTube
+                              </div>
+                              <span>Growth breakdown</span>
+                            </div>
+                            <div className="mt-3 h-32 rounded-[16px] border border-emerald-300/10 bg-[linear-gradient(180deg,rgba(11,15,20,0.72),rgba(10,12,18,0.42))] p-3">
+                              <div className="relative h-full">
+                                <div className="absolute inset-0 opacity-60 [background-image:linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:32px_32px]" />
+                                <svg
+                                  className="absolute inset-0 h-full w-full"
+                                  viewBox="0 0 300 160"
+                                  aria-hidden
+                                >
+                                  <path
+                                    d="M10 128 L46 110 L84 118 L118 88 L154 96 L188 68 L222 56 L262 30"
+                                    fill="none"
+                                    stroke="rgba(163,230,53,0.95)"
+                                    strokeWidth="5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                                <div className="absolute left-3 top-3 text-[12px] font-semibold text-white/78">
+                                  Estimated viral lift
+                                </div>
+                                <div className="absolute right-3 top-3 text-[24px] font-semibold tracking-[-0.05em] text-lime-300">
+                                  +238%
+                                </div>
+                                <div className="absolute bottom-3 left-3 text-[12px] text-white/56">
+                                  hooks, threads, clips
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-4 shadow-[0_22px_80px_rgba(0,0,0,0.3)]">
+                  <div className="text-sm font-semibold text-white">Unlock this workflow</div>
+                  <div className="mt-1 text-[12px] text-white/55">
+                    Access attaches to your Edgaze account.
+                  </div>
+
+                  <div className="mt-5 flex items-end gap-2">
+                    <div className="text-[12px] text-white/40">Price</div>
+                    <div className="text-3xl font-semibold tracking-[-0.05em] text-white">
+                      $7.99
+                    </div>
+                    <div className="pb-1 text-[12px] text-white/45">one-time</div>
+                  </div>
+
+                  <div className="mt-5 space-y-2.5">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(90deg,rgba(34,211,238,0.94),rgba(236,72,153,0.9))] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_0_22px_rgba(34,211,238,0.38)]"
+                    >
+                      Open in Workflow Studio
+                    </button>
+
+                    <div className="relative">
+                      <motion.button
+                        type="button"
+                        className="flex w-full items-center justify-center gap-3 rounded-full border border-amber-500/40 bg-[linear-gradient(180deg,rgba(78,52,10,0.9),rgba(63,42,8,0.96))] px-4 py-3 text-[14px] font-semibold text-amber-200 shadow-[0_6px_28px_rgba(251,191,36,0.18)]"
+                        animate={
+                          reduce
+                            ? undefined
+                            : {
+                                scale: [1, 1, 1, 0.965, 1.01, 1],
+                                boxShadow: [
+                                  "0 6px 28px rgba(251,191,36,0.16)",
+                                  "0 8px 34px rgba(251,191,36,0.26)",
+                                  "0 8px 34px rgba(251,191,36,0.26)",
+                                  "0 3px 14px rgba(251,191,36,0.18)",
+                                  "0 7px 30px rgba(251,191,36,0.24)",
+                                  "0 6px 28px rgba(251,191,36,0.16)",
+                                ],
+                              }
+                        }
+                        transition={{
+                          duration: 2.5,
+                          ease: [0.22, 1, 0.36, 1],
+                          times: [0, 0.68, 0.78, 0.86, 0.92, 1],
+                        }}
+                      >
+                        <Play className="h-4 w-4 fill-current" />
+                        Try a one-time demo
+                      </motion.button>
+
+                      <motion.div
+                        className="pointer-events-none absolute -left-3 top-1/2 z-20"
+                        animate={
+                          reduce
+                            ? undefined
+                            : {
+                                x: [0, 18, 28, 28],
+                                y: [0, 4, 8, 8],
+                                scale: [0.96, 1, 1, 0.9],
+                                opacity: [0.7, 1, 1, 1],
+                              }
+                        }
+                        transition={{
+                          duration: 2.5,
+                          ease: "linear",
+                        }}
+                      >
+                        <div className="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-black/70 text-white shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-md">
+                          <MousePointer2 className="h-4 w-4" />
+                        </div>
+                      </motion.div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-center rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white/78"
+                    >
+                      Share
+                    </button>
+                  </div>
+
+                  <div className="mt-4 rounded-[20px] border border-white/10 bg-black/35 p-3 text-[11px] text-white/55">
+                    <div className="font-semibold text-white/82">What you get</div>
+                    <div className="mt-2 space-y-1.5 leading-relaxed">
+                      <div>• 10 hosted runs included</div>
+                      <div>• Use your own API key after hosted runs are finished</div>
+                      <div>• Workflow Studio in preview mode</div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          ) : null}
+
+          {stage === 1 ? (
+            <motion.div
+              className="absolute inset-0 px-3 py-3 sm:px-4 sm:py-4"
+              initial={reduce ? false : { opacity: 0.92 }}
+              animate={reduce ? undefined : { opacity: 1 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+            >
+              <div className="flex h-full items-center justify-center">
+                <motion.div
+                  className="w-full max-w-[620px] rounded-[30px] border border-white/10 bg-[#090a0e]/94 p-3 shadow-[0_40px_140px_rgba(0,0,0,0.62)] sm:p-5"
+                  initial={reduce ? false : { scale: 0.985, y: 8 }}
+                  animate={reduce ? undefined : { scale: 1, y: 0 }}
+                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <div className="flex items-center justify-between border-b border-white/10 px-2 pb-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-[15px] font-semibold text-white">
+                        YouTube → Viral Content Engine
+                      </div>
+                      <div className="mt-1 text-[12px] text-white/42">
+                        Paste a YouTube URL to run the workflow.
+                      </div>
+                    </div>
+                    <div className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.05] text-white/70">
+                      ×
+                    </div>
+                  </div>
+
+                  <div className="px-2 pt-5">
+                    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))] p-5">
+                      <div className="text-[12px] font-semibold tracking-[0.16em] text-white/42">
+                        INPUT REQUIRED
+                      </div>
+                      <div className="mt-3 text-[22px] font-semibold tracking-[-0.04em] text-white sm:text-[1.9rem]">
+                        Enter the YouTube video URL
+                      </div>
+                      <div className="mt-3 text-sm leading-6 text-white/58">
+                        We&apos;ll pull the transcript, extract the strongest angles, then package
+                        the outputs for publishing.
+                      </div>
+
+                      <motion.div
+                        className="mt-6 rounded-[24px] border border-cyan-300/18 bg-[#0b0f16] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+                        initial={reduce ? false : { scale: 0.965, y: 12 }}
+                        animate={reduce ? undefined : { scale: 1, y: 0 }}
+                        transition={{ duration: 0.28, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+                      >
+                        <div className="text-[11px] font-semibold text-white/40">YouTube URL</div>
+                        <div className="mt-2 flex min-h-[28px] items-center overflow-hidden text-[15px] font-medium text-white/92 sm:text-[17px]">
+                          <span>{typedUrl.slice(0, typedCount)}</span>
+                          {!reduce ? (
+                            <motion.span
+                              className="ml-0.5 inline-block h-[18px] w-px bg-cyan-200/80"
+                              animate={{ opacity: [1, 0, 1] }}
+                              transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
+                            />
+                          ) : null}
+                        </div>
+                      </motion.div>
+
+                      <div className="mt-5 flex justify-end">
+                        <div className="relative">
+                          <motion.button
+                            type="button"
+                            className="rounded-full bg-[linear-gradient(180deg,rgba(255,212,92,0.98),rgba(237,181,45,0.96))] px-5 py-2.5 text-sm font-semibold text-[#241504] shadow-[0_8px_26px_rgba(251,191,36,0.28)]"
+                            animate={
+                              reduce
+                                ? undefined
+                                : {
+                                    scale: [1, 1, 1, 1.08, 0.972, 1],
+                                    boxShadow: [
+                                      "0 8px 26px rgba(251,191,36,0.28)",
+                                      "0 8px 26px rgba(251,191,36,0.28)",
+                                      "0 8px 26px rgba(251,191,36,0.28)",
+                                      "0 16px 42px rgba(251,191,36,0.34)",
+                                      "0 5px 16px rgba(251,191,36,0.22)",
+                                      "0 8px 26px rgba(251,191,36,0.28)",
+                                    ],
+                                  }
+                            }
+                            transition={{
+                              duration: 2.65,
+                              ease: [0.22, 1, 0.36, 1],
+                              times: [0, 0.68, 0.8, 0.88, 0.94, 1],
+                            }}
+                          >
+                            Run demo
+                          </motion.button>
+
+                          {!reduce ? (
+                            <motion.div
+                              className="pointer-events-none absolute -left-3 top-1/2"
+                              animate={{
+                                x: [0, 0, 0, 16, 24, 24],
+                                y: [0, 0, 0, 5, 8, 8],
+                                scale: [0.94, 0.94, 0.94, 1, 1, 0.92],
+                                opacity: [0, 0, 0, 1, 1, 1],
+                              }}
+                              transition={{
+                                duration: 2.65,
+                                ease: [0.22, 1, 0.36, 1],
+                                times: [0, 0.68, 0.74, 0.86, 0.94, 1],
+                              }}
+                            >
+                              <div className="grid h-10 w-10 place-items-center rounded-full border border-white/12 bg-black/70 text-white shadow-[0_10px_28px_rgba(0,0,0,0.45)] backdrop-blur-md">
+                                <MousePointer2 className="h-4 w-4" />
+                              </div>
+                            </motion.div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </motion.div>
+          ) : null}
+
+          {stage === 2 ? (
+            <motion.div
+              className="absolute inset-0 px-3 py-4 sm:px-4"
+              initial={reduce ? false : { opacity: 0.92 }}
+              animate={reduce ? undefined : { opacity: 1 }}
+              transition={{ duration: 0.16, ease: "easeOut" }}
+            >
+              <div className="flex h-full items-center justify-center">
+                <div className="relative h-[330px] w-full max-w-[700px] overflow-hidden rounded-[26px] border border-white/10 bg-[#050608] shadow-[0_32px_120px_rgba(0,0,0,0.58)] sm:h-[420px] sm:rounded-[30px]">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_14%,rgba(34,211,238,0.1),transparent_34%),radial-gradient(circle_at_82%_76%,rgba(236,72,153,0.12),transparent_36%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.01))]" />
+                  <div className="hero-runtime-stage absolute left-1/2 top-1/2">
+                    <CustomerWorkflowRuntimeSurface
+                      state={runtimeSurfaceState}
+                      hideActionZone
+                      showInlineExecutionCancel={false}
+                    />
+                  </div>
+                  <style
+                    dangerouslySetInnerHTML={{
+                      __html: `
+                          .hero-runtime-stage {
+                            width: 900px;
+                            height: 640px;
+                            transform: translate3d(-50%, -50%, 0) scale(0.32);
+                            transform-origin: center;
+                          }
+                          .hero-runtime-stage [class*="max-md:max-w-[310px]"] {
+                            max-width: 900px !important;
+                          }
+                          .hero-runtime-stage [class*="h-[min(32vh,200px)]"] {
+                            height: 320px !important;
+                            min-height: 320px !important;
+                            border-radius: 30px !important;
+                          }
+                          .hero-runtime-stage [class*="md:text-[52px]"] {
+                            font-size: 52px !important;
+                            line-height: 1 !important;
+                          }
+                          .hero-runtime-stage [class*="md:text-[16px]"][class*="md:leading-7"] {
+                            margin-top: 1.25rem !important;
+                            max-width: 58ch !important;
+                            font-size: 16px !important;
+                            line-height: 1.75rem !important;
+                          }
+                          @media (min-width: 380px) {
+                            .hero-runtime-stage {
+                              transform: translate3d(-50%, -50%, 0) scale(0.39);
+                            }
+                          }
+                          @media (min-width: 480px) {
+                            .hero-runtime-stage {
+                              transform: translate3d(-50%, -50%, 0) scale(0.48);
+                            }
+                          }
+                          @media (min-width: 640px) {
+                            .hero-runtime-stage {
+                              transform: translate3d(-50%, -50%, 0) scale(0.63);
+                            }
+                          }
+                          @media (min-width: 1024px) {
+                            .hero-runtime-stage {
+                              transform: translate3d(-50%, -50%, 0) scale(0.68);
+                            }
+                          }
+                        `,
+                    }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          ) : null}
+
+          {stage === 3 ? (
+            <motion.div
+              className="absolute inset-0 px-3 py-3 sm:px-4 sm:py-4"
+              initial={reduce ? false : { opacity: 0 }}
+              animate={reduce ? undefined : { opacity: 1 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <div className="h-full rounded-[26px] border border-white/10 bg-[#0b0d13] p-3 shadow-[0_22px_80px_rgba(0,0,0,0.35)] sm:p-4">
+                <div className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[12px] font-semibold tracking-[0.18em] text-white/40">
+                        RESULT READY
+                      </div>
+                      <div className="mt-2 text-[1.7rem] font-semibold tracking-[-0.05em] text-white sm:text-[2.2rem]">
+                        Your distribution pack is ready to publish
+                      </div>
+                    </div>
+                    <div className="rounded-full border border-emerald-400/18 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-200">
+                      ready
+                    </div>
+                  </div>
+
+                  <div className="mt-4 text-sm leading-6 text-white/58">
+                    One YouTube video in. Five polished assets out.
+                  </div>
+
+                  <div className="mt-5 h-[262px] overflow-hidden rounded-[24px] border border-white/10 bg-[#090b10] sm:h-[300px]">
+                    <motion.div
+                      className="space-y-3 p-3.5 sm:p-4"
+                      animate={reduce ? undefined : { y: ["0%", "-44%", "-44%"] }}
+                      transition={{
+                        duration: 7,
+                        ease: [0.22, 1, 0.36, 1],
+                        times: [0, 0.72, 1],
+                      }}
+                    >
+                      <div className="rounded-[20px] border border-cyan-300/12 bg-[linear-gradient(135deg,rgba(34,211,238,0.08),rgba(255,255,255,0.02))] p-4">
+                        <div className="text-sm font-semibold text-white">
+                          1. {outputSections[0]?.title}{" "}
+                          <span className="text-white/54">{outputSections[0]?.detail}</span>
+                        </div>
+                        <div className="mt-3 grid gap-2">
+                          {outputSections[0]?.body.map((line) => (
+                            <div
+                              key={line}
+                              className="rounded-[16px] border border-white/8 bg-white/[0.03] px-3 py-3 text-sm font-medium text-white/82"
+                            >
+                              {line}
+                            </div>
+                          ))}
+                          <div className="rounded-[16px] border border-white/8 bg-white/[0.03] px-3 py-3 text-sm font-medium text-white/64">
+                            “The YouTube growth loop creators miss in year one”
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
+                        <div className="text-sm font-semibold text-white">
+                          2. {outputSections[1]?.title}{" "}
+                          <span className="text-white/54">{outputSections[1]?.detail}</span>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {[
+                            "00:12 Hook: the hidden growth mistake",
+                            "00:34 Story beat: what changed after 7 days",
+                            "01:08 CTA: use the framework in one click",
+                          ].map((line) => (
+                            <div
+                              key={line}
+                              className="rounded-[16px] border border-white/8 bg-[#0d1016] px-3 py-3 text-sm text-white/74"
+                            >
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
+                        <div className="text-sm font-semibold text-white">
+                          3. {outputSections[2]?.title}
+                        </div>
+                        <div className="mt-3 rounded-[18px] border border-white/8 bg-[#0d1016] p-4">
+                          <div className="space-y-2 text-sm leading-6 text-white/76">
+                            <div>
+                              1/ Most creators publish prompts. The best ones publish products.
+                            </div>
+                            <div>
+                              2/ This workflow turns one video into hooks, shorts, and posts
+                              instantly.
+                            </div>
+                            <div>
+                              3/ That means faster testing, cleaner distribution, and better
+                              monetization.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-4">
+                        <div className="text-sm font-semibold text-white">
+                          4. {outputSections[3]?.title}
+                        </div>
+                        <div className="mt-3 rounded-[18px] border border-white/8 bg-[#0d1016] p-4 text-sm leading-6 text-white/74">
+                          I used to think content systems were mostly about volume. They are not.
+                          The real leverage comes from turning one strong source asset into multiple
+                          distribution-ready outputs without losing voice.
+                        </div>
+                      </div>
+
+                      <div className="rounded-[20px] border border-pink-300/12 bg-[linear-gradient(135deg,rgba(236,72,153,0.08),rgba(255,255,255,0.02))] p-4">
+                        <div className="text-sm font-semibold text-white">
+                          5. {outputSections[4]?.title}
+                        </div>
+                        <div className="mt-3 space-y-3">
+                          {[
+                            "Why nobody scales YouTube without this system",
+                            "I tested viral repurposing for 7 days",
+                            "The AI workflow turning one video into six assets",
+                          ].map((line) => (
+                            <div
+                              key={line}
+                              className="rounded-[16px] border border-white/8 bg-[#0d1016] px-3 py-3 text-sm text-white/76"
+                            >
+                              {line}
+                            </div>
+                          ))}
+                          <div className="overflow-hidden rounded-[20px] border border-white/10 bg-[linear-gradient(135deg,#07131b_0%,#0d1018_48%,#15111b_100%)] p-3">
+                            <div className="text-[11px] font-semibold tracking-[0.16em] text-cyan-200/62">
+                              THUMBNAIL IDEA
+                            </div>
+                            <div className="mt-3 rounded-[16px] border border-white/10 bg-[#090b10] p-3">
+                              <div className="text-[13px] font-semibold leading-5 text-white">
+                                I tried this for 7 days...
+                              </div>
+                              <div className="mt-3 flex h-28 items-end rounded-[14px] bg-[radial-gradient(circle_at_26%_24%,rgba(34,211,238,0.28),transparent_40%),radial-gradient(circle_at_78%_24%,rgba(236,72,153,0.28),transparent_38%),linear-gradient(180deg,#0f1720,#11121a)] p-3">
+                                <div className="text-[24px] font-semibold tracking-[-0.06em] text-lime-300">
+                                  +238%
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CreatorSwitchMatrix() {
+  const rows = [
+    {
+      icon: FileText,
+      label: "PDF / prompt pack",
+      left: "Buyers read the instructions",
+      right: "Buyers run the workflow",
+    },
+    {
+      icon: ScrollText,
+      label: "Docs / files",
+      left: "Value is trapped in a PDF, prompt pack, or doc",
+      right: "Value lives inside a runnable product page",
+    },
+    {
+      icon: LayoutList,
+      label: "Static listing",
+      left: "Creators sell once and hope it works",
+      right: "Creators see usage, runs, and buyer behavior",
+    },
+    {
+      icon: ArrowRight,
+      label: "Posts and links",
+      left: "Traffic gets scattered across links and posts",
+      right: "Discovery, usage, and payment stay together",
+    },
   ];
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
-      <div className="space-y-4">
-        <TextCard title="Show up where intent already exists">
-          <p>People do not need a thread or a PDF to understand what you made.</p>
-        </TextCard>
-        <TextCard title="Make action obvious">
-          <p>Pricing, description, runs, and the next step all live in one screen.</p>
-        </TextCard>
-      </div>
-
-      <CardFrame className="p-5 sm:p-6">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-semibold text-white">Marketplace</div>
-          <div className="inline-flex items-center gap-2 rounded-2xl bg-white/5 ring-1 ring-white/10 px-3 py-2">
-            <Search className="h-4 w-4 text-white/75" />
-            <div className="text-xs text-white/70">Search prompts and workflows</div>
+    <div className="overflow-hidden rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.018))] shadow-[0_24px_80px_rgba(0,0,0,0.32)]">
+      <div className="hidden md:grid md:grid-cols-2">
+        <div className="border-b border-r border-white/10 bg-white/[0.02] px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl border border-white/10 bg-white/[0.03] text-white/68">
+              <FileText className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-white">Static files</div>
+              <div className="text-xs text-white/44">
+                PDFs, prompt packs, docs, and scattered posts
+              </div>
+            </div>
           </div>
         </div>
+        <div className="border-b border-white/10 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(236,72,153,0.06))] px-6 py-5">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl border border-white/12 bg-white/[0.04]">
+              <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={20} height={20} />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-white">Edgaze</div>
+              <div className="text-xs text-white/52">
+                Runnable product pages with trial, usage, and payment
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        <motion.div
-          className="mt-5 grid gap-3 sm:grid-cols-2"
-          animate={reduce ? undefined : { x: [0, -6, 0] }}
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-        >
-          {items.map((item, index) => (
-            <motion.div
-              key={item.title}
-              className="rounded-3xl bg-white/[0.04] p-4 ring-1 ring-white/10"
-              initial={reduce ? false : { opacity: 0, y: 12 }}
-              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.35 }}
-              transition={{ duration: 0.45, delay: index * 0.04, ease: "easeOut" }}
-              whileHover={reduce ? undefined : { y: -4, scale: 1.01, filter: "brightness(1.05)" }}
-            >
-              {index === 0 ? (
-                <div className="mb-3 inline-flex rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-[10px] font-semibold tracking-[0.16em] text-white/60">
-                  Best match
+      <div className="divide-y divide-white/10">
+        {rows.map((row) => {
+          const Icon = row.icon;
+          return (
+            <div key={row.left} className="px-4 py-4 sm:px-5 md:px-0 md:py-0">
+              <div className="mb-3 flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.18em] text-white/34 md:hidden">
+                <Icon className="h-3.5 w-3.5" />
+                <span>{row.label}</span>
+              </div>
+
+              <div className="hidden md:grid md:grid-cols-2">
+                <div className="border-r border-white/10 px-6 py-5">
+                  <div className="mb-2 flex items-center gap-2.5 text-[11px] font-semibold tracking-[0.18em] text-white/30">
+                    <Icon className="h-3.5 w-3.5" />
+                    <span>{row.label}</span>
+                  </div>
+                  <div className="text-sm leading-7 text-white/58">{row.left}</div>
                 </div>
-              ) : null}
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-semibold text-white">{item.title}</div>
-                  <div className="mt-1 text-xs text-white/58">{item.type}</div>
-                </div>
-                <div className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-xs font-semibold text-white">
-                  {item.price}
+                <div className="bg-[linear-gradient(180deg,rgba(34,211,238,0.05),rgba(236,72,153,0.04))] px-6 py-5">
+                  <div className="text-sm font-semibold leading-7 text-white">{row.right}</div>
                 </div>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs text-white/55">
-                <span>{item.runs}</span>
-                <span className="text-white/72">Open</span>
+
+              <div className="space-y-3 md:hidden">
+                <div className="rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-3">
+                  <div className="text-[11px] font-semibold tracking-[0.18em] text-white/34">
+                    STATIC FILES
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-white/60">{row.left}</div>
+                </div>
+                <div className="rounded-[20px] border border-white/12 bg-[linear-gradient(180deg,rgba(34,211,238,0.08),rgba(236,72,153,0.06))] px-4 py-3">
+                  <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-white/48">
+                    <Image src="/brand/edgaze-mark.png" alt="Edgaze" width={14} height={14} />
+                    <span>EDGAZE</span>
+                  </div>
+                  <div className="mt-2 text-sm font-semibold leading-6 text-white">{row.right}</div>
+                </div>
               </div>
-            </motion.div>
-          ))}
-        </motion.div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* TODO: Replace fallback neutral icons with official Gumroad / Notion / PDF / social assets if those logos are added to the project. */}
+    </div>
+  );
+}
+
+function CreatorDashboardSurface() {
+  const reduce = useReducedMotion();
+  const canvasRef = useRef<CanvasRef | null>(null);
+  const [isCreatorCanvasReady, setIsCreatorCanvasReady] = useState(false);
+  const payoutTarget = 1432.98;
+  const countDurationMs = 2100;
+  const holdDurationMs = 1500;
+  const resetFadeMs = 220;
+  const [displayValue, setDisplayValue] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const creatorWorkflow = HOME_DEMO_WORKFLOWS[3] ?? HOME_DEMO_WORKFLOWS[0] ?? null;
+
+  useEffect(() => {
+    if (!isCreatorCanvasReady || !creatorWorkflow?.graph) return;
+    canvasRef.current?.loadGraph?.(creatorWorkflow.graph);
+  }, [creatorWorkflow, isCreatorCanvasReady]);
+
+  const handleCreatorCanvasRef = useCallback((instance: CanvasRef | null) => {
+    canvasRef.current = instance;
+    setIsCreatorCanvasReady(Boolean(instance));
+  }, []);
+
+  useEffect(() => {
+    if (reduce) return;
+
+    let rafId = 0;
+    let holdTimeout = 0;
+    let resetTimeout = 0;
+    let restartTimeout = 0;
+    let cancelled = false;
+
+    const easeOutCubic = (progress: number) => 1 - (1 - progress) ** 3;
+
+    const startCycle = () => {
+      if (cancelled) return;
+
+      setDisplayValue(0);
+      setIsVisible(true);
+      setProgress(0);
+
+      const startedAt = performance.now();
+
+      const step = (now: number) => {
+        if (cancelled) return;
+
+        const progress = clamp((now - startedAt) / countDurationMs, 0, 1);
+        setDisplayValue(payoutTarget * easeOutCubic(progress));
+        setProgress(progress);
+
+        if (progress < 1) {
+          rafId = window.requestAnimationFrame(step);
+          return;
+        }
+
+        setDisplayValue(payoutTarget);
+        setProgress(1);
+        holdTimeout = window.setTimeout(() => {
+          if (cancelled) return;
+
+          setIsVisible(false);
+          resetTimeout = window.setTimeout(() => {
+            if (cancelled) return;
+
+            setDisplayValue(0);
+            setProgress(0);
+            restartTimeout = window.setTimeout(startCycle, 60);
+          }, resetFadeMs);
+        }, holdDurationMs);
+      };
+
+      rafId = window.requestAnimationFrame(step);
+    };
+
+    startCycle();
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(holdTimeout);
+      window.clearTimeout(resetTimeout);
+      window.clearTimeout(restartTimeout);
+    };
+  }, [countDurationMs, holdDurationMs, payoutTarget, reduce, resetFadeMs]);
+
+  const formattedValue = useMemo(
+    () =>
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(displayValue),
+    [displayValue],
+  );
+  const displayedAmount = reduce ? "$1,432.98" : formattedValue;
+  const displayedProgress = reduce ? 1 : progress;
+
+  return (
+    <div className="mx-auto max-w-[860px]">
+      <CardFrame className="overflow-hidden p-0">
+        <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#0b0d12_0%,#08090d_100%)] px-5 py-8 sm:px-8 sm:py-10">
+          <div className="pointer-events-none absolute inset-0 opacity-55 [background-image:radial-gradient(circle_at_16%_18%,rgba(34,211,238,0.16),transparent_26%),radial-gradient(circle_at_84%_18%,rgba(236,72,153,0.12),transparent_24%),linear-gradient(135deg,rgba(255,255,255,0.05),transparent_42%)]" />
+          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent)]" />
+
+          <div className="relative grid gap-4 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
+            <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] shadow-[0_18px_60px_rgba(0,0,0,0.34)]">
+              <div className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:44px_44px]" />
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-between gap-3 p-4">
+                <div className="min-w-0 rounded-[18px] border border-white/12 bg-[linear-gradient(180deg,rgba(9,11,16,0.94),rgba(9,11,16,0.82))] px-3 py-2 shadow-[0_16px_40px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                  <div className="text-[11px] font-semibold tracking-[0.18em] text-white/38">
+                    CREATOR WORKFLOW
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-white">
+                    {creatorWorkflow?.title ?? "Workflow graph"}
+                  </div>
+                </div>
+                <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-white/48">
+                  Live graph
+                </div>
+              </div>
+
+              <div className="h-[280px] sm:h-[320px]">
+                <ReactFlowCanvas
+                  ref={handleCreatorCanvasRef}
+                  mode="preview"
+                  compact
+                  previewPanEnabled={false}
+                />
+              </div>
+            </div>
+
+            <div className="relative flex min-h-[260px] flex-col items-center justify-center overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))] px-6 py-10 text-center shadow-[0_18px_60px_rgba(0,0,0,0.34)] sm:min-h-[300px] sm:px-10">
+              <div className="text-[11px] font-semibold tracking-[0.22em] text-white/42">
+                Pending payouts
+              </div>
+
+              <motion.div
+                aria-label={displayedAmount}
+                className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-white sm:text-6xl"
+                animate={reduce ? { opacity: 1 } : { opacity: isVisible ? 1 : 0 }}
+                transition={{ duration: reduce ? 0 : resetFadeMs / 1000, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {displayedAmount}
+              </motion.div>
+
+              <div className="mt-4 text-sm text-white/56 sm:text-base">From workflow purchases</div>
+
+              <div className="mt-7 w-full max-w-[320px]">
+                <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.2em] text-white/34">
+                  <span>Payout cycle</span>
+                  <span>{Math.round(displayedProgress * 100)}%</span>
+                </div>
+                <div className="mt-2.5 h-2.5 overflow-hidden rounded-full border border-white/10 bg-white/[0.04]">
+                  <div
+                    className="relative h-full rounded-full"
+                    style={{
+                      width: `${displayedProgress * 100}%`,
+                      background:
+                        "linear-gradient(90deg, rgba(34,211,238,0.96) 0%, rgba(122,219,245,0.98) 38%, rgba(236,72,153,0.92) 100%)",
+                      boxShadow: "0 0 16px rgba(34,211,238,0.22), 0 0 26px rgba(236,72,153,0.12)",
+                      transition: reduce ? "none" : `width ${resetFadeMs}ms ease-out`,
+                    }}
+                  >
+                    <div
+                      className="absolute inset-y-0 right-0 w-12"
+                      style={{
+                        background:
+                          "linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.28) 55%, rgba(255,255,255,0.06) 100%)",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-medium tracking-[0.16em] text-white/46">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300/80" />
+                <span>Stripe connected</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </CardFrame>
     </div>
   );
 }
 
-function PromptTransformVisual() {
-  const reduce = useReducedMotion();
+function ProductProofSection({
+  workflow,
+  onRun,
+  homepageRunError,
+}: {
+  workflow: LandingDemoWorkflow | null;
+  onRun: (workflow: LandingDemoWorkflow) => void;
+  homepageRunError: string | null;
+}) {
   return (
-    <CardFrame className="p-5 sm:p-6">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_40px_minmax(0,1.1fr)] lg:items-center">
-        <div className="rounded-3xl bg-white/[0.04] p-5 ring-1 ring-white/10">
-          <div className="text-[10px] font-semibold tracking-[0.22em] text-white/42">
-            RAW PROMPT
-          </div>
-          <div className="mt-3 space-y-3 text-sm leading-6 text-white/72">
-            <div className="rounded-2xl bg-white/[0.03] px-3 py-2">
-              Write a better landing page headline
-            </div>
-            <div className="rounded-2xl bg-white/[0.03] px-3 py-2">
-              Ask for audience, tone, and offer
-            </div>
-            <div className="rounded-2xl bg-white/[0.03] px-3 py-2">Return three usable options</div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center">
-          <motion.div
-            className="h-9 w-9 rounded-full bg-white/8 ring-1 ring-white/10"
-            animate={reduce ? undefined : { x: [0, 4, 0] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </div>
-
-        <div className="rounded-3xl bg-white/[0.04] p-5 ring-1 ring-white/10">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-semibold tracking-[0.22em] text-white/42">
-                PRODUCT PAGE
-              </div>
-              <div className="mt-2 text-base font-semibold text-white">
-                Landing page headline writer
-              </div>
-              <div className="mt-1 text-sm text-white/64">
-                Inputs, examples, output preview, and a clear run button.
-              </div>
-            </div>
-            <div className="rounded-full border border-white/10 bg-white/6 px-2.5 py-1 text-xs font-semibold text-white">
-              $9
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            <TinyStat label="VIEWS" value="847" />
-            <TinyStat label="LIKES" value="61" />
-            <TinyStat label="RUNS" value="203" />
-          </div>
-        </div>
+    <div className="mx-auto max-w-[1180px]">
+      <div className="mb-4 text-center text-sm text-white/62 sm:mb-5">
+        Click Run to see how a buyer experiences a workflow.
       </div>
-    </CardFrame>
-  );
-}
-
-function WorkflowExecutionVisual() {
-  const reduce = useReducedMotion();
-  const nodes = [
-    { id: "a", label: "Input", x: 56, y: 72 },
-    { id: "b", label: "Prompt", x: 230, y: 54 },
-    { id: "c", label: "Tool", x: 420, y: 98 },
-    { id: "d", label: "Format", x: 248, y: 194 },
-    { id: "e", label: "Output", x: 442, y: 214 },
-  ];
-
-  return (
-    <CardFrame className="p-5 sm:p-6">
-      <div className="relative h-[320px] overflow-hidden rounded-[28px] bg-white/[0.03] ring-1 ring-white/10">
-        <div className="absolute inset-0 opacity-[0.1] [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:52px_52px]" />
-        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 640 320" aria-hidden>
-          <path d="M150 112 L 230 96" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-          <path d="M350 96 L 420 136" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-          <path d="M315 150 L 328 194" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-          <path d="M398 232 L 442 232" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-          {!reduce ? (
-            <motion.circle
-              cx={150}
-              cy={112}
-              r="5"
-              fill="rgba(255,255,255,0.88)"
-              animate={{
-                cx: [150, 230, 420, 328, 442],
-                cy: [112, 96, 136, 194, 232],
-              }}
-              transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-            />
-          ) : null}
-        </svg>
-
-        {nodes.map((node, index) => (
-          <motion.div
-            key={node.id}
-            className="absolute w-[132px] rounded-3xl bg-black/70 p-4 ring-1 ring-white/12"
-            style={{ left: node.x, top: node.y }}
-            initial={reduce ? false : { opacity: 0, scale: 0.96, y: 8 }}
-            whileInView={reduce ? undefined : { opacity: 1, scale: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.4, delay: index * 0.06, ease: "easeOut" }}
-          >
-            <div className="text-[10px] font-semibold tracking-[0.22em] text-white/42">NODE</div>
-            <div className="mt-2 text-sm font-semibold text-white">{node.label}</div>
-          </motion.div>
-        ))}
-      </div>
-    </CardFrame>
-  );
-}
-
-function ClarityCards() {
-  const cards = [
-    ["Clear pages", "People should know the value in one screen."],
-    ["Clean discovery", "Browsing should feel fast and easy to trust."],
-    ["Professional polish", "Motion, layout, and copy all support action."],
-  ];
-
-  return (
-    <div className="grid gap-5 md:grid-cols-3">
-      {cards.map(([title, body], index) => (
-        <Reveal key={title} delay={index * 0.05}>
-          <TextCard title={title}>
-            <p>{body}</p>
-          </TextCard>
-        </Reveal>
-      ))}
+      <WorkflowStudioEmbedCard workflow={workflow} onRun={onRun} />
+      {homepageRunError ? (
+        <div className="mx-auto mt-5 max-w-2xl text-center text-sm text-white/78">
+          {homepageRunError}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function TextCard({ title, children }: { title: string; children: React.ReactNode }) {
+function CompactWhyEdgazeWins() {
   return (
-    <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7">
-      <div className="text-sm font-semibold text-white">{title}</div>
-      <div className="mt-3 text-sm leading-relaxed text-white/70">{children}</div>
+    <div className="mx-auto max-w-[1080px]">
+      <CreatorSwitchMatrix />
     </div>
   );
 }
@@ -1653,13 +2916,20 @@ function WorkflowStudioEmbedCard({
   onRun: (workflow: LandingDemoWorkflow) => void;
   loading?: boolean;
 }) {
+  const reduce = useReducedMotion();
   const canvasRef = useRef<CanvasRef | null>(null);
+  const [isCanvasReady, setIsCanvasReady] = useState(false);
   const [previewPanEnabled, setPreviewPanEnabled] = useState(false);
 
   useEffect(() => {
-    if (!workflow?.graph) return;
+    if (!isCanvasReady || !workflow?.graph) return;
     canvasRef.current?.loadGraph?.(workflow.graph);
-  }, [workflow]);
+  }, [isCanvasReady, workflow]);
+
+  const handleCanvasRef = useCallback((instance: CanvasRef | null) => {
+    canvasRef.current = instance;
+    setIsCanvasReady(Boolean(instance));
+  }, []);
 
   const frameHeight = compact ? "h-[280px] sm:h-[300px]" : "h-[420px] sm:h-[460px]";
 
@@ -1678,40 +2948,42 @@ function WorkflowStudioEmbedCard({
             frameHeight,
           )}
         >
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-start justify-between gap-3 p-3 sm:p-4">
-            <div className="min-w-0 rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(9,11,16,0.96),rgba(9,11,16,0.84))] px-3 py-2 shadow-[0_16px_50px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
-              <div className="max-w-[12rem] truncate text-sm font-semibold text-white">
+          <div className="pointer-events-none absolute inset-0 z-10 flex flex-col gap-2.5 p-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4">
+            <div className="min-w-0 max-w-full rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(9,11,16,0.96),rgba(9,11,16,0.84))] px-3 py-2 shadow-[0_16px_50px_rgba(0,0,0,0.36)] backdrop-blur-2xl sm:max-w-[20rem]">
+              <div className="max-w-full truncate pr-1 text-sm font-semibold text-white sm:max-w-[12rem]">
                 {workflow?.title ?? (loading ? "Loading workflow" : "Workflow preview")}
               </div>
-              {!compact ? (
-                <div className="mt-1 max-w-[18rem] truncate text-xs text-white/55">
+              {!compact && (
+                <div className="mt-1 pr-1 text-[11px] leading-4 text-white/55 sm:max-w-[18rem] sm:truncate sm:text-xs">
                   {workflow?.description || "Published from Workflow Studio in read-only mode."}
                 </div>
-              ) : null}
+              )}
             </div>
 
-            <div className="pointer-events-auto flex items-center gap-2 rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(9,11,16,0.96),rgba(9,11,16,0.84))] px-2 py-2 shadow-[0_16px_50px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
+            <div className="pointer-events-auto ml-auto flex items-center gap-2 rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(9,11,16,0.96),rgba(9,11,16,0.84))] px-2 py-2 shadow-[0_16px_50px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
               <button
                 type="button"
                 onClick={() => setPreviewPanEnabled((value) => !value)}
                 className={cn(
-                  "inline-flex h-9 items-center justify-center rounded-full border px-3 text-xs font-semibold transition-colors",
+                  "inline-flex h-10 w-10 items-center justify-center rounded-full border text-xs font-semibold transition-all duration-200 sm:h-9 sm:w-auto sm:px-3",
                   previewPanEnabled
-                    ? "border-cyan-300/22 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(236,72,153,0.12))] text-white"
-                    : "border-white/10 bg-white/5 text-white/72 hover:bg-white/8",
+                    ? "border-cyan-300/24 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(236,72,153,0.12))] text-white"
+                    : "border-white/10 bg-white/5 text-white/78 hover:border-white/16 hover:bg-white/8",
                 )}
                 title={previewPanEnabled ? "Stop moving workflow" : "Enable workflow movement"}
+                aria-label={previewPanEnabled ? "Stop moving workflow" : "Enable workflow movement"}
               >
-                <Hand className="h-3.5 w-3.5 sm:mr-1.5" />
+                <Hand className="h-4 w-4 sm:mr-1.5 sm:h-3.5 sm:w-3.5" />
                 <span className="hidden sm:inline">{previewPanEnabled ? "Moving" : "Move"}</span>
               </button>
               <button
                 type="button"
                 onClick={() => canvasRef.current?.fitViewToGraph?.()}
-                className="inline-flex h-9 items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 text-xs font-semibold text-white/82 transition-colors hover:bg-white/8"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-xs font-semibold text-white/82 transition-all duration-200 hover:border-white/16 hover:bg-white/8 sm:h-9 sm:w-auto sm:px-3"
                 title="Recenter workflow"
+                aria-label="Recenter workflow"
               >
-                <Compass className="h-3.5 w-3.5 sm:mr-1.5" />
+                <Compass className="h-4 w-4 sm:mr-1.5 sm:h-3.5 sm:w-3.5" />
                 <span className="hidden sm:inline">Recenter</span>
               </button>
               <button
@@ -1719,24 +2991,42 @@ function WorkflowStudioEmbedCard({
                 onClick={() => workflow && onRun(workflow)}
                 disabled={!workflow}
                 className={cn(
-                  "relative inline-flex h-9 items-center justify-center overflow-hidden rounded-full px-3.5 text-xs font-semibold text-white transition-opacity",
+                  "relative isolate inline-flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-full border border-white/12 bg-[#0b0d12] text-xs font-semibold text-white transition-all duration-200 sm:h-9 sm:w-auto sm:px-3.5",
                   workflow
-                    ? "bg-[linear-gradient(135deg,rgba(34,211,238,0.96),rgba(236,72,153,0.9))] shadow-[0_0_22px_rgba(34,211,238,0.22)] hover:opacity-95"
-                    : "cursor-not-allowed bg-white/10 text-white/42",
+                    ? "shadow-[0_0_22px_rgba(34,211,238,0.12)] hover:border-white/18 hover:shadow-[0_0_28px_rgba(34,211,238,0.16)]"
+                    : "cursor-not-allowed border-white/10 bg-white/10 text-white/42 shadow-none",
                 )}
                 title="Run demo workflow"
+                aria-label="Run demo workflow"
               >
-                <span className="absolute inset-0 bg-[radial-gradient(circle_at_22%_30%,rgba(255,255,255,0.22),transparent_52%)]" />
+                {workflow ? (
+                  <>
+                    <span className="absolute inset-[1px] rounded-full bg-[linear-gradient(135deg,rgba(110,226,247,0.96),rgba(230,96,171,0.9))]" />
+                    <span className="absolute inset-[1px] rounded-full bg-[radial-gradient(circle_at_22%_30%,rgba(255,255,255,0.22),transparent_52%)]" />
+                  </>
+                ) : null}
+                {workflow && !reduce ? (
+                  <motion.span
+                    className="pointer-events-none absolute inset-y-[1px] left-[-35%] w-[42%] skew-x-[-22deg] rounded-full bg-[linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,0.28),rgba(255,255,255,0))]"
+                    animate={{ x: ["-120%", "260%"] }}
+                    transition={{
+                      duration: 2.8,
+                      ease: "linear",
+                      repeat: Infinity,
+                      repeatDelay: 1.4,
+                    }}
+                  />
+                ) : null}
                 <span className="relative inline-flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 rounded-full bg-white/95 shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
-                  Run
+                  <Play className="h-4 w-4 fill-current sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline">Run</span>
                 </span>
               </button>
             </div>
           </div>
 
           <ReactFlowCanvas
-            ref={canvasRef}
+            ref={handleCanvasRef}
             mode="preview"
             compact={compact}
             previewPanEnabled={previewPanEnabled}
@@ -1765,25 +3055,25 @@ function FinalCta() {
     >
       <Container wide>
         <motion.div
-          className="relative overflow-hidden rounded-[36px] bg-white/[0.045] p-7 ring-1 ring-white/10 sm:p-9 md:p-10"
+          className="relative overflow-hidden rounded-[38px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-7 shadow-[0_30px_120px_rgba(0,0,0,0.42)] sm:p-9 md:p-10"
           animate={
             reduce
               ? undefined
               : {
                   boxShadow: [
-                    "0 0 0 rgba(34,211,238,0.04)",
-                    "0 0 56px rgba(34,211,238,0.08)",
-                    "0 0 0 rgba(34,211,238,0.04)",
+                    "0 30px 120px rgba(0,0,0,0.42)",
+                    "0 34px 140px rgba(34,211,238,0.18)",
+                    "0 30px 120px rgba(0,0,0,0.42)",
                   ],
                 }
           }
-          transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 5.5, repeat: Infinity, ease: "easeInOut" }}
         >
           <motion.div
-            className="absolute -left-12 top-8 h-40 w-40 rounded-full opacity-60 blur-3xl"
+            className="absolute -left-12 top-8 h-44 w-44 rounded-full opacity-60 blur-3xl"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 30% 30%, rgba(34,211,238,0.24), transparent 60%)",
+                "radial-gradient(circle at 30% 30%, rgba(34,211,238,0.28), transparent 60%)",
             }}
             animate={reduce ? undefined : { x: [0, 24, 0], y: [0, 10, 0] }}
             transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
@@ -1792,23 +3082,23 @@ function FinalCta() {
             className="absolute right-0 top-0 h-52 w-52 rounded-full opacity-50 blur-3xl"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 50% 50%, rgba(236,72,153,0.22), transparent 62%)",
+                "radial-gradient(circle at 50% 50%, rgba(236,72,153,0.26), transparent 62%)",
             }}
             animate={reduce ? undefined : { x: [0, -20, 0], y: [0, 16, 0] }}
             transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
           />
 
           <div className="relative max-w-2xl">
-            <div className="text-xs font-semibold tracking-widest text-white/55">Start here</div>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-              Start publishing. See what people actually use.
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl md:text-[3rem] md:leading-[1.02]">
+              The next creators to win will sell products, not prompt files.
             </h2>
-            <p className="mt-3 text-base leading-relaxed text-white/70">
-              If you already have prompts or workflows, you are ready.
+            <p className="mt-4 max-w-xl text-base leading-8 text-white/68">
+              Publish on Edgaze and turn what you already built into something people can actually
+              use.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <PrimaryButton href="/apply">Become a creator</PrimaryButton>
-              <SecondaryButton href="/marketplace">Open marketplace</SecondaryButton>
+              <PrimaryButton href="/apply">Publish your workflow</PrimaryButton>
+              <SecondaryButton href="/marketplace">Explore products</SecondaryButton>
             </div>
           </div>
         </motion.div>
@@ -1934,8 +3224,9 @@ function CodeEntry() {
             .in("handle", handles);
           const map: Record<string, boolean> = {};
           for (const row of data || []) {
-            if (row?.handle)
+            if (row?.handle) {
               map[String(row.handle).toLowerCase()] = Boolean(row.is_verified_creator);
+            }
           }
           setVerifiedByHandle(map);
         }
@@ -1992,7 +3283,7 @@ function CodeEntry() {
   };
 
   return (
-    <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7">
+    <div className="rounded-3xl bg-white/4 p-6 ring-1 ring-white/10 sm:p-7">
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-semibold text-white">Enter an Edgaze code</div>
         <EdgazeCodeInfoPopover
@@ -2021,7 +3312,7 @@ function CodeEntry() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  resolveExactAndGo();
+                  void resolveExactAndGo();
                 }
                 if (e.key === "Escape") closePanel();
                 if (e.key === "ArrowDown") {
@@ -2037,7 +3328,7 @@ function CodeEntry() {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="w-full rounded-2xl bg-white/5 ring-1 ring-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+              className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm text-white ring-1 ring-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
               aria-label="Edgaze code"
             />
 
@@ -2049,7 +3340,7 @@ function CodeEntry() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.18, ease: "easeOut" }}
-                  className="absolute left-0 right-0 mt-2 overflow-hidden rounded-2xl bg-[#0b0c11] ring-1 ring-white/12 shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
+                  className="absolute left-0 right-0 mt-2 overflow-hidden rounded-2xl bg-[#0b0c11] shadow-[0_24px_80px_rgba(0,0,0,0.55)] ring-1 ring-white/12"
                 >
                   <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
                     <div className="text-[11px] font-semibold tracking-widest text-white/55">
@@ -2058,7 +3349,7 @@ function CodeEntry() {
                     <button
                       type="button"
                       onClick={closePanel}
-                      className="rounded-xl bg-white/6 ring-1 ring-white/10 px-2 py-1 text-[11px] text-white/75 hover:bg-white/8"
+                      className="rounded-xl bg-white/6 px-2 py-1 text-[11px] text-white/75 ring-1 ring-white/10 hover:bg-white/8"
                     >
                       Close
                     </button>
@@ -2066,7 +3357,7 @@ function CodeEntry() {
 
                   <div className="max-h-[260px] overflow-auto p-2">
                     {status === "searching" ? (
-                      <div className="px-3 py-2 text-xs text-white/55">Searching…</div>
+                      <div className="px-3 py-2 text-xs text-white/55">Searching...</div>
                     ) : null}
 
                     {suggestions.map((item, index) => {
@@ -2106,7 +3397,7 @@ function CodeEntry() {
                                   verifiedSize="xs"
                                   className="min-w-0 truncate text-xs text-white/60"
                                 />
-                                <div className="text-xs text-white/40">·</div>
+                                <div className="text-xs text-white/40">.</div>
                                 <div className="text-xs font-semibold text-white/70">
                                   {item.edgaze_code}
                                 </div>
@@ -2131,7 +3422,7 @@ function CodeEntry() {
                     })}
 
                     {!suggestions.length && status !== "searching" ? (
-                      <div className="px-3 pt-2 pb-3 text-xs text-white/55">
+                      <div className="px-3 pb-3 pt-2 text-xs text-white/55">
                         No results found for this Edgaze code.
                       </div>
                     ) : null}
@@ -2143,7 +3434,7 @@ function CodeEntry() {
 
           <button
             type="button"
-            onClick={resolveExactAndGo}
+            onClick={() => void resolveExactAndGo()}
             disabled={status === "going"}
             className={cn(
               "shrink-0 rounded-2xl px-4 py-3 text-sm font-semibold text-white",
@@ -2168,7 +3459,9 @@ function CodeEntry() {
               </motion.div>
             ) : null}
           </AnimatePresence>
-          <div className="text-xs text-white/45">{status === "searching" ? "Searching…" : ""}</div>
+          <div className="text-xs text-white/45">
+            {status === "searching" ? "Searching..." : ""}
+          </div>
         </div>
       </div>
     </div>
@@ -2202,7 +3495,6 @@ export default function EdgazeLandingPage() {
 
   const maxHomepageDemoRuns = 6;
   const heroWorkflow = HOME_DEMO_WORKFLOWS[0] ?? null;
-  const sectionWorkflows = HOME_DEMO_WORKFLOWS.slice(1, 4);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2748,252 +4040,96 @@ export default function EdgazeLandingPage() {
 
         <section
           id="top"
-          className="relative overflow-hidden px-5 pb-14 pt-32 sm:pt-36 sm:pb-16 md:pt-44 lg:pt-52"
+          className="relative overflow-hidden px-5 pb-16 pt-32 sm:pb-20 sm:pt-36 md:pt-[10.5rem] lg:pt-[12rem]"
           style={{ scrollMarginTop: 92 }}
         >
-          <div className="pointer-events-none absolute inset-0 -z-10 [background-image:radial-gradient(circle_at_18%_24%,rgba(20,44,48,0.22),transparent_30%),radial-gradient(circle_at_88%_22%,rgba(71,30,49,0.2),transparent_34%)]" />
+          <div className="pointer-events-none absolute inset-0 -z-10 [background-image:radial-gradient(circle_at_14%_18%,rgba(34,211,238,0.18),transparent_26%),radial-gradient(circle_at_86%_18%,rgba(126,36,84,0.2),transparent_28%)]" />
           <Container wide>
-            <div className="grid grid-cols-1 gap-10 md:grid-cols-2 md:items-start md:gap-14">
-              <div className="max-w-xl">
+            <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_minmax(620px,1.02fr)] xl:items-start xl:gap-12">
+              <div className="max-w-[48rem]">
                 <Reveal>
-                  <div className="max-w-xl">
+                  <div className="max-w-2xl">
                     <CodeEntry />
                   </div>
                 </Reveal>
-                <Reveal delay={0.08}>
-                  <h1 className="mt-8 text-4xl font-semibold tracking-tight text-white sm:mt-10 sm:text-5xl">
-                    Turn your prompts into products people actually pay for.
+                <Reveal delay={0.04}>
+                  <h1 className="mt-8 max-w-[14ch] text-4xl font-semibold tracking-[-0.04em] text-white sm:mt-10 sm:text-5xl lg:max-w-[15ch] lg:text-[4.6rem] lg:leading-[0.94]">
+                    <span className="block">Sell AI workflows</span>
+                    <span className="block py-[0.08em]">
+                      <RotatingText
+                        phrases={["that run", "that convert", "that people use", "that get paid"]}
+                      />
+                    </span>
                   </h1>
                 </Reveal>
-                <Reveal delay={0.12}>
-                  <p className="mt-4 text-base leading-relaxed text-white/70">
-                    Publish a clean page, share one link or code, and let people run what you built.
+                <Reveal delay={0.1}>
+                  <p className="mt-5 max-w-2xl text-base leading-8 text-white/66 sm:text-lg">
+                    Turn your prompt, template, or workflow into a product page people can try, buy,
+                    and share.
                   </p>
                 </Reveal>
-                <Reveal delay={0.16}>
-                  <p className="mt-4 text-sm font-medium text-white/54">
-                    Not screenshots. Not docs. Something people can actually use.
-                  </p>
-                </Reveal>
-                <Reveal delay={0.2}>
-                  <div className="mt-7 flex flex-wrap items-center gap-3">
-                    <PrimaryButton href="/apply">Become a creator</PrimaryButton>
-                    <SecondaryButton href="/marketplace">Open marketplace</SecondaryButton>
+                <Reveal delay={0.14}>
+                  <div className="mt-8 flex flex-wrap gap-3">
+                    <PrimaryButton href="/apply">Create your first product</PrimaryButton>
+                    <SecondaryButton href="/marketplace">See live examples</SecondaryButton>
                   </div>
                 </Reveal>
               </div>
 
               <Reveal delay={0.08}>
-                <WorkflowStudioEmbedCard workflow={heroWorkflow} onRun={openHomepageDemo} />
+                <ProductTransformationSurface />
               </Reveal>
             </div>
           </Container>
         </section>
 
-        <HowItWorksSticky />
-
         <Section
-          id="marketplace"
+          id="how-it-works"
           wide
-          eyebrow="Marketplace"
-          title="Get discovered in the marketplace"
-          desc="Your products show up where people are already looking"
+          eyebrow="How it works"
+          title="Start with what you already made."
+          desc="Turn it into something people can try, buy, and share."
         >
-          <MarketplaceShowcase />
-        </Section>
-
-        <Section
-          id="prompt"
-          wide
-          eyebrow="Prompts"
-          title="Your prompt should not live in a screenshot"
-          desc="Turn it into something people can actually use"
-        >
-          <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
-            <div className="space-y-4">
-              <Reveal>
-                <TextCard title="Build properly">
-                  <p>Write with inputs and structure.</p>
-                </TextCard>
-              </Reveal>
-              <Reveal delay={0.05}>
-                <TextCard title="Publish cleanly">
-                  <p>Give it a real product page.</p>
-                </TextCard>
-              </Reveal>
-            </div>
-            <Reveal delay={0.08}>
-              <PromptTransformVisual />
-            </Reveal>
-          </div>
-        </Section>
-
-        <Section
-          id="workflows"
-          wide
-          eyebrow="Workflows"
-          title="Turn workflows into products"
-          desc="When a prompt is not enough, publish something repeatable"
-        >
-          <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
-            <div className="space-y-4">
-              <Reveal>
-                <TextCard title="Build a flow">
-                  <p>Connect inputs, prompts, tools, and outputs once.</p>
-                </TextCard>
-              </Reveal>
-              <Reveal delay={0.05}>
-                <TextCard title="Make execution visible">
-                  <p>Show the user what runs, what changes, and what they get back.</p>
-                </TextCard>
-              </Reveal>
-            </div>
-            <Reveal delay={0.08}>
-              <WorkflowExecutionVisual />
-            </Reveal>
-          </div>
+          <HowItWorksConnectedSection />
         </Section>
 
         <Section
           id="run-it"
           wide
-          eyebrow="Run it yourself"
-          title="Run it yourself"
-          desc="Prefilled demos. Real outputs. The same run flow buyers will see."
+          title="Buyers can understand it before they buy it."
+          desc="They see the inputs, preview the result, and run the workflow in one place."
         >
-          {homepageRunError ? (
-            <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/68">
-              {homepageRunError}
-            </div>
-          ) : null}
-          <div className="mb-6 rounded-[28px] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/62 sm:px-5">
-            Each homepage visitor gets protected demo runs before switching over to marketplace
-            discovery.
-          </div>
-          <div className="grid gap-5 md:grid-cols-3">
-            {sectionWorkflows.map((workflow, index) => (
-              <Reveal key={workflow.id} delay={index * 0.05}>
-                <WorkflowStudioEmbedCard workflow={workflow} compact onRun={openHomepageDemo} />
-              </Reveal>
-            ))}
-          </div>
+          <Reveal>
+            <ProductProofSection
+              workflow={heroWorkflow}
+              onRun={openHomepageDemo}
+              homepageRunError={homepageRunError}
+            />
+          </Reveal>
         </Section>
 
         <Section
-          id="clarity"
+          id="why-switch"
           wide
-          eyebrow="Why it works"
-          title="Built to be understood fast"
-          desc="People should know what they are getting in seconds"
+          eyebrow="Why Edgaze wins"
+          title="Files explain. Edgaze lets people use it."
+          desc="Prompt packs, PDFs, and Notion docs make buyers imagine the result. Edgaze lets them run the workflow before they buy."
         >
-          <ClarityCards />
-        </Section>
-
-        <Section
-          id="creators"
-          wide
-          eyebrow="Creators"
-          title="Built for people already making useful prompts"
-          desc="If you already have something useful, this is where you publish it properly"
-        >
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <div className="grid gap-5 md:grid-cols-3">
-              <Reveal>
-                <TextCard title="Start simple">
-                  <p>Publish one useful prompt or workflow first.</p>
-                </TextCard>
-              </Reveal>
-              <Reveal delay={0.05}>
-                <TextCard title="Boost distribution">
-                  <p>Use Edgaze links and codes to make sharing easier.</p>
-                </TextCard>
-              </Reveal>
-              <Reveal delay={0.1}>
-                <TextCard title="Grow from real usage">
-                  <p>Add more when you see what people actually use.</p>
-                </TextCard>
-              </Reveal>
-            </div>
-            <Reveal delay={0.08}>
-              <div className="rounded-3xl bg-white/4 ring-1 ring-white/10 p-6 sm:p-7">
-                <div className="text-sm font-semibold text-white">Real creator path</div>
-                <p className="mt-3 text-sm leading-relaxed text-white/70">
-                  Useful work should have a clean page, a clear run flow, and real distribution.
-                </p>
-                <SmoothLink
-                  href="/profile/@gilbertodera"
-                  className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-white/72 transition-colors hover:text-white"
-                >
-                  <span>See how Gilbert Odera publishes on Edgaze</span>
-                  <ArrowRight className="h-4 w-4" />
-                </SmoothLink>
-              </div>
-            </Reveal>
-          </div>
+          <Reveal>
+            <CompactWhyEdgazeWins />
+          </Reveal>
         </Section>
 
         <Section
           id="storefront"
           wide
-          eyebrow="Storefront"
-          title="Your work becomes a storefront"
-          desc="Publish products. Track what works. Get paid."
+          eyebrow="Creator upside"
+          title="Earn from workflows people actually use."
+          desc="Publish once, share one page, and track earnings tied to the product itself."
         >
-          <div className="grid gap-5 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start">
-            <div className="space-y-4">
-              <Reveal>
-                <TextCard title="A clean creator page">
-                  <p>Your profile, your products, and your collections in one place.</p>
-                </TextCard>
-              </Reveal>
-              <Reveal delay={0.05}>
-                <TextCard title="Analytics and earnings">
-                  <p>See views, runs, buyers, and revenue without guesswork.</p>
-                </TextCard>
-              </Reveal>
-              <Reveal delay={0.1}>
-                <TextCard title="Keep what works">
-                  <p>Use real usage to decide what to publish next.</p>
-                </TextCard>
-              </Reveal>
-            </div>
-
-            <Reveal delay={0.08}>
-              <CardFrame className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-white">Creator dashboard</div>
-                    <div className="mt-1 text-sm text-white/65">
-                      Publishing, runs, and earnings in one view.
-                    </div>
-                  </div>
-                  <div className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold text-white/72">
-                    Stripe connected
-                  </div>
-                </div>
-                <div className="mt-6 grid gap-3">
-                  <div className="rounded-3xl bg-white/5 p-5 ring-1 ring-white/10">
-                    <div className="text-[10px] tracking-[0.2em] text-white/42">EARNINGS</div>
-                    <div className="mt-2 text-3xl font-semibold text-white">$1,847</div>
-                    <div className="mt-4 h-3 overflow-hidden rounded-full bg-white/6 ring-1 ring-white/10">
-                      <motion.div
-                        className="h-full rounded-full bg-[linear-gradient(135deg,rgba(34,211,238,0.92),rgba(236,72,153,0.88))]"
-                        initial={{ width: 0 }}
-                        whileInView={{ width: "72%" }}
-                        viewport={{ once: true, amount: 0.7 }}
-                        transition={{ duration: 0.7, ease: "easeOut" }}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <TinyStat label="RUNS" value="9.1K" />
-                    <TinyStat label="BUYERS" value="214" />
-                    <TinyStat label="CONV." value="4.6%" />
-                  </div>
-                </div>
-              </CardFrame>
-            </Reveal>
-          </div>
+          <Reveal>
+            <CreatorDashboardSurface />
+          </Reveal>
         </Section>
 
         <TrendingThisWeekSection />
@@ -3109,37 +4245,6 @@ export default function EdgazeLandingPage() {
             </motion.div>
           ) : null}
         </AnimatePresence>
-
-        <section className="px-5 py-4">
-          <Container wide>
-            <div className="rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-3 text-[11px] text-white/38">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                <span className="uppercase tracking-[0.18em] text-white/26">Explore more</span>
-                <a href="/what-is-edgaze" className="transition-colors hover:text-white/62">
-                  What is Edgaze
-                </a>
-                <a href="/how-edgaze-works" className="transition-colors hover:text-white/62">
-                  How Edgaze works
-                </a>
-                <a href="/for-creators" className="transition-colors hover:text-white/62">
-                  For creators
-                </a>
-                <a href="/for-buyers" className="transition-colors hover:text-white/62">
-                  For buyers
-                </a>
-                <a href="/marketplace" className="transition-colors hover:text-white/62">
-                  Marketplace
-                </a>
-                <a href="/builder" className="transition-colors hover:text-white/62">
-                  Builder
-                </a>
-                <a href="/prompt-studio" className="transition-colors hover:text-white/62">
-                  Prompt Studio
-                </a>
-              </div>
-            </div>
-          </Container>
-        </section>
 
         <footer className="px-5 pb-16">
           <Container wide>

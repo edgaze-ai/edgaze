@@ -118,6 +118,19 @@ const CONTRACTS: Record<string, NodeContract> = {
     hasSideEffects: true,
     resourceClass: "http",
   },
+  "youtube-transcript": {
+    specId: "youtube-transcript",
+    inputTypes: [],
+    outputType: "string",
+    configSchema: commonConfig.extend({
+      question: z.string().optional(),
+      description: z.string().optional(),
+      language: z.string().optional(),
+      outputFormat: z.enum(["plain_text", "timestamped"]).optional(),
+      joinSeparator: z.string().optional(),
+    }),
+    resourceClass: "http",
+  },
   "json-parse": {
     specId: "json-parse",
     inputTypes: ["string"],

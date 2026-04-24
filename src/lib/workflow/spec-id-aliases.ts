@@ -144,5 +144,6 @@ export function brandIconPathForSpec(
     return "/misc/chatgpt-white.png";
   }
   if (c === "llm-embeddings") return "/misc/chatgpt-white.png";
+  if (c === "youtube-transcript") return "/misc/Youtube_logo.png";
   return null;
 }

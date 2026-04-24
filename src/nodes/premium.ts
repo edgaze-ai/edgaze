@@ -19,6 +19,75 @@ const makePort = (id: string, kind: "input" | "output", label?: string, type?: s
 });
 
 export const PREMIUM_NODES: NodeSpec[] = [
+  {
+    id: "youtube-transcript",
+    label: "YouTube Transcript",
+    version: "1.0.0",
+    category: "integration",
+    summary:
+      "Fetch a YouTube video's transcript as plain text, with a clean manual paste fallback in the run modal.",
+    nodeType: "edgCard",
+    icon: "FileText",
+    requiresUserKeys: false,
+    ports: [makePort("out", "output", "Transcript", "string")],
+    defaultConfig: {
+      question: "Enter YouTube URL",
+      description:
+        "Paste a YouTube video link. We'll fetch the transcript and pass plain text to the next node.",
+      language: "",
+      outputFormat: "plain_text",
+      joinSeparator: " ",
+      timeout: 30000,
+      retries: 1,
+    },
+    inspector: [
+      {
+        key: "question",
+        label: "Run Modal Question",
+        type: "textarea",
+        rows: 2,
+        helpText: "What should the user see when the run modal asks for the YouTube link?",
+      },
+      {
+        key: "description",
+        label: "Run Modal Description",
+        type: "textarea",
+        rows: 3,
+        helpText:
+          "Optional context shown under the question in the run modal. Good place for examples or guardrails.",
+      },
+      {
+        key: "language",
+        label: "Caption Language (optional)",
+        type: "text",
+        placeholder: "e.g. en, es, hi",
+        helpText:
+          "Leave blank for auto. Add an ISO language code if you want to prefer a specific caption track.",
+      },
+      {
+        key: "outputFormat",
+        label: "Output Format",
+        type: "select",
+        options: [
+          { label: "Plain text", value: "plain_text" },
+          { label: "Timestamped lines", value: "timestamped" },
+        ],
+        helpText: "Plain text is best for most downstream AI nodes.",
+      },
+      {
+        key: "joinSeparator",
+        label: "Plain Text Separator",
+        type: "select",
+        options: [
+          { label: "Spaces", value: " " },
+          { label: "New lines", value: "\n" },
+          { label: "Paragraph breaks", value: "\n\n" },
+        ],
+        helpText:
+          "Only used for plain-text output. Controls how transcript segments are joined together.",
+      },
+    ],
+  },
   // LLM Chat (unified: OpenAI, Anthropic, Google — same node)
   {
     id: "llm-chat",

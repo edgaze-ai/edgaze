@@ -1,25 +1,12 @@
 import type { Metadata } from "next";
-import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
+import { buildMetadata } from "@lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildMetadata({
   title: "Invest",
   description:
     "Edgaze is the distribution layer for AI workflows: a marketplace and execution layer where AI workflows become products.",
-  openGraph: {
-    title: "Invest",
-    description:
-      "Edgaze is the distribution layer for AI workflows: a marketplace and execution layer where AI workflows become products.",
-    url: "https://edgaze.ai/invest",
-    images: [DEFAULT_SOCIAL_IMAGE],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Invest",
-    description:
-      "Edgaze is the distribution layer for AI workflows: a marketplace and execution layer where AI workflows become products.",
-    images: [DEFAULT_SOCIAL_IMAGE],
-  },
-};
+  path: "/invest",
+});
 
 export default function InvestLayout({ children }: { children: React.ReactNode }) {
   return (

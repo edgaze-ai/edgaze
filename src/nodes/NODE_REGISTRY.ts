@@ -68,6 +68,13 @@ export const NODE_REGISTRY: Record<
     color: "#14b8a6",
     icon: "Globe",
   },
+  "youtube-transcript": {
+    label: "YouTube Transcript",
+    category: "utility",
+    color: "#ef4444",
+    icon: "FileText",
+    iconImage: "/misc/Youtube_logo.png",
+  },
   "json-parse": {
     label: "JSON Parse",
     category: "utility",

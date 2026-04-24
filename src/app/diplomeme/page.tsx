@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ExternalLink, Sparkles, Zap } from "lucide-react";
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
-import { getSiteOrigin } from "@lib/site-origin";
+import { buildMetadata, buildCanonicalUrl } from "@lib/seo";
 import DiplomemeStorefrontTracker from "./DiplomemeStorefrontTracker";
 
 export const dynamic = "force-dynamic";
@@ -12,18 +12,19 @@ const HANDLE = "diplomeme";
 const CTA_URL =
   "/templates?affiliate=diplomeme&utm_source=affiliate&utm_medium=storefront&utm_campaign=diplomeme";
 
-export const metadata: Metadata = {
+const baseMetadata = buildMetadata({
   title: "Murphy AI Storefront | Edgaze",
   description:
     "A curated Murphy AI collection on Edgaze with ready-to-run AI products and workflows.",
-  alternates: {
-    canonical: `${getSiteOrigin()}/diplomeme`,
-  },
+  path: "/diplomeme",
+});
+
+export const metadata: Metadata = {
+  ...baseMetadata,
   openGraph: {
-    title: "Murphy AI Storefront | Edgaze",
+    ...baseMetadata.openGraph,
     description: "Browse Murphy AI products and workflow templates on Edgaze.",
-    url: `${getSiteOrigin()}/diplomeme`,
-    type: "website",
+    url: buildCanonicalUrl("/diplomeme"),
   },
 };
 

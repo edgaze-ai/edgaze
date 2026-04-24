@@ -137,6 +137,7 @@ const INPUT_REQUIREMENTS: Record<string, InputRequirement> = {
   "llm-embeddings": { kind: "ports_or_config", portIds: ["in"], configKeys: ["text"] },
   "llm-image": { kind: "ports_or_config", portIds: ["in"], configKeys: ["prompt"] },
   "http-request": { kind: "ports_or_config", portIds: ["in"], configKeys: ["url"] },
+  "youtube-transcript": { kind: "entry_only" },
   "json-parse": { kind: "minimum_bindings", count: 1 },
   condition: { kind: "required_ports", portIds: ["input"] },
   delay: { kind: "none" },

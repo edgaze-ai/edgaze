@@ -86,6 +86,18 @@ export function simplifyWorkflowError(error: string | unknown): string {
   if (e.includes("Text input required for embeddings")) {
     return "The embeddings node needs text input. Connect an input node.";
   }
+  if (e.includes("YouTube Transcript needs a YouTube URL")) {
+    return "The YouTube Transcript node needs a valid YouTube URL in the run modal.";
+  }
+  if (
+    containsAny(el, [
+      "youtube transcript",
+      "captions were unavailable",
+      "could not fetch the youtube transcript",
+    ])
+  ) {
+    return "We couldn't fetch that transcript automatically. Paste it manually in the run modal and try again.";
+  }
 
   // Server / timeout / network
   if (
