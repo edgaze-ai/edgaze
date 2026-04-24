@@ -40,7 +40,7 @@ type ProfileRow = {
 
 type StorefrontListing = {
   id: string;
-  type: "prompt" | "workflow";
+  type: "workflow";
   title: string | null;
   description: string | null;
   thumbnail_url: string | null;
@@ -59,18 +59,10 @@ type StorefrontListing = {
 
 const MURPHY_DISPLAY_NAME = "Murphy AI";
 
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
 function listingHref(listing: StorefrontListing): string {
   const handle = (listing.owner_handle || HANDLE).replace(/^@/, "");
   const code = listing.edgaze_code || listing.id;
-  return listing.type === "workflow" ? `/${handle}/${code}` : `/p/${handle}/${code}`;
-}
-
-function listingScore(listing: StorefrontListing): number {
-  return listing.views_count + listing.likes_count * 3 + listing.runs_count * 4;
+  return `/${handle}/${code}`;
 }
 
 async function fetchAllPages<T>(
@@ -108,27 +100,6 @@ async function fetchProfileAndListings() {
     .maybeSingle();
   const profile = ((profileFull as ProfileRow | null) ?? profileMin) as ProfileRow;
 
-  const promptSelect = [
-    "id",
-    "type",
-    "title",
-    "description",
-    "thumbnail_url",
-    "edgaze_code",
-    "owner_handle",
-    "views_count",
-    "likes_count",
-    "view_count",
-    "like_count",
-    "runs_count",
-    "price_usd",
-    "is_paid",
-    "monetisation_mode",
-    "featured_on_profile",
-    "featured_on_profile_rank",
-    "created_at",
-  ].join(",");
-
   const workflowSelect = [
     "id",
     "title",
@@ -147,21 +118,6 @@ async function fetchProfileAndListings() {
     "published_at",
     "created_at",
   ].join(",");
-
-  const promptRows = await fetchAllPages<any>((from, to) =>
-    supabase
-      .from("prompts")
-      .select(promptSelect)
-      .eq("owner_id", profile.id)
-      .in("type", ["prompt", "workflow"])
-      .in("visibility", ["public", "unlisted"])
-      .is("removed_at", null)
-      .order("created_at", { ascending: false })
-      .range(from, to),
-  ).catch((error) => {
-    console.error("[diplomeme] prompts", error);
-    return [] as any[];
-  });
 
   const fetchWorkflowRows = async (mode: "visibility" | "is_public") =>
     fetchAllPages<any>((from, to) => {
@@ -196,26 +152,6 @@ async function fetchProfileAndListings() {
     }
   }
 
-  const prompts: StorefrontListing[] = promptRows.map((row: any) => ({
-    id: String(row.id),
-    type: "prompt",
-    title: row.title ?? null,
-    description: row.description ?? null,
-    thumbnail_url: row.thumbnail_url ?? null,
-    edgaze_code: row.edgaze_code ?? null,
-    owner_handle: row.owner_handle ?? profile.handle ?? HANDLE,
-    views_count: Number(row.views_count ?? row.view_count ?? 0),
-    likes_count: Number(row.likes_count ?? row.like_count ?? 0),
-    runs_count: Number(row.runs_count ?? 0),
-    price_usd: row.price_usd != null ? Number(row.price_usd) : null,
-    is_paid: row.is_paid ?? null,
-    monetisation_mode: row.monetisation_mode ?? null,
-    featured_on_profile: row.featured_on_profile ?? null,
-    featured_on_profile_rank:
-      row.featured_on_profile_rank != null ? Number(row.featured_on_profile_rank) : null,
-    created_at: row.created_at ?? null,
-  }));
-
   const workflows: StorefrontListing[] = workflowRows.map((row: any) => ({
     id: String(row.id),
     type: "workflow",
@@ -236,24 +172,15 @@ async function fetchProfileAndListings() {
     created_at: row.published_at ?? row.created_at ?? null,
   }));
 
-  const listings = [...prompts, ...workflows].sort((a, b) => {
-    const featuredA = a.featured_on_profile ? 0 : 1;
-    const featuredB = b.featured_on_profile ? 0 : 1;
-    if (featuredA !== featuredB) return featuredA - featuredB;
-    const rankA = a.featured_on_profile_rank ?? 99;
-    const rankB = b.featured_on_profile_rank ?? 99;
-    if (rankA !== rankB) return rankA - rankB;
-    const scoreDiff = listingScore(b) - listingScore(a);
-    if (scoreDiff !== 0) return scoreDiff;
-    return Date.parse(b.created_at || "") - Date.parse(a.created_at || "");
-  });
+  const listings = workflows.sort(
+    (a, b) => Date.parse(b.created_at || "") - Date.parse(a.created_at || ""),
+  );
 
   return { profile, listings };
 }
 
-function ListingCard({ listing, index }: { listing: StorefrontListing; index: number }) {
+function ListingCard({ listing }: { listing: StorefrontListing }) {
   const href = listingHref(listing);
-  const isFeatured = index < 3;
   const price =
     listing.is_paid || (listing.price_usd != null && listing.price_usd > 0)
       ? `$${Number(listing.price_usd ?? 0).toFixed(0)}`
@@ -262,10 +189,7 @@ function ListingCard({ listing, index }: { listing: StorefrontListing; index: nu
   return (
     <Link
       href={href}
-      className={cn(
-        "group relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-white/[0.045] shadow-[0_24px_90px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 hover:border-white/[0.16] hover:bg-white/[0.07]",
-        isFeatured && "md:col-span-2",
-      )}
+      className="group relative overflow-hidden rounded-[1.75rem] border border-white/[0.08] bg-white/[0.045] shadow-[0_24px_90px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 hover:border-white/[0.16] hover:bg-white/[0.07]"
     >
       <div className="relative aspect-[1.35/1] overflow-hidden bg-[#101318]">
         {listing.thumbnail_url ? (
@@ -273,7 +197,7 @@ function ListingCard({ listing, index }: { listing: StorefrontListing; index: nu
             src={listing.thumbnail_url}
             alt={listing.title || "Diplomeme listing"}
             fill
-            sizes={isFeatured ? "(min-width: 768px) 50vw, 100vw" : "(min-width: 768px) 25vw, 100vw"}
+            sizes="(min-width: 1280px) 25vw, (min-width: 768px) 50vw, 100vw"
             className="object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (
@@ -310,8 +234,17 @@ function ListingCard({ listing, index }: { listing: StorefrontListing; index: nu
 export default async function DiplomemeStorefrontPage() {
   const { profile, listings } = await fetchProfileAndListings();
   const displayName = MURPHY_DISPLAY_NAME;
-  const featured = listings.slice(0, 3);
-  const rest = listings.slice(3);
+  const featured = [...listings]
+    .sort((a, b) => {
+      const runsDiff = b.runs_count - a.runs_count;
+      if (runsDiff !== 0) return runsDiff;
+      const likesDiff = b.likes_count - a.likes_count;
+      if (likesDiff !== 0) return likesDiff;
+      const viewsDiff = b.views_count - a.views_count;
+      if (viewsDiff !== 0) return viewsDiff;
+      return Date.parse(b.created_at || "") - Date.parse(a.created_at || "");
+    })
+    .slice(0, 4);
 
   return (
     <main className="min-h-screen w-full bg-black text-white font-dm-sans">
@@ -335,7 +268,7 @@ export default async function DiplomemeStorefrontPage() {
             </p>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
-                href="#collection"
+                href="#featured"
                 className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-bold text-black shadow-[0_18px_55px_rgba(255,255,255,0.12)] transition hover:-translate-y-0.5"
               >
                 Browse the collection
@@ -403,61 +336,57 @@ export default async function DiplomemeStorefrontPage() {
         </div>
       </section>
 
-      <section
-        id="collection"
-        className="mx-auto max-w-7xl scroll-mt-24 px-5 py-16 sm:px-8 lg:px-10"
-      >
+      <section id="featured" className="mx-auto max-w-7xl scroll-mt-24 px-5 py-14 sm:px-8 lg:px-10">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-100/50">
-              Complete collection
+              Featured selection
             </p>
             <h2 className="mt-3 text-4xl font-black tracking-[-0.06em] text-white sm:text-5xl">
-              Featured products
+              Featured workflows
             </h2>
           </div>
           <p className="max-w-xl text-sm leading-6 text-white/48">
-            Explore selected AI products designed for clear outcomes, simple execution, and smooth
-            handoff into Edgaze.
+            A curated set of Murphy AI workflows surfaced automatically from the strongest recent
+            performance on Edgaze.
           </p>
         </div>
 
         {listings.length === 0 ? (
           <div className="mt-10 rounded-[2rem] border border-white/[0.08] bg-white/[0.04] p-8 text-white/55">
-            Murphy AI products are not available yet. Check back soon.
+            Murphy AI workflows are not available yet. Check back soon.
           </div>
         ) : (
-          <>
-            <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-              {featured.map((listing, index) => (
-                <ListingCard
-                  key={`${listing.type}:${listing.id}`}
-                  listing={listing}
-                  index={index}
-                />
-              ))}
-            </div>
-
-            {rest.length > 0 ? (
-              <div className="mt-16">
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-2xl font-black tracking-[-0.04em] text-white">
-                    More from Murphy AI
-                  </h2>
-                </div>
-                <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                  {rest.map((listing, index) => (
-                    <ListingCard
-                      key={`${listing.type}:${listing.id}`}
-                      listing={listing}
-                      index={index + 3}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </>
+          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {featured.map((listing) => (
+              <ListingCard key={`${listing.type}:${listing.id}`} listing={listing} />
+            ))}
+          </div>
         )}
+      </section>
+
+      <section id="archive" className="mx-auto max-w-7xl scroll-mt-24 px-5 py-4 sm:px-8 lg:px-10">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-cyan-100/50">
+              Full archive
+            </p>
+            <h2 className="mt-3 text-4xl font-black tracking-[-0.06em] text-white sm:text-5xl">
+              All published workflows
+            </h2>
+          </div>
+          <p className="max-w-xl text-sm leading-6 text-white/48">
+            Every Murphy AI workflow published on Edgaze, ordered from newest to oldest.
+          </p>
+        </div>
+
+        {listings.length > 0 ? (
+          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {listings.map((listing) => (
+              <ListingCard key={`archive-${listing.type}:${listing.id}`} listing={listing} />
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-10">
