@@ -119,10 +119,32 @@ describe("workflow security", () => {
     expect(isAnonymousWorkflowDemoEligibleMode("buyer_preview")).toBe(false);
   });
 
-  it("sanitizes preview graph data", () => {
+  it("sanitizes preview graph data while keeping safe input metadata", () => {
     const result = sanitizeWorkflowGraphForClient(
       {
         nodes: [
+          {
+            id: "input_1",
+            type: "custom",
+            position: { x: 4, y: 8 },
+            data: {
+              specId: "input",
+              title: "Workflow Input",
+              config: {
+                question: "What tone should this use?",
+                description: "Pick the tone that best fits your audience.",
+                inputType: "dropdown",
+                placeholder: "Choose a tone",
+                defaultValue: "friendly",
+                options: [
+                  "Friendly",
+                  { label: "Formal", value: "formal" },
+                  { label: "Casual", id: "casual" },
+                ],
+                apiKey: "secret-key",
+              },
+            },
+          },
           {
             id: "node_1",
             type: "custom",
@@ -145,6 +167,30 @@ describe("workflow security", () => {
 
     expect(result.edges).toHaveLength(1);
     expect(result.nodes[0]).toMatchObject({
+      id: "input_1",
+      type: "custom",
+      position: { x: 4, y: 8 },
+      data: {
+        specId: "input",
+        title: "Workflow Input",
+        config: {
+          question: "What tone should this use?",
+          description: "Pick the tone that best fits your audience.",
+          inputType: "dropdown",
+          placeholder: "Choose a tone",
+          defaultValue: "friendly",
+          options: [
+            "Friendly",
+            { label: "Formal", value: "formal" },
+            { label: "Casual", value: "casual" },
+          ],
+        },
+      },
+    });
+    expect(result.nodes[0]).toMatchObject({
+      id: "input_1",
+    });
+    expect(result.nodes[1]).toMatchObject({
       id: "node_1",
       type: "custom",
       position: { x: 10, y: 20 },
@@ -154,8 +200,9 @@ describe("workflow security", () => {
       },
     });
     expect(JSON.stringify(result.nodes[0])).not.toContain("secret-key");
-    expect(JSON.stringify(result.nodes[0])).not.toContain("hidden prompt");
-    expect(JSON.stringify(result.nodes[0])).not.toContain("internalOnly");
+    expect(JSON.stringify(result.nodes[1])).not.toContain("secret-key");
+    expect(JSON.stringify(result.nodes[1])).not.toContain("hidden prompt");
+    expect(JSON.stringify(result.nodes[1])).not.toContain("internalOnly");
   });
 
   it("keeps safe input metadata for demo input collection", () => {

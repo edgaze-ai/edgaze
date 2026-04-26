@@ -5,6 +5,7 @@ import { promptOgImageUrl, promptPreviewImageUrl } from "@lib/listing-preview-im
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getProductRedirectPath } from "@lib/supabase/handle-redirect";
 import { buildCanonicalUrl, buildProductMetadata } from "@lib/seo";
+import { sanitizeJsonScriptContent } from "@lib/security/url-policy";
 
 type Props = {
   params: Promise<{ ownerHandle: string; edgazeCode: string }>;
@@ -135,7 +136,7 @@ export default async function ProductLayout({ children, params }: Props) {
       {productJsonLd != null && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeJsonScriptContent(productJsonLd) }}
         />
       )}
       {children}

@@ -5,6 +5,7 @@ import { workflowOgImageUrl, workflowPreviewImageUrl } from "@lib/listing-previe
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { getWorkflowRedirectPath } from "@lib/supabase/handle-redirect";
 import { buildCanonicalUrl, buildProductMetadata } from "@lib/seo";
+import { sanitizeJsonScriptContent } from "@lib/security/url-policy";
 
 type Props = {
   params: Promise<{ ownerHandle: string; edgazeCode: string }>;
@@ -133,7 +134,7 @@ export default async function WorkflowProductLayout({ children, params }: Props)
       {productJsonLd != null && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: sanitizeJsonScriptContent(productJsonLd) }}
         />
       )}
       {children}

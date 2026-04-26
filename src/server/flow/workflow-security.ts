@@ -1,6 +1,7 @@
 import { createSupabaseAdminClient } from "@lib/supabase/admin";
 import { findAccessiblePurchaseForResource } from "@lib/purchases/ownership";
 import { stripGraphSecrets } from "@lib/workflow/stripGraphSecrets";
+import { YOUTUBE_TRANSCRIPT_SPEC_ID } from "@lib/workflow/youtube-transcript";
 
 export type WorkflowAccessMode =
   | "owner_edit"
@@ -278,7 +279,8 @@ export function sanitizeWorkflowGraphForClient(
           title: raw.data?.title,
           subtitle: raw.data?.subtitle,
           description: raw.data?.description,
-          ...(purpose === "demo_input_collection" && raw.data?.specId === "input"
+          ...((purpose === "demo_input_collection" || purpose === "preview") &&
+          (raw.data?.specId === "input" || raw.data?.specId === YOUTUBE_TRANSCRIPT_SPEC_ID)
             ? { config: sanitizeDemoInputConfig(raw.data?.config) }
             : {}),
         },

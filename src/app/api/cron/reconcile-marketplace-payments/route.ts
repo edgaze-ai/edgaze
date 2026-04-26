@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe/client";
 import { grantPaidCheckoutSessionAccess } from "@/lib/stripe/webhook-processing";
+import { verifyCronSecret } from "@/lib/auth/verify-cron-secret";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -21,10 +22,7 @@ function isMarketplaceCheckoutSession(session: {
 }
 
 export async function GET(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronSecret(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

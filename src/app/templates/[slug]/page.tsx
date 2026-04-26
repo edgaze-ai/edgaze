@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { templateService } from "../../../lib/templates";
 import TemplateDetailPageClient from "../../../components/templates/TemplateDetailPageClient";
 import { buildBreadcrumbJsonLd, buildMetadata, NOINDEX_ROBOTS } from "../../../lib/seo";
+import { sanitizeJsonScriptContent } from "../../../lib/security/url-policy";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -49,7 +50,7 @@ export default async function TemplateDetailPage({ params }: Props) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeJsonScriptContent(breadcrumbJsonLd) }}
       />
       <TemplateDetailPageClient template={template} relatedTemplates={relatedTemplates} />
     </>

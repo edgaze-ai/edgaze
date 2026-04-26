@@ -3556,13 +3556,6 @@ export default function BuilderPage() {
         onCancel={handleCancelRun}
         onRerun={handleRerun}
         onSubmitInputs={handleSubmitInputs}
-        onBuyWorkflow={
-          activeDraftId && previewOwnerHandle && previewEdgazeCode
-            ? () => {
-                router.push(`/${previewOwnerHandle}/${previewEdgazeCode}`);
-              }
-            : undefined
-        }
         remainingDemoRuns={activeDraftId ? getRemainingDemoRunsSync(activeDraftId) : undefined}
         workflowId={activeDraftId || undefined}
         isBuilderTest={!isPreview}

@@ -175,6 +175,24 @@ const nextConfig = (() => {
           headers: [
             { key: "X-DNS-Prefetch-Control", value: "on" },
             { key: "X-Content-Type-Options", value: "nosniff" },
+            // Prevent this site from being embedded in iframes (clickjacking protection)
+            { key: "X-Frame-Options", value: "DENY" },
+            // Do not leak the full referrer URL to third-party origins
+            { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+            // Restrict access to sensitive browser features
+            {
+              key: "Permissions-Policy",
+              value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+            },
+            // Enforce HTTPS for 1 year (production only — skipped in dev via isDev guard below)
+            ...(isDev
+              ? []
+              : [
+                  {
+                    key: "Strict-Transport-Security",
+                    value: "max-age=31536000; includeSubDomains",
+                  },
+                ]),
           ],
         },
       ];

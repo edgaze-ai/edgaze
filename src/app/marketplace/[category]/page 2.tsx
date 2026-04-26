@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DEFAULT_SOCIAL_IMAGE } from "@lib/default-social-image";
 import MarketplaceCategoryClient from "./MarketplaceCategoryClient";
 import { MARKETPLACE_CATEGORIES } from "./categories";
+import { sanitizeJsonScriptContent } from "@lib/security/url-policy";
 
 type Props = { params: Promise<{ category: string }> };
 
@@ -92,7 +93,7 @@ export default async function MarketplaceCategoryPage({ params }: Props) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionPageJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeJsonScriptContent(collectionPageJsonLd) }}
       />
       <MarketplaceCategoryClient />
     </>

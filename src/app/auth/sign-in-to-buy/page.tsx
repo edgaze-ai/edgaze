@@ -17,6 +17,8 @@ function cn(...classes: Array<string | false | null | undefined>) {
 function normalizeInternalReturnPath(returnPath: string): string {
   const t = returnPath.trim();
   if (!t) return "/";
+  // Reject protocol-relative URLs like //evil.com that start with "/" but redirect off-origin
+  if (t.startsWith("//")) return "/";
   return t.startsWith("/") ? t : `/${t}`;
 }
 
