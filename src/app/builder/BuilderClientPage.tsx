@@ -37,6 +37,7 @@ import ReactFlowCanvas, {
 import BlockLibrary from "../../components/builder/BlockLibrary";
 import InspectorPanel from "../../components/builder/InspectorPanel";
 import WorkflowPublishModal from "../../components/builder/WorkflowPublishModal";
+import CreatorLaunchFlow from "../../components/builder/CreatorLaunchFlow";
 import PremiumWorkflowRunModal, {
   type WorkflowRunState,
   type BuilderRunLimit,
@@ -65,7 +66,7 @@ import { TEMPLATE_REGISTRY, templateService, type TemplateDefinition } from "@/l
 import { cx } from "../../lib/cx";
 import { emit, on } from "../../lib/bus";
 import { track } from "../../lib/mixpanel";
-import { getQuickStartTemplate } from "../../lib/quickStartTemplates";
+import { createPromptWorkflowStarter, getQuickStartTemplate } from "../../lib/quickStartTemplates";
 import { getDocsLink } from "../../lib/docs-link";
 import { toRuntimeGraph } from "../../lib/workflow/customer-runtime";
 import { finalizeClientWorkflowRunFromExecutionResult } from "../../lib/workflow/finalize-client-run-result";
@@ -239,6 +240,7 @@ export default function BuilderPage() {
 
   const previewParam =
     searchParams?.get("preview") === "1" || searchParams?.get("mode") === "preview";
+  const onboardingParam = searchParams?.get("onboarding") === "1";
   const draftParam = searchParams?.get("draftId");
   const workflowParam = searchParams?.get("workflowId");
   const templateSlugParam = searchParams?.get("templateSlug");
@@ -313,6 +315,18 @@ export default function BuilderPage() {
   // publish modal
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishWorkflowId, setPublishWorkflowId] = useState<string | null>(null);
+  const [creatorLaunchOpen, setCreatorLaunchOpen] = useState(onboardingParam);
+  const [creatorLaunchPublishedUrl, setCreatorLaunchPublishedUrl] = useState<string | null>(null);
+  const [creatorLaunchLastRunState, setCreatorLaunchLastRunState] =
+    useState<WorkflowRunState | null>(null);
+  const [creatorLaunchPublishPrefill, setCreatorLaunchPublishPrefill] = useState<{
+    title?: string;
+    description?: string;
+    tags?: string;
+    visibility?: "public" | "unlisted" | "private";
+    monetisationMode?: "free" | "paywall";
+    priceUsd?: string;
+  } | null>(null);
 
   // floating windows - positions will be set precisely on mount
   // In preview mode, windows start hidden
@@ -378,6 +392,13 @@ export default function BuilderPage() {
     () => TEMPLATE_REGISTRY.filter((template) => template.status === "published"),
     [],
   );
+
+  useEffect(() => {
+    if (onboardingParam && !isPreview) {
+      setCreatorLaunchOpen(true);
+      safeTrack("creator_launch_started", { surface: "builder" });
+    }
+  }, [onboardingParam, isPreview]);
   const openedDraftIdRef = useRef<string | null>(null);
 
   // deep-link guard (prevents repeated opening)
@@ -1914,6 +1935,54 @@ export default function BuilderPage() {
     [activeDraftId, createDraftFromInstantiatedGraph, templateSetupTemplate],
   );
 
+  const createDraftFromPromptStarter = useCallback(
+    async ({
+      prompt,
+      intent,
+      title,
+    }: {
+      prompt: string;
+      intent: "image" | "writing" | "custom";
+      title?: string;
+    }) => {
+      const starter = createPromptWorkflowStarter({ prompt, intent, title });
+      safeTrack("creator_launch_intent_selected", {
+        surface: "builder",
+        intent,
+        source: "custom_prompt",
+      });
+      await createDraftFromInstantiatedGraph({
+        title: starter.title,
+        graph: starter.graph,
+        source: "quick_start",
+        templateId: starter.id,
+      });
+      safeTrack("creator_launch_draft_created", {
+        surface: "builder",
+        intent,
+        source: "custom_prompt",
+      });
+    },
+    [createDraftFromInstantiatedGraph],
+  );
+
+  const createCreatorLaunchQuickStart = useCallback(
+    async (id: "images" | "writer") => {
+      safeTrack("creator_launch_intent_selected", {
+        surface: "builder",
+        intent: id === "images" ? "image" : "writing",
+        source: "quick_start",
+      });
+      await createDraftFromQuickStart(id);
+      safeTrack("creator_launch_draft_created", {
+        surface: "builder",
+        intent: id === "images" ? "image" : "writing",
+        source: "quick_start",
+      });
+    },
+    [createDraftFromQuickStart],
+  );
+
   const ensureDraftSavedNow = useCallback(async () => {
     if (isPreview) return;
     if (!userId || !activeDraftId) return;
@@ -1979,6 +2048,24 @@ export default function BuilderPage() {
     useDraftApi,
     getAccessToken,
   ]);
+
+  const updateCreatorLaunchInputNode = useCallback(
+    async (nodeId: string, patch: Record<string, unknown>) => {
+      beRef.current?.updateNodeConfig?.(nodeId, patch);
+      const graph = beRef.current?.getGraph?.();
+      if (graph) {
+        latestGraphRef.current = graph;
+      }
+      safeTrack("creator_launch_inputs_edited", {
+        surface: "builder",
+        workflow_id: activeDraftId,
+        node_id: nodeId,
+        fields: Object.keys(patch),
+      });
+      await ensureDraftSavedNow();
+    },
+    [activeDraftId, ensureDraftSavedNow],
+  );
 
   // ----- Floating window drag/resize (foolproof, no crashes) -----
   useEffect(() => {
@@ -2724,8 +2811,11 @@ export default function BuilderPage() {
       runState?.status === "cancelled"
     ) {
       setRunning(false);
+      if (creatorLaunchOpen && runState.status === "success") {
+        setCreatorLaunchLastRunState(runState);
+      }
     }
-  }, [runState?.status]);
+  }, [creatorLaunchOpen, runState]);
 
   useEffect(() => {
     if (
@@ -2773,6 +2863,20 @@ export default function BuilderPage() {
             last_opened_at: nowIso(),
           };
         })()
+      : null;
+
+  const creatorLaunchDraft =
+    !isPreview && activeDraftId && userId
+      ? {
+          id: activeDraftId,
+          title: name || "Untitled Workflow",
+          graph: beRef.current?.getGraph?.() ?? latestGraphRef.current ?? { nodes: [], edges: [] },
+        }
+      : null;
+
+  const creatorLaunchGraph =
+    !isPreview && activeDraftId
+      ? (beRef.current?.getGraph?.() ?? latestGraphRef.current ?? null)
       : null;
 
   return (
@@ -3571,16 +3675,96 @@ export default function BuilderPage() {
           onClose={() => {
             setPublishOpen(false);
             setPublishWorkflowId(null);
+            setCreatorLaunchPublishPrefill(null);
           }}
           draft={publishDraftForModal}
           owner={{ name: "You", handle: undefined, avatarUrl: null }}
           onEnsureDraftSaved={ensureDraftSavedNow}
-          onPublished={async () => {
+          initialValues={creatorLaunchPublishPrefill ?? undefined}
+          onPublished={async (url) => {
             setPublishOpen(false);
             setPublishWorkflowId(null);
-            setActiveDraftId(null);
-            setShowLauncher(true);
+            setCreatorLaunchPublishPrefill(null);
+            if (creatorLaunchOpen) {
+              const nextUrl = url ?? null;
+              setCreatorLaunchPublishedUrl(nextUrl);
+              safeTrack("creator_launch_published", {
+                surface: "builder",
+                workflow_id: activeDraftId,
+                has_url: Boolean(nextUrl),
+              });
+            } else {
+              setActiveDraftId(null);
+              setShowLauncher(true);
+            }
             await refreshWorkflows();
+          }}
+        />
+      )}
+
+      {!isPreview && (
+        <CreatorLaunchFlow
+          open={creatorLaunchOpen}
+          authReady={authReady}
+          userId={userId}
+          draft={creatorLaunchDraft}
+          graph={creatorLaunchGraph}
+          creating={creating}
+          running={running}
+          runState={runState ?? creatorLaunchLastRunState}
+          publishedUrl={creatorLaunchPublishedUrl}
+          error={wfError}
+          onRequireAuth={requireAuth}
+          onClose={() => {
+            setCreatorLaunchOpen(false);
+            const params = new URLSearchParams(searchParams?.toString() ?? "");
+            params.delete("onboarding");
+            const next = `/builder${params.toString() ? `?${params.toString()}` : ""}`;
+            router.replace(next as any, { scroll: false });
+          }}
+          onOpenTemplates={() => {
+            safeTrack("creator_launch_intent_selected", {
+              surface: "builder",
+              intent: "template_library",
+            });
+            setTemplateLibraryOpen(true);
+          }}
+          onCreateQuickStart={createCreatorLaunchQuickStart}
+          onCreatePromptDraft={createDraftFromPromptStarter}
+          onPreview={() => {
+            safeTrack("creator_launch_preview_run", {
+              surface: "builder",
+              workflow_id: activeDraftId,
+            });
+            runWorkflow();
+          }}
+          onUpdateInputNode={updateCreatorLaunchInputNode}
+          onPublish={(prefill) => {
+            if (!activeDraftId) return;
+            safeTrack("creator_launch_publish_started", {
+              surface: "builder",
+              workflow_id: activeDraftId,
+            });
+            setCreatorLaunchPublishPrefill({
+              title: prefill.title,
+              description: prefill.description,
+              tags: prefill.tags,
+              visibility: "public",
+              monetisationMode: prefill.monetisationMode,
+              priceUsd: prefill.priceUsd,
+            });
+            setPublishWorkflowId(activeDraftId);
+            setPublishOpen(true);
+          }}
+          onAdvancedEdit={() => {
+            setCreatorLaunchOpen(false);
+          }}
+          onCopyShare={async (text) => {
+            await navigator.clipboard.writeText(text);
+            safeTrack("creator_launch_share_copied", {
+              surface: "builder",
+              workflow_id: activeDraftId,
+            });
           }}
         />
       )}

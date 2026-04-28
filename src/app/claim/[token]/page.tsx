@@ -130,7 +130,7 @@ export default function ClaimPage() {
           }
           throw new Error(data.error || data.message || `HTTP ${res.status}`);
         }
-        router.replace(`/creators/onboarding`);
+        router.replace(`/creators/onboarding?from=creator-invite`);
       } catch (e: any) {
         claimTerminalFailureRef.current = true;
         setCompleteErr(e?.message || "Could not complete claim");

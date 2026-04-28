@@ -33,6 +33,7 @@ const HIDE_SIDEBAR_ROUTES = new Set([
   "/diplomeme", // affiliate storefront - full-width, scrollable
   "/blogs", // blog portal - own sidebar, full-width
   "/pricing", // pricing page - full-width marketing
+  "/welcome", // creator launch onboarding - full-width, no sidebar
   "/press", // press page - full-width, scrollable
   "/invest", // investor funnel — full-width, no sidebar
   "/auth/sign-in-to-buy", // full-screen sign-in for purchase — no sidebar/topbar, scrollable

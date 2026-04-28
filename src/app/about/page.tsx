@@ -650,7 +650,7 @@ export default function AboutPage() {
                 <ArrowRight className="h-4 w-4 opacity-55 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
-                href="/creators/onboarding?from=about"
+                href="/welcome"
                 className="group inline-flex items-center justify-center gap-2 rounded-full border border-white/18 bg-transparent px-8 py-3.5 text-sm font-medium tracking-tight text-white transition-[border-color,background-color] hover:border-white/30 hover:bg-white/[0.05]"
               >
                 Join as a creator

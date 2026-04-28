@@ -71,7 +71,7 @@ const PLANS = [
       "Early access to premium creator tools",
     ],
     cta: "Upgrade to Plus",
-    ctaHref: "/apply",
+    ctaHref: "/welcome",
     ctaSecondary: false,
     popular: true,
   },

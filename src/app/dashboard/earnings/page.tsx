@@ -197,7 +197,7 @@ export default function EarningsDashboardPage() {
                 ({pendingClaim.daysRemaining} days remaining)
               </p>
               <Link
-                href="/creators/onboarding"
+                href="/creators/onboarding?from=creators"
                 className="inline-flex items-center gap-2 rounded-xl earnings-btn-primary px-5 py-2.5 text-sm font-semibold text-white"
               >
                 Complete payout setup
@@ -316,7 +316,7 @@ export default function EarningsDashboardPage() {
                   </p>
                 </div>
                 <Link
-                  href="/creators/onboarding"
+                  href="/creators/onboarding?from=creators"
                   className="earnings-btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shrink-0"
                 >
                   Complete payout setup

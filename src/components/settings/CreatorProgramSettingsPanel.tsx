@@ -201,7 +201,7 @@ export function CreatorProgramSettingsPanel({
     );
   }
 
-  const unlockHref = hasStripeAccount ? "/creators/onboarding" : "/creators";
+  const unlockHref = hasStripeAccount ? "/creators/onboarding?from=creators" : "/welcome";
   const unlockLabel = hasStripeAccount ? "Resume payout setup" : "Join the Creator Program";
   const publicProfileHref = profile?.handle
     ? `/profile/${encodeURIComponent(profile.handle)}`

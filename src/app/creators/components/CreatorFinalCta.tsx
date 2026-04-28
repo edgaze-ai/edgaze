@@ -25,7 +25,7 @@ export default function CreatorFinalCta() {
               Start your creator journey on Edgaze.
             </p>
             <Link
-              href="/creators/onboarding?from=creators"
+              href="/welcome"
               className="mt-10 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-pink-500 px-12 py-5 text-lg font-semibold text-white shadow-[0_0_32px_rgba(56,189,248,0.35)] hover:shadow-[0_0_40px_rgba(56,189,248,0.45)] hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
               Join the Creator Program

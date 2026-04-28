@@ -20,6 +20,29 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
+function removeAsync(target) {
+  fs.rm(target, { recursive: true, force: true }, () => {
+    /* best effort */
+  });
+}
+
+function retireDirectory(target, label) {
+  if (!fs.existsSync(target)) return;
+  const retired = path.join(root, `${path.basename(target)}.stale-${Date.now()}-${process.pid}`);
+  try {
+    fs.renameSync(target, retired);
+    removeAsync(retired);
+    process.stderr.write(`dev-singleton: retired stale ${label}\n`);
+  } catch {
+    try {
+      fs.rmSync(target, { recursive: true, force: true });
+      process.stderr.write(`dev-singleton: removed stale ${label}\n`);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 // ── 1. Remove iCloud “.next 2” style conflict copies at repo root only ───────
 // We do NOT recursively delete `.next/` itself: rmSync on iCloud-synced trees
 // can block for minutes. Use `npm run dev:clean` for a full reset.
@@ -37,7 +60,32 @@ try {
   /* ignore */
 }
 
-// ── 2. Spawn Next.js ─────────────────────────────────────────────────────────
+// ── 2. Clear stale Next.js output that breaks dev boot ───────────────────────
+try {
+  const nextDir = path.join(root, ".next");
+  const devDir = path.join(nextDir, "dev");
+  const hasProductionBuild = fs.existsSync(path.join(nextDir, "BUILD_ID"));
+
+  // Next 16 writes dev output under `.next/dev`. A production `.next` left by
+  // `next build` can make dev boot "ready" and then fail on missing dev
+  // manifests. Move it aside instead of recursively deleting it on the hot path.
+  if (hasProductionBuild) {
+    retireDirectory(nextDir, ".next production build output");
+  } else if (fs.existsSync(devDir)) {
+    const requiredDevFiles = [
+      path.join(devDir, "routes-manifest.json"),
+      path.join(devDir, "server", "middleware-manifest.json"),
+      path.join(devDir, "server", "pages-manifest.json"),
+    ];
+    if (requiredDevFiles.some((file) => !fs.existsSync(file))) {
+      retireDirectory(devDir, ".next/dev cache");
+    }
+  }
+} catch {
+  /* ignore */
+}
+
+// ── 3. Spawn Next.js ─────────────────────────────────────────────────────────
 // Default distDir (.next, relative) is intentional: overriding to /tmp made Next
 // rewrite tsconfig.json on every boot with absolute /private/var/folders paths,
 // which churned the file watcher into an endless Compiling/Rendering loop.

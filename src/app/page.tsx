@@ -3097,7 +3097,7 @@ function FinalCta() {
               use.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <PrimaryButton href="/apply">Publish your workflow</PrimaryButton>
+              <PrimaryButton href="/welcome">Publish your workflow</PrimaryButton>
               <SecondaryButton href="/marketplace">Explore products</SecondaryButton>
             </div>
           </div>
@@ -4070,7 +4070,7 @@ export default function EdgazeLandingPage() {
                 </Reveal>
                 <Reveal delay={0.14}>
                   <div className="mt-8 flex flex-wrap gap-3">
-                    <PrimaryButton href="/apply">Create your first product</PrimaryButton>
+                    <PrimaryButton href="/welcome">Create your first product</PrimaryButton>
                     <SecondaryButton href="/marketplace">See live examples</SecondaryButton>
                   </div>
                 </Reveal>

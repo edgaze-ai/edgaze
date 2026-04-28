@@ -80,7 +80,15 @@ type Props = {
   };
 
   onEnsureDraftSaved?: () => Promise<void>;
-  onPublished?: () => void; // will be called ONLY when user clicks Done
+  onPublished?: (url?: string) => void; // will be called ONLY when user clicks Done
+  initialValues?: {
+    title?: string;
+    description?: string;
+    tags?: string;
+    visibility?: Visibility;
+    monetisationMode?: MonetisationMode;
+    priceUsd?: string;
+  };
 };
 
 type PublishTab = "details" | "pricing" | "media" | "visibility";
@@ -399,6 +407,7 @@ export default function WorkflowPublishModal({
   owner,
   onEnsureDraftSaved,
   onPublished,
+  initialValues,
 }: Props) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { user: authUser, profile: authProfile, getAccessToken } = useAuth();
@@ -592,12 +601,21 @@ export default function WorkflowPublishModal({
 
     // Load existing data when editing
     if (editId && draft) {
-      setTitle(draft.title || "");
-      setDescription((draft as any).description || "");
-      setTagsInput((draft as any).tags || "");
-      setVisibility(((draft as any).visibility || "public") as Visibility);
-      setMonetisationMode(((draft as any).monetisation_mode || "free") as MonetisationMode);
-      setPriceUsd((draft as any).price_usd != null ? String((draft as any).price_usd) : "2.99");
+      setTitle(initialValues?.title ?? draft.title ?? "");
+      setDescription(initialValues?.description ?? (draft as any).description ?? "");
+      setTagsInput(initialValues?.tags ?? (draft as any).tags ?? "");
+      setVisibility(
+        (initialValues?.visibility ?? (draft as any).visibility ?? "public") as Visibility,
+      );
+      setMonetisationMode(
+        (initialValues?.monetisationMode ??
+          (draft as any).monetisation_mode ??
+          "free") as MonetisationMode,
+      );
+      setPriceUsd(
+        initialValues?.priceUsd ??
+          ((draft as any).price_usd != null ? String((draft as any).price_usd) : "2.99"),
+      );
       setEdgazeCode((draft as any).edgaze_code || baseCodeFromTitle(draft.title || ""));
 
       // Load existing demo images if available
@@ -617,12 +635,12 @@ export default function WorkflowPublishModal({
       }
       setDemoUploading(new Array(6).fill(false));
     } else {
-      setTitle(draft?.title || "");
-      setDescription("");
-      setTagsInput("");
-      setVisibility("public");
-      setMonetisationMode("free");
-      setPriceUsd("2.99");
+      setTitle(initialValues?.title ?? draft?.title ?? "");
+      setDescription(initialValues?.description ?? "");
+      setTagsInput(initialValues?.tags ?? "");
+      setVisibility(initialValues?.visibility ?? "public");
+      setMonetisationMode(initialValues?.monetisationMode ?? "free");
+      setPriceUsd(initialValues?.priceUsd ?? "2.99");
       setDemoFiles(new Array(6).fill(null));
       setDemoUploadedUrls(EMPTY_DEMO_UPLOADS());
       setDemoUploading(new Array(6).fill(false));
@@ -650,7 +668,7 @@ export default function WorkflowPublishModal({
     setCodeStatus("checking");
     setCodeMsg("Checking availability…");
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when open/draft id changes; draft body not needed for reset
-  }, [open, draft?.id, editId]);
+  }, [open, draft?.id, editId, initialValues]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1297,7 +1315,7 @@ export default function WorkflowPublishModal({
                   onClick={() => {
                     // Now we close + notify parent
                     try {
-                      onPublished?.();
+                      onPublished?.(publishedUrl);
                     } finally {
                       onClose();
                     }

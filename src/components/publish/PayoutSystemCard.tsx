@@ -105,7 +105,7 @@ export function PayoutSystemCard({
         )}
 
         <Link
-          href="/creators/onboarding"
+          href="/creators/onboarding?from=studio"
           className="mt-4 inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-500/20 px-4 py-2.5 text-[12px] font-semibold text-cyan-200 transition-colors hover:bg-cyan-500/30"
         >
           Start payout onboarding →
