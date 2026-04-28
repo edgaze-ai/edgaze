@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 
 // Lazy load heavy components for better initial performance
@@ -53,10 +54,13 @@ const HIDE_SIDEBAR_PREFIXES = ["/blogs", "/auth/sign-in-to-buy"];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const pathKey = (pathname || "/").replace(/\/+$/, "") || "/";
+  const creatorLaunchMode = pathname.startsWith("/builder") && searchParams?.get("onboarding") === "1";
   const hideSidebar =
     HIDE_SIDEBAR_ROUTES.has(pathKey) ||
-    HIDE_SIDEBAR_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+    HIDE_SIDEBAR_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    creatorLaunchMode;
   const isLibraryPage = pathname === "/library";
   const isLibraryAnalytics = pathname.startsWith("/library/analytics");
   const isCreatorsOnboarding = pathname === "/creators/onboarding";

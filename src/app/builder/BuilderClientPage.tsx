@@ -222,7 +222,8 @@ export default function BuilderPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const { userId, authReady, requireAuth, openSignIn, getAccessToken, profile } = useAuth();
+  const { userId, authReady, requireAuth, openSignIn, closeSignIn, getAccessToken, profile } =
+    useAuth();
   const { state: impState } = useImpersonation();
   const useDraftApi = impState.active;
   const effectiveWorkspaceId = impState.active ? impState.targetProfileId : (userId ?? null);
@@ -3713,9 +3714,17 @@ export default function BuilderPage() {
           running={running}
           runState={runState ?? creatorLaunchLastRunState}
           publishedUrl={creatorLaunchPublishedUrl}
-          error={wfError}
+          // Avoid showing builder "sign in to load workflows" banner inside creator launch flow.
+          error={creatorLaunchOpen ? null : wfError}
           onRequireAuth={requireAuth}
           onClose={() => {
+            // Signed-out users should exit to landing (no builder chrome).
+            if (!userId) {
+              // If a sign-in modal is open (or was just triggered), close it before leaving.
+              closeSignIn();
+              router.push("/");
+              return;
+            }
             setCreatorLaunchOpen(false);
             const params = new URLSearchParams(searchParams?.toString() ?? "");
             params.delete("onboarding");

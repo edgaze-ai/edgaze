@@ -222,6 +222,10 @@ function RotatingText({
   const [isTransitionEnabled, setIsTransitionEnabled] = useState(true);
   const timeoutRef = useRef<number | null>(null);
 
+  // A slightly taller line box prevents glyph clipping during subpixel transforms.
+  // We keep the step in `em` so it scales perfectly with responsive font sizes.
+  const lineEm = 1.14;
+
   const widestPhrase = useMemo(() => {
     return phrases.reduce(
       (widest, phrase) => (phrase.length > widest.length ? phrase : widest),
@@ -253,19 +257,30 @@ function RotatingText({
 
   return (
     <span
-      className={cn("relative inline-grid overflow-hidden whitespace-nowrap align-top", className)}
+      className={cn(
+        "relative inline-block overflow-hidden whitespace-nowrap align-top [text-rendering:geometricPrecision]",
+        className,
+      )}
       style={{
-        height: "1.08em",
-        lineHeight: 1.08,
+        // Use a CSS variable so inner items can reference the same step height.
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        ["--rt-line" as any]: `${lineEm}em`,
+        height: "var(--rt-line)",
+        lineHeight: "var(--rt-line)",
+        // Soft mask eliminates top/bottom edge artifacts while keeping it crisp.
+        WebkitMaskImage: "linear-gradient(to bottom, transparent, black 18%, black 82%, transparent)",
+        maskImage: "linear-gradient(to bottom, transparent, black 18%, black 82%, transparent)",
       }}
       aria-live="off"
       aria-atomic="true"
     >
       <span className="invisible block">{widestPhrase}</span>
       <span
-        className="pointer-events-none absolute inset-0 flex flex-col will-change-transform"
+        className="pointer-events-none absolute inset-0 flex flex-col will-change-transform [backface-visibility:hidden]"
         style={{
-          transform: `translate3d(0, -${displayIndex * 100}%, 0)`,
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+          ["--rt-offset" as any]: String(displayIndex),
+          transform: "translate3d(0, calc(var(--rt-offset) * -1 * var(--rt-line)), 0)",
           transition: prefersReducedMotion
             ? "none"
             : isTransitionEnabled
@@ -285,7 +300,10 @@ function RotatingText({
         }}
       >
         {stackedPhrases.map((phrase, index) => (
-          <span key={`${phrase}-${index}`} className="block flex-none">
+          <span
+            key={`${phrase}-${index}`}
+            className="flex flex-none items-center text-white/92 [height:var(--rt-line)] [line-height:var(--rt-line)] [filter:drop-shadow(0_0_18px_rgba(255,255,255,0.06))]"
+          >
             {phrase}
           </span>
         ))}
@@ -3097,7 +3115,7 @@ function FinalCta() {
               use.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <PrimaryButton href="/welcome">Publish your workflow</PrimaryButton>
+              <PrimaryButton href="/builder?onboarding=1">Publish your workflow</PrimaryButton>
               <SecondaryButton href="/marketplace">Explore products</SecondaryButton>
             </div>
           </div>
@@ -4070,7 +4088,7 @@ export default function EdgazeLandingPage() {
                 </Reveal>
                 <Reveal delay={0.14}>
                   <div className="mt-8 flex flex-wrap gap-3">
-                    <PrimaryButton href="/welcome">Create your first product</PrimaryButton>
+                    <PrimaryButton href="/builder?onboarding=1">Create your first product</PrimaryButton>
                     <SecondaryButton href="/marketplace">See live examples</SecondaryButton>
                   </div>
                 </Reveal>
